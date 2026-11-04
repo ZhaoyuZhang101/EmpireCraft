@@ -40,9 +40,9 @@
             "fort_words": "VillageNames",
             "fort_suffix": "Western:FortSuffix"
         },
-        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，孚日山脉、特内雷沙漠、马永贝雨林、卡马格沼泽；冻原引用西方的
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，孚日山脉、特内雷沙漠、马永贝雨林、卡马格沼泽；冻原引用企业文化的(原西方的真实地名)
         "Wilderness": {
-            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "Western:WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "Corporate:WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
         },
         "City": {
             "groups": {
@@ -51,7 +51,7 @@
                 "group_3": "\u200A",
                 "group_4": "CityNames3"
             },
-            "rule": [ "group_1", "group_2", "group_3", "group_4" ],
+            "rule": [ "group_1" ],
             "name_pos": 0
         },
         "Clan": {

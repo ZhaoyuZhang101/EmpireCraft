@@ -9,8 +9,9 @@ using NeoModLoader.General;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 无人区命名(用户 2026-10-29："依据最近的文化进行命名比如撒哈拉 大沙漠，太行 山脉什么的")：
-//   · 连片的山脉、沙漠、冻原、雨林、大泽(见 WildernessSystem)按离区域最近的城的主流文化起名，名字 = 地名 + 类型后缀
-//     (太行 + 山脉、撒哈拉 + 大沙漠、Taihang + Mountains)；
+//   · 连片的山脉、沙漠、冻原、雨林、大泽、熔岩(见 WildernessSystem)按离区域最近的城的主流文化起名，名字 = 地名 + 类型后缀
+//     (太行 + 山脉、撒哈拉 + 大沙漠、Taihang + Mountains、维苏威 + 火山)；熔岩(用户 2026-11-03 加的)各文化都没配，
+//     用通用的 WildLava(世界各地的火山、熔岩台地)、WildLavaSuffix(火山、熔岩原)、WildLavaGreat(大火山群、熔岩荒原)；
 //   · 文化配置(CultureRule.jsonc 的 setting.Wilderness，见 WildernessSetting)给各类型绑地名词库与后缀，可写"别的文化:词库名"；
 //     没配的用 Locales/Cultures/Wilderness/ 的通用词库(世界各地的真实地名)；
 //   · 词库同村镇(见 SettlementNaming)：CSV(key,cz,en,ch)，直接读当前语言那一列(空着退回英文、简体)；
@@ -130,6 +131,7 @@ public static class WildernessNaming
         WildKind.Tundra => "tundra",
         WildKind.Jungle => "jungle",
         WildKind.Swamp => "swamp",
+        WildKind.Lava => "lava",
         _ => null
     };
 
@@ -234,7 +236,7 @@ public static class WildernessNaming
         return Numbered(Chosen(order[0]), limit + 1, chinese);
     }
 
-    // 类型名(山脉、沙漠、冻原、雨林、大泽)，悬停提示用
+    // 类型名(山脉、沙漠、冻原、雨林、大泽、熔岩)，悬停提示用
     public static string KindName(WildKind kind)
     {
         string key = KindKey(kind);
@@ -309,7 +311,7 @@ public static class WildernessNaming
 }
 
 // 文化配置里的无人区命名(CultureRule.jsonc 的 setting.Wilderness，见 WildernessNaming)：
-// 类型(mountain 山脉、desert 沙漠、tundra 冻原、jungle 雨林、swamp 大泽) → 词库名，词库是本文件夹 <文化><词库名>.csv，
+// 类型(mountain 山脉、desert 沙漠、tundra 冻原、jungle 雨林、swamp 大泽、lava 熔岩) → 词库名，词库是本文件夹 <文化><词库名>.csv，
 // 可写"别的文化:词库名"；没配的用 Locales/Cultures/Wilderness/ 的通用词库
 public class WildernessSetting
 {

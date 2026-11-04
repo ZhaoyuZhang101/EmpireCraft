@@ -1638,8 +1638,9 @@ public static class KingdomExtension
     {
         if (!k.HasTakenAlliance()) return false;
         Empire empire = k.GetTakenAllianceEmpire();
-        // 西方帝国名下的朝贡国解除(见 TributaryRelations.IsWestern)
-        return empire == null||k.IsInEmpire()||!RealmDiplomacySystem.CanChooseOverlord(k) || TributaryRelations.IsWestern(empire);
+        // 西方帝国名下的朝贡国解除(见 TributaryRelations.IsWestern)；与宗主直辖之地道远不通满十年的断了(见 TributaryRelations.DriftedAway)
+        return empire == null||k.IsInEmpire()||!RealmDiplomacySystem.CanChooseOverlord(k) || TributaryRelations.IsWestern(empire) ||
+               TributaryRelations.DriftedAway(k, empire);
     }
 
     // updateColor is used by older releases when a tributary joins. Restore the persistent

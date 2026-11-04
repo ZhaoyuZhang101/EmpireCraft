@@ -16,6 +16,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 见 FrontierRelations)：
 //   ① 联姻：每年各国可能为储君、国王(没有正室时)、成年未婚的王子公主向他国王室议婚——对方的国王、储君或王子公主，
 //      异性、成年、未婚、不是近亲；看对方国力、是否接壤、信仰与文化是否相同、两国好感，配国王、储君的更体面。
+//      只与够得着的国家议婚(用户 2026-11-04 "超远距离外交的bug"；以前全世界的王室都挑，隔半个地图也结亲)：同宣战的远近
+//      (WarReach.Reachable：接壤、同一块陆地上相距不远且不隔着过不去的无人区，或隔海在水师辐射内)。
 //      一方是在位君主或储君的，另一方嫁(入赘)过去；两位在位君主联姻则各守其国，子女日后兼承两国；都不是的，
 //      女方嫁到男方的国家。两国结为姻亲：二十年内互不开战，一方遭外敌攻打另一方可能出兵相助。
 //   ② 宣称：在位君主与他国君主是隔四代以内的血亲(含外嫁女子的后代)，就对那国王位有继承宣称，可以为此开战
@@ -89,10 +91,14 @@ public static class RoyalMarriageSystem
             float opinion = World.world.diplomacy?.getOpinion(kingdom, other)?.total ?? 0;
             if (opinion < -30f) continue;
             float realm = (float)Math.Log10(1d + other.GetNationalPower());
+            bool? reach = null;
             foreach (Actor candidate in Royals(other).Distinct())
             {
                 if (!Marriageable(candidate, other) || candidate.data.sex == royal.data.sex ||
                     KinshipRules.AreCloseKin(royal, candidate)) continue;
+                // 够不着的国家不议婚(见类头)；量远近不便宜，到这里才量、一国只量一次
+                if (reach == null) reach = WarReach.Reachable(kingdom, other);
+                if (reach == false) break;
                 float score = realm + opinion / 50f + UnityEngine.Random.Range(0f, 1.5f);
                 if (candidate == other.king) score += 3f;
                 else if (other.HasHeir() && other.GetHeir() == candidate) score += 2f;

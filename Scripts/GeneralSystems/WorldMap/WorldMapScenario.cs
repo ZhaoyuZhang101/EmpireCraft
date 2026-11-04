@@ -826,7 +826,8 @@ public static class WorldMapScenario
         {
             if (tile?.Type == null || tile.Type.liquid) continue;
             string biome = tile.Type.biome_id;
-            if (biome != "biome_desert" && biome != "biome_sand") continue;
+            // 只改荒漠，沙滩留着(沙地是沙滩，不算荒漠，见 WildernessSystem.ComputeMarks)
+            if (biome != "biome_desert") continue;
             if (tile.Type.mountains || tile.Type.rocks) continue;
             tile.setTileTypes("soil_low", grass);
             tile.Height = tile.Type.height_min;
@@ -1011,6 +1012,8 @@ public static class WorldMapScenario
     private static void PlanFillers()
     {
         _fillerStart = _polities.Count;
+        // 照原图分地(从当前世界导入的剧本)：原图的国家都写进剧本了，不补小国、部落
+        if (_era?.exact == true) return;
         // 地形缓存按区块编号存，可能还是上一个世界的(城心改成绿洲也没刷新)，先清掉再判荒地
         TerrainSystem.ResetWorldState();
         WorldMapZones.Build();
@@ -1142,7 +1145,11 @@ public static class WorldMapScenario
         }
     }
 
-    // 剧本编辑器刷的地块归属(见 ScenarioCells)：刷了的地块先归那国(或那块王国法理)离它最近的城，铺辖地时别家不再领
+    // 剧本编辑器刷的地块归属(见 ScenarioCells)：刷了的地块先归那国(或那块王国法理)离它最近的城，铺辖地时别家不再领；
+    // "c:城编号" 直接归那座城(从当前世界导入的剧本照原图写的，见 ScenarioWorldExport)。归城的这些地块记进 PaintedCityZones，
+    // 头一回划无人区时留给城(见 WildernessSystem.Regroup)，原图城的地不被划走
+    internal static readonly HashSet<int> PaintedCityZones = new();
+
     private static int PaintTerritory()
     {
         Dictionary<int, string> paint = ScenarioCells.ToMap(_era?.paint);
@@ -1150,8 +1157,11 @@ public static class WorldMapScenario
         _frame.Bounds(_size, out float bottom, out float degrees);
         var byPolity = new Dictionary<string, List<PlannedCity>>();
         var byRegion = new Dictionary<string, List<PlannedCity>>();
+        var byCity = new Dictionary<string, List<PlannedCity>>();
+        PaintedCityZones.Clear();
         foreach (PlannedCity city in _cities.Where(city => city.city != null && !city.city.isRekt()))
         {
+            if (!string.IsNullOrEmpty(city.data?.id)) byCity[city.data.id] = new List<PlannedCity> { city };
             if (city.owner?.data != null)
                 (byPolity.TryGetValue(city.owner.data.id, out var list) ? list : byPolity[city.owner.data.id] = new List<PlannedCity>()).Add(city);
             (byRegion.TryGetValue(city.region.id, out var members) ? members : byRegion[city.region.id] = new List<PlannedCity>()).Add(city);
@@ -1163,12 +1173,17 @@ public static class WorldMapScenario
             var tile = new Vector2Int(zx * 8 + 4, zy * 8 + 4);
             if (!paint.TryGetValue(ScenarioCells.Key(_frame.west + tile.x * degrees, bottom + tile.y * degrees, ScenarioCells.LandStep),
                     out string key) || key.Length < 3) continue;
+            bool exactCity = key.StartsWith("c:");
             List<PlannedCity> owners = key.StartsWith("p:") ? byPolity.TryGetValue(key.Substring(2), out var p) ? p : null
-                : key.StartsWith("r:") ? byRegion.TryGetValue(key.Substring(2), out var r) ? r : null : null;
+                : key.StartsWith("r:") ? byRegion.TryGetValue(key.Substring(2), out var r) ? r : null
+                : exactCity ? byCity.TryGetValue(key.Substring(2), out var c) ? c : null : null;
             TileZone zone = ZoneAt(zx, zy);
-            if (owners == null || owners.Count == 0 || zone?.centerTile == null || zone.city != null || zone.centerTile.Type?.liquid == true) continue;
+            // 照原图归城的地块：水面多的(原图里城也领着的港湾)也归它
+            if (owners == null || owners.Count == 0 || zone?.centerTile == null || zone.city != null ||
+                !exactCity && zone.centerTile.Type?.liquid == true) continue;
             PlannedCity nearest = owners.OrderBy(city => (city.tile - tile).sqrMagnitude).First();
             nearest.city.addZone(zone);
+            if (exactCity) PaintedCityZones.Add(zone.id);
             claimed++;
         }
         if (claimed > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 剧本刷的地块归属 {claimed} 块");
@@ -1179,6 +1194,13 @@ public static class WorldMapScenario
     // 大山腹地与整块的荒漠、冻土留空，进世界后划成无人区(见 WorldMapZones.FillAll、WildernessSystem)；地块上限照模组设置
     private static void FillTerritory()
     {
+        // 照原图分地(从当前世界导入的剧本)：刷的地块以外不再铺满，照常判无人区
+        if (_era?.exact == true)
+        {
+            // 原图没挂法理的无人区照旧不挂：不按州府锚点给无人区定默认归属
+            _wildAnchors.Clear();
+            return;
+        }
         int limit = ModClass.CITY_MAX_ZONES > 0 ? ModClass.CITY_MAX_ZONES : int.MaxValue;
         var seeds = _cities.Where(planned => planned.random && planned.city != null && !planned.city.isRekt())
             .Select(planned => (planned.city, TerritoryBudget[3], Mathf.Min(limit, TerritoryCap[3])))
@@ -1226,6 +1248,13 @@ public static class WorldMapScenario
             .ToList();
         // 剧本编辑器刷的地块先归刷给的那国或那块法理
         int claimed = PaintTerritory();
+        // 照原图分地(从当前世界导入的剧本)：只按刷的分，不再往外铺
+        if (_era?.exact == true)
+        {
+            World.world.zone_calculator?.setDrawnZonesDirty();
+            LogService.LogInfo($"[EmpireCraft][世界地图] 照原图分地 {claimed} 块");
+            return;
+        }
         // 建城时改过地块(绿洲、平出河谷)：按现在的地形重算区块代价
         WorldMapZones.Build();
         // 补了州府治所锚点的国家先按锚点分好各行政区的地
@@ -1810,6 +1839,8 @@ public static class WorldMapScenario
                 .Where(polity => polity.data != null && polity.capital?.city != null && !polity.capital.city.isRekt())
                 .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().capital.city),
             _titleByRegion.Where(pair => pair.Value != null && !pair.Value.isRekt()).ToDictionary(pair => pair.Key, pair => pair.Value)));
+        // 照原图分地的剧本：归城的地块记下，城还领着就不划成无人区(见 WorldMapWilderness.Keep)
+        Guard("照原图归城的地块", () => WorldMapWilderness.Keep(_era?.exact == true ? PaintedCityZones : null));
         Guard("剧情事件", () => ScenarioEventSystem.Begin(_era,
             _polities.Where(polity => polity.data != null && polity.kingdom?.data != null)
                 .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom.data.id),

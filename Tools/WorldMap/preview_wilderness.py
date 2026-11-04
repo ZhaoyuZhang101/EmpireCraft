@@ -57,8 +57,9 @@ def type_marks(name):
         return ROCK
     if name == "hills":
         return HILLS
+    # 沙地(sand)是沙滩，不算沙漠(同 WildernessSystem.ComputeMarks)
     if name == "sand":
-        return SAND
+        return 0
     if name.startswith("snow"):
         return FROZEN
     biome = name.rsplit("_", 1)[0]
@@ -450,7 +451,8 @@ def zones_barren(tiles, types):
     liquid = np.array([type_marks(t) & WATER != 0 for t in tops]) | np.array([type_marks(t) & WATER != 0 for t in mains])
     mountain = np.array([m == "mountains" for m in mains])
     frozen = np.array([t in ("snow_hills", "snow_block") or t.startswith("permafrost") for t in tops])
-    desert = np.array([t == "sand" or t.startswith("desert") for t in tops])
+    # 沙滩(sand)不算荒漠，同 WorldMapZones
+    desert = np.array([t.startswith("desert") for t in tops])
 
     def count(lut):
         return lut[tiles].reshape(zh, ZONE, zw, ZONE).sum(axis=(1, 3))

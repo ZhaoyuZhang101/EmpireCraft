@@ -305,6 +305,10 @@ public sealed class WorldMapEra
     public Dictionary<string, string> tianxia;
     // 导入地图(剧本文件夹里的 map.png，见 WorldMapImporter)；不写用地球地图
     public WorldMapImport map;
+    // 照原图分地(从当前世界导入的剧本，见 ScenarioWorldExport；用户 2026-11-03 转群友"当前地图的城市边界是怎么样的，那么导入的剧本编辑器
+    // 里面城市无人区法理边界就是什么样的，以防止到时候导入直接破坏图")：各城的地块照刷的 "c:城编号" 分，开局不再按地形代价往外铺、
+    // 不补小国与部落；刷的地块以外的地照常判无人区
+    public bool exact;
     // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城；
     // 刷在无人区上的定这片地挂哪个法理——p: 那国都城的王国法理、r: 那块王国法理，见 WorldMapWilderness.BeginPaint；
     // key 为 "n" 的是永久中立区，盖到的那一片无人区开局即永久中立)

@@ -495,6 +495,8 @@ public static class TianxiaSystem
             // 别的天下的共主不来朝(两个天下的共主互不称臣)
             if (MandateOf(neighbour) != null) continue;
             if (WarSituation.Power(neighbour) > power * TributePowerRatio || UnityEngine.Random.value >= TributeChance) continue;
+            // 天下共主的直辖之地够不着的不来朝(见 TributaryRelations.InReach)
+            if (!TributaryRelations.InReach(neighbour, empire)) continue;
             neighbour.JoinTakenAlliance(empire, pForce: true);
             if (neighbour.GetTakenAllianceEmpire() != empire) continue;
             neighbour.GetOrCreate().tianxia_tributary_lead = lead.id;

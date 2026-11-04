@@ -42,13 +42,19 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     设地面格、顶层格(见 MapWallPatch)记下那几块，停手 DebounceSeconds 秒后重判这几块，类型真变了才重划
 //     (神力刷一片也只在停手后划一次)；村镇、厂区变了(RuralSettlementSystem.Revision、FactorySystem.Revision)至多每年重划一次；
 //   · 开发(见 WildernessDevelopmentSystem)：雨林、大泽的地块按开发度一批批改成草地；开发中的照开发时的类型留在无人区(Reclassify)，
-//     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原固定不开发；
+//     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原、熔岩固定不开发；
+//     雨林、大泽按地形预划县址(见 WildernessPlotSystem，每次划区后维护)，开满的只归这一县的县城；
 //   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
 //     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.OnEarth，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
-//     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")。
+//     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")；
+//   · 熔岩(用户 2026-11-03 "还有无人区你怎么没把岩浆算进去""原版都算进去了你没算")：以前岩浆格同水面一起算，一片岩浆、
+//     一座火山因"水多过四分之一"判不成无人区，城也立不住、用不上，成了地图上的空地；现在岩浆格算陆地、另记一类(见 Classify)，
+//     成片的熔岩原、火山划成熔岩无人区：谁都过不去(游牧、阿拉伯也不例外，见 WildernessPassage)，固定不开发，起名用 WildLava 词库。
+//     岩浆会流、会冷却，格子变了照常停手后重判(喷发时这一带隔几秒重划一回，冷却后退回山脉或无主地，城照常再扩回去)。
 //   · 模组设置「雨林全开发」(默认开，见 JungleDeveloped)：玩家自己的图上雨林不划无人区；世界地图剧本同样不受它管。
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
-public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5 }
+// 类型按整数存档(WildRegionData.kind、开发度、县址)：只往后加，不改已有的编号
+public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5, Lava = 6 }
 
 public sealed class WildRegion
 {
@@ -91,10 +97,15 @@ public class WildRegionData
 public static class WildernessSystem
 {
     // 归类门槛(占地块陆地格的比例)：
-    //   · 水面、岩浆过四分之一的不算(海岸、湖、河网不是荒地，海另有海区)；陆地不到 MinLand 格的不算；
+    //   · 水面过四分之一的不算(海岸、湖、河网不是荒地，海另有海区)；陆地不到 MinLand 格的不算。
+    //     岩浆不算水(同 SmoothBorders.IsWater、LandKinds)，算陆地，另记岩浆格；
+    //   · 熔岩(先于山脉判，火山归熔岩不归山脉)：岩浆格占三成(熔岩原)，或一成五以上且连山地山巅占六成(火山：山口、山坡上淌着岩浆，
+    //     余下是山体；同山脉"两肩"的口径，岩浆少一半、连山的总量低一档)。门槛比别的类型低得多：岩浆格不能走、不能建、会流会烧，
+    //     同水面过四分之一就不算荒地一个分量——三成岩浆的地块余下的也多是烧焦冷却的地，城立不住，人走不过；
     //   · 山脉：山地、山巅格(原版的阻挡格)过半，或三成五以上且连丘陵、石地占到四分之三——
     //     战线地形的"山地"只要两成五、城市扩张的"山地区块"两成(TerrainSystem)，那是"有点山"；
     //     不可通行要阻挡格占四分之三或山脊拦腰截断，过半已是山腹，三成五加满坡丘陵是山脉的两肩；
+    //     够不上熔岩的零星岩浆格也算山地(山里的火山口是山的一部分；以前岩浆当水不进分母，山里淌着几格岩浆的地块照旧归山脉)；
     //   · 沙漠、冻土雪原：沙地荒漠或冻土雪地(连雪丘)占八成五——同剧本铺辖地的"整块荒漠"(WorldMapZones)，
     //     比纯沙漠纯冻土(BarrenLandSystem，一格不差)松一点，绿洲边上几格草不至于把大漠戳成筛子；两样混着的按多的那样算；
     //   · 沼泽七成五、丛林八成五(丛林宜居度不低，城常扩进去，门槛更严)；两样混着够八成五的按多的那样算；
@@ -103,17 +114,21 @@ public static class WildernessSystem
     private const float MaxWater = 0.25f;
     private const int MinLand = 16;
     private const float MountainCore = 0.5f, MountainFlank = 0.35f, MountainRugged = 0.75f;
+    private const float LavaCore = 0.3f, LavaFlank = 0.15f, LavaRugged = 0.6f;
     private const float BarrenShare = 0.85f, SwampShare = 0.75f, JungleShare = 0.85f;
     private const float Hysteresis = 0.1f;
     // 至少几块连成一片才算无人区
     public const int MinZones = 4;
     // 外沿放宽(用户 2026-10-29 "你这无人区也没覆盖完全啊")：核心按上面的严门槛定，再一圈圈往外收这一类地形过半的地块
-    // (山脉连同丘陵石地，沙漠冻原连同两样，雨林大泽连同两样)，直到收不动——山脚的丘陵带、沙漠丛林的外沿都并进来；
+    // (山脉连同丘陵石地、零星岩浆，沙漠冻原连同两样，雨林大泽连同两样)，直到收不动——山脚的丘陵带、沙漠丛林的外沿都并进来；
     // 平滑国界下只涂这一类地形的格子(见 WildernessShape)，收进来的地块里别的格交给邻城、露地形；
     // 已是这一片的地块门槛再降一成(同 Hysteresis)
     // 山脉的外沿门槛高一档(六成)：五成时山西的太原、临汾、大同盆地被并进太行，安纳托利亚、伊朗、巴尔干的河谷也被收进去
     // (按真实地形预演，见 Tools/WorldMap/preview_wilderness.py)
-    private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f;
+    // 熔岩的外沿只看岩浆格、一成五(核心三成的一半，同别的类型外沿约为核心的六成上下)：熔岩原边上淌进来的岩浆舌头并进来；
+    // 光是山石的交给山脉收(要是同山脉一样连山石按五成算，平地上熔岩原的外沿得岩浆过半，比核心还严，等于不放宽)。
+    // 山脉与熔岩还互收对方零星的核心(不到 MinZones 块，见 Absorbs)
+    private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f, LavaEdgeShare = 0.15f;
     // 改地形停手几秒后重判；一直有格子在变(草木蔓生)时至多等几秒；法理挂接与主人几秒核对一次(真实时间)
     private const float DebounceSeconds = 1.5f, MaxWaitSeconds = 10f, RefreshSeconds = 2f, RetrySeconds = 30f;
     // 村镇、厂区变了至多隔几年重划一次
@@ -157,6 +172,9 @@ public static class WildernessSystem
 
     // 区域每变一次 +1(显示、通行据此重算)；挂接或归属变了也 +1
     public static int Version { get; private set; }
+
+    // 每重新连片一次 +1(只算划区，挂接、归属、起名不算)：县址据此维护、补划(见 WildernessPlotSystem)
+    public static int Builds { get; private set; }
 
     public static IReadOnlyList<WildRegion> Regions => _regions;
 
@@ -426,7 +444,7 @@ public static class WildernessSystem
         if (saved == null) return;
         foreach (WildRegionData data in saved)
         {
-            if (data?.zones == null || data.zones.Count == 0 || data.kind <= 0 || data.kind > (int)WildKind.Swamp) continue;
+            if (data?.zones == null || data.zones.Count == 0 || data.kind <= 0 || data.kind > (int)WildKind.Lava) continue;
             data.titles ??= new List<long>();
             _saved.Add(data);
             _nextId = Math.Max(_nextId, data.id + 1);
@@ -473,6 +491,8 @@ public static class WildernessSystem
         {
             if (!_built)
             {
+                // 旧档的世界地图：大漠腹地的沙地先改成荒漠(沙地只算沙滩，见 WorldMap.EarthBeaches)
+                if (WorldMap.WorldMapWilderness.OnEarth) WorldMap.EarthBeaches.Migrate();
                 using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
                 return;
             }
@@ -522,7 +542,7 @@ public static class WildernessSystem
 
     // 格子种类的标记(按 TileTypeBase.index_id 缓存，同 TerrainSystem.Marks)
     private const int MarkWater = 1, MarkRock = 2, MarkHills = 4, MarkFrozen = 8, MarkSand = 16, MarkJungle = 32, MarkSwamp = 64,
-        MarkFarm = 128, MarkPaved = 256;
+        MarkFarm = 128, MarkPaved = 256, MarkLava = 512;
     private static int[] _marks = new int[0];
     private static TileTypeBase[] _markTypes = new TileTypeBase[0];
 
@@ -546,7 +566,10 @@ public static class WildernessSystem
     private static int ComputeMarks(TileTypeBase type)
     {
         int marks = 0;
-        if (type.liquid || type.lava) marks |= MarkWater;
+        // 岩浆不算水(同 SmoothBorders.IsWater、LandKinds)：另记，归熔岩(以前同水面一起算，一片岩浆判不成无人区)。
+        // 原版的岩浆格也算液体(各处判水面都写 liquid && !lava，见 SmoothBorders.IsWater)，先看 lava
+        if (type.lava) marks |= MarkLava;
+        else if (type.liquid) marks |= MarkWater;
         if (type.mountains || type.summit) marks |= MarkRock;
         string id = type.id ?? "";
         if (id == "hills" || type.rocks) marks |= MarkHills;
@@ -558,8 +581,10 @@ public static class WildernessSystem
         else
             switch (type.biome_id)
             {
-                case "biome_desert":
-                case "biome_sand": marks |= MarkSand; break;
+                // 只认荒漠(biome_desert 的地表)：沙地(biome_sand，没有地表)是海边湖边的沙滩，不是沙漠(用户 2026-11-02 "沙滩要区分一下
+                // 不然都没法建港口了""沙滩不是沙漠")——以前算进去，海岸一条沙滩连着荒漠划成无人区，沿海的城没了海岸、建不了港口。
+                // 世界地图以前把大漠腹地画成成片沙地，已改成荒漠(见 Tools/WorldMap/build_earth.py 的 beaches)
+                case "biome_desert": marks |= MarkSand; break;
                 case "biome_jungle": marks |= MarkJungle; break;
                 case "biome_swamp": marks |= MarkSwamp; break;
             }
@@ -567,8 +592,8 @@ public static class WildernessSystem
     }
 
     // 一格的地形(平滑国界下无人区按格贴着地形画，见 UI.Components.WildernessShape)：口径同 Classify 的格子标记——
-    // 水面岩浆、开过的田什么都不算；路、城墙看底下的地面；rock 山地山巅，hills 丘陵石地(不是山地的)；
-    // 返回地面是哪一类荒地：冻土雪地为冻原，沙地荒漠为沙漠，丛林为雨林，沼泽为大泽，别的为 None(雪山既是 rock 又是冻原)
+    // 水面、开过的田什么都不算；岩浆格为熔岩(不算山地、不看地面)；路、城墙看底下的地面；rock 山地山巅，hills 丘陵石地(不是山地的)；
+    // 返回地面是哪一类荒地：岩浆为熔岩，冻土雪地为冻原，沙地荒漠为沙漠，丛林为雨林，沼泽为大泽，别的为 None(雪山既是 rock 又是冻原)
     public static WildKind GroundKind(WorldTile tile, out bool rock, out bool hills)
     {
         rock = hills = false;
@@ -578,6 +603,8 @@ public static class WildernessSystem
         TileTypeBase main = tile.main_type;
         int under = main != null ? Marks(main) : 0;
         if (((marks | under) & MarkWater) != 0 || (marks & MarkFarm) != 0) return WildKind.None;
+        // 以前岩浆同水面一样什么都不算，熔岩、火山口那几格平滑国界下涂不上
+        if (((marks | under) & MarkLava) != 0) return WildKind.Lava;
         rock = ((marks | under) & MarkRock) != 0;
         hills = !rock && ((marks | under) & MarkHills) != 0;
         int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
@@ -594,14 +621,15 @@ public static class WildernessSystem
     // 这块地按地形算哪一类无人区(门槛见类头的常量)；previous 是上回判的，已是那一类的门槛降一成
     private struct Counts
     {
-        public int Total, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp;
+        public int Total, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp, Lava;
+        // 陆地连同岩浆格
         public int Land => Total - Water;
     }
 
-    // 一块地各类格子数(水、山地山巅、丘陵石地、冻土雪地、沙地荒漠、丛林、沼泽)
+    // 一块地各类格子数(水、岩浆、山地山巅、丘陵石地、冻土雪地、荒漠(沙滩不算)、丛林、沼泽)
     private static Counts Count(TileZone zone)
     {
-        int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0;
+        int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0, lava = 0;
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
@@ -614,6 +642,12 @@ public static class WildernessSystem
             if (((marks | under) & MarkWater) != 0)
             {
                 water++;
+                continue;
+            }
+            // 岩浆算陆地、另记(不算山地，不看地面)
+            if (((marks | under) & MarkLava) != 0)
+            {
+                lava++;
                 continue;
             }
             // 开过的田不算荒地
@@ -629,7 +663,8 @@ public static class WildernessSystem
         }
         return new Counts
         {
-            Total = total, Water = water, Rock = rock, Hills = hills, Frozen = frozen, Sand = sand, Jungle = jungle, Swamp = swamp
+            Total = total, Water = water, Rock = rock, Hills = hills, Frozen = frozen, Sand = sand, Jungle = jungle, Swamp = swamp,
+            Lava = lava
         };
     }
 
@@ -638,15 +673,21 @@ public static class WildernessSystem
         if (zone?.tiles == null) return WildKind.None;
         Counts c = Count(zone);
         int total = c.Total, water = c.Water, rock = c.Rock, hills = c.Hills, frozen = c.Frozen, sand = c.Sand,
-            jungle = c.Jungle, swamp = c.Swamp;
+            jungle = c.Jungle, swamp = c.Swamp, lava = c.Lava;
         // 雨林全开发：丛林格当普通的地(见 JungleDeveloped)，沼泽够门槛的照旧是大泽
         if (!scenario && JungleDeveloped) jungle = 0;
         int land = total - water;
         if (land < MinLand || water > total * MaxWater) return WildKind.None;
         float Need(bool was, float share) => land * (was ? share - Hysteresis : share);
+        // 熔岩先判：熔岩原(岩浆三成)、火山(岩浆一成五且连山地六成)；已是熔岩的门槛同样降一成，岩浆冷却一半还留着
+        bool wasLava = previous == WildKind.Lava;
+        if (lava >= Need(wasLava, LavaCore) || lava >= Need(wasLava, LavaFlank) && lava + rock >= Need(wasLava, LavaRugged))
+            return WildKind.Lava;
+        // 够不上熔岩的零星岩浆格算山地(见类头)
         bool wasMountain = previous == WildKind.Mountain;
-        if (rock >= Need(wasMountain, MountainCore) ||
-            rock >= Need(wasMountain, MountainFlank) && rock + hills >= Need(wasMountain, MountainRugged))
+        int peak = rock + lava;
+        if (peak >= Need(wasMountain, MountainCore) ||
+            peak >= Need(wasMountain, MountainFlank) && peak + hills >= Need(wasMountain, MountainRugged))
             return WildKind.Mountain;
         if (frozen + sand >= Need(previous is WildKind.Desert or WildKind.Tundra, BarrenShare))
             return frozen > sand ? WildKind.Tundra : WildKind.Desert;
@@ -719,6 +760,7 @@ public static class WildernessSystem
         int carved = Regroup(fromSave);
         _saved = null;
         Version++;
+        Builds++;
         LogService.LogInfo($"[EmpireCraft][无人区] 划了 {_regions.Count} 片 {_regions.Sum(region => region.Zones.Count)} 块，" +
                            $"从城里划出 {carved} 块，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
     }
@@ -730,6 +772,17 @@ public static class WildernessSystem
         public string Name, Culture;
         public bool Neutral;
     }
+
+    // 外沿放宽的门槛(见类头的常量)：山脉六成、熔岩一成五(只看岩浆格)，别的五成
+    private static float EdgeOf(WildKind kind) =>
+        kind == WildKind.Mountain ? MountainEdgeShare : kind == WildKind.Lava ? LavaEdgeShare : EdgeShare;
+
+    // 往外长的一片(kind)长到别的核心(other，count 块，还没长过)时整片并不并进来：同类的并；山脉与熔岩互收对方零星的核心
+    // (不到 MinZones 块)——山里一两块的火山口按岩浆判成熔岩、山腰几块光秃的山判成山脉，自成一片又因太小被去掉，
+    // 会在山脉、熔岩地中间留下窟窿(以前岩浆当水，山里的火山口多半照样归山脉)；成片的各归各的。剧本编辑器的预演同用(ScenarioWilderness)
+    internal static bool Absorbs(WildKind kind, WildKind other, int count) =>
+        other == kind || count < MinZones &&
+        (kind == WildKind.Mountain && other == WildKind.Lava || kind == WildKind.Lava && other == WildKind.Mountain);
 
     // 连片、对上旧区域(沿用编号名字)、起名、收地、挂法理；返回从城里划出的块数
     private static int Regroup(bool fromSave)
@@ -802,6 +855,9 @@ public static class WildernessSystem
         // 开发满了的雨林大泽(见 WildernessDevelopmentSystem)：退出无人区，草木再蔓生回来也不再划进来
         foreach (int id in WildernessDevelopmentSystem.DevelopedZones())
             if (id >= 0 && id < size) anchored[id] = true;
+        // 照原图分地的剧本(从当前世界导入的)里归城的地块：城还领着就留给城(见 WorldMap.WorldMapWilderness.Keep)
+        foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
+            if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
 
         // 连片：同类型四邻相连
         var piece = new int[size];
@@ -834,8 +890,8 @@ public static class WildernessSystem
             groups.Add((zones, (WildKind)kind));
         }
 
-        // 外沿放宽：大的先长，同一块地只归先长到的那片；长到同类、还没长过的小片就把它整片并进来(核心之间隔着外沿的)；
-        // 长完再按 MinZones 去掉太小的
+        // 外沿放宽：大的先长，同一块地只归先长到的那片；长到同类、还没长过的小片就把它整片并进来(核心之间隔着外沿的)，
+        // 山脉、熔岩长到对方零星的核心也并进来(见 Absorbs)；长完再按 MinZones 去掉太小的
         var counted = new Dictionary<int, Counts>();
         var grown = new bool[groups.Count];
         foreach (int g in Enumerable.Range(0, groups.Count).OrderByDescending(index => groups[index].zones.Count).ToList())
@@ -857,7 +913,7 @@ public static class WildernessSystem
                     int other = piece[nid];
                     if (other >= 0)
                     {
-                        if (other == g || grown[other] || groups[other].kind != kind) continue;
+                        if (other == g || grown[other] || !Absorbs(kind, groups[other].kind, groups[other].zones.Count)) continue;
                         foreach (int id in groups[other].zones)
                         {
                             piece[id] = g;
@@ -877,12 +933,14 @@ public static class WildernessSystem
                     if (c.Land < MinLand) continue;
                     int share = kind switch
                     {
-                        WildKind.Mountain => c.Rock + c.Hills,
+                        // 山脉连同零星的岩浆格(同 Classify：够不上熔岩的岩浆算山地)
+                        WildKind.Mountain => c.Rock + c.Hills + c.Lava,
                         WildKind.Desert or WildKind.Tundra => c.Sand + c.Frozen,
+                        WildKind.Lava => c.Lava,
                         _ => c.Jungle + c.Swamp
                     };
                     bool was = oldOf[nid] >= 0 && olds[oldOf[nid]].Kind == kind;
-                    float edge = kind == WildKind.Mountain ? MountainEdgeShare : EdgeShare;
+                    float edge = EdgeOf(kind);
                     if (share < c.Land * (was ? edge - Hysteresis : edge)) continue;
                     piece[nid] = g;
                     zones.Add(nid);
@@ -1081,6 +1139,8 @@ public static class WildernessSystem
             WildKind.Tundra => (200, 214, 224),
             WildKind.Jungle => (70, 112, 66),
             WildKind.Swamp => (104, 116, 82),
+            // 熔岩暗红(偏褐，同山脉一样压得住地形浮雕；纹样另用亮橙，见 WildernessOverlay)
+            WildKind.Lava => (156, 66, 44),
             _ => (160, 160, 160)
         };
         uint hash = unchecked((uint)id * 2654435761u);
@@ -1230,7 +1290,7 @@ public static class WildernessSystem
         return nomad;
     }
 
-    // 归游牧的无人区类型
+    // 归游牧的无人区类型(熔岩不归游牧：游牧也过不去，照最近的城挂)
     private static bool NomadKind(WildKind kind) => kind is WildKind.Desert or WildKind.Tundra;
 
     // 从各城的地块往外按地块走(八方、不过海、不限远近)，每块无人区挂最先走到它的那座城的法理(那座城没有法理就跟着那座城，
@@ -1595,13 +1655,19 @@ public static class WildernessSystem
 
     // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。
     // 只看地块四邻八邻上的城，几万块地也只是几毫秒；周边一座城都没有的算中立
+    // 周边的城同属一家(用户 2026-11-02 转群友"秋海棠叶要完整 至少得是大清那种 这种算什么 残风败叶?")：以前要周边的城全是同一个国家，
+    // 一个帝国的几个行政区、封国夹着的山脉沙漠成了中立，帝国版图上一块块窟窿。现在按所在帝国比(不在帝国里的按本国)：
+    // 周边的城都在同一个帝国里就归这个帝国，画给挨着这片的城最多的那个成员(一样多的先核心王国、再编号小的)
+    private static readonly Dictionary<Kingdom, int> SurroundCounts = new();
+
     private static bool RefreshSurround()
     {
         bool changed = false;
         foreach (WildRegion region in _regions)
         {
-            Kingdom common = null;
-            bool mixed = false, any = false;
+            object realm = null;
+            bool mixed = false;
+            SurroundCounts.Clear();
             foreach (int id in region.Zones)
             {
                 TileZone zone = id >= 0 && id < _zones.Length ? _zones[id] : null;
@@ -1616,17 +1682,34 @@ public static class WildernessSystem
                         mixed = true;
                         break;
                     }
-                    any = true;
-                    if (common == null) common = kingdom;
-                    else if (common != kingdom)
+                    Empire empire = kingdom.GetEmpire();
+                    object key = empire != null && !empire.isRekt() && !empire.IsArchived() ? empire : kingdom;
+                    if (realm == null) realm = key;
+                    else if (!ReferenceEquals(realm, key))
                     {
                         mixed = true;
                         break;
                     }
+                    SurroundCounts.TryGetValue(kingdom, out int count);
+                    SurroundCounts[kingdom] = count + 1;
                 }
                 if (mixed) break;
             }
-            Kingdom around = any && !mixed ? common : null;
+            Kingdom around = null;
+            if (!mixed && realm != null)
+            {
+                Kingdom core = (realm as Empire)?.CoreKingdom;
+                int most = -1;
+                foreach (KeyValuePair<Kingdom, int> pair in SurroundCounts)
+                {
+                    bool better = pair.Value > most || pair.Value == most &&
+                        (pair.Key == core || around != core && pair.Key.id < around.id);
+                    if (!better) continue;
+                    most = pair.Value;
+                    around = pair.Key;
+                }
+            }
+            SurroundCounts.Clear();
             if (region.Surround == around) continue;
             region.Surround = around;
             changed = true;

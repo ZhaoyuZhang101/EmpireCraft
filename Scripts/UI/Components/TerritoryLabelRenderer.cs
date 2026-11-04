@@ -919,6 +919,8 @@ public static class TerritoryLabelRenderer
             WildKind.Tundra => (new Color32(238, 247, 255, 210), new Color32(44, 68, 104, 175)),
             WildKind.Jungle => (new Color32(210, 240, 198, 205), new Color32(20, 62, 30, 175)),
             WildKind.Swamp => (new Color32(206, 238, 228, 205), new Color32(18, 68, 64, 175)),
+            // 熔岩：淡橙的字、暗红描边(底色暗红，字要亮一些才压得住纹样的亮橙裂纹)
+            WildKind.Lava => (new Color32(255, 222, 196, 210), new Color32(104, 28, 14, 175)),
             _ => (new Color32(232, 232, 228, 200), new Color32(40, 40, 40, 170))
         };
         style = new TerritoryLabelStyle

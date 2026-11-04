@@ -41,6 +41,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       开发中的地块不掉出无人区：格子改掉一半，按地形早够不上门槛，照开发时的类型留着(见 WildernessSystem.Reclassify、HeldKind)；
 //       开满：退出无人区，当即归城(用户 10-30 "开发完后就直接归入就近的城市""地块超了就新建城市，归入最近的法理"，见 Hand)——
 //         以前只当作留给城的地、等城自己扩张，剧本地块固定(原版领土扩张关着)时城不扩张，开出来的地一直空着；
+//         划进县址的(用户 2026-11-03 转群友"原有的城市跨河连片……复数城市堆积在很小的一块地方"，见 WildernessPlotSystem)只归这一县的县城，
+//         没设县的空着等设县——老城不再顺着开出来的地一块块吞过去；县址解锁、设县跟着这里的年度推进(见 BeginYear)；
 //       宜居度：TerrainSystem.Livability 按格子算(丛林 0.6、沼泽 0.4、草地 1)，格子改成草地宜居度就随开发度涨，不另加，
 //         纯荒地为零的规矩(BarrenLandSystem)不动；
 //   · 神力「开发」(见 SettlementPowers)：刷到的雨林、大泽无人区地块开发度涨一截，不看科技与归属
@@ -55,6 +57,10 @@ public class WildDevelopmentData
     public Dictionary<int, WildDevelopmentZone> zones = new Dictionary<int, WildDevelopmentZone>();
     // 朝廷决议"开发边地"
     public List<WildDevelopmentEdict> edicts = new List<WildDevelopmentEdict>();
+    // 预划县址与下一县的编号(见 WildernessPlotSystem)：旧档没有，读档头一回划区后按各片雨林大泽现划
+    public List<WildPlot> plots;
+    public bool ShouldSerializeplots() => plots is { Count: > 0 };
+    public int next_plot = 1;
 }
 
 public class WildDevelopmentZone
@@ -124,7 +130,7 @@ public static class WildernessDevelopmentSystem
     // 有地块过半、开满(或改回)时 +1(通行据此重算，见 WildernessPassage)
     public static int Version { get; private set; }
 
-    // 哪些无人区开发(雨林、大泽；山脉、沙漠、冻原固定)
+    // 哪些无人区开发(雨林、大泽；山脉、沙漠、冻原、熔岩固定)
     public static bool Develops(WildKind kind) => kind is WildKind.Jungle or WildKind.Swamp;
 
     private sealed class Realm
@@ -146,6 +152,9 @@ public static class WildernessDevelopmentSystem
 
     // 过半：军队能走(见 WildernessPassage.Blocking)
     public static bool Passable(TileZone zone) => DevelopmentOf(zone) >= Half;
+
+    // 谁在开发(最近一回涨开发度的国家编号；没开发过、神力刷的、剧本设的为 -1)：县址按它定谁设县(见 WildernessPlotSystem)
+    public static long DeveloperOf(TileZone zone) => zone == null ? -1L : Get(zone.id)?.by ?? -1L;
 
     // 开发中(没开满)的地块照开发时的类型留在无人区(见 WildernessSystem.Reclassify)；不是为 None
     public static WildKind HeldKind(int id)
@@ -187,6 +196,7 @@ public static class WildernessDevelopmentSystem
     {
         _data = new WildDevelopmentData();
         ClearRuntime();
+        WildernessPlotSystem.ResetWorldState();
     }
 
     private static void ClearRuntime()
@@ -215,9 +225,15 @@ public static class WildernessDevelopmentSystem
             _data.zones.Remove(id);
         _data.edicts.RemoveAll(edict => edict == null);
         ClearRuntime();
+        WildernessPlotSystem.Load(_data.plots, _data.next_plot);
     }
 
-    public static WildDevelopmentData Save() => _data;
+    public static WildDevelopmentData Save()
+    {
+        _data.plots = WildernessPlotSystem.Save();
+        _data.next_plot = WildernessPlotSystem.NextId;
+        return _data;
+    }
 
     #endregion
 
@@ -230,6 +246,8 @@ public static class WildernessDevelopmentSystem
         if (world?.zone_calculator == null) return;
         try
         {
+            // 县址：划区后维护补划、每帧至多设一县、给没名的县址起名(自己兜着出错，见 WildernessPlotSystem.Tick)
+            WildernessPlotSystem.Tick();
             ReclaimStep(world.zone_calculator);
             if (_work != null)
             {
@@ -256,6 +274,8 @@ public static class WildernessDevelopmentSystem
     // 一年开头：结算诏令(付钱、到期、开完)，排出这一年要看的地块(各片雨林、大泽，不含永久中立区)
     private static void BeginYear()
     {
+        // 县址：县城没了的回到未设县、已设县的领进开满的地块(领不下的放出县址，下面照旧归城)、可设县的排队(见 WildernessPlotSystem.Year)
+        WildernessPlotSystem.Year();
         // 开满了还空着的地块归城(见 Hand)
         foreach (int id in DevelopedZones().ToList())
         {
@@ -457,12 +477,14 @@ public static class WildernessDevelopmentSystem
     // 开满的地块归城(见类头)：挨着的城里归这块地的主人(还在无人区时按 WildernessSystem.OwnerOf，已退出的按开发它的国家；
     // 同一帝国的省也算)、地块没到上限(模组设置每城地块上限，见 CityExpansionPatch.AtLimit)的，城心离它最近的那座；
     // 挨着的城都满了、或没有挨着的城，就在这块地上建一座新城，归这个主人，挂进最近的王国法理(这块地原来挂的，没有就挨着的城的)。
-    // 每年开头也把开满了还空着的地块过一遍(读档前开满的、剧本开局设满的，见 BeginYear)
+    // 每年开头也把开满了还空着的地块过一遍(读档前开满的、剧本开局设满的，见 BeginYear)。
+    // 划进县址的先由县址管(WildernessPlotSystem.Claim)：县城挨着就领进，没设县、挨不着的空着留给县城，不归别的城、不另立新城
     private static void Hand(TileZone zone, long by)
     {
         if (zone == null || zone.city != null || World.world == null || !Config.game_loaded || SmoothLoader.isLoading()) return;
         try
         {
+            if (WildernessPlotSystem.Claim(zone)) return;
             Kingdom developer = by > 0 ? World.world.kingdoms.get(by) : null;
             if (developer != null && (developer.isRekt() || developer.wild)) developer = null;
             Kingdom owner = WildernessSystem.OwnerOf(zone) ?? developer;
@@ -644,6 +666,23 @@ public static class WildernessDevelopmentSystem
         Reclaim(zone, state, int.MaxValue);
         if (before >= Full != value >= Full) WildernessSystem.OnDeveloped(zone);
         WildernessOverlay.MarkAround(zone);
+    }
+
+    // 设县(见 WildernessPlotSystem)：县治那块当即算开满(治所先开：伐林筑城)，丛林、沼泽格照常一批批改成草地(见 ReclaimStep)；
+    // 城已落在这块地上，开满后不再归城(见 Hand)。kind 是县址所在那一片的类型(这块地没开发过时记下)，by 记设县的国家
+    public static void Establish(TileZone zone, WildKind kind, long by)
+    {
+        if (zone?.tiles == null || zone.id < 0) return;
+        WildDevelopmentZone state = Get(zone.id);
+        if (state == null)
+        {
+            if (!Develops(kind)) kind = WetKind(zone);
+            if (!Develops(kind)) return;
+            state = Start(zone, kind);
+        }
+        if (state.dev >= Full) return;
+        if (by > 0) state.by = by;
+        Raise(zone, state, Full);
     }
 
     // 神力「开发」(见 SettlementPowers)：刷到的雨林、大泽无人区地块开发度涨 BrushStep(同一块隔 BrushInterval 秒)，

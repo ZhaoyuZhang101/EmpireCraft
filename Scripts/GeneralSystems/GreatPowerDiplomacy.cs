@@ -17,7 +17,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     都城相距远的几乎无碍(-5)，中等(-20)，近的(-50)；
 //   · 通好：不同文明的两个帝国不在打仗、好感不太坏时，每年有机会遣使通好(有共同的敌人时更容易)——互认对方的称号
 //     (皇帝、大可汗、哈里发、元首……)，三十年内互不侵犯(见 WarGate、WarTargetPatch)、好感 +40；
-//     一方遭第三国攻打，另一方没在打仗、过得了开战闸门时，每月有机会依约出兵相助。
+//     一方遭第三国攻打，另一方没在打仗、过得了开战闸门时，每月有机会依约出兵相助；
+//   · 只与够得着的帝国通好、只援够得着的仗(用户 2026-11-04 "超远距离外交的bug"；以前任意两个不同文明的帝国都能通好、隔半个地图出兵)：
+//     同宣战的远近(WarReach.Reachable：两个帝国连同成员接壤、同一块陆地上相距不远且不隔着过不去的无人区，或隔海在水师辐射内)；
+//     援助另要够得着来犯的那一方。
 public static class GreatPowerDiplomacy
 {
     private const int PactYears = 30, PactOpinion = 40;
@@ -89,6 +92,8 @@ public static class GreatPowerDiplomacy
         if (opinion < MinOpinion) return;
         bool common = ca.getEnemiesKingdoms().Intersect(cb.getEnemiesKingdoms()).Any();
         if (UnityEngine.Random.value >= (common ? CommonEnemyChance : PactChance)) return;
+        // 够不着的不通好(见类头)：先掷机会再量远近，省得每年两两都量
+        if (!WarReach.Reachable(ca, cb)) return;
         double now = World.world.getCurWorldTime();
         Pacts(a)[b.id] = now;
         Pacts(b)[a.id] = now;
@@ -120,7 +125,8 @@ public static class GreatPowerDiplomacy
                 !candidate.hasKingdom(core) && candidate.main_attacker?.GetEmpire() != empire);
             Kingdom attacker = war?.main_attacker;
             if (attacker?.data == null || attacker.isRekt() || EmpirePeacePatch.HasLeft(core, war, joiningAttackers: false) ||
-                WarSituation.TooBusyForWar(core) || CorpsSystem.CannotFundWar(core) || !WarGate.CanDeclare(core, attacker)) continue;
+                WarSituation.TooBusyForWar(core) || CorpsSystem.CannotFundWar(core) || !WarGate.CanDeclare(core, attacker) ||
+                !WarReach.Reachable(core, attacker)) continue;
             war.joinDefenders(core);
             if (!war._list_defenders.Contains(core)) continue;
             TranslateHelper.LogEventMessage(string.Format(LM.Get("great_power_aid"), empire.GetEmpireName(),

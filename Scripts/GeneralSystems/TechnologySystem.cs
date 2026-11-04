@@ -67,6 +67,10 @@ public sealed class TechResearchConfig
     // 已研最高时代档超过 era_output_from_tier 后，每高一档年产科技点多 era_output_per_tier 倍
     public int era_output_from_tier = 2;
     public float era_output_per_tier = 0.75f;
+    // 超出时代的科技(用户 2026-11-04 转群友"超出时代的科技，研究需求提高一百倍"，随后改口"数值算错了，超时代科技的花费调整为十倍就行")：
+    // 档次高过本文化时代 beyond_era_margin 档以上的(下一个时代的科技照常——进下一时代要的节点科技就在那一档)，费用乘 beyond_era_cost_multiplier
+    public int beyond_era_margin = 1;
+    public float beyond_era_cost_multiplier = 10f;
 }
 
 // 加速事件(文明六的"尤里卡")：本文化做到了某件事，对应技术立刻获得一部分研究进度
@@ -87,6 +91,8 @@ public sealed class TechEraConfig
 {
     public int tier;
     public string key = "";
+    // 进这个时代的节点科技(研究了其中一项即可；见 TechnologySystem.GetEraTier)
+    public List<string> node = new();
 }
 
 public sealed class TechResourceRequirement
@@ -193,6 +199,8 @@ public sealed class TechTreeConfig
     public List<TechContentSourceConfig> content_sources = new();
     // "禁止近代化"世界规则打开时，技术最多到哪个时代(tier)；更高时代解锁的武器/载具/建筑一律锁死
     public int premodern_max_tier = 5;
+    // 进下一时代：除节点科技外，此前各时代的科技要研究几成(见 TechnologySystem.GetEraTier)
+    public float era_prior_share = 2f / 3f;
     // 文明等级(制度树的 1~4 级) → 能研究到的最高技术时代(tier)。制度落后，技术也上不去
     public Dictionary<string, int> culture_level_max_tier = new();
     public List<TechInstitutionLink> institution_links = new();
@@ -313,6 +321,10 @@ public static class TechnologySystem
         _config.materials ??= new List<TechMaterialConfig>();
         _config.branches ??= new List<string>();
         _config.eras ??= new List<TechEraConfig>();
+        foreach (TechEraConfig era in _config.eras.Where(era => era != null)) era.node ??= new List<string>();
+        _config.eras.RemoveAll(era => era == null);
+        _priorTechs = null;
+        EraCache.Clear();
         _config.research ??= new TechResearchConfig();
         _config.mod_gates ??= new List<TechModGateConfig>();
         _config.institution_links ??= new List<TechInstitutionLink>();
@@ -746,8 +758,13 @@ public static class TechnologySystem
         float cost = Math.Max(1f, tech.cost) * Math.Max(0.01f, Config.research.cost_multiplier) *
                      GetSizeCostFactor(culture) *
                      (tech.tier <= Config.research.early_cost_max_tier ? Math.Max(0.05f, Config.research.early_cost_multiplier) : 1f);
+        if (BeyondEra(culture, tech)) cost *= Math.Max(1f, Config.research.beyond_era_cost_multiplier);
         return cost * (1f - GetDiffusionDiscount(culture, tech.id));
     }
+
+    // 超出时代的科技(见 TechResearchConfig.beyond_era_cost_multiplier)：档次高过本文化时代 beyond_era_margin 档以上
+    public static bool BeyondEra(string culture, TechNodeConfig tech) =>
+        tech != null && tech.tier > GetEraTier(culture) + Math.Max(0, Config.research.beyond_era_margin);
 
     public static float GetResearchBonus(string culture) =>
         Researched(culture).Select(id => _techs.TryGetValue(id, out TechNodeConfig tech) ? tech.research_bonus : 0f)
@@ -758,12 +775,87 @@ public static class TechnologySystem
         1f + Math.Max(0f, Config.research.era_output_per_tier) *
         Math.Max(0, GetEraTier(culture) - Config.research.era_output_from_tier);
 
+    // 文化所处的时代(用户 2026-11-03 转群友建议："现在时代变迁太快了，导致科技也跟着快，600年就从原始部落发展到近代了"
+    // "文化进时代的条件要修改，建议修改为【研究一定数量的科技+研究了某个节点科技】之后才能进入下一个时代。这个前置科技的数量
+    // 可以设定为【节点科技之前三分之二的科技】")：以前研究过的最高一档就是时代，研究出一项火药就进火药时代，时代产出倍率当场
+    // 跳到 ×4，越研越快。现在一档档往上走：研究过任一科技为石器时代；往后各时代要研究了它的节点科技(eras[].node，其中一项即可)，
+    // 并且此前各时代(档次低于它)的科技研究了 era_prior_share(三分之二)以上，前一个时代也得先进了。
+    // 时代与科研的挂钩照旧(时代产出倍率、各处按时代的门槛都按这个时代算)。按已研究的科技数缓存
+    private static readonly Dictionary<string, (int count, HashSet<string> set, int tier)> EraCache = new(StringComparer.Ordinal);
+    // 档次 → 档次低于它的科技总数(按配置算一次)
+    private static int[] _priorTechs;
+
     public static int GetEraTier(string culture)
     {
         HashSet<string> researched = Researched(culture);
-        return researched.Count == 0
-            ? 0
-            : researched.Select(id => _techs.TryGetValue(id, out TechNodeConfig tech) ? tech.tier : 0).Max();
+        if (researched.Count == 0) return 0;
+        string key = culture ?? "";
+        if (EraCache.TryGetValue(key, out var cached) && cached.count == researched.Count && ReferenceEquals(cached.set, researched))
+            return cached.tier;
+        int tier = ComputeEraTier(researched, out _, out _, out _);
+        EraCache[key] = (researched.Count, researched, tier);
+        return tier;
+    }
+
+    // 下一时代的进度(科技窗口用)：next 为下一时代(已到最后为 null)，have/need 为此前各时代的科技研究了几项、要几项，nodeDone 节点科技研究了没有
+    public static TechEraConfig GetNextEra(string culture, out int have, out int need, out bool nodeDone)
+    {
+        HashSet<string> researched = Researched(culture);
+        int tier = researched.Count == 0 ? 0 : ComputeEraTier(researched, out _, out _, out _);
+        TechEraConfig next = Config.eras.Where(era => era.tier > tier).OrderBy(era => era.tier).FirstOrDefault();
+        have = need = 0;
+        nodeDone = false;
+        if (next == null) return null;
+        int[] byTier = CountByTier(researched);
+        PriorNeed(next.tier, byTier, out have, out need);
+        nodeDone = NodeDone(next, researched);
+        return next;
+    }
+
+    private static int ComputeEraTier(HashSet<string> researched, out int have, out int need, out bool nodeDone)
+    {
+        have = need = 0;
+        nodeDone = false;
+        if (researched.Count == 0) return 0;
+        int[] byTier = CountByTier(researched);
+        int tier = 1;
+        foreach (TechEraConfig era in Config.eras.Where(era => era.tier > 1).OrderBy(era => era.tier))
+        {
+            nodeDone = NodeDone(era, researched);
+            PriorNeed(era.tier, byTier, out have, out need);
+            if (!nodeDone || have < need) break;
+            tier = era.tier;
+        }
+        return tier;
+    }
+
+    private static bool NodeDone(TechEraConfig era, HashSet<string> researched) =>
+        era.node == null || era.node.Count == 0 || era.node.Any(id => researched.Contains(TechnologyStateRules.Canonical(id)));
+
+    // 已研究的科技按档次数一遍
+    private static int[] CountByTier(HashSet<string> researched)
+    {
+        int max = Math.Max(Config.techs.Count == 0 ? 0 : Config.techs.Max(tech => tech.tier), Config.eras.Count == 0 ? 0 : Config.eras.Max(era => era.tier));
+        var counts = new int[max + 2];
+        foreach (string id in researched)
+            if (_techs.TryGetValue(id, out TechNodeConfig tech) && tech.tier >= 0 && tech.tier < counts.Length) counts[tech.tier]++;
+        return counts;
+    }
+
+    // 档次低于 tier 的科技：研究了几项、要几项(总数的 era_prior_share，向上取整)
+    private static void PriorNeed(int tier, int[] byTier, out int have, out int need)
+    {
+        if (_priorTechs == null)
+        {
+            int max = Math.Max(Config.techs.Count == 0 ? 0 : Config.techs.Max(tech => tech.tier), Config.eras.Count == 0 ? 0 : Config.eras.Max(era => era.tier));
+            _priorTechs = new int[max + 2];
+            foreach (TechNodeConfig tech in Config.techs)
+                for (int t = tech.tier + 1; t < _priorTechs.Length; t++) _priorTechs[t]++;
+        }
+        int at = Math.Min(Math.Max(tier, 0), _priorTechs.Length - 1);
+        need = (int)Math.Ceiling(_priorTechs[at] * Mathf.Clamp01(Config.era_prior_share) - 1e-4);
+        have = 0;
+        for (int t = 0; t < tier && t < byTier.Length; t++) have += byTier[t];
     }
 
     public static string GetEraName(string culture)
@@ -1837,8 +1929,9 @@ public static class TechnologySystem
         state.player_targets.RemoveAll(id => HasTech(culture, id) || !_techs.ContainsKey(id));
         foreach (string target in state.player_targets.Take(slots))
             Add(FindNextStepToward(culture, target, new HashSet<string>()));
+        // 手上在研的照旧接着研；超出时代的(费用乘十倍，见 BeyondEra)让出研究位，先研本时代的
         foreach (string id in state.current_techs)
-            if (_techs.TryGetValue(id, out TechNodeConfig current)) Add(current);
+            if (_techs.TryGetValue(id, out TechNodeConfig current) && !BeyondEra(culture, current)) Add(current);
         List<TechNodeConfig> open = Config.techs.Where(tech => !HasTech(culture, tech.id) && ArePrerequisitesMet(culture, tech)).ToList();
         // 没有港口的文化不研究海军科技(别的都研究完了才轮到)
         if (open.Any(tech => tech.branch == NavalBranch) && open.Any(tech => tech.branch != NavalBranch) &&

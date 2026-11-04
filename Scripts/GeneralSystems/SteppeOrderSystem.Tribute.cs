@@ -95,7 +95,7 @@ public static partial class SteppeOrderSystem
         foreach (Kingdom neighbour in Neighbours(kingdom))
         {
             Empire empire = neighbour.GetEmpire();
-            if (empire == null || empire == best || !Suzerain(empire)) continue;
+            if (empire == null || empire == best || !Suzerain(empire) || !TributaryRelations.InReach(kingdom, empire)) continue;
             double power = WarSituation.Power(empire);
             if (power < own * SubmitPowerLead || power <= bestPower) continue;
             best = empire;

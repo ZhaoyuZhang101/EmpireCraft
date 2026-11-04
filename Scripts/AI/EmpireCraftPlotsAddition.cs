@@ -328,7 +328,8 @@ namespace EmpireCraft.Scripts.AI
 
             foreach (Empire empire in ModClass.EMPIRE_MANAGER)
             {
-                if (empire == null || empire.IsArchived() || !empire.IsNeighbourWith(kingdom))
+                // 接壤之外还要宗主直辖之地够得着(封国、附庸挨着的远国不来朝，见 TributaryRelations.InReach)
+                if (empire == null || empire.IsArchived() || !empire.IsNeighbourWith(kingdom) || !TributaryRelations.InReach(kingdom, empire))
                 {
                     continue;
                 }

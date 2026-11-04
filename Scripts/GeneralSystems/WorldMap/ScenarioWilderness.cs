@@ -10,9 +10,10 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 取样：按剧本的地图范围(不定的按欧亚非，同世界地图窗口的默认)与编辑器里选的大小档(SizeIndex)，一块地 8×8 格，
 //     每格取预览上最近的一像素(预览一像素 0.1°，各档一格 0.04°~0.2°，一块地合 3.5~16 像素见方)；地球地图另照
 //     EarthTerrain.DrawRivers 画大河水道(留渡口，水面多了的地块不算荒地)；
-//   · 归类、连片：门槛常量照抄 WildernessSystem(水面 MaxWater、陆地 MinLand、山脉的核心/两肩/坡丘、沙漠冻原 BarrenShare、
-//     大泽 SwampShare、雨林 JungleShare、外沿放宽 EdgeShare 与山脉的 MountainEdgeShare、至少 MinZones 块，Python 版见
-//     Tools/WorldMap/preview_wilderness.py)；开局没有上回的类型，不放宽(Hysteresis)。城心那块留给城(同 Regroup 的 anchored)，
+//   · 归类、连片：门槛常量照抄 WildernessSystem(水面 MaxWater、陆地 MinLand、熔岩的核心/火山、山脉的核心/两肩/坡丘、沙漠冻原 BarrenShare、
+//     大泽 SwampShare、雨林 JungleShare、外沿放宽 EdgeShare 与山脉的 MountainEdgeShare、熔岩的 LavaEdgeShare、至少 MinZones 块，
+//     山脉熔岩互收零星的核心同用 WildernessSystem.Absorbs，Python 版见 Tools/WorldMap/preview_wilderness.py——地球没有岩浆，
+//     那边不管熔岩)；开局没有上回的类型，不放宽(Hysteresis)。城心那块留给城(同 Regroup 的 anchored)，
 //     小图只放一、二档城、离图边四格以内的城不放(同 WorldMapScenario.Plan)；
 //   · 时代开发度(见 WorldMapDevelopment)：从预设复制来的剧本按来源时代(WorldMapEra.base)的表，把当年没开出来的草木平地算回
 //     丛林、大泽再归类(离城越近开发度越高，开满的不改)；剧本刷的开发度(develop)盖过时代表，刷满 100 的雨林大泽开满、留给城；
@@ -30,17 +31,18 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 public static class ScenarioWilderness
 {
     // 预览一像素的地形(见 CellOf)：低两位为起伏(平地、山地山巅、丘陵、水面)，往上三位为地面(别的、冻土雪地、沙地荒漠、丛林、沼泽、
-    // 草木平地——草地、稀树草原、桦林、枫林的高低两种，时代开发度能改回丛林沼泽的，同 WorldMapDevelopment.Vegetated)
+    // 草木平地——草地、稀树草原、桦林、枫林的高低两种，时代开发度能改回丛林沼泽的，同 WorldMapDevelopment.Vegetated；岩浆，归熔岩)
     private const int ReliefMask = 3, RockRelief = 1, HillRelief = 2, WaterRelief = 3;
-    private const int GroundShift = 2, FrozenGround = 1, SandGround = 2, JungleGround = 3, SwampGround = 4, GreenGround = 5;
+    private const int GroundShift = 2, FrozenGround = 1, SandGround = 2, JungleGround = 3, SwampGround = 4, GreenGround = 5, LavaGround = 6;
     public const byte WaterCell = WaterRelief;
 
     // 归类门槛(照抄 WildernessSystem，改了那边这里也要改)
     private const float MaxWater = 0.25f;
     private const int MinLand = 16;
     private const float MountainCore = 0.5f, MountainFlank = 0.35f, MountainRugged = 0.75f;
+    private const float LavaCore = 0.3f, LavaFlank = 0.15f, LavaRugged = 0.6f;
     private const float BarrenShare = 0.85f, SwampShare = 0.75f, JungleShare = 0.85f;
-    private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f;
+    private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f, LavaEdgeShare = 0.15f;
     private const int MaxAttachSteps = 64;
     // 时代开发度：陆地不到几格的不改、这一类格子(连草木)占陆地几成才改、离城多远(度)开发度翻倍的衰减(同 WorldMapDevelopment)
     private const float WetShare = 0.5f;
@@ -85,11 +87,11 @@ public static class ScenarioWilderness
         public readonly Dictionary<string, int> SeatOf = new();
     }
 
-    // 取样的结果：各块的陆地、水面、山地、丘陵、冻土、沙地、丛林、沼泽、草木平地格数(只读；归类时丛林、沼泽、草木另拷一份再改)
+    // 取样的结果：各块的陆地(连同岩浆)、水面、山地、丘陵、冻土、沙地、丛林、沼泽、草木平地、岩浆格数(只读；归类时丛林、沼泽、草木另拷一份再改)
     private sealed class Sampled
     {
         public int Key;
-        public byte[] Land, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp, Green;
+        public byte[] Land, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp, Green, Lava;
     }
 
     private static Layout _layout;
@@ -140,17 +142,21 @@ public static class ScenarioWilderness
     #region 地形标记
 
     // 一种地块写法("主:顶"，如 "soil_low:jungle_low"、"mountains:snow_block")的标记，口径同 WildernessSystem.ComputeMarks：
-    // 水面看主、顶两层；山地、丘陵看两层；地面(冻土、沙、丛林、沼泽、草木)看顶层
+    // 水面看主、顶两层；山地、丘陵看两层；地面(冻土、沙、丛林、沼泽、草木)看顶层。
+    // 岩浆不算水(同 ComputeMarks)：平地、地面记岩浆，归熔岩。眼下地球网格、导入地图的对照色里都没有岩浆(从当前世界导入时岩浆当山，
+    // 见 ScenarioWorldExport.TypeOf)，写法里带 lava 的才走到这里，留着与进世界后的划区同一口径
     public static byte CellOf(string type)
     {
-        if (string.IsNullOrEmpty(type) || type.Contains("ocean") || type.Contains("waters") || type.Contains("lava")) return WaterCell;
+        if (string.IsNullOrEmpty(type) || type.Contains("ocean") || type.Contains("waters")) return WaterCell;
+        if (type.Contains("lava")) return (byte)(LavaGround << GroundShift);
         int split = type.IndexOf(':');
         string main = split < 0 ? type : type.Substring(0, split), top = split < 0 ? type : type.Substring(split + 1);
         int relief = main == "mountains" || top == "mountains" || top.Contains("summit") ? RockRelief
             : main == "hills" || top == "hills" ? HillRelief : 0;
         int ground = top.StartsWith("snow", StringComparison.Ordinal) || top.StartsWith("frozen", StringComparison.Ordinal) ||
                      top.Contains("permafrost") ? FrozenGround
-            : top == "sand" || top.Contains("desert") ? SandGround
+            // 沙地(sand)是沙滩，不算沙漠(同 WildernessSystem.ComputeMarks)
+            : top.Contains("desert") ? SandGround
             : top.Contains("jungle") ? JungleGround
             : top.Contains("swamp") ? SwampGround
             : (top.EndsWith("_low", StringComparison.Ordinal) || top.EndsWith("_high", StringComparison.Ordinal)) &&
@@ -192,6 +198,7 @@ public static class ScenarioWilderness
         WildKind.Tundra => new Color32(200, 214, 224, 255),
         WildKind.Jungle => new Color32(70, 112, 66, 255),
         WildKind.Swamp => new Color32(104, 116, 82, 255),
+        WildKind.Lava => new Color32(156, 66, 44, 255),
         _ => new Color32(160, 160, 160, 255)
     };
 
@@ -295,7 +302,8 @@ public static class ScenarioWilderness
             W = zw, H = zh, Land = sampled.Land, Raw = new byte[n], Region = new int[n], Dev = new float[n], Terr = new int[n],
             Label = new int[n]
         };
-        byte[] water = sampled.Water, rock = sampled.Rock, hills = sampled.Hills, frozen = sampled.Frozen, sand = sampled.Sand;
+        byte[] water = sampled.Water, rock = sampled.Rock, hills = sampled.Hills, frozen = sampled.Frozen, sand = sampled.Sand,
+            lava = sampled.Lava;
         // 时代开发度要把草木平地算回丛林沼泽：这三样拷一份再改
         var jungle = (byte[])sampled.Jungle.Clone();
         var swamp = (byte[])sampled.Swamp.Clone();
@@ -368,12 +376,12 @@ public static class ScenarioWilderness
         // 四、归类(同 WildernessSystem.Classify，开局没有上回的类型)；刷满开发度的雨林大泽开满、留给城
         for (int z = 0; z < n; z++)
         {
-            layout.Raw[z] = (byte)Classify(layout.Land[z], water[z], rock[z], hills[z], frozen[z], sand[z], jungle[z], swamp[z]);
+            layout.Raw[z] = (byte)Classify(layout.Land[z], water[z], rock[z], hills[z], frozen[z], sand[z], jungle[z], swamp[z], lava[z]);
             if (layout.Dev[z] >= WildernessDevelopmentSystem.Full && WildernessDevelopmentSystem.Develops((WildKind)layout.Raw[z])) anchored[z] = true;
         }
 
-        // 五、连片(同 WildernessSystem.Regroup)：同类型四邻连成核心；大的先长，往外收这一类地形过半的地块，长到同类的小片整片并进来；
-        // 去掉不到 MinZones 块的
+        // 五、连片(同 WildernessSystem.Regroup)：同类型四邻连成核心；大的先长，往外收这一类地形过半的地块，长到同类的小片整片并进来
+        // (山脉、熔岩连对方零星的核心，见 WildernessSystem.Absorbs)；去掉不到 MinZones 块的
         var piece = new int[n];
         for (int z = 0; z < n; z++) piece[z] = -1;
         var groups = new List<(WildKind kind, List<int> zones)>();
@@ -407,7 +415,7 @@ public static class ScenarioWilderness
             if (zones.Count == 0) continue;
             grown[g] = true;
             WildKind kind = groups[g].kind;
-            float edge = kind == WildKind.Mountain ? MountainEdgeShare : EdgeShare;
+            float edge = kind == WildKind.Mountain ? MountainEdgeShare : kind == WildKind.Lava ? LavaEdgeShare : EdgeShare;
             queue.Clear();
             foreach (int z in zones) queue.Enqueue(z);
             while (queue.Count > 0)
@@ -420,7 +428,7 @@ public static class ScenarioWilderness
                     int other = piece[next];
                     if (other >= 0)
                     {
-                        if (other == g || grown[other] || groups[other].kind != kind) continue;
+                        if (other == g || grown[other] || !WildernessSystem.Absorbs(kind, groups[other].kind, groups[other].zones.Count)) continue;
                         foreach (int z in groups[other].zones)
                         {
                             piece[z] = g;
@@ -435,8 +443,9 @@ public static class ScenarioWilderness
                     if (anchored[next] || land < MinLand) continue;
                     int share = kind switch
                     {
-                        WildKind.Mountain => rock[next] + hills[next],
+                        WildKind.Mountain => rock[next] + hills[next] + lava[next],
                         WildKind.Desert or WildKind.Tundra => sand[next] + frozen[next],
+                        WildKind.Lava => lava[next],
                         _ => jungle[next] + swamp[next]
                     };
                     if (share < land * edge) continue;
@@ -484,7 +493,7 @@ public static class ScenarioWilderness
         var sampled = new Sampled
         {
             Key = key, Land = new byte[n], Water = new byte[n], Rock = new byte[n], Hills = new byte[n], Frozen = new byte[n], Sand = new byte[n],
-            Jungle = new byte[n], Swamp = new byte[n], Green = new byte[n]
+            Jungle = new byte[n], Swamp = new byte[n], Green = new byte[n], Lava = new byte[n]
         };
         var col = new int[tw];
         var row = new int[th];
@@ -500,12 +509,12 @@ public static class ScenarioWilderness
         }
         bool[] river = ScenarioEditing.Era?.map == null ? Rivers(frame, size) : null;
         byte[] water = sampled.Water, rock = sampled.Rock, hills = sampled.Hills, frozen = sampled.Frozen, sand = sampled.Sand,
-            jungle = sampled.Jungle, swamp = sampled.Swamp, green = sampled.Green;
+            jungle = sampled.Jungle, swamp = sampled.Swamp, green = sampled.Green, lava = sampled.Lava;
         for (int zy = 0; zy < zh; zy++)
         for (int zx = 0; zx < zw; zx++)
         {
             int z = zy * zw + zx;
-            int cw = 0, cr = 0, ch = 0, cf = 0, cs = 0, cj = 0, csw = 0, cg = 0;
+            int cw = 0, cr = 0, ch = 0, cf = 0, cs = 0, cj = 0, csw = 0, cg = 0, cl = 0;
             for (int dy = 0; dy < 8; dy++)
             {
                 int ty = zy * 8 + dy, offset = row[ty];
@@ -529,6 +538,8 @@ public static class ScenarioWilderness
                         case JungleGround: cj++; break;
                         case SwampGround: csw++; break;
                         case GreenGround: cg++; break;
+                        // 岩浆(平地)：算陆地，另记(同 WildernessSystem.Count)
+                        case LavaGround: cl++; break;
                     }
                 }
             }
@@ -540,15 +551,19 @@ public static class ScenarioWilderness
             jungle[z] = (byte)cj;
             swamp[z] = (byte)csw;
             green[z] = (byte)cg;
+            lava[z] = (byte)cl;
             sampled.Land[z] = (byte)(64 - cw);
         }
         return sampled;
     }
 
-    private static WildKind Classify(int land, int water, int rock, int hills, int frozen, int sand, int jungle, int swamp)
+    private static WildKind Classify(int land, int water, int rock, int hills, int frozen, int sand, int jungle, int swamp, int lava)
     {
         if (land < MinLand || water > 64 * MaxWater) return WildKind.None;
-        if (rock >= land * MountainCore || rock >= land * MountainFlank && rock + hills >= land * MountainRugged) return WildKind.Mountain;
+        // 熔岩先判(熔岩原、火山)；够不上的零星岩浆算山地(同 WildernessSystem.Classify)
+        if (lava >= land * LavaCore || lava >= land * LavaFlank && lava + rock >= land * LavaRugged) return WildKind.Lava;
+        int peak = rock + lava;
+        if (peak >= land * MountainCore || peak >= land * MountainFlank && peak + hills >= land * MountainRugged) return WildKind.Mountain;
         if (frozen + sand >= land * BarrenShare) return frozen > sand ? WildKind.Tundra : WildKind.Desert;
         if (swamp >= land * SwampShare) return WildKind.Swamp;
         if (jungle + swamp >= land * JungleShare) return jungle >= swamp ? WildKind.Jungle : WildKind.Swamp;

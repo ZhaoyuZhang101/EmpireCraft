@@ -38,8 +38,9 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //   · 开局年份：世界地图剧本开的局 = 剧本年份 + 过了几年(公元前后之间跳过 0 年)，别的世界 = 游戏里的年份；
 //     预设剧本开的局另记 base = 那个预设的编号；
 //   · 科技与制度：各文化已研究的科技记成 tech(已研究的最高一档) + techSkip(这档以内没研究的)，已施行的制度节点记 inst；
-//   · 无人区(与剧本编辑器约定的写法)：永久中立区刷成 paint 的 "n"，挂了法理的刷成 "r:<地区编号>"，格子按无人区每一格的经纬度取
-//     ScenarioCells.LandStep 一格(去重)；没挂法理的不写。
+//   · 地块归属照原图(用户 2026-11-03 转群友"当前地图的城市边界是怎么样的，那么导入的剧本编辑器里面城市无人区法理边界就是什么样的")：
+//     城领着的地块刷成 paint 的 "c:<城编号>"，永久中立区刷 "n"，挂了法理的无人区刷 "r:<地区编号>"，写 exact——开局各城照刷的分地、
+//     不再往外铺、不补小国，原图城的地头一回划区也留给城(见 Paint、WorldMapScenario.PaintTerritory、WorldMapWilderness.Keep)；
 // 不导的：长城关隘(格子上的墙描不回折线)、剧情事件(开局后的事)、名将名臣、王朝积弊、宗教；地球地图上玩家改过的地形
 // (剧本沿用原样的地球地图)；城里各文化的人口比例(剧本里一个地区一种文化)。
 // json 用 JObject 一条条写(不经 WorldMapEra，免得跟着那边加的字段走)，空的不写；写坏了把建了一半的文件夹删掉
@@ -456,8 +457,10 @@ public static class ScenarioWorldExport
         root["polities"] = realmArray;
         if (relations.Count > 0) root["relations"] = relations;
         Guard("科技与制度", () => Culture(root, cultures.OrderBy(key => key, StringComparer.Ordinal).ToList()));
-        List<WorldMapPaint> paint = Safe(() => Wilderness(projection, regionOf), null);
+        List<WorldMapPaint> paint = Safe(() => Paint(projection, regionOf, CityId), null);
         if (paint is { Count: > 0 }) root["paint"] = JArray.FromObject(paint);
+        // 照原图分地：开局各城的地块照刷的 "c:" 分，不再按地形往外铺、不补小国(见 WorldMapEra.exact)
+        if (paint is { Count: > 0 }) root["exact"] = true;
 
         #endregion
 
@@ -541,37 +544,55 @@ public static class ScenarioWorldExport
 
     #region 无人区
 
-    // 永久中立区刷 "n"，挂了法理的刷 "r:<地区编号>"(与剧本编辑器约定)；格子按无人区每一格的经纬度取 LandStep 一格，先到先得
-    private static List<WorldMapPaint> Wilderness(Projection projection, Dictionary<KingdomTitle, string> regionOf)
+    // 地块归属照原图刷(用户 2026-11-03 转群友"在剧本编辑器导入当前地图时，当前地图的城市边界是怎么样的，那么导入的剧本编辑器里面
+    // 城市无人区法理边界就是什么样的，以防止到时候导入直接破坏图")：城领着的地块刷 "c:<城编号>"(开局直接归那座城，见
+    // WorldMapScenario.PaintTerritory)，永久中立区刷 "n"，挂了法理的无人区刷 "r:<地区编号>"(与剧本编辑器约定)；没挂法理的无人区、
+    // 无主的地不刷。两遍：先按开局取样的那一点(每块地中心那一格，算法同 PaintTerritory)写各块地的归属——没归属的那一格占着不让别的块写；
+    // 再把各块地每一格经纬度落的格子补上(编辑器里看得出原图的形状)，先到先得
+    private static List<WorldMapPaint> Paint(Projection projection, Dictionary<KingdomTitle, string> regionOf, Func<City, string> cityId)
     {
-        IReadOnlyList<WildRegion> regions = WildernessSystem.Regions;
         List<TileZone> zones = World.world?.zone_calculator?.zones;
-        if (regions == null || regions.Count == 0 || zones == null) return null;
-        var zoneById = new Dictionary<int, TileZone>(zones.Count);
+        if (zones == null) return null;
+        var keyOf = new Dictionary<TileZone, string>();
         foreach (TileZone zone in zones)
-            if (zone != null) zoneById[zone.id] = zone;
-        var cells = new Dictionary<int, string>();
-        foreach (WildRegion region in regions)
         {
-            if (region == null) continue;
-            foreach (int zoneId in region.Zones)
+            if (zone?.tiles == null) continue;
+            string key = null;
+            City city = zone.city;
+            if (city?.data != null && !city.isRekt())
             {
-                if (!zoneById.TryGetValue(zoneId, out TileZone zone) || zone.city != null || zone.tiles == null) continue;
-                string key;
+                string id = cityId(city);
+                if (id != null) key = "c:" + id;
+            }
+            else if (WildernessSystem.RegionOf(zone) is WildRegion region)
+            {
                 if (region.Neutral) key = "n";
-                else
-                {
-                    KingdomTitle title = WildernessSystem.TitleOf(zone);
-                    if (title == null || !regionOf.TryGetValue(title, out string regionId)) continue;
+                else if (WildernessSystem.TitleOf(zone) is KingdomTitle title && regionOf.TryGetValue(title, out string regionId))
                     key = "r:" + regionId;
-                }
-                foreach (WorldTile tile in zone.tiles)
-                {
-                    if (tile == null) continue;
-                    projection.LonLat(tile.x, tile.y, out float lon, out float lat);
-                    int cell = ScenarioCells.Key(lon, lat, ScenarioCells.LandStep);
-                    if (!cells.ContainsKey(cell)) cells[cell] = key;
-                }
+            }
+            keyOf[zone] = key;
+        }
+        var cells = new Dictionary<int, string>();
+        var reserved = new HashSet<int>();
+        // 一、各块地开局取样的那一点(同 PaintTerritory：块中心那一格 zx*8+4，经度 = 西界 + 格 × 每格几度)
+        foreach (KeyValuePair<TileZone, string> pair in keyOf)
+        {
+            float lon = projection.west + (pair.Key.x * 8 + 4) * projection.degrees;
+            float lat = projection.bottom + (pair.Key.y * 8 + 4) * projection.degrees;
+            int cell = ScenarioCells.Key(lon, lat, ScenarioCells.LandStep);
+            if (pair.Value == null) reserved.Add(cell);
+            else cells[cell] = pair.Value;
+        }
+        // 二、各块地每一格补上
+        foreach (KeyValuePair<TileZone, string> pair in keyOf)
+        {
+            if (pair.Value == null) continue;
+            foreach (WorldTile tile in pair.Key.tiles)
+            {
+                if (tile == null) continue;
+                projection.LonLat(tile.x, tile.y, out float lon, out float lat);
+                int cell = ScenarioCells.Key(lon, lat, ScenarioCells.LandStep);
+                if (!cells.ContainsKey(cell) && !reserved.Contains(cell)) cells[cell] = pair.Value;
             }
         }
         return ScenarioCells.FromMap(cells);

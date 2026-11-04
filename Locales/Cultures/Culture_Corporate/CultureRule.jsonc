@@ -17,9 +17,9 @@
             }
         },
         "traits": ["patriarchy"],
-        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，引用西方的词库
+        // 无人区命名(见 Locales/Cultures/README.md 无人区一节)：地名 + 类型后缀，美洲、欧洲的真实地名(原西方文化的词库，西方改作剑与魔法后挪到这里)
         "Wilderness": {
-            "words": { "mountain": "Western:WildMountain", "desert": "Western:WildDesert", "tundra": "Western:WildTundra", "jungle": "Western:WildJungle", "swamp": "Western:WildSwamp" }
+            "words": { "mountain": "WildMountain", "desert": "WildDesert", "tundra": "WildTundra", "jungle": "WildJungle", "swamp": "WildSwamp" }
         },
         "City": {
             "groups": {

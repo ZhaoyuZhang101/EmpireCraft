@@ -11,6 +11,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // "官府也能手动升级成皇宫，但是这意味着这个地方会成为默认的帝国核心首都(给个提示)""一个帝国只能有一个皇宫")：
 //   · 建城：点一处平地，在那里建一座新城，归那块地所属的国家；无主之地归挨着的国家里都城最近的。
 //     从本国最近的城落成一位官员做建城人、迁一成人口过去；新城不独立为城邦、不分出新部落(见 CityPatch.CityBuilt)；
+//     点在雨林大泽没设县的县址里就是手动设县(用户 2026-11-03 "AI 自动设县，玩家也可以用神力建城手动设")，城名照预定县名(见 WildernessPlotSystem)；
 //   · 营宫殿：皇宫就是帝国核心的默认首都(EmpireCore 的核心首都，迁都、还于旧都都以它为准)，一个帝国只有一座。
 //     点帝国核心之国的一座城：头一回只提示，五秒内再点同一座城才营建——这座城成为帝国核心的默认首都、当即迁都，
 //     平面图上宫城地标随之移过来(见 PureMapPatch.Layout)。
@@ -119,6 +120,8 @@ public static class CityPlacementSystem
         // 主流文化照国家文化(与起名的文化不同时按它改名)
         CultureService.SetCityMainCulture(city, culture);
         CityPopulationSystem.TransferBackground(source, city, 0.1f);
+        // 落在没设县的县址里(神力建城点进去、无人区开发设县)：城名照预定县名(见 WildernessPlotSystem.OnFounded)
+        WildernessPlotSystem.OnFounded(city);
         return city;
     }
 
