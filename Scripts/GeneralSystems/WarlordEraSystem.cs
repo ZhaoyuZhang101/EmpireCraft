@@ -419,6 +419,7 @@ public static partial class WarlordEraSystem
                 RepairMisclassifiedModernProvisional(core);
                 return;
             }
+            EmpireCoreManager.DropRecordsHeldElsewhere(core);
             core.warlord_parent_core_id = -1L;
         }
         // 游戏高速运行时一年可能短于控制权缓存的现实五秒；年度结算必须读取即时状态。
@@ -730,7 +731,10 @@ public static partial class WarlordEraSystem
     {
         foreach (EmpireCore child in EmpireCoreManager.EmpireCores.Values
                      .Where(candidate => candidate?.warlord_parent_core_id > 0 && TianxiaSystem.Lead(candidate) == parent).ToList())
+        {
+            EmpireCoreManager.DropRecordsHeldElsewhere(child);
             child.warlord_parent_core_id = -1L;
+        }
     }
 
     // 军阀不是正常国家，只有各理念的代表政府(中央与其他理念的政府)和革命建立的政府才享有正常国家地位。

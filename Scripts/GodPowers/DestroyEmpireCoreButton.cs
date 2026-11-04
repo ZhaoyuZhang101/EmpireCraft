@@ -25,7 +25,7 @@ public static class DestroyEmpireCoreButton
             return false;
         }
 
-        if (!EmpireCoreManager.DestroyEmpireCore(core))
+        if (!EmpireCoreManager.DestroyEmpireCore(core, force: true))
         {
             ActionLibrary.showWhisperTip("empire_core_invalid_target");
             return false;

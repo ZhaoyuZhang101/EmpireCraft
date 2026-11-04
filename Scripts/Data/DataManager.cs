@@ -330,6 +330,7 @@ public static class DataManager
         {
             EmpireCoreManager.RepairContestedCoreOwners();
             EmpireCoreManager.RestoreAllParentCities();
+            EmpireCoreManager.RepairFrozenTitleRecords();
             EmpireCoreManager.RepairUntitledCoreCities();
             EmpireCoreManager.ReconcileCityCores();
         });

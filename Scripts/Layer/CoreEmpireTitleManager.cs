@@ -86,13 +86,16 @@ public static class EmpireCoreManager
             Empire intruder = core.empire_id > 0 ? ModClass.EMPIRE_MANAGER.get(core.empire_id) : null;
             if (intruder == null || intruder == central || intruder.isRekt() || intruder.IsArchived() ||
                 intruder.CoreKingdom == null) continue;
-            // 外来帝国另立核心：它实际控制的法理从原核心移过去
-            List<KingdomTitle> owned = intruder.CoreKingdom.GetControlledTitles()
-                .Where(title => title != null && !title.isRekt()).ToList();
-            foreach (KingdomTitle title in owned)
+            // 外来帝国另立核心：它实际控制的法理从原核心移过去；冻结法理时法理留在原核心，它只记无主的法理(见 TitlesForNewCore)
+            if (!ModClass.KINGDOM_TITLE_FREEZE)
             {
-                CultureService.PinTitleCultureIfFixed(title);
-                core.RemoveTitle(title);
+                List<KingdomTitle> owned = intruder.CoreKingdom.GetControlledTitles()
+                    .Where(title => title != null && !title.isRekt()).ToList();
+                foreach (KingdomTitle title in owned)
+                {
+                    CultureService.PinTitleCultureIfFixed(title);
+                    core.RemoveTitle(title);
+                }
             }
             intruder.data.empire_core_id = -1L;
             newEmpireCore(intruder);
@@ -107,6 +110,71 @@ public static class EmpireCoreManager
         return repaired;
     }
 
+    // 读档修复(只在冻结法理开着时)：以前新立核心不看冻结，同一法理记进两个正式帝国法理，城被后记的拿走，法理图层上法理首都被踢出原帝国法理。
+    // 保留先记的，后记的去掉，城改回去；城被军阀临时法理、伪法理拿走的也还给正式帝国法理(那两种的记录照旧留着，见 EnumerateOwnCities)
+    public static int RepairFrozenTitleRecords()
+    {
+        if (!ModClass.KINGDOM_TITLE_FREEZE || EmpireCores == null || World.world?.cities == null ||
+            ModClass.KINGDOM_TITLE_MANAGER == null) return 0;
+        var keeper = new Dictionary<long, EmpireCore>();
+        var keptAt = new Dictionary<long, double>();
+        foreach (EmpireCore core in EmpireCores.Values)
+        {
+            if (!IsFormalCore(core)) continue;
+            foreach (var record in core.titlesRecord)
+            {
+                if (keptAt.TryGetValue(record.titleId, out double at) && at <= record.time) continue;
+                keeper[record.titleId] = core;
+                keptAt[record.titleId] = record.time;
+            }
+        }
+        var lost = new HashSet<(long coreId, long titleId)>();
+        foreach (EmpireCore core in EmpireCores.Values)
+        {
+            if (!IsFormalCore(core)) continue;
+            foreach (KingdomTitle title in GetTitles(core))
+            {
+                if (keeper[title.id] == core) continue;
+                CultureService.PinTitleCultureIfFixed(title);
+                core.RemoveTitle(title);
+                lost.Add((core.id, title.id));
+            }
+        }
+        int moved = 0;
+        foreach (City city in World.world.cities.list)
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            KingdomTitle title = city.GetTitle();
+            if (title == null || !keeper.TryGetValue(title.id, out EmpireCore lawful)) continue;
+            EmpireCore current = city.GetEmpireCore();
+            if (current == null || current == lawful) continue;
+            if (IsFormalCore(current) && !lost.Contains((current.id, title.id))) continue;
+            city.SetEmpireCore(lawful);
+            moved++;
+        }
+        if (lost.Count > 0 || moved > 0)
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][法理] 冻结法理：去掉重复记录的法理 {lost.Count} 条，城改回原帝国法理 {moved} 座");
+        return lost.Count;
+    }
+
+    // 军阀临时法理转正(承认分治、原核心没了)之前：冻结法理时去掉已记在正式帝国法理里的法理，城还给那个帝国法理，
+    // 免得转正后同一法理记在两个正式帝国法理里
+    public static void DropRecordsHeldElsewhere(EmpireCore core)
+    {
+        if (!ModClass.KINGDOM_TITLE_FREEZE || core?.titlesRecord == null) return;
+        foreach (KingdomTitle title in GetTitles(core))
+        {
+            EmpireCore lawful = LawfulCoreOf(title);
+            if (lawful == null || lawful == core) continue;
+            core.RemoveTitle(title);
+            foreach (City city in title.getCities())
+                if (city != null && !city.isRekt() && city.GetEmpireCoreID() == core.id) city.SetEmpireCore(lawful);
+        }
+    }
+
+    private static bool IsFormalCore(EmpireCore core) =>
+        core?.titlesRecord != null && core.false_core_against_empire_id <= 0 && core.warlord_parent_core_id <= 0;
+
     public static void RestoreAllParentCities()
     {
         if (EmpireCores == null) return;
@@ -117,7 +185,8 @@ public static class EmpireCoreManager
     // coreName：新法理另起的名字(国号取自别的帝国法理时，见 RealmNamingSystem.FreshCoreName)；空 = 照国号
     public static EmpireCore newEmpireCore(Empire empire, string coreName = null)
     {
-        foreach (KingdomTitle title in empire.CoreKingdom.GetControlledTitles())
+        List<KingdomTitle> titles = TitlesForNewCore(empire.CoreKingdom.GetControlledTitles());
+        foreach (KingdomTitle title in titles)
             CultureService.PinTitleCultureIfFixed(title);
         var empireCore = new EmpireCore()
         {
@@ -127,7 +196,7 @@ public static class EmpireCoreManager
             default_culture = CultureService.GetRealmCulture(empire.CoreKingdom),
             name = NormalizeCoreName(string.IsNullOrWhiteSpace(coreName) ? empire.GetEmpireName() : coreName),
             create_timestamp = empire.data.created_time,
-            titlesRecord = empire.CoreKingdom.GetControlledTitles().Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
+            titlesRecord = titles.Select(t=>(World.world.getCurWorldTime(), t.id)).ToList(),
             empire_history_ids = new List<long>(),
             CoreCapital = empire.CoreKingdom.capital.id
         };
@@ -136,6 +205,14 @@ public static class EmpireCoreManager
         RegisterEmpireHistory(empireCore, empire.id);
         SyncCitiesFromTitles(empireCore, preserveOccupiedCore: true);
         return empireCore;
+    }
+
+    // 冻结法理(模组设置)：新立的帝国法理只记无主的法理。已记在别的帝国法理里的不另记一份——城只能记一个核心，
+    // 记了两份，城跟谁走看谁最后同步，原帝国法理空着时法理连同法理首都就被新核心拿走了
+    private static List<KingdomTitle> TitlesForNewCore(List<KingdomTitle> controlled)
+    {
+        if (!ModClass.KINGDOM_TITLE_FREEZE) return controlled;
+        return controlled.Where(title => !EmpireCores.Values.Any(core => ContainsTitle(core, title))).ToList();
     }
 
     public static EmpireCore Get(long id)
@@ -710,9 +787,18 @@ public static class EmpireCoreManager
         return changed;
     }
 
-    public static bool DestroyEmpireCore(EmpireCore core)
+    // force：玩家神力、旧档部落帝国的静默撤去。其余是政权更替时顺手销毁(军阀、法统之争、现代国家……)：
+    // 冻结法理时有法理的正式帝国法理留着，只解除绑定，空着等后来者；伪法理、军阀临时法理、没有法理的照旧销毁
+    public static bool DestroyEmpireCore(EmpireCore core, bool force = false)
     {
         if (core == null) return false;
+        if (!force && ModClass.KINGDOM_TITLE_FREEZE && IsFormalCore(core) && GetTitles(core).Count > 0)
+        {
+            foreach (var bound in ModClass.EMPIRE_MANAGER.ToList())
+                if (bound?.data?.empire_core_id == core.id) bound.data.empire_core_id = -1L;
+            core.empire_id = -1L;
+            return false;
+        }
         foreach (KingdomTitle title in GetTitles(core).ToList())
             CultureService.PinTitleCultureIfFixed(title);
         // 它作主的天下交给别的成员(见 TianxiaSystem.OnCoreDestroyed)

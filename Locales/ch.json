@@ -5352,7 +5352,7 @@
   "Title_Max_Cities_Text": "單個法理城市上限",
   "Feudal_Union_Realm_Limit_Text": "封建共主兼領上限",
   "Title_Freeze_Toggle": "凍結法理",
-  "Title_Freeze_Toggle Description": "法理不再被銷毀，帝國法理也不再自動吸收王國法理。",
+  "Title_Freeze_Toggle Description": "法理不再被銷毀，帝國法理也不再自動增減：新帝國接手空著的帝國法理，否則另立只記無主法理的帝國法理。",
   "Title_Been_Destroy_Text": "法理銷毀年限",
   "war_end_year_Text": "戰爭強制結束年限",
   "title_been_controlled_year": "法理被控制時長",

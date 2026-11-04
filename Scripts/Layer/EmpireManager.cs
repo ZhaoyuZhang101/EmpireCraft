@@ -290,7 +290,9 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         removeObject(pEmpire);
         // 伪核心只是僭称者自行制造的主张，不是可被后继国家继承的历史法理。
         if ((destroyFalseCore || destroyOwnCore) && EmpireCoreManager.Get(falseCore.id) == falseCore)
-            EmpireCoreManager.DestroyEmpireCore(falseCore);
+            EmpireCoreManager.DestroyEmpireCore(falseCore, force: destroyOwnCore);
+        // 冻结法理时另立的帝国法理常常是空的：帝国没了就不留空壳(有法理的留着等后来者)
+        if (ModClass.KINGDOM_TITLE_FREEZE) TribalFissionService.DropEmptyCore(falseCore);
     }
 
     // 帝国的科技采纳并进核心王国(本国没记过的整份交回；记过的补上已采纳的，采纳中的取进度大的)
@@ -453,21 +455,7 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         // 帝国法理按本国持有的法理登记：先把本国还没有法理的城收进主法理，免得帝国法理、天下只剩都城一块地
         KingdomTitle foundingTitle = pKingdom.GetMainTitle();
         if (foundingTitle != null) KingdomTitleManager.AddUntitledCities(foundingTitle, pKingdom);
-        // bindCore：称帝时指定绑哪个帝国法理(据有法理，见 RealmNamingSystem.PlanDominionBinding)
-        var riseCore = forceNewCore ? null : bindCore ?? EmpireCoreManager.GetRiseCandidateCore(pKingdom);
-        // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
-        // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
-        if (riseCore != null && (EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && !other.IsArchived()) ||
-                                 EmpireCoreManager.IsClaimedByContest(riseCore, empire)))
-            riseCore = null;
-        if (riseCore != null)
-        {
-            EmpireCoreManager.RebindEmpire(empire, riseCore);
-        }
-        else
-        {
-            EmpireCoreManager.newEmpireCore(empire, RealmNamingSystem.FreshCoreName(empire));
-        }
+        BindFoundingCore(empire, pKingdom, forceNewCore, bindCore, replacingEmpire);
         RealmNamingSystem.OnEmpireBound(empire, pKingdom);
         pKingdom.GetOrCreate().isEmpire = true;
         pKingdom.SetEmpireID(empire.id);
@@ -494,6 +482,28 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         }
         
         return empire;
+    }
+
+    // 空着的帝国法理接手(记录不动)，被别的现存帝国占着就另立(冻结法理时只记无主的法理，见 EmpireCoreManager.TitlesForNewCore)
+    // bindCore：称帝时指定绑哪个帝国法理(据有法理，见 RealmNamingSystem.PlanDominionBinding)
+    // replacing：同一帝国换了中央接续(前朝随即解散，见 Empire.ReplaceEmpire)。冻结法理时接着用前朝的帝国法理，否则新朝只剩空核心
+    private static void BindFoundingCore(Empire empire, Kingdom kingdom, bool forceNewCore, EmpireCore bindCore, Empire replacing)
+    {
+        Empire predecessor = ModClass.KINGDOM_TITLE_FREEZE ? replacing : null;
+        var riseCore = forceNewCore ? null : bindCore ?? EmpireCoreManager.Get(predecessor) ?? EmpireCoreManager.GetRiseCandidateCore(kingdom);
+        // 候选核心已归属别的现存帝国时不能抢过来(主法理在别国核心里的根本不能称帝，见 EmpireFormationService)；
+        // 此时只可能是都城/其他法理落在别国核心里，主法理本身没有核心，按规则新建核心
+        if (riseCore != null && (EmpireCoreManager.GetEmpires(riseCore).Any(other => other != empire && other != predecessor && !other.IsArchived()) ||
+                                 EmpireCoreManager.IsClaimedByContest(riseCore, predecessor ?? empire)))
+            riseCore = null;
+        if (riseCore != null)
+        {
+            EmpireCoreManager.RebindEmpire(empire, riseCore);
+        }
+        else
+        {
+            EmpireCoreManager.newEmpireCore(empire, RealmNamingSystem.FreshCoreName(empire));
+        }
     }
 
     // 都城刚失守、原版 AI 还没另选的(要等这一国下次 AI，见 KingdomBehCheckCapital)：按同样的规则当场选一座；一座城都没有就立不了

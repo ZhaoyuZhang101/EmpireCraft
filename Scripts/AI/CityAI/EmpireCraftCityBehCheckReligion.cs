@@ -50,7 +50,8 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
                 if (pCity.hasTitle())
                 {
                     var cTitle = pCity.GetTitle();
-                    if (cTitle.getCities().Count() == 1)
+                    // 冻结法理：城留在原法理。新立法理会把它搬出原法理、也就搬出了帝国法理，它若是法理首都，原法理连首都都换了
+                    if (ModClass.KINGDOM_TITLE_FREEZE || cTitle.getCities().Count() == 1)
                     {
                         return BehResult.Continue;
                     }

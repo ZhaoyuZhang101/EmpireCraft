@@ -1881,6 +1881,8 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     if (!kingdom.isAlive()) return false;
                     if (!kingdom.HasMainTitle()) return false;
+                    // 谋划半途开了冻结法理
+                    if (ModClass.KINGDOM_TITLE_FREEZE) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 

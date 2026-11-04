@@ -122,7 +122,9 @@ public static class ImperialLegitimacyChallengeService
         RealmNamingSystem.BeginChallengeFounding();
         try
         {
-            challenger = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom, allowCultureRival: true, forceNewCore: true);
+            // 冻结法理：不是和对手争同一个帝国法理的，按常规绑(空着的接手，占着才另立)，不把别的帝国法理里的法理另记一份
+            challenger = ModClass.EMPIRE_MANAGER.NewEmpire(kingdom, allowCultureRival: true,
+                forceNewCore: contestsIncumbentCore || !ModClass.KINGDOM_TITLE_FREEZE);
         }
         finally
         {
