@@ -278,6 +278,7 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         // 上面那次 ApplyLocale 之后读的文本要再应用一次，否则国名后缀显示成 ZhouFeudalism_hou 这样的键名
         LM.ApplyLocale();
         FactionManager.init();
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.init();
         EMPIRE_MANAGER = new EmpireManager();
         KINGDOM_TITLE_MANAGER = new KingdomTitleManager();
         string parentFolder = Directory.GetParent(_declare.FolderPath)?.FullName;

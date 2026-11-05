@@ -4,10 +4,12 @@ using System.IO;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -148,50 +150,70 @@ public static class EmpireLawSystem
     private const string AUTO_SCAN_KEY = "empire_law_auto_scan";
     private const string MERCENARY_OVERMIGHTY_KEY = "law_mercenary_overmighty";
 
+    // 自动犯罪(官员、城主、有爵者每年一查)的概率倍数。原设计每人每年约四成犯一条、两三成被查出，
+    // 几年内朝堂几乎人人罢官抄家；压到五分之一，一个官员一生大约被查办一两次(用户 2026-11-05 选"修 bug 并调低频率")
+    private const float AutoCrimeScale = 0.2f;
+
     public static Dictionary<LawType, Law> Laws { get; set; } = new Dictionary<LawType, Law>();
 
+    // 世界法则「执行律法」(默认开)：关了不再自动定罪量刑，揭发罪行也定不了罪
+    public static bool Enabled => EmpireCraftWorldLawLibrary.empirecraft_law_enforce_laws?.isEnabled() == true;
+
+    // 2026-04 起这里没人调用(律法表一直是空的，所有定罪都直接跳过)；11-05 恢复，读不进来也不拖垮模组初始化
     public static void init()
     {
-        LoadFromJson(Path.Combine(ModClass._declare.FolderPath, "Scripts", "GeneralSystems", "EmpireLaw", "EmpireLawConfig.json"));
+        string path = Path.Combine(ModClass._declare.FolderPath, "Scripts", "GeneralSystems", "EmpireLaw", "EmpireLawConfig.json");
+        try
+        {
+            if (!File.Exists(path))
+            {
+                Laws = new Dictionary<LawType, Law>();
+                LogService.LogWarning($"[律法] 没有找到 {path}，不执行律法");
+                return;
+            }
+            LoadFromJson(path);
+            LogService.LogInfo($"[律法] 读入 {Laws.Count} 条律法");
+        }
+        catch (Exception exception)
+        {
+            Laws = new Dictionary<LawType, Law>();
+            LogService.LogError($"[律法] 读取 EmpireLawConfig.json 失败，不执行律法：{exception}");
+        }
     }
 
+    // 逐条读：一条写错(罪名不在 LawType 里之类)只跳过这一条并记日志，不连累整份
     public static void LoadFromJson(string path)
     {
         string json = File.ReadAllText(path);
         JToken token = JToken.Parse(json);
-        List<Law> lawList = null;
-
-        if (token.Type == JTokenType.Array)
-        {
-            lawList = token.ToObject<List<Law>>();
-        }
-        else
-        {
-            EmpireLawConfig config = token.ToObject<EmpireLawConfig>();
-            lawList = config != null ? config.Laws : null;
-        }
+        JArray items = token.Type == JTokenType.Array ? (JArray)token : token["Laws"] as JArray;
 
         Laws = new Dictionary<LawType, Law>();
-        if (lawList == null)
-        {
-            lawList = new List<Law>();
-        }
+        if (items == null) return;
 
-        lawList.ForEach(delegate(Law l)
+        for (int i = 0; i < items.Count; i++)
         {
-            if (l != null && !Laws.ContainsKey(l.Type))
+            Law law;
+            try
             {
-                Laws.Add(l.Type, l);
+                law = items[i].ToObject<Law>();
             }
-        });
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[律法] 第 {i + 1} 条读不进来，跳过：{exception.Message}");
+                continue;
+            }
+            if (law != null && !Laws.ContainsKey(law.Type))
+            {
+                Laws.Add(law.Type, law);
+            }
+        }
     }
 
+    // 没配这条罪就是没有这条律法(以前取表里第一条，缺条时会错拿谋反的死刑、夷三族)
     public static Law GetConfig(this LawType type)
     {
-        Law law;
-        bool success = Laws.TryGetValue(type, out law);
-        if (!success) return Laws.FirstOrDefault().Value;
-        return law;
+        return Laws.TryGetValue(type, out Law law) ? law : null;
     }
 
     public static bool HasLaw(this Regimes.Regime regime, LawType type)
@@ -245,9 +267,10 @@ public static class EmpireLawSystem
         return TryEnforceLaw(actor, type, kingdom, extraPunishment, null);
     }
 
-    public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
-        Action<LawEnforcementContext> extraPunishment, string crimeDate)
+    // 能按这条律法论处时给出案情，不施刑(揭发罪行的计谋自己定罪还是开释，见 EmpireCraftPlotsAddition)
+    public static LawEnforcementContext PrepareEnforcement(Actor actor, LawType type, Kingdom kingdom, string crimeDate = null)
     {
+        if (!Enabled) return null;
         if (actor == null || actor.isRekt()) return null;
         if (kingdom == null)
         {
@@ -268,7 +291,7 @@ public static class EmpireLawSystem
             return null;
         }
 
-        LawEnforcementContext context = new LawEnforcementContext
+        return new LawEnforcementContext
         {
             Actor = actor,
             Kingdom = kingdom,
@@ -277,12 +300,32 @@ public static class EmpireLawSystem
             Law = law,
             CrimeDate = crimeDate
         };
+    }
+
+    // 致死的刑罚放最后(人死了后面的刑罚施不上)；有夷三族就不另施死刑(夷三族连本人一起)
+    private static List<PunishmentLevel> OrderedPunishments(List<PunishmentLevel> punishments)
+    {
+        var result = new List<PunishmentLevel>();
+        if (punishments == null) return result;
+        result.AddRange(punishments.Where(p => p != PunishmentLevel.死刑 && p != PunishmentLevel.夷三族).Distinct());
+        if (punishments.Contains(PunishmentLevel.夷三族)) result.Add(PunishmentLevel.夷三族);
+        else if (punishments.Contains(PunishmentLevel.死刑)) result.Add(PunishmentLevel.死刑);
+        return result;
+    }
+
+    public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
+        Action<LawEnforcementContext> extraPunishment, string crimeDate)
+    {
+        LawEnforcementContext context = PrepareEnforcement(actor, type, kingdom, crimeDate);
+        if (context == null) return null;
+        kingdom = context.Kingdom;
+        Law law = context.Law;
 
         City corruptionCity = actor.GetOffice()?.meta_object as City;
         if (corruptionCity == null && actor.isCityLeader()) corruptionCity = actor.city;
         bool corruptionAdministration = kingdom.king == actor || actor.GetOffice()?.meta_object == kingdom;
         int moneyBefore = actor.money;
-        foreach (PunishmentLevel punishment in law.Punishments ?? new List<PunishmentLevel>())
+        foreach (PunishmentLevel punishment in OrderedPunishments(law.Punishments))
         {
             if (ApplyPunishment(context, punishment))
             {
@@ -317,6 +360,7 @@ public static class EmpireLawSystem
 
     public static void CheckAutomaticLawTriggers(Actor actor)
     {
+        if (!Enabled) return;
         if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult()) return;
         if (!ShouldAutoCheckCrimeActor(actor)) return;
         if (!actor.hasKingdom()) return;
@@ -334,6 +378,7 @@ public static class EmpireLawSystem
 
     public static bool CheckAutomaticLawTriggersForCity(City city)
     {
+        if (!Enabled) return false;
         if (city == null || city.isRekt() || !city.hasKingdom()) return false;
 
         Kingdom kingdom = city.kingdom;
@@ -366,6 +411,7 @@ public static class EmpireLawSystem
 
     public static void CheckMercenaryOvermightyLaw(Kingdom kingdom)
     {
+        if (!Enabled) return;
         if (kingdom == null || kingdom.isRekt() || !kingdom.IsInEmpire()) return;
 
         Empire empire = kingdom.GetEmpire();
@@ -405,13 +451,13 @@ public static class EmpireLawSystem
         float abuseModifier = GetAuthorityCrimeModifier(actor);
         float negligenceModifier = GetNeglectCrimeModifier(actor);
 
-        if (TryTriggerProbabilisticLaw(actor, LawType.受贿, 0.03f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.买官, 0.02f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.卖官, 0.025f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.滥用职权, 0.03f + abuseModifier, ApplyOptionalPeerageRemoval)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.玩忽职守, 0.025f + negligenceModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.受贿, 0.03f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryAutoCrime(actor, LawType.买官, 0.02f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryAutoCrime(actor, LawType.卖官, 0.025f + corruptionModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryAutoCrime(actor, LawType.滥用职权, 0.03f + abuseModifier, ApplyOptionalPeerageRemoval)) return true;
+        if (TryAutoCrime(actor, LawType.玩忽职守, 0.025f + negligenceModifier, null)) return true;
 
-        return TryTriggerProbabilisticLaw(actor, LawType.谎报军功, 0.02f + GetMilitaryCrimeModifier(actor), null);
+        return TryAutoCrime(actor, LawType.谎报军功, 0.02f + GetMilitaryCrimeModifier(actor), null);
     }
 
     private static bool TryTriggerGeneralLaws(Actor actor, Kingdom kingdom)
@@ -423,26 +469,32 @@ public static class EmpireLawSystem
         float deceitModifier = GetDeceitCrimeModifier(actor);
         float disorderModifier = GetDisorderCrimeModifier(actor);
 
-        if (TryTriggerProbabilisticLaw(actor, LawType.杀人, 0.005f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.故意伤害, 0.015f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.绑架, 0.008f + violentModifier + deceitModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.陷害, 0.012f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.盗窃, 0.02f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.诈骗, 0.02f + deceitModifier + economicModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.偷税漏税, 0.02f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.走私, 0.015f + economicModifier + deceitModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.哄抬物价, 0.012f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.非法侵占土地, 0.01f + economicModifier + GetNobleCrimeModifier(actor), null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.隐瞒田亩, 0.015f + economicModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.逃避徭役, 0.02f + GetDutyEvasionModifier(actor), null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.违约, 0.015f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.欺诈交易, 0.018f + deceitModifier + economicModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.缺斤少两, 0.012f + deceitModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.非法持械, 0.01f + violentModifier, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.聚众斗殴, 0.02f + disorderModifier + violentModifier * 0.5f, null)) return true;
-        if (TryTriggerProbabilisticLaw(actor, LawType.扰乱集市, 0.015f + disorderModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.杀人, 0.005f + violentModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.故意伤害, 0.015f + violentModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.绑架, 0.008f + violentModifier + deceitModifier * 0.5f, null)) return true;
+        if (TryAutoCrime(actor, LawType.陷害, 0.012f + deceitModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.盗窃, 0.02f + economicModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.诈骗, 0.02f + deceitModifier + economicModifier * 0.5f, null)) return true;
+        if (TryAutoCrime(actor, LawType.偷税漏税, 0.02f + economicModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.走私, 0.015f + economicModifier + deceitModifier * 0.5f, null)) return true;
+        if (TryAutoCrime(actor, LawType.哄抬物价, 0.012f + economicModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.非法侵占土地, 0.01f + economicModifier + GetNobleCrimeModifier(actor), null)) return true;
+        if (TryAutoCrime(actor, LawType.隐瞒田亩, 0.015f + economicModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.逃避徭役, 0.02f + GetDutyEvasionModifier(actor), null)) return true;
+        if (TryAutoCrime(actor, LawType.违约, 0.015f + deceitModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.欺诈交易, 0.018f + deceitModifier + economicModifier * 0.5f, null)) return true;
+        if (TryAutoCrime(actor, LawType.缺斤少两, 0.012f + deceitModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.非法持械, 0.01f + violentModifier, null)) return true;
+        if (TryAutoCrime(actor, LawType.聚众斗殴, 0.02f + disorderModifier + violentModifier * 0.5f, null)) return true;
+        if (TryAutoCrime(actor, LawType.扰乱集市, 0.015f + disorderModifier, null)) return true;
 
-        return TryTriggerProbabilisticLaw(actor, LawType.散布恐慌谣言, 0.02f + deceitModifier + disorderModifier * 0.5f, null);
+        return TryAutoCrime(actor, LawType.散布恐慌谣言, 0.02f + deceitModifier + disorderModifier * 0.5f, null);
+    }
+
+    // 每年自动查的犯罪按 AutoCrimeScale 压低；计谋里点名的(概率 1)不压
+    private static bool TryAutoCrime(Actor actor, LawType lawType, float chance, Action<LawEnforcementContext> extraPunishment)
+    {
+        return TryTriggerProbabilisticLaw(actor, lawType, chance * AutoCrimeScale, extraPunishment);
     }
 
     public static bool TryTriggerProbabilisticLaw(this Actor actor, LawType lawType, float chance,
@@ -855,7 +907,7 @@ public static class EmpireLawSystem
             case PunishmentLevel.杖刑:
                 return ApplyCaning(context.Actor, 20);
             case PunishmentLevel.监禁:
-                return ApplyImprisonment(context.Actor);
+                return ApplyImprisonment(context);
             case PunishmentLevel.流放:
                 return ApplyExile(context);
             case PunishmentLevel.没收财产:
@@ -865,8 +917,9 @@ public static class EmpireLawSystem
             case PunishmentLevel.剥夺官职:
                 return ApplyStripOffice(context);
             case PunishmentLevel.死刑:
+                return ApplyDeathPenalty(context, false);
             case PunishmentLevel.夷三族:
-                return ApplyDeathPenalty(context.Actor);
+                return ApplyDeathPenalty(context, true);
             default:
                 return false;
         }
@@ -890,12 +943,17 @@ public static class EmpireLawSystem
         return true;
     }
 
-    private static bool ApplyImprisonment(Actor actor)
+    // 下狱：去官(不禁子孙出仕)。以前挂 death_mark、加死亡率，死亡率没有地方读，等于只挂个标记
+    private static bool ApplyImprisonment(LawEnforcementContext context)
     {
+        Actor actor = context?.Actor;
         if (actor == null || actor.isRekt()) return false;
-        actor.addTrait("death_mark");
-        actor.ChangeDeathRate(0.08f);
-        return true;
+        return ApplyStripOffice(new LawEnforcementContext
+        {
+            Actor = actor,
+            Kingdom = context.Kingdom,
+            Law = new Law()
+        });
     }
 
     private static bool ApplyExile(LawEnforcementContext context)
@@ -985,16 +1043,27 @@ public static class EmpireLawSystem
         return changed;
     }
 
-    private static bool ApplyDeathPenalty(Actor actor)
+    // 死刑只杀本人；夷三族连子女、配偶一起(以前死刑也连坐子女和配偶，和夷三族一样)。
+    // 以前只挂 death_mark、加死亡率，死亡率没有地方读；现在登记死因后当场处死(写进生平，见 BiographySystem.Kill)
+    private static bool ApplyDeathPenalty(LawEnforcementContext context, bool kin)
     {
-        if (actor == null || actor.isRekt()) return false;
-        actor.addTrait("death_mark");
-        foreach (var c in actor.getChildren())
+        Actor actor = context?.Actor;
+        if (actor == null || actor.isRekt() || !actor.isAlive()) return false;
+        Kingdom kingdom = context.Kingdom;
+        Actor judge = kingdom?.GetEmpire()?.Emperor ?? kingdom?.king;
+        if (judge == actor) judge = null;
+        string lawName = context.Law != null && !string.IsNullOrEmpty(context.Law.Name) ? context.Law.Name : context.LawType.ToString();
+        if (kin)
         {
-            c.addTrait("death_mark");
+            string kinCause = string.Format(LM.Get("death_cause_law_kin"), actor.getName());
+            var kinfolk = new List<Actor>();
+            foreach (Actor child in actor.getChildren() ?? Enumerable.Empty<Actor>())
+                if (child != null && !child.isRekt() && child.isAlive()) kinfolk.Add(child);
+            if (actor.lover != null && !actor.lover.isRekt() && actor.lover.isAlive()) kinfolk.Add(actor.lover);
+            foreach (Actor relative in kinfolk)
+                BiographySystem.Kill(relative, kinCause, judge, executed: true);
         }
-        actor.lover?.addTrait("death_mark");
-        actor.ChangeDeathRate(1f);
+        BiographySystem.Kill(actor, string.Format(LM.Get("death_cause_law_execution"), lawName), judge, executed: true);
         return true;
     }
 }
