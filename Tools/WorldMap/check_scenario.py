@@ -28,6 +28,7 @@ CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gon
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
+           "grant_title": ("a", "person", "name"), "rally": ("a", "b"),
            "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",)}
 STEP = {"kind", "a", "b", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
@@ -288,7 +289,7 @@ def main():
                     err("%s：culture=%s 不是文化键" % (at, s.get("culture")))
                 if kind == "cede" and not s.get("city") and not s.get("cities") and not s.get("person"):
                     err("%s：城和人至少写一样" % at)
-                if kind in ("dies", "heir"):
+                if kind in ("dies", "heir", "grant_title"):
                     for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
                         if name not in people:
                             err("%s：剧本人物里找不到 %s(简体姓+名连写)" % (at, name))

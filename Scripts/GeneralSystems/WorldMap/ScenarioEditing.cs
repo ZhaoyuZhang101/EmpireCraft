@@ -1783,7 +1783,7 @@ public static class ScenarioEditing
                     break;
                 case "city":
                     // 献城改投：人、城可只写一样
-                    if (City(step.city) == null && !(step.kind == "cede" && !string.IsNullOrWhiteSpace(step.person))) problems++;
+                    if (City(step.city) == null && step.kind != "heir" && !(step.kind == "cede" && !string.IsNullOrWhiteSpace(step.person))) problems++;
                     break;
                 case "region":
                     if (Region(step.region) == null) problems++;
@@ -1988,7 +1988,12 @@ public static class ScenarioEditing
             "cede" => new List<string> { "a", "b", "city", "person" },
             // 身故只看人(国亡了人照样该死)
             "dies" => new List<string> { "person" },
-            "heir" => new List<string> { "a", "person" },
+            // 立储：城可不写(接到都城)；写了是候补，人到那座城候着
+            "heir" => new List<string> { "a", "person", "city" },
+            // 封官授爵：哪国、封谁、爵位(写全称，如某某王)
+            "grant_title" => new List<string> { "a", "person", "name" },
+            // 号召归附：入侵者、受投奔的朝廷
+            "rally" => new List<string> { "a", "b" },
             // 八旗多元制：建满城、跑马圈地点名一座城(文件里可用 cities 写多座)；逃人法只要国
             "banner_city" or "banner_enclosure" => new List<string> { "a", "city" },
             _ => new List<string> { "a" }

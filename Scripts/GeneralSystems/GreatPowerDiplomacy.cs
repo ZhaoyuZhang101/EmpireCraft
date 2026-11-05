@@ -87,7 +87,7 @@ public static class GreatPowerDiplomacy
     private static void Consider(Empire a, Empire b)
     {
         Kingdom ca = a.CoreKingdom, cb = b.CoreKingdom;
-        if (Active(a, b) || SameCivilization(ca, cb) || ca.isInWarWith(cb)) return;
+        if (Active(a, b) || SameCivilization(ca, cb) || ca.isInWarWith(cb) || BarredByConquest(ca, cb)) return;
         float opinion = World.world.diplomacy?.getOpinion(ca, cb)?.total ?? 0f;
         if (opinion < MinOpinion) return;
         bool common = ca.getEnemiesKingdoms().Intersect(cb.getEnemiesKingdoms()).Any();
@@ -102,6 +102,13 @@ public static class GreatPowerDiplomacy
         b.RecordHistory(directContent: text, kingdomId: cb.id);
         TranslateHelper.LogEventMessage(text, ca);
     }
+
+    // 八旗政权要入主中原：不与华夏各朝通好(一纸三十年互不侵犯，入关就打不下去了)
+    private static bool BarredByConquest(Kingdom a, Kingdom b) =>
+        BannerSystem.Practices(a) && IsHuaxia(b) || BannerSystem.Practices(b) && IsHuaxia(a);
+
+    private static bool IsHuaxia(Kingdom kingdom) =>
+        InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";
 
     private static string Title(Kingdom core)
     {

@@ -42,4 +42,54 @@ public static class ScenarioPlotRules
 
     public static bool Protected(IReadOnlyDictionary<long, int> until, long id, int years) =>
         until.TryGetValue(id, out int year) && years < year;
+
+    public const string AlreadyAtWar = "diplomacy_reason_at_war";
+
+    // 外交结果没做成：停战未满、关系不对这类过一阵可能就成了，每年再试，试到预定年份过后 GraceYears 年。
+    // 以前没做成也记成触发过，一件事只有一次机会(清军入关没开成，后面入关的事全断了)。已经在打的不算失败
+    public static bool Retriable(string stepKind, string failed) =>
+        stepKind == "relation" && failed != null && failed != AlreadyAtWar &&
+        failed.StartsWith("diplomacy_reason_", StringComparison.Ordinal);
+
+    // 继承名单：没写城的立为储君，排最前；写了城的是候补，排最后；同一人只留一处
+    public static void AddHeir(List<long> heirs, long id, bool reserve)
+    {
+        heirs.Remove(id);
+        if (reserve) heirs.Add(id);
+        else heirs.Insert(0, id);
+    }
+
+    // 名单里头一位还能继位的；排在他前面不行的(死了、被俘、已经即位)划掉。没有人返回 -1
+    public static long NextHeir(List<long> heirs, Func<long, bool> valid)
+    {
+        while (heirs.Count > 0)
+        {
+            if (valid(heirs[0])) return heirs[0];
+            heirs.RemoveAt(0);
+        }
+        return -1L;
+    }
+
+    public const float RallyMinPressure = 0.05f, RallyBase = 0.6f, RallyNearby = 1.5f, RallyAtWar = 1.5f, RallyMaxChance = 0.5f;
+
+    // 归附的机会(一家一年)：入侵者占的同族之城越多(pressure，0~1)越容易；挨着入侵者、正和入侵者打仗的各再加一半。没什么压力时没人来投
+    public static float RallyChance(float pressure, bool bordersConqueror, bool atWarWithConqueror)
+    {
+        if (pressure < RallyMinPressure) return 0f;
+        float chance = pressure * RallyBase;
+        if (bordersConqueror) chance *= RallyNearby;
+        if (atWarWithConqueror) chance *= RallyAtWar;
+        return Math.Min(chance, RallyMaxChance);
+    }
+
+    public enum RebelFate { Stay, Wait, Return, Execute }
+
+    // 起兵的领头人落到朝廷手里：城破时城里的人连君主都归破城的一方(原版)，以前张献忠就这样成了明臣，当上辅政大臣又篡了位。
+    // 本国还在就逃回去，本国暂时没有都城先等着，本国亡了就伏诛；人不在朝廷这边(投了别家、还在本国)不管
+    public static RebelFate FateOfRebelLeader(bool inRebelRealm, bool withOrigin, bool rebelAlive, bool rebelHasCapital)
+    {
+        if (inRebelRealm || !withOrigin) return RebelFate.Stay;
+        if (!rebelAlive) return RebelFate.Execute;
+        return rebelHasCapital ? RebelFate.Return : RebelFate.Wait;
+    }
 }

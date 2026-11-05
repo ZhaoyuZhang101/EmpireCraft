@@ -483,6 +483,9 @@ public static class WarGoalSystem
         }
     }
 
+    // 剧本点名的仗这么多年内不因欠饷收场：后面的事件还等着这场仗(清明之战开局半年就"各守旧土"，松锦之战就没了)，欠饷只逃散减员
+    private const float ScriptedWarYears = 10f;
+
     // 发不出军饷的一方求和(见 CorpsSystem.SueForPeace)：攻方罢兵(判和，按双方所得结算，占不到便宜的反赔)；
     // 守方只要条件不过分就认输(按攻方的开战目标结算)。叛乱、独立、争位这类有自己收场的仗、全面战争不在此列
     public static bool TrySueForPeace(War war, Kingdom broke)
@@ -493,6 +496,7 @@ public static class WarGoalSystem
         if (attacker?.data == null || defender?.data == null || attacker == defender) return false;
         // 开国雄主、天下统一的仗：欠饷只逃散减员，不罢兵(以前开战当月军饷掏空国库，三个月后攻方就"各守旧土")
         if (broke == attacker && RulerTraitSystem.IsFounderUnificationWar(war)) return false;
+        if (war.GetOrCreate().scripted_war && WarSituation.WarYears(war) < ScriptedWarYears) return false;
         if (broke == attacker)
         {
             World.world.wars.endWar(war, WarWinner.Peace);

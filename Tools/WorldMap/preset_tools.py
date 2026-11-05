@@ -51,13 +51,16 @@ def rel_step(a, b, kind, goal=None, value=None):
     return item
 
 
-def event(name, text, after, when, then):
-    return {"name": name, "text": text, "after": after, "when": when, "then": then}
+def event(name, text, after, when, then, repeat=False):
+    item = {"name": name, "text": text, "after": after, "when": when, "then": then}
+    if repeat:
+        item["repeat"] = True
+    return item
 
 
-def death(name, text, after, realm, people, cause):
+def death(name, text, after, realm, people, cause, when=None):
     """人物按史实身故：不看别的条件，到年份就走；点名的人早没了文字也不上屏幕。name 是日志名，text、cause 是 (简体, 英文)。"""
-    return event(name, T(*text), after, [], [{"kind": "dies", "a": realm, "person": people, "name": T(*cause)}])
+    return event(name, T(*text), after, when or [], [{"kind": "dies", "a": realm, "person": people, "name": T(*cause)}])
 
 
 def load_era(root, era_id):

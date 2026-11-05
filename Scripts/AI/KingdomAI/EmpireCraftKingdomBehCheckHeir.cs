@@ -104,6 +104,10 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         PersonalClanIdentity predecessor = null)
     {
         if (kingdom?.data == null) return (null, "");
+        // 剧本点名的继承名单优先：先帝后来添的皇子、强者继承都不顶替
+        Actor scripted = ScriptedHeir(kingdom);
+        if (scripted != null)
+            return (scripted, LM.Get("designated_heir_relation").ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
         PersonalClanIdentity parent = predecessor ?? PredecessorOf(kingdom);
         if (parent == null) return (null, "");
         // 真正交接时不能受十秒修复间隔影响而漏掉异地子女、误选旁系。
@@ -201,6 +205,20 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         person._specificClan != null && (person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female);
 
     // 钦定的储君：在世、可继位、仍是先君子嗣(新君即位后自然失效)
+    // 剧本继承名单里头一位还在本国(帝国连同成员)、还能继位的；死了、被俘、已经即位的划掉
+    private static Actor ScriptedHeir(Kingdom kingdom)
+    {
+        List<long> heirs = kingdom.GetOrCreate().scripted_heirs;
+        if (heirs == null || heirs.Count == 0) return null;
+        long id = EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioPlotRules.NextHeir(heirs, candidate =>
+        {
+            Actor actor = World.world.units.get(candidate);
+            return actor != kingdom.king && IsFitCandidate(actor, null) && !ForeignRuler(kingdom, actor) &&
+                   (actor.kingdom == kingdom || kingdom.IsEmpire() && actor.kingdom?.GetEmpire() == kingdom.GetEmpire());
+        });
+        return id < 0L ? null : World.world.units.get(id);
+    }
+
     private static Actor DesignatedHeir(Kingdom kingdom, PersonalClanIdentity parent)
     {
         var data = kingdom.GetOrCreate();

@@ -21,6 +21,8 @@ public static class WarExtension
     public class WarExtraData: ExtraDataBase
     {
         public EmpireWarType empireWarType = EmpireWarType.None;
+        // 剧本点名的仗(开局外交、剧情事件)：头几年不因欠饷收场(见 WarGoalSystem.TrySueForPeace)
+        public bool scripted_war;
         // 开战目标与开战时守方的都城(见 WarGoalSystem)
         public WarGoal war_goal = WarGoal.None;
         public long war_goal_capital_id = -1L;

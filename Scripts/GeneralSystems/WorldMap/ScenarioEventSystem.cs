@@ -27,6 +27,27 @@ public sealed class ScenarioEventSave
     public List<int> fired = new();
     // 开局不任官、等事件起事的人(famous 的 post 写 none，见 Reserved)
     public List<long> reserved = new();
+    // 没做成、每年再试的结果：事件序号 → 第几条(见 ScenarioPlotRules.Retriable)
+    public Dictionary<int, List<int>> retry = new();
+    // 起兵的领头人(见 WatchRebelLeaders)
+    public List<ScenarioRebelLeader> rebel_leaders = new();
+    // 号召归附(见 Rally)
+    public ScenarioRally rally;
+}
+
+// 号召归附：入侵者、受投奔的朝廷(都是国家编号)
+public sealed class ScenarioRally
+{
+    public long conqueror;
+    public long court;
+}
+
+// 起兵的领头人：人、他立的国、他反的国(都是编号)
+public sealed class ScenarioRebelLeader
+{
+    public long actor;
+    public long rebel;
+    public long origin;
 }
 
 // 剧情事件(剧本编辑器第四期，见 Docs/plan-scenario-editor.md；用户 10-30 "剧情事件：要，选项拼搭")：
@@ -41,7 +62,7 @@ public sealed class ScenarioEventSave
 public static class ScenarioEventSystem
 {
     public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above" };
-    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir",
+    public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir", "grant_title", "rally",
         "banner_city", "banner_enclosure", "banner_law" };
 
     private static ScenarioEventSave _state;
@@ -81,6 +102,8 @@ public static class ScenarioEventSystem
         saved.people ??= new Dictionary<string, long>();
         saved.fired ??= new List<int>();
         saved.reserved ??= new List<long>();
+        saved.retry ??= new Dictionary<int, List<int>>();
+        saved.rebel_leaders ??= new List<ScenarioRebelLeader>();
         _state = saved;
         RebuildPlot();
     }
@@ -152,6 +175,7 @@ public static class ScenarioEventSystem
     public static void Tick()
     {
         if (!Active || World.world == null) return;
+        WatchRebelLeaders();
         double now = World.world.getCurWorldTime();
         if (_state.last_check >= 0d && now >= _state.last_check && Date.getYearsSince(_state.last_check) < 1) return;
         _state.last_check = now;
@@ -159,18 +183,39 @@ public static class ScenarioEventSystem
         for (int i = 0; i < _state.events.Count; i++)
         {
             WorldMapEvent item = _state.events[i];
-            if (item == null || years < item.after || !item.repeat && _state.fired.Contains(i)) continue;
+            if (item == null || years < item.after) continue;
+            bool fired = _state.fired.Contains(i);
+            List<int> pending = null;
+            if (fired && !item.repeat)
+            {
+                if (!_state.retry.TryGetValue(i, out pending)) continue;
+                if (years - item.after > ScenarioPlotRules.GraceYears)
+                {
+                    _state.retry.Remove(i);
+                    continue;
+                }
+            }
             try
             {
                 if (!(item.when ?? new List<WorldMapEventStep>()).All(Holds)) continue;
-                Fire(item);
-                if (!_state.fired.Contains(i)) _state.fired.Add(i);
+                List<int> failed = Fire(item, pending);
+                if (!item.repeat && failed.Count > 0) _state.retry[i] = failed;
+                else _state.retry.Remove(i);
+                if (!fired) _state.fired.Add(i);
                 RebuildPlot();
             }
             catch (Exception exception)
             {
                 LogService.LogWarning($"[EmpireCraft][剧情事件] {item.name} 出错: {exception.Message}");
             }
+        }
+        try
+        {
+            Rally();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][剧情事件] 号召归附出错: {exception.Message}");
         }
     }
 
@@ -263,20 +308,29 @@ public static class ScenarioEventSystem
 
     #region 结果
 
-    private static void Fire(WorldMapEvent item)
+    // only：只做这几条(重试)，空为全做。返回没做成、下一年再试的是第几条
+    private static List<int> Fire(WorldMapEvent item, List<int> only = null)
     {
         var done = new List<string>();
+        var again = new List<int>();
         Kingdom first = null;
-        foreach (WorldMapEventStep step in item.then ?? new List<WorldMapEventStep>())
+        List<WorldMapEventStep> steps = item.then ?? new List<WorldMapEventStep>();
+        for (int index = 0; index < steps.Count; index++)
         {
+            if (only != null && !only.Contains(index)) continue;
+            WorldMapEventStep step = steps[index];
             Kingdom a = Realm(step.a);
             first ??= a;
             string failed = Apply(step, a);
-            if (failed != null) LogService.LogInfo($"[EmpireCraft][剧情事件] {item.name}：{step.kind} 没做成({failed})");
-            else done.Add(step.kind);
+            if (failed == null) done.Add(step.kind);
+            else if (failed != ScenarioPlotRules.AlreadyAtWar)
+            {
+                LogService.LogInfo($"[EmpireCraft][剧情事件] {item.name}：{step.kind} 没做成({failed})");
+                if (ScenarioPlotRules.Retriable(step.kind, failed)) again.Add(index);
+            }
         }
         // 一条结果都没做成的(点名的人早死了、城早丢了)不上屏幕，免得史书写了没发生的事
-        bool happened = done.Count > 0 || (item.then?.Count ?? 0) == 0;
+        bool happened = done.Count > 0 || only == null && steps.Count == 0;
         string text = Text(string.IsNullOrWhiteSpace(item.text) ? item.name : item.text);
         if (happened && !string.IsNullOrWhiteSpace(text))
         {
@@ -285,6 +339,7 @@ public static class ScenarioEventSystem
             else WorldTip.showNow(line, false, "top", 5f);
         }
         LogService.LogInfo($"[EmpireCraft][剧情事件] 触发 {item.name}：{string.Join("、", done)}");
+        return again;
     }
 
     // 做一条结果；做不了返回原因
@@ -357,15 +412,42 @@ public static class ScenarioEventSystem
                 if (!BannerSystem.Practices(a)) return "不是八旗多元制";
                 BannerSystem.EnactFugitiveLaw(a);
                 return null;
+            case "grant_title":
+            {
+                // 封官授爵：王号照写的(平西王)，存在族谱上(见 PrinceLineage.NoteGrant)，不占法理；人留在原任
+                Empire empire = a.GetEmpire();
+                if (empire == null) return "不是帝国";
+                Actor person = People(step.person).FirstOrDefault(actor => actor.kingdom == a || actor.kingdom?.GetEmpire() == empire);
+                if (person == null) return "人不在本国";
+                string title = Text(step.name);
+                if (string.IsNullOrWhiteSpace(title)) return "没写爵位";
+                person.SetPeeragesLevel(PeeragesLevel.peerages_2);
+                TranslateHelper.LogPeerageGranted(person, empire, title);
+                return null;
+            }
+            case "rally":
+            {
+                Kingdom court = Realm(step.b);
+                if (court == null) return "对方不在";
+                _state.rally = new ScenarioRally { conqueror = a.data.id, court = court.data.id };
+                return null;
+            }
             case "heir":
             {
                 // 立储：写在君主身故之前就是"立某人为君"(南京另立、海陵弑君)；人接到都城来，
-                // 城一易手城里的人全归新国(原版 forceUnitsIntoThisKingdom)，留在陷落的京城就成了别国的人
+                // 城一易手城里的人全归新国(原版 forceUnitsIntoThisKingdom)，留在陷落的京城就成了别国的人。
+                // 写了城的是候补：人到那座城候着，排在继承名单最后(唐王在福州、桂王在广州，南京陷落不被一锅端)。
+                // 名单优先于继承法(见 EmpireCraftKingdomBehCheckHeir.ScriptedHeir)：以前只记储君，君主一死按继承法重排，
+                // 崇祯开局后添的皇子顶替了福王，南明没立起来
                 Actor heir = People(step.person).FirstOrDefault(actor => actor.kingdom == a || a.IsEmpire() && actor.kingdom?.GetEmpire() == a.GetEmpire());
                 if (heir == null) return "人不在本国";
+                City post = CityOf(step.city);
+                bool reserve = post != null && Holds(a, post);
                 if (heir.kingdom != a) heir.joinKingdom(a);
-                if (a.capital != null && heir.city != a.capital) heir.joinCity(a.capital);
-                a.SetHeir(heir);
+                City stay = reserve ? post : a.capital;
+                if (stay != null && heir.city != stay) heir.joinCity(stay);
+                ScenarioPlotRules.AddHeir(a.GetOrCreate().scripted_heirs ??= new List<long>(), heir.getID(), reserve);
+                if (!reserve) a.SetHeir(heir);
                 return null;
             }
         }
@@ -471,12 +553,127 @@ public static class ScenarioEventSystem
                 : string.Format(LM.Get("faction_rebellion_war_name"), leader.getName());
         }
         if (!string.IsNullOrEmpty(step.b)) _state.realms[step.b] = rebel.data.id;
+        _state.rebel_leaders.Add(new ScenarioRebelLeader { actor = leader.getID(), rebel = rebel.data.id, origin = target.data.id });
         string targetName = empire?.GetEmpireName() ?? target.GetKingdomName();
         string text = string.Format(LM.Get("scenario_rebel_history"), leader.getName(), seat.GetCityName(), rebel.GetKingdomName(), targetName);
         if (empire != null) EventRecorder.Record(empire, text, leader, rebel);
         else EventRecorder.Record(target, text, leader);
         BiographySystem.Note(leader, string.Format(LM.Get("scenario_rebel_bio"), seat.GetCityName(), rebel.GetKingdomName(), targetName), target.king);
         return null;
+    }
+
+    // 号召归附：入侵者兵锋越盛，同族的独立势力越容易奉表归附朝廷(明清鼎革：清军越逼越紧，各路势力越肯投南明)。
+    // 每年结算，一年至多 RallyMaxPerYear 家；压力见 ConquestPressure，机会见 ScenarioPlotRules.RallyChance
+    private const int RallyMaxPerYear = 2;
+
+    private static void Rally()
+    {
+        if (_state.rally == null) return;
+        Kingdom conqueror = World.world.kingdoms.get(_state.rally.conqueror), court = World.world.kingdoms.get(_state.rally.court);
+        if (conqueror?.data == null || conqueror.isRekt() || court?.data == null || court.isRekt())
+        {
+            _state.rally = null;
+            return;
+        }
+        Empire target = court.GetEmpire();
+        if (target == null || target.isRekt() || target.IsArchived() || target.CoreKingdom != court) return;
+        string culture = CultureService.GetRealmCulture(court);
+        float pressure = ConquestPressure(conqueror, culture);
+        if (pressure < ScenarioPlotRules.RallyMinPressure) return;
+        int joined = 0;
+        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+        {
+            if (joined >= RallyMaxPerYear) break;
+            if (!RallyCandidate(kingdom, conqueror, court, target, culture)) continue;
+            float chance = ScenarioPlotRules.RallyChance(pressure, WarReach.Reachable(conqueror, kingdom), kingdom.isInWarWith(conqueror));
+            if (UnityEngine.Random.value >= chance) continue;
+            if (Submit(kingdom, conqueror, court, target, pressure)) joined++;
+        }
+    }
+
+    // 压力：同族的城里入侵者(帝国连同成员)占了几成
+    private static float ConquestPressure(Kingdom conqueror, string culture)
+    {
+        int total = 0, held = 0;
+        foreach (City city in World.world.cities.list)
+        {
+            if (city?.data == null || city.isRekt() || !CultureService.SameKin(CultureService.GetMainCulture(city, initialize: false), culture)) continue;
+            total++;
+            if (Holds(conqueror, city)) held++;
+        }
+        return total == 0 ? 0f : (float)held / total;
+    }
+
+    // 独立势力：同族、自己做主(不是帝国的成员、附庸、殖民地)、够得着朝廷、国力比朝廷小；称了帝的也算(大顺、大西去帝号来投)
+    private static bool RallyCandidate(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, string culture)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv() || !kingdom.hasKing() || (kingdom.cities?.Count ?? 0) == 0 ||
+            kingdom == court || kingdom == conqueror) return false;
+        Empire own = kingdom.GetEmpire();
+        if (own != null && (own.CoreKingdom != kingdom || own == target || own == conqueror.GetEmpire())) return false;
+        if (FeudalVassalService.GetOverlord(kingdom) != null || ColonySystem.IsColony(kingdom) || TransmigrantSystem.IsTransmigrant(kingdom)) return false;
+        if (!CultureService.SameKin(CultureService.GetRealmCulture(kingdom), culture) || MembershipCooldown.BlocksJoin(kingdom, target)) return false;
+        return WarSituation.Power(kingdom) < WarSituation.Power(court) && WarReach.Reachable(court, kingdom);
+    }
+
+    private static bool Submit(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, float pressure)
+    {
+        // 和朝廷打着的先罢兵；称了帝的先去帝号，手下的成员各自散去
+        foreach (Kingdom member in target.kingdoms_list.ToList())
+            if (member?.data != null && !member.isRekt()) DiplomacyActions.EndWars(member, kingdom);
+        Empire own = kingdom.GetEmpire();
+        if (own != null) ModClass.EMPIRE_MANAGER.dissolveEmpire(own);
+        // 反过朝廷的也算：大敌当前，既往不咎
+        target.join(kingdom, true, pForce: true, pLegitimacyTransfer: true);
+        if (kingdom.GetEmpire() != target) return false;
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        string text = string.Format(LM.Get("scenario_rally_history"), kingdom.GetKingdomName(), conqueror.GetKingdomName(), target.GetEmpireName());
+        EventRecorder.Record(target, text, kingdom.king, kingdom);
+        TranslateHelper.LogEventMessage(text, kingdom);
+        LogService.LogInfo($"[EmpireCraft][剧情事件] 号召归附：压力 {pressure:P0}，{kingdom.GetKingdomName()} 归附 {target.GetEmpireName()}");
+        return true;
+    }
+
+    // 起兵的领头人落到朝廷手里怎么办(见 ScenarioPlotRules.FateOfRebelLeader)；名单就几个人，每帧看也花不了什么
+    private static void WatchRebelLeaders()
+    {
+        List<ScenarioRebelLeader> leaders = _state.rebel_leaders;
+        for (int i = leaders.Count - 1; i >= 0; i--)
+        {
+            ScenarioRebelLeader entry = leaders[i];
+            Actor leader = World.world.units.get(entry.actor);
+            if (leader?.data == null || leader.isRekt() || !leader.isAlive())
+            {
+                leaders.RemoveAt(i);
+                continue;
+            }
+            Kingdom rebel = World.world.kingdoms.get(entry.rebel), origin = World.world.kingdoms.get(entry.origin);
+            bool rebelAlive = rebel?.data != null && !rebel.isRekt();
+            bool withOrigin = origin?.data != null && !origin.isRekt() && leader.kingdom != null &&
+                              (leader.kingdom == origin || origin.GetEmpire() != null && leader.kingdom.GetEmpire() == origin.GetEmpire());
+            switch (ScenarioPlotRules.FateOfRebelLeader(rebelAlive && leader.kingdom == rebel, withOrigin, rebelAlive, rebelAlive && rebel.capital != null))
+            {
+                case ScenarioPlotRules.RebelFate.Return:
+                    Leave(leader);
+                    leader.joinKingdom(rebel);
+                    leader.joinCity(rebel.capital);
+                    if (!rebel.hasKing()) rebel.setKing(leader);
+                    LogService.LogInfo($"[EmpireCraft][剧情事件] {leader.getName()} 城破后逃回 {rebel.GetKingdomName()}");
+                    break;
+                case ScenarioPlotRules.RebelFate.Execute:
+                    _scriptedDeath = true;
+                    try
+                    {
+                        BiographySystem.Kill(leader, LM.Get("scenario_rebel_executed"));
+                    }
+                    finally
+                    {
+                        _scriptedDeath = false;
+                    }
+                    leaders.RemoveAt(i);
+                    break;
+            }
+        }
     }
 
     // 点名的人没了，由城主代领：华夏不立女主

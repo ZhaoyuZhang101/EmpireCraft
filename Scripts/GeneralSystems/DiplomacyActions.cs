@@ -57,6 +57,7 @@ public static class DiplomacyActions
                     War war = World.world.diplomacy.startWar(a, b, WarTypeLibrary.normal);
                     if (war == null) return "diplomacy_reason_failed";
                     WarGoalSystem.Preset(war, goal);
+                    if (_applyingScenario) war.GetOrCreate().scripted_war = true;
                     return null;
                 }),
                 Make("diplomacy_act_peace", (a, b) => a.isInWarWith(b) ? null : "diplomacy_reason_not_at_war", (a, b, _) =>
@@ -291,7 +292,7 @@ public static class DiplomacyActions
         return WarGate.Forbidden(a, b) ? "diplomacy_reason_forbidden" : null;
     }
 
-    private static void EndWars(Kingdom a, Kingdom b)
+    internal static void EndWars(Kingdom a, Kingdom b)
     {
         foreach (War war in World.world.wars.list.Where(war => war != null && !war.hasEnded() && war.isInWarWith(a, b)).ToList())
             World.world.wars.endWar(war, WarWinner.Peace);
@@ -360,6 +361,7 @@ public static class DiplomacyActions
         Action action = Groups.SelectMany(group => group.actions).FirstOrDefault(item => item.key == key);
         if (action == null) return "diplomacy_reason_invalid";
         _applyingScenario = true;
+        WarReach.ScenarioDeclaring = true;
         try
         {
             return Do(action, a, b, goal);
@@ -367,6 +369,7 @@ public static class DiplomacyActions
         finally
         {
             _applyingScenario = false;
+            WarReach.ScenarioDeclaring = false;
         }
     }
 

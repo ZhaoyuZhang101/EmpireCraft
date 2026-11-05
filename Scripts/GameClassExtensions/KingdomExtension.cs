@@ -318,6 +318,8 @@ public static class KingdomExtension
         public int fleet_serial;
         // 钦定储君(见册立储君)：仍在世、可继位、还是先君子嗣时越过继承法次序
         public long designated_heir_id = -1L;
+        // 剧本点名的继承名单(见 ScenarioEventSystem 的 heir)：优先于继承法，头一位还能继位的就是储君
+        public List<long> scripted_heirs;
         // 天下朝贡(见 TianxiaSystem.Tribute)：仰慕哪个天下的共主而来朝(主核心编号)；-1 = 不是
         public long tianxia_tributary_lead = -1L;
         // 下一位君主怎么继的位(废立、兵变、争位，见 PrinceStruggleSystem.Note)：新君即位时写进纪年

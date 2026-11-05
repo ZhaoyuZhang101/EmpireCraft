@@ -2,7 +2,7 @@
 
 版图照通行的 1638 年明朝全图：清有辽东、白山黑水、漠南(皇太极 1636 称帝、1637 降朝鲜)，明守关宁一线；
 卫拉特分准噶尔一带的厄鲁特与青海的和硕特(固始汗 1637 据青海)，叶尔羌在塔里木，藏巴汗据卫藏，索伦在黑龙江上游。
-事件走到甲申之变与清军入关；1644 之后交给 AI，不再按年写死。
+事件走到甲申之变、清军入关与南明三帝：南明君臣的结局看城丢没丢，不按年写死，清军没到就不会死；别的 1644 之后交给 AI。
 
 新城 from 写 1629：锦州、宁远、山海关实际早有，只是临高剧本(1628)没带这几座城，开局版图和存档都不动它；
 要给临高也加，把 from 改成真实年份，再把它们点名给明(不然辽东两城会归后金)。
@@ -249,10 +249,13 @@ def jia_shen():
         "甲申之变", T("北京陷落，皇帝自缢，南京诸臣另立新君", "Beijing falls and the emperor hangs himself; at Nanjing the court raises a new sovereign"), 6,
         [{"kind": "alive", "a": "shun"}, {"kind": "holds_city", "a": "ming", "city": "beijing"}],
         [{"kind": "move_capital", "a": "ming", "city": "nanjing"},
+         {"kind": "heir", "a": "ming", "person": "朱聿键", "city": "fuzhou"},
+         {"kind": "heir", "a": "ming", "person": "朱由榔", "city": "guangzhou"},
          {"kind": "heir", "a": "ming", "person": "朱由崧"},
          {"kind": "dies", "a": "ming", "person": "朱慈烺、朱慈炯、朱慈炤、周氏、田秀英、袁氏", "name": T("城破时殁于宫中", "lost in the palace when the capital fell")},
          {"kind": "dies", "a": "ming", "person": "朱由检", "name": T("城破自缢", "hanged himself as the capital fell")},
-         {"kind": "cede", "a": "ming", "b": "shun", "city": "beijing", "cities": ["zhuozhou", "taiyuan", "datong", "changzhi", "linfen", "anyi"]}])
+         {"kind": "cede", "a": "ming", "b": "shun", "city": "beijing", "cities": ["zhuozhou", "taiyuan", "datong", "changzhi", "linfen", "anyi"]},
+         {"kind": "rally", "a": "qing", "b": "ming"}])
 
 
 EVENTS = [
@@ -297,11 +300,10 @@ EVENTS = [
           [{"kind": "holds_city", "a": "shun", "city": "xian"}],
           [{"kind": "proclaim", "a": "shun", "name": T("大顺", "Great Shun")}]),
     jia_shen(),
-    event("吴三桂降清", T("山海关总兵降清，引清兵入关", "The commander at Shanhai Pass submits to the Qing and opens the way"), 6,
+    event("吴三桂降清", T("山海关总兵吴三桂开关降清，献关宁之地，受封平西王", "The commander at Shanhai Pass opens the gate to the Qing, hands over his land and is made Prince Pingxi"), 6,
           [{"kind": "holds_city", "a": "shun", "city": "beijing"}, {"kind": "holds_city", "a": "ming", "city": "shanhaiguan"}],
-          [{"kind": "rebel", "a": "ming", "b": "guanning", "city": "shanhaiguan", "cities": ["ningyuan"], "name": T("关宁", "Guanning"), "person": "吴三桂"},
-           rel_step("qing", "guanning", "vassal"),
-           rel_step("guanning", "shun", "war", goal="收复")]),
+          [{"kind": "cede", "a": "ming", "b": "qing", "city": "shanhaiguan", "cities": ["ningyuan"], "person": "吴三桂"},
+           {"kind": "grant_title", "a": "qing", "person": "吴三桂", "name": T("平西王", "Prince Pingxi")}]),
     event("清军入关", T("清军入关，与顺军决战", "The Qing army passes through the wall to meet the Shun in battle"), 6,
           [{"kind": "holds_city", "a": "shun", "city": "beijing"}, {"kind": "alive", "a": "qing"}],
           [rel_step("qing", "shun", "war", goal="夺城")]),
@@ -326,13 +328,29 @@ EVENTS = [
     event("再行圈地", T("清廷再度圈地，畿辅民田多入旗下", "The Qing court encloses land again and much of the capital region passes to the banners"), 9,
           [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
           [{"kind": "banner_enclosure", "a": "qing", "city": "beijing", "cities": ["zhuozhou", "dingzhou", "zhending", "handan", "ye"]}]),
+    event("清军南下", T("清军南下，兵锋直指江南", "The Qing army marches south toward the Yangtze"), 7,
+          [{"kind": "holds_city", "a": "qing", "city": "beijing"}, {"kind": "alive", "a": "ming"}],
+          [rel_step("qing", "ming", "war", goal="夺城")], repeat=True),
+    event("南京失守", T("清军破南京，弘光帝被俘，福州群臣奉唐王继统", "The Qing take Nanjing and capture the sovereign; at Fuzhou the court raises the Prince of Tang"), 7,
+          [{"kind": "holds_city", "a": "qing", "city": "nanjing"}, {"kind": "alive", "a": "ming"}],
+          [{"kind": "move_capital", "a": "ming", "city": "fuzhou"},
+           {"kind": "dies", "a": "ming", "person": "朱由崧", "name": T("被俘后处死于北京", "executed at Beijing after capture")}]),
+    event("福州失守", T("清军入闽，隆武帝殉国，桂王继统于广州", "The Qing enter Fujian and the Longwu emperor dies; the Prince of Gui succeeds at Guangzhou"), 8,
+          [{"kind": "holds_city", "a": "qing", "city": "fuzhou"}, {"kind": "alive", "a": "ming"}],
+          [{"kind": "move_capital", "a": "ming", "city": "guangzhou"},
+           {"kind": "dies", "a": "ming", "person": "朱聿键", "name": T("被俘后绝食殉国", "starved himself to death after capture")}]),
+    event("广州失守", T("广州失陷，永历朝廷西走云南", "Guangzhou falls and the Yongli court flees west to Yunnan"), 9,
+          [{"kind": "holds_city", "a": "qing", "city": "guangzhou"}, {"kind": "alive", "a": "ming"}],
+          [{"kind": "move_capital", "a": "ming", "city": "kunming"}]),
+    event("昆明失守", T("昆明失守，永历帝被俘处死", "Kunming falls and the Yongli emperor is captured and put to death"), 10,
+          [{"kind": "holds_city", "a": "qing", "city": "kunming"}],
+          [{"kind": "dies", "a": "ming", "person": "朱由榔", "name": T("被俘后处死于昆明", "executed at Kunming after capture")}]),
     death("杨嗣昌之死", ("督师大学士兵败，自尽于沙市", "The Grand Secretary in command takes his own life at Shashi after defeat"), 3, "ming", "杨嗣昌", ("兵败自尽于沙市", "took his own life at Shashi")),
     death("曹变蛟之死", ("松山城破，明军大将战死", "Songshan falls and a Ming general dies in the fighting"), 4, "ming", "曹变蛟", ("战死于松山", "fell at Songshan")),
-    death("李自成之死", ("大顺皇帝南走，殁于九宫山", "The emperor of Great Shun flees south and dies at Jiugong Mountain"), 7, "shun", "李自成", ("殁于九宫山", "died at Jiugong Mountain")),
-    death("史可法之死", ("扬州城破，督师不屈殉国", "Yangzhou falls and its commander dies unbroken"), 7, "ming", "史可法", ("扬州城破，不屈殉国", "died unbroken when Yangzhou fell")),
+    death("李自成之死", ("大顺皇帝南走，殁于九宫山", "The emperor of Great Shun flees south and dies at Jiugong Mountain"), 7, "shun", "李自成", ("殁于九宫山", "died at Jiugong Mountain"), when=[{"kind": "holds_city", "a": "qing", "city": "beijing"}]),
+    death("史可法之死", ("扬州城破，督师不屈殉国", "Yangzhou falls and its commander dies unbroken"), 7, "ming", "史可法", ("扬州城破，不屈殉国", "died unbroken when Yangzhou fell"), when=[{"kind": "holds_city", "a": "qing", "city": "yangzhou"}]),
     death("左良玉之死", ("左良玉举兵东下，病死于九江舟中", "Zuo Liangyu turns his army east and dies aboard ship at Jiujiang"), 7, "ming", "左良玉", ("病死于九江舟中", "died aboard ship at Jiujiang")),
-    death("黄得功之死", ("南京诸镇溃散，黄得功战死荻港", "The southern garrisons collapse and Huang Degong falls at Digang"), 7, "ming", "黄得功", ("战死于荻港", "fell at Digang")),
-    death("朱由崧之死", ("南京新君被俘，解往北京处死", "The sovereign at Nanjing is captured and put to death at Beijing"), 8, "ming", "朱由崧", ("被俘后处死于北京", "executed at Beijing after capture")),
+    death("黄得功之死", ("南京诸镇溃散，黄得功战死荻港", "The southern garrisons collapse and Huang Degong falls at Digang"), 7, "ming", "黄得功", ("战死于荻港", "fell at Digang"), when=[{"kind": "holds_city", "a": "qing", "city": "nanjing"}]),
     death("张献忠之死", ("大西皇帝中箭，死于凤凰山", "The emperor of Great Xi is struck by an arrow and dies at Fenghuang Mountain"), 9, "xi", "张献忠", ("中箭死于凤凰山", "killed by an arrow at Fenghuang Mountain")),
     death("秦良玉之死", ("女将秦良玉病逝于石柱", "The woman general Qin Liangyu dies at Shizhu"), 10, "ming", "秦良玉", ("病逝于石柱", "died of illness at Shizhu")),
     death("豪格之死", ("肃亲王被摄政王下狱，幽死狱中", "The Prince Su is jailed by the regent and dies in prison"), 10, "qing", "豪格", ("幽死狱中", "died in prison")),
@@ -342,7 +360,7 @@ EVENTS = [
     death("郑芝龙之死", ("郑芝龙被杀于北京", "Zheng Zhilong is executed at Beijing"), 23, "qing", "郑芝龙", ("被杀于北京", "executed at Beijing")),
     death("李定国之死", ("晋王李定国病逝于景线", "Li Dingguo, the last great Southern general, dies at Jinghong"), 24, "xi", "李定国", ("病逝于景线", "died of illness at Jinghong")),
     death("洪承畴之死", ("洪承畴病逝于北京", "Hong Chengchou dies at Beijing"), 27, "qing", "洪承畴", ("病逝于北京", "died of illness at Beijing")),
-    death("吴三桂之死", ("吴三桂病死于衡州", "Wu Sangui dies at Hengzhou"), 40, "guanning", "吴三桂", ("病死于衡州", "died of illness at Hengzhou")),
+    death("吴三桂之死", ("吴三桂病死于衡州", "Wu Sangui dies at Hengzhou"), 40, "qing", "吴三桂", ("病死于衡州", "died of illness at Hengzhou")),
     event("威斯特伐利亚和约", T("威斯特伐利亚诸约签订，三十年战争结束", "The Peace of Westphalia ends the Thirty Years' War"), 10,
           [{"kind": "alive", "a": "hre"}],
           [rel_step("france", "hre", "truce"), rel_step("sweden", "hre", "truce"), rel_step("dutch", "spain", "truce")]),
@@ -401,6 +419,8 @@ def main():
         person("朱|Zhu", "慈炤|Cizhao", 3, rel="son", mo=1),
         person(None, "媺娖|Meichuo", 9, rel="daughter", mo=0),
         person("朱|Zhu", "由崧|Yousong", 31, rel="cousin"),
+        person("朱|Zhu", "聿键|Yujian", 36, rel="cousin"),
+        person("朱|Zhu", "由榔|Youlang", 15, rel="cousin"),
     ]
     ming["famous"] = MING_FAMOUS
     ming["decline"] = {"strain": 78, "graft": 70, "annexation": 78, "bloat": 70, "military": 72, "factionalism": 74, "levies": 78}

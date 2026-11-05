@@ -667,6 +667,25 @@ public static class WorldMapScenario
         LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交：{done}/{relations.Count} 条");
     }
 
+    // 开局国库：兵是当场补满的，钱却几乎没有(开局半年全世界国库合计才两千多)，头一个月军饷就发不出，连欠三个月攻方就罢兵。
+    // 排在开局外交之后，在打仗的按战时军饷算
+    private const int OpeningWarChestMonths = 24;
+
+    private static void SeedTreasuries()
+    {
+        long total = 0L;
+        foreach (Kingdom kingdom in World.world.kingdoms.ToList())
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.isNeutral()) continue;
+            long bill = CorpsSystem.MonthlyBill(kingdom);
+            if (bill <= 0L) continue;
+            int grant = (int)Math.Min(int.MaxValue, bill * OpeningWarChestMonths);
+            kingdom.AddMoney(grant, TreasuryCategory.Other);
+            total += grant;
+        }
+        LogService.LogInfo($"[EmpireCraft][世界地图] 开局国库：共给 {total}，够各国 {OpeningWarChestMonths} 个月军饷");
+    }
+
     // 名人坐镇的城(城 id → 城)：收尾时清掉剧本的城表前记下
     private static readonly Dictionary<string, City> _famousCities = new();
 
@@ -2236,6 +2255,7 @@ public static class WorldMapScenario
             .GroupBy(polity => polity.data.id).ToDictionary(group => group.Key, group => group.First().kingdom);
         var relations = _era?.relations?.ToList() ?? new List<WorldMapRelation>();
         if (relations.Count > 0) _afterLoad.Add(("开局外交", () => ApplyRelations(relations, realms)));
+        _afterLoad.Add(("开局国库", SeedTreasuries));
         // 商品市场当场结算一轮：市场图层、外交界面的市场页一进世界就有数
         _afterLoad.Add(("市场开市", CommodityMarketSystem.SettleNow));
         // 开局铺好相邻城之间的干道(路网规划算完后修通，见 RoadBuildingSystem.SeedAtScenarioStart)

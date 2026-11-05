@@ -46,6 +46,10 @@ public static class WarReach
     private static readonly Dictionary<(long war, long kingdom), int> AllyFarMonths = new();
     private static readonly HashSet<string> Reported = new(StringComparer.Ordinal);
 
+    // 剧本点名的战争(开局外交、剧情事件，见 DiplomacyActions.ApplyScenario)不看远近：王国的城表要过一帧才更新，
+    // 甲申之变刚把北京、大同献给顺，同一帧的清军入关还按旧城表算，就成了够不着。开起来之后每月照常算
+    public static bool ScenarioDeclaring;
+
     public static bool IsFar(War war) => war?.data != null && Far.Contains(war.data.id);
 
     // 开战闸：够不着又不是内乱的不开
@@ -56,7 +60,7 @@ public static class WarReach
         if (!ExemptType(type) && !ColonySystem.Rising && ColonySystem.Bound(attacker, defender)) return false;
         // 穿越政权伪装成属国期间：朝廷与各省(连统一战争)不来开战(见 TransmigrantSystem.DisguiseForbids)
         if (!ExemptType(type) && TransmigrantSystem.DisguiseForbids(attacker, defender)) return false;
-        if (ExemptType(type) || Related(attacker, defender) || Young(attacker)) return true;
+        if (ScenarioDeclaring || ExemptType(type) || Related(attacker, defender) || Young(attacker)) return true;
         if (Reachable(attacker, defender)) return true;
         string caller = Caller();
         if (Reported.Count < 512 && Reported.Add($"{caller}|{attacker.id}|{defender.id}"))
