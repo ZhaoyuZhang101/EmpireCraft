@@ -398,6 +398,16 @@ public static class UIHelper
         return width;
     }
 
+    // 自动换行后大约占几行：分行写的说明(一句定性 + "· "分条)每段各自折行再相加
+    public static int EstimateWrappedLines(string text, int fontSize, float width)
+    {
+        if (string.IsNullOrEmpty(text) || width <= 0f) return 0;
+        int lines = 0;
+        foreach (string part in text.Split('\n'))
+            lines += Mathf.Max(1, Mathf.CeilToInt((EstimateTextWidth(part, fontSize) * 1.1f + 6f) / width));
+        return lines;
+    }
+
     // 本地化 key 或现成文本(国名、宪法名这类直接显示)
     public static string LocalizeOrRaw(string text) => !string.IsNullOrEmpty(text) && LM.Has(text) ? LM.Get(text) : text;
 
