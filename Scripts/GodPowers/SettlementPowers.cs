@@ -38,11 +38,10 @@ public static class SettlementPowers
         Village, Town, Fort, NewCity, Relocate, Palace, Restyle, FactorySmall, FactoryMedium, FactoryLarge, Raze, Assign, WildNeutral,
         WildDevelop, WildTitle, WildTitleClear
     };
-    // 隔这么久没刷算新按下一笔(按在城上就是取法理)
-    private const float StrokeGapSeconds = 0.25f;
+    // 无人区法理笔刷取的城与法理；这一笔还在取的那座城上(拖出城的地才刷)、这一笔刷不了
     private static EmpireCraft.Scripts.Layer.KingdomTitle _brushTitle;
-    private static float _titleStrokeAt = -100f;
-    private static bool _picking;
+    private static City _brushCity;
+    private static bool _strokeHolding, _strokeDead;
     private const float PickSeconds = 30f, DevelopTipSeconds = 0.25f;
     private static readonly HashSet<TileZone> Brushed = new();
     private static float _developTipAt = -100f;
@@ -164,39 +163,67 @@ public static class SettlementPowers
         return any;
     }
 
-    // 无人区法理笔刷：新按下一笔时按在城上就取它的王国法理(这一笔不刷)，不在城上就照取的法理刷无人区；擦除笔刷不用取
+    // 无人区法理笔刷(群友 2026-11-05 "为什么划不了那国家无人区法理，有时候能画，有时候不能划")：按下时落在城上就取这座城，
+    // 拖出城的地才开始刷；落在别处照取的城刷。刷到的地块跟着这座城，归它所在的国、挂它的王国法理。一笔从按下到放开
+    // (原版 PlayerControl.first_click)，中途经过别的城不换。以前隔 0.25 秒没刷就算新一笔，掉帧或停一下再落到城上就悄悄换了法理；
+    // 按在城上拖出去不刷；刷不上也没有提示。擦除笔刷不用取
     private static bool StrokeTitle(WorldTile center, GodPower power)
     {
         if (center == null || power == null || World.world == null) return false;
         bool erase = power.id == WildTitleClear;
-        float now = Time.unscaledTime;
-        bool fresh = now - _titleStrokeAt > StrokeGapSeconds || now < _titleStrokeAt;
-        _titleStrokeAt = now;
-        if (fresh)
+        if (World.world.player_control.first_click)
         {
-            _picking = false;
+            _strokeDead = _strokeHolding = false;
             City city = center.zone?.city;
             if (!erase && city?.data != null && !city.isRekt())
             {
-                _picking = true;
                 EmpireCraft.Scripts.Layer.KingdomTitle title = city.GetTitle();
-                if (title == null || title.isRekt()) return Tip(LM.Get("wild_title_no_title"));
+                if (title == null || title.isRekt())
+                {
+                    _strokeDead = true;
+                    return Tip(LM.Get("wild_title_no_title"));
+                }
                 _brushTitle = title;
-                return Tip(string.Format(LM.Get("wild_title_picked"), title.data?.name));
+                _brushCity = city;
+                _strokeHolding = true;
+                return Tip(string.Format(LM.Get("wild_title_picked"), city.name, title.data?.name, city.kingdom?.name));
             }
             if (!erase && (_brushTitle == null || _brushTitle.isRekt()))
             {
-                _picking = true;
+                _strokeDead = true;
                 return Tip(LM.Get("wild_title_need"));
             }
         }
-        if (_picking) return true;
+        if (_strokeDead || !erase && _brushTitle == null) return true;
+        if (_strokeHolding)
+        {
+            if (center.zone?.city != null) return true;
+            _strokeHolding = false;
+        }
         Brushed.Clear();
         World.world.loopWithBrush(center, global::Brush.get(Config.current_brush), CollectWild, power);
         bool any = false;
-        foreach (TileZone zone in Brushed) any |= WildernessSystem.Paint(zone, erase ? null : _brushTitle);
+        City brushCity = erase || _brushCity?.data == null || _brushCity.isRekt() ? null : _brushCity;
+        foreach (TileZone zone in Brushed) any |= WildernessSystem.Paint(zone, erase ? null : _brushTitle, brushCity);
         Brushed.Clear();
+        if (!erase) TitleStrokeTip(center.zone);
         return any;
+    }
+
+    // 刷着时提示光标下这块的结果，看得出刷上没有、归了谁
+    private static void TitleStrokeTip(TileZone zone)
+    {
+        float now = Time.unscaledTime;
+        if (now - _developTipAt < DevelopTipSeconds && now >= _developTipAt) return;
+        _developTipAt = now;
+        WildRegion region = WildernessSystem.RegionOf(zone);
+        string text;
+        if (region == null) text = LM.Get("wild_title_not_wild");
+        else if (WildernessSystem.IsNeutral(zone)) text = string.Format(LM.Get("wild_title_neutral"), WildernessSystem.DisplayName(region));
+        else
+            text = string.Format(LM.Get("wild_title_brush"), WildernessSystem.DisplayName(region), WildernessSystem.TitleOf(zone)?.data?.name,
+                WildernessSystem.OwnerOf(zone)?.name ?? LM.Get("wild_title_no_owner"));
+        WorldTip.showNow(text, false, "top", 1.5f);
     }
 
     private static bool Tip(string text)

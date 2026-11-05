@@ -22,6 +22,15 @@ public sealed class WorldMapFrame
 
     public float DegreesPerTile(int chunksWide) => (east - west) / (chunksWide * 64f);
 
+    // 剧本定死的大小算第几档(按面积取不超过它的最大一档)；至少算中档，定死大小的图不按小图去掉小城
+    public int IndexFor(Vector2Int size)
+    {
+        int best = 1;
+        for (int i = 1; i < sizes.Length; i++)
+            if (sizes[i].x * sizes[i].y <= size.x * size.y) best = i;
+        return Math.Min(best, sizes.Length - 1);
+    }
+
     public void Bounds(Vector2Int size, out float bottom, out float degreesPerTile)
     {
         degreesPerTile = DegreesPerTile(size.x);

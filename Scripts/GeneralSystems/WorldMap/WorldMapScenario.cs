@@ -35,8 +35,8 @@ public static class WorldMapScenario
     // 分城时从都城往外算地形代价的上限(区块代价，平原一块算 1)
     private const float CostLimit = 600f;
     // 开局辖地：按城的等级能铺多远(地形代价)、最多几块(再受模组设置的每城上限)
-    private static readonly float[] TerritoryBudget = { 9f, 9f, 7f, 5f };
-    private static readonly int[] TerritoryCap = { 40, 40, 28, 16 };
+    internal static readonly float[] TerritoryBudget = { 9f, 9f, 7f, 5f };
+    internal static readonly int[] TerritoryCap = { 40, 40, 28, 16 };
 
     private sealed class PlannedCity
     {
@@ -163,6 +163,8 @@ public static class WorldMapScenario
         var costs = new Dictionary<PlannedPolity, float[]>();
         foreach (PlannedCity city in _cities.Where(city => city.owner == null))
         {
+            // 点名独立的城：地区被哪国认领也不归它
+            if (era.independent?.Contains(city.data.id) == true) continue;
             PlannedPolity best = null;
             float bestCost = float.PositiveInfinity, bestDistance = float.MaxValue;
             int target = WorldMapZones.IndexOf(city.tile);
@@ -1108,8 +1110,15 @@ public static class WorldMapScenario
     private static void PlanFillers()
     {
         _fillerStart = _polities.Count;
-        // 照原图分地(从当前世界导入的剧本)：原图的国家都写进剧本了，不补小国、部落
-        if (_era?.exact == true) return;
+        // 照原图分地(从当前世界导入的剧本)：原图的国家都写进剧本了，不补小国；编辑器里画了部落圈的照立，开局只占城心一块地
+        if (_era?.exact == true)
+        {
+            if (_era.tribes is not { Count: > 0 }) return;
+            TerrainSystem.ResetWorldState();
+            WorldMapZones.Build();
+            PlanTribes();
+            return;
+        }
         // 地形缓存按区块编号存，可能还是上一个世界的(城心改成绿洲也没刷新)，先清掉再判荒地
         TerrainSystem.ResetWorldState();
         WorldMapZones.Build();
@@ -1436,7 +1445,7 @@ public static class WorldMapScenario
     // WorldMapZones.Partition)：分给有锚点的国家某个行政区的地块，归那个行政区里离它最近的城(没有城的归都城一块)——行政区的位置、
     // 形状照当年的州府走，不再由区里寥寥几座城的远近决定；别的国家的城也一起分，锚点不越过它们的城抢地。没补锚点的国家照旧按城铺。
     // 治所沿用原有预算；历史范围通过默认地块赋值，不通过改变自动分区的预算塑形。
-    private const float SeatBudget = 7f;
+    internal const float SeatBudget = 7f;
 
     // 锚点分地的标签：有锚点的国家每个行政区一个(都城直辖记作 -1 号)，别的国家整国一个；各标签的城
     private sealed class AnchorPlan

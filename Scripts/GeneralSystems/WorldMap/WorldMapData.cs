@@ -316,6 +316,16 @@ public sealed class WorldMapEra
     // 本剧本开无人区：不看模组设置「无人区」，那个设置可以一直关着保旧存档。照原图分地的剧本里城的形状不变，
     // 刷给城的地块地形够无人区的转成这座城的法理无人区，不再留给城(见 WorldMapScenario.Finish、WorldMapWilderness.SetCityClaims)
     public bool own_wilderness;
+    // 导入时的原图归属(剧本编辑器里擦掉地块回到这里，见 ScenarioEditing；开局不读)
+    public List<WorldMapPaint> paint_base;
+    // 清空过全部城、换过地图，上面那份原图归属作废了(撤销时跟着回来，所以记在这里)
+    public bool base_stale;
+    // 剧本定死的地图大小(区块数 [东西, 南北]，一区块 64 格)：写了开局就按它，不再选大中小；从当前世界导入的写原图大小
+    public int[] size;
+    // 城表本来就可以是空的(新建的空白剧本、清空过全部城)：不回落到内置城表
+    public bool own_cities;
+    // 点名独立的城：所在地区被哪国认领也不归它(见 WorldMapScenario.Plan、ScenarioEditing.MakeIndependent)
+    public List<string> independent;
     // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城；
     // 刷在无人区上的定这片地挂哪个法理——p: 那国都城的王国法理、r: 那块王国法理，见 WorldMapWilderness.BeginPaint；
     // key 为 "n" 的是永久中立区，盖到的那一片无人区开局即永久中立)
@@ -336,7 +346,9 @@ public sealed class WorldMapEra
     [JsonIgnore] public List<string> problems = new();
     [JsonIgnore] public bool Custom => !string.IsNullOrEmpty(folder);
     // 自带城表：写了城，或用导入地图(导入地图上没有内置的地球城，城表可以是空的)
-    [JsonIgnore] public bool OwnWorld => cities != null && (cities.Count > 0 || map != null);
+    [JsonIgnore] public bool OwnWorld => cities != null && (cities.Count > 0 || map != null || own_cities);
+    [JsonIgnore] public bool HasSize => size is { Length: >= 2 } && size[0] > 0 && size[1] > 0;
+    [JsonIgnore] public UnityEngine.Vector2Int FixedSize => HasSize ? new UnityEngine.Vector2Int(size[0], size[1]) : default;
     // 开局外交关系(在打的仗、朝贡、和亲、同盟、旧谊宿怨)
     public List<WorldMapRelation> relations = new();
     // 丝绸之路(陆路修成路、沿途市场互市，见 Tools/WorldMap/silkroad_source.py、SilkRoadSystem)
@@ -637,6 +649,21 @@ public static class WorldMapData
     {
         IEnumerable<WorldMapCity> cities = era.OwnWorld ? era.cities : _builtinCities;
         return cities?.Count(city => city.ActiveIn(era.year) && (!smallMap || era.RankOf(city) <= 2)) ?? 0;
+    }
+
+    // 同上，只数放得下的：范围外、离图边四格以内的城开局不建(同 WorldMapScenario.Plan)
+    public static int CityCount(WorldMapEra era, WorldMapFrame frame, UnityEngine.Vector2Int size, bool smallMap)
+    {
+        IEnumerable<WorldMapCity> cities = era.OwnWorld ? era.cities : _builtinCities;
+        if (cities == null || frame == null || size.x <= 0 || size.y <= 0) return CityCount(era, smallMap);
+        frame.Bounds(size, out float bottom, out float degrees);
+        int width = size.x * 64, height = size.y * 64;
+        return cities.Count(city =>
+        {
+            if (!city.ActiveIn(era.year) || smallMap && era.RankOf(city) > 2) return false;
+            int x = (int)Math.Floor((city.lon - frame.west) / degrees), y = (int)Math.Floor((city.lat - bottom) / degrees);
+            return x >= 4 && y >= 4 && x < width - 4 && y < height - 4;
+        });
     }
 
     // 删除路径把关：只认剧本文件夹正下方一层、里面确有 scenario.json 的目录，路径出错也删不到别处

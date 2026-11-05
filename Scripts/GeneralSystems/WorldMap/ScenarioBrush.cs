@@ -81,6 +81,19 @@ public static class ScenarioBrush
         return true;
     }
 
+    // 一块地盖住的格子(取法同 ZoneValue)，连中心那格
+    public static void ZoneCells(float lon, float lat, float side, float step, ICollection<int> cells)
+    {
+        cells.Add(ScenarioCells.Key(lon, lat, step));
+        if (side <= step) return;
+        float half = side / 2f;
+        int i0 = FirstCell(lon - half, step), i1 = FirstCell(lon + half, step) - 1;
+        int j0 = FirstCell(lat - half, step), j1 = FirstCell(lat + half, step) - 1;
+        for (int j = j0; j <= j1; j++)
+        for (int i = i0; i <= i1; i++)
+            cells.Add(ScenarioCells.Pack(i, j));
+    }
+
     // 比例尺大的图一个地格盖好几个地形格，地格只取中心那点会漏掉最细笔刷点的那一格：把每个刷的格子算到它中心落在的地格
     public static Dictionary<int, string> TileOverrides(IReadOnlyDictionary<int, string> cells, float step, float west, float bottom, float degrees, int width, int height)
     {

@@ -925,7 +925,7 @@ public static class WildernessSystem
         foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
             if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
         // 城市边界固定：城领着的地不划走；本剧本开无人区、开局定好要转成法理无人区的除外(见 WorldMapWilderness.SetCityClaims)
-        if (ModClass.CITY_BORDERS_FIXED)
+        if (CityTerritoryProtection.BordersFixed)
             for (int id = 0; id < size && id < _zones.Length; id++)
                 if (_zones[id]?.city != null && !WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id])) anchored[id] = true;
 
@@ -1518,8 +1518,9 @@ public static class WildernessSystem
                 KingdomTitle title = _titles[id];
                 TileZone zone = _zones[id];
                 if (title == null || zone?.neighbours_all == null) continue;
-                // 明确的剧本锚点先于邻城；同一法理下的几个行政区不能被连通扫描互相覆盖。
-                City origin = WorldMap.WorldMapWilderness.AnchorCity(zone);
+                // 权能笔刷按城刷的跟取的那座城(见 Paint)；明确的剧本锚点先于邻城；同一法理下的几个行政区不能被连通扫描互相覆盖。
+                City origin = IsPainted(zone) && id < _parents.Length ? _parents[id] : null;
+                if (origin?.data == null || origin.isRekt() || origin.GetTitle() != title) origin = WorldMap.WorldMapWilderness.AnchorCity(zone);
                 if (origin == null || origin.GetTitle() != title)
                     origin = WorldMap.WorldMapWilderness.OnEarth && id < _parents.Length ? _parents[id] : null;
                 if (origin?.data != null && !origin.isRekt() && origin.GetTitle() == title)
@@ -1569,7 +1570,9 @@ public static class WildernessSystem
                 }
                 if (id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null)
                 {
-                    _parents[id] = null;
+                    // 权能笔刷取的城还在这个法理里就跟着它，不和它的地连着也一样
+                    City kept = IsPainted(_zones[id]) ? _parents[id] : null;
+                    if (kept?.data == null || kept.isRekt() || kept.GetTitle() != _titles[id]) _parents[id] = null;
                     continue;
                 }
                 City parent = nearestCity[id];
@@ -1767,6 +1770,8 @@ public static class WildernessSystem
         KingdomTitle title = TitleOf(zone);
         City parent = Index(zone) >= 0 && zone.id < _parents.Length ? _parents[zone.id] : null;
         if (parent?.data == null || parent.isRekt()) parent = null;
+        // 权能笔刷按城刷的跟取的那座城(见 Paint)，州府锚点也不改
+        if (parent != null && title != null && IsPainted(zone) && parent.GetTitle() == title) return parent;
         City anchor = WorldMap.WorldMapWilderness.AnchorCity(zone);
         if (title != null && anchor != null && anchor.GetTitle() == title)
         {
@@ -1802,11 +1807,13 @@ public static class WildernessSystem
 
     // 权能「无人区法理」笔刷(用户 10-30 "给个划分无人区法理归属的权能""可以允许多个法理归属同一个无人区，但是类似于笔刷上色那种"
     // "一个法理拿一部分")：把这块无人区挂到给定的法理上，之后自动重挂不再动它；title 为 null 擦掉，下一核按自动的规矩补挂。
-    // 返回改没改
-    public static bool Paint(TileZone zone, KingdomTitle title)
+    // city 为取的那座城：地块跟着它、归它所在的国(以前只挂法理，跟法理里最近的城，法理分在几国时归了别国，同一法理的还刷不动)；
+    // 不给或那城不在这个法理里，跟法理里最近的城(见 OriginOf)。返回改没改
+    public static bool Paint(TileZone zone, KingdomTitle title, City city = null)
     {
         if (!_built || !_enabled || Index(zone) < 0 || zone.id >= _titles.Length || title != null && title.isRekt()) return false;
         if (_painted.Length != _titles.Length) Array.Resize(ref _painted, _titles.Length);
+        if (_parents.Length != _titles.Length) Array.Resize(ref _parents, _titles.Length);
         if (title == null)
         {
             if (!_painted[zone.id]) return false;
@@ -1816,9 +1823,11 @@ public static class WildernessSystem
         }
         else
         {
-            if (_painted[zone.id] && _titles[zone.id] == title) return false;
+            bool follow = city?.data != null && !city.isRekt() && city.GetTitle() == title;
+            if (_painted[zone.id] && _titles[zone.id] == title && (!follow || _parents[zone.id] == city)) return false;
             _painted[zone.id] = true;
             _titles[zone.id] = title;
+            if (follow) _parents[zone.id] = city;
             if (!Owners.ContainsKey(title))
             {
                 Kingdom holder = title.FindRealmTitleHolder();

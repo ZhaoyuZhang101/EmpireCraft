@@ -84,6 +84,10 @@ public static class ScenarioWilderness
         public int[] Region;
         public float[] Dev;
         public int[] Terr, Label;
+        // 走进各块地的代价(×10；0 过不去，水面)
+        public int[] Cost;
+        // 和别的城挤在同一块地、开局要挪开的城
+        public readonly HashSet<string> Crowded = new();
         public string[] History;
         public string[] HistoryRegion;
         public List<Piece> Pieces = new();
@@ -144,7 +148,11 @@ public static class ScenarioWilderness
         _importFrame = null;
         _river = null;
         _riverKey = null;
-        _checkedRevision = _ownedRevision = int.MinValue;
+        _checkedRevision = _ownedRevision = _boundaryRevision = int.MinValue;
+        _boundaryOwners = null;
+        _boundaryLayout = null;
+        _seatsByDivision = null;
+        _seatsLayout = null;
         Version++;
         GeometryVersion++;
     }
@@ -224,11 +232,17 @@ public static class ScenarioWilderness
         WorldMapFrame frame = era.map != null ? _importFrame : EarthTerrain.Frames.FirstOrDefault(item => item.id == era.frame) ?? EarthTerrain.Eurasia;
         if (frame?.sizes == null || frame.sizes.Length == 0) return;
         int sizeIndex = Mathf.Clamp(SizeIndex, 0, frame.sizes.Length - 1);
-        int geometry = Hash((frame.id ?? "").GetHashCode(), frame.west.GetHashCode(), frame.east.GetHashCode(), frame.sizes[sizeIndex].x,
-            frame.sizes[sizeIndex].y, sizeIndex);
+        Vector2Int size = frame.sizes[sizeIndex];
+        // 剧本定死了大小：不看大中小(同 WorldMapGenerator.Start)
+        if (era.HasSize)
+        {
+            size = era.FixedSize;
+            sizeIndex = frame.IndexFor(size);
+        }
+        int geometry = Hash((frame.id ?? "").GetHashCode(), frame.west.GetHashCode(), frame.east.GetHashCode(), size.x, size.y, sizeIndex);
         if (_checkedRevision != ScenarioEditing.Revision || _checkedGeometry != geometry || _layout == null)
         {
-            _seatKey = SeatKey(frame, frame.sizes[sizeIndex], sizeIndex);
+            _seatKey = SeatKey(frame, size, sizeIndex);
             _checkedRevision = ScenarioEditing.Revision;
             _checkedGeometry = geometry;
         }
@@ -242,12 +256,12 @@ public static class ScenarioWilderness
             Layout old = _layout;
             try
             {
-                _layout = Build(frame, sizeIndex, table, key, Hash(_gridRevision, geometry, era.map == null ? 1 : 2));
+                _layout = Build(frame, size, sizeIndex, table, key, Hash(_gridRevision, geometry, era.map == null ? 1 : 2));
             }
             catch (Exception exception)
             {
                 NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][剧本编辑] 无人区预测失败: {exception}");
-                _layout = old ?? new Layout { Key = key, Frame = frame, Size = frame.sizes[sizeIndex], ZoneDegrees = 1f };
+                _layout = old ?? new Layout { Key = key, Frame = frame, Size = size, ZoneDegrees = 1f };
                 _layout.Key = key;
             }
             _heavyAt = now;
@@ -307,9 +321,8 @@ public static class ScenarioWilderness
 
     #region 取样、归类、连片
 
-    private static Layout Build(WorldMapFrame frame, int sizeIndex, string table, int key, int sampleKey)
+    private static Layout Build(WorldMapFrame frame, Vector2Int size, int sizeIndex, string table, int key, int sampleKey)
     {
-        Vector2Int size = frame.sizes[sizeIndex];
         frame.Bounds(size, out float bottom, out float degrees);
         int tw = size.x * 64, th = size.y * 64, zw = tw / 8, zh = th / 8, n = zw * zh;
         WorldMapEra era = ScenarioEditing.Era;
@@ -344,6 +357,7 @@ public static class ScenarioWilderness
             layout.Seats.Add(city.id);
             layout.SeatZone.Add(z);
             layout.SeatTile.Add(new Vector2Int(tx, ty));
+            if (anchored[z]) layout.Crowded.Add(city.id);
             anchored[z] = true;
             int cell = SeatCell(city.lon, city.lat);
             (seatPoints.TryGetValue(cell, out List<Vector2> list) ? list : seatPoints[cell] = new List<Vector2>()).Add(new Vector2(city.lon, city.lat));
@@ -697,12 +711,24 @@ public static class ScenarioWilderness
     private static void Territory(Layout layout, byte[] rock, byte[] hills, byte[] frozen, byte[] sand, byte[] jungle, byte[] swamp)
     {
         int n = layout.W * layout.H;
+        layout.Cost = new int[n];
+        for (int z = 0; z < n; z++)
+        {
+            int land = layout.Land[z];
+            layout.Cost[z] = land < TerritoryLand ? 0
+                : rock[z] >= land * 0.5f ? 60
+                : frozen[z] + sand[z] >= land * BarrenShare ? 30
+                : jungle[z] + swamp[z] >= land * 0.5f ? 25
+                : frozen[z] + sand[z] >= land * 0.5f ? 20
+                : rock[z] + hills[z] >= land * 0.5f ? 16
+                : 10;
+        }
         if (layout.Claim != null)
         {
             for (int z = 0; z < n; z++) layout.Terr[z] = layout.Region[z] >= 0 ? -1 : layout.Claim[z];
         }
         else
-            Spread(layout, rock, hills, frozen, sand, jungle, swamp);
+            Spread(layout);
 
         // 各片周边的城(八邻、不是无人区的陆地)
         foreach (Piece region in layout.Pieces)
@@ -721,21 +747,10 @@ public static class ScenarioWilderness
     }
 
     // 从城心按地形代价往外铺(无人区、水面铺不进去)，铺不到的陆地开局多半补随机小国
-    private static void Spread(Layout layout, byte[] rock, byte[] hills, byte[] frozen, byte[] sand, byte[] jungle, byte[] swamp)
+    private static void Spread(Layout layout)
     {
         int n = layout.W * layout.H;
-        var cost = new int[n];
-        for (int z = 0; z < n; z++)
-        {
-            int land = layout.Land[z];
-            cost[z] = land < TerritoryLand ? 0
-                : rock[z] >= land * 0.5f ? 60
-                : frozen[z] + sand[z] >= land * BarrenShare ? 30
-                : jungle[z] + swamp[z] >= land * 0.5f ? 25
-                : frozen[z] + sand[z] >= land * 0.5f ? 20
-                : rock[z] + hills[z] >= land * 0.5f ? 16
-                : 10;
-        }
+        int[] cost = layout.Cost;
         var dist = new int[n];
         for (int z = 0; z < n; z++)
         {
@@ -972,6 +987,255 @@ public static class ScenarioWilderness
             }
         }
     }
+
+    #endregion
+
+    #region 预览
+
+    // 编辑器图层用：各块地开局归哪座城(Seats 的下标；ScenarioPreviewRules.Filler 为补小国或并给邻国；Unclaimed 没人领)，painted 记是刷来的。
+    // 先后同开局(WorldMapScenario.SpreadTerritory)：城心；刷的地块(p:、r: 归那国、那块法理最近的城，c: 归那座城，水面多的只有 c: 才领，
+    // 取值同 PaintTerritory)；再从这些地一起按地形代价往外铺(各等城走得多远、领几块同 TerritoryBudget、TerritoryCap，不进无人区、不过长城)。
+    // 照原图分地的不往外铺。没算好返回 false
+    public static bool Preview(ref int[] owner, ref bool[] painted)
+    {
+        Layout layout = _layout;
+        WorldMapEra era = ScenarioEditing.Era;
+        if (era == null || layout?.Region == null || layout.Cost == null || layout.W <= 0 || layout.H <= 0) return false;
+        int n = layout.W * layout.H;
+        if (owner == null || owner.Length != n || painted == null || painted.Length != n)
+        {
+            owner = new int[n];
+            painted = new bool[n];
+        }
+        for (int z = 0; z < n; z++)
+        {
+            owner[z] = ScenarioPreviewRules.Unclaimed;
+            painted[z] = false;
+        }
+        int seats = layout.Seats.Count;
+        for (int i = 0; i < seats; i++)
+            if (owner[layout.SeatZone[i]] < 0) owner[layout.SeatZone[i]] = i;
+        var budget = new int[seats];
+        var cap = new int[seats];
+        IReadOnlyDictionary<int, string> paint = ScenarioEditing.LandCells;
+        var keys = new Dictionary<string, List<int>>();
+        void Add(string name, int index) => (keys.TryGetValue(name, out List<int> list) ? list : keys[name] = new List<int>()).Add(index);
+        foreach (WorldMapCity city in ScenarioEditing.Cities)
+        {
+            if (city?.id == null || !layout.SeatOf.TryGetValue(city.id, out int index)) continue;
+            int rank = Mathf.Clamp(ScenarioEditing.RankOf(city), 0, 3);
+            budget[index] = Mathf.RoundToInt(WorldMapScenario.TerritoryBudget[rank] * 10f);
+            cap[index] = WorldMapScenario.TerritoryCap[rank];
+            Add("c:" + city.id, index);
+            Add("r:" + city.region, index);
+            if (ScenarioEditing.OwnerOf(city) is WorldMapPolity polity) Add("p:" + polity.id, index);
+        }
+        float tile = layout.ZoneDegrees / 8f;
+        if (paint.Count > 0)
+            for (int zy = 0; zy < layout.H; zy++)
+            for (int zx = 0; zx < layout.W; zx++)
+            {
+                int z = zy * layout.W + zx;
+                if (owner[z] >= 0 || layout.Region[z] >= 0) continue;
+                int tx = zx * 8 + 4, ty = zy * 8 + 4;
+                if (!ScenarioBrush.ZoneValue(paint, layout.West + tx * tile, layout.Bottom + ty * tile, layout.ZoneDegrees, ScenarioCells.LandStep,
+                        ScenarioBrush.NotExact, out string key) || key.Length < 3 || !keys.TryGetValue(key, out List<int> owners)) continue;
+                if (key[0] != 'c' && layout.Land[z] < TerritoryLand) continue;
+                int best = owners[0];
+                float nearest = float.MaxValue;
+                foreach (int seat in owners)
+                {
+                    Vector2Int at = layout.SeatTile[seat];
+                    float dx = at.x - tx, dy = at.y - ty, distance = dx * dx + dy * dy;
+                    if (distance >= nearest) continue;
+                    nearest = distance;
+                    best = seat;
+                }
+                owner[z] = best;
+                painted[z] = true;
+            }
+        // 一座城也没有的图开局也不补小国(补空要照着剧本的城取文化，见 WorldMapScenario.PlanFillers)
+        if (era.exact || seats == 0) return true;
+        // 历史范围：刷的、城心之外的地按范围归本行政区最近的城(同 WorldMapScenario.PaintAdministrativeDefaults)
+        int[] drawn = BoundaryOwners(layout, era);
+        for (int z = 0; z < n; z++)
+            if (owner[z] < 0 && drawn[z] >= 0 && layout.Region[z] < 0) owner[z] = drawn[z];
+        // 州府治所：和城一起往外铺，铺到的地归本行政区最近的城(同 AnchorTerritory)
+        var seatCities = new List<List<int>>();
+        foreach (WorldMapPolity polity in era.polities)
+            for (int division = -1; division < (polity.divisions?.Count ?? 0); division++)
+            {
+                List<float[]> points = ScenarioEditing.SeatsOf(polity, division);
+                if (points == null || points.Count == 0) continue;
+                List<int> members = MembersOf(layout, polity, division);
+                if (members.Count == 0) members = MembersOf(layout, polity, -1);
+                if (members.Count == 0) continue;
+                foreach (float[] point in points)
+                {
+                    if (point == null || point.Length < 2) continue;
+                    int z = ZoneAt(point[0], point[1]);
+                    if (z < 0 || owner[z] >= 0 || layout.Region[z] >= 0 || layout.Cost[z] == 0) continue;
+                    owner[z] = seats + seatCities.Count;
+                    seatCities.Add(members);
+                }
+            }
+        var allBudget = new int[seats + seatCities.Count];
+        var allCap = new int[allBudget.Length];
+        for (int i = 0; i < allBudget.Length; i++)
+        {
+            allBudget[i] = i < seats ? budget[i] : Mathf.RoundToInt(WorldMapScenario.SeatBudget * 10f);
+            allCap[i] = i < seats ? cap[i] : int.MaxValue;
+        }
+        var wild = new bool[n];
+        for (int z = 0; z < n; z++) wild[z] = layout.Region[z] >= 0;
+        ScenarioPreviewRules.Spread(layout.W, layout.H, owner, layout.Cost, wild, WallZones(layout, era), allBudget, allCap);
+        for (int z = 0; z < n; z++)
+            if (owner[z] >= seats) owner[z] = NearestSeat(layout, seatCities[owner[z] - seats], z % layout.W * 8 + 4, z / layout.W * 8 + 4);
+        return true;
+    }
+
+    // 这国某行政区(-1 京畿)放得下的城：Seats 的下标。按城排一遍留着，国家、城、行政区没变不重排(几百座城几百个行政区，挨个查太慢)
+    private static Dictionary<(WorldMapPolity, int), List<int>> _seatsByDivision;
+    private static Layout _seatsLayout;
+    private static int _seatsRevision = int.MinValue;
+
+    private static List<int> MembersOf(Layout layout, WorldMapPolity polity, int division)
+    {
+        if (_seatsByDivision == null || _seatsLayout != layout || _seatsRevision != ScenarioEditing.StructureRevision)
+        {
+            _seatsLayout = layout;
+            _seatsRevision = ScenarioEditing.StructureRevision;
+            _seatsByDivision = new Dictionary<(WorldMapPolity, int), List<int>>();
+            foreach (WorldMapCity city in ScenarioEditing.Cities)
+            {
+                if (city?.id == null || !layout.SeatOf.TryGetValue(city.id, out int seat) || ScenarioEditing.OwnerOf(city) is not WorldMapPolity owner) continue;
+                var key = (owner, ScenarioEditing.DivisionOf(owner, city.id));
+                (_seatsByDivision.TryGetValue(key, out List<int> list) ? list : _seatsByDivision[key] = new List<int>()).Add(seat);
+            }
+        }
+        return _seatsByDivision.TryGetValue((polity, division), out List<int> members) ? members : NoSeats;
+    }
+
+    private static readonly List<int> NoSeats = new();
+
+    private static int NearestSeat(Layout layout, List<int> seats, int tx, int ty)
+    {
+        int best = seats[0];
+        float nearest = float.MaxValue;
+        foreach (int seat in seats)
+        {
+            Vector2Int at = layout.SeatTile[seat];
+            float dx = at.x - tx, dy = at.y - ty, distance = dx * dx + dy * dy;
+            if (distance >= nearest) continue;
+            nearest = distance;
+            best = seat;
+        }
+        return best;
+    }
+
+    // 历史范围落到地块上(各块归哪座城，没有 -1)。点在多边形里的判断慢，拖着刷地块时不用重算：地块网格和国家、城、行政区没变就留着
+    private static int[] _boundaryOwners;
+    private static Layout _boundaryLayout;
+    private static int _boundaryRevision = int.MinValue;
+
+    private static int[] BoundaryOwners(Layout layout, WorldMapEra era)
+    {
+        if (_boundaryOwners != null && _boundaryLayout == layout && _boundaryRevision == ScenarioEditing.StructureRevision) return _boundaryOwners;
+        _boundaryLayout = layout;
+        _boundaryRevision = ScenarioEditing.StructureRevision;
+        int n = layout.W * layout.H;
+        var owners = new int[n];
+        for (int z = 0; z < n; z++) owners[z] = -1;
+        float tile = layout.ZoneDegrees / 8f;
+        foreach (WorldMapPolity polity in era.polities)
+            for (int division = -1; division < (polity.divisions?.Count ?? 0); division++)
+            {
+                WorldMapDivision data = division >= 0 ? polity.divisions[division] : null;
+                string name = data == null ? "_core" : (data.name ?? "").Split('|')[0];
+                var polygons = new List<List<List<float[]>>>();
+                List<List<List<float[]>>> custom = data == null ? polity.boundary : data.boundary;
+                if (custom != null) polygons.AddRange(custom);
+                else
+                    foreach (WorldMapAdministrativeBoundary area in WorldMapAdministrativeBoundaries.For(era, polity.id, name))
+                        polygons.AddRange(area.polygons);
+                if (!AdministrativeBoundaryRules.Bounds(polygons, out float west, out float south, out float east, out float north)) continue;
+                List<int> members = MembersOf(layout, polity, division);
+                if (members.Count == 0) continue;
+                int x0 = Mathf.Max(0, Mathf.FloorToInt((west - layout.West) / layout.ZoneDegrees)), x1 = Mathf.Min(layout.W - 1, Mathf.CeilToInt((east - layout.West) / layout.ZoneDegrees));
+                int y0 = Mathf.Max(0, Mathf.FloorToInt((south - layout.Bottom) / layout.ZoneDegrees)), y1 = Mathf.Min(layout.H - 1, Mathf.CeilToInt((north - layout.Bottom) / layout.ZoneDegrees));
+                for (int zy = y0; zy <= y1; zy++)
+                for (int zx = x0; zx <= x1; zx++)
+                {
+                    int z = zy * layout.W + zx, tx = zx * 8 + 4, ty = zy * 8 + 4;
+                    if (owners[z] >= 0 || layout.Land[z] < 16) continue;
+                    if (!AdministrativeBoundaryRules.Contains(polygons, layout.West + tx * tile, layout.Bottom + ty * tile)) continue;
+                    owners[z] = NearestSeat(layout, members, tx, ty);
+                }
+            }
+        return _boundaryOwners = owners;
+    }
+
+    // 压着长城的地块(按折线；开局的走向还要沿山脊、河谷弯折，见 WorldMapWalls.Plan，这里差一两块)
+    private static bool[] WallZones(Layout layout, WorldMapEra era)
+    {
+        var wall = new bool[layout.W * layout.H];
+        foreach (WorldMapWall item in era.walls ?? new List<WorldMapWall>())
+            ScenarioPreviewRules.MarkWall(item?.pts, layout.West, layout.Bottom, layout.ZoneDegrees, layout.W, layout.H, wall);
+        return wall;
+    }
+
+    public static IReadOnlyList<string> Seats => _layout?.Seats ?? (IReadOnlyList<string>)new List<string>();
+
+    // 地块的网格：左下角经纬度、一块地多少度、东西南北几块
+    public static bool Grid(out float west, out float bottom, out float side, out int width, out int height)
+    {
+        Layout layout = _layout;
+        west = layout?.West ?? 0f;
+        bottom = layout?.Bottom ?? 0f;
+        side = layout?.ZoneDegrees ?? 0f;
+        width = layout?.W ?? 0;
+        height = layout?.H ?? 0;
+        return layout?.Region != null && width > 0 && height > 0 && side > 0f;
+    }
+
+    // 这块地够不够开局有人领(水面多的没人领)
+    public static bool Claimable(int zone) => Valid(zone) && _layout.Cost != null && _layout.Cost[zone] != 0;
+
+    // 这块地开局取样的两格(城的地块看中心那格的左下角、挂法理看加半格；见 PaintTerritory、BeginPaint)：刷到这块地就连这两格一起写，
+    // 开局才按这一笔算
+    public static void CenterCells(int zone, out int first, out int second)
+    {
+        first = second = -1;
+        if (!Valid(zone)) return;
+        Layout layout = _layout;
+        float tile = layout.ZoneDegrees / 8f;
+        int tx = zone % layout.W * 8, ty = zone / layout.W * 8;
+        first = ScenarioCells.Key(layout.West + (tx + 4) * tile, layout.Bottom + (ty + 4) * tile, ScenarioCells.LandStep);
+        second = ScenarioCells.Key(layout.West + (tx + 4.5f) * tile, layout.Bottom + (ty + 4.5f) * tile, ScenarioCells.LandStep);
+    }
+
+    // 这块地盖住的全部格子(两种取样点都算)：擦掉一块地要擦干净，不然剩下的格子又把它算回去
+    public static void ZoneCells(int zone, ICollection<int> cells)
+    {
+        if (!Valid(zone)) return;
+        Layout layout = _layout;
+        float tile = layout.ZoneDegrees / 8f;
+        int tx = zone % layout.W * 8, ty = zone / layout.W * 8;
+        ScenarioBrush.ZoneCells(layout.West + (tx + 4) * tile, layout.Bottom + (ty + 4) * tile, layout.ZoneDegrees, ScenarioCells.LandStep, cells);
+        ScenarioBrush.ZoneCells(layout.West + (tx + 4.5f) * tile, layout.Bottom + (ty + 4.5f) * tile, layout.ZoneDegrees, ScenarioCells.LandStep, cells);
+    }
+
+    // 这座城开局放得下吗：放不下返回原因的文本键，放得下返回 null
+    public static string PlaceProblem(WorldMapCity city)
+    {
+        Layout layout = _layout;
+        if (layout?.Region == null || city?.id == null || !ScenarioEditing.Active(city)) return null;
+        if (layout.SeatOf.ContainsKey(city.id)) return layout.Crowded.Contains(city.id) ? "scenario_editor_city_crowded" : null;
+        if (ScenarioEditing.Region(city.region) == null) return "scenario_editor_city_unplaced_region";
+        return layout.SizeIndex == 0 && ScenarioEditing.RankOf(city) > 2 ? "scenario_editor_city_unplaced_small" : "scenario_editor_city_unplaced_outside";
+    }
+
+    public static bool Placed(WorldMapCity city) => _layout?.Region == null || city?.id != null && _layout.SeatOf.ContainsKey(city.id);
 
     #endregion
 

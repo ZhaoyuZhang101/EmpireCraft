@@ -41,11 +41,23 @@ public static class WorldMapGenerator
             EarthTerrain.UseGrid(loaded.grid, loaded.cols, loaded.rows, WorldMapImporter.Step);
             frame = loaded.frame;
         }
-        else EarthTerrain.UseEarth();
+        else
+        {
+            EarthTerrain.UseEarth();
+            // 剧本定死了大小的，地图范围也照剧本
+            if (era.HasSize && !string.IsNullOrEmpty(era.frame))
+                frame = Array.Find(EarthTerrain.Frames, item => item.id == era.frame) ?? frame;
+        }
         // 剧本编辑器刷的地形盖过网格(只有自定剧本有)
         EarthTerrain.SetOverrides(era.Custom ? ScenarioCells.ToMap(era.terrain) : null);
         sizeIndex = Mathf.Clamp(sizeIndex, 0, frame.sizes.Length - 1);
         Vector2Int size = frame.sizes[sizeIndex];
+        // 剧本定死了大小(从当前世界导入的照原图，一格不差)：不看大中小
+        if (era.HasSize)
+        {
+            size = era.FixedSize;
+            sizeIndex = frame.IndexFor(size);
+        }
         Generating = true;
         ScrollWindow.hideAllEvent();
         EmpireCraft.Scripts.UI.Components.WorldMapLoadingScreen.Show(era, NeoModLoader.General.LM.Get("world_map_frame_" + frame.id),

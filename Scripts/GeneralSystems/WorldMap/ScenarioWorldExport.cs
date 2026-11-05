@@ -58,6 +58,8 @@ public static class ScenarioWorldExport
     private sealed class Projection
     {
         public float west, bottom, degrees;
+        // 开局按多大(区块)才和这张图一格不差：别的世界的 map.png 小图补过边，取样过的按取样前算
+        public int chunksWide, chunksHigh;
 
         public void LonLat(int x, int y, out float lon, out float lat)
         {
@@ -163,7 +165,7 @@ public static class ScenarioWorldExport
         if (earth)
         {
             frame.Bounds(new Vector2Int(wild.w, wild.h), out float bottom, out float degrees);
-            projection = new Projection { west = frame.west, bottom = bottom, degrees = degrees };
+            projection = new Projection { west = frame.west, bottom = bottom, degrees = degrees, chunksWide = wild.w, chunksHigh = wild.h };
         }
         else projection = WriteMap(dir);
 
@@ -462,6 +464,8 @@ public static class ScenarioWorldExport
         if (paint is { Count: > 0 }) root["paint"] = JArray.FromObject(paint);
         // 照原图分地：开局各城的地块照刷的 "c:" 分，不再按地形往外铺、不补小国(见 WorldMapEra.exact)
         if (paint is { Count: > 0 }) root["exact"] = true;
+        // 地图大小照原图：开局一块地不差，编辑器里的图也就这么大
+        root["size"] = new JArray(projection.chunksWide, projection.chunksHigh);
         JArray walls = Safe(() => Walls(projection), null);
         if (walls is { Count: > 0 }) root["walls"] = walls;
         JArray passes = Safe(() => Passes(projection), null);
@@ -510,7 +514,11 @@ public static class ScenarioWorldExport
             UnityEngine.Object.Destroy(texture);
         }
         WorldMapImporter.WriteLegend(dir);
-        return new Projection { west = 0f, bottom = 0f, degrees = WorldMapImporter.Step / shrink };
+        return new Projection
+        {
+            west = 0f, bottom = 0f, degrees = WorldMapImporter.Step / shrink,
+            chunksWide = cols * shrink / ChunkTiles, chunksHigh = rows * shrink / ChunkTiles
+        };
     }
 
     private static int Pad(int tiles) => Math.Max(MinSide, (tiles + ChunkTiles - 1) / ChunkTiles * ChunkTiles);

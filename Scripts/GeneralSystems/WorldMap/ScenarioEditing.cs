@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
@@ -52,9 +53,13 @@ public static class ScenarioEditing
             era.folder = custom.folder;
             era.id = custom.id;
             Normalize(era);
+            // 导入时的原图归属：单放，不进撤销快照(快照一步一份，几万格)，存盘时才写回
+            _landBase = ScenarioCells.ToMap(era.paint_base ?? (era.exact ? era.paint : null));
+            era.paint_base = null;
             Era = era;
             Folder = custom.folder;
             Dirty = false;
+            _stroke = _strokeSaved = false;
             Undos.Clear();
             LoadCells();
             Revision++;
@@ -78,9 +83,11 @@ public static class ScenarioEditing
         era.events ??= new List<WorldMapEvent>();
         era.culture ??= new Dictionary<string, string>();
         era.wilderness_regions ??= new Dictionary<string, string>();
+        // 自带城表的剧本(手写的可能没写地区)：下面增删改都直接用这张表
+        if (era.OwnWorld) era.regions ??= new List<WorldMapRegion>();
     }
 
-    // 空白剧本：地球地图上的内置城各自独立、没有国家，开局年份 1 年，记下地图范围；返回文件夹名
+    // 空白剧本：地球地图上一座城也没有，留着内置的地区与帝国法理(放城时按所在地取文化)，开局年份 1 年，记下地图范围；返回文件夹名
     public static string CreateBlank(string frame = null)
     {
         if (!WorldMapData.EnsureLoaded()) return null;
@@ -92,7 +99,12 @@ public static class ScenarioEditing
             string folder = Path.Combine(WorldMapData.CustomFolder, name);
             Directory.CreateDirectory(folder);
             string title = LM.Get("scenario_editor_blank_name");
-            var era = new WorldMapEra { id = name, zh = title, tw = title, en = title, year = 1, focus = "east", order = 100, frame = frame };
+            var era = new WorldMapEra
+            {
+                id = name, zh = title, tw = title, en = title, year = 1, focus = "east", order = 100, frame = frame, own_cities = true,
+                cities = new List<WorldMapCity>(), regions = Clone(WorldMapData.BuiltinRegions),
+                tianxia = new Dictionary<string, string>(WorldMapData.BuiltinTianxia), cores = Clone(WorldMapData.BuiltinCores)
+            };
             File.WriteAllText(Path.Combine(folder, WorldMapData.CustomFile), Serialize(era, true));
             return name;
         }
@@ -109,7 +121,10 @@ public static class ScenarioEditing
         try
         {
             FlushCells();
-            File.WriteAllText(Path.Combine(Folder, WorldMapData.CustomFile), Serialize(Era, true));
+            Era.paint_base = Era.exact && !Era.base_stale && _landBase.Count > 0 ? ScenarioCells.FromMap(_landBase) : null;
+            string json = Serialize(Era, true);
+            Era.paint_base = null;
+            File.WriteAllText(Path.Combine(Folder, WorldMapData.CustomFile), json);
             if (thumbnail != null && thumbWidth > 0 && thumbHeight > 0)
             {
                 var texture = new Texture2D(thumbWidth, thumbHeight, TextureFormat.RGBA32, false);
@@ -134,10 +149,12 @@ public static class ScenarioEditing
         Era = null;
         Folder = "";
         Dirty = false;
+        _stroke = _strokeSaved = false;
         Undos.Clear();
         _owners.Clear();
         _ownersRevision = -1;
         _landCells = new Dictionary<int, string>();
+        _landBase = new Dictionary<int, string>();
         _terrainCells = new Dictionary<int, string>();
         _developCells = new Dictionary<int, string>();
         _cellsDirty = false;
@@ -169,6 +186,10 @@ public static class ScenarioEditing
         Dirty = true;
         Revision++;
     }
+
+    // 刷地块、地形、开发度以外的改动才变(国家、城、行政区)：预览里慢的那几步据此留缓存，拖着刷时不重算
+    private static int _paintEdits;
+    public static int StructureRevision => Revision - _paintEdits;
 
     #endregion
 
@@ -241,9 +262,54 @@ public static class ScenarioEditing
 
     public static void SetAuthor(string author)
     {
-        if (Era == null || (author ?? "").Trim() == Era.author) return;
+        if (Era == null || (author ?? "").Trim() == (Era.author ?? "")) return;
         Before();
         Era.author = (author ?? "").Trim();
+        Changed();
+    }
+
+    // 地图大小(格，按 64 格取整；清空回到开局时选大中小)：只填了一边，另一边取现在预演的大小
+    public const int MinMapChunks = 4, MaxMapChunks = 48;
+
+    public static void SetMapSide(bool southNorth, string text)
+    {
+        if (Era == null) return;
+        string value = (text ?? "").Trim();
+        int at = southNorth ? 1 : 0;
+        if (value.Length == 0)
+        {
+            if (!Era.HasSize) return;
+            Before();
+            Era.size = null;
+            Changed();
+            return;
+        }
+        if (!int.TryParse(value, out int tiles) || tiles <= 0) return;
+        int chunks = ScenarioPreviewRules.ChunksOf(tiles, 64, MinMapChunks, MaxMapChunks);
+        Vector2Int current = Era.HasSize ? Era.FixedSize : ScenarioWilderness.Size;
+        if (Era.HasSize && Era.size[at] == chunks) return;
+        Before();
+        Era.size = new[] { Mathf.Clamp(current.x, MinMapChunks, MaxMapChunks), Mathf.Clamp(current.y, MinMapChunks, MaxMapChunks) };
+        Era.size[at] = chunks;
+        // 大小定死了范围也得定：一格多少度是范围除以大小，开局再选别的范围就对不上了
+        if (Era.map == null && string.IsNullOrEmpty(Era.frame)) Era.frame = ScenarioWilderness.Frame?.id;
+        Changed();
+    }
+
+    // 照原图分地：只按刷的地块分地(刷过归城的地块才有这一说)
+    public static bool CanExact => Era?.exact == true || _landCells.Values.Any(value => value.StartsWith("c:", StringComparison.Ordinal));
+
+    public static void ToggleExact()
+    {
+        if (Era == null || !CanExact) return;
+        Before();
+        Era.exact = !Era.exact;
+        if (Era.exact && (_landBase.Count == 0 || Era.base_stale))
+        {
+            Era.base_stale = false;
+            _landBase = _landCells.Where(pair => pair.Value.StartsWith("c:", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value);
+        }
+        LandRevision++;
         Changed();
     }
 
@@ -286,7 +352,7 @@ public static class ScenarioEditing
         Before();
         EnsureOwnWorld();
         WorldMapCity near = Nearest(lon, lat, null);
-        string region = near?.region ?? Regions.FirstOrDefault()?.id ?? "";
+        string region = RegionForNewCity(near, lon, lat);
         if (string.IsNullOrEmpty(region))
         {
             var created = new WorldMapRegion { id = "r1", culture = "Huaxia" };
@@ -311,6 +377,32 @@ public static class ScenarioEditing
         Era.cities.Add(new WorldMapCity { id = id, zh = zh, tw = tw, en = en, lon = lon, lat = lat, region = region, rank = 2 });
         Changed();
         return id;
+    }
+
+    // 新城的地区：几度内有城跟它；再远(空白剧本放下第一座城、跨到另一片大陆)按内置城表看这里当年属哪个地区，文化才对得上
+    private const float NearCityDegrees = 6f;
+
+    private static string RegionForNewCity(WorldMapCity near, float lon, float lat)
+    {
+        if (near != null)
+        {
+            float dx = (near.lon - lon) * Mathf.Cos(lat * Mathf.Deg2Rad), dy = near.lat - lat;
+            if (dx * dx + dy * dy <= NearCityDegrees * NearCityDegrees) return near.region;
+        }
+        if (Era?.map == null)
+        {
+            WorldMapCity builtin = null;
+            float best = float.MaxValue;
+            foreach (WorldMapCity city in WorldMapData.BuiltinCities)
+            {
+                float dx = (city.lon - lon) * Mathf.Cos(lat * Mathf.Deg2Rad), dy = city.lat - lat, distance = dx * dx + dy * dy;
+                if (distance >= best) continue;
+                best = distance;
+                builtin = city;
+            }
+            if (builtin != null && Region(builtin.region) != null) return builtin.region;
+        }
+        return near?.region ?? Regions.FirstOrDefault()?.id ?? "";
     }
 
     private static string CultureOfRegion(string region) => Regions.FirstOrDefault(entry => entry.id == region)?.culture;
@@ -348,19 +440,25 @@ public static class ScenarioEditing
         Changed();
     }
 
-    // 删城：连同各国点名的城、都城、法理首都一并去掉
-    public static void DeleteCity(string id)
+    // 删城：连同各国点名的城、法理首都、事件里点名这座城的项一并去掉；是都城的，本国另一座最大的城接着当都城。返回提示
+    public static string DeleteCity(string id)
     {
-        if (City(id) == null) return;
+        if (City(id) == null) return null;
         Before();
+        var heirs = new Dictionary<WorldMapPolity, string>();
+        foreach (WorldMapPolity polity in Era.polities.Where(polity => polity.capital == id))
+        {
+            WorldMapCity heir = Cities.Where(city => city.id != id && Active(city) && OwnerOf(city) == polity).OrderBy(RankOf).FirstOrDefault();
+            if (heir != null) heirs[polity] = heir.id;
+        }
         EnsureOwnWorld();
-        if (Era.cities.RemoveAll(city => city.id == id) == 0) return;
+        if (Era.cities.RemoveAll(city => city.id == id) == 0) return null;
         // 照原图归这座城的地块(见 ScenarioWorldExport)一并去掉
         DropLandKey("c:" + id);
         foreach (WorldMapPolity polity in Era.polities)
         {
             polity.cities?.Remove(id);
-            if (polity.capital == id) polity.capital = "";
+            if (polity.capital == id) polity.capital = heirs.TryGetValue(polity, out string heir) ? heir : "";
             LeaveDivisions(polity, id);
         }
         foreach (WorldMapRegion region in Era.regions)
@@ -368,7 +466,40 @@ public static class ScenarioEditing
         foreach (WorldMapCore core in Era.cores)
             if (core.capital == id) core.capital = "";
         Era.ranks.Remove(id);
+        Era.independent?.Remove(id);
+        int forgotten = ForgetInEvents(city: id);
         Changed();
+        return LM.Get("scenario_editor_city_deleted") + EventsNote(forgotten);
+    }
+
+    // 清空全部城(连同国家、关系)：地图上一座城也不留，城表不再回落到内置的。地区、帝国法理留着，放新城时还能接着用
+    public static string ClearAllCities()
+    {
+        if (Era == null) return null;
+        Before();
+        EnsureOwnWorld();
+        Era.cities.Clear();
+        Era.own_cities = true;
+        Era.exact = false;
+        Era.base_stale = true;
+        Era.independent = null;
+        Era.ranks.Clear();
+        Era.polities.Clear();
+        Era.relations.Clear();
+        foreach (WorldMapRegion region in Era.regions ?? new List<WorldMapRegion>()) region.capital = "";
+        foreach (WorldMapCore core in Era.cores) core.capital = "";
+        foreach (WorldMapEvent item in Era.events)
+            foreach (WorldMapEventStep step in Steps(item))
+            {
+                step.a = step.b = step.city = "";
+                step.cities = null;
+            }
+        foreach (int cell in _landCells.Where(pair => pair.Value[0] is 'c' or 'p').Select(pair => pair.Key).ToList()) _landCells.Remove(cell);
+        _cellsDirty = true;
+        LandRevision++;
+        _ownersRevision = -1;
+        Changed();
+        return LM.Get("scenario_editor_cities_cleared");
     }
 
     public static WorldMapCity Nearest(float lon, float lat, Func<WorldMapCity, bool> filter)
@@ -425,7 +556,7 @@ public static class ScenarioEditing
             float bestDistance = float.MaxValue;
             foreach (WorldMapPolity polity in Era.polities)
             {
-                if (polity.regions == null || !polity.regions.Contains(city.region) ||
+                if (polity.regions == null || !polity.regions.Contains(city.region) || Era.independent?.Contains(city.id) == true ||
                     !byId.TryGetValue(polity.capital ?? "", out WorldMapCity seat)) continue;
                 float dx = city.lon - seat.lon, dy = city.lat - seat.lat, distance = dx * dx + dy * dy;
                 if (distance >= bestDistance) continue;
@@ -456,22 +587,59 @@ public static class ScenarioEditing
         }
         polity.cities ??= new List<string>();
         polity.cities.Add(cityId);
+        Era.independent?.Remove(cityId);
         Changed();
         return string.Format(LM.Get("scenario_editor_assigned"), CityName(city), polity.Name);
     }
 
-    // 不再点名这座城(回到按地区认领，没人认领就独立)
-    public static string Release(string cityId)
+    // 让城独立：不再归任何国家(所在地区被哪国认领也不归它，记进 independent)；是都城的先给那国另立都城
+    public static string MakeIndependent(string cityId)
     {
         WorldMapCity city = City(cityId);
         if (city == null || Era == null) return null;
         if (CapitalHolder(cityId, null) is WorldMapPolity holder)
             return string.Format(LM.Get("scenario_editor_capital_locked"), CityName(city), holder.Name);
-        if (!Era.polities.Any(other => other.cities?.Contains(cityId) == true)) return LM.Get("scenario_editor_not_named");
+        if (OwnerOf(city) == null) return string.Format(LM.Get("scenario_editor_already_independent"), CityName(city));
         Before();
-        foreach (WorldMapPolity other in Era.polities) other.cities?.Remove(cityId);
+        foreach (WorldMapPolity other in Era.polities)
+        {
+            other.cities?.Remove(cityId);
+            LeaveDivisions(other, cityId);
+        }
+        if (Era.polities.Any(polity => polity.regions?.Contains(city.region) == true))
+        {
+            Era.independent ??= new List<string>();
+            if (!Era.independent.Contains(cityId)) Era.independent.Add(cityId);
+        }
         Changed();
         return string.Format(LM.Get("scenario_editor_released"), CityName(city));
+    }
+
+    // 认领王国法理：里面没被别国点名的城都归这国(同地区几国认领的归最近的都城)；再点一次不再认领
+    public static string ToggleClaim(WorldMapPolity polity, string regionId)
+    {
+        WorldMapRegion region = Region(regionId);
+        if (polity == null || region == null || Era == null) return null;
+        Before();
+        polity.regions ??= new List<string>();
+        bool had = polity.regions.Remove(regionId);
+        if (!had) polity.regions.Add(regionId);
+        Changed();
+        return string.Format(LM.Get(had ? "scenario_editor_claim_removed" : "scenario_editor_claim_added"), polity.Name, region.TitleName);
+    }
+
+    // 改城的地区不该连带改国家：认领按地区算，城一换地区就可能翻给别国或独立，写明归原来那国(原来独立的记成独立)。
+    // 调用处先记 before，改完地区再调
+    private static void KeepOwner(WorldMapCity city, WorldMapPolity before)
+    {
+        _ownersRevision = -1;
+        WorldMapPolity after = OwnerOf(city);
+        if (after != before)
+        {
+            if (before != null) (before.cities ??= new List<string>()).Add(city.id);
+            else (Era.independent ??= new List<string>()).Add(city.id);
+        }
+        _ownersRevision = -1;
     }
 
     // 以这座城为都城立一个新国家(文化取城所在地区的)
@@ -487,6 +655,7 @@ public static class ScenarioEditing
         }
         Before();
         foreach (WorldMapPolity other in Era.polities) other.cities?.Remove(cityId);
+        Era.independent?.Remove(cityId);
         int n = Era.polities.Count + 1;
         string id = "p" + n;
         while (Era.polities.Any(polity => polity.id == id)) id = "p" + ++n;
@@ -503,16 +672,18 @@ public static class ScenarioEditing
         return polity;
     }
 
-    public static void DeletePolity(WorldMapPolity polity)
+    public static string DeletePolity(WorldMapPolity polity)
     {
-        if (polity == null || Era == null || !Era.polities.Contains(polity)) return;
+        if (polity == null || Era == null || !Era.polities.Contains(polity)) return null;
         Before();
         Era.polities.RemoveAll(item => item.id == polity.id);
         Era.relations.RemoveAll(relation => relation.a == polity.id || relation.b == polity.id);
         DropLandKey("p:" + polity.id);
         foreach (WorldMapPolity other in Era.polities)
             if (other.overlord == polity.id) other.overlord = "";
+        int forgotten = ForgetInEvents(polity: polity.id);
         Changed();
+        return LM.Get("scenario_editor_realm_deleted") + EventsNote(forgotten);
     }
 
     // 立某城为某国都城(先划进来)
@@ -524,6 +695,7 @@ public static class ScenarioEditing
             return string.Format(LM.Get("scenario_editor_capital_locked"), CityName(city), holder.Name);
         Before();
         foreach (WorldMapPolity other in Era.polities) other.cities?.Remove(cityId);
+        Era.independent?.Remove(cityId);
         polity.cities ??= new List<string>();
         if (!string.IsNullOrEmpty(polity.capital) && polity.capital != cityId && !polity.cities.Contains(polity.capital))
             polity.cities.Add(polity.capital);
@@ -563,10 +735,13 @@ public static class ScenarioEditing
     public static void SetRuler(WorldMapPolity polity, string family, string given, string age)
     {
         if (polity == null) return;
-        string fam = family == null ? polity.ruler?.fam : string.IsNullOrWhiteSpace(family) ? null : family.Trim();
-        string giv = given == null ? polity.ruler?.giv : string.IsNullOrWhiteSpace(given) ? null : given.Trim();
-        int years = age == null ? polity.ruler?.age ?? -1 : int.TryParse(age.Trim(), out int value) && value > 0 ? value : -1;
-        if (polity.ruler != null && polity.ruler.fam == fam && polity.ruler.giv == giv && polity.ruler.age == years) return;
+        // 框里显示的是当前语言那一段，存的是三种写法：没改就不动(以前点一下框再离开，英文、繁体写法就丢了)
+        string fam = ScenarioPreviewRules.KeepIfSame(polity.ruler?.fam, family, WorldMapData.PickParts);
+        string giv = ScenarioPreviewRules.KeepIfSame(polity.ruler?.giv, given, WorldMapData.PickParts);
+        int old = polity.ruler?.age ?? -1;
+        int years = age == null ? old : int.TryParse(age.Trim(), out int value) && value > 0 ? value : -1;
+        if (old <= 0 && years <= 0) years = old;
+        if (polity.ruler == null ? fam == null && giv == null && years <= 0 : polity.ruler.fam == fam && polity.ruler.giv == giv && polity.ruler.age == years) return;
         Before();
         polity.ruler ??= new WorldMapPerson();
         polity.ruler.fam = fam;
@@ -741,6 +916,7 @@ public static class ScenarioEditing
     {
         WorldMapCity city = City(cityId);
         if (city == null) return null;
+        WorldMapPolity owner = OwnerOf(city);
         Before();
         EnsureOwnWorld();
         city = City(cityId);
@@ -758,6 +934,7 @@ public static class ScenarioEditing
         Era.regions.Add(region);
         city.region = id;
         city.share?.Remove(id);
+        KeepOwner(city, owner);
         Changed();
         return id;
     }
@@ -768,6 +945,7 @@ public static class ScenarioEditing
         WorldMapCity city = City(cityId);
         WorldMapRegion region = Region(regionId);
         if (city == null || region == null || city.region == regionId) return null;
+        WorldMapPolity owner = OwnerOf(city);
         Before();
         EnsureOwnWorld();
         city = City(cityId);
@@ -775,6 +953,7 @@ public static class ScenarioEditing
             if (other.capital == cityId) other.capital = "";
         city.region = regionId;
         city.share?.Remove(regionId);
+        KeepOwner(city, owner);
         Changed();
         return string.Format(LM.Get("scenario_editor_region_assigned"), CityName(city), Region(regionId).TitleName);
     }
@@ -809,6 +988,26 @@ public static class ScenarioEditing
         region.culture = Step(CultureService.CultureKeys.ToList(), RegionCulture(region), step);
         Era.culture.Remove(id);
         Changed();
+    }
+
+    // 开局法理名(见 WorldMapScenario.BuildTitles、OwnTitles)：法理首都是不称帝国家的都城时，法理名用国名(国名照主法理定)，返回那国，否则 null；
+    // others 为都城也在这块法理里、开局另立一块叫国名的法理的国家
+    public static WorldMapPolity RegionNamedAfter(WorldMapRegion region, out List<WorldMapPolity> others)
+    {
+        others = new List<WorldMapPolity>();
+        if (region == null || Era == null) return null;
+        List<WorldMapCity> members = Cities.Where(city => Active(city) && city.region == region.id).ToList();
+        WorldMapCity seat = members.FirstOrDefault(city => city.id == region.capital) ??
+                            members.Where(city => OwnerOf(city)?.capital == city.id).OrderBy(RankOf).FirstOrDefault() ??
+                            members.OrderBy(RankOf).FirstOrDefault();
+        WorldMapPolity owner = OwnerOf(seat);
+        WorldMapPolity named = owner != null && !owner.empire && owner.capital == seat?.id ? owner : null;
+        foreach (WorldMapCity city in members)
+        {
+            WorldMapPolity polity = OwnerOf(city);
+            if (polity != null && polity != named && !polity.empire && polity.capital == city.id && !others.Contains(polity)) others.Add(polity);
+        }
+        return named;
     }
 
     // 立城为王国法理首都(城得在这个法理里)
@@ -870,8 +1069,9 @@ public static class ScenarioEditing
         foreach (WorldMapCity city in Era.cities) city.share?.Remove(id);
         Era.culture.Remove(id);
         DropLandKey("r:" + id);
+        int forgotten = ForgetInEvents(region: id);
         Changed();
-        return LM.Get("scenario_editor_region_deleted");
+        return LM.Get("scenario_editor_region_deleted") + EventsNote(forgotten);
     }
 
     #endregion
@@ -1049,6 +1249,26 @@ public static class ScenarioEditing
             ? LM.Get("scenario_editor_kind_" + kind)
             : LM.Get(key);
 
+    // 一条关系写成一句话，谁对谁一看就明白(A→B 在不同种类里方向不一样：朝贡是 A 称臣，附庸是 A 立 B)
+    public static string RelationSentence(string kind, string a, string b) => string.Format(LM.Get("scenario_editor_relation_text_" + kind), a, b);
+
+    // 这条关系开局做不做得成(同 DiplomacyActions 的判定里编辑器看得出来的那几条)；做得成返回 null
+    public static string RelationProblem(WorldMapPolity a, WorldMapPolity b, string kind)
+    {
+        if (a == null || b == null) return null;
+        switch (kind)
+        {
+            case "tribute":
+                if (!b.empire) return string.Format(LM.Get("scenario_editor_relation_problem_tribute"), b.Name);
+                return a.empire || !string.IsNullOrEmpty(a.overlord) ? string.Format(LM.Get("scenario_editor_relation_problem_tribute_self"), a.Name) : null;
+            case "pact":
+                return InEmpire(a) && InEmpire(b) ? null : LM.Get("scenario_editor_relation_problem_pact");
+        }
+        return null;
+    }
+
+    private static bool InEmpire(WorldMapPolity polity) => polity.empire || !string.IsNullOrEmpty(polity.overlord);
+
     public static string GoalName(string goal) => LM.Has("war_goal_" + goal) ? LM.Get("war_goal_" + goal) : goal;
 
     public static List<WorldMapRelation> RelationsOf(WorldMapPolity polity) =>
@@ -1067,18 +1287,22 @@ public static class ScenarioEditing
         {
             Era.relations.Remove(existing);
             Changed();
-            return string.Format(LM.Get("scenario_editor_relation_removed"), a.Name, b.Name, KindName(kind));
+            return string.Format(LM.Get("scenario_editor_relation_removed"), RelationSentence(kind, a.Name, b.Name));
         }
         Era.relations.Add(new WorldMapRelation { a = a.id, b = b.id, kind = kind, goal = kind == "war" ? goal ?? "" : "" });
         Changed();
-        return string.Format(LM.Get("scenario_editor_relation_added"), a.Name, b.Name, KindName(kind));
+        string problem = RelationProblem(a, b, kind);
+        return string.Format(LM.Get("scenario_editor_relation_added"), RelationSentence(kind, a.Name, b.Name)) +
+               (problem == null ? "" : "  " + problem.ColorString("#E9A85B"));
     }
 
     public static string RelationText(WorldMapRelation relation)
     {
         WorldMapPolity a = Polity(relation.a), b = Polity(relation.b);
-        string text = $"{a?.Name ?? relation.a} → {b?.Name ?? relation.b}  {KindName(relation.kind)}";
-        return relation.kind == "war" && !string.IsNullOrEmpty(relation.goal) ? text + "·" + GoalName(relation.goal) : text;
+        string text = RelationSentence(relation.kind, a?.Name ?? relation.a, b?.Name ?? relation.b);
+        if (relation.kind == "war" && !string.IsNullOrEmpty(relation.goal)) text += "·" + GoalName(relation.goal);
+        string problem = RelationProblem(a, b, relation.kind);
+        return problem == null ? text : text + "\n  " + problem.ColorString("#E9A85B");
     }
 
     #endregion
@@ -1189,6 +1413,12 @@ public static class ScenarioEditing
         // 刷的地块、地形、开发度与部落圈按经纬度记，换了地图对不上
         Era.paint = Era.terrain = Era.develop = null;
         Era.tribes = null;
+        // 换了地图，照原图分地和定死的大小都不再算数
+        Era.exact = false;
+        Era.base_stale = true;
+        Era.size = null;
+        Era.independent = null;
+        Era.own_cities = false;
         LoadCells();
         if (on)
         {
@@ -1242,6 +1472,8 @@ public static class ScenarioEditing
 
     // 刷的格子编辑时放字典里改(一笔几百格)，存盘、存撤销快照前才写回剧本的列表(见 FlushCells)
     private static Dictionary<int, string> _landCells = new(), _terrainCells = new(), _developCells = new();
+    // 导入时的原图归属(照原图分地的剧本擦掉地块回到这里；不进撤销快照，只在开关照原图分地时才看)
+    private static Dictionary<int, string> _landBase = new();
     private static bool _cellsDirty;
 
     public static IReadOnlyDictionary<int, string> LandCells => _landCells;
@@ -1276,6 +1508,7 @@ public static class ScenarioEditing
     // 刷一笔：key 为空就擦掉；返回改了几格
     public static int PaintLand(ICollection<int> cells, string key)
     {
+        if (string.IsNullOrEmpty(key) && RestoresBase) return RestoreLand(cells);
         int count = PaintCells(_landCells, cells, key, false);
         if (count > 0) LandRevision++;
         return count;
@@ -1303,14 +1536,60 @@ public static class ScenarioEditing
             else map[cell] = key;
         _cellsDirty = true;
         if (terrain) TerrainRevision++;
+        _paintEdits++;
         Changed();
         return changes.Count;
     }
 
     public static int LandCount(string key) => string.IsNullOrEmpty(key) ? 0 : _landCells.Values.Count(value => value == key);
 
+    // 照原图分地的剧本：城界全是刷的 "c:" 格子，擦掉不能真擦空(开局那块地就没人领了)，回到导入时的样子
+    public static bool RestoresBase => Era?.exact == true && Era.base_stale != true && _landBase.Count > 0;
+
+    private static int RestoreLand(IEnumerable<int> cells)
+    {
+        var alive = new HashSet<string>(Cities.Select(city => city.id));
+        var changes = new List<(int cell, string key)>();
+        foreach (int cell in cells)
+        {
+            string key = ScenarioPreviewRules.BaseValue(_landBase, cell, alive);
+            _landCells.TryGetValue(cell, out string current);
+            if (current != key) changes.Add((cell, key));
+        }
+        if (changes.Count == 0) return 0;
+        Before();
+        foreach ((int cell, string key) in changes)
+            if (key == null) _landCells.Remove(cell);
+            else _landCells[cell] = key;
+        _cellsDirty = true;
+        LandRevision++;
+        _paintEdits++;
+        Changed();
+        return changes.Count;
+    }
+
+    // 刷的地块有没有可清的：照原图分地的看和导入时一不一样
+    public static bool LandEdited
+    {
+        get
+        {
+            if (!RestoresBase) return _landCells.Count > 0;
+            var alive = new HashSet<string>(Cities.Select(city => city.id));
+            foreach (KeyValuePair<int, string> pair in _landCells)
+                if (ScenarioPreviewRules.BaseValue(_landBase, pair.Key, alive) != pair.Value) return true;
+            foreach (int cell in _landBase.Keys)
+                if (ScenarioPreviewRules.BaseValue(_landBase, cell, alive) != null && !_landCells.ContainsKey(cell)) return true;
+            return false;
+        }
+    }
+
     public static void ClearLand()
     {
+        if (RestoresBase)
+        {
+            RestoreLand(_landCells.Keys.Concat(_landBase.Keys).Distinct().ToList());
+            return;
+        }
         if (_landCells.Count == 0) return;
         Before();
         _landCells.Clear();
@@ -1442,6 +1721,106 @@ public static class ScenarioEditing
         return list != null && step >= 0 && step < list.Count ? list[step] : null;
     }
 
+    private static IEnumerable<WorldMapEventStep> Steps(WorldMapEvent item) =>
+        (item?.when ?? new List<WorldMapEventStep>()).Concat(item?.then ?? new List<WorldMapEventStep>());
+
+    // 删国、删城、删法理：事件里点名它的项清空，不留失效的编号(以前"某国已亡"对删掉的国恒成立，到点就触发；新建的对象还可能接上旧编号)。
+    // 返回清了几项
+    private static int ForgetInEvents(string polity = null, string city = null, string region = null)
+    {
+        int cleared = 0;
+        foreach (WorldMapEvent item in Era.events)
+            foreach (WorldMapEventStep step in Steps(item))
+            {
+                if (polity != null && step.a == polity)
+                {
+                    step.a = "";
+                    cleared++;
+                }
+                if (polity != null && step.b == polity)
+                {
+                    step.b = "";
+                    cleared++;
+                }
+                if (city != null && step.city == city)
+                {
+                    step.city = "";
+                    cleared++;
+                }
+                if (city != null && step.cities?.Remove(city) == true) cleared++;
+                if (region != null && step.region == region)
+                {
+                    step.region = "";
+                    cleared++;
+                }
+            }
+        return cleared;
+    }
+
+    private static string EventsNote(int cleared) => cleared > 0 ? string.Format(LM.Get("scenario_editor_events_cleared"), cleared) : "";
+
+    // 这一条事件还有几项没填或已失效(开局这些做不成)
+    public static int EventProblems(WorldMapEvent item)
+    {
+        int problems = 0;
+        foreach (WorldMapEventStep step in item?.when ?? new List<WorldMapEventStep>()) problems += StepProblems(step, false);
+        foreach (WorldMapEventStep step in item?.then ?? new List<WorldMapEventStep>()) problems += StepProblems(step, true);
+        return problems;
+    }
+
+    private static int StepProblems(WorldMapEventStep step, bool effect)
+    {
+        int problems = 0;
+        foreach (string slot in SlotsOf(step, effect))
+        {
+            switch (slot)
+            {
+                case "a":
+                    if (Polity(step.a) == null) problems++;
+                    break;
+                case "b":
+                    if (Polity(step.b) == null) problems++;
+                    break;
+                case "city":
+                    // 献城改投：人、城可只写一样
+                    if (City(step.city) == null && !(step.kind == "cede" && !string.IsNullOrWhiteSpace(step.person))) problems++;
+                    break;
+                case "region":
+                    if (Region(step.region) == null) problems++;
+                    break;
+                case "person":
+                    if (step.kind is "dies" or "heir" && string.IsNullOrWhiteSpace(step.person)) problems++;
+                    break;
+            }
+        }
+        return problems;
+    }
+
+    // 事件能点名的人物：剧本写了名字的君主、宗室、名臣(同 WorldMapScenario.ScenarioPeople)；不在里面的名字开局找不到人
+    public static List<string> UnknownPeople(string names)
+    {
+        var known = new HashSet<string>();
+        void Add(string family, string given)
+        {
+            foreach (string key in ScenarioEventSystem.NameKeys(family, given)) known.Add(key);
+        }
+        foreach (WorldMapPolity polity in Era?.polities ?? new List<WorldMapPolity>())
+        {
+            if (polity.ruler != null) Add(polity.ruler.fam, polity.ruler.giv);
+            foreach (WorldMapPerson person in polity.kin ?? new List<WorldMapPerson>()) Add(person.fam, person.giv);
+            foreach (WorldMapFamous person in polity.famous ?? new List<WorldMapFamous>()) Add(person.fam, person.giv);
+        }
+        return (names ?? "").Split(new[] { '、', ',', '，' }, StringSplitOptions.RemoveEmptyEntries).Select(name => name.Trim())
+            .Where(name => name.Length > 0 && !known.Contains(name)).ToList();
+    }
+
+    // 这个剧本能选哪些结果：八旗几项只有写了八旗多元制的国家才做得成
+    public static List<string> EffectKinds()
+    {
+        bool banner = Era?.polities.Any(polity => polity.banner) == true;
+        return ScenarioEventSystem.EffectKinds.Where(kind => banner || !kind.StartsWith("banner_", StringComparison.Ordinal)).ToList();
+    }
+
     public static int NewEvent()
     {
         if (Era == null) return -1;
@@ -1471,7 +1850,7 @@ public static class ScenarioEditing
     public static void SetEventText(int index, string text)
     {
         WorldMapEvent item = Event(index);
-        if (item == null || (text ?? "").Trim() == item.text) return;
+        if (item == null || (text ?? "").Trim() == (item.text ?? "")) return;
         Before();
         item.text = (text ?? "").Trim();
         Changed();
@@ -1520,7 +1899,7 @@ public static class ScenarioEditing
         WorldMapEventStep item = Step(index, effect, step);
         if (item == null) return;
         Before();
-        item.kind = Step((effect ? ScenarioEventSystem.EffectKinds : ScenarioEventSystem.ConditionKinds).ToList(), item.kind, delta);
+        item.kind = Step(effect ? EffectKinds() : ScenarioEventSystem.ConditionKinds.ToList(), item.kind, delta);
         if (effect && item.kind == "relation" && string.IsNullOrEmpty(item.relation)) item.relation = "war";
         Changed();
     }
@@ -1607,7 +1986,9 @@ public static class ScenarioEditing
             "rebel" => new List<string> { "a", "city", "name", "person" },
             // 献城改投：从哪国、归哪国、哪座城、投奔的人(人、城可只写一样)；人物身故、立储：哪国的人
             "cede" => new List<string> { "a", "b", "city", "person" },
-            "dies" or "heir" => new List<string> { "a", "person" },
+            // 身故只看人(国亡了人照样该死)
+            "dies" => new List<string> { "person" },
+            "heir" => new List<string> { "a", "person" },
             // 八旗多元制：建满城、跑马圈地点名一座城(文件里可用 cities 写多座)；逃人法只要国
             "banner_city" or "banner_enclosure" => new List<string> { "a", "city" },
             _ => new List<string> { "a" }
@@ -1633,6 +2014,14 @@ public static class ScenarioEditing
     {
         if (string.IsNullOrEmpty(key)) return new Color32(150, 150, 150, 255);
         if (key.StartsWith("j:", StringComparison.Ordinal)) return ColorOfKey("p:" + key.Substring(2));
+        // 独立的城("i:城编号")：开局自成一国，统一用灰的，不和有名有姓的国家抢眼
+        if (key.StartsWith("i:", StringComparison.Ordinal))
+        {
+            int grey = 17;
+            foreach (char c in key) grey = grey * 31 + c;
+            byte tone = (byte)(135 + (grey & 0xFFFF) % 45);
+            return new Color32(tone, tone, tone, 255);
+        }
         int cut = key.LastIndexOf(':');
         if (key.StartsWith("d:", StringComparison.Ordinal) && cut > 2 && int.TryParse(key.Substring(cut + 1), out int index))
         {

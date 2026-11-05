@@ -173,7 +173,6 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                     Key = "mod_settings_card_city", Icon = "ui/icons/iconCityZones", Items = new[]
                     {
                         Number("City_Max_Zones_Text", 100, 0, 99999, 10, "mod_settings_unit_zones", "mod_settings_unlimited"),
-                        Switch("City_Borders_Fixed_Toggle", false),
                         Switch("wilderness_toggle", true),
                         Switch("wilderness_jungle_developed_toggle", true),
                     }

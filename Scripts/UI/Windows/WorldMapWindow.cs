@@ -45,6 +45,9 @@ public class WorldMapWindow : WideScrollWindow<WorldMapWindow>
         _era = _selected.id;
         _map = EarthTerrain.Frames[Mathf.Clamp(_frame, 0, EarthTerrain.Frames.Length - 1)];
         _importNote = null;
+        // 剧本定死了大小的，地图范围也照剧本
+        if (_selected.HasSize && !string.IsNullOrEmpty(_selected.frame))
+            _map = EarthTerrain.Frames.FirstOrDefault(item => item.id == _selected.frame) ?? _map;
         // 导入地图的自定剧本：范围照图(见 WorldMapImporter)，只选大小
         if (!WorldMapImporter.Uses(_selected)) return;
         WorldMapImporter.Loaded loaded = WorldMapImporter.Load(_selected, out string importError);
@@ -73,14 +76,19 @@ public class WorldMapWindow : WideScrollWindow<WorldMapWindow>
             }
 
         var sizes = rail.BeginRailMenu(LM.Get("world_map_rail_size"));
-        for (int i = 0; i < 3; i++)
-        {
-            int index = i;
-            sizes.AddRailOption(null, LM.Get("world_map_size_" + i), null, i == _size, () => Select(() => _size = index), i);
-        }
-        Vector2Int size = _map.sizes[Mathf.Clamp(_size, 0, _map.sizes.Length - 1)];
-        string hint = string.Format(LM.Get("world_map_size_hint"), size.x * 64, size.y * 64,
-            LM.Get(_size == 0 ? "world_map_size_hint_small" : "world_map_size_hint_full"));
+        // 剧本定死了大小的不用选；别的大中小都写明东西、南北多少格
+        Vector2Int size = ChosenSize();
+        string hint = _selected.HasSize
+            ? string.Format(LM.Get("world_map_size_fixed"), size.x * 64, size.y * 64)
+            : string.Format(LM.Get("world_map_size_hint"), size.x * 64, size.y * 64,
+                LM.Get(_size == 0 ? "world_map_size_hint_small" : "world_map_size_hint_full"));
+        if (!_selected.HasSize)
+            for (int i = 0; i < 3 && i < _map.sizes.Length; i++)
+            {
+                int index = i;
+                sizes.AddRailOption(null, string.Format(LM.Get("world_map_size_option"), LM.Get("world_map_size_" + i), _map.sizes[i].x * 64,
+                    _map.sizes[i].y * 64), null, i == _size, () => Select(() => _size = index), i);
+            }
         sizes.AddRailText(hint.ColorString(WideKit.Muted), 6, RailLines(hint) * 8.5f + 2f, true);
 
         var go = rail.BeginRailCard("FactionFrame_dominate");
@@ -91,6 +99,8 @@ public class WorldMapWindow : WideScrollWindow<WorldMapWindow>
         go.AddRailLink(SpriteTextureLoader.getSprite(MapIcon), LM.Get("world_map_generate"),
             () => WorldMapGenerator.Start(frame, _size, chosen), WideKit.Gold);
     }
+
+    private Vector2Int ChosenSize() => _selected.HasSize ? _selected.FixedSize : _map.sizes[Mathf.Clamp(_size, 0, _map.sizes.Length - 1)];
 
     private static int RailLines(string text) =>
         Mathf.Max(1, Mathf.CeilToInt(UIHelper.EstimateTextWidth(text, 6) * 1.08f / (UIHelper.RailWidth - 12f)));
@@ -128,7 +138,7 @@ public class WorldMapWindow : WideScrollWindow<WorldMapWindow>
         }
         page.AddKpiRow(PageWidth,
             (LM.Get("world_map_kpi_realms"), _selected.polities.Count.ToString(), WideKit.Gold),
-            (LM.Get("world_map_kpi_cities"), WorldMapData.CityCount(_selected, _size == 0).ToString(), WideKit.Green),
+            (LM.Get("world_map_kpi_cities"), WorldMapData.CityCount(_selected, _map, ChosenSize(), !_selected.HasSize && _size == 0).ToString(), WideKit.Green),
             (LM.Get("world_map_kpi_wars"), (_selected.relations?.Count(item => item.kind == "war") ?? 0).ToString(), WideKit.Red),
             (LM.Get("world_map_kpi_events"), (_selected.events?.Count ?? 0).ToString(), WideKit.Cyan));
     }
@@ -244,7 +254,7 @@ public class WorldMapWindow : WideScrollWindow<WorldMapWindow>
         ScenarioEditorScreen.Open(custom);
     }
 
-    // 新建空白剧本：内置地球地图上的城各自独立、没有国家，建好直接进编辑器
+    // 新建空白剧本：地球地图上一座城也没有，建好直接进编辑器
     private void NewBlank()
     {
         string name = ScenarioEditing.CreateBlank(FrameId);

@@ -9,7 +9,7 @@ public static class CityTerritoryProtection
     // 正在撤城(见 CityDissolution)：不再保护
     public static readonly global::System.Collections.Generic.HashSet<long> Dissolving = new();
 
-    // 城市边界固定(模组设置)：城的地块不再自动增减——不扩张、不缩界、不弃地、不被侵蚀、开荒不并地，无人区也不从城里划地；整城易主照常。
+    // 城市边界固定(世界法则，以前是模组设置)：城的地块不再自动增减——不扩张、不缩界、不弃地、不被侵蚀、开荒不并地，无人区也不从城里划地；整城易主照常。
     // 还能动的：世界生成、剧本开局与读档；神力手动划界、营建、建城(ManualClaim、Placing)；新城领落脚那一小片(BeginFounding)；撤城
     private static int _founding;
 
@@ -20,7 +20,9 @@ public static class CityTerritoryProtection
         if (_founding > 0) _founding--;
     }
 
-    public static bool BordersLocked => ModClass.CITY_BORDERS_FIXED && !ModClass.IS_CLEAR && Config.game_loaded && !SmoothLoader.isLoading() &&
+    public static bool BordersFixed => GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_fixed_city_borders?.isEnabled() == true;
+
+    public static bool BordersLocked => BordersFixed && !ModClass.IS_CLEAR && Config.game_loaded && !SmoothLoader.isLoading() &&
                                         !WorldMap.WorldMapGenerator.Generating && !WorldMap.WorldMapScenario.AfterLoadPending;
 
     private static bool ManualChange => GamePatches.CityExpansionPatch.ManualClaim || CityPlacementSystem.Placing;
