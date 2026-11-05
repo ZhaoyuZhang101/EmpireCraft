@@ -52,8 +52,8 @@ public static partial class RealmNamingSystem
         bool proclaim = route != EmpireFormationRoute.None && _challengeFounding == 0;
         bool lineage = route is EmpireFormationRoute.Restoration or EmpireFormationRoute.Dominion or
             EmpireFormationRoute.Legitimacy or EmpireFormationRoute.Seal;
-        // ① 复国
-        if (proclaim && lineage)
+        // ① 复国：复国一类路线照旧；自立、霸权这些路线，国君出自亡国不满百年的前朝皇族、旧号没人在用，也打旧号
+        if (proclaim && (lineage || OldDynastyHeir(kingdom.king, empire)))
         {
             EmpireFoundingNameChoice restored = SelectRestorationName(empire, kingdom, DominionCore(kingdom), riseCore);
             if (restored != null) return restored;
@@ -111,6 +111,16 @@ public static partial class RealmNamingSystem
             bestHeld = held;
         }
         return best;
+    }
+
+    // 国君是不是前朝皇族的后人(分家往上找，见 RestorationHouse)、可以打旧号
+    private static bool OldDynastyHeir(Actor king, Empire founding)
+    {
+        SpecificClan house = RestorationHouse(king, founding);
+        if (house == null) return false;
+        double fall = house.empire_fall_timestamp;
+        return RealmNameRules.TakesOldName(fall >= 0d, fall >= 0d ? Date.getYearsSince(fall) : 0,
+            NameInUse(EmpireCoreManager.NormalizeCoreName(house.empire_name), founding));
     }
 
     // 这个名字眼下有现存帝国在用(不论前缀)

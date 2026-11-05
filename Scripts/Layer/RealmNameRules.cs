@@ -18,6 +18,13 @@ public static class RealmNameRules
     // 新君即位几年仍未由教宗加冕，普世之名收回
     public const int UncrownedRevokeYears = 3;
 
+    // 前朝皇族的后人称帝打旧号的年限：那一朝亡了(被篡也算)不满这么多年
+    public const int OldNameYears = 100;
+
+    // 走自立、霸权这些路线称帝，能不能打旧号(朱家宗室在篡位之后称帝叫南明，不叫荆)：亡国要记过、没过年限、旧号没人在用
+    public static bool TakesOldName(bool fallRecorded, int yearsSinceFall, bool nameInUse) =>
+        fallRecorded && !nameInUse && yearsSinceFall >= 0 && yearsSinceFall <= OldNameYears;
+
     // 三分之二向上取整(整数算，免得 3×2/3 算成 2.0000001 再进一位)；不到三城的帝国法理不算
     public static int RequiredCities(int total) => total < CoreNameMinCities ? int.MaxValue : (2 * total + 2) / 3;
 

@@ -774,6 +774,8 @@ public class Empire : MetaObject<EmpireData>
                 LogService.LogInfo($"上一任皇室: {EmpireSpecificClan?.name??"None"}");
                 LogService.LogInfo($"皇室活人: {EmpireSpecificClan?.Count??0}");
                 LogService.LogInfo($"合法继承人: {EmpireSpecificClan?.all_valid_members.Count??0}");
+                // 被篡也算前朝亡了：同一个帝国换了姓，不走解散，亡国时间要在这里记，宗室才打得了旧号(见 RealmNamingSystem.OldDynastyHeir)
+                if (previousRoyalClan != null) previousRoyalClan.empire_fall_timestamp = World.world.getCurWorldTime();
                 // 先朝宗室可能在离篡位者都城最远的那一半另立朝廷(看原来的法统，下个月起事，见 EmpirePartitionSystem)
                 if (previousRoyalClan != null)
                     EmpirePartitionSystem.QueueRestoration(this, previousRoyalClan, data.core_name, Mandate,
