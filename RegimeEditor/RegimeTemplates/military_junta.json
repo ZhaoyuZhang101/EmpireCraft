@@ -1,0 +1,299 @@
+{
+  "format": "EmpireCraftRegimeTemplate",
+  "version": 1,
+  "order": 80,
+  "name": {
+    "cz": "军政府",
+    "en": "Military Junta",
+    "ch": "軍政府"
+  },
+  "summary": "没有君主，首脑、地方军区与城防都按“军权决定”由兵力最强的人掌握；打下的地划成军区，地方军区能拥兵自立。",
+  "regime": {
+    "description": "军人掌权，由兵力最强的将领出任首脑，地方划为军区由将领治理",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "is_monarchy": false,
+    "allows_landlord_class": true,
+    "cabinet_number": 0,
+    "leader_select_method": "Army",
+    "default_kingdom": "{R}_centre",
+    "centre_empire_separate": true,
+    "members_can_secede": true,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": false,
+    "direct_member_types": [],
+    "partition_conquests": true,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.0,
+    "laws": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      10,
+      11,
+      13,
+      14,
+      16,
+      17,
+      18,
+      20,
+      21,
+      23,
+      25,
+      32,
+      33,
+      34,
+      35,
+      36,
+      50,
+      51,
+      52,
+      55
+    ],
+    "Factions": [
+      {
+        "_id": "{R}-faction-1",
+        "Type": "攘夷",
+        "Name": "少壮派",
+        "_requiredTraits": [
+          "bloodlust"
+        ]
+      },
+      {
+        "_id": "{R}-faction-2",
+        "Type": "僭主",
+        "Name": "军阀派",
+        "_requiredTraits": [
+          "ambitious"
+        ]
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        2,
+        4
+      ],
+      "option_leader_select_method": [
+        3,
+        4
+      ],
+      "option_religion_type": [
+        1,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": [
+            "军事",
+            "执行",
+            "拟定"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default",
+          "peerageType": "Military"
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "powers": [
+            "军事",
+            "审核"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default",
+          "peerageType": "Military"
+        }
+      ],
+      "division": [
+        {
+          "pre": "{R}_logistics_full",
+          "type": 3,
+          "powers": [
+            "财政",
+            "建设"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "{R}_security_full",
+          "type": 3,
+          "powers": [
+            "司法"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      ],
+      "harems": [],
+      "kingdoms": {
+        "{R}_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Army",
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "{R}_city",
+          "peerageType": "Military"
+        },
+        "{R}_military_region": {
+          "pre": "",
+          "type": 4,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Army",
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "{R}_city",
+          "peerageType": "Military"
+        }
+      },
+      "cities": {
+        "{R}_city": {
+          "pre": "",
+          "type": 5,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Army",
+          "peerageType": "Military"
+        }
+      },
+      "armies": {
+        "{R}_army_guard": {
+          "pre": "",
+          "type": 6,
+          "merit": -1,
+          "honorary": 2,
+          "leader_select_method": "Army",
+          "condition": [
+            "empire_center:true",
+            "is_capital:true"
+          ],
+          "peerageType": "Military"
+        },
+        "{R}_army_field": {
+          "pre": "",
+          "type": 7,
+          "merit": -1,
+          "honorary": 5,
+          "leader_select_method": "Army",
+          "peerageType": "Military"
+        }
+      }
+    }
+  },
+  "locales": {
+    "{R}_empire": {
+      "cz": "军政府",
+      "en": "Junta",
+      "ch": "軍政府"
+    },
+    "{R}_centre": {
+      "cz": "首都军区",
+      "en": "Capital Command",
+      "ch": "首都軍區"
+    },
+    "{R}_military_region": {
+      "cz": "军区",
+      "en": "Military Region",
+      "ch": "軍區"
+    },
+    "{R}_city": {
+      "cz": "卫",
+      "en": "Garrison Town",
+      "ch": "衛"
+    },
+    "{R}_army_guard": {
+      "cz": "近卫军",
+      "en": "Guards",
+      "ch": "近衛軍"
+    },
+    "{R}_army_field": {
+      "cz": "野战军",
+      "en": "Field Army",
+      "ch": "野戰軍"
+    },
+    "{R}_officiallevel_0": {
+      "cz": "元帅",
+      "en": "Marshal",
+      "ch": "元帥"
+    },
+    "{R}_officiallevel_1": {
+      "cz": "总司令",
+      "en": "Commander-in-Chief",
+      "ch": "總司令"
+    },
+    "{R}_officiallevel_2": {
+      "cz": "参谋总长",
+      "en": "Chief of Staff",
+      "ch": "參謀總長"
+    },
+    "{R}_officiallevel_3": {
+      "cz": "处长",
+      "en": "Director",
+      "ch": "處長"
+    },
+    "{R}_officiallevel_4": {
+      "cz": "军区司令",
+      "en": "Regional Commander",
+      "ch": "軍區司令"
+    },
+    "{R}_officiallevel_5": {
+      "cz": "城防司令",
+      "en": "Garrison Commander",
+      "ch": "城防司令"
+    },
+    "{R}_officiallevel_6": {
+      "cz": "近卫军司令",
+      "en": "Commander of the Guards",
+      "ch": "近衛軍司令"
+    },
+    "{R}_officiallevel_7": {
+      "cz": "野战军司令",
+      "en": "Field Army Commander",
+      "ch": "野戰軍司令"
+    },
+    "{R}_logistics_full": {
+      "cz": "后勤部",
+      "en": "Logistics Department",
+      "ch": "後勤部"
+    },
+    "{R}_security_full": {
+      "cz": "治安部",
+      "en": "Security Department",
+      "ch": "治安部"
+    }
+  }
+}

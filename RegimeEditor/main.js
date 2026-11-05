@@ -129,6 +129,7 @@ async function runEnumSync(modRoot) {
   const attempts = [];
   attempts.push(() => runCommand("python", [scriptPath, modRoot], modRoot));
   attempts.push(() => runCommand("py", ["-3", scriptPath, modRoot], modRoot));
+  attempts.push(() => runCommand("python3", [scriptPath, modRoot], modRoot));
   for (const exePath of exeCandidates) {
     attempts.push(() => runCommand(exePath, [modRoot], modRoot));
   }
@@ -195,13 +196,24 @@ app.whenReady().then(() => {
   ipcMain.handle("read-text", async (_event, relPath) => {
     const file = inModRoot(resolveModRoot(), relPath);
     if (!syncFs.existsSync(file)) return { path: file, exists: false, text: "" };
-    return { path: file, exists: true, text: (await fs.readFile(file, "utf8")).replace(/^﻿/, "") };
+    // 去掉 BOM 再给页面，另报 bom 让页面写回时照原样带上(帝国律法等文件带 BOM)
+    const raw = await fs.readFile(file, "utf8");
+    const bom = raw.startsWith("\ufeff");
+    return { path: file, exists: true, text: bom ? raw.slice(1) : raw, bom };
   });
 
   ipcMain.handle("write-text", async (_event, relPath, text) => {
     const file = inModRoot(resolveModRoot(), relPath);
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, String(text ?? ""), "utf8");
+    let out = String(text ?? "");
+    // 原文件带 BOM、页面给的文本没带(读的时候去掉了)，写回时补上，免得改一次就丢
+    if (!out.startsWith("\ufeff") && syncFs.existsSync(file)) {
+      const head = Buffer.alloc(3);
+      const fd = syncFs.openSync(file, "r");
+      try { syncFs.readSync(fd, head, 0, 3, 0); } finally { syncFs.closeSync(fd); }
+      if (head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) out = "\ufeff" + out;
+    }
+    await fs.writeFile(file, out, "utf8");
     return { path: file };
   });
 
@@ -231,22 +243,24 @@ app.whenReady().then(() => {
     return { path: configsDir };
   });
 
+  // 政体编辑器写回一个政体目录：只写页面给出的文件(内容没变的不写)，目录里的其他文件(如 Naturalization.json、
+  // Senators.csv)不动，也不会凭空建出 SystemConfig.json(八旗目录只有 OfficialType.csv)
   ipcMain.handle("write-configs", async (_event, payload) => {
     const modRoot = resolveModRoot();
     const configsDir = path.join(modRoot, "Scripts", "Regimes", "Configs");
     const folderName = sanitizeFolderName(payload?.folderName);
     const outputDir = path.join(configsDir, folderName);
     const outputs = payload?.outputs || {};
+    const allowed = ["SystemConfig.json", "OfficialType.csv", "RegimeEditorState.json"];
 
-    await fs.mkdir(outputDir, { recursive: true });
-    const writeTargets = {
-      "SystemConfig.json": outputs["SystemConfig.json"] || "",
-      "OfficialType.csv": outputs["OfficialType.csv"] || "",
-      "RegimeEditorState.json": outputs["RegimeEditorState.json"] || ""
-    };
-
-    for (const [fileName, content] of Object.entries(writeTargets)) {
-      await fs.writeFile(path.join(outputDir, fileName), String(content), "utf8");
+    const written = [];
+    for (const fileName of allowed) {
+      if (typeof outputs[fileName] !== "string") continue;
+      const file = path.join(outputDir, fileName);
+      if (syncFs.existsSync(file) && (await fs.readFile(file, "utf8")).replace(/^\uFEFF/, "") === outputs[fileName]) continue;
+      await fs.mkdir(outputDir, { recursive: true });
+      await fs.writeFile(file, outputs[fileName], "utf8");
+      written.push(fileName);
     }
     // 文化绑定：只改各文化 CultureRule.jsonc 里的 setting.regime，原文(含注释)其余部分不动
     const changed = [];
@@ -263,9 +277,20 @@ app.whenReady().then(() => {
 
     return {
       directory: outputDir,
-      files: Object.keys(writeTargets),
+      files: written,
       culturePath: changed.length ? `${changed.length} 个文化` : "无改动"
     };
+  });
+
+  // 政体编辑器的“常用原型”：编辑器自带的 RegimeTemplates/*.json(打包后在程序里，不在模组目录)
+  ipcMain.handle("list-regime-templates", async () => {
+    const dir = path.join(__dirname, "RegimeTemplates");
+    if (!syncFs.existsSync(dir)) return [];
+    const result = [];
+    for (const name of (await fs.readdir(dir)).filter(n => n.toLowerCase().endsWith(".json")).sort()) {
+      result.push({ file: name, text: (await fs.readFile(path.join(dir, name), "utf8")).replace(/^\uFEFF/, "") });
+    }
+    return result;
   });
 
   ipcMain.handle("sync-enums", async () => {

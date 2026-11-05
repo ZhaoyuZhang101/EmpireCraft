@@ -346,8 +346,7 @@ public static class WideKit
     {
         float inner = cardWidth - CardPadding;
         float textWidth = inner - 6f - 4f - SettingControlWidth;
-        float detailHeight = string.IsNullOrEmpty(detail) ? 0f
-            : Mathf.Ceil((UIHelper.EstimateTextWidth(detail, 6) * 1.1f + 6f) / textWidth) * 8f;
+        float detailHeight = UIHelper.EstimateWrappedLines(detail, 6, textWidth) * 8f;
         float height = Mathf.Max(18f, 12f + detailHeight + 5f);
         var row = card.BeginHoriGroup(new Vector2(inner, height), TextAnchor.MiddleLeft, 4, new RectOffset(3, 3, 2, 3));
         if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, height));

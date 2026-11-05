@@ -64,8 +64,8 @@ Locales/Cultures/
 - `rule`：按顺序拼接。可以写组名，也可以写 `sex_male` / `sex_female`(按性别过滤)、`coin_flip`(随机二选一)、`space` 等，
   完整列表见 `Scripts/Enums/OnomasticsType.cs`。
 - `name_pos`：名字按空格拆开后，第几段是“有效名字”(从 0 数)。比如 “XX 市” 是 0，“钢铁 德莱尔” 取“德莱尔”是 1。
-- Clan / Family：`has_sex_post` 姓氏有阴阳词性，`use_local_as_lastname` 名在前姓在后，
-  `sex_post_Male` / `sex_post_Female` 为 [简体, 英文, 繁体] 的后缀。Unit：`is_invert` 名在前(西式)。
+- Clan / Family：`has_sex_post` 姓氏有阴阳词性，`use_local_as_lastname` 用所在城市的名字当姓，
+  `sex_post_Male` / `sex_post_Female` 为 [繁体, 英文, 简体] 的后缀。Unit：`is_invert` 名在前(西式)。
 - Clan：`ancient_group` 古姓词库(可写“别的文化:词库名”)，原始群、母系氏族阶段新立的氏族从这里取姓，华夏配的是姬、姜、姒、嬴这类女字旁古姓
   (`HuaxiaAncientSurnames.csv`)；不配就照常起姓。
 - Clan：`shi_office_group` / `shi_craft_group` 氏的词库：支脉起氏时做官的族人一半以官为氏(司马、司徒)，平民三成以职业为氏(陶、巫、匠)，

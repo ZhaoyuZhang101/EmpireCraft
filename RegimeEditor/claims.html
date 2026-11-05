@@ -6,158 +6,528 @@
   <title>EmpireCraft 派系决议规则</title>
   <link rel="stylesheet" href="common.css" />
   <style>
-    .line-card h4{margin:0 0 8px;display:flex;align-items:center;gap:8px}
+    .line-card h4{margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .line-card.off{opacity:.55}
+    .line-card.unknown{border-color:var(--danger)}
     .line-card .rows{display:grid;gap:8px}
+    .line-card pre{margin:0;white-space:pre-wrap;word-break:break-all;font-size:12px}
     .hint{font-size:12px;color:var(--muted);line-height:1.6}
+    .hint.warn{color:var(--danger) !important}
     .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:8px;background:#efe2c4;margin-left:6px}
     .item .sub.has{color:#6b4f1d;font-weight:600}
+    .chip .cid{opacity:.6;font-size:11px;margin-left:2px}
+    .section{margin-top:12px}
+    .scope{display:grid;gap:4px;margin:0 0 12px}
+    .scope .ok{color:var(--good)}
+    .side .count{font-size:12px;color:var(--muted)}
   </style>
   <link rel="stylesheet" href="pixel-theme.css" />
 </head>
 <body>
   <div class="layout">
     <aside class="side">
-      <input id="filter" placeholder="搜索决议…" />
+      <input id="filter" placeholder="搜索决议(名称或说明)…" />
       <label class="field"><span><input type="checkbox" id="onlyRuled"> 只看已设规则的</span></label>
+      <div class="count" id="claimCount"></div>
       <div class="list" id="claimList"></div>
       <div class="toolbar">
         <button class="primary" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png">保存 ClaimRules.json</button>
         <button id="reloadBtn">重新读取</button>
       </div>
-      <p class="hint">改完保存后需要重启游戏才会生效。</p>
+      <p class="hint">改完保存后需要重启游戏才会生效。编辑器不认识的字段保存时原样保留。</p>
     </aside>
     <main class="panel" id="editor"><p class="muted">从左侧选一个派系决议。</p></main>
   </div>
+  <div id="datalists" hidden></div>
 
   <script src="common.js"></script>
   <script>
-    // 派系决议与文化制度树、科技时代的对应(游戏端见 Scripts/GeneralSystems/ClaimRules.cs)
-    const LINES = [
-      ["Huaxia", "华夏线"], ["Roma", "西方线"], ["Arabic", "阿拉伯线"], ["Youmu", "游牧线"]
-    ];
-    const SPECIALS = [["", "无"], ["sinicized_nomad", "仅限已采纳中原制度的游牧政权"]];
-    const S = { rules: {}, claims: [], descriptions: {}, eras: [], nodes: {}, nodeNames: {}, cultures: [], selected: null, dirty: false };
+    // 派系决议与文化、文化特性、科技时代、文化制度线的对应(游戏端见 Scripts/GeneralSystems/ClaimRules.cs)
+    // 决议列表读 C# 枚举 TemporaryFactionType；制度线读 InstitutionTrees 目录(文件名即线 id，多一个文件就多一条线)
+    const FILE = "ClaimRules.json";
+    const LINE_ORDER = ["Huaxia", "Roma", "Arabic", "Youmu", "Japan"];
+    // 文化政治特性(各文化 CultureRule.jsonc 的 setting.political_traits)；文化里出现的其他特性也会列出
+    const KNOWN_TRAITS = {
+      nomad: "游牧(逐水草而居：游牧扩张、牧帐、放牧)",
+      raider: "劫掠传统(派系可提劫掠)",
+      strong_unification: "强统一诉求",
+      dharmic: "法教传统(不发起圣战、宗教宽容)",
+      dry_native: "旱地故土"
+    };
+    const SPECIALS = { sinicized_nomad: "仅限已采纳中原制度的游牧政权(元、清式)" };
+    const RULE_FIELDS = ["cultures", "traits", "min_era", "max_era", "lines"];
+    const LINE_FIELDS = ["any", "none", "push", "cultures", "special"];
+    // 读不到 ClaimRules.cs 时的后备：自己会发起制度改革的决议
+    const FALLBACK_SELF_REFORMING = ["开放党禁", "推行普选", "开科取士", "转天朝制度", "推行三省六部", "设立内阁"];
+
+    const S = {
+      rules: null, fmt: { indent: "  ", crlf: false, finalNewline: true }, exists: false,
+      claims: [], descriptions: {}, selfReforming: new Set(),
+      eras: [], lines: [], lineIds: [], lineNames: {}, defaultLine: "",
+      nodes: {}, nodeInfo: {}, nodeByName: {}, claimReform: {},
+      cultures: [], cultureById: {}, traits: [],
+      stash: {}, selected: null, dirty: false
+    };
+
+    const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+    const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    // 与游戏一致：只认数组里的非空字符串
+    const strs = v => Array.isArray(v) ? v.map(x => x == null ? "" : String(x)).filter(s => s.length) : [];
+
+    async function readFile(rel) {
+      const r = await api.readText(rel);
+      return r && r.exists ? r.text : null;
+    }
+    async function readJson(rel) {
+      const t = await readFile(rel);
+      return t == null ? null : parseJsonLoose(t);
+    }
+
+    // 读 C# 枚举：成员名 + [Description("…")]
+    function parseEnum(text, name) {
+      const at = text.search(new RegExp(`enum\\s+${name}\\b`));
+      if (at < 0) return [];
+      const open = text.indexOf("{", at);
+      if (open < 0) return [];
+      let close = open + 1, inStr = false;
+      for (; close < text.length; close++) {
+        const c = text[close];
+        if (inStr) { if (c === "\\") close++; else if (c === '"') inStr = false; }
+        else if (c === '"') inStr = true;
+        else if (c === "}") break;
+      }
+      const out = [];
+      let desc = "";
+      for (const raw of text.slice(open + 1, close).split(/\r?\n/)) {
+        const line = raw.trim();
+        const d = line.match(/\[Description\("(.*)"\)\]/);
+        if (d) desc = d[1].replace(/\\"/g, '"');
+        const rest = line.replace(/\[Description\(".*"\)\]/, "").replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").trim();
+        for (const part of rest.split(",")) {
+          const nm = part.split("=")[0].trim();
+          if (/^[\p{L}_][\p{L}\p{N}_]*$/u.test(nm)) { out.push({ name: nm, desc }); desc = ""; }
+        }
+      }
+      return out;
+    }
+
+    // 公共制度模板合并：对象逐字段合并、数组与其他值整体替换(与 InstitutionDefinitionRegistry.ExpandTemplates 一致)
+    function mergeDeep(base, over) {
+      const out = structuredClone(base);
+      for (const [k, v] of Object.entries(over)) {
+        out[k] = isObj(v) && isObj(out[k]) ? mergeDeep(out[k], v) : structuredClone(v);
+      }
+      return out;
+    }
+
+    function expandNodes(line, tree, templates) {
+      const out = [];
+      for (const n of Array.isArray(tree?.nodes) ? tree.nodes : []) {
+        if (!isObj(n)) continue;
+        const tid = typeof n.template === "string" ? n.template.trim() : "";
+        if (!tid) { if (n.id) out.push(n); continue; }
+        if (!templates[tid]) continue;
+        const merged = mergeDeep(templates[tid], n);
+        if (!(typeof n.id === "string" && n.id.trim())) merged.id = `${tid}@${line}`;
+        out.push(merged);
+      }
+      return out;
+    }
+
+    // 游戏载入时按线自动补上的节点(IdeologyInstitutionPaths / ProductionInstitutionPaths)，决议规则里也能引用
+    function generatedNodes(line, tree, nodes, ideologies) {
+      const ids = new Set(nodes.map(n => n.id));
+      const feat = (n, f) => isObj(n.features) && has(n.features, f);
+      const gen = [];
+      const partyBan = nodes.find(n => feat(n, "party_politics"));
+      if (partyBan) for (const ideo of ideologies) {
+        if (!nodes.some(n => feat(n, `ideology:${ideo}`)))
+          gen.push({ id: `${line}_ideology_${ideo}_foundation`, name_key: `party_ideology_${ideo}` });
+        for (let s = 1; s <= 3; s++) {
+          const id = `${line}_ideology_${ideo}_stage_${s}`;
+          if (!ids.has(id)) gen.push({ id, name_key: `ideology_${ideo}_stage_${s}` });
+        }
+      }
+      if (strs(tree?.root_nodes).some(id => ids.has(id)))
+        for (let s = 1; s <= 3; s++) {
+          const id = `${line}_urban_production_${s}`;
+          if (!ids.has(id)) gen.push({ id, name_key: `urban_production_stage_${s}` });
+        }
+      return gen.map(n => ({ ...n, generated: true }));
+    }
 
     async function load() {
       if (!api) { toast("只有桌面版才能读写文件", true); return; }
       try {
         // 决议列表：直接读 C# 枚举，新加的决议也能编辑
-        const enumText = await api.readText("Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
-        const body = enumText.slice(enumText.indexOf("{") + 1, enumText.lastIndexOf("}"));
-        S.claims = []; S.descriptions = {};
-        let pendingDesc = "";
-        for (const raw of body.split(/\r?\n/)) {
-          const line = raw.trim();
-          const desc = line.match(/\[Description\("(.*)"\)\]/);
-          if (desc) pendingDesc = desc[1];
-          const rest = line.replace(/\[Description\(".*"\)\]/, "").replace(/\/\/.*$/, "").trim();
-          for (const name of rest.split(",").map(s => s.trim()).filter(s => /^[\p{L}_][\p{L}\p{N}_]*$/u.test(s))) {
-            S.claims.push(name);
-            if (pendingDesc) { S.descriptions[name] = pendingDesc; pendingDesc = ""; }
-          }
+        const enumText = await readFile("Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
+        if (enumText == null) throw new Error("找不到 Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
+        const members = parseEnum(enumText, "TemporaryFactionType");
+        S.claims = members.map(m => m.name);
+        S.descriptions = Object.fromEntries(members.filter(m => m.desc).map(m => [m.name, m.desc]));
+
+        const rulesCode = await readFile("Scripts/GeneralSystems/ClaimRules.cs").catch(() => null);
+        const selfBlock = rulesCode?.match(/SelfReforming\s*=\s*new\(\)\s*\{([\s\S]*?)\}/);
+        S.selfReforming = new Set(selfBlock
+          ? [...selfBlock[1].matchAll(/TemporaryFactionType\.([\p{L}\p{N}_]+)/gu)].map(m => m[1])
+          : FALLBACK_SELF_REFORMING);
+
+        const rulesText = await readFile(FILE);
+        S.exists = rulesText != null;
+        const parsed = parseJsonLoose(rulesText || "{}");
+        if (!isObj(parsed)) throw new Error(`${FILE} 最外层不是 { } 对象，编辑器不敢改，请先手动修好`);
+        S.rules = parsed;
+        if (rulesText != null) {
+          S.fmt = {
+            indent: (rulesText.match(/\n([ \t]+)"/) || [, "  "])[1],
+            crlf: rulesText.includes("\r\n"),
+            finalNewline: /\n$/.test(rulesText)
+          };
         }
-        let rulesText = "{}";
-        try { rulesText = await api.readText("ClaimRules.json"); } catch { /* 文件不存在就从空白开始 */ }
-        S.rules = parseJsonLoose(rulesText || "{}");
-        const tree = parseJsonLoose(await api.readText("Technology/TechTree.json"));
-        const eraKeys = (tree.eras || []).map(e => e.key);
-        const nodeKeys = [];
-        for (const [line] of LINES) {
+
+        const keys = [];
+        const tree = await readJson("Technology/TechTree.json").catch(() => null);
+        const eraDefs = (tree?.eras || []).filter(e => isObj(e) && Number(e.tier) > 0);
+        keys.push(...eraDefs.map(e => e.key).filter(Boolean));
+
+        // 制度线：InstitutionTrees/*.json(Settings.json 除外)；公共模板在 Common/*.json
+        const settings = await readJson("InstitutionTrees/Settings.json").catch(() => null);
+        S.defaultLine = typeof settings?.default_line === "string" ? settings.default_line : "";
+        const entries = await api.listDir("InstitutionTrees");
+        const lineIds = entries.filter(e => !e.dir && /\.json$/i.test(e.name) && e.name.toLowerCase() !== "settings.json")
+          .map(e => e.name.replace(/\.json$/i, ""));
+        S.lineIds = [...LINE_ORDER.filter(l => lineIds.includes(l)), ...lineIds.filter(l => !LINE_ORDER.includes(l)).sort()];
+        const templates = {};
+        for (const e of (await api.listDir("InstitutionTrees/Common")).filter(e => !e.dir && /\.json$/i.test(e.name)).sort((a, b) => a.name < b.name ? -1 : 1)) {
           try {
-            const doc = parseJsonLoose(await api.readText(`InstitutionTrees/${line}.json`));
-            S.nodes[line] = (Array.isArray(doc) ? doc : doc.nodes || []).map(n => ({ id: n.id, key: n.name_key }));
-            nodeKeys.push(...S.nodes[line].map(n => n.key).filter(Boolean));
-          } catch { S.nodes[line] = []; }
+            for (const t of (await readJson(`InstitutionTrees/Common/${e.name}`))?.templates || []) {
+              const id = typeof t?.id === "string" ? t.id.trim() : "";
+              if (!id || templates[id]) continue;
+              const copy = structuredClone(t);
+              delete copy.template;
+              templates[id] = copy;
+            }
+          } catch { /* 坏文件跳过，与游戏一致 */ }
         }
-        const locales = await api.readLocales([...eraKeys, ...nodeKeys]);
-        S.eras = (tree.eras || []).map(e => ({ tier: e.tier, name: locales[e.key]?.cz || e.key }));
-        for (const line of Object.keys(S.nodes))
-          for (const n of S.nodes[line]) S.nodeNames[n.id] = locales[n.key]?.cz || n.id;
-        S.cultures = (await api.listCultures()).map(c => c.name);
-        S.dirty = false;
+        const partyText = await readFile("Scripts/GeneralSystems/PartySystem.cs").catch(() => null);
+        const ideologies = partyText ? parseEnum(partyText, "PartyIdeology").map(m => m.name) : [];
+        S.nodes = {}; S.nodeInfo = {}; S.claimReform = {};
+        const lineKeys = {};
+        for (const line of S.lineIds) {
+          let doc = null;
+          try { doc = await readJson(`InstitutionTrees/${line}.json`); } catch { doc = null; }
+          const own = expandNodes(line, doc, templates);
+          const list = [...own, ...generatedNodes(line, doc, own, ideologies)];
+          S.nodes[line] = [];
+          for (const n of list) {
+            if (S.nodeInfo[n.id]) continue; // 重复 id 以第一个为准
+            const info = { id: n.id, line, key: n.name_key || "", generated: !!n.generated };
+            S.nodeInfo[n.id] = info;
+            S.nodes[line].push(info);
+            if (info.key) keys.push(info.key);
+            for (const f of Object.keys(isObj(n.features) ? n.features : {}))
+              if (f.startsWith("claim_reform:")) (S.claimReform[f.slice(13)] ||= []).push(n.id);
+          }
+          lineKeys[line] = doc?.name_key || `institution_line_${line.toLowerCase()}`;
+          keys.push(lineKeys[line]);
+        }
+
+        const locales = await api.readLocales(uniq(keys));
+        const cz = k => (k && locales[k]?.cz) || "";
+        S.eras = eraDefs.map(e => ({ tier: Number(e.tier), name: cz(e.key) || e.key || `tier ${e.tier}` }));
+        S.lineNames = Object.fromEntries(S.lineIds.map(l => [l, cz(lineKeys[l]) || l]));
+        S.nodeByName = {};
+        for (const info of Object.values(S.nodeInfo)) {
+          info.name = cz(info.key) || "";
+          if (info.name && !S.nodeByName[info.name]) S.nodeByName[info.name] = info.id;
+        }
+
+        // 文化：名字、所属制度线(没写或写错的线按 Settings.json 的 default_line)、政治特性
+        S.cultures = (await api.listCultures()).map(c => {
+          const st = isObj(c.data?.setting) ? c.data.setting : {};
+          const raw = typeof st.institution_line === "string" ? st.institution_line.trim() : "";
+          return {
+            id: typeof c.data?.name === "string" && c.data.name ? c.data.name : c.name,
+            label: c.data?.translate_cz || "",
+            line: S.lineIds.includes(raw) ? raw : (S.lineIds.includes(S.defaultLine) ? S.defaultLine : ""),
+            lineDefaulted: !S.lineIds.includes(raw),
+            traits: strs(st.political_traits).map(t => t.trim())
+          };
+        });
+        S.cultureById = Object.fromEntries(S.cultures.map(c => [c.id, c]));
+        const usedTraits = Object.values(S.rules).flatMap(r => isObj(r) ? strs(r.traits) : []);
+        S.traits = uniq([...Object.keys(KNOWN_TRAITS), ...S.cultures.flatMap(c => c.traits), ...usedTraits]);
+
+        buildDatalists();
+        S.stash = {};
+        setDirty(false);
         renderList();
-        if (S.selected) renderEditor();
+        renderEditor();
+        if (!S.exists) toast(`没找到 ${FILE}，从空白开始，保存时会新建`);
       } catch (e) { toast("读取失败：" + e.message, true); }
     }
 
-    function ruleOf(name) { return S.rules[name]; }
-    function hasRule(name) { return !!S.rules[name]; }
+    // ---------- 名称 ----------
+    function cultureLabel(id) { const c = S.cultureById[id]; return c?.label ? `${c.label}` : ""; }
+    function traitLabel(t) { return KNOWN_TRAITS[t] || ""; }
+    function nodeName(id) { return S.nodeInfo[id]?.name || ""; }
+    function nodeText(id) { const n = nodeName(id); return n ? `${n}（${id}）` : id; }
+    function culturesWithTrait(t) { return S.cultures.filter(c => c.traits.some(x => x.toLowerCase() === t.toLowerCase())); }
+    function listNames(arr) { return arr.map(c => c.label || c.id).join("、"); }
+
+    function buildDatalists() {
+      const opt = (v, label) => `<option value="${esc(v)}">${esc(label || "")}</option>`;
+      let html = `<datalist id="dl-cultures">${S.cultures.map(c => opt(c.id, c.label)).join("")}</datalist>`;
+      html += `<datalist id="dl-traits">${S.traits.map(t => opt(t, traitLabel(t))).join("")}</datalist>`;
+      S.lineIds.forEach((line, i) => {
+        // 本线手写的节点在前，游戏自动补的理念、生产节点在后
+        const list = [...S.nodes[line].filter(n => !n.generated), ...S.nodes[line].filter(n => n.generated)];
+        html += `<datalist id="dl-line-${i}">${list.map(n => opt(n.id, (n.name || "") + (n.generated ? "(自动生成)" : ""))).join("")}</datalist>`;
+      });
+      document.getElementById("datalists").innerHTML = html;
+    }
+    function lineListId(line) { const i = S.lineIds.indexOf(line); return i < 0 ? "" : `dl-line-${i}`; }
+
+    // 带名称的小标签编辑器：values 是副本数组；labelOf 给显示名；resolve 把输入的中文名换回 id
+    function chips(values, { placeholder, listId, labelOf = () => "", known = null, resolve = v => v, onChange }) {
+      const wrap = document.createElement("div");
+      wrap.className = "chips";
+      const render = () => {
+        wrap.innerHTML = values.map((v, i) => {
+          const bad = known && !known.has(v);
+          const name = labelOf(v);
+          return `<span class="chip ${bad ? "missing" : ""}" title="${esc(bad ? `找不到：${v}` : String(v))}">${esc(name || v)}` +
+            `${name && name !== v ? `<span class="cid">${esc(v)}</span>` : ""}<button data-i="${i}" title="移除">×</button></span>`;
+        }).join("") +
+          `<span class="chip-add"><input ${listId ? `list="${listId}"` : ""} placeholder="${esc(placeholder)}"></span>`;
+        wrap.querySelectorAll("button[data-i]").forEach(b => b.addEventListener("click", () => {
+          values.splice(Number(b.dataset.i), 1); render(); onChange(values);
+        }));
+        const input = wrap.querySelector("input");
+        const commit = force => {
+          const typed = input.value.trim();
+          const v = resolve(typed);
+          if (!v || (!force && !(known && known.has(v)))) return;
+          input.value = "";
+          if (values.includes(v)) return;
+          values.push(v); render(); onChange(values);
+          wrap.querySelector("input").focus();
+        };
+        input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); commit(true); } });
+        input.addEventListener("change", () => commit(false)); // 从下拉提示里选中即添加
+      };
+      render();
+      return wrap;
+    }
+
+    function field(text, hint) {
+      const lab = document.createElement("div");
+      lab.className = "field";
+      lab.innerHTML = `<label class="field">${esc(text)}</label>` + (hint ? `<div class="hint">${esc(hint)}</div>` : "");
+      return lab;
+    }
+
+    // ---------- 列表 ----------
+    function hasRule(name) { return has(S.rules || {}, name); }
+    // 规则里有、代码枚举里没有的决议(改名或删掉了)，也列出来，免得看不见
+    function orphanNames() {
+      return Object.keys(S.rules || {}).filter(k => !k.startsWith("_") && !S.claims.includes(k));
+    }
 
     function renderList() {
       const q = document.getElementById("filter").value.trim();
       const only = document.getElementById("onlyRuled").checked;
       const el = document.getElementById("claimList");
-      el.innerHTML = S.claims.filter(c => (!q || c.includes(q)) && (!only || hasRule(c))).map(c =>
-        `<div class="item ${c === S.selected ? "active" : ""}" data-c="${esc(c)}">${esc(c)}` +
-        `<span class="sub ${hasRule(c) ? "has" : ""}">${hasRule(c) ? "已设规则" : "不限制"}</span></div>`).join("");
-      el.querySelectorAll(".item").forEach(i => i.addEventListener("click", () => { S.selected = i.dataset.c; renderList(); renderEditor(); }));
+      const all = [...S.claims, ...orphanNames()];
+      const shown = all.filter(c => (!q || c.includes(q) || (S.descriptions[c] || "").includes(q)) && (!only || hasRule(c)));
+      el.innerHTML = shown.map(c => {
+        const orphan = !S.claims.includes(c);
+        const sub = orphan ? "代码里没有" : hasRule(c) ? "已设规则" : "不限制";
+        return `<div class="item ${c === S.selected ? "active" : ""} ${orphan ? "bad" : ""}" data-c="${esc(c)}" title="${esc(S.descriptions[c] || "")}">${esc(c)}` +
+          `<span class="sub ${hasRule(c) && !orphan ? "has" : ""}">${sub}</span></div>`;
+      }).join("");
+      el.querySelectorAll(".item").forEach(i => i.addEventListener("click", () => {
+        S.selected = i.dataset.c; renderList(); renderEditor();
+        document.getElementById("editor").scrollTop = 0;
+      }));
+      const ruled = S.claims.filter(hasRule).length;
+      document.getElementById("claimCount").textContent = `共 ${S.claims.length} 个决议，${ruled} 个已设规则` +
+        (orphanNames().length ? `，${orphanNames().length} 条规则对不上决议` : "");
     }
 
-    function markDirty() { S.dirty = true; }
+    function setDirty(v) {
+      S.dirty = v;
+      document.getElementById("saveBtn").classList.toggle("dirty", v);
+    }
+    function markDirty() { setDirty(true); renderList(); renderScope(); }
 
-    function nodeLabel(id) { return S.nodeNames[id] ? `${S.nodeNames[id]}（${id}）` : id; }
+    // ---------- 适用文化(静态推算) ----------
+    function blockReason(rule, c) {
+      const cultures = strs(rule.cultures);
+      if (cultures.length && !cultures.includes(c.id)) return "不在文化名单里";
+      const traits = strs(rule.traits);
+      if (traits.length && !traits.some(t => c.traits.some(x => x.toLowerCase() === t.toLowerCase()))) return "没有所需文化特性";
+      if (isObj(rule.lines)) {
+        if (!c.line || !has(rule.lines, c.line)) return "没有这条路线";
+        const lc = strs(isObj(rule.lines[c.line]) ? rule.lines[c.line].cultures : null);
+        if (lc.length && !lc.includes(c.id)) return "不在本线文化名单里";
+      }
+      return "";
+    }
 
+    function renderScope() {
+      const box = document.getElementById("scopeBox");
+      const rule = S.rules?.[S.selected];
+      if (!box || !S.cultures.length) return;
+      if (!isObj(rule)) {
+        box.innerHTML = `<div>所有文化都可能提出。</div>`;
+        return;
+      }
+      const ok = [], no = {};
+      for (const c of S.cultures) {
+        const why = blockReason(rule, c);
+        if (why) (no[why] ||= []).push(c); else ok.push(c);
+      }
+      box.innerHTML = `<div><span class="ok">可能提出：</span>${ok.length ? esc(listNames(ok)) : "没有任何文化"}</div>` +
+        Object.entries(no).map(([why, list]) => `<div>${esc(why)}：${esc(listNames(list))}</div>`).join("") +
+        `<div class="hint">只按文化、特性、制度线推算；实际还要看科技时代、已施行的制度和决议自身的条件。复合帝国的文化特性也看统治族群。</div>`;
+    }
+
+    // ---------- 编辑区 ----------
     function renderEditor() {
       const name = S.selected;
       const panel = document.getElementById("editor");
-      if (!name) return;
-      const rule = ruleOf(name);
-      panel.innerHTML = `<h2>${esc(name)}</h2><p class="hint">${esc(S.descriptions[name] || "")}</p>`;
-      if (!rule) {
+      if (!name || !S.rules) { panel.innerHTML = `<p class="muted">从左侧选一个派系决议。</p>`; return; }
+      const rule = S.rules[name];
+      const orphan = !S.claims.includes(name);
+      const badges = [];
+      if (S.selfReforming.has(name)) badges.push(`<span class="badge" title="执行时由决议自己发起制度改革，执行后不会再按 push 重复发起">自带改革</span>`);
+      panel.innerHTML = `<h2>${esc(name)}${badges.join("")}</h2>` +
+        (S.descriptions[name] && S.descriptions[name] !== name ? `<p class="hint">${esc(S.descriptions[name])}</p>` : "") +
+        (orphan ? `<p class="hint warn">代码里没有这个决议(TemporaryFactionType 里找不到，可能改名或删掉了)，这条规则不会生效。</p>` : "") +
+        (orphan ? "" : `<div class="note scope" id="scopeBox"></div>`);
+      renderScope();
+
+      if (!hasRule(name)) {
         const box = document.createElement("div");
-        box.innerHTML = `<p class="muted">这个决议目前不受限制：任何文化、任何时代都可能提出。</p>` +
+        box.innerHTML = `<p class="muted">这个决议目前不受限制：任何文化、任何时代都可能提出(决议自身的条件照样要满足)。</p>` +
           `<button class="primary" id="addRule">添加规则</button>`;
         panel.appendChild(box);
-        box.querySelector("#addRule").addEventListener("click", () => { S.rules[name] = {}; markDirty(); renderList(); renderEditor(); });
+        box.querySelector("#addRule").addEventListener("click", () => { S.rules[name] = {}; markDirty(); renderEditor(); });
+        return;
+      }
+      if (!isObj(rule)) {
+        const box = document.createElement("div");
+        box.className = "card";
+        box.innerHTML = `<p class="hint warn">这条规则不是 { } 对象，游戏会跳过它(等于不限制)。当前内容：</p><pre>${esc(JSON.stringify(rule))}</pre>` +
+          `<div class="toolbar"><button class="small" id="resetRule">改成空规则重新编辑</button><button class="danger small" id="removeRule">删除这条规则</button></div>`;
+        panel.appendChild(box);
+        box.querySelector("#resetRule").addEventListener("click", () => { S.rules[name] = {}; markDirty(); renderEditor(); });
+        box.querySelector("#removeRule").addEventListener("click", () => { delete S.rules[name]; markDirty(); renderEditor(); });
         return;
       }
 
-      // 通用条件：文化、时代
+      // 通用条件：时代、文化、文化特性
       const common = document.createElement("div");
       common.className = "card grid";
-      const eraOptions = v => `<option value="0">不限</option>` + S.eras.map(e => `<option value="${e.tier}" ${Number(v) === e.tier ? "selected" : ""}>${esc(e.name)}</option>`).join("");
+      const eraOptions = v => {
+        const n = Number(v) || 0;
+        let html = `<option value="0">不限</option>` + S.eras.map(e => `<option value="${e.tier}" ${n === e.tier ? "selected" : ""}>${esc(e.name)}(${e.tier})</option>`).join("");
+        if (n > 0 && !S.eras.some(e => e.tier === n)) html += `<option value="${n}" selected>${n}(TechTree.json 里没有这个时代)</option>`;
+        return html;
+      };
       common.innerHTML = `<div class="grid two">
-          <label class="field">最早时代(min_era)<select id="minEra">${eraOptions(rule.min_era || 0)}</select></label>
-          <label class="field">最晚时代(max_era)<select id="maxEra">${eraOptions(rule.max_era || 0)}</select></label>
-        </div>
-        <label class="field">只有这些文化才有(cultures，空 = 不限)</label>`;
-      rule.cultures = rule.cultures || [];
-      common.appendChild(chipEditor(rule.cultures, { placeholder: "文化名，回车添加", suggestions: S.cultures,
-        known: new Set(S.cultures), onChange: v => { rule.cultures = v; if (!v.length) delete rule.cultures; markDirty(); } }));
-      if (!rule.cultures.length) delete rule.cultures;
+          <label class="field">最早时代(min_era)<select id="minEra">${eraOptions(rule.min_era)}</select>
+            <span class="hint">本文化科技进入这个时代才会提出；关掉科技系统时不看时代。</span></label>
+          <label class="field">最晚时代(max_era)<select id="maxEra">${eraOptions(rule.max_era)}</select>
+            <span class="hint">科技超过这个时代就"不合时宜"，不再提出。</span></label>
+        </div>`;
+      common.querySelector("#minEra").addEventListener("change", e => setNum(rule, "min_era", e.target.value));
+      common.querySelector("#maxEra").addEventListener("change", e => setNum(rule, "max_era", e.target.value));
+
+      const cultureKnown = new Set(S.cultures.map(c => c.id));
+      const cultureResolve = v => S.cultures.find(c => c.label === v)?.id || v;
+      common.appendChild(field("只有这些文化才有(cultures)", "按国家的主体文化判断；空 = 不限。"));
+      common.appendChild(chips(Array.isArray(rule.cultures) ? [...rule.cultures] : [], {
+        placeholder: "文化名，回车添加", listId: "dl-cultures", labelOf: cultureLabel, known: cultureKnown, resolve: cultureResolve,
+        onChange: v => { if (v.length) rule.cultures = [...v]; else delete rule.cultures; markDirty(); }
+      }));
+
+      common.appendChild(field("文化要有其中一个特性(traits)",
+        "本文化(复合帝国也看统治族群)有其中任一政治特性才会提出；空 = 不限。特性在文化编辑器的 political_traits 里设。"));
+      const traitHelp = document.createElement("details");
+      traitHelp.className = "help";
+      traitHelp.innerHTML = `<summary>现有特性与哪些文化有</summary><ol>${S.traits.map(t => {
+        const owners = culturesWithTrait(t);
+        return `<li>${esc(t)}${traitLabel(t) ? " " + esc(traitLabel(t)) : ""}：${owners.length ? esc(listNames(owners)) : "暂无文化"}</li>`;
+      }).join("")}</ol>`;
+      common.appendChild(traitHelp);
+      // 红色 = 编辑器认识的特性里没有、也没有文化有这个特性
+      const traitSet = new Set([...Object.keys(KNOWN_TRAITS), ...S.cultures.flatMap(c => c.traits)]);
+      common.appendChild(chips(Array.isArray(rule.traits) ? [...rule.traits] : [], {
+        placeholder: "特性 id，回车添加", listId: "dl-traits", labelOf: traitLabel, known: traitSet,
+        resolve: v => Object.keys(KNOWN_TRAITS).find(k => KNOWN_TRAITS[k] === v) || v,
+        onChange: v => { if (v.length) rule.traits = [...v]; else delete rule.traits; markDirty(); }
+      }));
+      const odd = oddities(rule, RULE_FIELDS, ["cultures", "traits"]);
+      if (odd) common.appendChild(odd);
       panel.appendChild(common);
-      common.querySelector("#minEra").addEventListener("change", e => { setNum(rule, "min_era", e.target.value); });
-      common.querySelector("#maxEra").addEventListener("change", e => { setNum(rule, "max_era", e.target.value); });
 
       // 制度线
       const linesBox = document.createElement("div");
-      linesBox.className = "card";
-      linesBox.style.marginTop = "12px";
-      const restricted = !!rule.lines;
+      linesBox.className = "card section";
+      const restricted = isObj(rule.lines);
+      const reformNodes = S.claimReform[name] || [];
       linesBox.innerHTML = `<label class="field"><span><input type="checkbox" id="useLines" ${restricted ? "checked" : ""}> 按文化制度线限定(lines)：没勾选的线 = 没有这条路线、不出现</span></label>
-        <p class="hint">任一前提(any)：已施行其中任一制度才提出 · 已施行就不再提出(none) · 推动(push)：决议成功后对第一个未施行的制度发起改革；push 里还有未施行的制度、或满足 any，即可提出。</p>`;
+        <details class="help"><summary>any / none / push 怎么用</summary><ol>
+          <li>前提(any)：本文化已施行其中任一制度才会提出。</li>
+          <li>已施行就不再提出(none)：本文化已施行其中任一制度，这个决议就不再出现。</li>
+          <li>推动(push，按顺序)：决议执行成功后，对第一个还没施行、而且能发起改革(前置都满足)的制度发起改革。push 里还有这样的制度、或满足 any，即可提出；push 都施行了就不再提出——像削藩这种本身就是做事的决议，同时写进 any，施行之后照样能提。</li>
+          <li>只写线名、什么都不填 = 这条线的文化都能提出。</li>
+          <li>制度可以写别的线的 id(文化能从别的线吸收制度)；红色标签 = 所有制度树里都找不到。</li>
+        </ol></details>` +
+        (reformNodes.length ? `<p class="hint">制度树里声明由本决议推动的制度(features 里的 claim_reform:${esc(name)})：${esc(reformNodes.map(nodeText).join("、"))}</p>` : "") +
+        (S.selfReforming.has(name) ? `<p class="hint">本决议执行时自己发起改革，执行后不会再按 push 额外发起一次；push 仍决定能不能提出${name === "转天朝制度" ? "，华夏以外的线由决议自己推动 push 里的制度" : ""}。</p>` : "");
+      if (!restricted && rule.lines !== undefined)
+        linesBox.insertAdjacentHTML("beforeend", `<p class="hint warn">lines 现在的值不是 { } 对象，游戏会忽略它：${esc(JSON.stringify(rule.lines))}</p>`);
       panel.appendChild(linesBox);
       linesBox.querySelector("#useLines").addEventListener("change", e => {
-        if (e.target.checked) rule.lines = rule.lines || {}; else delete rule.lines;
+        const key = `${name}\u0000lines`;
+        if (e.target.checked) { rule.lines = isObj(S.stash[key]) ? S.stash[key] : {}; delete S.stash[key]; }
+        else { if (isObj(rule.lines)) S.stash[key] = rule.lines; delete rule.lines; }
         markDirty(); renderEditor();
       });
       if (restricted) {
         const grid = document.createElement("div");
         grid.className = "grid two";
         grid.style.marginTop = "8px";
-        for (const [line, label] of LINES) grid.appendChild(lineCard(rule, line, label));
+        for (const line of S.lineIds) grid.appendChild(lineCard(name, rule, line));
+        for (const line of Object.keys(rule.lines).filter(l => !S.lineIds.includes(l))) grid.appendChild(unknownLineCard(rule, line));
         linesBox.appendChild(grid);
       }
 
       const tools = document.createElement("div");
-      tools.className = "toolbar";
-      tools.style.marginTop = "12px";
+      tools.className = "toolbar section";
       tools.innerHTML = `<button class="danger small" id="removeRule">删除这条规则(改回不限制)</button>`;
       panel.appendChild(tools);
       tools.querySelector("#removeRule").addEventListener("click", () => {
-        delete S.rules[name]; markDirty(); renderList(); renderEditor();
+        if (!confirm(`删除「${name}」的规则？删除后任何文化、任何时代都可能提出。`)) return;
+        delete S.rules[name]; markDirty(); renderEditor();
       });
+    }
+
+    // 编辑器不认识的字段、格式不对的列表：提示一下，保存时原样保留
+    function oddities(obj, knownFields, listFields) {
+      const unknown = Object.keys(obj).filter(k => !knownFields.includes(k));
+      const badLists = listFields.filter(k => obj[k] !== undefined && !Array.isArray(obj[k]));
+      if (!unknown.length && !badLists.length) return null;
+      const p = document.createElement("p");
+      p.className = "hint warn";
+      p.textContent = [
+        unknown.length ? `编辑器不认识的字段(保存时原样保留)：${unknown.join("、")}` : "",
+        badLists.length ? `这些字段应该是列表，游戏会当成空：${badLists.join("、")}(在上面添加会覆盖)` : ""
+      ].filter(Boolean).join("；");
+      return p;
     }
 
     function setNum(obj, key, value) {
@@ -166,66 +536,94 @@
       markDirty();
     }
 
-    function lineCard(rule, line, label) {
-      const on = !!rule.lines[line];
+    function lineCard(claim, rule, line) {
+      const on = has(rule.lines, line);
       const card = document.createElement("div");
       card.className = "card line-card" + (on ? "" : " off");
-      card.innerHTML = `<h4><input type="checkbox" ${on ? "checked" : ""}> ${esc(label)}<span class="tag">${esc(line)}</span></h4>`;
+      const members = S.cultures.filter(c => c.line === line);
+      card.innerHTML = `<h4><input type="checkbox" ${on ? "checked" : ""}> ${esc(S.lineNames[line] || line)}线<span class="tag">${esc(line)}</span></h4>` +
+        `<div class="hint">本线文化：${members.length ? esc(members.map(c => (c.label || c.id) + (c.lineDefaulted ? "(没写线，按默认线)" : "")).join("、")) : "暂无"}</div>`;
       card.querySelector("input").addEventListener("change", e => {
-        if (e.target.checked) rule.lines[line] = {}; else delete rule.lines[line];
+        const key = `${claim}\u0000${line}`;
+        if (e.target.checked) { rule.lines[line] = has(S.stash, key) ? S.stash[key] : {}; delete S.stash[key]; }
+        else { S.stash[key] = rule.lines[line]; delete rule.lines[line]; }
         markDirty(); renderEditor();
       });
       if (!on) return card;
-      const entry = rule.lines[line];
+      // 值不是对象时游戏按空要求处理；在这里改了才换成对象
+      const raw = rule.lines[line];
+      const entry = () => isObj(rule.lines[line]) ? rule.lines[line] : (rule.lines[line] = {});
+      const cur = isObj(raw) ? raw : {};
       const rows = document.createElement("div");
       rows.className = "rows";
-      const ids = (S.nodes[line] || []).map(n => n.id);
-      const known = new Set(ids);
-      for (const [key, text] of [["any", "前提：已施行其一(any)"], ["none", "已施行就不再提出(none)"], ["push", "推动(push，按顺序)"]]) {
-        const lab = document.createElement("label");
-        lab.className = "field";
-        lab.textContent = text;
-        rows.appendChild(lab);
-        const values = entry[key] || [];
-        const editor = chipEditor(values, { placeholder: "制度 id，回车添加", suggestions: ids, known,
-          onChange: v => { if (v.length) entry[key] = v; else delete entry[key]; markDirty(); renderNames(); } });
-        rows.appendChild(editor);
-        const names = document.createElement("div");
-        names.className = "hint";
-        const renderNames = () => { names.textContent = (entry[key] || []).map(nodeLabel).join("、"); };
-        renderNames();
-        rows.appendChild(names);
+      if (!isObj(raw)) rows.insertAdjacentHTML("beforeend", `<p class="hint">当前值 ${esc(JSON.stringify(raw))} 不是对象，游戏按"没有要求"处理。</p>`);
+      const known = new Set(Object.keys(S.nodeInfo));
+      for (const [key, text, hint] of [
+        ["any", "前提：已施行其一(any)", ""],
+        ["none", "已施行就不再提出(none)", ""],
+        ["push", "推动(push，按顺序)", ""]
+      ]) {
+        rows.appendChild(field(text, hint));
+        rows.appendChild(chips(Array.isArray(cur[key]) ? [...cur[key]] : [], {
+          placeholder: "制度 id 或名称，回车添加", listId: lineListId(line), known,
+          labelOf: id => { const n = S.nodeInfo[id]; return n ? (n.name || "") + (n.line !== line ? `·${S.lineNames[n.line] || n.line}线` : "") : ""; },
+          resolve: v => S.nodes[line]?.find(n => n.name === v)?.id || S.nodeByName[v] || v,
+          onChange: v => { const e = entry(); if (v.length) e[key] = [...v]; else delete e[key]; markDirty(); }
+        }));
       }
-      const extra = document.createElement("div");
-      extra.className = "grid two";
-      extra.innerHTML = `<label class="field">额外条件(special)<select>${SPECIALS.map(([v, t]) =>
-        `<option value="${v}" ${(entry.special || "") === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`;
+      const special = typeof cur.special === "string" ? cur.special : (cur.special == null ? "" : String(cur.special));
+      const specialOpts = [["", "无"], ...Object.entries(SPECIALS)];
+      if (special && !SPECIALS[special]) specialOpts.push([special, `${special}(游戏不认识，等于没有)`]);
+      const extra = document.createElement("label");
+      extra.className = "field";
+      extra.innerHTML = `额外条件(special)<select>${specialOpts.map(([v, t]) =>
+        `<option value="${esc(v)}" ${special === v ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
       extra.querySelector("select").addEventListener("change", e => {
-        if (e.target.value) entry.special = e.target.value; else delete entry.special;
+        const en = entry();
+        if (e.target.value) en.special = e.target.value; else delete en.special;
         markDirty();
       });
       rows.appendChild(extra);
-      const cl = document.createElement("label");
-      cl.className = "field";
-      cl.textContent = "这条线里只有这些文化才有(cultures，空 = 不限)";
-      rows.appendChild(cl);
-      const lineCultures = entry.cultures || [];
-      rows.appendChild(chipEditor(lineCultures, { placeholder: "文化名，回车添加", suggestions: S.cultures, known: new Set(S.cultures),
-        onChange: v => { if (v.length) entry.cultures = v; else delete entry.cultures; markDirty(); } }));
+      rows.appendChild(field("这条线里只有这些文化才有(cultures)", "空 = 本线文化都可以。"));
+      rows.appendChild(chips(Array.isArray(cur.cultures) ? [...cur.cultures] : [], {
+        placeholder: "文化名，回车添加", listId: "dl-cultures", labelOf: cultureLabel,
+        known: new Set(S.cultures.map(c => c.id)), resolve: v => S.cultures.find(c => c.label === v)?.id || v,
+        onChange: v => { const e = entry(); if (v.length) e.cultures = [...v]; else delete e.cultures; markDirty(); }
+      }));
+      const odd = oddities(cur, LINE_FIELDS, ["any", "none", "push", "cultures"]);
+      if (odd) rows.appendChild(odd);
       card.appendChild(rows);
+      return card;
+    }
+
+    // InstitutionTrees 里没有的线：游戏里不会有文化走这条线，只显示内容，可删除
+    function unknownLineCard(rule, line) {
+      const card = document.createElement("div");
+      card.className = "card line-card unknown";
+      card.innerHTML = `<h4>${esc(line)}<span class="tag">找不到这条线</span></h4>` +
+        `<p class="hint warn">InstitutionTrees 里没有 ${esc(line)}.json，没有文化会走这条线，这段规则不起作用。</p>` +
+        `<pre>${esc(JSON.stringify(rule.lines[line], null, 1))}</pre>` +
+        `<div class="toolbar"><button class="danger small">删除这条线的规则</button></div>`;
+      card.querySelector("button").addEventListener("click", () => { delete rule.lines[line]; markDirty(); renderEditor(); });
       return card;
     }
 
     async function save() {
       if (!api) return toast("只有桌面版才能保存", true);
+      if (!S.rules) return toast("还没读到规则，不能保存", true);
       try {
-        const ordered = {};
-        if (S.rules._comment) ordered._comment = S.rules._comment;
-        for (const c of S.claims) if (S.rules[c]) ordered[c] = S.rules[c];
-        for (const k of Object.keys(S.rules)) if (!(k in ordered)) ordered[k] = S.rules[k];
-        await api.writeText("ClaimRules.json", JSON.stringify(ordered, null, 2) + "\n");
-        S.dirty = false;
-        toast("已保存 ClaimRules.json，重启游戏后生效");
+        // 保持文件原来的键顺序、缩进、换行；编辑器不认识的字段都在对象里，原样写回
+        let text = JSON.stringify(S.rules, null, S.fmt.indent);
+        if (S.fmt.crlf) text = text.replace(/\n/g, "\r\n");
+        if (S.fmt.finalNewline) text += S.fmt.crlf ? "\r\n" : "\n";
+        await api.writeText(FILE, text);
+        S.exists = true;
+        setDirty(false);
+        const missing = new Set();
+        for (const r of Object.values(S.rules)) if (isObj(r) && isObj(r.lines))
+          for (const e of Object.values(r.lines)) if (isObj(e))
+            for (const k of ["any", "none", "push"]) for (const id of strs(e[k])) if (!S.nodeInfo[id]) missing.add(id);
+        toast(`已保存 ${FILE}，重启游戏后生效` + (missing.size ? `(有 ${missing.size} 个制度 id 在制度树里找不到：${[...missing].slice(0, 5).join("、")})` : ""), missing.size > 0);
       } catch (e) { toast("保存失败：" + e.message, true); }
     }
 

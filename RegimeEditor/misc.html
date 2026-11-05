@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 杂项配置</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .hint{font-size:12px;color:var(--muted);line-height:1.6}
+    .hint.warn,.warn{color:var(--danger) !important}
+    .pre{white-space:pre-wrap}
+    .fname{font-family:Consolas,monospace;font-size:11px;opacity:.6;margin-left:6px}
+    .side .section-nav button{display:flex;align-items:center;gap:6px}
+    .side .section-nav .navsub{margin-left:auto;font-size:11px;color:var(--danger)}
+    .sub-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:12px;align-items:start}
+    .sub-list{display:grid;gap:2px;align-content:start;max-height:calc(100vh - 290px);min-height:240px;overflow:auto;position:sticky;top:0;border:1px solid var(--line);padding:4px}
+    .sub-list .grp-title{color:var(--muted);font-size:12px;padding:6px 10px 2px}
+    .item .sub{white-space:nowrap}
+    .table-wrap{overflow:auto;max-height:calc(100vh - 300px);min-height:240px;border:1px solid var(--line)}
+    .table-wrap.free{max-height:none;min-height:0}
+    table.sheet{table-layout:fixed}
+    table.sheet th .fname{display:block;margin:0}
+    table.sheet td select{border:none !important;border-radius:0;padding:4px 6px;background:transparent !important;width:100%}
+    table.sheet td.rn{text-align:center;color:var(--muted);font-size:12px}
+    table.sheet td.txt{padding:4px 6px}
+    table.sheet td.act{width:auto;white-space:nowrap;text-align:center;padding:2px 4px}
+    table.sheet td.act button{padding:0 6px}
+    table.sheet tr.grp td{color:var(--c-gold,#8d6836);padding:4px 8px;background:var(--c-card2,#efe1c4) !important}
+    table.sheet tr.grp td button{margin-left:8px}
+    table.sheet tr.skip td{opacity:.65}
+    table.sheet tr.core td.rn{color:var(--c-gold,#8d6836)}
+    table.sheet tr.warnrow td{padding:2px 8px;border-top:none}
+    table.sheet input.bad,input.bad{outline:1px solid var(--danger) !important}
+    table.sheet input.dup{color:var(--danger) !important}
+    .preview{table-layout:auto !important}
+    .preview td,.preview th{white-space:nowrap;padding:3px 8px !important}
+    .preview td.diff{color:var(--c-gold,#8d6836)}
+    .natf .field-row{display:flex;gap:6px;align-items:center}
+    .natf .field-row input{flex:1}
+    .natf.changed input{border-color:var(--c-gold,#8d6836) !important}
+    .natf .def{color:var(--muted)}
+    #conBody select.set{border-color:var(--c-gold,#8d6836) !important}
+    .natf .def b{color:var(--c-gold,#8d6836)}
+    .sum{font-size:12px;margin:-4px 0 8px}
+    .sum.ok{color:var(--good)}.sum.bad{color:var(--danger)}
+    .pun{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+    .pun .chip{font-size:12px}
+    .toggles label{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line)}
+    textarea.short{min-height:56px}
+    .warn-box{display:grid;gap:2px;margin:8px 0}
+    .grid.five{grid-template-columns:repeat(5,minmax(0,1fr))}
+    .head-path{margin:-4px 0 10px}
+    h3 button{margin-left:auto}
+  </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <div class="side-group">
+        <h4>配置文件</h4>
+        <div class="section-nav" id="fileNav"></div>
+      </div>
+      <div class="side-group">
+        <h4>保存到模组</h4>
+        <button class="primary wide" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png" alt="">保存当前文件</button>
+        <div class="btn-list">
+          <button id="saveAllBtn">保存全部改动</button>
+          <button id="reloadBtn">重新读取当前文件</button>
+          <button id="openDirBtn">打开所在文件夹</button>
+        </div>
+      </div>
+      <details class="help">
+        <summary>使用说明</summary>
+        <ol>
+          <li>每个文件单独保存；改过还没保存的文件左边标 ●。Ctrl+S 保存当前文件。</li>
+          <li>保存时只重写改动过的值或行：注释、空行、缩进、键的顺序、编辑器不认识的字段都原样保留。</li>
+          <li>称谓表填简体会自动补上繁体；英文留空的，保存时用简体代替。</li>
+          <li>改完要重启游戏才生效。</li>
+          <li>文武官阶称谓表(OfficialRanks.csv)在「军制与官阶」页。</li>
+        </ol>
+      </details>
+    </aside>
+    <main class="panel" id="editor"><p class="muted">读取中…</p></main>
+  </div>
+
+  <script src="common.js"></script>
+  <script src="zh-convert.js"></script>
+  <script>
+    // 杂项配置：模组后来加的几份配置与称谓表，每份一个分页。
+    // 读写原则：JSON 只重写改动过的值(注释、空行、缩进、键顺序、不认识的字段原样保留)；CSV 只重写改动过的行。
+    const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+    const has = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+    const zhOK = () => typeof zhToTrad === "function" && typeof zhToSimp === "function";
+
+    function deepEqual(a, b) {
+      if (a === b) return true;
+      if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+      if (Array.isArray(a) !== Array.isArray(b)) return false;
+      if (Array.isArray(a)) return a.length === b.length && a.every((x, k) => deepEqual(x, b[k]));
+      const ka = Object.keys(a), kb = Object.keys(b);
+      return ka.length === kb.length && ka.every(k => has(b, k) && deepEqual(a[k], b[k]));
+    }
+
+    // ================= 保留原格式的 JSON 读写 =================
+    // 解析成带位置的语法树；保存时没改的部分照抄原文，改了的值就地替换，增删的成员按本文件的缩进风格补写
+    const JsonDoc = (() => {
+      const isCont = v => !!v && typeof v === "object";
+      const defineKey = (o, k, v) => Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true });
+
+      function parse(text) {
+        const n = text.length;
+        let i = 0;
+        const fail = msg => new Error(`第 ${text.slice(0, i).split("\n").length} 行：${msg}`);
+        const trivia = () => {
+          while (i < n) {
+            const c = text[i];
+            if (c === " " || c === "\t" || c === "\n" || c === "\r" || c === "﻿") i++;
+            else if (c === "/" && text[i + 1] === "/") { const e = text.indexOf("\n", i); i = e < 0 ? n : e; }
+            else if (c === "/" && text[i + 1] === "*") { const e = text.indexOf("*/", i + 2); if (e < 0) throw fail("/* 注释没有结束"); i = e + 2; }
+            else break;
+          }
+        };
+        const str = () => {
+          const s = i++;
+          while (i < n && text[i] !== '"') {
+            if (text[i] === "\n") throw fail("字符串里不能换行");
+            i += text[i] === "\\" ? 2 : 1;
+          }
+          if (i >= n) throw fail("字符串没有结束");
+          i++;
+          try { return JSON.parse(text.slice(s, i)); } catch { throw fail("字符串里有不合法的转义"); }
+        };
+        const value = () => {
+          trivia();
+          const s = i, c = text[i];
+          if (c === "{" || c === "[") return container(c === "{");
+          if (c === '"') { const v = str(); return { kind: "scalar", start: s, end: i, json: v }; }
+          const m = /^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)(?![\w.$])/.exec(text.slice(i, i + 100));
+          if (!m) throw fail("这里应该是一个值");
+          i += m[0].length;
+          return { kind: "scalar", start: s, end: i, json: JSON.parse(m[0]) };
+        };
+        // 逗号(或最后一项)后面同一行的 // 注释算这一项的，删、挪这一项时跟着走
+        const trailFrom = pos => {
+          let j = pos;
+          while (text[j] === " " || text[j] === "\t") j++;
+          if (text[j] !== "/" || text[j + 1] !== "/") return pos;
+          const e = text.indexOf("\n", j);
+          if (e < 0) return pos;
+          return text[e - 1] === "\r" ? e - 1 : e;
+        };
+        const container = isObjNode => {
+          const node = { kind: isObjNode ? "object" : "array", start: i, items: [] };
+          const close = isObjNode ? "}" : "]";
+          i++;
+          let leadStart = i;
+          for (;;) {
+            trivia();
+            if (i >= n) throw fail(`缺少 ${close}`);
+            if (text[i] === close) { node.tailStart = leadStart; break; }
+            const item = { leadStart, start: i };
+            if (isObjNode) {
+              if (text[i] !== '"') throw fail("这里应该是带双引号的键名");
+              item.key = str();
+              item.keyEnd = i;
+              trivia();
+              if (text[i] !== ":") throw fail("键名后面应该是冒号");
+              i++;
+            }
+            item.value = value();
+            item.end = item.value.end;
+            const after = i;
+            trivia();
+            node.items.push(item);
+            if (text[i] === ",") { i++; item.sepEnd = i; item.trailEnd = trailFrom(i); leadStart = item.trailEnd; continue; }
+            if (text[i] === close) { item.sepEnd = after; item.trailEnd = trailFrom(after); node.tailStart = item.trailEnd; break; }
+            throw fail(`这里应该是逗号或 ${close}`);
+          }
+          node.closeAt = i;
+          i++;
+          node.end = i;
+          if (isObjNode) { node.json = {}; for (const it of node.items) defineKey(node.json, it.key, it.value.json); }
+          else node.json = node.items.map(it => it.value.json);
+          return node;
+        };
+        const root = value();
+        trivia();
+        if (i < n) throw fail("末尾有多余的内容");
+        const origin = new WeakMap();
+        const live = node => {
+          if (node.kind === "scalar") return node.json;
+          if (node.kind === "array") { const a = node.items.map(it => live(it.value)); origin.set(a, node); return a; }
+          const o = {};
+          for (const it of node.items) defineKey(o, it.key, live(it.value));
+          origin.set(o, node);
+          return o;
+        };
+        return { text, root, origin, style: detectStyle(text, root), data: live(root) };
+      }
+
+      function detectStyle(text, root) {
+        const eol = /\r\n/.test(text) ? "\r\n" : "\n";
+        let unit = null;
+        for (const line of text.split(/\r?\n/)) {
+          const m = /^([ \t]+)["{\[\d\-tfn]/.exec(line);
+          if (m && (!unit || m[1].length < unit.length)) unit = m[1];
+        }
+        let colon = null, inline = null, sep = null;
+        const walk = node => {
+          if (node.kind === "scalar") return;
+          if (node.kind === "object" && node.items.length && colon === null) {
+            const c = text.slice(node.items[0].keyEnd, node.items[0].value.start);
+            colon = /^[ \t]*:[ \t]*$/.test(c) ? c : ": ";
+          }
+          if (node.kind === "array" && node.items.length && node.items.every(it => it.value.kind === "scalar") &&
+            !/\n/.test(text.slice(node.start, node.end))) {
+            const first = node.items[0], last = node.items[node.items.length - 1];
+            const padL = text.slice(node.start + 1, first.start), padR = text.slice(last.end, node.closeAt);
+            if (!inline && !/\S/.test(padL) && !/\S/.test(padR)) inline = { padL, padR, sep: ", " };
+            if (!sep && node.items.length > 1) {
+              const s = text.slice(first.end, node.items[1].start);
+              if (/^\s*,\s*$/.test(s)) sep = s;
+            }
+          }
+          for (const it of node.items) walk(it.value);
+        };
+        walk(root);
+        if (inline && sep) inline.sep = sep;
+        return { eol, unit: unit || "  ", colon: colon || ": ", inline };
+      }
+
+      function serialize(doc, data) {
+        const { text, root, origin, style } = doc;
+        const sl = (a, b) => text.slice(a, b);
+        const indentAt = pos => { const ls = text.lastIndexOf("\n", pos - 1) + 1; return /^[ \t]*/.exec(text.slice(ls, pos))[0]; };
+        const memberIndent = node => node.items.length ? indentAt(node.items[0].start) : indentAt(node.start) + style.unit;
+        const fresh = (v, ind) => {
+          const nl = style.eol;
+          if (Array.isArray(v)) {
+            if (!v.length) return "[]";
+            if (style.inline && v.every(x => !isCont(x)))
+              return "[" + style.inline.padL + v.map(x => JSON.stringify(x ?? null)).join(style.inline.sep) + style.inline.padR + "]";
+            const ci = ind + style.unit;
+            return "[" + nl + v.map(x => ci + fresh(x, ci)).join("," + nl) + nl + ind + "]";
+          }
+          if (isObj(v)) {
+            const ks = Object.keys(v);
+            if (!ks.length) return "{}";
+            const ci = ind + style.unit;
+            return "{" + nl + ks.map(k => ci + JSON.stringify(k) + style.colon + fresh(v[k], ci)).join("," + nl) + nl + ind + "}";
+          }
+          return v === undefined ? "null" : JSON.stringify(v);
+        };
+        const emit = (node, v) => {
+          if (deepEqual(node.json, v)) return sl(node.start, node.end);
+          if (node.kind === "object" && isObj(v)) return assemble(node, objectPieces(node, v));
+          if (node.kind === "array" && Array.isArray(v)) return assemble(node, arrayPieces(node, v));
+          return fresh(v, indentAt(node.start));
+        };
+        const objectPieces = (node, obj) => {
+          const lastIdx = new Map();
+          node.items.forEach((it, k) => lastIdx.set(it.key, k));
+          const pieces = [];
+          node.items.forEach((it, k) => {
+            if (lastIdx.get(it.key) !== k) { pieces.push({ orig: it, v: it.value.json, body: sl(it.start, it.end) }); return; } // 重复键的前几个原样留着
+            if (!has(obj, it.key)) return;
+            pieces.push({ orig: it, v: obj[it.key], body: sl(it.start, it.value.start) + emit(it.value, obj[it.key]) });
+          });
+          const mi = memberIndent(node);
+          for (const k of Object.keys(obj))
+            if (!lastIdx.has(k)) pieces.push({ orig: null, v: obj[k], body: JSON.stringify(k) + style.colon + fresh(obj[k], mi) });
+          return pieces;
+        };
+        const arrayPieces = (node, arr) => {
+          const used = new Set();
+          return arr.map((x, j) => {
+            let it = null;
+            if (isCont(x)) {
+              const on = origin.get(x);
+              if (on) it = node.items.find(t => t.value === on && !used.has(t)) || null;
+            } else {
+              const ok = t => t && !used.has(t) && t.value.kind === "scalar" && t.value.json === x;
+              it = ok(node.items[j]) ? node.items[j] : (node.items.find(ok) || null);
+            }
+            if (it) used.add(it);
+            return { orig: it, v: x, body: it ? emit(it.value, x) : fresh(x, memberIndent(node)) };
+          });
+        };
+        const assemble = (node, pieces) => {
+          const items = node.items;
+          const open = text[node.start], close = text[node.closeAt];
+          if (pieces.length === items.length && pieces.every((p, k) => p.orig === items[k])) {
+            let out = "", pos = node.start;
+            pieces.forEach((p, k) => { out += sl(pos, items[k].start) + p.body; pos = items[k].end; });
+            return out + sl(pos, node.end);
+          }
+          const tailRaw = sl(node.tailStart, node.closeAt);
+          if (!pieces.length) return open + (/\S/.test(tailRaw) ? tailRaw : "") + close;
+          const wasEmpty = !items.length;
+          let inline = !wasEmpty && !/\n/.test(sl(node.start, node.end));
+          if (wasEmpty && node.kind === "array" && style.inline && pieces.every(p => !isCont(p.v))) inline = true;
+          if (inline) {
+            let padL = style.inline ? style.inline.padL : "", padR = style.inline ? style.inline.padR : "";
+            let sep = style.inline ? style.inline.sep : ", ";
+            if (!wasEmpty) {
+              const a = sl(node.start + 1, items[0].start), b = sl(items[items.length - 1].end, node.closeAt);
+              if (!/\S/.test(a)) padL = a;
+              if (!/[^\s,]/.test(b)) padR = b.replace(",", "");
+              if (items.length > 1) { const s = sl(items[0].end, items[1].start); if (/^\s*,\s*$/.test(s)) sep = s; }
+            }
+            return open + padL + pieces.map(p => p.body).join(sep) + padR + close;
+          }
+          const ind = indentAt(node.start);
+          let defLead, tail;
+          if (!wasEmpty) {
+            const fl = sl(items[0].leadStart, items[0].start);
+            defLead = !/\S/.test(fl) && /\n/.test(fl) ? style.eol + fl.slice(fl.lastIndexOf("\n") + 1) : style.eol + indentAt(items[0].start);
+            tail = tailRaw;
+          } else {
+            defLead = style.eol + ind + style.unit;
+            tail = /\S/.test(tailRaw) ? tailRaw : style.eol + ind;
+          }
+          const last = items[items.length - 1];
+          const hadTrailing = !wasEmpty && sl(last.end, last.sepEnd).includes(",");
+          let out = open;
+          pieces.forEach((p, k) => {
+            const isLast = k === pieces.length - 1;
+            const lead = p.orig ? sl(p.orig.leadStart, p.orig.start) : defLead;
+            let between = p.orig ? sl(p.orig.end, p.orig.sepEnd) : "";
+            if (!isLast || hadTrailing) { if (!between.includes(",")) between += ","; }
+            else between = between.replace(",", "");
+            out += lead + p.body + between + (p.orig ? sl(p.orig.sepEnd, p.orig.trailEnd) : "");
+          });
+          return out + tail + close;
+        };
+        return sl(0, root.start) + emit(root, data) + sl(root.end, text.length);
+      }
+
+      // 原文里这个对象/数组(按身份找)当初的值；新加的返回 null
+      function originalOf(doc, obj) { const node = doc.origin.get(obj); return node ? node.json : null; }
+
+      return { parse, serialize, originalOf };
+    })();
+
+    // ================= 按行保留原样的 CSV =================
+    const CsvDoc = {
+      parse(text, quoting) {
+        const parts = String(text).split(/(\r\n|\n|\r)/);
+        const lines = [];
+        for (let k = 0; k < parts.length; k += 2) {
+          const raw = parts[k];
+          lines.push({ raw, eol: parts[k + 1] || "", cells: quoting ? parseCsvLine(raw) : raw.split(","), edited: false });
+        }
+        const m = /\r\n|\n|\r/.exec(text);
+        return { lines, eol: m ? m[0] : "\n", quoting };
+      },
+      serialize(doc) {
+        return doc.lines.map(l => (l.edited ? l.cells.map(c => doc.quoting ? csvCell(c) : String(c ?? "")).join(",") : l.raw) + l.eol).join("");
+      },
+      isData: (l, li) => li > 0 && (l.edited || l.raw.trim() !== ""),
+      newLine: cells => ({ raw: "", eol: "\n", cells, edited: true }),
+      insertAfter(doc, idx, line) {
+        const prev = doc.lines[idx];
+        line.eol = doc.eol;
+        if (prev && prev.eol === "") { prev.eol = doc.eol; line.eol = ""; }
+        doc.lines.splice(idx + 1, 0, line);
+      },
+      // 最后一行有内容的行(末尾换行留下的空行之前)
+      lastContent(doc) { for (let k = doc.lines.length - 1; k >= 0; k--) if (doc.lines[k].edited || doc.lines[k].raw !== "") return k; return 0; },
+      remove(doc, idx) {
+        const [gone] = doc.lines.splice(idx, 1);
+        if (gone && gone.eol === "" && idx > 0 && idx === doc.lines.length) doc.lines[idx - 1].eol = "";
+      },
+      setCell(line, k, v) {
+        while (line.cells.length <= k) line.cells.push("");
+        if (line.cells[k] === v) return false;
+        line.cells[k] = v;
+        line.edited = true;
+        return true;
+      }
+    };
+
+    // ================= 文件清单 =================
+    const FILES = [
+      { id: "constitution", label: "宪法条款模板", icon: "iconWorldLaws", path: "ConstitutionTemplates.json", kind: "json", empty: "{}\n", render: renderConstitution },
+      { id: "naturalization", label: "归化民参数", icon: "iconSpecies", path: "Scripts/Regimes/Configs/Transmigrant/Naturalization.json", kind: "json", empty: "{}\n", render: renderNaturalization },
+      { id: "senators", label: "元老名册", icon: "iconClan", path: "Scripts/Regimes/Configs/Transmigrant/Senators.csv", kind: "csv", quoting: false,
+        empty: "seat,name,sex,group,landing_post,early_post,post,cabinet_post\n", render: renderSenators },
+      { id: "laws", label: "帝国律法", icon: "iconBooksWritten", path: "Scripts/GeneralSystems/EmpireLaw/EmpireLawConfig.json", kind: "json", bom: true, empty: "[]\n", render: renderLaws },
+      { id: "performance", label: "官员考绩事件", icon: "iconHistory", path: "Scripts/Data/PerformanceData.json", kind: "json", empty: "{}\n", render: renderPerformance },
+      { id: "peerages", label: "爵位名称", icon: "iconTitleLayer", path: "Locales/PeeragesLevelNames.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
+        about: "人物爵位的显示名。键 = 文化_peerages_档位：0 最高(皇帝、天子)，6 为无爵；本文化没配的档位退回 default_peerages_档位。default_peerages_2(王)还用作封王的后缀。" },
+      { id: "honorary", label: "散官名称", icon: "iconKings", path: "Locales/HonoraryOfficial.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
+        about: "文散官、武散官的名号。键 = 文化_honoraryofficial_类别_档位：类别 Civil 文、Military 武、Both 文武兼；档位 0 最高、8 最低。" },
+      { id: "merit", label: "勋级名称", icon: "iconArmy", path: "Locales/MeritLevel.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
+        about: "勋官(勋级)的名号。键 = 文化_meritlevel_类别_档位：类别 Civil 文、Military 武、Both 文武兼；档位 0 最高(上柱国)、10 最低。" }
+    ];
+    const BY_ID = Object.fromEntries(FILES.map(f => [f.id, f]));
+    const S = { cur: FILES[0].id, files: {}, ui: {}, loc: {}, clauses: [], ideologies: [], natDefaults: {}, seatCount: 521, coreRoster: 13,
+      lawTypes: [], lawCats: [], punish: [], perfTypes: [], lawLoaded: null };
+
+    // ================= 读 C# 代码里的枚举、默认值 =================
+    function parseEnum(text, name) {
+      if (!text) return [];
+      const at = text.search(new RegExp(`enum\\s+${name}\\b`));
+      if (at < 0) return [];
+      const open = text.indexOf("{", at);
+      if (open < 0) return [];
+      let close = open + 1, inStr = false;
+      for (; close < text.length; close++) {
+        const c = text[close];
+        if (inStr) { if (c === "\\") close++; else if (c === '"') inStr = false; }
+        else if (c === '"') inStr = true;
+        else if (c === "}") break;
+      }
+      const out = [];
+      let next = 0;
+      for (const raw of text.slice(open + 1, close).split(/\r?\n/)) {
+        const line = raw.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").replace(/\[[^\]]*\]/g, "").trim();
+        for (const part of line.split(",")) {
+          const [nm, val] = part.split("=").map(s => s.trim());
+          if (!/^[\p{L}_][\p{L}\p{N}_]*$/u.test(nm || "")) continue;
+          const v = val !== undefined && /^-?\d+$/.test(val) ? parseInt(val, 10) : next;
+          out.push({ name: nm, value: v });
+          next = v + 1;
+        }
+      }
+      return out;
+    }
+    function stripCsComments(t) { return String(t || "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""); }
+
+    // 宪法条款：读 ConstitutionSystem.ApplyValues(哪些条款、哪个枚举、整数范围)与 EditableRows(显示顺序)
+    const FALLBACK_CLAUSES = [
+      ["ideology_intensity", "ConstitutionIdeologyIntensity", ["Medium", "High", "Low"]],
+      ["speech", "ConstitutionSpeech", ["Limited", "Free", "Strict"]],
+      ["nation", "ConstitutionNation", ["Moderate", "Pluralist", "Nationalist"]],
+      ["civil_service", "ConstitutionCivilService", ["Mixed", "Professional", "Spoils"]],
+      ["farmland", "ConstitutionFarmland", ["Adaptive", "Strict", "None"]],
+      ["grain", "ConstitutionGrain", ["Tribute", "Local", "Central"]],
+      ["territory", "ConstitutionTerritory", ["Unitary", "Federal"]],
+      ["economy", "ConstitutionEconomy", ["PrivateProperty", "Mixed", "Planned"]],
+      ["religion", "ConstitutionReligion", ["Secular", "StateReligion"]],
+      ["emergency", "ConstitutionEmergency", ["Prohibited", "Allowed"]],
+      ["amendment", "ConstitutionAmendment", ["ParliamentSupermajority", "Referendum", "PartyCongress"]],
+      ["term_years", "int", [5, 20, 10]],
+      ["max_terms", "int", [0, 4, 0]]
+    ];
+    const CLAUSE_ZH = {
+      territory: "央地关系", economy: "经济制度", religion: "政教关系", emergency: "紧急状态", amendment: "修宪程序",
+      ideology_intensity: "意识形态强度", speech: "言论自由", nation: "民族政策", civil_service: "文官制度",
+      farmland: "耕地红线", grain: "粮食征收", term_years: "元首任期", max_terms: "连任上限"
+    };
+    const VALUE_ZH = {
+      Unitary: "单一制", Federal: "联邦制", PrivateProperty: "保护私有财产", Planned: "计划经济", Secular: "政教分离", StateReligion: "确立国教",
+      Prohibited: "不得宣布紧急状态", Allowed: "元首可宣布紧急状态", ParliamentSupermajority: "议会三分之二通过", Referendum: "全民公投",
+      PartyCongress: "党代会决定", High: "高", Medium: "中", Low: "低", Free: "宽松", Limited: "一般", Strict: "严格", Pluralist: "多民族共存",
+      Moderate: "一般", Nationalist: "民族主义立国", Professional: "职业文官制", Spoils: "政党分肥制", Adaptive: "按生产力", None: "不设红线",
+      Tribute: "征收粮赋", Local: "留归地方", Central: "统购统销"
+    };
+    const IDEO_ZH = {
+      Anarchism: "无政府主义", SocialDemocracy: "社会民主主义", Libertarianism: "自由意志主义", SocialLiberalism: "社会自由主义", Capitalism: "资本主义",
+      ConservativeLiberalism: "保守自由主义", Centrism: "中间派", Socialism: "社会主义", Communism: "共产主义", ReligiousDemocracy: "教派民主主义",
+      Authoritarianism: "权威主义", Conservatism: "保守主义", Fascism: "法西斯主义"
+    };
+
+    function parseClauses(sysText, dataText) {
+      if (!sysText) return null;
+      const t = stripCsComments(sysText);
+      const consts = {}, ints = {};
+      for (const m of t.matchAll(/const\s+string\s+(Clause\w+)\s*=\s*"([^"]+)"/g)) consts[m[1]] = m[2];
+      for (const m of t.matchAll(/const\s+int\s+(\w+)\s*=\s*(-?\d+)\s*;/g)) ints[m[1]] = +m[2];
+      const at = t.indexOf("void ApplyValues");
+      if (at < 0) return null;
+      const end = t.indexOf("private static", at + 20);
+      const body = t.slice(at, end < 0 ? t.length : end);
+      const num = x => /^-?\d+$/.test(x) ? +x : ints[x];
+      const dt = stripCsComments(dataText);
+      const clsAt = dt.indexOf("class ConstitutionClauses");
+      const builtins = {};
+      if (clsAt >= 0) for (const m of dt.slice(clsAt, dt.indexOf("Clone()", clsAt)).matchAll(/public\s+int\s+(\w+)\s*=\s*(-?\d+)\s*;/g)) builtins[m[1]] = +m[2];
+      const list = [];
+      for (const m of body.matchAll(/case\s+(Clause\w+)\s+when\s+(Enum|int)\.TryParse\(\s*value\s*,\s*out\s+(\w+)(?:\s+\w+)?\s*\)([\s\S]*?)break\s*;/g)) {
+        const key = consts[m[1]];
+        if (!key) continue;
+        if (m[2] === "Enum") {
+          const members = parseEnum(dataText, m[3]).map(x => x.name);
+          if (!members.length) return null;
+          list.push({ key, type: "enum", enumName: m[3], values: members, builtin: members[0] });
+        } else {
+          const cl = /Clamp\(\s*\w+\s*,\s*([\w-]+)\s*,\s*([\w-]+)\s*\)/.exec(m[4]);
+          const min = cl ? num(cl[1]) : undefined, max = cl ? num(cl[2]) : undefined;
+          if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+          list.push({ key, type: "int", min, max, builtin: String(builtins[key] ?? 0) });
+        }
+      }
+      if (!list.length) return null;
+      const rows = /EditableRows\s*=\s*\{([\s\S]*?)\};/.exec(t);
+      const order = rows ? [...rows[1].matchAll(/Clause\w+/g)].map(x => consts[x[0]]).filter(Boolean) : [];
+      const pos = k => { const p = order.indexOf(k); return p < 0 ? 999 : p; };
+      return list.sort((a, b) => pos(a.key) - pos(b.key));
+    }
+
+    const NAT_FALLBACK = {
+      max_share: 0.75, registry_per_cadre: 10, quarantine_per_nurse: 10, school_per_teacher: 10, base_registry: 100, base_quarantine: 60, base_school: 60,
+      cost_registry: 0.1, cost_quarantine: 0.2, cost_school: 0.3, budget_share: 0.5, school_years: 2, worker_floor: 0.3, retrain_share: 0.05, focus_share: 0.5,
+      soldier_reserve: 0.2, cadre_per_people: 400, cadre_base: 5, cadre_min_yield: 0.6, dispatch_share: 0.5, workers_per_factory: 100, staffing_floor: 0.25,
+      culture_shift: 0.08, assimilation: 4, landing_worker: 0.44, landing_soldier: 0.34, landing_cadre: 0.08, landing_teacher: 0.08, landing_nurse: 0.06,
+      migrate_worker: 0.7, migrate_soldier: 0.15, migrate_cadre: 0.05, migrate_teacher: 0.05, migrate_nurse: 0.05
+    };
+    function parseNatDefaults(text) {
+      const t = stripCsComments(text);
+      const at = t.indexOf("class NaturalizationConfig");
+      if (at < 0) return null;
+      const open = t.indexOf("{", at), close = t.indexOf("}", open);
+      const out = {};
+      for (const m of t.slice(open, close).matchAll(/(\w+)\s*=\s*(-?\d+(?:\.\d+)?)[fFdD]?/g)) out[m[1]] = +m[2];
+      return Object.keys(out).length ? out : null;
+    }
+
+    async function readText(rel) {
+      try { const r = await api.readText(rel); return r && r.exists ? String(r.text ?? "").replace(/^﻿/, "") : null; }
+      catch { return null; }
+    }
+
+    async function loadLookups() {
+      const [sys, data, party, nat, trans, law, actor, mod] = await Promise.all([
+        "Scripts/GeneralSystems/ConstitutionSystem.cs", "Scripts/Data/ConstitutionData.cs", "Scripts/GeneralSystems/PartySystem.cs",
+        "Scripts/GeneralSystems/NaturalizationSystem.cs", "Scripts/GeneralSystems/TransmigrantSystem.cs",
+        "Scripts/GeneralSystems/EmpireLaw/EmpireLawSystem.cs", "Scripts/GameClassExtensions/ActorExtension.cs", "Scripts/ModClass.cs"
+      ].map(readText));
+      S.clauses = parseClauses(sys, data) || FALLBACK_CLAUSES.map(([key, en, v]) => en === "int"
+        ? { key, type: "int", min: v[0], max: v[1], builtin: String(v[2]) }
+        : { key, type: "enum", enumName: en, values: v, builtin: v[0] });
+      S.ideologies = parseEnum(party, "PartyIdeology").map(m => m.name);
+      if (!S.ideologies.length) S.ideologies = Object.keys(IDEO_ZH);
+      S.natDefaults = parseNatDefaults(nat) || { ...NAT_FALLBACK };
+      const tt = stripCsComments(trans);
+      S.seatCount = +(/const\s+int\s+SeatCount\s*=\s*(\d+)/.exec(tt)?.[1] || 521);
+      S.coreRoster = +(/const\s+int\s+CoreRoster\s*=\s*(\d+)/.exec(tt)?.[1] || 13);
+      S.lawTypes = parseEnum(law, "LawType");
+      S.lawCats = parseEnum(law, "LawCategory");
+      S.punish = parseEnum(law, "PunishmentLevel");
+      if (!S.punish.length) S.punish = ["无罪", "罚金", "笞刑", "杖刑", "监禁", "流放", "没收财产", "剥夺爵位", "剥夺官职", "死刑", "夷三族"].map((name, value) => ({ name, value }));
+      S.perfTypes = parseEnum(actor, "PerformanceEventType");
+      // 律法文件只有调用了 EmpireLawSystem.init() 才会读
+      S.lawLoaded = mod == null ? null : /EmpireLawSystem\s*\.\s*init\s*\(/.test(stripCsComments(mod));
+
+      const keys = [];
+      for (const c of S.clauses) {
+        keys.push(`constitution_clause_${c.key}`, `constitution_${c.key}_hint`);
+        if (c.type === "enum") for (const v of c.values) keys.push(`constitution_${c.key}_${v}`);
+      }
+      for (const x of S.ideologies) keys.push(`party_ideology_${x}`);
+      try { S.loc = await api.readLocales(uniq(keys)); } catch { S.loc = {}; }
+    }
+    const cz = k => (S.loc[k] && S.loc[k].cz) || "";
+
+    // ================= 读写文件 =================
+    async function loadFile(f) {
+      const st = { dirty: false, error: "", exists: false };
+      S.files[f.id] = st;
+      try {
+        const r = await api.readText(f.path);
+        st.exists = !!(r && r.exists);
+        let text = st.exists ? String(r.text ?? "") : "";
+        // 桌面版读文件时去掉了 BOM；能拿到 bom 标记就照它，拿不到按模组里这个文件原来的样子
+        st.bom = typeof r?.bom === "boolean" ? r.bom : (st.exists && !!f.bom);
+        if (text.startsWith("﻿")) { text = text.slice(1); st.bom = true; }
+        parseInto(f, st, st.exists ? text : f.empty);
+      } catch (e) { st.error = e.message; }
+      return st;
+    }
+    function parseInto(f, st, text) {
+      st.text = text;
+      st.auto = new WeakMap();
+      if (f.kind === "json") { st.doc = JsonDoc.parse(text); st.data = st.doc.data; }
+      else st.csv = CsvDoc.parse(text, f.quoting);
+    }
+
+    function buildText(f, st) {
+      if (f.kind === "json") {
+        const text = JsonDoc.serialize(st.doc, st.data);
+        const check = JsonDoc.parse(text).data;
+        if (!deepEqual(check, st.data)) throw new Error("生成的内容核对不上，为免写坏已取消保存");
+        return text;
+      }
+      return CsvDoc.serialize(st.csv);
+    }
+
+    // 保存前的整理：称谓表英文留空的用简体代替；名册检查逗号
+    function beforeSave(f, st) {
+      const notes = [];
+      if (f.kind !== "csv") return notes;
+      const head = st.csv.lines[0]?.cells || [];
+      if (f.render === renderLocaleTable) {
+        const czI = head.indexOf("cz"), enI = head.indexOf("en");
+        let n = 0;
+        if (czI >= 0 && enI >= 0) st.csv.lines.forEach((l, li) => {
+          if (!CsvDoc.isData(l, li) || !l.edited) return;
+          if (!(l.cells[enI] || "").trim() && (l.cells[czI] || "").trim()) { CsvDoc.setCell(l, enI, l.cells[czI]); n++; }
+        });
+        if (n) notes.push(`英文留空的 ${n} 条已用简体代替`);
+      } else {
+        const bad = st.csv.lines.some((l, li) => li > 0 && l.edited && l.cells.some(c => /[,\r\n]/.test(c)));
+        if (bad) throw new Error("名册里有格子带英文逗号或换行，游戏按逗号分列会错位，请先改掉");
+      }
+      return notes;
+    }
+
+    async function saveFile(id) {
+      const f = BY_ID[id], st = S.files[id];
+      if (!st || st.error) throw new Error(`${f.label}：读取失败，不能保存`);
+      if (!st.exists && !st.dirty) return { notes: [`${f.label}文件不存在、也没有改动，没有新建`], same: true, skipped: true };
+      const notes = beforeSave(f, st);
+      const text = buildText(f, st);
+      const same = st.exists && text === st.text;
+      await api.writeText(f.path, (st.bom ? "﻿" : "") + text);
+      st.exists = true;
+      st.dirty = false;
+      parseInto(f, st, text);
+      return { notes, same };
+    }
+
+    async function save(ids) {
+      if (!api) return toast("只有桌面版才能保存", true);
+      const done = [], notes = [];
+      try {
+        for (const id of ids) {
+          const r = await saveFile(id);
+          if (!r.skipped) done.push(BY_ID[id].label + (r.same ? "(没有改动)" : ""));
+          notes.push(...r.notes);
+        }
+        if (!ids.length) toast("没有需要保存的改动");
+        else if (!done.length) toast(notes.join("；"));
+        else toast(`已保存 ${done.join("、")}，重启游戏后生效` + (notes.length ? `；${notes.join("；")}` : ""));
+      } catch (e) { toast("保存失败：" + e.message, true); }
+      renderNav();
+      renderCurrent();
+    }
+
+    function markDirty(id = S.cur) {
+      const st = S.files[id];
+      if (st && !st.dirty) { st.dirty = true; renderNav(); }
+    }
+
+    // ================= 外框 =================
+    function renderNav() {
+      const nav = document.getElementById("fileNav");
+      nav.innerHTML = FILES.map(f => {
+        const st = S.files[f.id];
+        const sub = !st ? "读取中" : st.error ? "读取失败" : !st.exists ? "没有文件" : "";
+        return `<button type="button" data-f="${f.id}" class="${f.id === S.cur ? "active" : ""}" title="${esc(f.path)}">${ico(f.icon, "sm")}` +
+          `<span class="${st && st.dirty ? "dirty" : ""}">${esc(f.label)}</span>${sub ? `<span class="navsub">${sub}</span>` : ""}</button>`;
+      }).join("");
+      nav.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        S.cur = b.dataset.f;
+        try { localStorage.setItem("misc.tab", S.cur); } catch { /* 无痕模式等 */ }
+        renderNav();
+        renderCurrent();
+        document.getElementById("editor").scrollTop = 0;
+      }));
+    }
+
+    function fileHead(f, st, extra = "") {
+      return `<h2>${ico(f.icon, "lg")}${esc(f.label)}</h2>` +
+        `<p class="hint head-path"><code>${esc(f.path)}</code>${st.exists ? "" : "　·　文件不存在，保存时新建"}${extra}</p>`;
+    }
+
+    function renderCurrent() {
+      const panel = document.getElementById("editor");
+      const f = BY_ID[S.cur], st = S.files[S.cur];
+      if (!api) { panel.innerHTML = `<p class="muted">请用 启动桌面版.bat 打开，浏览器里无法读写模组文件。</p>`; return; }
+      if (!st) { panel.innerHTML = `<p class="muted">读取中…</p>`; return; }
+      if (st.error) {
+        panel.innerHTML = fileHead(f, st) + `<p class="hint warn">读取失败：${esc(st.error)}</p><p class="hint">编辑器不敢改格式不对的文件，请先手动修好再点「重新读取当前文件」。</p>`;
+        return;
+      }
+      try { f.render(panel, st, f); }
+      catch (e) { panel.innerHTML = fileHead(f, st) + `<p class="hint warn">显示出错：${esc(e.message)}</p>`; console.error(e); }
+    }
+
+    function badRoot(panel, f, st, msg) {
+      panel.innerHTML = fileHead(f, st) + `<p class="hint warn">${esc(msg)}，编辑器不敢改，请先手动修好。</p>`;
+    }
+
+    // 标签文字 + 灰色小字的 JSON 字段名，放同一行
+    const lab = (text, fname) => `<span>${esc(text)}<span class="fname">${esc(fname)}</span></span>`;
+
+    function optionHtml(value, label, selected) {
+      return `<option value="${esc(value)}" ${selected ? "selected" : ""}>${esc(label)}</option>`;
+    }
+
+    // ================= 1. 宪法条款模板 =================
+    const clauseName = c => cz(`constitution_clause_${c.key}`) || CLAUSE_ZH[c.key] || c.key;
+    function valueName(c, v) {
+      if (v === undefined || v === null || v === "") return "";
+      if (c.type === "int") return c.key === "max_terms" ? (Number(v) === 0 ? "不限" : `最多 ${v} 届`) : `${v} 年`;
+      return cz(`constitution_${c.key}_${v}`) || VALUE_ZH[v] || String(v);
+    }
+    const shortName = (c, v) => valueName(c, v).split(/[：:]/)[0];
+    const ideoName = x => cz(`party_ideology_${x}`) || IDEO_ZH[x] || x;
+    // 与 ConstitutionSystem.ApplyValues 一致：去空格；枚举按名字，整数按范围夹住；不认识的返回 undefined(游戏忽略)
+    function clauseValue(c, raw) {
+      if (raw === undefined) return undefined;
+      const v = raw === null ? "" : String(raw).trim();
+      if (c.type === "enum") return c.values.includes(v) ? v : undefined;
+      if (!/^[+-]?\d+$/.test(v)) return undefined;
+      return String(Math.min(c.max, Math.max(c.min, parseInt(v, 10))));
+    }
+    function applyLayer(eff, layer) {
+      if (!isObj(layer)) return;
+      for (const c of S.clauses) if (has(layer, c.key)) { const v = clauseValue(c, layer[c.key]); if (v !== undefined) eff[c.key] = v; }
+    }
+    function conEffective(d, ideo, { monarchy = false, oneParty = false, stop = "" } = {}) {
+      const eff = Object.fromEntries(S.clauses.map(c => [c.key, c.builtin]));
+      if (stop === "defaults") return eff;
+      applyLayer(eff, d.defaults);
+      if (stop === "ideologies") return eff;
+      if (ideo && isObj(d.ideologies)) applyLayer(eff, d.ideologies[ideo]);
+      if (stop === "monarchy") return eff;
+      if (monarchy && ideo && isObj(d.monarchy)) applyLayer(eff, d.monarchy[ideo]);
+      if (stop === "one_party") return eff;
+      if (oneParty) applyLayer(eff, d.one_party);
+      return eff;
+    }
+    function conProblems(d) {
+      const out = [];
+      const known = new Set(S.clauses.map(c => c.key));
+      const scalar = v => v === null || typeof v !== "object";
+      const checkLayer = (layer, where) => {
+        if (layer === undefined || layer === null) return;
+        if (!isObj(layer)) { out.push(`${where} 不是 { } 对象，游戏读这个文件会失败，整份按内置默认`); return; }
+        for (const [k, v] of Object.entries(layer)) {
+          if (!scalar(v)) { out.push(`${where} 里 ${k} 的值不是文字，游戏读这个文件会失败`); continue; }
+          const c = S.clauses.find(x => x.key === k);
+          if (!known.has(k)) out.push(`${where} 里的条款名 ${k} 游戏不认识，会忽略`);
+          else if (clauseValue(c, v) === undefined) out.push(`${where} 里 ${clauseName(c)} 的值 ${JSON.stringify(v)} 游戏不认识，会忽略`);
+        }
+      };
+      checkLayer(d.defaults, "默认主张");
+      checkLayer(d.one_party, "一党制");
+      for (const [sec, label] of [["ideologies", "各理念"], ["monarchy", "君主立宪"]]) {
+        const s = d[sec];
+        if (s === undefined || s === null) continue;
+        if (!isObj(s)) { out.push(`${label}(${sec}) 不是 { } 对象，游戏读这个文件会失败`); continue; }
+        for (const [ideo, layer] of Object.entries(s)) {
+          if (!S.ideologies.includes(ideo)) out.push(`${label}里的理念 ${ideo} 代码里没有，这一条不起作用`);
+          checkLayer(layer, `${label}·${ideoName(ideo)}`);
+        }
+      }
+      const extra = Object.keys(d).filter(k => !["_comment", "defaults", "ideologies", "monarchy", "one_party"].includes(k));
+      if (extra.length) out.push(`编辑器不认识的字段(保存时原样保留)：${extra.join("、")}`);
+      return out;
+    }
+    function conLayerOf(d, sec, ideo) {
+      if (sec === "defaults" || sec === "one_party") return isObj(d[sec]) ? d[sec] : null;
+      return isObj(d[sec]) && isObj(d[sec][ideo]) ? d[sec][ideo] : null;
+    }
+    function conEnsure(d, sec, ideo) {
+      if (!isObj(d[sec])) d[sec] = {};
+      if (sec === "defaults" || sec === "one_party") return d[sec];
+      if (!isObj(d[sec][ideo])) d[sec][ideo] = {};
+      return d[sec][ideo];
+    }
+    function conSet(d, sec, ideo, key, value) {
+      if (value === "") { const layer = conLayerOf(d, sec, ideo); if (layer && has(layer, key)) delete layer[key]; }
+      else conEnsure(d, sec, ideo)[key] = value;
+      markDirty("constitution");
+    }
+
+    // 一条条款的下拉框：第一项是"沿用上一层"，其余是方案(中文名)
+    function clauseSelect(c, layer, baseLabel) {
+      const raw = layer && has(layer, c.key) ? layer[c.key] : undefined;
+      const valid = clauseValue(c, raw);
+      const rawText = raw === undefined ? "" : String(raw ?? "");
+      const vals = c.type === "enum" ? c.values : Array.from({ length: c.max - c.min + 1 }, (_, k) => String(c.min + k));
+      let html = optionHtml("", baseLabel, raw === undefined);
+      if (raw !== undefined && valid === undefined) html += optionHtml("\u0000keep", `${rawText}(游戏不认识，会忽略)`, true);
+      const clamped = raw !== undefined && valid !== undefined && c.type === "int" && parseInt(rawText.trim(), 10) !== +valid;
+      if (clamped) html += optionHtml("\u0000keep", `${rawText}(超出范围，按 ${valid} 算)`, true);
+      const keepRaw = raw !== undefined && valid !== undefined && !clamped;
+      html += vals.map(v => optionHtml(v, valueName(c, v), keepRaw && valid === v)).join("");
+      return `<select data-c="${esc(c.key)}" class="${raw !== undefined ? "set" : ""}">${html}</select>`;
+    }
+
+    function clauseHint(c) {
+      const h = cz(`constitution_${c.key}_hint`);
+      return h ? h.replace(/^[^\n·　]*[\n　]/, "").trim() : "";
+    }
+
+    function renderConstitution(panel, st, f) {
+      const d = st.data;
+      if (!isObj(d)) return badRoot(panel, f, st, "最外层应该是 { } 对象");
+      const ui = S.ui.con || (S.ui.con = { tab: "defaults", ideo: null, mode: "republic" });
+      const problems = conProblems(d);
+      const tabs = [["defaults", "默认主张"], ["ideologies", "各理念"], ["monarchy", "君主立宪"], ["one_party", "一党制"], ["preview", "汇总预览"]];
+      panel.innerHTML = fileHead(f, st) +
+        `<p class="hint">制宪会议起草正式宪法时，各合法政党按议席(没有议会按中央占比)替本党理念的主张投票，每条取得票最多的方案，任期按票数加权平均；没有政党或起草临时约法时直接用执政理念的主张。` +
+        `一个理念的主张按 默认 → 理念 → 君主立宪(只限君主立宪国) → 一党制(只限一党制国) → 文化包里的宪法条款(在文化编辑器改) 依次覆盖，没写的条款沿用上一层。理念主张单一制的，军阀混战时会想统一全国。</p>` +
+        (typeof d._comment === "string" ? `<details class="help"><summary>文件自带说明(_comment，保存时原样保留)</summary><p class="hint">${esc(d._comment)}</p></details>` : "") +
+        `<details class="help"><summary>各条款的含义</summary><ol>${S.clauses.map(c => `<li>${esc(clauseName(c))}<span class="fname">${esc(c.key)}</span>` +
+          `${clauseHint(c) ? `<div class="hint pre">${esc(clauseHint(c))}</div>` : ""}</li>`).join("")}</ol></details>` +
+        (problems.length ? `<div class="note warn-box">${problems.map(p => `<div class="hint warn">${esc(p)}</div>`).join("")}</div>` : "") +
+        `<div class="tabs" id="conTabs">${tabs.map(([k, t]) => `<button type="button" data-t="${k}" class="${ui.tab === k ? "active" : ""}">${t}</button>`).join("")}</div>` +
+        `<div id="conBody"></div>`;
+      panel.querySelectorAll("#conTabs button").forEach(b => b.addEventListener("click", () => { ui.tab = b.dataset.t; renderCurrent(); }));
+      const body = panel.querySelector("#conBody");
+      if (ui.tab === "defaults" || ui.tab === "one_party") conFlatLayer(body, d, ui.tab);
+      else if (ui.tab === "preview") conPreview(body, d, ui);
+      else conIdeoLayer(body, d, ui.tab, ui);
+    }
+
+    function clauseGrid(c, select) {
+      return `<label class="field">${lab(clauseName(c), c.key)}${select}</label>`;
+    }
+
+    function conFlatLayer(body, d, sec) {
+      const layer = conLayerOf(d, sec);
+      const isDef = sec === "defaults";
+      body.innerHTML = `<p class="hint">${isDef
+        ? "所有理念共同的起点，各理念只写和这里不同的条款。这里也没写的，用游戏内置初值。"
+        : "一党制(含民主集中制)国家在各理念的主张之后再叠加这一层：这里写了的条款，所有理念都改成这样。"}</p>` +
+        `<div class="grid three">${S.clauses.map(c => clauseGrid(c, clauseSelect(c, layer,
+          isDef ? `不写(游戏初值：${valueName(c, c.builtin)})` : "不改(沿用各理念的主张)"))).join("")}</div>`;
+      body.querySelectorAll("select[data-c]").forEach(s => s.addEventListener("change", () => {
+        if (s.value === "\u0000keep") return;
+        conSet(d, sec, null, s.dataset.c, s.value);
+        renderCurrent();
+      }));
+    }
+
+    function conIdeoLayer(body, d, sec, ui) {
+      const secObj = isObj(d[sec]) ? d[sec] : {};
+      const extra = Object.keys(secObj).filter(k => !S.ideologies.includes(k));
+      const names = [...S.ideologies, ...extra];
+      if (!ui.ideo || !names.includes(ui.ideo)) ui.ideo = Object.keys(secObj)[0] || names[0];
+      const x = ui.ideo;
+      const count = k => has(secObj, k) ? (isObj(secObj[k]) ? Object.keys(secObj[k]).length : -1) : null;
+      const firstAncient = S.ideologies.indexOf("Confucianism");
+      const list = names.map((k, n) => {
+        const cnt = count(k);
+        const sub = cnt === null ? "" : cnt < 0 ? "格式不对" : cnt ? `改 ${cnt} 条` : "空条目";
+        return (n === firstAncient ? `<div class="grp-title">古代理念</div>` : "") + (n === S.ideologies.length && extra.length ? `<div class="grp-title">代码里没有的</div>` : "") +
+          `<div class="item ${k === x ? "active" : ""} ${S.ideologies.includes(k) ? "" : "bad"}" data-i="${esc(k)}">${esc(ideoName(k))}<span class="sub ${cnt ? "has" : ""}">${sub}</span></div>`;
+      }).join("");
+      const layer = conLayerOf(d, sec, x);
+      const base = sec === "ideologies" ? conEffective(d, x, { stop: "ideologies" }) : conEffective(d, x, { stop: "monarchy" });
+      const baseText = sec === "ideologies" ? "沿用默认" : "沿用理念主张";
+      const donors = Object.keys(secObj).filter(k => k !== x && isObj(secObj[k]) && Object.keys(secObj[k]).length);
+      body.innerHTML = `<p class="hint">${sec === "ideologies"
+        ? "每个理念只写和「默认主张」不同的条款。没有条目的理念完全按默认。"
+        : "君主立宪国(开了议会或已立宪的君主国，穿越政权除外)在理念主张之后再叠加这一层，只写要改的条款。"}</p>` +
+        `<div class="sub-layout"><div class="sub-list">${list}</div><div>` +
+        `<h3>${esc(ideoName(x))}<span class="fname">${esc(x)}</span></h3>` +
+        (S.ideologies.includes(x) ? "" : `<p class="hint warn">代码里没有这个理念(PartyIdeology 里找不到)，这一条不起作用。</p>`) +
+        (has(secObj, x) && !isObj(secObj[x]) ? `<p class="hint warn">这一条不是 { } 对象：${esc(JSON.stringify(secObj[x]))}；在下面改任一条款会换成对象。</p>` : "") +
+        `<div class="grid three">${S.clauses.map(c => clauseGrid(c, clauseSelect(c, layer, `${baseText}：${valueName(c, base[c.key])}`))).join("")}</div>` +
+        `<div class="toolbar section" style="margin-top:12px">` +
+        (donors.length ? `<label class="field" style="min-width:240px">照抄另一个理念的写法<select id="conCopy">${optionHtml("", "选一个理念…", true)}${donors.map(k => optionHtml(k, ideoName(k), false)).join("")}</select></label>` : "") +
+        (has(secObj, x) ? `<button class="danger small" id="conDel">删除这个理念的条目(全部沿用上一层)</button>` : "") +
+        `</div></div></div>`;
+      body.querySelectorAll(".sub-list .item").forEach(it => it.addEventListener("click", () => { ui.ideo = it.dataset.i; renderCurrent(); }));
+      body.querySelectorAll("select[data-c]").forEach(s => s.addEventListener("change", () => {
+        if (s.value === "\u0000keep") return;
+        conSet(d, sec, x, s.dataset.c, s.value);
+        renderCurrent();
+      }));
+      body.querySelector("#conCopy")?.addEventListener("change", e => {
+        const from = e.target.value;
+        if (!from) return;
+        const target = conEnsure(d, sec, x);
+        for (const k of Object.keys(target)) delete target[k];
+        Object.assign(target, structuredClone(secObj[from]));
+        markDirty("constitution");
+        toast(`已照抄「${ideoName(from)}」的 ${Object.keys(target).length} 条主张`);
+        renderCurrent();
+      });
+      body.querySelector("#conDel")?.addEventListener("click", () => {
+        if (!confirm(`删除「${ideoName(x)}」在${sec === "ideologies" ? "各理念" : "君主立宪"}里的条目？`)) return;
+        delete d[sec][x];
+        markDirty("constitution");
+        renderCurrent();
+      });
+    }
+
+    function conPreview(body, d, ui) {
+      const modes = [["republic", "普通(多党)"], ["monarchy", "君主立宪"], ["one_party", "一党制"], ["both", "君主立宪 + 一党制"]];
+      const monarchy = ui.mode === "monarchy" || ui.mode === "both", oneParty = ui.mode === "one_party" || ui.mode === "both";
+      const listed = uniq([...Object.keys(isObj(d.ideologies) ? d.ideologies : {}), ...Object.keys(isObj(d.monarchy) ? d.monarchy : {})]);
+      const rows = [...S.ideologies.filter(k => listed.includes(k)), ...listed.filter(k => !S.ideologies.includes(k))];
+      const rest = conEffective(d, null, { monarchy, oneParty });
+      const row = (label, eff, isRest) => `<tr><th>${esc(label)}</th>${S.clauses.map(c =>
+        `<td class="${!isRest && eff[c.key] !== rest[c.key] ? "diff" : ""}" title="${esc(valueName(c, eff[c.key]))}">${esc(shortName(c, eff[c.key]))}</td>`).join("")}</tr>`;
+      body.innerHTML = `<div class="toolbar" style="margin-bottom:8px"><label class="field" style="min-width:220px">国家类型<select id="conMode">${modes.map(([k, t]) => optionHtml(k, t, ui.mode === k)).join("")}</select></label>` +
+        `<span class="hint">各理念最终主张的条款(不含文化包)。金色 = 与没有条目的理念不同。</span></div>` +
+        `<div class="table-wrap free"><table class="sheet preview"><thead><tr><th>理念</th>${S.clauses.map(c => `<th>${esc(clauseName(c))}</th>`).join("")}</tr></thead><tbody>` +
+        rows.map(k => row(ideoName(k), conEffective(d, k, { monarchy, oneParty }), false)).join("") +
+        row("其余理念(没有条目)", rest, true) + `</tbody></table></div>`;
+      body.querySelector("#conMode").addEventListener("change", e => { ui.mode = e.target.value; renderCurrent(); });
+    }
+
+    // ================= 2. 归化民参数 =================
+    // 说明取自 Scripts/Regimes/Configs/README.md「归化民配置」
+    const NAT_GROUPS = [
+      ["规模与预算", [
+        ["max_share", "受训人口上限", "一座城进台账的人至多占可入流程人口的这个比例，其余留在本地社会"],
+        ["budget_share", "年度花费上限", "一年至多花可支配资金的这个比例"]]],
+      ["收容、检疫、教育的人手", [
+        ["registry_per_cadre", "每名干部每年登记", "一名干部每年能收容登记的人数"],
+        ["quarantine_per_nurse", "每名护理同时检疫", "一名护理同时能检疫安置的人数"],
+        ["school_per_teacher", "每名教师同时教", "一名教师同时能教的人数"],
+        ["base_registry", "元老亲抓：登记", "人手为零时每年也能登记这么多"],
+        ["base_quarantine", "元老亲抓：检疫", "人手为零时也能检疫这么多"],
+        ["base_school", "元老亲抓：教育", "人手为零时也能教这么多"]]],
+      ["花费与学制", [
+        ["cost_registry", "登记每人花费", "收容登记一人的花费"],
+        ["cost_quarantine", "检疫每人花费", "检疫安置一人的花费"],
+        ["cost_school", "上学每人每年花费", "学费按年交，交不起的停在检疫营"],
+        ["school_years", "基础教育年数", "上几年学才结业"]]],
+      ["结业分岗", [
+        ["worker_floor", "至少去做工的比例", "结业的人至少这么多去做工"],
+        ["focus_share", "培养重点优先比例", "定了培养重点时，分配时这么多先给重点"],
+        ["retrain_share", "工人每年转岗比例", "岗位还缺人时，每年工人里转岗的比例"],
+        ["soldier_reserve", "军人预备比例", "军人岗位按伏波军满编多留的预备"]]],
+      ["干部", [
+        ["cadre_base", "每城干部底数", "一座城要的干部：底数加每多少人一名"],
+        ["cadre_per_people", "每多少人一名干部", "一座城要的干部：底数加每多少人一名"],
+        ["cadre_min_yield", "没有干部时的收成", "一个干部都没有时赋税、征兵能收上来几成"],
+        ["dispatch_share", "富余干部每年调走上限", "富余的干部每年至多调走这么多"]]],
+      ["工厂", [
+        ["workers_per_factory", "每座工厂要的工人", "按这个数算工厂配员"],
+        ["staffing_floor", "配员不足时工业加成保底", "工人不够时工业加成至少保留这么多"]]],
+      ["同化", [
+        ["culture_shift", "已归化者每年改文化比例", "已归化的人每年改成澳洲人文化的比例"],
+        ["assimilation", "城市文化占比推动", "按已归化人口占比推动城市文化"]]],
+      ["降临带来的人分岗", [
+        ["landing_worker", "工人", ""], ["landing_soldier", "军人", ""], ["landing_cadre", "干部", ""], ["landing_teacher", "教师", ""], ["landing_nurse", "护理", ""]], "landing"],
+      ["旧档澳洲人文化的人分岗", [
+        ["migrate_worker", "工人", ""], ["migrate_soldier", "军人", ""], ["migrate_cadre", "干部", ""], ["migrate_teacher", "教师", ""], ["migrate_nurse", "护理", ""]], "migrate"]
+    ];
+
+    function renderNaturalization(panel, st, f) {
+      const d = st.data;
+      if (!isObj(d)) return badRoot(panel, f, st, "最外层应该是 { } 对象");
+      const def = S.natDefaults;
+      const known = new Set(NAT_GROUPS.flatMap(g => g[1].map(x => x[0])));
+      const groups = [...NAT_GROUPS];
+      const codeOnly = Object.keys(def).filter(k => !known.has(k));
+      if (codeOnly.length) groups.push(["代码里新加的参数", codeOnly.map(k => [k, k, ""])]);
+      const extra = Object.keys(d).filter(k => !known.has(k) && !has(def, k));
+      const field = ([k, label, hint]) => {
+        const v = has(d, k) ? d[k] : undefined;
+        const bad = v !== undefined && typeof v !== "number";
+        return `<div class="natf" data-k="${esc(k)}"><label class="field"><span>${esc(label)}<span class="fname">${esc(k)}</span></span>` +
+          `<span class="field-row"><input type="number" step="any" value="${typeof v === "number" ? v : ""}" placeholder="${esc(def[k] ?? "")}">` +
+          `<button type="button" class="small" data-reset title="改回代码默认值">恢复默认</button></span>` +
+          (bad ? `<span class="hint warn">文件里的值 ${esc(JSON.stringify(v))} 不是数字</span>` : "") +
+          `<span class="hint">${hint ? esc(hint) + "；" : ""}<span class="def"></span></span></label></div>`;
+      };
+      panel.innerHTML = fileHead(f, st) +
+        `<p class="hint">穿越政权的归化流程：收容登记 → 检疫安置 → 基础教育 → 分到岗位，一年走一步。只给城里已有的人贴标签，不产生人。比例都是 0~1 的小数。留空的参数按代码默认值。读取失败时游戏日志记 [归化]，整份按默认。</p>` +
+        `<div class="toolbar" style="margin-bottom:6px"><button class="small" id="natResetAll">全部恢复默认</button></div>` +
+        (extra.length ? `<p class="hint warn">编辑器和代码都不认识的字段(保存时原样保留)：${esc(extra.join("、"))}</p>` : "") +
+        groups.map(([title, fields, sum], gi) => `<h3>${esc(title)}<button type="button" class="small" data-reset-group="${gi}">本组恢复默认</button></h3>` +
+          (sum ? `<div class="sum" data-sum="${sum}"></div>` : "") +
+          `<div class="grid ${sum ? "five" : fields.length > 4 ? "three" : "two"}">${fields.map(field).join("")}</div>`).join("");
+      const refresh = box => {
+        const k = box.dataset.k, v = has(d, k) ? d[k] : undefined;
+        const dv = def[k];
+        const changed = typeof v === "number" && dv !== undefined && v !== dv;
+        box.classList.toggle("changed", changed);
+        box.querySelector(".def").innerHTML = dv === undefined ? "代码里没有这个参数"
+          : `代码默认 <b>${esc(dv)}</b>${v === undefined ? "，文件里没写，按默认" : changed ? "，已改" : ""}`;
+        box.querySelector("[data-reset]").disabled = !changed && !(v !== undefined && typeof v !== "number");
+      };
+      const refreshSums = () => panel.querySelectorAll("[data-sum]").forEach(el => {
+        const p = el.dataset.sum;
+        const keys = Object.keys(def).filter(k => k.startsWith(p + "_"));
+        const total = keys.reduce((s, k) => s + (typeof d[k] === "number" ? d[k] : def[k] || 0), 0);
+        const ok = Math.abs(total - 1) < 0.005;
+        el.className = "sum " + (ok ? "ok" : "bad");
+        el.textContent = `合计 ${+total.toFixed(4)}` + (ok ? "，正好分完" : "，应当正好是 1(多了多分、少了少分)");
+      });
+      const setVal = (box, value) => {
+        const k = box.dataset.k;
+        if (value === undefined) delete d[k]; else d[k] = value;
+        box.querySelector("input").value = value === undefined ? "" : value;
+        box.querySelector("input").classList.remove("bad");
+        refresh(box);
+      };
+      panel.querySelectorAll(".natf").forEach(box => {
+        refresh(box);
+        const input = box.querySelector("input");
+        input.addEventListener("input", () => {
+          const t = input.value.trim();
+          if (t === "") { delete d[box.dataset.k]; input.classList.remove("bad"); }
+          else {
+            const n = Number(t);
+            if (!Number.isFinite(n)) { input.classList.add("bad"); return; }
+            input.classList.remove("bad");
+            d[box.dataset.k] = n;
+          }
+          markDirty("naturalization");
+          refresh(box);
+          refreshSums();
+        });
+        box.querySelector("[data-reset]").addEventListener("click", () => {
+          const dv = def[box.dataset.k];
+          if (dv === undefined) return;
+          setVal(box, dv);
+          markDirty("naturalization");
+          refreshSums();
+        });
+      });
+      const resetBoxes = boxes => {
+        let n = 0;
+        boxes.forEach(box => {
+          const k = box.dataset.k, dv = def[k];
+          if (dv === undefined || !has(d, k) || d[k] === dv) return;
+          setVal(box, dv);
+          n++;
+        });
+        if (n) { markDirty("naturalization"); refreshSums(); }
+        toast(n ? `已恢复 ${n} 项默认值` : "这些参数本来就是默认值");
+      };
+      panel.querySelectorAll("[data-reset-group]").forEach(b => b.addEventListener("click", () => {
+        const fields = groups[+b.dataset.resetGroup][1].map(x => x[0]);
+        resetBoxes([...panel.querySelectorAll(".natf")].filter(box => fields.includes(box.dataset.k)));
+      }));
+      panel.querySelector("#natResetAll").addEventListener("click", () => resetBoxes([...panel.querySelectorAll(".natf")]));
+      refreshSums();
+    }
+
+    // ================= 3. 元老名册 =================
+    const SEN_COLS = [
+      ["seat", "席次", "只是编号；游戏按行的先后对应席位", "56px"],
+      ["name", "姓名", "复姓、带·的外国名能自动拆出姓和名；空着游戏会跳过这一行", "96px"],
+      ["sex", "性别", "", "64px"],
+      ["group", "分组", "临时执委会的分组，名册窗口显示", "120px"],
+      ["landing_post", "降临时职务", "第 1 阶段(降临·临时执委会)；空则用第一届执委会职务", ""],
+      ["early_post", "第一届执委会职务", "第 2 阶段；空则用现任职务", ""],
+      ["post", "现任职务", "共同纲领以后；空则用第一届执委会职务", ""],
+      ["cabinet_post", "内阁职务", "第 5 阶段元老院内阁起；空则用现任职务", ""]
+    ];
+
+    function senRows(doc) {
+      const rows = [];
+      let roster = 0;
+      doc.lines.forEach((l, li) => {
+        if (!CsvDoc.isData(l, li)) return;
+        // 与 TransmigrantSystem.Roster 一致：不足 7 格或姓名为空的行跳过，后面的行号前移
+        const valid = l.cells.length >= 7 && (l.cells[1] || "").trim() !== "";
+        rows.push({ l, li, valid, roster: valid ? roster++ : -1 });
+      });
+      return rows;
+    }
+
+    function renderSenators(panel, st, f) {
+      const doc = st.csv;
+      const ui = S.ui.sen || (S.ui.sen = { q: "", group: "" });
+      const header = doc.lines[0]?.cells || [];
+      const ncol = Math.max(SEN_COLS.length, header.length);
+      const rows = senRows(doc);
+      const validCount = rows.filter(r => r.valid).length;
+      const groups = uniq(rows.map(r => (r.l.cells[3] || "").trim())).sort();
+      const headerOk = SEN_COLS.every(([k], i) => header[i] === k);
+      panel.innerHTML = fileHead(f, st) +
+        `<p class="hint">穿越政权元老院共 ${S.seatCount} 席，名册里的人按行的先后坐进第 1、2、3……席，名册以外的席位自动起名。前 ${S.coreRoster} 行是执委会核心人物，选举与讣告优先。` +
+        `各阶段显示的职务：降临 → 降临时职务；第一届执委会 → 第一届执委会职务；共同纲领、大宋澳洲行在 → 现任职务；元老院内阁起 → 内阁职务(空则用现任职务)。</p>` +
+        `<p class="hint warn">存档里按行号记元老：删行、在中间插行会让旧存档里后面的元老对应错人。新元老请加在末尾。游戏按英文逗号分列，格子里不能有英文逗号。</p>` +
+        (headerOk ? "" : `<p class="hint warn">表头和预期(${SEN_COLS.map(c => c[0]).join(",")})不一样；游戏只按列的位置读，这里也按位置显示。</p>`) +
+        `<div class="toolbar" style="margin-bottom:8px"><input id="senQ" placeholder="搜索姓名、分组、职务…" style="max-width:240px" value="${esc(ui.q)}">` +
+        `<select id="senGroup" style="max-width:180px">${optionHtml("", "全部分组", !ui.group)}${groups.map(g => optionHtml(g, g || "(未分组)", ui.group === g)).join("")}</select>` +
+        `<button class="primary small" id="senAdd">${ico("iconShovelPlus", "sm")}在末尾加一位元老</button>` +
+        `<span class="hint">名册 ${validCount} 人${validCount > S.seatCount ? `，超过 ${S.seatCount} 席的不会用到` : ""}${rows.length > validCount ? `，${rows.length - validCount} 行会被跳过` : ""}</span></div>` +
+        `<datalist id="dlSenGroups">${groups.filter(Boolean).map(g => `<option value="${esc(g)}">`).join("")}</datalist>` +
+        `<div class="table-wrap"><table class="sheet" id="senTable"><colgroup><col style="width:44px">` +
+        Array.from({ length: ncol }, (_, i) => `<col style="width:${SEN_COLS[i]?.[3] || "auto"}">`).join("") + `<col style="width:96px"></colgroup>` +
+        `<thead><tr><th title="游戏里的名册行号(存档记的是它)">行</th>` +
+        Array.from({ length: ncol }, (_, i) => `<th title="${esc(SEN_COLS[i]?.[2] || "")}">${esc(SEN_COLS[i]?.[1] || header[i] || `第 ${i + 1} 列`)}<span class="fname">${esc(header[i] || "")}</span></th>`).join("") +
+        `<th></th></tr></thead><tbody></tbody></table></div>`;
+      const tbody = panel.querySelector("#senTable tbody");
+      const draw = () => {
+        const q = ui.q.trim();
+        const shown = senRows(doc).filter(r => (!ui.group || (r.l.cells[3] || "").trim() === ui.group) && (!q || r.l.cells.some(c => String(c).includes(q))));
+        tbody.innerHTML = shown.map(r => {
+          const cells = Array.from({ length: ncol }, (_, i) => {
+            const v = r.l.cells[i] ?? "";
+            if (i === 2) {
+              const opts = [["M", "男"], ["F", "女"]];
+              if (!["M", "F"].includes(v.trim())) opts.push([v, v ? `${v}(按男)` : "(空，按男)"]);
+              return `<td><select data-c="2">${opts.map(([o, t]) => optionHtml(o, t, v.trim() === o || (v === o))).join("")}</select></td>`;
+            }
+            return `<td><input data-c="${i}" value="${esc(v)}" ${i === 3 ? `list="dlSenGroups"` : ""} class="${i === 1 && !v.trim() ? "bad" : ""}"></td>`;
+          }).join("");
+          return `<tr data-li="${r.li}" class="${r.valid ? "" : "skip"} ${r.valid && r.roster < S.coreRoster ? "core" : ""}">` +
+            `<td class="rn" title="${r.valid ? `第 ${r.roster + 1} 席` : "游戏会跳过这一行(姓名为空或不足 7 列)"}">${r.valid ? r.roster + 1 : "跳过"}</td>${cells}` +
+            `<td class="act"><button class="small" data-act="copy" title="照这一行在末尾加一位">复制</button> <button class="small danger" data-act="del" title="删除这一行">×</button></td></tr>`;
+        }).join("") || `<tr><td colspan="${ncol + 2}" class="txt muted">没有符合条件的元老</td></tr>`;
+      };
+      draw();
+      const lineOf = el => doc.lines[+el.closest("tr").dataset.li];
+      tbody.addEventListener("input", e => {
+        const el = e.target;
+        if (!el.dataset.c) return;
+        let v = el.value;
+        if (/[,\r\n]/.test(v)) {
+          v = v.replace(/,/g, "，").replace(/[\r\n]/g, "");
+          el.value = v;
+          toast("名册按英文逗号分列，已换成中文逗号");
+        }
+        if (CsvDoc.setCell(lineOf(el), +el.dataset.c, v)) markDirty("senators");
+        if (+el.dataset.c === 1) el.classList.toggle("bad", !v.trim());
+      });
+      // 改了姓名：只更新行号列(姓名为空的行游戏会跳过，后面的行号前移)，不重绘，免得 Tab 到下一格时丢焦点
+      const renumber = () => {
+        const map = new Map(senRows(doc).map(r => [r.li, r]));
+        tbody.querySelectorAll("tr[data-li]").forEach(tr => {
+          const r = map.get(+tr.dataset.li);
+          if (!r) return;
+          tr.classList.toggle("skip", !r.valid);
+          tr.classList.toggle("core", r.valid && r.roster < S.coreRoster);
+          const td = tr.querySelector(".rn");
+          td.textContent = r.valid ? r.roster + 1 : "跳过";
+          td.title = r.valid ? `第 ${r.roster + 1} 席` : "游戏会跳过这一行(姓名为空或不足 7 列)";
+        });
+      };
+      tbody.addEventListener("change", e => { if (+e.target.dataset.c === 1) renumber(); });
+      const maxSeat = () => Math.max(0, ...senRows(doc).map(r => parseInt(r.l.cells[0], 10)).filter(Number.isFinite));
+      const append = cells => {
+        CsvDoc.insertAfter(doc, CsvDoc.lastContent(doc), CsvDoc.newLine(cells));
+        markDirty("senators");
+        ui.q = ""; panel.querySelector("#senQ").value = "";
+        draw();
+        const wrap = panel.querySelector(".table-wrap");
+        wrap.scrollTop = wrap.scrollHeight;
+        const inputs = tbody.querySelectorAll("tr:last-child input[data-c='1']");
+        inputs[0]?.focus();
+      };
+      tbody.addEventListener("click", e => {
+        const b = e.target.closest("button[data-act]");
+        if (!b) return;
+        const tr = b.closest("tr"), li = +tr.dataset.li, line = doc.lines[li];
+        if (b.dataset.act === "copy") {
+          const cells = Array.from({ length: Math.max(ncol, line.cells.length) }, (_, i) => line.cells[i] ?? "");
+          cells[0] = String(maxSeat() + 1);
+          cells[1] = "";
+          if (ui.group && ui.group !== (cells[3] || "").trim()) ui.group = "";
+          append(cells);
+          toast("已照这一行加在末尾，填上姓名即可");
+        } else {
+          const later = senRows(doc).some(r => r.li > li && r.valid);
+          if (!confirm(`删除「${line.cells[1] || "(无名)"}」这一行？` + (later ? "\n后面的元老行号都会前移一位，旧存档里会对应错人。" : ""))) return;
+          CsvDoc.remove(doc, li);
+          markDirty("senators");
+          renderCurrent();
+        }
+      });
+      panel.querySelector("#senAdd").addEventListener("click", () => {
+        const last = senRows(doc).pop();
+        const cells = Array.from({ length: ncol }, () => "");
+        cells[0] = String(maxSeat() + 1);
+        cells[2] = "M";
+        cells[3] = ui.group || (last ? (last.l.cells[3] || "") : "");
+        if (ui.group && ui.group !== cells[3]) ui.group = "";
+        append(cells);
+      });
+      panel.querySelector("#senQ").addEventListener("input", e => { ui.q = e.target.value; draw(); });
+      panel.querySelector("#senGroup").addEventListener("change", e => { ui.group = e.target.value; draw(); });
+    }
+
+    // ================= 4. 帝国律法 =================
+    function lawsList(data) {
+      if (Array.isArray(data)) return data;
+      if (isObj(data) && Array.isArray(data.Laws)) return data.Laws;
+      return null;
+    }
+    // Newtonsoft 读枚举：名字或数字都行
+    const enumName = (list, v) => typeof v === "number" ? (list.find(m => m.value === v)?.name ?? null) : (list.some(m => m.name === v) ? v : null);
+    function lawProblems(list, law, idx) {
+      const out = [];
+      if (!isObj(law)) return ["这一条不是 { } 对象"];
+      if (S.lawTypes.length && enumName(S.lawTypes, law.Type) === null)
+        out.push(`罪名 ${JSON.stringify(law.Type)} 在代码(LawType)里没有，游戏读这个文件会出错`);
+      else if (S.lawTypes.length) {
+        const first = list.findIndex(o => isObj(o) && enumName(S.lawTypes, o.Type) === enumName(S.lawTypes, law.Type) && o.Type !== undefined);
+        if (first >= 0 && first < idx) out.push("同一罪名前面已经有一条，游戏只认第一条");
+      }
+      if (law.Category !== undefined && S.lawCats.length && enumName(S.lawCats, law.Category) === null) out.push(`类别 ${JSON.stringify(law.Category)} 在代码里没有，游戏读这个文件会出错`);
+      const pun = Array.isArray(law.Punishments) ? law.Punishments : [];
+      const badPun = pun.filter(p => enumName(S.punish, p) === null);
+      if (badPun.length) out.push(`刑罚 ${badPun.map(p => JSON.stringify(p)).join("、")} 在代码里没有，游戏读这个文件会出错`);
+      const extra = Object.keys(law).filter(k => !["Type", "Category", "Name", "Description", "IsForbidden", "AffectDescendants", "Punishments", "Note"].includes(k));
+      if (extra.length) out.push(`编辑器不认识的字段(保存时原样保留)：${extra.join("、")}`);
+      return out;
+    }
+
+    function renderLaws(panel, st, f) {
+      const list = lawsList(st.data);
+      if (!list) return badRoot(panel, f, st, "最外层应该是 [ ] 列表，或带 Laws 列表的 { } 对象");
+      const ui = S.ui.law || (S.ui.law = { sel: 0, q: "", cat: "" });
+      ui.sel = Math.max(0, Math.min(ui.sel, list.length - 1));
+      const catOf = l => isObj(l) ? (enumName(S.lawCats, l.Category) ?? (l.Category === undefined ? "" : String(l.Category))) : "";
+      const titleOf = l => isObj(l) ? (l.Name || enumName(S.lawTypes, l.Type) || String(l.Type ?? "(无罪名)")) : "(格式不对)";
+      const cats = uniq([...S.lawCats.map(c => c.name), ...list.map(catOf)]);
+      panel.innerHTML = fileHead(f, st) +
+        `<p class="hint">每条律法对应代码里的一个罪名(LawType)：犯了这个罪按「刑罚」依次处置，勾了「株连子孙」的连带子孙。律法名称显示在判决和史书里。</p>` +
+        (S.lawLoaded === false ? `<p class="hint warn">注意：当前代码里没有调用 EmpireLawSystem.init()，游戏不会读这个文件，这里的改动暂时不生效。</p>` : "") +
+        `<div class="toolbar" style="margin-bottom:8px"><input id="lawQ" placeholder="搜索名称、罪名、条文…" style="max-width:220px" value="${esc(ui.q)}">` +
+        `<select id="lawCat" style="max-width:180px">${optionHtml("", "全部类别", !ui.cat)}${cats.map(c => optionHtml(c, c, ui.cat === c)).join("")}</select>` +
+        `<button class="primary small" id="lawAdd">${ico("iconShovelPlus", "sm")}新增律法</button>` +
+        `<span class="hint">共 ${list.length} 条${S.lawTypes.length ? `，代码里有 ${S.lawTypes.length} 个罪名` : ""}</span></div>` +
+        `<div class="sub-layout"><div class="sub-list" id="lawList"></div><div id="lawEditor"></div></div>`;
+      const drawList = () => {
+        const q = ui.q.trim();
+        const shown = list.map((l, i) => ({ l, i })).filter(({ l }) => (!ui.cat || catOf(l) === ui.cat) &&
+          (!q || [titleOf(l), l?.Type, l?.Description, l?.Note].some(t => String(t ?? "").includes(q))));
+        let html = "", lastCat = null;
+        for (const { l, i } of shown) {
+          const c = catOf(l);
+          if (c !== lastCat && !ui.cat) { html += `<div class="grp-title">${esc(c || "(无类别)")}</div>`; lastCat = c; }
+          const bad = lawProblems(list, l, i).some(p => !p.startsWith("编辑器不认识"));
+          html += `<div class="item ${i === ui.sel ? "active" : ""} ${bad ? "bad" : ""}" data-i="${i}">${esc(titleOf(l))}</div>`;
+        }
+        const el = panel.querySelector("#lawList");
+        el.innerHTML = html || `<p class="muted">没有符合条件的律法</p>`;
+        el.querySelectorAll(".item").forEach(it => it.addEventListener("click", () => { ui.sel = +it.dataset.i; drawList(); drawEditor(); }));
+      };
+      const usedTypes = () => new Set(list.map(l => isObj(l) ? enumName(S.lawTypes, l.Type) : null).filter(Boolean));
+      const freeType = () => S.lawTypes.find(t => !usedTypes().has(t.name))?.name;
+      const drawEditor = () => {
+        const box = panel.querySelector("#lawEditor");
+        const law = list[ui.sel];
+        if (!isObj(law)) {
+          box.innerHTML = list.length ? `<p class="hint warn">这一条不是 { } 对象：${esc(JSON.stringify(law))}</p>` : `<p class="muted">还没有律法，点「新增律法」。</p>`;
+          return;
+        }
+        const tName = enumName(S.lawTypes, law.Type), cName = enumName(S.lawCats, law.Category);
+        const used = usedTypes();
+        const typeOpts = (tName === null ? optionHtml("\u0000keep", `${law.Type ?? "(没写)"}(代码里没有)`, true) : "") +
+          S.lawTypes.map(t => optionHtml(t.name, t.name + (used.has(t.name) && t.name !== tName ? "(已有律法)" : ""), t.name === tName)).join("");
+        const catOpts = (cName === null ? optionHtml("\u0000keep", law.Category === undefined ? "(没写，按第一类)" : `${law.Category}(代码里没有)`, true) : "") +
+          S.lawCats.map(c => optionHtml(c.name, c.name, c.name === cName)).join("");
+        const pun = Array.isArray(law.Punishments) ? law.Punishments : [];
+        const punNames = pun.map(p => enumName(S.punish, p) ?? String(p));
+        const problems = lawProblems(list, law, ui.sel);
+        box.innerHTML = `<div class="card grid">` +
+          (problems.length ? `<div class="warn-box">${problems.map(p => `<div class="hint warn">${esc(p)}</div>`).join("")}</div>` : "") +
+          `<div class="grid two"><label class="field">${lab("罪名", "Type")}<select data-f="Type">${typeOpts}</select>` +
+          `<span class="hint">判罪时按罪名找律法；同一罪名只认第一条</span></label>` +
+          `<label class="field">${lab("类别", "Category")}<select data-f="Category">${catOpts}</select><span class="hint">只用于分组显示</span></label></div>` +
+          `<label class="field">${lab("律法名称", "Name")}<input data-f="Name" value="${esc(law.Name ?? "")}" placeholder="${esc(tName ? tName + "罪" : "")}"><span class="hint">判决、史书里显示的名字；空则显示罪名</span></label>` +
+          `<label class="field">${lab("条文", "Description")}<textarea data-f="Description" class="short">${esc(law.Description ?? "")}</textarea></label>` +
+          `<div class="field"><label class="field">${lab("刑罚(按先后执行)", "Punishments")}</label>` +
+          `<div class="pun">${punNames.length ? punNames.map((p, i) => `<span class="chip ${enumName(S.punish, pun[i]) === null ? "missing" : ""}">${esc(p)}<button data-pun-del="${i}" title="去掉">×</button></span>`).join("") : `<span class="hint">没有刑罚(只定罪)</span>`}</div>` +
+          `<div class="pun"><span class="hint">加上：</span>${S.punish.filter(p => !punNames.includes(p.name)).map(p => `<button class="small" data-pun-add="${esc(p.name)}">${esc(p.name)}</button>`).join("")}</div></div>` +
+          `<div class="toolbar toggles"><label><input type="checkbox" data-f="AffectDescendants" ${law.AffectDescendants === true ? "checked" : ""}>株连子孙<span class="fname">AffectDescendants</span></label>` +
+          `<label title="代码里目前没有用到"><input type="checkbox" data-f="IsForbidden" ${law.IsForbidden === true ? "checked" : ""}>禁令<span class="fname">IsForbidden(代码暂未使用)</span></label></div>` +
+          `<label class="field">${lab("备注", "Note")}<textarea data-f="Note" class="short">${esc(law.Note ?? "")}</textarea></label></div>` +
+          `<div class="toolbar section" style="margin-top:10px"><button class="small" id="lawCopy">复制这条</button>` +
+          `<button class="danger small" id="lawDel">删除这条</button></div>`;
+        const orig = JsonDoc.originalOf(st.doc, law) || {};
+        box.querySelectorAll("input[data-f]:not([type=checkbox]),textarea[data-f]").forEach(el => el.addEventListener("input", () => {
+          law[el.dataset.f] = el.value;
+          markDirty("laws");
+          if (el.dataset.f === "Name") drawList();
+        }));
+        box.querySelectorAll("select[data-f]").forEach(el => el.addEventListener("change", () => {
+          if (el.value === "\u0000keep") return;
+          law[el.dataset.f] = el.value;
+          markDirty("laws");
+          drawList(); drawEditor();
+        }));
+        box.querySelectorAll("input[type=checkbox][data-f]").forEach(el => el.addEventListener("change", () => {
+          const k = el.dataset.f;
+          // 默认就是 false：原文写了这个字段就写 false，没写就去掉，不多出一行
+          if (el.checked) law[k] = true;
+          else if (has(orig, k)) law[k] = false;
+          else delete law[k];
+          markDirty("laws");
+        }));
+        const setPun = names => { law.Punishments = names; markDirty("laws"); drawEditor(); };
+        box.querySelectorAll("[data-pun-del]").forEach(b => b.addEventListener("click", () => setPun(punNames.filter((_, i) => i !== +b.dataset.punDel))));
+        box.querySelectorAll("[data-pun-add]").forEach(b => b.addEventListener("click", () => setPun([...punNames, b.dataset.punAdd])));
+        box.querySelector("#lawCopy").addEventListener("click", () => {
+          const copy = structuredClone(law);
+          const t = freeType();
+          if (t) { copy.Type = t; copy.Name = `${t}罪`; }
+          list.splice(ui.sel + 1, 0, copy);
+          ui.sel++;
+          markDirty("laws");
+          toast(t ? `已复制，罪名换成还没有律法的「${t}」` : "已复制；所有罪名都有律法了，记得改罪名，否则这条不起作用");
+          drawList(); drawEditor();
+        });
+        box.querySelector("#lawDel").addEventListener("click", () => {
+          if (!confirm(`删除「${titleOf(law)}」？`)) return;
+          list.splice(ui.sel, 1);
+          ui.sel = Math.max(0, ui.sel - 1);
+          markDirty("laws");
+          renderCurrent();
+        });
+      };
+      panel.querySelector("#lawQ").addEventListener("input", e => { ui.q = e.target.value; drawList(); });
+      panel.querySelector("#lawCat").addEventListener("change", e => { ui.cat = e.target.value; drawList(); });
+      panel.querySelector("#lawAdd").addEventListener("click", () => {
+        const t = freeType();
+        const near = isObj(list[ui.sel]) ? list[ui.sel] : null;
+        const law = {
+          Type: t || (S.lawTypes[0]?.name ?? ""),
+          Category: (ui.cat && S.lawCats.some(c => c.name === ui.cat) ? ui.cat : enumName(S.lawCats, near?.Category)) || (S.lawCats[0]?.name ?? ""),
+          Name: t ? `${t}罪` : "",
+          Description: "",
+          Punishments: near && Array.isArray(near.Punishments) ? near.Punishments.map(p => enumName(S.punish, p) ?? p) : ["罚金"],
+          Note: ""
+        };
+        list.splice(list.length ? ui.sel + 1 : 0, 0, law);
+        ui.sel = list.indexOf(law);
+        ui.q = "";
+        markDirty("laws");
+        toast(t ? `已新增「${t}」，刑罚照抄了相邻那条` : "所有罪名都已有律法，新增的这条需要改罪名", !t);
+        renderCurrent();
+      });
+      drawList();
+      drawEditor();
+    }
+
+    // ================= 5. 官员考绩事件 =================
+    const PERF_ZH = {
+      Irrigation_Project_Completed: "兴修水利", Local_Rebellion_Suppressed: "平定地方叛乱", Virtuous_Talent_Recommended: "举荐贤良",
+      Disaster_Relief_Conducted: "赈济灾荒", Schools_Restored: "兴复学校", Factionalism_Exposed: "结党营私败露", Negligence_in_Local_Affairs: "怠于地方政务",
+      Excessive_Taxation_Imposed: "横征暴敛", Corrupted_Performance_Reports: "考绩造假", Refused_Imperial_Summons: "抗旨不赴召",
+      Administrative_Reform: "整顿吏治", Legal_Code_Revision: "修订律令", Policy_Championed_at_Court: "在朝力推新政", Talents_Recommended: "荐举人才",
+      Corruption_Exposed: "揭发贪腐", Factional_Infighting: "党争内斗", Examination_Manipulation: "科场舞弊", Neglect_of_Duty: "玩忽职守",
+      Unpopular_Reforms: "推行失人心的改革", Misleading_the_Emperor: "欺君罔上", None: "平平无奇(无事)"
+    };
+    const perfName = t => PERF_ZH[t] || t;
+    const levelsText = v => Array.isArray(v) ? v.join(", ") : "";
+    function parseLevels(t) {
+      const parts = String(t).split(/[,，、\s]+/).filter(Boolean);
+      if (parts.some(p => !/^-?\d+$/.test(p))) return null;
+      return parts.map(p => parseInt(p, 10));
+    }
+
+    function renderPerformance(panel, st, f) {
+      const d = st.data;
+      if (!isObj(d)) return badRoot(panel, f, st, "最外层应该是 { } 对象");
+      const types = S.perfTypes.length ? S.perfTypes.map(t => t.name) : uniq(Object.values(d).map(e => e?.eventType));
+      const keys = Object.keys(d);
+      const typeCount = {};
+      for (const k of keys) if (isObj(d[k])) typeCount[d[k].eventType] = (typeCount[d[k].eventType] || 0) + 1;
+      const problems = k => {
+        const e = d[k];
+        if (!isObj(e)) return ["这一条不是 { } 对象，游戏读这个文件会出错"];
+        const out = [];
+        if (S.perfTypes.length && !types.includes(e.eventType)) out.push(`类型 ${JSON.stringify(e.eventType)} 在代码里没有，游戏读这个文件会出错`);
+        if (e.is_good === true && Number(e.performance_add_on) < 0) out.push("标成好事却会扣绩效");
+        if (e.is_good === false && Number(e.performance_add_on) > 0) out.push("标成坏事却会加绩效");
+        if (e.official_levels !== undefined && e.official_levels !== null && !Array.isArray(e.official_levels)) out.push("适用官职等级应该是数字列表");
+        const extra = Object.keys(e).filter(x => !["eventType", "is_good", "trigger_rate", "performance_add_on", "official_levels"].includes(x));
+        if (extra.length) out.push(`编辑器不认识的字段(保存时原样保留)：${extra.join("、")}`);
+        return out;
+      };
+      const unused = types.filter(t => !typeCount[t]);
+      panel.innerHTML = fileHead(f, st) +
+        `<p class="hint">每次考绩，从适用的事件里按权重抽一件(权重 0.001 以下的不抽)，官员绩效加上 0 到「绩效变化」之间的随机数，负数就是扣。` +
+        `好事的权重按官员特性上调(正面特性多最多 +0.5)，坏事反之。「适用官职等级」是官员现任官职的等级(政体配置里官职的 type)，空 = 所有官员都可能。</p>` +
+        `<div class="table-wrap free"><table class="sheet"><colgroup><col style="width:24%"><col style="width:19%"><col style="width:90px"><col style="width:96px"><col style="width:132px"><col><col style="width:96px"></colgroup>` +
+        `<thead><tr><th>事件<span class="fname">键名</span></th><th>类型<span class="fname">eventType</span></th><th>好事/坏事<span class="fname">is_good</span></th>` +
+        `<th title="越大越容易抽到">权重<span class="fname">trigger_rate</span></th><th title="每次加 0~这个数">绩效变化<span class="fname">performance_add_on</span></th>` +
+        `<th>适用官职等级<span class="fname">official_levels</span></th><th></th></tr></thead><tbody>` +
+        keys.map(k => {
+          const e = d[k], p = problems(k);
+          if (!isObj(e)) return `<tr data-k="${esc(k)}"><td class="txt">${esc(k)}</td><td colspan="5" class="txt hint warn">${esc(p[0])}：${esc(JSON.stringify(e))}</td><td class="act"><button class="small danger" data-act="del">×</button></td></tr>`;
+          const tOpts = (types.includes(e.eventType) ? "" : optionHtml("\u0000keep", `${e.eventType ?? "(没写)"}(代码里没有)`, true)) +
+            types.map(t => optionHtml(t, perfName(t), t === e.eventType)).join("");
+          const lv = e.official_levels;
+          return `<tr data-k="${esc(k)}"><td class="txt"><div>${esc(perfName(k))}</div><span class="fname">${esc(k)}</span></td>` +
+            `<td><select data-f="eventType">${tOpts}</select></td>` +
+            `<td><select data-f="is_good">${optionHtml("1", "好事", e.is_good === true)}${optionHtml("0", "坏事", e.is_good !== true)}</select></td>` +
+            `<td><input type="number" step="any" data-f="trigger_rate" value="${typeof e.trigger_rate === "number" ? e.trigger_rate : ""}"></td>` +
+            `<td><input type="number" step="any" data-f="performance_add_on" value="${typeof e.performance_add_on === "number" ? e.performance_add_on : ""}"></td>` +
+            `<td><input data-f="official_levels" value="${esc(Array.isArray(lv) ? levelsText(lv) : "")}" placeholder="空 = 所有官员"></td>` +
+            `<td class="act"><button class="small" data-act="copy" title="照这一条新加一条">复制</button> <button class="small danger" data-act="del" title="删除">×</button></td></tr>` +
+            (p.length ? `<tr class="warnrow"><td colspan="7" class="hint warn">${esc(p.join("；"))}</td></tr>` : "");
+        }).join("") + `</tbody></table></div>` +
+        `<div class="toolbar" style="margin-top:10px"><select id="perfNew" style="max-width:260px">${unused.map(t => optionHtml(t, perfName(t), false)).join("")}` +
+        `${unused.length ? `<option disabled>──已有的类型──</option>` : ""}${types.filter(t => typeCount[t]).map(t => optionHtml(t, perfName(t) + "(已有)", false)).join("")}</select>` +
+        `<button class="primary small" id="perfAdd">${ico("iconShovelPlus", "sm")}添加事件</button><span class="hint">新事件照抄同为好事/坏事的上一条的数值。</span></div>`;
+      const tbody = panel.querySelector("tbody");
+      const entry = el => d[el.closest("tr").dataset.k];
+      tbody.addEventListener("change", e => {
+        const el = e.target, ev = entry(el);
+        if (!isObj(ev) || !el.dataset.f) return;
+        const k = el.dataset.f;
+        if (k === "eventType") { if (el.value === "\u0000keep") return; ev.eventType = el.value; }
+        else if (k === "is_good") ev.is_good = el.value === "1";
+        else if (k === "official_levels") {
+          const arr = parseLevels(el.value);
+          if (!arr) { el.classList.add("bad"); toast("官职等级要写整数，用逗号隔开", true); return; }
+          el.classList.remove("bad");
+          if (!deepEqual(arr, ev.official_levels)) ev.official_levels = arr;
+          else return;
+        } else return;
+        markDirty("performance");
+        renderCurrent();
+      });
+      tbody.addEventListener("input", e => {
+        const el = e.target, ev = entry(el);
+        if (!isObj(ev) || !["trigger_rate", "performance_add_on"].includes(el.dataset.f)) return;
+        const t = el.value.trim(), n = Number(t);
+        if (t === "" || !Number.isFinite(n)) { el.classList.add("bad"); return; }
+        el.classList.remove("bad");
+        ev[el.dataset.f] = n;
+        markDirty("performance");
+        // 只更新这一行下面的提示，不重绘(免得丢焦点)
+        const tr = el.closest("tr"), k = tr.dataset.k, p = problems(k);
+        let warn = tr.nextElementSibling?.classList.contains("warnrow") ? tr.nextElementSibling : null;
+        if (!p.length) { warn?.remove(); return; }
+        if (!warn) { warn = document.createElement("tr"); warn.className = "warnrow"; warn.innerHTML = `<td colspan="7" class="hint warn"></td>`; tr.after(warn); }
+        warn.firstElementChild.textContent = p.join("；");
+      });
+      const uniqueKey = base => { let k = base, n = 2; while (has(d, k)) k = `${base}_${n++}`; return k; };
+      tbody.addEventListener("click", e => {
+        const b = e.target.closest("button[data-act]");
+        if (!b) return;
+        const k = b.closest("tr").dataset.k;
+        if (b.dataset.act === "del") {
+          if (!confirm(`删除考绩事件「${perfName(k)}」？`)) return;
+          delete d[k];
+        } else d[uniqueKey(k)] = structuredClone(d[k]);
+        markDirty("performance");
+        renderCurrent();
+      });
+      panel.querySelector("#perfAdd").addEventListener("click", () => {
+        const t = panel.querySelector("#perfNew").value;
+        if (!t) return;
+        const good = !/Exposed|Negligence|Excessive|Corrupted|Refused|Infighting|Manipulation|Neglect|Unpopular|Misleading/.test(t);
+        const vals = Object.values(d).filter(isObj);
+        const like = [...vals].reverse().find(v => v.is_good === good) || vals[vals.length - 1];
+        d[uniqueKey(t)] = {
+          eventType: t, is_good: good,
+          trigger_rate: typeof like?.trigger_rate === "number" ? like.trigger_rate : 0.5,
+          performance_add_on: typeof like?.performance_add_on === "number" ? Math.abs(like.performance_add_on) * (good ? 1 : -1) : (good ? 15 : -15),
+          official_levels: Array.isArray(like?.official_levels) ? [...like.official_levels] : []
+        };
+        markDirty("performance");
+        renderCurrent();
+        const wrap = document.getElementById("editor");
+        wrap.scrollTop = wrap.scrollHeight;
+      });
+    }
+
+    // ================= 6. 称谓表(爵位 / 散官 / 勋级) =================
+    function keyParts(key) { const m = /^(.*?)(\d+)$/.exec(String(key || "")); return m ? { prefix: m[1], n: +m[2] } : null; }
+
+    function renderLocaleTable(panel, st, f) {
+      const doc = st.csv;
+      const ui = S.ui[f.id] || (S.ui[f.id] = { q: "" });
+      const header = doc.lines[0]?.cells || ["key", "cz", "en", "ch"];
+      const ncol = header.length;
+      const czI = header.indexOf("cz"), enI = header.indexOf("en"), chI = header.indexOf("ch");
+      const COL = { key: ["键", "游戏代码按它取名字"], cz: ["简体中文", ""], en: ["English", "留空保存时用简体代替"], ch: ["繁体中文", "留空或没手改过时，按简体自动转换"] };
+      // 按空行分组
+      const groups = [];
+      let cur = null;
+      doc.lines.forEach((l, li) => {
+        if (li === 0) return;
+        if (!CsvDoc.isData(l, li)) { cur = null; return; }
+        if (!cur) groups.push(cur = { lines: [] });
+        cur.lines.push(li);
+      });
+      const keyCount = {};
+      for (const g of groups) for (const li of g.lines) { const k = (doc.lines[li].cells[0] || "").trim(); if (k) keyCount[k] = (keyCount[k] || 0) + 1; }
+      const dups = Object.keys(keyCount).filter(k => keyCount[k] > 1);
+      panel.innerHTML = fileHead(f, st) + `<p class="hint">${esc(f.about || "")}三种语言在同一行；空行只是分组，游戏不管。</p>` +
+        (dups.length ? `<p class="hint warn">重复的键：${esc(dups.join("、"))}(游戏只用其中一个)</p>` : "") +
+        (zhOK() ? "" : `<p class="hint warn">没有载入简繁转换(zh-convert.js)，繁体不会自动补。</p>`) +
+        `<div class="toolbar" style="margin-bottom:8px"><input id="locQ" placeholder="搜索键或名称…" style="max-width:220px" value="${esc(ui.q)}">` +
+        (chI >= 0 && czI >= 0 ? `<button class="small" id="locTrad" ${zhOK() ? "" : "disabled"} title="只补繁体为空的格子">补全繁体</button>` : "") +
+        `<button class="small" id="locGroup">${ico("iconShovelPlus", "sm")}新建一组</button></div>` +
+        `<div class="table-wrap free"><table class="sheet"><colgroup>${header.map((h, i) => `<col style="width:${i === 0 ? "30%" : "auto"}">`).join("")}<col style="width:96px"></colgroup>` +
+        `<thead><tr>${header.map(h => `<th title="${esc(COL[h]?.[1] || "")}">${esc(COL[h]?.[0] || h)}<span class="fname">${esc(h)}</span></th>`).join("")}<th></th></tr></thead><tbody></tbody></table></div>`;
+      const tbody = panel.querySelector("tbody");
+      const draw = () => {
+        const q = ui.q.trim();
+        tbody.innerHTML = groups.map((g, gi) => {
+          const rows = g.lines.filter(li => !q || doc.lines[li].cells.some(c => String(c).includes(q)));
+          if (!rows.length) return "";
+          const prefixes = uniq(g.lines.map(li => keyParts(doc.lines[li].cells[0])?.prefix).filter(Boolean));
+          return `<tr class="grp"><td colspan="${ncol + 1}">${esc(prefixes.length ? prefixes.map(p => p + "*").join(" / ") : "(一组)")}` +
+            `<button class="small" data-add-group="${gi}">在本组末尾加一行</button></td></tr>` +
+            rows.map(li => {
+              const l = doc.lines[li];
+              return `<tr data-li="${li}">${Array.from({ length: ncol }, (_, i) => {
+                const v = l.cells[i] ?? "";
+                return `<td><input data-c="${i}" value="${esc(v)}" class="${i === 0 && keyCount[v.trim()] > 1 ? "dup" : ""} ${i === 0 && !v.trim() ? "bad" : ""}" ${i === 0 ? `placeholder="新键名"` : ""}></td>`;
+              }).join("")}<td class="act"><button class="small" data-act="copy" title="照这一行加下一档">复制</button> <button class="small danger" data-act="del" title="删除">×</button></td></tr>`;
+            }).join("");
+        }).join("") || `<tr><td colspan="${ncol + 1}" class="txt muted">没有内容</td></tr>`;
+      };
+      draw();
+      const autoOf = l => { let a = st.auto.get(l); if (!a) st.auto.set(l, a = {}); return a; };
+      const setInput = (tr, i, v) => { const inp = tr.querySelector(`input[data-c="${i}"]`); if (inp) inp.value = v; };
+      tbody.addEventListener("input", e => {
+        const el = e.target;
+        if (!el.dataset.c) return;
+        const tr = el.closest("tr"), l = doc.lines[+tr.dataset.li], i = +el.dataset.c;
+        const before = l.cells[i] ?? "";
+        const v = el.value.replace(/[\r\n]/g, "");
+        if (!CsvDoc.setCell(l, i, v)) return;
+        markDirty(f.id);
+        if (!zhOK()) return;
+        const a = autoOf(l);
+        // 简体改了：繁体为空、仍是上次自动补的、或正好是旧简体转出来的(且没手改过)，就跟着改
+        if (i === czI && chI >= 0) {
+          const ch = l.cells[chI] ?? "";
+          if (!a.manualCh && (ch === "" || ch === a.ch || ch === zhToTrad(before))) {
+            const t = v ? zhToTrad(v) : "";
+            CsvDoc.setCell(l, chI, t);
+            a.ch = t;
+            setInput(tr, chI, t);
+          }
+        } else if (i === chI && czI >= 0) {
+          a.manualCh = v !== "";
+          const s = l.cells[czI] ?? "";
+          if (!a.manualCz && (s === "" || s === a.cz)) {
+            const t = v ? zhToSimp(v) : "";
+            CsvDoc.setCell(l, czI, t);
+            a.cz = t;
+            setInput(tr, czI, t);
+          }
+        }
+        if (i === czI) a.manualCz = v !== "" && v !== a.cz;
+      });
+      const currentKeys = () => {
+        const cnt = {};
+        doc.lines.forEach((l, li) => { if (CsvDoc.isData(l, li)) { const k = (l.cells[0] || "").trim(); if (k) cnt[k] = (cnt[k] || 0) + 1; } });
+        return cnt;
+      };
+      // 改了键名：就地标出重复/空的键，不重绘
+      tbody.addEventListener("change", e => {
+        if (+e.target.dataset.c !== 0) return;
+        const cnt = currentKeys();
+        tbody.querySelectorAll('input[data-c="0"]').forEach(inp => {
+          const k = inp.value.trim();
+          inp.classList.toggle("dup", cnt[k] > 1);
+          inp.classList.toggle("bad", !k);
+        });
+      });
+      const nextKey = (afterLi, groupLines) => {
+        const p = keyParts(doc.lines[afterLi]?.cells[0]);
+        if (!p) return "";
+        const taken = new Set(Object.keys(currentKeys()));
+        let n = Math.max(p.n, ...groupLines.map(li => keyParts(doc.lines[li].cells[0])).filter(x => x && x.prefix === p.prefix).map(x => x.n)) + 1;
+        while (taken.has(p.prefix + n)) n++;
+        return p.prefix + n;
+      };
+      const addRow = (afterLi, cells) => {
+        const line = CsvDoc.newLine(cells);
+        CsvDoc.insertAfter(doc, afterLi, line);
+        markDirty(f.id);
+        renderCurrent();
+        const inp = document.querySelector(`#editor tr[data-li="${afterLi + 1}"] input[data-c="${czI >= 0 ? czI : 0}"]`);
+        inp?.focus();
+      };
+      tbody.addEventListener("click", e => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.addGroup !== undefined) {
+          const g = groups[+b.dataset.addGroup];
+          const last = g.lines[g.lines.length - 1];
+          const cells = Array.from({ length: ncol }, () => "");
+          cells[0] = nextKey(last, g.lines);
+          addRow(last, cells);
+          return;
+        }
+        const tr = b.closest("tr"), li = +tr.dataset.li, l = doc.lines[li];
+        if (b.dataset.act === "del") {
+          if (!confirm(`删除「${l.cells[0] || "(空键)"}」这一行？代码要是还用到这个键，就会显示成键名。`)) return;
+          CsvDoc.remove(doc, li);
+          markDirty(f.id);
+          renderCurrent();
+        } else if (b.dataset.act === "copy") {
+          const g = groups.find(x => x.lines.includes(li));
+          const cells = Array.from({ length: ncol }, (_, i) => l.cells[i] ?? "");
+          cells[0] = nextKey(li, g ? g.lines : [li]);
+          addRow(li, cells);
+        }
+      });
+      panel.querySelector("#locQ").addEventListener("input", e => { ui.q = e.target.value; draw(); });
+      panel.querySelector("#locTrad")?.addEventListener("click", () => {
+        let n = 0;
+        doc.lines.forEach((l, li) => {
+          if (!CsvDoc.isData(l, li)) return;
+          const s = (l.cells[czI] ?? "").trim();
+          if (s && !(l.cells[chI] ?? "").trim()) { const t = zhToTrad(l.cells[czI]); CsvDoc.setCell(l, chI, t); autoOf(l).ch = t; n++; }
+        });
+        if (n) markDirty(f.id);
+        toast(n ? `已补全 ${n} 个繁体格子` : "没有空着的繁体格子");
+        renderCurrent();
+      });
+      panel.querySelector("#locGroup").addEventListener("click", () => {
+        const at = CsvDoc.lastContent(doc);
+        const blank = { raw: "", eol: "\n", cells: [""], edited: false };
+        CsvDoc.insertAfter(doc, at, blank);
+        const cells = Array.from({ length: ncol }, () => "");
+        addRow(at + 1, cells);
+        document.querySelector(`#editor tr[data-li="${at + 2}"] input[data-c="0"]`)?.focus();
+      });
+    }
+
+    // ================= 启动 =================
+    async function init() {
+      mountAppBar("misc.html");
+      try { const t = localStorage.getItem("misc.tab"); if (t && BY_ID[t]) S.cur = t; } catch { /* 无痕模式等 */ }
+      renderNav();
+      if (!api) { renderCurrent(); return; }
+      try { await loadLookups(); } catch (e) { toast("读取代码里的枚举失败：" + e.message, true); }
+      await Promise.all(FILES.map(loadFile));
+      renderNav();
+      renderCurrent();
+    }
+
+    async function reloadCurrent() {
+      const st = S.files[S.cur];
+      if (st?.dirty && !confirm("这个文件有未保存的修改，确定重新读取？")) return;
+      await loadFile(BY_ID[S.cur]);
+      renderNav();
+      renderCurrent();
+      toast("已重新读取");
+    }
+
+    document.getElementById("saveBtn").addEventListener("click", () => save([S.cur]));
+    document.getElementById("saveAllBtn").addEventListener("click", () => save(FILES.filter(f => S.files[f.id]?.dirty).map(f => f.id)));
+    document.getElementById("reloadBtn").addEventListener("click", reloadCurrent);
+    document.getElementById("openDirBtn").addEventListener("click", async () => {
+      if (!api) return toast("只有桌面版才能打开文件夹", true);
+      const p = BY_ID[S.cur].path;
+      try { await api.openPath(p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "."); } catch (e) { toast(e.message, true); }
+    });
+    document.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); document.activeElement?.blur?.(); save([S.cur]); }
+    });
+    window.addEventListener("beforeunload", e => { if (Object.values(S.files).some(st => st.dirty)) { e.preventDefault(); e.returnValue = ""; } });
+    init();
+  </script>
+</body>
+</html>

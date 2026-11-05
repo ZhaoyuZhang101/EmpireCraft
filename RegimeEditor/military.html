@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 军制与官阶</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    .fk{color:var(--muted);font-family:Consolas,monospace;font-size:12px;margin-left:4px}
+    .fh{color:var(--muted);font-size:12px;line-height:1.5}
+    .warn,.fh.warn{color:var(--danger)}
+    .note.warn{color:var(--danger);border-color:var(--danger)}
+    .panel .card{margin-top:12px}
+    .panel .card > h3:first-child{margin-top:0}
+    .panel .card > .hint:first-of-type{margin-top:0}
+    .card .sub-card{border:1px dashed var(--line);padding:8px 10px;margin-top:8px}
+    label.field{align-content:start}
+    label.field > span:first-child{color:var(--ink)}
+    .panel table.sheet th{position:static}
+    .panel table.sheet.sticky th{position:sticky;top:-14px;z-index:2}
+    table.sheet th{white-space:nowrap}
+    table.sheet .sel-id{padding:0 6px 2px;margin:0;font-size:11px}
+    .arms{display:flex;flex-wrap:wrap;gap:6px 16px}
+    .arms label{display:inline-flex;align-items:center;gap:2px;color:var(--ink);cursor:pointer}
+    .inline-check{display:inline-flex;align-items:center;gap:2px;color:var(--ink);cursor:pointer}
+    table.sheet{margin-top:4px}
+    table.sheet td.txt{padding:4px 6px;vertical-align:top}
+    table.sheet td.c{text-align:center}
+    table.sheet td.act{white-space:nowrap;width:1%;padding:2px 4px}
+    table.sheet td.act button{margin:0 1px}
+    table.sheet td select,table.sheet td input:not([type=checkbox]){border:none !important;background:transparent !important;padding:4px 6px;width:100%}
+    table.sheet td select:focus,table.sheet td input:not([type=checkbox]):focus{background:var(--c-input,#fff) !important}
+    table.sheet tr.dim td{opacity:.6}
+    table.sheet tr.click{cursor:pointer}
+    table.sheet .early{display:grid;gap:2px}
+    table.sheet .early label{display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--muted)}
+    table.sheet .early select{width:auto;flex:1}
+    .example{margin-top:8px;padding:6px 10px;border:1px dashed var(--line);color:var(--ink)}
+    .example .fk{margin-left:0}
+    .chips .chip.link{cursor:pointer}
+    .save-group{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+    .side .list .note{font-size:12px}
+    .side .hint{font-size:12px;margin:0}
+    .toolbar.tight{gap:4px}
+    .row-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .row-head .spacer{flex:1}
+    .row-head label.field{display:flex;align-items:center;gap:6px}
+    .row-head label.field input{width:200px}
+    #askDlg .grid{min-width:380px}
+    details.adv > summary{cursor:pointer;color:var(--muted);list-style-position:inside}
+    details.adv > summary:hover{color:var(--ink)}
+    details.adv[open] > summary{color:var(--accent2);border-bottom:1px solid var(--line);padding-bottom:4px}
+    .toggles .inline-check{margin-right:16px}
+  </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <div class="side-group">
+        <h4>编辑</h4>
+        <div class="section-nav" id="sectionNav"></div>
+      </div>
+      <input id="filter" placeholder="搜索…" />
+      <div class="toolbar tight" id="listTools"></div>
+      <div class="list" id="list"></div>
+      <div class="save-group">
+        <button class="primary wide" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png">保存全部</button>
+        <div class="btn-grid">
+          <button id="reloadBtn">重新读取</button>
+          <button id="openBtn">打开配置目录</button>
+        </div>
+        <p class="hint">写入 Formations.json、OfficialRanks.json、Locales/OfficialRanks.csv，建制名写入三份语言文件；重启游戏后生效。</p>
+      </div>
+    </aside>
+    <main class="panel" id="editor"><p class="muted">读取中…</p></main>
+  </div>
+  <div id="dls" hidden></div>
+
+  <dialog id="askDlg">
+    <h3 id="askTitle"></h3>
+    <div class="grid" id="askBody"></div>
+    <div class="toolbar" style="margin-top:12px"><button class="primary" id="askOk">确定</button><button id="askCancel">取消</button></div>
+  </dialog>
+
+  <script src="common.js"></script>
+  <script src="zh-convert.js"></script>
+  <script>
+    // 军制(Scripts/Regimes/Configs/Formations.json，游戏端 FormationSystem.cs)与
+    // 文武等级(OfficialRanks.json + Locales/OfficialRanks.csv，游戏端 OfficialRankRules.cs / OfficialRankSystem.cs)。
+    // 原则：只改用户动过的字段；不认识的字段原样保留、位置不变；留空 = 不写 = 按游戏默认值。
+    const FORM_FILE = "Scripts/Regimes/Configs/Formations.json";
+    const RANK_FILE = "Scripts/Regimes/Configs/OfficialRanks.json";
+    const TITLE_CSV = "Locales/OfficialRanks.csv";
+    const HONORARY_CSV = "Locales/HonoraryOfficial.csv";
+    const LANGS = [["cz", "简体"], ["en", "English"], ["ch", "繁體"]];
+    const FALLBACK_REGIMES = ["LvLing", "Feudalism", "ZhouFeudalism", "Modern", "Arabic", "YouMu", "Republic", "Origin", "ClassicalRepublic", "Bakufu", "HuaxiaOrigin", "NomadFeudalism", "Transmigrant", "Colonial", "Company"];
+    const FALLBACK_ARMS = ["Infantry", "Archer", "Chariot", "Cavalry", "Musket", "Rifle", "Artillery", "Mechanized", "Tank", "Helicopter", "Fighter", "Bomber", "Militia", "HeavyArtillery"];
+
+    // 字段的规范顺序：新加的字段按这个顺序插到合适位置，不认识的字段不动
+    const TOP_F = ["version", "formations", "regimes", "fallback"];
+    const FORMATION_FIELDS = ["name", "template", "numeral", "modern_template", "scope", "echelons", "source", "raise", "training", "veteran_cap", "upkeep", "denied_arms", "task", "reach", "command"];
+    const SLOT_ORDER = ["central", "district", "prefecture", "manual", "early", "early_below_stage", "merge_at_stage"];
+    const TOP_R = ["version", "civilizations", "fallback", "forms", "floors", "unranked", "military_offices", "general_floors", "captain_floor", "soldier_cap", "capital_bonus", "soldier_ladders", "named_ranks"];
+    const FORM_ORDER = ["modern", "performance_ladder", "civil_label", "military_label", "general_floors", "captain_floor", "civilizations"];
+    const ENTRY_ORDER = ["civil", "military", "grade_suffix", "merit", "soldier_ladder"];
+
+    // 建制字段的游戏默认值(FormationDef 的初值)
+    const DEF = { template: "formation_template_corps", numeral: "", modern_template: "", scope: "formation", source: "any", raise: 1, training: 1, veteran_cap: 100, upkeep: 1, task: "field", reach: "", command: "central" };
+    const NUMERALS = [["", "第几(默认)：第一、第二……"], ["stem", "天干字：甲字、乙字……癸字，用完接甲字二"], ["banner", "八旗：满洲镶黄旗、满洲正黄旗……二十四旗一轮"], ["wing", "左右翼：左翼第一、右翼第一、中军第一……"]];
+    const SCOPES = [["kingdom", "全国一套"], ["formation", "本建制一套"], ["region", "每座驻地一套"]];
+    const SOURCES = [["any", "各城丁壮"], ["local", "只从驻地附近征"], ["trained", "只收归化台账里受过训的合格军人(花钱募的不受限)"], ["banner", "只收旗人和统治族群(别的军不收旗人)"]];
+    const TASKS = [["field", "野战：最先出动"], ["mixed", "攻守兼顾：其次出动"], ["garrison", "守备：最后出动，不渡海"]];
+    const COMMANDS = [["central", "听中央调遣"], ["local", "地方节制：总动员、出征也不调出动员范围"], ["lord", "领主统带(目前只用于显示)"], ["tribe", "部族统带(目前只用于显示)"]];
+    const SHORT = {
+      source: { any: "各城", local: "驻地附近", trained: "受训军人", banner: "旗人" },
+      task: { field: "野战", mixed: "攻守兼顾", garrison: "守备" },
+      command: { central: "中央", local: "地方", lord: "领主", tribe: "部族" },
+      scope: { kingdom: "全国", formation: "本建制", region: "驻地" }
+    };
+    const SLOTS = [
+      ["central", "中央", "京师、王国首都的驻军"],
+      ["district", "军区", "藩属、行政区首都的驻军；成员国(行政区、封国)的军一律用这一格"],
+      ["prefecture", "军府", "府兵制等按城设的军府"],
+      ["manual", "手动编组", "手动编成的军(成员国的用军区那一格)"]
+    ];
+    const SLOT_SHORT = { central: "中央", district: "军区", prefecture: "军府", manual: "手动", early: "早期" };
+    const STAGES = ["不设", "降临元老院", "第一届执委会", "共同纲领", "定国号", "元老院内阁", "还都"];
+    const STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+    const SPECIAL_FORMS = {
+      one_party: ["一党制 / 民主集中制", "现代政体、共和制里一党执政或施行民主集中制时用。"],
+      republic: ["多党共和", "现代政体、共和制的其余情况。"],
+      constitutional: ["君主立宪", "君主国开了议会以后用。"]
+    };
+    const SECTIONS = [
+      ["formations", "建制", "iconArmy"],
+      ["regimes", "政体军制", "iconKingdom"],
+      ["general", "官阶 · 通用规则", "iconWorldLaws"],
+      ["forms", "官阶 · 政体形态", "iconKings"],
+      ["floors", "官阶 · 岗位定底", "iconTitleLayer"],
+      ["titles", "官阶 · 称谓表", "iconBooks"]
+    ];
+
+    const S = {
+      section: "formations", files: {}, csv: null, honorary: {}, loc: {}, czAll: {}, locEdits: {},
+      regimes: [], arms: [], officeNames: {}, cultures: [], cultureNames: {}, lines: [], extraSets: [],
+      sel: { formations: null, forms: null, floors: null, titles: null },
+      // advOpen：哪些“高级”展开着；newIds：本次新建的建制；auto：简繁自动填写最后填进去的值(键|语言)
+      advOpen: {}, newIds: new Set(), auto: {}, manual: {}
+    };
+    const LINE_NAMES = { Huaxia: "华夏", Roma: "西方", Arabic: "阿拉伯", Youmu: "游牧", Japan: "日本", Aosong: "澳宋" };
+    const hasZh = () => typeof zhToTrad === "function" && typeof zhToSimp === "function";
+    const F = () => S.files.formations.data;
+    const R = () => S.files.ranks.data;
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+    const panel = document.getElementById("editor");
+    const clone = o => JSON.parse(JSON.stringify(o));
+    const isObj = o => !!o && typeof o === "object" && !Array.isArray(o);
+
+    // ================= JSON：保持键顺序、尽量保持原来的排版 =================
+
+    // 把 key 按规范顺序放进对象(已有就原地改值)；不认识的键位置不动
+    function putKey(obj, key, value, order = []) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) { obj[key] = value; return; }
+      const rank = k => { const i = order.indexOf(k); return i < 0 ? Infinity : i; };
+      const keys = Object.keys(obj);
+      const r = rank(key);
+      // 插在规范顺序里前一个已有字段的后面；没有就插在后一个已有字段的前面；都没有就放最后
+      let at = -1;
+      if (r !== Infinity) {
+        for (let i = keys.length - 1; i >= 0; i--) if (rank(keys[i]) < r) { at = i + 1; break; }
+        if (at < 0) at = keys.findIndex(k => rank(k) !== Infinity && rank(k) > r);
+      }
+      if (at < 0 || at >= keys.length) { obj[key] = value; return; }
+      const entries = keys.map(k => [k, obj[k]]);
+      for (const k of keys) delete obj[k];
+      entries.splice(at, 0, [key, value]);
+      for (const [k, v] of entries) obj[k] = v;
+    }
+    function own(obj, key, order, make = () => ({})) {
+      if (obj[key] === undefined || obj[key] === null || typeof obj[key] !== "object") putKey(obj, key, make(), order);
+      return obj[key];
+    }
+    function renameKey(obj, from, to) {
+      const entries = Object.keys(obj).map(k => [k === from ? to : k, obj[k]]);
+      for (const k of Object.keys(obj)) delete obj[k];
+      for (const [k, v] of entries) obj[k] = v;
+    }
+
+    // 记下原文件里哪些键前面空了一行(按路径)，保存时照样空行
+    function blankLinePaths(text) {
+      const out = new Set(), stack = [];
+      let nl = 0, expectKey = false;
+      const s = String(text || "");
+      for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        if (c === "\n") { nl++; continue; }
+        if (c === " " || c === "\t" || c === "\r" || c === "﻿") continue;
+        if (c === "/" && s[i + 1] === "/") { const e = s.indexOf("\n", i); i = e < 0 ? s.length : e - 1; continue; }
+        if (c === "/" && s[i + 1] === "*") { const e = s.indexOf("*/", i + 2); i = e < 0 ? s.length : e + 1; continue; }
+        const top = stack[stack.length - 1];
+        if (c === '"') {
+          let j = i + 1;
+          while (j < s.length && s[j] !== '"') j += s[j] === "\\" ? 2 : 1;
+          if (top && top.obj && expectKey) {
+            let key = "";
+            try { key = JSON.parse(s.slice(i, j + 1)); } catch { key = s.slice(i + 1, j); }
+            if (nl >= 2) out.add(top.path + "/" + key);
+            top.key = key; expectKey = false;
+          }
+          i = j; nl = 0; continue;
+        }
+        nl = 0;
+        if (c === "{" || c === "[") {
+          const path = top ? top.path + "/" + (top.obj ? top.key : top.idx) : "";
+          stack.push({ obj: c === "{", path, key: null, idx: 0 });
+          expectKey = c === "{";
+        } else if (c === "}" || c === "]") { stack.pop(); expectKey = false; }
+        else if (c === ",") { if (top) { if (top.obj) expectKey = true; else top.idx++; } }
+      }
+      return out;
+    }
+
+    // 排版：只含简单值的对象、简单值数组写成一行；其余展开。和手写配置的风格一致
+    const isPrim = v => v === null || typeof v !== "object";
+    function inlineOk(v) {
+      if (isPrim(v)) return true;
+      if (Array.isArray(v)) return v.every(isPrim);
+      const vals = Object.values(v);
+      if (vals.some(x => !isPrim(x) && !(Array.isArray(x) && x.every(isPrim)))) return false;
+      const arrays = vals.filter(Array.isArray).length;
+      return arrays === 0 || arrays * 2 < vals.length;
+    }
+    function inlineJson(v) {
+      if (isPrim(v)) return JSON.stringify(v);
+      if (Array.isArray(v)) return "[" + v.map(inlineJson).join(", ") + "]";
+      const ks = Object.keys(v);
+      return ks.length ? "{ " + ks.map(k => JSON.stringify(k) + ": " + inlineJson(v[k])).join(", ") + " }" : "{}";
+    }
+    const hasObjArray = v => !isPrim(v) && (Array.isArray(v) ? v.some(x => !isPrim(x)) : Object.values(v).some(hasObjArray));
+    // lead：这一行在值前面已经占了多少字符(缩进 + 键名)；短的嵌套对象也写成一行
+    function formatJson(v, blanks, ind = 0, path = "", lead = 0) {
+      if (inlineOk(v)) return inlineJson(v);
+      if (isObj(v) && !hasObjArray(v)) { const one = inlineJson(v); if (lead + one.length <= 100) return one; }
+      const pad = "  ".repeat(ind + 1), end = "  ".repeat(ind);
+      if (Array.isArray(v))
+        return "[\n" + v.map((x, i) => pad + formatJson(x, blanks, ind + 1, path + "/" + i, pad.length)).join(",\n") + "\n" + end + "]";
+      return "{\n" + Object.keys(v).map((k, i) => {
+        const head = pad + JSON.stringify(k) + ": ";
+        return (i > 0 && blanks.has(path + "/" + k) ? "\n" : "") + head + formatJson(v[k], blanks, ind + 1, path + "/" + k, head.length);
+      }).join(",\n") + "\n" + end + "}";
+    }
+    function serializeDoc(f) {
+      let text = formatJson(f.data, f.blanks);
+      if (f.endsNl) text += "\n";
+      if (f.crlf) text = text.replace(/\n/g, "\r\n");
+      return text;
+    }
+
+    async function readJson(key, path, skeleton) {
+      const f = { path, data: null, blanks: new Set(), crlf: false, endsNl: true, error: null, warn: "", dirty: false };
+      try {
+        const r = await api.readText(path);
+        if (!r.exists) { f.data = skeleton(); f.warn = `${path} 不存在，保存时会新建。`; }
+        else {
+          f.crlf = r.text.includes("\r\n");
+          f.endsNl = /\n$/.test(r.text);
+          f.data = parseJsonLoose(r.text);
+          if (!isObj(f.data)) throw new Error("顶层不是 JSON 对象");
+          try { JSON.parse(r.text); } catch { f.warn = `${path} 里有注释或尾逗号，保存后注释会丢失。`; }
+          f.blanks = blankLinePaths(r.text);
+        }
+      } catch (e) { f.error = e.message; f.data = skeleton(); }
+      S.files[key] = f;
+    }
+
+    // ================= 称谓表 CSV：逐行保留，只改动过的行 =================
+
+    function parseTitleCsv(text) {
+      const src = String(text || "").replace(/^﻿/, "");
+      const nl = src.includes("\r\n") ? "\r\n" : "\n";
+      const endsNl = /\n$/.test(src);
+      const raw = src.split(/\r?\n/);
+      if (endsNl) raw.pop();
+      const headerRaw = raw.length && raw[0].trim() ? raw[0] : "key,cz,en,ch";
+      const header = parseCsvLine(headerRaw).map(s => s.trim());
+      const col = { key: Math.max(0, header.indexOf("key")) };
+      LANGS.forEach(([l], i) => { const at = header.indexOf(l); col[l] = at < 0 ? i + 1 : at; });
+      const lines = raw.slice(1).map(r => r.trim() === "" ? { blank: true, raw: r } : { raw: r, cells: parseCsvLine(r) });
+      return { nl, endsNl: endsNl || !src, headerRaw, header, col, lines, dirty: false };
+    }
+    const csvKeyOf = l => l.cells[S.csv.col.key];
+    const csvEmpty = l => LANGS.every(([lang]) => !(l.cells[S.csv.col[lang]] || "").trim());
+    function csvFind(key) {
+      let hit = null;
+      for (const l of S.csv.lines) if (!l.blank && csvKeyOf(l) === key) hit = l;
+      return hit;
+    }
+    function csvLive() { return S.csv.lines.filter(l => !l.blank && !l.deleted); }
+    function csvGet(key, lang) { const l = csvFind(key); return l && !l.deleted ? (l.cells[S.csv.col[lang]] ?? "") : ""; }
+    const groupOf = key => String(key).replace(/_\d+$/, "");
+    const suffixOf = key => { const m = String(key).match(/_(\d+)$/); return m ? Number(m[1]) : null; };
+    function csvInsert(key) {
+      const m = S.csv;
+      const width = Math.max(m.header.length, Math.max(m.col.key, m.col.cz, m.col.en, m.col.ch) + 1);
+      const line = { cells: Array(width).fill(""), added: true, changed: true };
+      line.cells[m.col.key] = key;
+      const g = groupOf(key), n = suffixOf(key);
+      const same = [];
+      m.lines.forEach((l, i) => { if (!l.blank && groupOf(csvKeyOf(l)) === g) same.push(i); });
+      if (same.length) {
+        let at = same[same.length - 1] + 1;
+        if (n !== null) {
+          const before = same.filter(i => { const s = suffixOf(csvKeyOf(m.lines[i])); return s !== null && s < n; });
+          at = before.length ? before[before.length - 1] + 1 : same[0];
+        }
+        m.lines.splice(at, 0, line);
+      } else {
+        if (m.lines.length && !m.lines[m.lines.length - 1].blank) m.lines.push({ blank: true, raw: "", added: true });
+        m.lines.push(line);
+      }
+      return line;
+    }
+    function csvSet(key, lang, value) {
+      let l = csvFind(key);
+      if (!l) { if (!String(value).trim()) return; l = csvInsert(key); }
+      if (l.deleted) l.deleted = false;
+      while (l.cells.length <= S.csv.col[lang]) l.cells.push("");
+      l.cells[S.csv.col[lang]] = value;
+      l.changed = true;
+      if (!l.added && csvEmpty(l)) l.deleted = true;
+      S.csv.dirty = true;
+    }
+    function csvDelete(key) {
+      for (const l of S.csv.lines) if (!l.blank && csvKeyOf(l) === key) l.deleted = true;
+      S.csv.dirty = true;
+    }
+    function serializeTitleCsv(m) {
+      const out = [];
+      let gap = false;
+      for (const l of m.lines) {
+        if (l.deleted || (l.added && !l.blank && csvEmpty(l))) { gap = true; continue; }
+        if (l.blank) {
+          const prev = out[out.length - 1];
+          if ((l.added || gap) && (!prev || prev.blank)) continue;
+          out.push({ s: l.raw, blank: true, soft: !!l.added });
+        } else out.push({ s: l.changed ? l.cells.map(csvCell).join(",") : l.raw, blank: false });
+        gap = false;
+      }
+      while (out.length && out[out.length - 1].blank && (gap || out[out.length - 1].soft)) out.pop();
+      return [m.headerRaw, ...out.map(o => o.s)].join(m.nl) + (m.endsNl ? m.nl : "");
+    }
+
+    // ================= 读取 =================
+
+    // 读 C# 枚举的成员名；notes 收集行尾注释的第一个词(语言文件里没有名字时当显示名)
+    async function enumFrom(path, name, fallback, notes = {}) {
+      try {
+        const r = await api.readText(path);
+        if (!r.exists) return fallback;
+        const at = r.text.search(new RegExp(`enum\\s+${name}\\s*\\{`));
+        if (at < 0) return fallback;
+        const names = [];
+        for (const line of r.text.slice(r.text.indexOf("{", at) + 1).replace(/\/\*[\s\S]*?\*\//g, "").split(/\r?\n/)) {
+          const cut = line.indexOf("//");
+          const code = cut < 0 ? line : line.slice(0, cut);
+          const end = code.indexOf("}");
+          const found = (end < 0 ? code : code.slice(0, end)).split(",").map(s => s.trim().replace(/\s*=.*$/s, "")).filter(s => /^[A-Za-z_]\w*$/.test(s));
+          names.push(...found);
+          if (found.length && cut >= 0) {
+            const word = line.slice(cut + 2).trim().split(/[：:，,;；\s(（-]/)[0];
+            if (word) notes[found[found.length - 1]] = word;
+          }
+          if (end >= 0) break;
+        }
+        return names.length ? names : fallback;
+      } catch { return fallback; }
+    }
+
+    async function load() {
+      if (!api) { panel.innerHTML = `<p class="muted">浏览器模式下无法读写文件，请用 启动桌面版.bat 打开。</p>`; return; }
+      try {
+        await readJson("formations", FORM_FILE, () => ({ version: 1, formations: {}, regimes: {}, fallback: {} }));
+        await readJson("ranks", RANK_FILE, () => ({ version: 1 }));
+        const csv = await api.readText(TITLE_CSV);
+        S.csv = parseTitleCsv(csv.exists ? csv.text : "key,cz,en,ch\n");
+        S.honorary = {};
+        const hon = await api.readText(HONORARY_CSV);
+        if (hon.exists) {
+          const p = parseCsv(hon.text);
+          const ci = l => Math.max(0, p.header.indexOf(l));
+          for (const row of p.rows) S.honorary[row[0]] = Object.fromEntries(LANGS.map(([l]) => [l, row[ci(l)] || ""]));
+        }
+        S.regimeNotes = {};
+        S.regimes = await enumFrom("Scripts/Regimes/RegimeSystem.cs", "RegimeType", FALLBACK_REGIMES, S.regimeNotes);
+        S.arms = await enumFrom("Scripts/GeneralSystems/Warfare/CorpsArmSystem.cs", "Arm", FALLBACK_ARMS);
+        S.czAll = {};
+        try { const cz = await api.readText("Locales/cz.json"); if (cz.exists) S.czAll = parseJsonLoose(cz.text); } catch { S.czAll = {}; }
+        const wanted = Object.keys(S.czAll).filter(k => /^(formation_|corps_arm_|regime_type_)/.test(k));
+        for (const id of Object.keys(F().formations || {})) wanted.push(nameKeyOf(id));
+        S.loc = await api.readLocales(uniq(wanted));
+        S.locEdits = {};
+        // 官职档：各政体文件夹 OfficialType.csv 与 cz.json 里的 <政体>_officiallevel_<n>
+        S.officeNames = {};
+        const addOffice = (key, name) => {
+          const m = String(key).match(/^([A-Za-z]+)_officiallevel_(\d+)$/);
+          if (!m) return;
+          (S.officeNames[m[1]] = S.officeNames[m[1]] || {})[m[2]] = name;
+        };
+        for (const [k, v] of Object.entries(S.czAll)) if (typeof v === "string") addOffice(k, v);
+        for (const e of await api.listDir("Scripts/Regimes/Configs")) {
+          if (!e.dir) continue;
+          const r = await api.readText(`Scripts/Regimes/Configs/${e.name}/OfficialType.csv`);
+          if (!r.exists) continue;
+          const p = parseCsv(r.text);
+          const cz = Math.max(1, p.header.indexOf("cz"));
+          for (const row of p.rows) addOffice(row[0], row[cz] || "");
+        }
+        try {
+          const list = await api.listCultures();
+          S.cultures = list.map(c => c.name);
+          S.cultureNames = Object.fromEntries(list.map(c => [c.name, c.data?.translate_cz || ""]));
+        } catch { S.cultures = []; S.cultureNames = {}; }
+        S.lines = (await api.listDir("InstitutionTrees")).filter(e => !e.dir && /\.json$/i.test(e.name) && !/^settings\.json$/i.test(e.name)).map(e => e.name.replace(/\.json$/i, ""));
+        S.extraSets = [];
+        S.newIds = new Set();
+        S.auto = {};
+        S.manual = {};
+        for (const k of Object.keys(S.sel)) S.sel[k] = null;
+        updateSaveBtn();
+        renderAll();
+      } catch (e) {
+        panel.innerHTML = `<p class="warn">读取失败：${esc(e.message)}</p>`;
+        toast("读取失败：" + e.message, true);
+      }
+    }
+
+    // ================= 小工具 =================
+
+    function locText(key, lang) {
+      if (!key) return "";
+      const e = S.locEdits[key];
+      if (e && e[lang] !== undefined) return e[lang];
+      const v = S.loc[key]?.[lang];
+      if (v) return v;
+      return lang === "cz" && typeof S.czAll[key] === "string" ? S.czAll[key] : "";
+    }
+    function titleText(key, lang) {
+      return csvGet(key, lang) || S.honorary[key]?.[lang] || locText(key, lang);
+    }
+    const regimeLabel = k => k === "fallback" ? "其余政体" : (locText("regime_type_" + k, "cz") || S.regimeNotes?.[k] || k);
+    const formLabel = k => SPECIAL_FORMS[k]?.[0] || regimeLabel(k);
+    const armName = a => locText("corps_arm_" + a.toLowerCase(), "cz") || a;
+    const nameKeyOf = (id, d = F().formations?.[id]) => isObj(d) && typeof d.name === "string" && d.name ? d.name : "formation_" + id;
+    const formationName = id => locText(nameKeyOf(id), "cz") || id;
+    const missingLangs = key => LANGS.filter(([l]) => !locText(key, l)).map(([l]) => l);
+    const tierLabel = t => `${t} · 第${t + 1}档${t === 0 ? "(最高)" : t === 8 ? "(最低)" : ""}`;
+    function cnNum(n) {
+      const d = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+      if (n < 10) return d[n];
+      if (n < 20) return "十" + (n % 10 ? d[n % 10] : "");
+      if (n < 100) return d[Math.floor(n / 10)] + "十" + (n % 10 ? d[n % 10] : "");
+      return String(n);
+    }
+
+    function fl(label, key, hint, control) {
+      return `<label class="field"><span>${label}${key ? `<span class="fk">${esc(key)}</span>` : ""}</span>${control}${hint ? `<span class="fh">${hint}</span>` : ""}</label>`;
+    }
+    function optSelect(attrs, value, options, defLabel) {
+      const cur = value === undefined || value === null ? "" : String(value);
+      let found = false, html = "";
+      if (defLabel) { html += `<option value="" ${cur === "" ? "selected" : ""}>${esc(defLabel)}</option>`; found = cur === ""; }
+      for (const [v, t] of options) {
+        const on = !found && String(v) === cur;
+        if (on) found = true;
+        html += `<option value="${esc(v)}" ${on ? "selected" : ""}>${esc(t)}</option>`;
+      }
+      if (!found) html += `<option value="${esc(cur)}" selected>${esc(cur)}(未知取值，原样保留)</option>`;
+      return `<select ${attrs}>${html}</select>`;
+    }
+    function tierSelect(attrs, value, defLabel) {
+      const opts = [];
+      for (let t = 0; t <= 8; t++) opts.push([t, tierLabel(t)]);
+      return optSelect(attrs, value, opts, defLabel);
+    }
+    function stageSelect(attrs, value) {
+      return optSelect(attrs, value ?? 0, STAGES.map((t, i) => [i, `${i} · ${t}`]));
+    }
+    function langInputs(key, attr = "data-loc") {
+      return LANGS.map(([l, t]) => fl(t, l, "", `<input ${attr}="${esc(key)}" data-lang="${l}" value="${esc(attr === "data-loc" ? locText(key, l) : csvGet(key, l))}">`)).join("");
+    }
+
+    function markDirty(key) {
+      const f = S.files[key];
+      if (f) {
+        f.dirty = true;
+        if (f.error) toast(`${f.path} 读取失败，这份文件不会被保存`, true);
+      }
+      updateSaveBtn();
+    }
+    const isDirty = () => Object.values(S.files).some(f => f.dirty) || !!S.csv?.dirty || Object.keys(S.locEdits).length > 0;
+    function updateSaveBtn() { document.getElementById("saveBtn").classList.toggle("dirty", isDirty()); }
+    function fileBanner(key) {
+      const f = S.files[key];
+      if (!f) return "";
+      if (f.error) return `<div class="note warn">读取 ${esc(f.path)} 失败：${esc(f.error)}。这份文件不会被保存，修好后点“重新读取”。</div>`;
+      return f.warn ? `<div class="note">${esc(f.warn)}</div>` : "";
+    }
+
+    // 普通字段：data-f=字段名，data-t=num|int|str；留空 = 删掉这个字段
+    function bindFields(root, obj, order, fileKey, after) {
+      $$("[data-f]", root).forEach(el => el.addEventListener("change", () => {
+        const k = el.dataset.f, t = el.dataset.t || "str";
+        if (el.type === "checkbox") { if (el.checked) putKey(obj, k, true, order); else delete obj[k]; }
+        else {
+          const raw = el.value.trim();
+          if (raw === "") delete obj[k];
+          else if (t === "num" || t === "int") {
+            const n = Number(raw);
+            if (!Number.isFinite(n) || (t === "int" && !Number.isInteger(n))) {
+              toast(`「${raw}」不是有效的${t === "int" ? "整数" : "数字"}`, true);
+              el.value = obj[k] ?? "";
+              return;
+            }
+            putKey(obj, k, n, order);
+          } else putKey(obj, k, raw, order);
+        }
+        markDirty(fileKey);
+        if (after) after(k);
+      }));
+    }
+
+    // 弹窗输入(Electron 不支持 prompt)；fields: [{label, value, placeholder, suggestions, options}]
+    function ask(title, fields, note = "") {
+      const dlg = document.getElementById("askDlg");
+      $("#askTitle").textContent = title;
+      $("#askBody").innerHTML = fields.map((f, i) => f.options
+        ? `<label class="field">${esc(f.label)}<select data-ask="${i}">${f.options.map(([v, t]) => `<option value="${esc(v)}" ${v === f.value ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></label>`
+        : `<label class="field">${esc(f.label)}<input data-ask="${i}" value="${esc(f.value ?? "")}" placeholder="${esc(f.placeholder ?? "")}" ${f.suggestions ? `list="askDl${i}"` : ""}>` +
+          (f.suggestions ? `<datalist id="askDl${i}">${f.suggestions.map(s => `<option value="${esc(s)}">`).join("")}</datalist>` : "") + `</label>`
+      ).join("") + (note ? `<p class="hint">${note}</p>` : "");
+      return new Promise(resolve => {
+        const done = ok => {
+          const values = ok ? fields.map((_, i) => $(`[data-ask="${i}"]`, dlg).value.trim()) : null;
+          dlg.close();
+          resolve(values);
+        };
+        $("#askOk").onclick = () => done(true);
+        $("#askCancel").onclick = () => done(false);
+        dlg.oncancel = e => { e.preventDefault(); done(false); };
+        dlg.onkeydown = e => { if (e.key === "Enter" && e.target.tagName === "INPUT") { e.preventDefault(); done(true); } };
+        dlg.showModal();
+        $("[data-ask]", dlg)?.focus();
+      });
+    }
+
+    function renderDatalists() {
+      // 下拉提示里同时显示中文(label)，挑语言键不用记名字
+      const dl = (id, values, label = () => "") => `<datalist id="${id}">${uniq(values).map(v => { const t = label(v); return `<option value="${esc(v)}"${t ? ` label="${esc(t)}"` : ""}>`; }).join("")}</datalist>`;
+      const czKeys = Object.keys(S.czAll);
+      const cz = k => typeof S.czAll[k] === "string" ? S.czAll[k] : "";
+      $("#dls").innerHTML =
+        dl("dlTemplates", czKeys.filter(k => k.startsWith("formation_template_")), cz) +
+        dl("dlEchelons", czKeys.filter(k => k.startsWith("formation_echelon_")), cz) +
+        dl("dlCultures", S.cultures, c => S.cultureNames[c]) + dl("dlLines", S.lines, l => LINE_NAMES[l]) + dl("dlGroups", civGroups(), groupMembers) +
+        dl("dlTitleKeys", csvLive().map(csvKeyOf), k => csvGet(k, "cz"));
+    }
+
+    // ================= 建制 =================
+
+    function formationUses(id) {
+      const out = [];
+      for (const [k, m] of Object.entries(F().regimes || {}))
+        if (isObj(m)) for (const s of ["central", "district", "prefecture", "manual", "early"]) if (m[s] === id) out.push(`${regimeLabel(k)}·${SLOT_SHORT[s]}`);
+      const fb = F().fallback;
+      if (isObj(fb)) for (const s of ["central", "district", "prefecture", "manual", "early"]) if (fb[s] === id) out.push(`其余政体·${SLOT_SHORT[s]}`);
+      return out;
+    }
+
+    function numeralCz(style, serial) {
+      const i = Math.max(0, serial - 1);
+      if (style === "stem") { const round = Math.floor(i / STEMS.length); return STEMS[i % STEMS.length] + "字" + (round > 0 ? cnNum(round + 1) : ""); }
+      if (style === "banner") return locText("formation_banner_group_" + (Math.floor(i / 8) % 3), "cz") + locText("formation_banner_" + (i % 8), "cz");
+      if (style === "wing") return locText(["formation_wing_left", "formation_wing_right", "formation_wing_center"][i % 3], "cz") + "第" + cnNum(Math.floor(i / 3) + 1);
+      return cnNum(serial);
+    }
+    function exampleName(id, d, serial, member, modern) {
+      const tplKey = modern ? d.modern_template : (d.template || DEF.template);
+      const tpl = locText(tplKey, "cz");
+      if (!tpl) return `(找不到模板 ${tplKey})`;
+      const ech = Array.isArray(d.echelons) && d.echelons.length && isObj(d.echelons[0]) ? locText(d.echelons[0].key, "cz") : "";
+      const args = [modern ? cnNum(serial) : numeralCz(d.numeral, serial), locText(nameKeyOf(id, d), "cz") || id, "长安", ech, member ? "河西" : ""];
+      return tpl.replace(/\{(\d)\}/g, (m, n) => args[n] ?? m);
+    }
+    function examplesHtml(id, d) {
+      const parts = [`${esc(exampleName(id, d, 1, false))}、${esc(exampleName(id, d, 2, false))}、${esc(exampleName(id, d, 11, false))}`,
+        `成员国：${esc(exampleName(id, d, 1, true))}`];
+      if (d.modern_template) parts.push(`工业时代以后：${esc(exampleName(id, d, 1, false, true))}`);
+      return `<div class="example" id="fExample">番号示例(第1、2、11支；驻地按“长安”、成员国按“河西”)：${parts.join("　")}</div>`;
+    }
+
+    function renderFormationOverview() {
+      const all = F().formations || {};
+      const v = (d, k) => {
+        const has = Object.prototype.hasOwnProperty.call(d, k);
+        const raw = has ? d[k] : DEF[k];
+        const text = SHORT[k]?.[raw] ?? (raw === "" ? (k === "reach" ? "不限" : "—") : String(raw));
+        return has ? esc(text) : `<span class="muted">${esc(text)}</span>`;
+      };
+      panel.innerHTML = `${fileBanner("formations")}
+        <h2>${ico("iconArmy", "lg")}建制总览<span class="badge">${Object.keys(all).length} 种</span></h2>
+        <p class="hint">建制是谁组织、谁出钱、怎么补、去哪打，和兵种(CorpsArmSystem.Arm)分开存。灰字是没写、按默认值算的字段；点一行进去编辑。</p>
+        <div class="card"><table class="sheet sticky"><thead><tr><th>建制</th><th>番号示例</th><th>兵源</th><th>补员</th><th>训练</th><th>老兵上限</th><th>军饷</th><th>任务</th><th>只打多远</th><th>节制</th><th>不能列装</th><th>用在</th></tr></thead><tbody>
+        ${Object.keys(all).map(id => {
+          const d = isObj(all[id]) ? all[id] : {};
+          const uses = formationUses(id);
+          return `<tr class="click" data-go="${esc(id)}"><td class="txt">${esc(formationName(id))}<div class="fk">${esc(id)}</div></td>
+            <td class="txt">${esc(exampleName(id, d, 1, false))}</td>
+            <td class="txt">${v(d, "source")}</td><td class="txt">${v(d, "raise")}</td><td class="txt">${v(d, "training")}</td><td class="txt">${v(d, "veteran_cap")}</td>
+            <td class="txt">${v(d, "upkeep")}</td><td class="txt">${v(d, "task")}</td><td class="txt">${v(d, "reach")}</td><td class="txt">${v(d, "command")}</td>
+            <td class="txt">${Array.isArray(d.denied_arms) && d.denied_arms.length ? esc(d.denied_arms.map(armName).join("、")) : `<span class="muted">—</span>`}</td>
+            <td class="txt">${uses.length ? esc(uses.join("、")) : `<span class="warn">没有政体用</span>`}</td></tr>`;
+        }).join("")}</tbody></table></div>`;
+      $$("[data-go]", panel).forEach(tr => tr.addEventListener("click", () => selectItem(tr.dataset.go)));
+    }
+
+    function renderFormation() {
+      const id = S.sel.formations;
+      const all = F().formations || {};
+      if (!id || !Object.prototype.hasOwnProperty.call(all, id)) { S.sel.formations = null; return renderFormationOverview(); }
+      if (!isObj(all[id])) {
+        panel.innerHTML = `${fileBanner("formations")}<h2>${esc(id)}</h2><p class="warn">这个建制的值不是对象，编辑器不改它，原样保留。</p>`;
+        return;
+      }
+      const d = all[id];
+      const nameKey = nameKeyOf(id, d);
+      const miss = missingLangs(nameKey);
+      const unknown = Object.keys(d).filter(k => !FORMATION_FIELDS.includes(k));
+      const uses = formationUses(id);
+      const arms = Array.isArray(d.denied_arms) ? d.denied_arms : [];
+      const num = (k, ph) => `<input type="number" step="any" data-f="${k}" data-t="num" value="${esc(d[k] ?? "")}" placeholder="${esc(ph)}">`;
+      const keyInput = (k, list, ph) => `<input data-f="${k}" value="${esc(d[k] ?? "")}" list="${list}" placeholder="${esc(ph)}">`;
+      const prev = k => `<span class="fh" data-prev="${k}"></span>`;
+      panel.innerHTML = `${fileBanner("formations")}
+        <div class="row-head"><h2>${ico("iconArmy", "lg")}<span id="fTitle">${esc(formationName(id))}</span><span class="badge">${esc(id)}</span></h2>
+          <span class="spacer"></span><button class="small" id="fCopy">复制这个建制</button></div>
+        <p class="hint">留空的字段不写进文件，按灰字的默认值算；全取默认值就和没有建制时一样(常备军)。</p>
+        <div class="card">
+          <h3>名称与番号</h3>
+          <div class="grid three">${langInputs(nameKey)}</div>
+          <p class="fh ${miss.length ? "warn" : ""}" id="fNameNote">简体、繁體会互相自动填写；英文留空，保存时先用简体代替${miss.length ? `。现在缺 ${miss.join("、")}` : ""}。</p>
+          <div class="grid two" style="margin-top:8px">
+            ${fl("番号的数字写法", "numeral", "", optSelect(`data-f="numeral"`, d.numeral, NUMERALS))}
+            <div></div>
+          </div>
+          <div id="fExampleBox">${examplesHtml(id, d)}</div>
+        </div>
+        <div class="card">
+          <h3>兵源与补员</h3>
+          <div class="grid four">
+            <div style="grid-column:1 / -1">${fl("兵源", "source", "", optSelect(`data-f="source"`, d.source, SOURCES, "不写(默认：各城丁壮)"))}</div>
+            ${fl("补员速度倍数", "raise", "", num("raise", "默认 1"))}
+            ${fl("新兵冲淡老兵倍数", "training", "越大训练越差", num("training", "默认 1"))}
+            ${fl("老兵值上限", "veteran_cap", "", num("veteran_cap", "默认 100"))}
+            ${fl("军饷倍数", "upkeep", "", num("upkeep", "默认 1"))}
+          </div>
+        </div>
+        <div class="card">
+          <h3>列装与出动</h3>
+          <label class="field"><span>不能列装的兵种<span class="fk">denied_arms</span></span></label>
+          <div class="arms">${S.arms.map(a => `<label><input type="checkbox" data-arm="${esc(a)}" ${arms.includes(a) ? "checked" : ""}>${esc(armName(a))}<span class="fk">${esc(a)}</span></label>`).join("")}
+            ${arms.filter(a => !S.arms.includes(a)).map(a => `<span class="chip missing" title="代码里没有这个兵种，原样保留">${esc(a)}</span>`).join("")}</div>
+          <p class="fh">按兵种名字匹配(CorpsArmSystem.Arm)，不看枚举数值。</p>
+          <div class="grid three" style="margin-top:8px">
+            ${fl("任务", "task", "", optSelect(`data-f="task"`, d.task, TASKS, "不写(默认：野战)"))}
+            ${fl("只打多远", "reach", "离驻地多少地块以内的城；受攻的城去守不受限。写了就不渡海", num("reach", "不限"))}
+            ${fl("节制", "command", "", optSelect(`data-f="command"`, d.command, COMMANDS, "不写(默认：听中央调遣)"))}
+          </div>
+        </div>
+        <div class="card">
+          <h3>用在</h3>
+          <div class="chips">${uses.length ? uses.map(u => `<span class="chip link" data-jump="regimes">${esc(u)}</span>`).join("") : `<span class="warn">没有政体的槽位用这个建制(只有整编、旧档才会用到)</span>`}</div>
+          ${unknown.length ? `<p class="fh" style="margin-top:8px">编辑器不认识的字段：${unknown.map(k => `<code>${esc(k)}</code>`).join(" ")}，保存时原样保留。</p>` : ""}
+        </div>
+        <details class="card adv" data-adv="formation" ${S.advOpen.formation ? "open" : ""}>
+          <summary>高级：id、番号模板、编号范围、编制层级(一般不用改)</summary>
+          <div class="grid two" style="margin-top:8px">
+            ${fl("建制 id", "", "部队存档里记的是 id；改了 id 的旧部队找不到定义时按默认值算，番号退回旧写法", `<input id="fId" value="${esc(id)}">`)}
+            ${fl("名称语言键", "name", `留空就用 ${esc(nameKey === "formation_" + id ? nameKey : "formation_" + id)}`, keyInput("name", "", "formation_" + id))}
+            ${fl("番号模板", "template", "语言键；{0} 番号、{1} 建制名、{2} 驻地城名、{3} 编制层级、{4} 成员国名前缀(中央和独立国为空)", keyInput("template", "dlTemplates", "默认 " + DEF.template) + prev("template"))}
+            ${fl("工业时代后的模板", "modern_template", "文化进工业时代后改用；留空表示不变", keyInput("modern_template", "dlTemplates", "默认：不变") + prev("modern_template"))}
+            ${fl("编号范围", "scope", "番号在哪个范围里依次递增", optSelect(`data-f="scope"`, d.scope, SCOPES, "不写(默认：本建制一套)"))}
+          </div>
+          <h4 style="margin:12px 0 0">编制层级 <span class="fk">echelons</span></h4>
+          <p class="fh">按满编人数取层级：从上往下第一个“满编 &lt; 上限”的那一行生效，最后一行不写上限。层级随满编变，番号不变。没有层级(默认)时 {3} 为空。</p>
+          <div id="fEchelons"></div>
+        </details>`;
+
+      const refresh = () => {
+        $("#fExampleBox").innerHTML = examplesHtml(id, d);
+        for (const k of ["template", "modern_template"]) {
+          const key = d[k] || (k === "template" ? DEF.template : "");
+          const text = key ? locText(key, "cz") : "";
+          const el = $(`[data-prev="${k}"]`, panel);
+          el.textContent = key ? (text ? `简体：${text}` : `找不到语言键 ${key}`) : "";
+          el.classList.toggle("warn", !!key && !text);
+        }
+      };
+      refresh();
+      bindFields(panel, d, FORMATION_FIELDS, "formations", k => {
+        // 新建的建制只写和默认值不同的字段
+        if (S.newIds.has(id) && k in d && k in DEF && String(d[k]) === String(DEF[k])) delete d[k];
+        if (k === "name") { renderPanel(); renderList(); return; }
+        refresh();
+        renderList();
+      });
+      $$("[data-prev]", panel).forEach(el => el.previousElementSibling?.addEventListener("input", e => {
+        const key = e.target.value.trim(); const text = key ? locText(key, "cz") : "";
+        el.textContent = key ? (text ? `简体：${text}` : `找不到语言键 ${key}`) : "";
+      }));
+      $$("[data-arm]", panel).forEach(cb => cb.addEventListener("change", () => {
+        const a = cb.dataset.arm;
+        let list = Array.isArray(d.denied_arms) ? d.denied_arms : null;
+        if (cb.checked) {
+          if (!list) { list = []; putKey(d, "denied_arms", list, FORMATION_FIELDS); }
+          if (!list.includes(a)) {
+            const idx = S.arms.indexOf(a);
+            let at = list.findIndex(x => S.arms.indexOf(x) > idx);
+            if (at < 0) at = list.length;
+            list.splice(at, 0, a);
+          }
+        } else if (list) {
+          const i = list.indexOf(a);
+          if (i >= 0) list.splice(i, 1);
+          if (!list.length) delete d.denied_arms;
+        }
+        markDirty("formations");
+      }));
+      $("#fId").addEventListener("change", e => renameFormation(id, e.target.value.trim(), e.target));
+      $("#fCopy").addEventListener("click", () => newFormation(id));
+      $$("[data-jump]", panel).forEach(c => c.addEventListener("click", () => switchSection(c.dataset.jump)));
+      $("#fEchelons").appendChild(objTable({
+        get: () => d.echelons,
+        make: () => { putKey(d, "echelons", [], FORMATION_FIELDS); return d.echelons; },
+        cols: [
+          { key: "below", label: "满编上限 below", type: "num", ph: "不写 = 其余" },
+          { key: "key", label: "层级名语言键 key", type: "str", list: "dlEchelons", preview: true }
+        ],
+        newRow: arr => { const last = arr.filter(x => isObj(x) && typeof x.below === "number").pop(); return { below: last ? last.below * 2 : 1000, key: "" }; },
+        addAt: arr => arr.length && isObj(arr[arr.length - 1]) && arr[arr.length - 1].below === undefined ? arr.length - 1 : arr.length,
+        order: ["below", "key"], fileKey: "formations", addLabel: "添加层级",
+        onEmpty: () => delete d.echelons,
+        after: refresh
+      }));
+    }
+
+    async function renameFormation(from, to, input) {
+      const all = F().formations;
+      if (to === from) return;
+      if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(to)) { toast("id 只能用英文字母、数字和下划线，并以字母开头", true); input.value = from; return; }
+      if (Object.prototype.hasOwnProperty.call(all, to)) { toast(`已经有建制 ${to}`, true); input.value = from; return; }
+      if (!confirm(`把建制 ${from} 改成 ${to}？\n政体槽位里的引用会一起改；存档里已有的部队记的是旧 id，找不到定义时按默认值算、番号退回旧写法。`)) { input.value = from; return; }
+      const d = all[from];
+      const oldKey = nameKeyOf(from, d);
+      renameKey(all, from, to);
+      for (const m of [...Object.values(F().regimes || {}), F().fallback])
+        if (isObj(m)) for (const s of ["central", "district", "prefecture", "manual", "early"]) if (m[s] === from) m[s] = to;
+      const blanks = S.files.formations.blanks;
+      if (blanks.delete("/formations/" + from)) blanks.add("/formations/" + to);
+      if (!(isObj(d) && d.name)) {
+        const entry = {};
+        for (const [l] of LANGS) { const t = locText(oldKey, l); if (t) entry[l] = t; }
+        if (Object.keys(entry).length) S.locEdits["formation_" + to] = { ...(S.locEdits["formation_" + to] || {}), ...entry };
+        S.loc["formation_" + to] = S.loc["formation_" + to] || {};
+      }
+      if (S.newIds.delete(from)) S.newIds.add(to);
+      S.sel.formations = to;
+      markDirty("formations");
+      renderAll();
+      toast(`已改为 ${to}；旧的语言键 ${oldKey} 仍留在语言文件里，不用可以手动删`);
+    }
+
+    // 新建建制的起点：照现有的几种典型建制(存在才列出)，其余建制也可以照抄
+    const FORMATION_PRESETS = [
+      ["standing", "常备军：野战主力，全按默认值"],
+      ["regional", "地方军：攻守兼顾"],
+      ["levy", "地方守备：就近征召、便宜、不出远门"],
+      ["imperial_guard", "禁卫营：天干字营号(甲字营、乙字营……)"],
+      ["banner_guard", "旗军：只收旗人，八旗番号"],
+      ["tribal_host", "部落骑兵：左右翼番号，部族统带"],
+      ["fubo", "新式军队：只收受训军人，按满编分营、团、师"]
+    ];
+    function stripDefaults(d) {
+      for (const k of Object.keys(d)) if (k in DEF && String(d[k]) === String(DEF[k])) delete d[k];
+      return d;
+    }
+    // 由英文名生成 id(小写、下划线)；没有英文名就 custom_1、custom_2……；语言键也不能撞
+    function deriveFormationId(en) {
+      const all = F().formations || {};
+      let base = String(en || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      if (base && !/^[a-z]/.test(base)) base = "f_" + base;
+      const taken = id => Object.prototype.hasOwnProperty.call(all, id) || ("formation_" + id) in S.czAll || ("formation_" + id) in S.locEdits;
+      if (base && !taken(base)) return base;
+      if (!base) base = "custom";
+      let n = base === "custom" ? 1 : 2;
+      while (taken(`${base}_${n}`)) n++;
+      return `${base}_${n}`;
+    }
+
+    async function newFormation(copyFrom) {
+      const all = own(F(), "formations", TOP_F);
+      const options = [
+        ...FORMATION_PRESETS.filter(([src]) => isObj(all[src])).map(([src, t]) => ["preset:" + src, t]),
+        ["blank", "空白：全部按默认值"],
+        ...Object.keys(all).filter(id => isObj(all[id])).map(id => ["copy:" + id, `照抄：${formationName(id)}(${id})`])
+      ];
+      const r = await ask(copyFrom ? `复制建制：${formationName(copyFrom)}` : "新建建制", [
+        { label: "名称(简体)", placeholder: "例如 边防军" },
+        { label: "英文名称(可留空；只用来生成内部 id)", placeholder: "例如 Border Guard" },
+        { label: "从哪种建制起步", options, value: copyFrom ? "copy:" + copyFrom : options[0][0] }
+      ], "繁体名自动生成，英文名留空时保存会先用简体。建好后到“政体军制”里把它放进某个政体的槽位，新军才会用它。");
+      if (!r) return;
+      const [cz, en, from] = r;
+      if (!cz) return toast("请填写名称", true);
+      const id = deriveFormationId(en);
+      const src = /^(copy|preset):/.test(from) ? all[from.slice(from.indexOf(":") + 1)] : null;
+      const base = isObj(src) ? clone(src) : {};
+      delete base.name;
+      all[id] = stripDefaults(base);
+      const key = "formation_" + id;
+      const entry = { cz };
+      if (en) entry.en = en;
+      if (typeof zhToTrad === "function") { entry.ch = zhToTrad(cz); S.auto[key + "|ch"] = entry.ch; }
+      S.locEdits[key] = entry;
+      S.newIds.add(id);
+      S.sel.formations = id;
+      markDirty("formations");
+      renderAll();
+      toast(`已新建建制 ${cz}(内部 id：${id})`);
+    }
+
+    function deleteFormation(id) {
+      const uses = formationUses(id);
+      if (!confirm(`删除建制 ${id}(${formationName(id)})？` + (uses.length ? `\n还有这些槽位在用：${uses.join("、")}，删了以后它们找不到定义，按默认值的常备军算。` : "") +
+        `\n存档里这个建制的部队也会按默认值算。名称语言键留在语言文件里。`)) return;
+      delete F().formations[id];
+      S.sel.formations = null;
+      markDirty("formations");
+      renderAll();
+    }
+
+    // 对象数组的小表格(编制层级、军团定底、士兵阶梯)；改动只碰对应字段
+    function objTable(o) {
+      const wrap = document.createElement("div");
+      const draw = () => {
+        const arr = o.get();
+        const rows = Array.isArray(arr) ? arr : [];
+        const nameCols = o.cols.some(c => c.names);
+        wrap.innerHTML = `<table class="sheet"><thead><tr><th class="act">#</th>${o.cols.map(c => c.names ? LANGS.map(([l, t]) => `<th>${t}</th>`).join("") : `<th ${c.width ? `style="width:${c.width}"` : ""}>${c.label}</th>`).join("")}<th class="act"></th></tr></thead><tbody>
+          ${rows.map((row, i) => {
+            if (!isObj(row)) return `<tr><td class="act">${i + 1}</td><td class="txt muted" colspan="${o.cols.length + (nameCols ? 2 : 0)}">${esc(JSON.stringify(row))}(不是对象，原样保留)</td><td class="act"></td></tr>`;
+            return `<tr><td class="act">${i + 1}</td>${o.cols.map(c => cell(c, row, i)).join("")}<td class="act"><button class="small" data-up="${i}" title="上移">↑</button><button class="small" data-dn="${i}" title="下移">↓</button><button class="small danger" data-del="${i}" title="删除">×</button></td></tr>`;
+          }).join("") || `<tr><td class="txt muted" colspan="${o.cols.length + (nameCols ? 4 : 2)}">(空)</td></tr>`}
+          </tbody></table>
+          <div class="toolbar" style="margin-top:6px"><button class="small" data-add>${o.addLabel || "添加一行"}</button>${o.note ? `<span class="fh">${o.note}</span>` : ""}</div>`;
+        const unknown = rows.filter(isObj).flatMap(r => Object.keys(r).filter(k => !o.order.includes(k)));
+        if (unknown.length) wrap.insertAdjacentHTML("beforeend", `<p class="fh">另有字段 ${uniq(unknown).map(k => `<code>${esc(k)}</code>`).join(" ")}，原样保留。</p>`);
+        $$("[data-c]", wrap).forEach(el => el.addEventListener("change", () => {
+          const row = rows[Number(el.dataset.i)], k = el.dataset.c, t = el.dataset.t;
+          const raw = el.value.trim();
+          if (raw === "") delete row[k];
+          else if (t === "num" || t === "int") {
+            const n = Number(raw);
+            if (!Number.isFinite(n) || (t === "int" && !Number.isInteger(n))) { toast(`「${raw}」不是有效的数字`, true); el.value = row[k] ?? ""; return; }
+            putKey(row, k, n, o.order);
+          } else putKey(row, k, raw, o.order);
+          markDirty(o.fileKey);
+          if (o.cols.some(c => c.key === k && (c.preview || c.namesOf))) draw();
+          o.after?.();
+        }));
+        $$("[data-up],[data-dn]", wrap).forEach(b => b.addEventListener("click", () => {
+          const i = Number(b.dataset.up ?? b.dataset.dn), j = b.dataset.up !== undefined ? i - 1 : i + 1;
+          if (j < 0 || j >= rows.length) return;
+          [rows[i], rows[j]] = [rows[j], rows[i]];
+          markDirty(o.fileKey); draw(); o.after?.();
+        }));
+        $$("[data-del]", wrap).forEach(b => b.addEventListener("click", () => {
+          rows.splice(Number(b.dataset.del), 1);
+          if (!rows.length) o.onEmpty?.();
+          markDirty(o.fileKey); draw(); o.after?.();
+        }));
+        $("[data-add]", wrap).addEventListener("click", () => {
+          const list = Array.isArray(o.get()) ? o.get() : o.make();
+          const at = o.addAt ? o.addAt(list) : list.length;
+          list.splice(at, 0, o.newRow(list));
+          markDirty(o.fileKey); draw(); o.after?.();
+        });
+      };
+      const cell = (c, row, i) => {
+        if (c.names) {
+          const key = row[c.namesOf];
+          return LANGS.map(([l]) => `<td>${key ? `<input data-ck="${esc(key)}" data-lang="${l}" value="${esc(csvGet(key, l))}" placeholder="${esc(locText(key, l))}">` : ""}</td>`).join("");
+        }
+        const v = row[c.key];
+        if (c.type === "tier") return `<td>${tierSelect(`data-c="${c.key}" data-t="int" data-i="${i}"`, v, c.defLabel)}</td>`;
+        if (c.type === "num" || c.type === "int")
+          return `<td><input type="number" step="any" data-c="${c.key}" data-t="${c.type}" data-i="${i}" value="${esc(v ?? "")}" placeholder="${esc(c.ph || "")}"></td>`;
+        const pv = c.preview && v ? (titleText(v, "cz") || locText(v, "cz")) : "";
+        return `<td><input data-c="${c.key}" data-t="str" data-i="${i}" value="${esc(v ?? "")}" placeholder="${esc(c.ph || "")}" ${c.list ? `list="${c.list}"` : ""}>${c.preview && v ? `<div class="fh ${pv ? "" : "warn"}" style="padding:0 6px 2px">${pv ? "简体：" + esc(pv) : "找不到这个语言键"}</div>` : ""}</td>`;
+      };
+      draw();
+      return wrap;
+    }
+
+    // 键值表(文明组、元老专属军衔)
+    function dictTable(o) {
+      const wrap = document.createElement("div");
+      const draw = () => {
+        const obj = isObj(o.get()) ? o.get() : {};
+        const keys = Object.keys(obj);
+        wrap.innerHTML = `<table class="sheet"><thead><tr><th>${o.keyLabel}</th><th ${o.names ? `style="width:32%"` : ""}>${o.valLabel}</th>${o.names ? LANGS.map(([, t]) => `<th>${t}</th>`).join("") : ""}<th class="act"></th></tr></thead><tbody>
+          ${keys.map(k => {
+            const v = obj[k];
+            const names = o.names ? LANGS.map(([l]) => `<td>${typeof v === "string" && v ? `<input data-ck="${esc(v)}" data-lang="${l}" value="${esc(csvGet(v, l))}" placeholder="${esc(locText(v, l))}">` : ""}</td>`).join("") : "";
+            const kn = o.keyName?.(k);
+            return `<tr><td><input data-dk="${esc(k)}" value="${esc(k)}" ${o.keyList ? `list="${o.keyList}"` : ""}>${kn ? `<div class="fh" style="padding:0 6px">${esc(kn)}</div>` : ""}</td>
+              <td>${typeof v === "string" ? `<input data-dv="${esc(k)}" value="${esc(v)}" ${o.valList ? `list="${o.valList}"` : ""}>` : `<span class="fh">${esc(JSON.stringify(v))}(原样保留)</span>`}</td>${names}
+              <td class="act"><button class="small danger" data-dd="${esc(k)}" title="删除">×</button></td></tr>`;
+          }).join("") || `<tr><td class="txt muted" colspan="${o.names ? 6 : 3}">(空)</td></tr>`}</tbody></table>
+          <div class="toolbar" style="margin-top:6px"><button class="small" data-da>${o.addLabel}</button></div>`;
+        $$("[data-dk]", wrap).forEach(el => el.addEventListener("change", () => {
+          const from = el.dataset.dk, to = el.value.trim();
+          if (to === from) return;
+          if (!to || Object.prototype.hasOwnProperty.call(obj, to)) { toast(to ? `已经有 ${to}` : "不能为空", true); el.value = from; return; }
+          renameKey(obj, from, to); markDirty(o.fileKey); draw(); o.after?.();
+        }));
+        $$("[data-dv]", wrap).forEach(el => el.addEventListener("change", () => {
+          obj[el.dataset.dv] = el.value.trim(); markDirty(o.fileKey); draw(); o.after?.();
+        }));
+        $$("[data-dd]", wrap).forEach(b => b.addEventListener("click", () => {
+          delete obj[b.dataset.dd]; markDirty(o.fileKey); draw(); o.after?.();
+        }));
+        $("[data-da]", wrap).addEventListener("click", async () => {
+          // 有现成选项的用下拉(显示中文)，也能手动输入
+          const keyOpts = o.keyOptions?.().filter(([v]) => !Object.prototype.hasOwnProperty.call(obj, v));
+          const fields = keyOpts
+            ? [{ label: o.keyLabel, options: [...keyOpts, ["__custom", "其它(下面手动输入)"]], value: keyOpts[0]?.[0] || "__custom" }, { label: `${o.keyLabel}(手动输入)` }]
+            : [{ label: o.keyLabel, suggestions: o.keySuggest?.() }];
+          const valOpts = o.valOptions?.();
+          fields.push(valOpts ? { label: o.valLabel, options: valOpts, value: valOpts[0]?.[0] } : { label: o.valLabel, value: o.defaultVal || "", suggestions: o.valSuggest?.() });
+          const r = await ask(o.addLabel, fields);
+          if (!r) return;
+          const key = keyOpts ? (r[0] === "__custom" ? r[1] : r[0]) : r[0];
+          const val = r[r.length - 1];
+          if (!key) return;
+          const target = o.make();
+          if (Object.prototype.hasOwnProperty.call(target, key)) return toast(`已经有 ${key}`, true);
+          target[key] = val;
+          markDirty(o.fileKey); draw(); o.after?.();
+        });
+      };
+      draw();
+      return wrap;
+    }
+
+    // ================= 政体军制 =================
+
+    function formationOptions(value, emptyLabel) {
+      const ids = Object.keys(F().formations || {});
+      const cur = value ?? "";
+      const names = ids.map(formationName);
+      let html = `<option value="" ${cur === "" ? "selected" : ""}>${esc(emptyLabel)}</option>` +
+        ids.map((id, i) => `<option value="${esc(id)}" ${id === cur ? "selected" : ""}>${esc(names.indexOf(names[i]) !== i || names.lastIndexOf(names[i]) !== i ? `${names[i]}(${id})` : names[i])}</option>`).join("");
+      if (cur && !ids.includes(cur)) html += `<option value="${esc(cur)}" selected>找不到：${esc(cur)}</option>`;
+      return html;
+    }
+
+    function renderRegimes() {
+      const fd = F();
+      const map = isObj(fd.regimes) ? fd.regimes : {};
+      const fb = isObj(fd.fallback) ? fd.fallback : {};
+      const keys = Object.keys(map);
+      const missing = [...S.regimes, "Banner"].filter(k => !keys.includes(k));
+      const row = (k, m, kind) => {
+        if (!isObj(m)) return `<tr><td class="txt">${esc(regimeLabel(k))}<div class="fk">${esc(k)}</div></td><td class="txt fh" colspan="6">值不是对象，原样保留</td></tr>`;
+        const unknown = kind === "missing" ? [] : Object.keys(m).filter(x => !SLOT_ORDER.includes(x));
+        const head = `<td class="txt">${esc(regimeLabel(k))}<div class="fk">${esc(k)}</div>` +
+          (k === "Banner" ? `<div class="fh">律令朝廷施行八旗时，军制单算这一套</div>` : "") +
+          (kind === "missing" ? `<div class="fh">没有单独配置，用“其余政体”</div>` : "") +
+          (unknown.length ? `<div class="fh">另有字段 ${esc(unknown.join("、"))}，原样保留</div>` : "") + `</td>`;
+        if (kind === "missing")
+          return `<tr class="dim">${head}${SLOTS.map(([s]) => `<td class="txt">${esc(fb[s] ? formationName(fb[s]) : "—")}</td>`).join("")}<td class="txt">—</td>
+            <td class="act"><button class="small" data-own="${esc(k)}">单独配置</button></td></tr>`;
+        const slots = SLOTS.map(([s]) => `<td><select data-rk="${esc(k)}" data-slot="${s}">${formationOptions(m[s], "(空：不编建制)")}</select><div class="fk sel-id">${esc(m[s] ?? "")}</div></td>`).join("");
+        const hasEarly = ["early", "early_below_stage", "merge_at_stage"].some(x => x in m) || k === "Transmigrant";
+        const early = hasEarly
+          ? `<td><div class="early"><select data-rk="${esc(k)}" data-slot="early">${formationOptions(m.early, "(不用早期建制)")}</select><div class="fk sel-id">${esc(m.early ?? "")}</div>
+              <label>阶段不到 ${stageSelect(`data-rk="${esc(k)}" data-stage="early_below_stage"`, m.early_below_stage)} 时新军用它</label>
+              <label>到阶段 ${stageSelect(`data-rk="${esc(k)}" data-stage="merge_at_stage"`, m.merge_at_stage)} 并入中央</label></div></td>`
+          : `<td class="txt muted">—</td>`;
+        const act = kind === "own" ? `<button class="small danger" data-drop="${esc(k)}" title="删掉这一行，改用“其余政体”">删除</button>` : "";
+        return `<tr>${head}${slots}${early}<td class="act">${act}</td></tr>`;
+      };
+      panel.innerHTML = `${fileBanner("formations")}
+        <h2>${ico("iconKingdom", "lg")}政体军制<span class="badge">regimes / fallback</span></h2>
+        <p class="hint">每个政体把四种军镇映射到建制：新军按驻在哪里取这一格的建制。政体按 RegimeType 的名字；没写的政体用最后一行“其余政体”(fallback)。
+          格子选“空”= 不编建制，按默认值的常备军、没有番号。改了这里不会改已有部队的建制(只有被俘、改投和整编才换)。</p>
+        <div class="card"><table class="sheet sticky"><thead><tr><th>政体</th>${SLOTS.map(([s, t, h]) => `<th title="${esc(h)}">${t}<span class="fk">${s}</span></th>`).join("")}<th>穿越政体早期建制<span class="fk">early</span></th><th class="act"></th></tr></thead><tbody>
+          ${keys.map(k => row(k, map[k], "own")).join("")}
+          ${missing.map(k => row(k, fb, "missing")).join("")}
+          ${row("fallback", fb, "fallback")}
+        </tbody></table></div>
+        <div class="note" style="margin-top:12px">
+          <b>各格</b>：${SLOTS.map(([s, t, h]) => `${t}(${s})：${h}`).join("；")}。<br>
+          <b>穿越政体</b>另有 <code>early</code>、<code>early_below_stage</code>、<code>merge_at_stage</code>：元老院的阶段不到前者时新军用 early 建制；到后者时把 early 的部队并入中央那一格，只并一次。
+          阶段：${STAGES.slice(1).map((t, i) => `${i + 1} ${t}`).join("、")}。
+        </div>`;
+      const mapOf = k => k === "fallback" ? own(F(), "fallback", TOP_F) : F().regimes[k];
+      $$("select[data-slot]", panel).forEach(sel => sel.addEventListener("change", () => {
+        const m = mapOf(sel.dataset.rk), s = sel.dataset.slot, v = sel.value;
+        if (v === "" && (s === "early" || !(s in m))) delete m[s];
+        else putKey(m, s, v, SLOT_ORDER);
+        const idLine = sel.nextElementSibling;
+        if (idLine?.classList.contains("sel-id")) idLine.textContent = v;
+        markDirty("formations"); renderList();
+      }));
+      $$("select[data-stage]", panel).forEach(sel => sel.addEventListener("change", () => {
+        const m = mapOf(sel.dataset.rk), s = sel.dataset.stage, v = Number(sel.value);
+        if (!v) delete m[s]; else putKey(m, s, v, SLOT_ORDER);
+        markDirty("formations");
+      }));
+      $$("[data-own]", panel).forEach(b => b.addEventListener("click", () => {
+        const k = b.dataset.own, regimes = own(F(), "regimes", TOP_F), entry = {};
+        for (const [s] of SLOTS) entry[s] = typeof fb[s] === "string" ? fb[s] : "";
+        regimes[k] = entry;
+        markDirty("formations"); renderPanel(); renderList();
+      }));
+      $$("[data-drop]", panel).forEach(b => b.addEventListener("click", () => {
+        const k = b.dataset.drop;
+        if (!confirm(`删除 ${regimeLabel(k)}(${k}) 这一行？删除后这个政体用“其余政体”的建制。`)) return;
+        delete F().regimes[k];
+        markDirty("formations"); renderPanel(); renderList();
+      }));
+    }
+
+    // ================= 官阶：公用 =================
+
+    function civGroups() {
+      const r = R(), out = ["default"];
+      const civ = isObj(r.civilizations) ? r.civilizations : {};
+      for (const part of ["cultures", "lines"]) if (isObj(civ[part])) out.push(...Object.values(civ[part]).filter(v => typeof v === "string"));
+      for (const f of Object.values(isObj(r.forms) ? r.forms : {})) if (isObj(f) && isObj(f.civilizations)) out.push(...Object.keys(f.civilizations));
+      return uniq(out);
+    }
+    // 文明组里有谁(给人看的中文)
+    function groupMembers(g) {
+      if (g === "default") return "其余文化";
+      const civ = isObj(R().civilizations) ? R().civilizations : {}, out = [];
+      for (const [c, v] of Object.entries(isObj(civ.cultures) ? civ.cultures : {})) if (v === g) out.push((S.cultureNames[c] || c) + "文化");
+      for (const [l, v] of Object.entries(isObj(civ.lines) ? civ.lines : {})) if (v === g) out.push((LINE_NAMES[l] || l) + "制度线");
+      return out.length ? out.join("、") : "还没有文化或制度线归到这一组";
+    }
+    const setKey = (set, t) => set.includes("{0}") ? set.split("{0}").join(String(t)) : `official_rank_${set}_${t}`;
+    function ladderKeys() {
+      const r = R(), keys = new Set();
+      for (const steps of Object.values(isObj(r.soldier_ladders) ? r.soldier_ladders : {}))
+        if (Array.isArray(steps)) for (const s of steps) if (isObj(s) && s.key) keys.add(s.key);
+      for (const v of Object.values(isObj(r.named_ranks) ? r.named_ranks : {})) if (typeof v === "string") keys.add(v);
+      return keys;
+    }
+    // 称谓表里的九档套名(official_rank_<套名>_<0~8>)，士兵阶梯和专属军衔用到的键不算
+    function csvSets() {
+      const special = ladderKeys(), sets = new Map();
+      for (const l of csvLive()) {
+        const key = csvKeyOf(l), m = key.match(/^official_rank_(.+)_(\d+)$/);
+        if (!m || special.has(key) || Number(m[2]) > 8) continue;
+        if (!sets.has(m[1])) sets.set(m[1], new Set());
+        sets.get(m[1]).add(Number(m[2]));
+      }
+      return sets;
+    }
+    function referencedSets() {
+      const r = R(), out = [];
+      const add = v => { if (typeof v === "string" && v && v !== "@metropole") out.push(v); };
+      if (isObj(r.fallback)) { add(r.fallback.civil); add(r.fallback.military); }
+      for (const f of Object.values(isObj(r.forms) ? r.forms : {}))
+        if (isObj(f) && isObj(f.civilizations)) for (const e of Object.values(f.civilizations)) if (isObj(e)) { add(e.civil); add(e.military); }
+      return uniq(out);
+    }
+    function honoraryPatterns() { return uniq(Object.keys(S.honorary).filter(k => /_\d+$/.test(k)).map(k => k.replace(/_\d+$/, "_{0}"))); }
+    function allSetNames() { return uniq([...csvSets().keys(), ...S.extraSets, ...referencedSets(), ...honoraryPatterns()]); }
+    function setRange(set) {
+      if (!set || set === "@metropole") return "";
+      const a = titleText(setKey(set, 0), "cz"), b = titleText(setKey(set, 8), "cz");
+      return a || b ? `${a || "?"} … ${b || "?"}` : "";
+    }
+    const setLabel = s => { const range = setRange(s); return range ? `${range}(${s})` : s; };
+    function setUses(set) {
+      const r = R(), out = [];
+      if (isObj(r.fallback)) { if (r.fallback.civil === set) out.push(["", "通用回退 · 文"]); if (r.fallback.military === set) out.push(["", "通用回退 · 武"]); }
+      for (const [fk, f] of Object.entries(isObj(r.forms) ? r.forms : {}))
+        if (isObj(f) && isObj(f.civilizations)) for (const [g, e] of Object.entries(f.civilizations)) if (isObj(e)) {
+          if (e.civil === set) out.push([fk, `${formLabel(fk)} · ${g} · 文`]);
+          if (e.military === set) out.push([fk, `${formLabel(fk)} · ${g} · 武`]);
+        }
+      return out;
+    }
+    // 称谓套选择：不写(null) / 空(不设等级) / @metropole / 套名 / 手动输入
+    function setSelect(attrs, value, absentLabel = "不写：跟本形态 default，再跟通用回退") {
+      const opts = [["__absent", absentLabel], ["", "空：不设等级"], ["@metropole", "@metropole：跟宗主国"]];
+      for (const s of allSetNames()) opts.push([s, setLabel(s)]);
+      const cur = value === undefined || value === null ? "__absent" : String(value);
+      if (!opts.some(o => o[0] === cur)) opts.push([cur, `${cur}(称谓表里没有)`]);
+      opts.push(["__custom", "其它套名(手动输入)…"]);
+      return `<select ${attrs}>${opts.map(([v, t]) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+    }
+    async function pickSet(sel, apply) {
+      let v = sel.value;
+      if (v === "__custom") {
+        const r = await ask("称谓套名", [{ label: "套名(称谓表里的键是 official_rank_<套名>_<0~8>；写 {0} 表示自带档位的语言键)", suggestions: allSetNames() }]);
+        if (!r || !r[0]) { renderPanel(); return; }
+        v = r[0];
+      }
+      apply(v === "__absent" ? undefined : v);
+    }
+    function ladderNames() { return Object.keys(isObj(R().soldier_ladders) ? R().soldier_ladders : {}); }
+
+    // ================= 官阶：通用规则 =================
+
+    function renderGeneral() {
+      const r = R();
+      const fb = isObj(r.fallback) ? r.fallback : {};
+      const unknownTop = Object.keys(r).filter(k => !TOP_R.includes(k));
+      panel.innerHTML = `${fileBanner("ranks")}
+        <h2>${ico("iconWorldLaws", "lg")}官阶 · 通用规则</h2>
+        <p class="hint">存档里记的是 0~8 档(0 最高)和文武类别；每套称谓都是九档，切政体、读旧档只换名字，不换算，越界按边界算。称谓的名字在“称谓表”里改。</p>
+        <div class="card">
+          <h3>通用回退称谓<span class="fk">fallback</span></h3>
+          <p class="hint">所有形态都没配时用这两套；某一套缺了某一档，也先退到这里，再不行显示数字。</p>
+          <div class="grid two">
+            ${fl("文官", "civil", "", setSelect(`data-fb="civil"`, fb.civil, "不写"))}
+            ${fl("武官", "military", "", setSelect(`data-fb="military"`, fb.military, "不写"))}
+          </div>
+        </div>
+        <div class="card">
+          <h3>文明组<span class="fk">civilizations</span></h3>
+          <p class="hint">一国的称谓先看文化归哪个文明组，再看制度线，都没有就用 default；各政体形态再按文明组选称谓。</p>
+          <div class="grid two"><div><h4 style="margin:0">按文化<span class="fk">cultures</span></h4><div id="gCultures"></div></div>
+            <div><h4 style="margin:0">按制度线<span class="fk">lines</span></h4><div id="gLines"></div></div></div>
+          <p class="fh" id="gGroups" style="margin-top:8px"></p>
+        </div>
+        <div class="card">
+          <h3>军官与士兵</h3>
+          <div class="grid three">
+            ${fl("军官的底线", "captain_floor", "带兵的军官至少到这一档；形态可以单独设置", tierSelect(`data-f="captain_floor" data-t="int"`, r.captain_floor, "不写(默认 5 · 第6档)"))}
+            ${fl("普通士兵靠战功最高到", "soldier_cap", "", tierSelect(`data-f="soldier_cap" data-t="int"`, r.soldier_cap, "不写(默认 6 · 第7档)"))}
+            ${fl("首府城主高几档", "capital_bonus", "城主所在城是本国首府时，岗位定底再高这么多档", `<input type="number" step="1" data-f="capital_bonus" data-t="int" value="${esc(r.capital_bonus ?? "")}" placeholder="默认 2">`)}
+          </div>
+        </div>
+        <details class="card adv" data-adv="general" ${S.advOpen.general ? "open" : ""}>
+          <summary>高级：军团统帅定底、士兵军衔阶梯、元老专属军衔</summary>
+          <h4 style="margin:10px 0 0">军团统帅定底<span class="fk">general_floors</span></h4>
+          <p class="fh">统帅按军团满编人数定最低档：从上往下第一个“满编 &lt; 上限”的那一行生效，最后一行不写上限。形态可以单独设置(见“政体形态”)。</p>
+          <div id="gGeneral"></div>
+          <h4 style="margin:16px 0 0">士兵军衔阶梯<span class="fk">soldier_ladders</span></h4>
+          <p class="fh">没有军职的军人单走的一段军衔(九档放不下的低阶军衔)，按绩效从低到高列；绩效够得上这一级就用这一级，杀一个敌人约 100。带过兵或任过高职的不走这一段。形态里某文明组选了阶梯才用。</p>
+          <div id="gLadders"></div>
+          <div class="toolbar" style="margin-top:8px"><button class="small" id="gAddLadder">新建阶梯</button></div>
+          <h4 style="margin:16px 0 0">元老专属军衔<span class="fk">named_ranks</span></h4>
+          <p class="fh">只给某位原班元老的军衔：名册上的名字 → 语言键；继承席位的子孙没有。</p>
+          <div id="gNamed"></div>
+        </details>
+        ${unknownTop.length ? `<p class="fh">编辑器不认识的字段：${unknownTop.map(k => `<code>${esc(k)}</code>`).join(" ")}，保存时原样保留。</p>` : ""}`;
+
+      $$("[data-fb]", panel).forEach(sel => sel.addEventListener("change", () => pickSet(sel, v => {
+        const side = sel.dataset.fb;
+        if (v === undefined) { if (isObj(R().fallback)) delete R().fallback[side]; }
+        else putKey(own(R(), "fallback", TOP_R), side, v, ENTRY_ORDER);
+        markDirty("ranks"); renderPanel(); renderList();
+      })));
+      bindFields(panel, r, TOP_R, "ranks");
+      const civ = () => isObj(R().civilizations) ? R().civilizations : null;
+      const groupsNote = () => { $("#gGroups").textContent = "已有的文明组：" + civGroups().join("、"); renderDatalists(); };
+      for (const [part, el, label, list] of [["cultures", "#gCultures", "文化", "dlCultures"], ["lines", "#gLines", "制度线", "dlLines"]])
+        $(el).appendChild(dictTable({
+          get: () => civ()?.[part], make: () => own(own(R(), "civilizations", TOP_R), part, ["cultures", "lines"]),
+          keyLabel: label, valLabel: "文明组", keyList: list, valList: "dlGroups", addLabel: `添加${label}`,
+          keyOptions: () => part === "cultures" ? S.cultures.map(c => [c, S.cultureNames[c] ? `${S.cultureNames[c]}(${c})` : c]) : S.lines.map(l => [l, LINE_NAMES[l] ? `${LINE_NAMES[l]}(${l})` : l]),
+          keyName: k => part === "cultures" ? (S.cultureNames[k] || (S.cultures.includes(k) ? "" : "找不到这个文化")) : (LINE_NAMES[k] || (S.lines.includes(k) ? "" : "找不到这条制度线")),
+          valSuggest: civGroups, fileKey: "ranks", after: () => { groupsNote(); }
+        }));
+      groupsNote();
+      $("#gGeneral").appendChild(floorRowsTable(() => R().general_floors, () => own(R(), "general_floors", TOP_R, () => [])));
+      drawLadders();
+      $("#gAddLadder").addEventListener("click", async () => {
+        const res = await ask("新建士兵军衔阶梯", [{ label: "阶梯名(英文)", placeholder: "例如 modern" }]);
+        if (!res || !res[0]) return;
+        const lad = own(R(), "soldier_ladders", TOP_R);
+        if (Object.prototype.hasOwnProperty.call(lad, res[0])) return toast(`已经有阶梯 ${res[0]}`, true);
+        lad[res[0]] = [{ performance: 0, key: `official_rank_soldier_${res[0]}_0` }];
+        markDirty("ranks"); drawLadders();
+      });
+      $("#gNamed").appendChild(dictTable({
+        get: () => R().named_ranks, make: () => own(R(), "named_ranks", TOP_R),
+        keyLabel: "元老名", valLabel: "军衔语言键", valList: "dlTitleKeys", names: true, addLabel: "添加专属军衔",
+        defaultVal: "official_rank_", fileKey: "ranks"
+      }));
+    }
+
+    function floorRowsTable(get, make, onEmpty) {
+      return objTable({
+        get, make, onEmpty,
+        cols: [{ key: "below", label: "满编上限 below", type: "num", ph: "不写 = 其余" }, { key: "tier", label: "最低档 tier", type: "tier", defLabel: "不写(0)" }],
+        order: ["below", "tier"], fileKey: "ranks", addLabel: "添加一行",
+        newRow: arr => { const last = arr.filter(x => isObj(x) && typeof x.below === "number").pop(); return { below: last ? last.below * 2 : 3000, tier: 3 }; },
+        addAt: arr => arr.length && isObj(arr[arr.length - 1]) && arr[arr.length - 1].below === undefined ? arr.length - 1 : arr.length
+      });
+    }
+
+    function drawLadders() {
+      const box = $("#gLadders");
+      const lad = isObj(R().soldier_ladders) ? R().soldier_ladders : {};
+      box.innerHTML = Object.keys(lad).map(name => {
+        const users = Object.entries(isObj(R().forms) ? R().forms : {}).flatMap(([fk, f]) => isObj(f) && isObj(f.civilizations)
+          ? Object.entries(f.civilizations).filter(([, e]) => isObj(e) && e.soldier_ladder === name).map(([g]) => `${formLabel(fk)} · ${g}`) : []);
+        return `<div class="sub-card"><div class="row-head"><label class="field">阶梯名<input data-lname="${esc(name)}" value="${esc(name)}"></label>
+          <span class="fh">用在：${users.length ? esc(users.join("、")) : "没有形态用"}</span><span class="spacer"></span>
+          <button class="small danger" data-ldel="${esc(name)}">删除阶梯</button></div><div data-lsteps="${esc(name)}"></div></div>`;
+      }).join("") || `<p class="muted">还没有阶梯。</p>`;
+      for (const name of Object.keys(lad)) {
+        const host = $(`[data-lsteps="${CSS.escape(name)}"]`, box);
+        if (!Array.isArray(lad[name])) { host.innerHTML = `<p class="fh">值不是数组，原样保留。</p>`; continue; }
+        host.appendChild(objTable({
+          get: () => lad[name], make: () => lad[name],
+          cols: [{ key: "performance", label: "绩效门槛 performance", type: "num", ph: "0" },
+            { key: "key", label: "军衔语言键 key", type: "str", list: "dlTitleKeys", namesOf: true, width: "32%" }, { names: true, namesOf: "key" }],
+          order: ["performance", "key"], fileKey: "ranks", addLabel: "添加一级",
+          newRow: arr => { const last = arr.filter(isObj).pop(); return { performance: (Number(last?.performance) || 0) + 200, key: `official_rank_soldier_${name}_${arr.length}` }; }
+        }));
+      }
+      $$("[data-lname]", box).forEach(el => el.addEventListener("change", () => {
+        const from = el.dataset.lname, to = el.value.trim();
+        if (to === from) return;
+        if (!to || Object.prototype.hasOwnProperty.call(lad, to)) { toast(to ? `已经有阶梯 ${to}` : "不能为空", true); el.value = from; return; }
+        renameKey(lad, from, to);
+        for (const f of Object.values(isObj(R().forms) ? R().forms : {}))
+          if (isObj(f) && isObj(f.civilizations)) for (const e of Object.values(f.civilizations)) if (isObj(e) && e.soldier_ladder === from) e.soldier_ladder = to;
+        markDirty("ranks"); drawLadders();
+      }));
+      $$("[data-ldel]", box).forEach(b => b.addEventListener("click", () => {
+        const name = b.dataset.ldel;
+        if (!confirm(`删除士兵军衔阶梯 ${name}？引用它的形态会改成不走阶梯；称谓表里的名字不删。`)) return;
+        delete lad[name];
+        for (const f of Object.values(isObj(R().forms) ? R().forms : {}))
+          if (isObj(f) && isObj(f.civilizations)) for (const e of Object.values(f.civilizations)) if (isObj(e) && e.soldier_ladder === name) delete e.soldier_ladder;
+        markDirty("ranks"); drawLadders();
+      }));
+    }
+
+    // ================= 官阶：政体形态 =================
+
+    function formCandidates() {
+      return [...Object.keys(SPECIAL_FORMS), ...S.regimes.filter(r => r !== "Modern" && r !== "Republic")];
+    }
+    function formDescription(k) {
+      if (SPECIAL_FORMS[k]) return SPECIAL_FORMS[k][1];
+      if (k === "Modern" || k === "Republic") return "用不到：现代政体、共和制按 one_party / republic 取称谓。";
+      if (k === "Transmigrant") return "穿越政权看自己的政体，不看帝国核心。";
+      if (k === "Colonial" || k === "Company") return "殖民地、特许公司看自己的政体；武官可以写 @metropole 跟宗主国。";
+      if (S.regimes.includes(k)) return "君主国没开议会时按政体本身(看帝国核心的政体)。";
+      return "代码里没有这个政体或形态，不会被用到。";
+    }
+
+    function renderForm() {
+      const k = S.sel.forms;
+      const forms = isObj(R().forms) ? R().forms : {};
+      if (!k || !Object.prototype.hasOwnProperty.call(forms, k)) {
+        S.sel.forms = null;
+        panel.innerHTML = `${fileBanner("ranks")}<h2>${ico("iconKings", "lg")}官阶 · 政体形态</h2>
+          <p class="hint">形态是政体本身，另加三种：现代政体的 one_party(一党或民主集中制)、republic(其余)，君主国开了议会后的 constitutional。殖民地、特许公司、穿越政权看自己，其余看帝国核心。</p>
+          <p class="muted">从左侧选一个形态。共 ${Object.keys(forms).length} 个。</p>`;
+        return;
+      }
+      const f = forms[k];
+      if (!isObj(f)) { panel.innerHTML = `<h2>${esc(k)}</h2><p class="warn">值不是对象，原样保留。</p>`; return; }
+      const unknown = Object.keys(f).filter(x => !FORM_ORDER.includes(x));
+      // 标题语言键用下拉选(显示中文)，不用手打
+      const labelKeys = uniq(["official_rank_label_court", "official_rank_label_martial", "official_rank_label_civil", "official_rank_label_military",
+        ...Object.keys(S.czAll).filter(x => x.startsWith("official_rank_label_")), "EmpireHonoraryOfficial"]).filter(x => S.czAll[x]);
+      const labelSelect = (field, defKey) => optSelect(`data-f="${field}"`, f[field], labelKeys.map(x => [x, `${S.czAll[x]}(${x})`]),
+        `不写(默认：${locText(defKey, "cz") || defKey})`);
+      panel.innerHTML = `${fileBanner("ranks")}
+        <h2>${ico("iconKings", "lg")}${esc(formLabel(k))}<span class="badge">${esc(k)}</span></h2>
+        <p class="hint">${esc(formDescription(k))}</p>
+        <div class="card">
+          <h3>各文明组的称谓<span class="fk">civilizations</span></h3>
+          <p class="hint">先找本文明组，再找本形态的 default，再找通用回退。“空”表示这种政体不设等级；@metropole 跟宗主国。几品：名字后带“(几品)”；勋级：显示勋级。称谓的名字在“称谓表”里改。</p>
+          <div id="fCivs"></div>
+        </div>
+        <details class="card adv" data-adv="form" ${S.advOpen.form ? "open" : ""}>
+          <summary>高级：现代叫法、按绩效升降、标题、本形态的军衔底线</summary>
+          <div class="toggles">
+            <label class="inline-check"><input type="checkbox" data-f="modern" ${f.modern === true ? "checked" : ""}>现代叫法<span class="fk">modern</span></label>
+            <label class="inline-check"><input type="checkbox" data-f="performance_ladder" ${f.performance_ladder === true ? "checked" : ""}>按绩效直接升降<span class="fk">performance_ladder</span></label>
+          </div>
+          <p class="fh">现代叫法：职务、官制图用现代叫法。按绩效升降：不加岗位底线(律令制)；不勾(默认)的政体岗位定底、只升不降、卸任保留、换岗不清零。</p>
+          <div class="grid two" style="margin-top:8px">
+            ${fl("人物窗口里文官那一行的标题", "civil_label", "", labelSelect("civil_label", "official_rank_label_court"))}
+            ${fl("武官那一行的标题", "military_label", "", labelSelect("military_label", "official_rank_label_martial"))}
+          </div>
+          <h4 style="margin:12px 0 4px">本形态的军衔底线</h4>
+          <div class="grid two">
+            <div>
+              <label class="inline-check"><input type="checkbox" id="fOwnGF" ${Array.isArray(f.general_floors) ? "checked" : ""}>单独设置军团统帅定底<span class="fk">general_floors</span></label>
+              <p class="fh">不勾就用通用规则里的那一套。</p>
+            </div>
+            ${fl("军官的底线", "captain_floor", "", tierSelect(`data-f="captain_floor" data-t="int"`, f.captain_floor, `不写：用通用规则(${R().captain_floor ?? 5})`))}
+          </div>
+          <div id="fGF"></div>
+        </details>
+        ${unknown.length ? `<p class="fh">编辑器不认识的字段：${unknown.map(x => `<code>${esc(x)}</code>`).join(" ")}，保存时原样保留。</p>` : ""}
+        <div class="toolbar" style="margin-top:12px"><button class="danger small" id="fDel">删除这个形态</button></div>`;
+      bindFields(panel, f, FORM_ORDER, "ranks");
+      drawCivs(f);
+      const gf = () => { $("#fGF").innerHTML = ""; if (Array.isArray(f.general_floors)) $("#fGF").appendChild(floorRowsTable(() => f.general_floors, () => f.general_floors)); };
+      gf();
+      $("#fOwnGF").addEventListener("change", e => {
+        if (e.target.checked) putKey(f, "general_floors", clone(Array.isArray(R().general_floors) ? R().general_floors : []), FORM_ORDER);
+        else delete f.general_floors;
+        markDirty("ranks"); gf();
+      });
+      $("#fDel").addEventListener("click", () => {
+        if (!confirm(`删除形态 ${k}(${formLabel(k)})？这种政体以后用通用回退的称谓。`)) return;
+        delete R().forms[k]; S.sel.forms = null; markDirty("ranks"); renderAll();
+      });
+    }
+
+    function drawCivs(f) {
+      const box = $("#fCivs");
+      const civs = isObj(f.civilizations) ? f.civilizations : {};
+      const keys = Object.keys(civs);
+      box.innerHTML = `<table class="sheet"><thead><tr><th>文明组</th><th>文官称谓 civil</th><th>武官称谓 military</th><th>几品</th><th>勋级</th><th>士兵军衔阶梯</th><th class="act"></th></tr></thead><tbody>
+        ${keys.map(g => {
+          const e = civs[g];
+          if (!isObj(e)) return `<tr><td class="txt">${esc(g)}</td><td class="txt fh" colspan="5">值不是对象，原样保留</td><td></td></tr>`;
+          const extra = Object.keys(e).filter(x => !ENTRY_ORDER.includes(x));
+          return `<tr><td><input data-cg="${esc(g)}" value="${esc(g)}" list="dlGroups"><div class="fh" style="padding:0 6px">${esc(groupMembers(g))}</div>${extra.length ? `<div class="fh" style="padding:0 6px">另有 ${esc(extra.join("、"))}</div>` : ""}</td>
+            <td>${setSelect(`data-cs="${esc(g)}" data-side="civil"`, e.civil)}</td>
+            <td>${setSelect(`data-cs="${esc(g)}" data-side="military"`, e.military)}</td>
+            <td class="c"><input type="checkbox" data-cb="${esc(g)}" data-flag="grade_suffix" ${e.grade_suffix === true ? "checked" : ""} title="grade_suffix：名字后带“(几品)”"></td>
+            <td class="c"><input type="checkbox" data-cb="${esc(g)}" data-flag="merit" ${e.merit === true ? "checked" : ""} title="merit：显示勋级"></td>
+            <td>${optSelect(`data-cl="${esc(g)}"`, e.soldier_ladder, ladderNames().map(n => [n, n]), "不走阶梯")}</td>
+            <td class="act"><button class="small danger" data-cdel="${esc(g)}" title="删除">×</button></td></tr>`;
+        }).join("") || `<tr><td class="txt muted" colspan="7">(空：全用通用回退)</td></tr>`}
+        </tbody></table>
+        <div class="toolbar" style="margin-top:6px"><button class="small" id="fAddCiv">添加文明组</button></div>`;
+      $$("[data-cs]", box).forEach(sel => sel.addEventListener("change", () => pickSet(sel, v => {
+        const e = civs[sel.dataset.cs], side = sel.dataset.side;
+        if (v === undefined) delete e[side]; else putKey(e, side, v, ENTRY_ORDER);
+        markDirty("ranks"); drawCivs(f); renderList();
+      })));
+      $$("[data-cb]", box).forEach(cb => cb.addEventListener("change", () => {
+        const e = civs[cb.dataset.cb];
+        if (cb.checked) putKey(e, cb.dataset.flag, true, ENTRY_ORDER); else delete e[cb.dataset.flag];
+        markDirty("ranks");
+      }));
+      $$("select[data-cl]", box).forEach(sel => sel.addEventListener("change", () => {
+        const e = civs[sel.dataset.cl];
+        if (sel.value === "") delete e.soldier_ladder; else putKey(e, "soldier_ladder", sel.value, ENTRY_ORDER);
+        markDirty("ranks");
+      }));
+      $$("[data-cg]", box).forEach(el => el.addEventListener("change", () => {
+        const from = el.dataset.cg, to = el.value.trim();
+        if (to === from) return;
+        if (!to || Object.prototype.hasOwnProperty.call(civs, to)) { toast(to ? `已经有 ${to}` : "不能为空", true); el.value = from; return; }
+        renameKey(civs, from, to); markDirty("ranks"); drawCivs(f);
+      }));
+      $$("[data-cdel]", box).forEach(b => b.addEventListener("click", () => {
+        delete civs[b.dataset.cdel]; markDirty("ranks"); drawCivs(f);
+      }));
+      $("#fAddCiv").addEventListener("click", async () => {
+        const free = civGroups().filter(g => !keys.includes(g));
+        const r = await ask("添加文明组", [
+          { label: "文明组", options: [...free.map(g => [g, `${g}：${groupMembers(g)}`]), ["__custom", "新的文明组(下面手动输入，再到“通用规则”里把文化或制度线归进来)"]], value: free[0] || "__custom" },
+          { label: "新文明组的名字(英文，上面选“新的文明组”时用)" }
+        ], "新的一行先照抄本形态 default 那一行。");
+        if (!r) return;
+        const g = r[0] === "__custom" ? r[1] : r[0];
+        if (!g) return;
+        const target = own(f, "civilizations", FORM_ORDER);
+        if (Object.prototype.hasOwnProperty.call(target, g)) return toast(`已经有 ${g}`, true);
+        target[g] = isObj(target.default) ? clone(target.default) : {};
+        markDirty("ranks"); drawCivs(f); renderDatalists();
+      });
+    }
+
+    async function addForm() {
+      const forms = isObj(R().forms) ? R().forms : {};
+      const cands = formCandidates().filter(c => !Object.prototype.hasOwnProperty.call(forms, c));
+      const r = await ask("添加政体形态", [{ label: "形态", options: [...cands.map(c => [c, `${formLabel(c)} · ${c}`]), ["__custom", "其它(手动输入)"]], value: cands[0] }, { label: "手动输入的名字(上面选“其它”时用)" }]);
+      if (!r) return;
+      const k = r[0] === "__custom" ? r[1] : r[0];
+      if (!k) return;
+      const target = own(R(), "forms", TOP_R);
+      if (Object.prototype.hasOwnProperty.call(target, k)) return toast(`已经有形态 ${k}`, true);
+      const fb = isObj(R().fallback) ? R().fallback : {};
+      target[k] = { civilizations: { default: { civil: fb.civil ?? "grades_general", military: fb.military ?? "army_general" } } };
+      S.sel.forms = k; markDirty("ranks"); renderAll();
+    }
+
+    // ================= 官阶：岗位定底 =================
+
+    function floorRegimes() {
+      const r = R(), out = S.regimes.filter(x => x !== "Republic");
+      for (const part of ["floors", "unranked", "military_offices"]) if (isObj(r[part])) out.push(...Object.keys(r[part]));
+      return uniq(out);
+    }
+
+    function renderFloors() {
+      const k = S.sel.floors;
+      if (!k) {
+        panel.innerHTML = `${fileBanner("ranks")}<h2>${ico("iconTitleLayer", "lg")}官阶 · 岗位定底</h2>
+          <p class="hint">任职就到某一档(floors)、不列官阶的官职档(unranked)、算武职的官职档(military_offices)，按政体分开。官职档是政体官职表里的等级(&lt;政体&gt;_officiallevel_&lt;n&gt;)。</p>
+          <p class="muted">从左侧选一个政体。</p>`;
+        return;
+      }
+      const r = R();
+      const floors = isObj(r.floors) && isObj(r.floors[k]) ? r.floors[k] : {};
+      const un = isObj(r.unranked) && Array.isArray(r.unranked[k]) ? r.unranked[k] : [];
+      const mo = isObj(r.military_offices) && Array.isArray(r.military_offices[k]) ? r.military_offices[k] : [];
+      const names = S.officeNames[k] || {};
+      const tiers = uniq([...Object.keys(names), ...Object.keys(floors), ...un.map(String), ...mo.map(String)])
+        .sort((a, b) => (Number(a) - Number(b)) || a.localeCompare(b));
+      panel.innerHTML = `${fileBanner("ranks")}
+        <h2>${ico("iconTitleLayer", "lg")}${esc(regimeLabel(k))}<span class="badge">${esc(k)}</span></h2>
+        <p class="hint">任职定底：岗位对应的档位，任职就到这一档(首府城主再高 ${esc(r.capital_bonus ?? 2)} 档)；不写就看官职自己的 honorary。
+          君主、后宫由代码判断，不用勾；军镇官职一律算武职。${k === "Modern" ? "共和制(Republic)也按这里。" : ""}</p>
+        <div class="card"><table class="sheet sticky"><thead><tr><th>官职档</th><th>官职</th><th>任职定底<span class="fk">floors</span></th><th>不列官阶<span class="fk">unranked</span></th><th>算武职<span class="fk">military_offices</span></th></tr></thead><tbody>
+          ${tiers.map(t => `<tr><td class="txt">${esc(t)}</td><td class="txt">${names[t] ? esc(names[t]) : `<span class="muted">(官职表里没有)</span>`}</td>
+            <td>${tierSelect(`data-floor="${esc(t)}" data-t="int"`, floors[t], "不写：看官职的 honorary")}</td>
+            <td class="c">${/^\d+$/.test(t) ? `<input type="checkbox" data-un="${esc(t)}" ${un.includes(Number(t)) ? "checked" : ""}>` : ""}</td>
+            <td class="c">${/^\d+$/.test(t) ? `<input type="checkbox" data-mo="${esc(t)}" ${mo.includes(Number(t)) ? "checked" : ""}>` : ""}</td></tr>`).join("") ||
+            `<tr><td class="txt muted" colspan="5">找不到这个政体的官职表。</td></tr>`}
+        </tbody></table>
+        <div class="toolbar" style="margin-top:6px"><button class="small" id="flAdd">添加官职档</button><span class="fh">官职名来自 Scripts/Regimes/Configs/&lt;政体&gt;/OfficialType.csv 和语言文件。</span></div></div>`;
+      $$("[data-floor]", panel).forEach(sel => sel.addEventListener("change", () => {
+        const t = sel.dataset.floor;
+        if (sel.value === "") {
+          const table = R().floors?.[k];
+          if (isObj(table)) { delete table[t]; if (!Object.keys(table).length) delete R().floors[k]; }
+        } else own(own(R(), "floors", TOP_R), k, [])[t] = Number(sel.value);
+        markDirty("ranks"); renderList();
+      }));
+      const toggle = (part, t, on) => {
+        const n = Number(t);
+        if (on) {
+          const arr = own(own(R(), part, TOP_R), k, [], () => []);
+          if (arr.includes(n)) return;
+          const sorted = arr.every((x, i) => i === 0 || arr[i - 1] <= x);
+          arr.push(n);
+          if (sorted) arr.sort((a, b) => a - b);
+        } else {
+          const arr = R()[part]?.[k];
+          if (!Array.isArray(arr)) return;
+          for (let i = arr.length - 1; i >= 0; i--) if (arr[i] === n) arr.splice(i, 1);
+          if (!arr.length) delete R()[part][k];
+        }
+        markDirty("ranks"); renderList();
+      };
+      $$("[data-un]", panel).forEach(cb => cb.addEventListener("change", () => toggle("unranked", cb.dataset.un, cb.checked)));
+      $$("[data-mo]", panel).forEach(cb => cb.addEventListener("change", () => toggle("military_offices", cb.dataset.mo, cb.checked)));
+      $("#flAdd").addEventListener("click", async () => {
+        const res = await ask("添加官职档", [{ label: "官职档(整数)" }, { label: "任职定底(0~8，可留空)" }]);
+        if (!res || !/^\d+$/.test(res[0])) return res && toast("官职档要写整数", true);
+        if (res[1] !== "") {
+          const n = Number(res[1]);
+          if (!Number.isInteger(n)) return toast("定底要写 0~8 的整数", true);
+          own(own(R(), "floors", TOP_R), k, [])[res[0]] = n;
+          markDirty("ranks");
+        } else (S.officeNames[k] = S.officeNames[k] || {})[res[0]] = S.officeNames[k][res[0]] || "";
+        renderPanel(); renderList();
+      });
+    }
+
+    // ================= 官阶：称谓表 =================
+
+    function renderTitles() {
+      const sel = S.sel.titles;
+      const dup = Object.entries(csvLive().reduce((m, l) => { const k = csvKeyOf(l); m[k] = (m[k] || 0) + 1; return m; }, {})).filter(([, n]) => n > 1).map(([k]) => k);
+      const dupNote = dup.length ? `<div class="note warn">称谓表里这些键重复了：${esc(dup.join("、"))}，编辑器改的是最后一行。</div>` : "";
+      if (!sel) {
+        panel.innerHTML = `<h2>${ico("iconBooks", "lg")}官阶 · 称谓表</h2>${dupNote}
+          <p class="hint">Locales/OfficialRanks.csv：键是 official_rank_&lt;套名&gt;_&lt;档&gt;，0 最高、8 最低；简体(cz)、English(en)、繁體(ch)写在同一行。
+          缺称谓的一档先退到通用回退那一套，再不行显示数字。律令制的散官(Huaxia_honoraryofficial_…)在 Locales/HonoraryOfficial.csv，不在这里改。</p>
+          <p class="muted">从左侧选一套称谓。</p>
+          <div class="toolbar" style="margin-top:12px"><button class="small" id="tFillAll">补全全部繁体(只填空格)</button></div>`;
+        $("#tFillAll").addEventListener("click", () => { if (fillTraditional(csvLive().map(csvKeyOf))) renderList(); });
+        return;
+      }
+      if (sel === "@others") return renderTitleOthers(dupNote);
+      const uses = setUses(sel);
+      const rows = [];
+      for (let t = 0; t <= 8; t++) {
+        const key = setKey(sel, t);
+        rows.push(`<tr><td class="txt">${esc(tierLabel(t))}<div class="fk">${esc(key)}</div></td>${LANGS.map(([l]) => `<td><input data-ck="${esc(key)}" data-lang="${l}" value="${esc(csvGet(key, l))}"></td>`).join("")}</tr>`);
+      }
+      panel.innerHTML = `<div class="row-head"><h2>${ico("iconBooks", "lg")}${esc(setRange(sel) || sel)}<span class="badge">${esc(sel)}</span></h2><span class="spacer"></span>
+          <button class="small" id="tFill">补全繁体</button><button class="small" id="tCopy">复制成新的一套</button><button class="small danger" id="tDel">删除整套</button></div>${dupNote}
+        <div class="card"><h3>用在</h3><div class="chips">${uses.length ? uses.map(([fk, t]) => `<span class="chip link" data-form="${esc(fk)}">${esc(t)}</span>`).join("") : `<span class="muted">还没有形态用这一套：到“政体形态”里给某个文明组选上它</span>`}</div></div>
+        <div class="card"><table class="sheet"><thead><tr><th>档</th>${LANGS.map(([l, t]) => `<th>${t}<span class="fk">${l}</span></th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>
+          <p class="fh">简体、繁體会互相自动填写；英文留空，保存时先用简体代替。三种语言都清空的一行会从表里删掉(这一档退到通用回退)。键是 official_rank_${esc(sel)}_&lt;档&gt;。</p></div>`;
+      $("#tFill").addEventListener("click", () => { fillTraditional(Array.from({ length: 9 }, (_, t) => setKey(sel, t))); renderPanel(); });
+      $$("[data-form]", panel).forEach(c => c.addEventListener("click", () => {
+        if (!c.dataset.form) return switchSection("general");
+        S.sel.forms = c.dataset.form; switchSection("forms");
+      }));
+      $("#tCopy").addEventListener("click", () => newSet(sel));
+      $("#tDel").addEventListener("click", () => {
+        if (!confirm(`删除称谓套 ${sel} 的九行？` + (uses.length ? `\n还有这些地方在用：${uses.map(u => u[1]).join("、")}` : ""))) return;
+        for (let t = 0; t <= 8; t++) csvDelete(setKey(sel, t));
+        S.extraSets = S.extraSets.filter(s => s !== sel);
+        S.sel.titles = null; updateSaveBtn(); renderAll();
+      });
+    }
+
+    function renderTitleOthers(dupNote) {
+      const sets = csvSets();
+      const isSetKey = key => { const m = key.match(/^official_rank_(.+)_(\d+)$/); return !!m && sets.has(m[1]) && Number(m[2]) <= 8 && !ladderKeys().has(key); };
+      const lines = csvLive().filter(l => !isSetKey(csvKeyOf(l)));
+      const special = ladderKeys();
+      panel.innerHTML = `<h2>${ico("iconBooks", "lg")}其它条目</h2>${dupNote}
+        <p class="hint">不属于九档称谓套的行：元老、元帅、士兵军衔阶梯的各级等。带“已引用”的是士兵阶梯或专属军衔在用的键。</p>
+        <div class="card"><table class="sheet"><thead><tr><th>键</th>${LANGS.map(([l, t]) => `<th>${t}<span class="fk">${l}</span></th>`).join("")}<th class="act"></th></tr></thead><tbody>
+          ${lines.map(l => { const key = csvKeyOf(l); return `<tr><td class="txt">${esc(key)}${special.has(key) ? `<div class="fh">已引用</div>` : ""}</td>${LANGS.map(([lang]) => `<td><input data-ck="${esc(key)}" data-lang="${lang}" value="${esc(l.cells[S.csv.col[lang]] ?? "")}"></td>`).join("")}<td class="act"><button class="small danger" data-xdel="${esc(key)}" title="删除这一行">×</button></td></tr>`; }).join("") || `<tr><td class="txt muted" colspan="5">(空)</td></tr>`}
+        </tbody></table>
+        <div class="toolbar" style="margin-top:6px"><button class="small" id="tAddRow">添加一行</button><button class="small" id="tFill">补全繁体</button></div></div>`;
+      $("#tFill").addEventListener("click", () => { fillTraditional(lines.map(csvKeyOf)); renderPanel(); });
+      $$("[data-xdel]", panel).forEach(b => b.addEventListener("click", () => {
+        if (!confirm(`删除 ${b.dataset.xdel} 这一行？`)) return;
+        csvDelete(b.dataset.xdel); updateSaveBtn(); renderPanel(); renderList();
+      }));
+      $("#tAddRow").addEventListener("click", async () => {
+        const r = await ask("添加一行", [{ label: "语言键", value: "official_rank_" }, ...LANGS.map(([l, t]) => ({ label: t }))], "繁体、英文可以留空：繁体按简体转换，英文保存时先用简体。");
+        if (!r || !r[0]) return;
+        if (csvFind(r[0]) && !csvFind(r[0]).deleted) return toast(`已经有 ${r[0]}`, true);
+        if (r[1] && !r[3] && hasZh()) r[3] = zhToTrad(r[1]);
+        LANGS.forEach(([l], i) => csvSet(r[0], l, r[i + 1]));
+        if (!csvFind(r[0])) return toast("三种语言至少填一种", true);
+        updateSaveBtn(); renderPanel(); renderList();
+      });
+    }
+
+    // 新建称谓套：默认照抄一套现有的九档名字，再逐档改；套名可留空自动起
+    async function newSet(copyFrom) {
+      const sources = allSetNames().filter(s => setRange(s));
+      const def = copyFrom || (S.sel.titles && S.sel.titles !== "@others" ? S.sel.titles : sources.includes("grades_general") ? "grades_general" : sources[0]);
+      const r = await ask(copyFrom ? `复制称谓套：${setLabel(copyFrom)}` : "新建称谓套", [
+        { label: "照抄哪一套的九档名字", options: [...sources.map(s => [s, setLabel(s)]), ["", "空白：九档都自己写"]], value: def || "" },
+        { label: "套名(英文，可留空自动起名)", placeholder: "例如 court_viking" }
+      ], "建好后逐档改名字；再到“政体形态”里给某个文明组选上这一套才会用到。");
+      if (!r) return;
+      const [src, typed] = r;
+      const taken = n => allSetNames().includes(n) || csvLive().some(l => groupOf(csvKeyOf(l)) === `official_rank_${n}`);
+      let name = typed;
+      if (name) {
+        if (!/^[A-Za-z0-9_]+$/.test(name)) return toast("套名只能用英文字母、数字和下划线", true);
+        if (taken(name)) return toast(`已经有 ${name}`, true);
+      } else {
+        const base = (src || "custom").replace(/\{0\}/g, "").replace(/[^A-Za-z0-9_]+/g, "_").replace(/_+$/, "") || "custom";
+        let n = 2;
+        while (taken(`${base}_v${n}`)) n++;
+        name = `${base}_v${n}`;
+      }
+      if (src) for (let t = 0; t <= 8; t++) for (const [l] of LANGS) {
+        const v = titleText(setKey(src, t), l);
+        if (v) csvSet(setKey(name, t), l, v);
+      }
+      S.extraSets.push(name);
+      S.sel.titles = name; updateSaveBtn(); renderAll();
+      toast(`已新建称谓套 ${name}` + (src ? `，九档先照抄 ${src}` : ""));
+    }
+
+    // ================= 侧栏列表 =================
+
+    function item(key, label, sub, active, bad = false, title = "") {
+      return `<div class="item ${active ? "active" : ""} ${bad ? "bad" : ""}" data-k="${esc(key)}" title="${esc(title)}"><span>${esc(label)}</span><span class="sub">${esc(sub)}</span></div>`;
+    }
+    function renderList() {
+      const q = $("#filter").value.trim().toLowerCase();
+      const hit = (...s) => !q || s.some(x => String(x).toLowerCase().includes(q));
+      const list = $("#list"), tools = $("#listTools");
+      let html = "", toolHtml = "";
+      const sec = S.section;
+      if (sec === "formations") {
+        const all = F().formations || {};
+        html = item("", "建制总览", `${Object.keys(all).length} 种`, !S.sel.formations) +
+          Object.keys(all).filter(id => hit(id, formationName(id))).map(id => {
+            const miss = missingLangs(nameKeyOf(id));
+            const uses = formationUses(id);
+            return item(id, formationName(id), miss.length ? `缺${miss.join("/")}名称` : id, id === S.sel.formations, miss.length > 0, uses.length ? "用在：" + uses.join("、") : "没有政体用");
+          }).join("");
+        toolHtml = `<button class="small primary" data-tool="new">${ico("iconShovelPlus", "sm")}新建</button><button class="small" data-tool="copy">复制</button><button class="small danger" data-tool="del">删除</button>`;
+      } else if (sec === "forms") {
+        const forms = isObj(R().forms) ? R().forms : {};
+        html = Object.keys(forms).filter(k => hit(k, formLabel(k))).map(k => item(k, formLabel(k), k, k === S.sel.forms, k === "Modern" || k === "Republic")).join("");
+        toolHtml = `<button class="small primary" data-tool="addForm">${ico("iconShovelPlus", "sm")}添加形态</button>`;
+      } else if (sec === "floors") {
+        const r = R();
+        html = floorRegimes().filter(k => hit(k, regimeLabel(k))).map(k => {
+          const n = isObj(r.floors?.[k]) ? Object.keys(r.floors[k]).length : 0;
+          const u = Array.isArray(r.unranked?.[k]) ? r.unranked[k].length : 0;
+          const m = Array.isArray(r.military_offices?.[k]) ? r.military_offices[k].length : 0;
+          const sub = [n && `定底${n}`, u && `不列${u}`, m && `武职${m}`].filter(Boolean).join(" · ") || "未配置";
+          return item(k, regimeLabel(k), sub, k === S.sel.floors);
+        }).join("");
+      } else if (sec === "titles") {
+        const sets = csvSets(), used = new Set(referencedSets());
+        const names = uniq([...sets.keys(), ...S.extraSets, ...[...used].filter(s => !s.includes("{0}"))]);
+        html = item("@others", "其它条目", "元老、元帅、士兵阶梯…", S.sel.titles === "@others") +
+          names.filter(s => hit(s, setRange(s))).map(s => {
+            const have = sets.get(s)?.size || 0;
+            const state = have === 0 ? "称谓表里没有" : have < 9 ? `缺 ${9 - have} 档` : used.has(s) ? "" : "没用上";
+            const head = titleText(setKey(s, 0), "cz");
+            return item(s, head ? `${head} …` : s, state ? `${s} · ${state}` : s, s === S.sel.titles, have < 9 && (used.has(s) || have > 0), setRange(s));
+          }).join("");
+        toolHtml = `<button class="small primary" data-tool="newSet">${ico("iconShovelPlus", "sm")}新建称谓套</button>`;
+      } else if (sec === "regimes") {
+        html = `<div class="note">右侧一张表就是全部政体的军制：每个政体四个槽位各放一种建制。建制本身在“建制”里编辑。</div>`;
+      } else if (sec === "general") {
+        html = `<div class="note">通用规则对所有政体形态生效：回退称谓、文明组划分、统帅和军官的底线、士兵军衔阶梯、元老专属军衔。</div>`;
+      }
+      const listed = ["formations", "forms", "floors", "titles"].includes(sec);
+      $("#filter").hidden = !listed;
+      tools.hidden = !toolHtml;
+      // 侧栏尽量原地更新：输入框失焦(change)时会重画侧栏，元素换掉的话刚按下的那一下点击就丢了
+      if (tools.dataset.html !== toolHtml) { tools.innerHTML = toolHtml; tools.dataset.html = toolHtml; }
+      patchChildren(list, html);
+    }
+    function patchChildren(box, html) {
+      const tpl = document.createElement("div");
+      tpl.innerHTML = html;
+      const next = [...tpl.children], cur = [...box.children];
+      if (next.length === cur.length && next.every((n, i) => n.tagName === cur[i].tagName && n.dataset.k === cur[i].dataset.k)) {
+        next.forEach((n, i) => {
+          if (cur[i].outerHTML === n.outerHTML) return;
+          cur[i].className = n.className; cur[i].title = n.title; cur[i].innerHTML = n.innerHTML;
+        });
+      } else box.innerHTML = html;
+    }
+    // 侧栏的点击用事件委托，只绑一次
+    document.getElementById("list").addEventListener("click", e => {
+      const it = e.target.closest(".item[data-k]");
+      if (it) selectItem(it.dataset.k);
+    });
+    document.getElementById("listTools").addEventListener("click", e => {
+      const t = e.target.closest("[data-tool]")?.dataset.tool;
+      if (t === "new") newFormation(null);
+      else if (t === "copy") S.sel.formations ? newFormation(S.sel.formations) : toast("先在列表里选一个建制", true);
+      else if (t === "del") S.sel.formations ? deleteFormation(S.sel.formations) : toast("先在列表里选一个建制", true);
+      else if (t === "addForm") addForm();
+      else if (t === "newSet") newSet(null);
+    });
+
+    function selectItem(key) {
+      S.sel[S.section] = key || null;
+      renderList(); renderPanel();
+      panel.scrollTop = 0;
+    }
+    function switchSection(sec) {
+      S.section = sec;
+      $("#filter").value = "";
+      renderAll();
+      panel.scrollTop = 0;
+    }
+    function renderNav() {
+      $("#sectionNav").innerHTML = SECTIONS.map(([k, t, icon]) => `<button type="button" data-sec="${k}" class="${k === S.section ? "active" : ""}">${ico(icon, "sm")}${t}</button>`).join("");
+      $$("[data-sec]", $("#sectionNav")).forEach(b => b.addEventListener("click", () => switchSection(b.dataset.sec)));
+    }
+    function renderPanel() {
+      const top = panel.scrollTop;
+      renderDatalists();
+      const sec = S.section;
+      if (sec === "formations") renderFormation();
+      else if (sec === "regimes") renderRegimes();
+      else if (sec === "general") renderGeneral();
+      else if (sec === "forms") renderForm();
+      else if (sec === "floors") renderFloors();
+      else if (sec === "titles") renderTitles();
+      panel.scrollTop = top;
+    }
+    function renderAll() { renderNav(); renderList(); renderPanel(); }
+
+    // 简繁互填：另一边是空的、还是上次自动填的、或(本次还没手动改过时)正好是这一边旧值的转换，就跟着改；
+    // 这次手动改过的那一边以后不再自动改
+    function autoPair(attr, key, lang, before, value, get, set) {
+      if (lang !== "cz" && lang !== "ch") return;
+      S.manual[key + "|" + lang] = true;
+      delete S.auto[key + "|" + lang];
+      if (!hasZh() || !value) return;
+      const other = lang === "cz" ? "ch" : "cz";
+      const conv = lang === "cz" ? zhToTrad : zhToSimp;
+      const cur = get(other), tag = key + "|" + other;
+      if (S.manual[tag] && cur !== "") return;
+      if (!(cur === "" || cur === S.auto[tag] || (before && cur === conv(before)))) return;
+      const next = conv(value);
+      if (next === cur) { S.auto[tag] = next; return; }
+      set(other, next);
+      S.auto[tag] = next;
+      const inp = panel.querySelector(`[${attr}="${CSS.escape(key)}"][data-lang="${other}"]`);
+      if (inp) inp.value = next;
+    }
+
+    // 语言文件、称谓表的输入框：边打字边记
+    panel.addEventListener("input", e => {
+      const el = e.target, lang = el.dataset.lang;
+      if (el.dataset.loc) {
+        const k = el.dataset.loc, before = locText(k, lang);
+        const set = (l, v) => { S.locEdits[k] = { ...(S.locEdits[k] || {}), [l]: v }; };
+        set(lang, el.value);
+        autoPair("data-loc", k, lang, before, el.value, l => locText(k, l), set);
+        updateSaveBtn();
+        if (S.section === "formations") { const t = $("#fTitle"); if (t && lang === "cz") t.textContent = el.value || S.sel.formations; }
+      } else if (el.dataset.ck) {
+        const k = el.dataset.ck, before = csvGet(k, lang);
+        csvSet(k, lang, el.value);
+        autoPair("data-ck", k, lang, before, el.value, l => csvGet(k, l), (l, v) => csvSet(k, l, v));
+        updateSaveBtn();
+      }
+    });
+
+    // 一键补全繁体：只填空着的格子
+    function fillTraditional(keys) {
+      if (!hasZh()) { toast("没有找到简繁转换(zh-convert.js)", true); return 0; }
+      let n = 0;
+      for (const k of keys) {
+        const cz = csvGet(k, "cz");
+        if (cz && !csvGet(k, "ch")) { const t = zhToTrad(cz); csvSet(k, "ch", t); S.auto[k + "|ch"] = t; delete S.manual[k + "|ch"]; n++; }
+      }
+      updateSaveBtn();
+      toast(n ? `补全了 ${n} 个繁体` : "没有空着的繁体格子");
+      return n;
+    }
+    panel.addEventListener("change", e => {
+      if (e.target.dataset.loc || e.target.dataset.ck) renderList();
+    });
+    // 记住“高级”是否展开，重画后保持
+    panel.addEventListener("toggle", e => { const k = e.target.dataset?.adv; if (k) S.advOpen[k] = e.target.open; }, true);
+
+    // ================= 保存 =================
+
+    async function saveAll() {
+      if (!api) return toast("只有桌面版才能保存", true);
+      const done = [], skipped = [];
+      // 本次改过的名字：英文空着先用简体；繁体空着用简体转换
+      let enFallback = 0, chFilled = 0;
+      const trad = t => hasZh() ? zhToTrad(t) : t;
+      for (const [k, v] of Object.entries(S.locEdits)) {
+        const cz = v.cz ?? S.loc[k]?.cz ?? "";
+        if (!cz.trim()) continue;
+        if (!(v.en ?? S.loc[k]?.en ?? "").trim()) { v.en = cz; enFallback++; }
+        if (!(v.ch ?? S.loc[k]?.ch ?? "").trim()) { v.ch = trad(cz); chFilled++; }
+      }
+      const col = S.csv.col;
+      for (const l of S.csv.lines) {
+        if (l.blank || l.deleted || !l.changed) continue;
+        const cz = l.cells[col.cz] || "";
+        if (!cz.trim()) continue;
+        while (l.cells.length <= Math.max(col.en, col.ch)) l.cells.push("");
+        if (!l.cells[col.en].trim()) { l.cells[col.en] = cz; enFallback++; }
+        if (!l.cells[col.ch].trim()) { l.cells[col.ch] = trad(cz); chFilled++; }
+      }
+      const extra = [enFallback && `${enFallback} 处英文留空，已先用简体代替`, chFilled && `${chFilled} 处繁体留空，已按简体自动转换`].filter(Boolean).join("；");
+      try {
+        for (const key of ["formations", "ranks"]) {
+          const f = S.files[key];
+          if (!f.dirty) continue;
+          if (f.error) { skipped.push(f.path); continue; }
+          const text = serializeDoc(f);
+          await api.writeText(f.path, text);
+          f.dirty = false;
+          f.blanks = blankLinePaths(text);
+          done.push(f.path.split("/").pop());
+        }
+        if (S.csv.dirty) {
+          const text = serializeTitleCsv(S.csv);
+          await api.writeText(TITLE_CSV, text);
+          S.csv = parseTitleCsv(text);
+          done.push("OfficialRanks.csv");
+        }
+        const edits = {};
+        for (const [k, v] of Object.entries(S.locEdits)) if (k) edits[k] = v;
+        if (Object.keys(edits).length) {
+          await api.writeLocales(edits);
+          for (const [k, v] of Object.entries(edits)) S.loc[k] = { ...(S.loc[k] || {}), ...v };
+          S.locEdits = {};
+          done.push("语言文件");
+        }
+        updateSaveBtn();
+        renderList();
+        if (skipped.length) toast(`${skipped.join("、")} 读取失败，没有保存` + (done.length ? `；已保存 ${done.join("、")}` : ""), true);
+        else toast(done.length ? `已保存 ${done.join("、")}，重启游戏后生效` + (extra ? `。${extra}` : "") : "没有需要保存的修改");
+        if (!skipped.length && done.length) renderPanel();
+      } catch (e) { toast("保存失败：" + e.message, true); }
+    }
+
+    mountAppBar("military.html");
+    document.getElementById("filter").addEventListener("input", renderList);
+    document.getElementById("saveBtn").addEventListener("click", saveAll);
+    document.getElementById("reloadBtn").addEventListener("click", () => {
+      if (isDirty() && !confirm("有未保存的修改，确定重新读取？")) return;
+      load();
+    });
+    document.getElementById("openBtn").addEventListener("click", async () => {
+      if (!api) return toast("只有桌面版才能打开目录", true);
+      try { await api.openPath("Scripts/Regimes/Configs"); } catch (e) { toast(e.message, true); }
+    });
+    window.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveAll(); } });
+    window.addEventListener("beforeunload", e => { if (isDirty()) { e.preventDefault(); e.returnValue = ""; } });
+    load();
+  </script>
+</body>
+</html>

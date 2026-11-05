@@ -32,6 +32,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_fixed_city_borders;
     public static WorldLawAsset empirecraft_law_surname_dynasty;
     public static WorldLawAsset empirecraft_law_dejure_first;
+    public static WorldLawAsset empirecraft_law_enforce_laws;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -237,6 +238,14 @@ public static class EmpireCraftWorldLawLibrary
             id = nameof(empirecraft_law_dejure_first),
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconKingdom",
+            default_state = true
+        });
+        // 执行律法(默认开)：帝国按政体的律法定罪量刑(见 EmpireLawSystem)；关了不再自动查案，揭发罪行也定不了罪
+        AssetManager.world_laws_library.add(empirecraft_law_enforce_laws = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_enforce_laws),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/plots/plot_kingdom_expose_crime",
             default_state = true
         });
         

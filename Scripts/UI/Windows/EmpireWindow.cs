@@ -1474,8 +1474,10 @@ namespace EmpireCraft.Scripts.UI.Windows
             foreach (string hintKey in new[] { "constitution_ideology_intensity_hint", "constitution_speech_hint",
                 "constitution_nation_hint", "constitution_civil_service_hint", "constitution_farmland_hint", "constitution_grain_hint" })
             {
-                var note = parent.AddTextIntoVertLayout(LM.Get(hintKey).ColorString("#9A948A"),
-                    true, TextAnchor.MiddleLeft, new Vector2(MainWidth - 4f, 18f));
+                string hint = LM.Get(hintKey);
+                float hintHeight = Mathf.Max(18f, UIHelper.EstimateWrappedLines(hint, 6, MainWidth - 4f) * 8f + 2f);
+                var note = parent.AddTextIntoVertLayout(hint.ColorString("#9A948A"),
+                    true, TextAnchor.MiddleLeft, new Vector2(MainWidth - 4f, hintHeight));
                 note.UseFixedFontSize(6, HorizontalWrapMode.Wrap);
             }
             StartCoroutine(ShowCardRows(clauseRows, dynamicsRows));

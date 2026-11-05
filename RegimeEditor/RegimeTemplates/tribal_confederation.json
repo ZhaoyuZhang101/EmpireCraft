@@ -1,0 +1,188 @@
+{
+  "format": "EmpireCraftRegimeTemplate",
+  "version": 1,
+  "order": 30,
+  "name": {
+    "cz": "部落联盟",
+    "en": "Tribal Confederation",
+    "ch": "部落聯盟"
+  },
+  "summary": "各部落保留世袭酋长，共主不世袭、由推选产生；成员算间接统治，路远不失稳，打下的地不设官。(原始政体专有的部落分合规则不会跟过来)",
+  "regime": {
+    "description": "各部落保留自己的酋长，共推一位共主统领联盟，共主不世袭",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "is_monarchy": false,
+    "allows_landlord_class": true,
+    "cabinet_number": 0,
+    "leader_select_method": "Vote",
+    "default_kingdom": "{R}_tribe",
+    "centre_empire_separate": true,
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": true,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.0,
+    "laws": [
+      0,
+      1,
+      13,
+      14,
+      16,
+      17,
+      18,
+      20,
+      21,
+      27,
+      28,
+      29,
+      32,
+      33,
+      36,
+      37,
+      38,
+      39,
+      42,
+      43,
+      50,
+      51,
+      54
+    ],
+    "Factions": [
+      {
+        "_id": "{R}-faction-1",
+        "Type": "原始",
+        "Name": "长老议事会"
+      },
+      {
+        "_id": "{R}-faction-2",
+        "Type": "尊王",
+        "Name": "共主派"
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        0
+      ],
+      "option_tax_level": [
+        1,
+        3
+      ],
+      "option_leader_select_method": [
+        2,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": [
+            "礼仪",
+            "宗教"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      ],
+      "division": [],
+      "harems": [],
+      "kingdoms": {
+        "{R}_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Vote",
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "{R}_city"
+        },
+        "{R}_tribe": {
+          "pre": "",
+          "type": 2,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "{R}_city"
+        }
+      },
+      "cities": {
+        "{R}_city": {
+          "pre": "",
+          "type": 3,
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Default"
+        }
+      }
+    }
+  },
+  "locales": {
+    "{R}_empire": {
+      "cz": "部落联盟",
+      "en": "Tribal Confederation",
+      "ch": "部落聯盟"
+    },
+    "{R}_centre": {
+      "cz": "盟主部",
+      "en": "Leading Tribe",
+      "ch": "盟主部"
+    },
+    "{R}_tribe": {
+      "cz": "部",
+      "en": "Tribe",
+      "ch": "部"
+    },
+    "{R}_city": {
+      "cz": "寨",
+      "en": "Camp",
+      "ch": "寨"
+    },
+    "{R}_officiallevel_0": {
+      "cz": "共主",
+      "en": "High Chief",
+      "ch": "共主"
+    },
+    "{R}_officiallevel_1": {
+      "cz": "大巫",
+      "en": "Shaman",
+      "ch": "大巫"
+    },
+    "{R}_officiallevel_2": {
+      "cz": "酋长",
+      "en": "Chieftain",
+      "ch": "酋長"
+    },
+    "{R}_officiallevel_3": {
+      "cz": "头人",
+      "en": "Headman",
+      "ch": "頭人"
+    }
+  }
+}

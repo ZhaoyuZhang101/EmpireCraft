@@ -74,14 +74,14 @@
         "eventType": "Administrative_Reform",
         "is_good": true,
         "trigger_rate": 0.5,
-        "performance_add_on": -15,
+        "performance_add_on": 15,
         "official_levels": [1,2,3,4,7]
     },
     "Legal_Code_Revision": {
         "eventType": "Legal_Code_Revision",
         "is_good": true,
         "trigger_rate": 0.5,
-        "performance_add_on": -15,
+        "performance_add_on": 15,
         "official_levels": [1,2,3,4,7]
 
     },
@@ -89,21 +89,21 @@
         "eventType": "Policy_Championed_at_Court",
         "is_good": true,
         "trigger_rate": 0.5,
-        "performance_add_on": -15,
+        "performance_add_on": 15,
                 "official_levels": [1,2,3,4,7]
     },
     "Talents_Recommended": {
         "eventType": "Talents_Recommended",
         "is_good": true,
         "trigger_rate": 0.5,
-        "performance_add_on": -15,
+        "performance_add_on": 15,
                 "official_levels": [1,2,3,4,7]
     },
     "Corruption_Exposed": {
         "eventType": "Corruption_Exposed",
         "is_good": true,
         "trigger_rate": 0.5,
-        "performance_add_on": -15,
+        "performance_add_on": 15,
                 "official_levels": [1,2,3,4,7]
     },
     "Factional_Infighting": {

@@ -1009,7 +1009,8 @@ public static class WildernessPlotSystem
             foreach (int id in plot.zones.ToList())
             {
                 TileZone zone = Zone(id);
-                if (!Opened(zone) || !Touches(city, zone)) continue;
+                // 县城挨着、走得到的(隔水翻山的不领，同原版扩张)
+                if (!Opened(zone) || !Touches(city, zone) || !CityExpansionPatch.Reachable(zone, city)) continue;
                 if (CityExpansionPatch.AtLimit(city)) break;
                 using (WildernessSystem.Settle()) city.addZone(zone);
                 if (zone.city == city) grew = true;
@@ -1047,7 +1048,7 @@ public static class WildernessPlotSystem
             WildPlot plot = PlotOf(zone);
             if (plot == null) return false;
             City city = CityOf(plot);
-            if (city != null && Touches(city, zone) && !CityExpansionPatch.AtLimit(city))
+            if (city != null && Touches(city, zone) && CityExpansionPatch.Reachable(zone, city) && !CityExpansionPatch.AtLimit(city))
                 using (WildernessSystem.Settle())
                     city.addZone(zone);
             return true;

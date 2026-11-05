@@ -1269,7 +1269,8 @@ namespace EmpireCraft.Scripts.AI
                         }
                         else
                         {
-                            var context = targetKing.TryEnforceLaw(crime, kingdom);
+                            // 只立案不施刑：定罪(夷三族)还是开释由下面决定(以前先按律施了刑，开释也已受刑)
+                            var context = EmpireLawSystem.PrepareEnforcement(targetKing, crime, kingdom);
                             if (context == null) return false;
                             //当影响力小于两百, 或者脱罪次数达到2的上限则进行惩罚
                             if (targetKing.renown <= 200 && targetKing.EscapeFromPunishment(true))
@@ -1283,7 +1284,6 @@ namespace EmpireCraft.Scripts.AI
                                 {
                                     EmpireLawSystem.ApplyPunishment(context, p);
                                 }
-                                TranslateHelper.LogLawEnforcement(context);
                             }
                             else
                             {

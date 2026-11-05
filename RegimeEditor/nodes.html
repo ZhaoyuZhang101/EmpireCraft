@@ -6,12 +6,37 @@
   <title>EmpireCraft 科技 / 制度节点编辑器</title>
   <link rel="stylesheet" href="common.css" />
   <link rel="stylesheet" href="pixel-theme.css" />
+  <style>
+    .fgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+    .fhead{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .fkey{font-size:11px;opacity:.6;font-family:Consolas,monospace}
+    .fhint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:2px}
+    .fnote{font-size:12px;color:var(--muted);margin:2px 0 4px}
+    .fhead .inherit{margin-left:auto}
+    h3 .fhint{font-weight:normal;margin:0}
+    .rowcard{border:1px solid var(--line);padding:8px 10px;margin-bottom:8px}
+    .rowcard .rowhead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .rowcard .rowhead .spacer{flex:1}
+    .mapgrid{display:grid;grid-template-columns:180px minmax(0,1fr) 34px;gap:6px 8px;align-items:start}
+    .settings-sec{scroll-margin-top:10px;margin-bottom:6px}
+    .uses .chip{cursor:pointer}
+    .pick{position:relative}
+    .pickmenu{position:absolute;top:100%;left:0;z-index:30;min-width:300px;max-width:460px;max-height:300px;overflow:auto;background:var(--c-input,#fffdfa);border:1px solid var(--c-gold-dim,var(--line));box-shadow:0 6px 18px rgba(0,0,0,.45)}
+    .pickmenu>div{padding:3px 8px;cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap}
+    .pickmenu>div.on,.pickmenu>div:hover{background:var(--c-card2,#f0dcb3)}
+    .pickmenu .fkey{margin-left:auto}
+    .chip .fkey{margin-left:3px}
+    details.adv{margin-top:14px;border-top:1px dashed var(--line);padding-top:4px}
+    details.adv>summary{cursor:pointer;color:var(--accent2);padding:6px 0}
+    #newDlg{width:min(780px,94vw)}
+    #newDlg .fgrid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  </style>
 </head>
 <body>
   <div class="layout">
     <aside class="side">
       <label class="field">数据源<select id="sourceSel"></select></label>
-      <div class="toolbar">
+      <div class="toolbar" id="nodeTools">
         <button class="primary small" id="addBtn"><img class="ico sm" src="assets/icons/iconShovelPlus.png">新节点</button>
         <button class="small" id="cloneBtn">复制</button>
         <button class="small danger" id="delBtn">删除</button>
@@ -31,154 +56,504 @@
   </div>
 
   <script src="common.js"></script>
+  <script src="zh-convert.js"></script>
   <script>
-    // ---------- 数据源定义 ----------
-    // 每个数据源 = 一个 json 文件里的一个节点数组；字段按类型给出编辑控件，没列出的字段放进“其它字段(JSON)”
+    // 数据源 = 一个 json 文件里的一个节点数组(科技、材料、制度线、公共模板、名著、商品)，或一个文件的全局设置(kind: "settings")。
+    // 字段按 C# 载入器(TechnologySystem、InstitutionConfig、LandmarkBookSystem、CommodityMarketSystem)给出编辑控件，
+    // 表单没覆盖的字段放进“其它字段(JSON)”，原样保留。保存时只重写改过的部分，没改的地方保持原文件的排版。
+    const TECH = "Technology/TechTree.json", BOOKS = "Technology/LandmarkBooks.json", COMM = "Technology/Commodities.json";
+    const SETTINGS = "InstitutionTrees/Settings.json";
     const SOURCES = [];
-    const S = { docs: {}, source: null, selected: null, dirty: new Set(), locales: {}, localeEdits: {}, landmarkCsv: null, lookups: {} };
+    const S = { docs: {}, source: null, selected: null, dirty: new Set(), locales: {}, localeEdits: {}, landmarkCsv: null, lookups: {}, loadErrors: [],
+      newNodes: new WeakSet(), advOpen: false, zhAuto: {} };
 
-    function techSource() {
+    // ---------- 小工具 ----------
+    const isObj = v => v !== null && typeof v === "object" && !Array.isArray(v);
+    const isEmptyVal = v => v === "" || v === null || v === undefined || (Array.isArray(v) && !v.length) || (isObj(v) && !Object.keys(v).length);
+    function deepEq(a, b) {
+      if (a === b) return true;
+      if (Array.isArray(a)) return Array.isArray(b) && a.length === b.length && a.every((x, i) => deepEq(x, b[i]));
+      if (isObj(a)) {
+        if (!isObj(b)) return false;
+        const ka = Object.keys(a).filter(k => a[k] !== undefined), kb = Object.keys(b).filter(k => b[k] !== undefined);
+        return ka.length === kb.length && ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && deepEq(a[k], b[k]));
+      }
+      return false;
+    }
+    function getPath(o, k) { return String(k).split(".").reduce((x, p) => isObj(x) ? x[p] : undefined, o); }
+    // 写一个(可带点号的)字段；空值删掉这个键，因此变空的上级对象也一并删掉(keep = 空数组/空对象也写进去)
+    function setPath(o, k, v, keep = false) {
+      const parts = String(k).split(".");
+      if (isEmptyVal(v) && !(keep && (Array.isArray(v) || isObj(v)))) {
+        const chain = [o];
+        for (const p of parts.slice(0, -1)) { const next = chain[chain.length - 1][p]; if (!isObj(next)) return; chain.push(next); }
+        const last = parts[parts.length - 1];
+        if (!(last in chain[chain.length - 1])) return;
+        delete chain[chain.length - 1][last];
+        for (let i = chain.length - 1; i > 0; i--) { if (Object.keys(chain[i]).length) break; delete chain[i - 1][parts[i - 1]]; }
+        return;
+      }
+      let cur = o;
+      for (const p of parts.slice(0, -1)) { if (!isObj(cur[p])) cur[p] = {}; cur = cur[p]; }
+      cur[parts[parts.length - 1]] = v;
+    }
+    function summary(v) {
+      if (v === true) return "是";
+      if (v === false) return "否";
+      if (Array.isArray(v)) return v.length ? v.map(x => isObj(x) ? JSON.stringify(x) : x).join("、") : "(空)";
+      if (isObj(v)) return Object.entries(v).map(([k, x]) => `${k} ${x}`).join("、") || "(空)";
+      return String(v);
+    }
+    const F = (k, label, type = "text", opt = null, more = {}) => ({ k, label, type, opt, ...more });
+    const SEC = (sec, hint = "") => ({ sec, hint });
+    const ADV = () => ({ adv: true });
+    const optsOf = o => (typeof o === "function" ? o() : o || []).map(x => Array.isArray(x) ? x : [x, x]);
+    const clamp01 = x => Math.max(0, Math.min(1, x));
+
+    // ---------- 枚举：直接读 C# 源码，读不到用内置清单 ----------
+    async function readCs(file) {
+      try { const r = await api.readText(file); return r.exists ? r.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "") : ""; } catch { return ""; }
+    }
+    async function readEnum(file, name, fallback) {
+      const m = (await readCs(file)).match(new RegExp(`enum\\s+${name}\\s*\\{([^}]*)\\}`));
+      const names = m ? m[1].split(",").map(s => s.split("=")[0].trim()).filter(s => /^[\p{L}_][\p{L}\p{N}_]*$/u.test(s)) : [];
+      return names.length ? names : fallback;
+    }
+    async function readStringSet(file, field, fallback) {
+      const m = (await readCs(file)).match(new RegExp(`${field}\\s*=\\s*new[^{]*\\{([^}]*)\\}`));
+      const names = m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1]) : [];
+      return names.length ? names : fallback;
+    }
+
+    // ---------- 字段表 ----------
+    const BRANCH_LABEL = { material: "材料", metallurgy: "冶金", military: "军事", construction: "营造", science: "科学", naval: "海军", civics: "典章",
+      administration: "行政", finance: "财政", society: "社会", ideology: "理念", production: "生产" };
+    const branchOpt = b => [b, BRANCH_LABEL[b] ? `${BRANCH_LABEL[b]} ${b}` : b];
+    const BOOST_TYPES = [["building_type", "建筑类型 building_type"], ["resource", "仓库资源 resource"], ["population", "全文化人口 population"], ["cities", "城市数 cities"],
+      ["material", "已发现材料 material"], ["tech", "已掌握科技 tech"], ["institution_feature", "制度特性 institution_feature"], ["contact_knows", "接触文化已掌握 contact_knows"], ["war_knows", "交战文化已掌握 war_knows"]];
+    const ENVIRONMENTS = [["prosperous", "富庶 prosperous"], ["industrial", "有工业 industrial"], ["industrial_unrest", "工业且工农不满 industrial_unrest"], ["militarized", "战时或兵多 militarized"], ["mass_politics", "大众政治 mass_politics"]];
+    const GOOD_TIERS = [["basic", "基础物资 basic"], ["raw", "原料 raw"], ["manufactured", "制成品 manufactured"], ["luxury", "奢侈品 luxury"]];
+    const EFFECT_COLS = () => [
+      { f: "type", label: "效果", kind: "select", opts: () => S.lookups.effects },
+      { f: "value", label: "值", kind: "list", opts: [], omitEmpty: true },
+      { f: "option", label: "选项", kind: "list", opts: [], omitEmpty: true },
+      { f: "int_value", label: "整数值", kind: "number", omitEmpty: true },
+      { f: "faction", label: "派系", kind: "select", opts: () => ["", ...S.lookups.factions], omitEmpty: true }
+    ];
+
+    // 字段顺序：常用的在前；ADV() 之后的进折叠的「高级」(没填的按代码默认值，输入框里灰字就是默认值)
+    function techFields() {
+      return [
+        SEC("基本"),
+        F("branch", "分支", "select", () => (doc(TECH)?.branches || []).filter(b => b !== "material").map(branchOpt)),
+        F("tier", "时代", "era", null, { def: 1, hint: "也决定进时代要的“此前各时代科技”；高过本文化时代太多的要多花钱" }),
+        F("cost", "基础花费", "number", null, { def: 10, hint: "实际花费再乘全局倍率、城数、超时代倍率" }),
+        F("", "时代节点", "custom", null, { virtual: true, render: eraNodeNote }),
+        SEC("前置"),
+        F("requires_techs", "前置科技", "refs", "tech"),
+        F("requires_materials", "需要材料", "refs", "material"),
+        SEC("解锁"),
+        F("unlock_materials", "解锁打造材料", "chips", () => uniq(["wood", "stone", "leather", "copper", "bronze", "silver", "iron", "steel", "mythril", "adamantine", ...collect("tech", "unlock_materials")]),
+          { hint: "原版装备材质(ItemAsset.material)，如 bronze、steel" }),
+        F("unlock_items", "解锁装备", "chips", () => collect("tech", "unlock_items"), { hint: "物品 id，别的模组没装时自动跳过" }),
+        F("unlock_buildings", "解锁建筑", "chips", () => collect("tech", "unlock_buildings"), { hint: "支持 * 通配，如 6house_*_modernmod" }),
+        F("unlock_units", "解锁单位", "chips", () => collect("tech", "unlock_units"), { hint: "别的模组的载具等 ActorAsset id" }),
+        ADV(),
+        SEC("科研"),
+        F("research_bonus", "科研加成", "number", null, { def: 0, hint: "0.1 = 科研产出 +10%" }),
+        F("research_slots", "同时研究几项", "number", null, { def: 0, hint: "研究出来后能并行研究的项数(取已研究科技里最大的)" }),
+        F("requires_institutions", "需要制度特性", "table", null, { hint: "本文化推行了带该特性的制度(特性值不低于最低值)才能研究",
+          cols: [{ f: "feature", label: "制度特性", kind: "list", opts: () => S.lookups.features }, { f: "min_value", label: "最低值", kind: "number", def: 1 }] }),
+        F("by_line", "按制度线换名字与前置", "custom", null, { render: byLineWidget,
+          hint: "某条制度线上这项科技换个名字(语言键 tech_&lt;key&gt; / tech_&lt;key&gt;_desc)和前置；没写的线用上面的前置" }),
+        SEC("海军", "海军分支：水师辐射、舰船战力、舰种"),
+        F("naval_reach", "水师辐射加格数", "number", null, { def: 0 }),
+        F("naval_power", "舰船战力加成", "number", null, { def: 0, hint: "0.25 = +25%" }),
+        F("naval_hull", "舰种倍率", "number", null, { def: 0, hint: "1.5 / 2.5 / 4，取已研究的最高" }),
+        SEC("灵感与物资"),
+        F("boosts", "灵感(提前做到就给一部分进度)", "table", null, {
+          cols: [{ f: "type", label: "条件", kind: "select", opts: BOOST_TYPES }, { f: "value", label: "对象", kind: "list", opts: () => [...namedOpts("material")(), ...namedOpts("tech")(), ...S.lookups.features] }, { f: "amount", label: "数量", kind: "number", def: 1 }] }),
+        F("", "研究离不开的物资", "custom", null, { virtual: true, render: techGoodsWidget, hint: "商品市场(Commodities.json 的 techs)：缺得越多研究越慢" })
+      ];
+    }
+
+    function instFields(line, isTemplate = false) {
+      const cultureSugg = () => {
+        const all = S.lookups.cultures || [];
+        const mine = all.filter(c => c.line === line), rest = all.filter(c => c.line !== line);
+        return [...mine, ...rest].map(c => [c.name, `${c.cn || c.name}${c.line ? " · " + c.line : ""}`]);
+      };
+      return [
+        SEC("基本"),
+        ...(isTemplate ? [] : [F("template", "套用公共模板", "select", () => templates().map(t => [t.id, `${locText(t.name_key) || t.id}  ${t.id}`]), { blank: "不套用", hint: "这里没写的字段沿用模板(对象逐字段合并、数组整体替换)" })]),
+        F("branch", "分支", "select", () => uniq(["administration", "finance", "military", "society", "ideology", "production", ...S.lookups.instBranches]).map(branchOpt), { def: "administration" }),
+        F("advancement", "进阶度(层级)", "number", null, { def: 1, hint: "树上的层级，也是吸收外来制度的门槛" }),
+        F("regime", "施行后切换政体", "select", () => S.lookups.regimes, { blank: "不切换", hint: "根节点的政体就是这条线的初始政体" }),
+        SEC("前置与条件"),
+        ...(isTemplate ? [] : [F("requires", "前置(全部)", "refs", "self"), F("requires_any", "前置(任一)", "refs", "self"),
+          F("exclusive_with", "互斥", "refs", "self"), F("replaces", "取代", "refs", "self")]),
+        F("requires_techs", "需要科技", "refs", "tech", { hint: "科技树开着时：没研究出这些科技不能研究、施行，也不会被吸收" }),
+        F("requires_cities", "至少几座城", "number", null, { def: 0, hint: "本国(帝国按全帝国)至少有几座城才能推行；0 不限" }),
+        SEC("效果"),
+        F("features", "制度特性", "kv", () => S.lookups.features, { hint: "系统只认特性、不认节点 id；多个节点声明同一特性取最大值" }),
+        F("effects_on_complete", "施行完成时", "table", null, { cols: EFFECT_COLS() }),
+        ADV(),
+        SEC("名称键与其它条件"),
+        F("name_key", "名称 key", "text", null, { hint: "节点名、说明的文本键；加 _&lt;文化小写&gt; 后缀可给某个文化另起叫法" }),
+        F("description_key", "描述 key", "text"),
+        F("requires_composite_empire", "要先完成多元帝国整合", "bool", null, { def: false }),
+        F("research.mandate_required", "研究要多少天命", "number", null, { def: 0 }),
+        SEC("适用文化", "同一条线里只给部分文化；不合本文化的节点在树上显示锁定"),
+        F("cultures", "只给这些文化", "chips", cultureSugg),
+        F("exclude_cultures", "这些文化不能", "chips", cultureSugg),
+        F("requires_traits", "文化要有其中一个政治特性", "chips", () => S.lookups.traits, { hint: "如 nomad 游牧、raider 劫掠传统(见各文化 CultureRule.jsonc 的 political_traits)" }),
+        SEC("推行"),
+        F("reform.base_progress_per_year", "每年进度", "number", null, { def: 8 }),
+        F("reform.minimum_years", "至少几年", "number", null, { def: 5 }),
+        F("reform.allow_force", "可以强行推行", "bool", null, { def: true }),
+        F("reform.force_radicalism", "强推时激进度", "number", null, { def: 20 }),
+        F("effects_on_start", "开始推行时的效果", "table", null, { cols: EFFECT_COLS() }),
+        SEC("反对与叛乱"),
+        F("resistance.base_radicalism", "基础激进度", "number", null, { def: 5 }),
+        F("resistance.vested_interest_radicalism", "触动既得利益的激进度", "number", null, { def: 15 }),
+        F("resistance.rebellion_threshold", "叛乱门槛", "number", null, { def: 75 }),
+        F("resistance.opposition_faction_growth", "反对派壮大", "number", null, { def: 1 }),
+        F("resistance.reason_key", "叛乱理由文本键", "text", () => S.lookups.reasonKeys, { def: "institution_resistance_reason_generic" }),
+        SEC("阶层与派系的态度", "数值越大态度越强"),
+        F("politics.support_classes", "支持的阶层", "kv", () => S.lookups.classes),
+        F("politics.oppose_classes", "反对的阶层", "kv", () => S.lookups.classes),
+        F("politics.support_factions", "支持的派系", "kv", () => S.lookups.factions),
+        F("politics.oppose_factions", "反对的派系", "kv", () => S.lookups.factions),
+        F("politics.sponsor_only", "只有这些派系主导朝政才能发起", "chips", () => S.lookups.factions),
+        SEC("吸收", "别的线的文化能不能吸收这项制度；-1 = 沿用全局设置"),
+        F("absorb.enabled", "能被吸收", "bool", null, { def: true }),
+        F("absorb.minimum_exposure", "最低接触度", "number", null, { def: -1 }),
+        F("absorb.minimum_contact_years", "最少接触年数", "number", null, { def: -1 })
+      ];
+    }
+
+    function landmarkFields() {
+      return [
+        SEC("什么时候写出来", "研究出某项技术，或推行了带某特性的制度(二选一)"),
+        F("category", "类别", "select", [["politics", "政治 politics"], ["economy", "经济 economy"], ["military", "军事 military"], ["science", "科学 science"], ["history", "历史 history"], ["literature", "文学 literature"]]),
+        F("tech", "触发：研究出技术", "select", namedOpts("tech")),
+        F("feature", "触发：制度特性", "select", () => S.lookups.features),
+        SEC("推动"),
+        F("techs", "推动技术(进度占费用比例)", "kv", namedOpts("tech")),
+        F("institutions", "推动制度(特性 → 改革加速)", "kv", () => S.lookups.features, { hint: "0.3 = +30%；以 * 结尾为前缀匹配，如 ideology_stage:Communism:*" }),
+        ADV(),
+        SEC("触发细节"),
+        F("min_value", "特性值至少", "number", null, { def: 1 }),
+        F("required_techs", "还要全部研究出", "refs", "tech"),
+        F("environment", "城里的社会条件", "select", ENVIRONMENTS),
+        F("annual_chance", "每年成书概率", "number", null, { def: 1, hint: "0~1" }),
+        F("institution_progress", "成书时正在推行的改革进度", "number", null, { def: 10, hint: "0~100" }),
+        SEC("理念书"),
+        F("ideology", "传播的理念", "select", () => S.lookups.ideologies),
+        F("ideology_outbreak", "首次成书时引发人口改信", "number", null, { def: 0, hint: "0~1" })
+      ];
+    }
+
+    function goodsFields() {
+      return [
+        SEC("基本"),
+        F("tier", "门类", "select", GOOD_TIERS),
+        F("price", "基准价格", "number", null, { def: 1 }),
+        F("era", "从第几个时代起", "era", null, { def: 0, hint: "从这个科技时代起才有手工、地形产出与百姓、军队的需求(矿场、工厂的产出不看时代)" }),
+        F("needs", "各阶层需求", "kv", () => S.lookups.classes, { hint: "阶层 → 每千人每年几份" }),
+        ADV(),
+        SEC("产出"),
+        F("resources", "物资账产出折算", "kv", () => S.lookups.resources, { hint: "资源 id → 一份资源折合几份" }),
+        F("biomes", "地形产出", "kv", () => S.lookups.biomes, { hint: "城辖区内每格该群系每年出几份(再乘人手)" }),
+        F("craft_cultures", "只有这些文化会的手艺", "chips", () => (S.lookups.cultures || []).map(c => [c.name, c.cn || c.name]), { hint: "不填 = 各文化都会" }),
+        F("craft_per_thousand", "手艺：每千人每年几份", "number", null, { def: 0 }),
+        SEC("军需与储备"),
+        F("per_soldier", "军队每人每年", "number", null, { def: 0, hint: "打仗翻倍" }),
+        F("reserve", "储备：每千人每年", "number", null, { def: 0, hint: "科技、换装离不开的原料：从下面这个时代起要备的量" }),
+        F("reserve_era", "储备从第几个时代起", "era", null, { def: 0 }),
+        F("prospect", "勘探(殖民选址)", "kv", () => S.lookups.biomes, { hint: "这种地形容易勘出这样矿藏：群系 → 0~1" })
+      ];
+    }
+
+    // 新建节点对话框里只问这几项；其余按前置、同档节点推算(见 createNode)
+    function newNodeFields(src) {
+      const branch = F("branch", "分支", "select", src.kind === "tech" ? () => (doc(TECH)?.branches || []).filter(b => b !== "material").map(branchOpt)
+        : () => uniq(["administration", "finance", "military", "society", "ideology", "production", ...S.lookups.instBranches]).map(branchOpt), { def: src.kind === "tech" ? undefined : "administration" });
       return {
-        id: "tech", label: "科技树 · 技术", icon: "iconKnowledge", file: "Technology/TechTree.json", path: "techs",
-        level: "tier", group: "branch", idPrefix: "",
-        nameKey: n => `tech_${n.id}`, descKey: n => `tech_${n.id}_desc`,
-        fields: [
-          ["branch", "分支", "select", () => (doc("Technology/TechTree.json").branches || []).filter(b => b !== "material")],
-          ["tier", "层级(时代)", "number"], ["cost", "基础花费", "number"], ["research_bonus", "研究加成(小数)", "number"],
-          ["requires_techs", "前置技术", "refs", "tech"], ["requires_materials", "需要材料", "refs", "material"],
-          ["requires_institutions", "需要制度特性", "instreq"],
-          ["unlock_materials", "解锁打造材料(原版装备材料，如 bronze、steel)", "chips", () => uniq(["wood", "stone", "leather", "copper", "bronze", "silver", "iron", "steel", "mythril", "adamantine", ...collect("techs", "unlock_materials")])],
-          ["unlock_items", "解锁装备", "chips", () => collect("techs", "unlock_items")],
-          ["unlock_buildings", "解锁建筑", "chips", () => collect("techs", "unlock_buildings")],
-          ["unlock_units", "解锁单位", "chips", () => collect("techs", "unlock_units")],
-          ["boosts", "灵感(提前达成条件打折)", "boosts"]
-        ],
-        refFields: ["requires_techs"], refOthers: { material: ["requires_materials"] },
-        template: () => ({ id: "new_tech", branch: "science", tier: 1, cost: 10, requires_techs: [], requires_materials: [] })
+        tech: [branch, F("tier", "时代", "era", null, { hint: "不选：前置里最高的时代 +1" }), F("requires_techs", "前置科技", "refs", "tech"), F("requires_materials", "需要材料", "refs", "material")],
+        material: [F("tier", "时代", "era"), F("requires_techs", "还要先研究出", "refs", "tech")],
+        inst: [F("template", "套用公共模板(可不选)", "select", () => templates().map(t => [t.id, `${locText(t.name_key) || t.id}  ${t.id}`]), { blank: "不套用" }), branch,
+          F("requires", "前置(全部)", "refs", "self"), F("requires_techs", "需要科技", "refs", "tech"), F("advancement", "进阶度", "number", null, { hint: "不填：前置里最高的 +1" })],
+        template: [branch],
+        landmark: [F("category", "类别", "select", landmarkFields()[1].opt), F("tech", "触发：研究出技术", "select", namedOpts("tech"))],
+        goods: [F("tier", "门类", "select", GOOD_TIERS), F("era", "从第几个时代起", "era")]
+      }[src.kind] || [];
+    }
+
+    // ---------- 数据源 ----------
+    function techSource() {
+      return { id: "tech", kind: "tech", label: "科技树 · 技术", icon: "iconKnowledge", file: TECH, path: "techs", level: "tier", group: "branch",
+        nameKey: n => `tech_${n.id}`, descKey: n => `tech_${n.id}_desc`, fields: techFields(), refFields: ["requires_techs"]
       };
     }
     function materialSource() {
-      return {
-        id: "material", label: "科技树 · 材料", icon: "iconCraftIron", file: "Technology/TechTree.json", path: "materials",
-        level: "tier", group: null,
+      return { id: "material", kind: "material", label: "科技树 · 材料", icon: "iconCraftIron", file: TECH, path: "materials", level: "tier", group: null,
         nameKey: n => `tech_mat_${n.id}`, descKey: n => `tech_mat_${n.id}_desc`,
-        fields: [["tier", "层级", "number"], ["requires_techs", "需要技术", "refs", "tech"], ["resources", "发现条件：城市资源", "resources"]],
-        refFields: [], refOthers: {},
-        template: () => ({ id: "new_material", tier: 1, resources: [] })
-      };
+        fields: [F("tier", "时代", "era", null, { def: 1 }), F("requires_techs", "还要先研究出", "refs", "tech"),
+          F("resources", "发现条件：城里有这些资源(满足其中一条即可)", "table", null, { cols: [{ f: "id", label: "资源 id", kind: "list", opts: () => S.lookups.resources }, { f: "amount", label: "数量", kind: "number", def: 1 }] })],
+        refFields: [] };
     }
     function institutionSource(line) {
-      return {
-        id: "inst:" + line, label: `制度线 · ${line}`, icon: "iconWorldLaws", file: `InstitutionTrees/${line}.json`, path: "nodes",
-        level: "advancement", group: "branch",
+      const file = `InstitutionTrees/${line}.json`;
+      return { id: "inst:" + line, kind: "inst", line, label: `制度线 · ${line}`, icon: "iconWorldLaws", file, path: "nodes", level: "advancement", group: "branch",
         nameKey: n => n.name_key || (n.template ? templateOf(n.template)?.name_key : null) || `institution_${n.id}`,
         descKey: n => n.description_key || (n.template ? templateOf(n.template)?.description_key : null) || `institution_${n.id}_desc`,
-        fields: [
-          ["template", "继承公共模板", "select", () => ["", ...templates().map(t => t.id)]],
-          ["name_key", "名称 key", "text"], ["description_key", "描述 key", "text"],
-          ["branch", "分支", "select", () => ["administration", "finance", "military", "society"]],
-          ["advancement", "进阶度(文明等级)", "number"],
-          ["regime", "完成后切换政体", "select", () => ["", ...(S.lookups.regimes || [])]],
-          ["requires", "前置(全部)", "refs", "self"], ["requires_any", "前置(任一)", "refs", "self"],
-          ["exclusive_with", "互斥", "refs", "self"], ["replaces", "取代", "refs", "self"],
-          ["features", "制度特性", "kv", () => S.lookups.features || []]
-        ],
-        refFields: ["requires", "requires_any", "exclusive_with", "replaces"], refOthers: {},
-        template: () => ({ id: `${line.toLowerCase()}_new_policy`, name_key: `institution_${line.toLowerCase()}_new_policy`, description_key: `institution_${line.toLowerCase()}_new_policy_desc`, branch: "administration", advancement: 1, requires: [] })
+        fields: instFields(line), refFields: ["requires", "requires_any", "exclusive_with", "replaces"]
       };
     }
-    function templateSource() {
-      return {
-        id: "templates", label: "制度 · 公共模板", icon: "iconCultureList", file: "InstitutionTrees/Common/Templates.json", path: "templates",
-        level: null, group: "branch",
+    function templateSource(name) {
+      const file = `InstitutionTrees/Common/${name}`;
+      return { id: "tpl:" + name, kind: "template", label: name === "Templates.json" ? "制度 · 公共模板" : `制度 · 公共模板 ${name}`, icon: "iconCultureList", file, path: "templates", level: null, group: "branch",
         nameKey: n => n.name_key || `institution_${n.id}`, descKey: n => n.description_key || `institution_${n.id}_desc`,
-        fields: [["name_key", "名称 key", "text"], ["description_key", "描述 key", "text"],
-          ["branch", "分支", "select", () => ["", "administration", "finance", "military", "society"]],
-          ["features", "制度特性", "kv", () => S.lookups.features || []]],
-        refFields: [], refOthers: {},
-        template: () => ({ id: "new_template", name_key: "institution_new_template", description_key: "institution_new_template_desc" })
+        fields: instFields(null, true), refFields: []
       };
     }
     function landmarkSource() {
-      return {
-        id: "landmark", label: "传世名著", icon: "iconBooksWritten", file: "Technology/LandmarkBooks.json", path: "books",
-        level: null, group: "category", landmark: true,
-        fields: [
-          ["category", "类别", "select", () => ["politics", "economy", "military", "science", "history", "literature"]],
-          ["tech", "触发：研究出技术", "select", () => ["", ...ids("tech")]],
-          ["feature", "触发：制度特性", "select", () => ["", ...(S.lookups.features || [])]],
-          ["techs", "推动技术(进度比例)", "kv", () => ids("tech")],
-          ["institutions", "推动制度(特性 → 进度，* 结尾为前缀匹配)", "kv", () => S.lookups.features || []],
-          ["institution_progress", "推动当前改革进度", "number"]
-        ],
-        refFields: [], refOthers: {},
-        template: () => ({ id: "new_book", category: "literature", techs: {} })
+      return { id: "landmark", kind: "landmark", label: "传世名著", icon: "iconBooksWritten", file: BOOKS, path: "books", level: null, group: "category", landmark: true,
+        fields: landmarkFields(), refFields: [] };
+    }
+    function goodsSource() {
+      return { id: "goods", kind: "goods", label: "商品市场 · 商品", icon: "iconGold", file: COMM, path: "goods", level: "era", group: "tier",
+        nameKey: n => `commodity_${n.id}`, descKey: null, fields: goodsFields(), refFields: []
       };
+    }
+
+    // 全局设置页：sections 里的字段路径都相对文件根(可带一层点号)；claims = 由自定义控件负责的顶层键
+    function techSettingsSource() {
+      const R = (k, label, def, hint) => F(`research.${k}`, label, "number", null, { def, hint });
+      return { id: "techcfg", kind: "settings", label: "科技树 · 时代与研究参数", icon: "iconHistory", file: TECH, claims: ["techs", "materials"], sections: [
+        { title: "进入时代", hint: "研究过任一科技为石器时代；往后每个时代要研究出它的节点科技(其中一项即可)，并且此前各时代的科技研究了一定比例，前一个时代也得先进了。时代决定科研产出倍率、超时代费用以及各处按时代的门槛。",
+          fields: [F("era_prior_share", "此前各时代科技要研究的比例", "number", null, { def: 0.6667, hint: "0.6667 = 三分之二(向上取整)" })],
+          claims: ["eras"], render: box => rowsEditor(box, {
+            file: TECH, get: create => listAt(doc(TECH), "eras", create), loc: r => r.key, info: eraInfo,
+            fields: [F("tier", "档次", "number"), F("key", "名称 key", "text"), F("node", "节点科技(研究出其中一项即可)", "refs", "tech")],
+            newRow: () => ({ tier: Math.max(0, ...(doc(TECH).eras || []).map(e => Number(e.tier) || 0)) + 1, key: "tech_era_new", node: [] }) }) },
+        { title: "超出时代的科技", hint: "档次高过本文化时代若干档以上的科技(下一个时代的照常，进下一时代要的节点科技就在那一档)，研究费用乘倍率",
+          fields: [R("beyond_era_margin", "高出几档以上算超时代", 1), R("beyond_era_cost_multiplier", "超时代费用倍率", 10)] },
+        { title: "科研产出", hint: "每年按城市、人口、建筑、书籍、战争算科技点",
+          fields: [R("base_per_city", "每座城", 1), R("per_population", "每个人口", 0.04), R("per_library", "每座图书馆", 2), R("per_temple", "每座神庙", 0.5),
+            R("per_university", "每座大学", 3), R("per_factory", "每座工厂", 1), R("per_book_written", "每写一本书", 3), R("per_book_read", "每读一次书", 0.2),
+            R("per_warrior_at_war", "交战中每名士兵", 0.02), R("war_penalty", "战时城市产出打折", 0.25), R("landmark_book_multiplier", "一部名著折合几本书", 2),
+            R("stagnation_threshold", "年产低于此数算停滞", 1),
+            R("prehistoric_flat", "先民摸索：每个文化每年另得", 4), R("prehistoric_per_city", "先民摸索：每城另得", 0.6), R("prehistoric_max_tier", "先民摸索持续到第几档时代", 2),
+            R("era_output_from_tier", "时代产出：超过第几档后开始涨", 2), R("era_output_per_tier", "时代产出：每高一档多几倍", 0.75)] },
+        { title: "研究费用",
+          fields: [R("cost_multiplier", "全局费用倍率", 1, "数值越大，走到工业时代越久"), R("early_cost_max_tier", "早期科技：到第几档", 3), R("early_cost_multiplier", "早期科技费用倍率", 0.5),
+            R("cost_per_extra_city", "每多一座城费用加", 0.02), R("cost_city_scaling_max", "城数加价封顶", 1),
+            R("diffusion_per_contact", "每个接触中的文化已掌握，费用减", 0.2), R("diffusion_max", "技术扩散减费封顶", 0.5),
+            R("boost_fraction", "灵感一次给的进度比例", 0.4), R("gold_per_point", "每点科研花多少钱", 3, "从本文化各国国库出；0 = 不花钱")] },
+        { title: "军队换装与世界首创",
+          fields: [R("modernize_per_city", "每城每年换装几名士兵", 8), R("modernize_years", "换装持续几年", 3), R("modernize_subsidy", "每人最多补贴", 60),
+            R("world_first_min_tier", "世界首创写进日志的最低档次", 3)] },
+        { title: "时代上限与分支",
+          fields: [F("premodern_max_tier", "“禁止近代化”时最多到第几档", "number", null, { def: 5 }),
+            F("culture_level_max_tier", "文明等级 → 能研究到的最高档次", "kv", ["1", "2", "3", "4"], { hint: "文明等级是制度树的 1~4 级，制度落后技术也上不去" }),
+            F("branches", "科技分支", "chips", () => uniq(["material", "metallurgy", "military", "construction", "science", "naval", "civics"]), { hint: "material 是材料行，不是技术分支" })] },
+        { title: "科技推动制度", hint: "提供该特性(且特性值不低于最低值)的制度，要先有这些科技才能推行；每掌握一项“推动科技”，这类改革进度加快(0.3 = +30%)",
+          claims: ["institution_links"], render: box => rowsEditor(box, {
+            file: TECH, get: create => listAt(doc(TECH), "institution_links", create), compact: true,
+            fields: [F("feature", "制度特性", "text", () => S.lookups.features), F("min_value", "最低值", "number", null, { def: 0 }),
+              F("requires_techs", "要先有的科技", "refs", "tech"), F("drivers", "推动科技", "kv", () => ids("tech"))],
+            newRow: () => ({ feature: "", requires_techs: [], drivers: {} }) }) },
+        { title: "工业", fields: [F("industry.factory_types", "算工厂的建筑类型", "chips", () => doc(TECH)?.industry?.factory_types || []),
+          F("industry.jobs_per_factory", "每座工厂几个岗位", "number", null, { def: 3, hint: "再乘城市生产阶段" }),
+          F("industry.employment_cap_bonus", "科技 → 可雇工比例上限加成", "kv", () => ids("tech")),
+          F("industry.capitalist_budding_techs", "资本主义萌芽要的科技", "refs", "tech")] }
+      ] };
+    }
+
+    function instSettingsSource() {
+      const C = (k, label, type = "number", def, hint, opt = null) => F(`constitution.${k}`, label, type, opt, { def, hint });
+      const group = (obj, list) => list.map(([k, label, def, hint, type]) => F(`${obj}.${k}`, label, type || (typeof def === "boolean" ? "bool" : "number"), null, { def, hint }));
+      return { id: "instcfg", kind: "settings", label: "制度 · 全局设置", icon: "iconInstitutionEnacted", file: SETTINGS, sections: [
+        { title: "基本", fields: [F("ai_enabled", "AI 推行制度", "bool", null, { def: true }),
+          F("default_line", "兜底制度线", "select", () => S.lookups.lines, { def: "Roma", hint: "文化没配 institution_line、或配了不存在的线时用" })] },
+        { title: "文明等级", hint: "全局共用一把尺子：排行榜横向比较，也是能否吸收外来制度的基准",
+          claims: ["culture_levels"], render: box => rowsEditor(box, {
+            file: SETTINGS, get: create => listAt(doc(SETTINGS), "culture_levels", create), loc: r => r.name_key,
+            fields: [F("level", "等级", "number"), F("name_key", "名称 key", "text"), F("minimum_advancement", "进阶度至少", "number", null, { def: 0 })],
+            newRow: () => { const n = (doc(SETTINGS).culture_levels || []).length + 1; return { level: n, name_key: `institution_culture_level_${n}`, minimum_advancement: 0 }; } }) },
+        { title: "吸收外来制度", fields: group("absorption", [["enabled", "可以吸收", true], ["max_tier_gap", "最多跨几级吸收", 0, "0 = 不限"],
+          ["exposure_per_year", "每年每条渠道接触度", 10], ["minimum_exposure", "最低接触度", 30], ["minimum_contact_years", "最少接触年数", 3],
+          ["same_empire_weight", "同属一个帝国", 1], ["land_border_weight", "陆地接壤", 0.5], ["alliance_or_tributary_weight", "同盟、朝贡", 0.7], ["occupied_city_weight", "城被异文化统治", 1.2]]) },
+        { title: "社会动荡", hint: "受损阶层长期积累怨气，制度倒退时原受益阶层也受冲击", fields: group("social_unrest", [["enabled", "启用", true],
+          ["opposition_target_multiplier", "反对怨气目标倍数", 40], ["support_relief_multiplier", "支持方纾解倍数", 3], ["annual_adjustment_rate", "每年趋近速度", 0.16],
+          ["reform_completion_shock", "改革完成冲击", 14], ["regression_shock", "制度倒退冲击", 24], ["rebellion_threshold", "叛乱门槛", 75], ["rebellion_cooldown_years", "叛乱冷却年数", 12]]) },
+        { title: "改革竞争", hint: "封闭的单一帝国最慢；同文明国家多、帝国并立、与更先进的异文化接壤都会加快改革", fields: group("reform_competition", [["enabled", "启用", true],
+          ["isolated_duration_years", "封闭时的基准年数", 50], ["country_bonus_per_additional", "每多一个同文明国家加速", 0.025], ["country_bonus_cap", "同文明国家加速封顶", 0.25],
+          ["empire_bonus_per_additional", "每多一个帝国加速", 0.35], ["empire_bonus_cap", "帝国并立加速封顶", 1.05], ["advanced_border_bonus", "与先进异文化接壤加速", 1], ["maximum_speed_multiplier", "最快倍数", 3]]) },
+        { title: "君主立宪", hint: "各制度线可在自己的文件里覆盖启用、制度基础、科技前提与多元帝国要求(在该制度线不选节点时设置)", fields: [
+          C("enabled", "可以立宪", "bool", true),
+          C("required_features", "要具备的制度特性", "chips", ["constitution_basis_administration", "constitution_basis_fiscal"], "全部具备才行", () => S.lookups.features),
+          C("required_techs", "要先研究出的科技", "refs", ["printing"], "科技树开着时才查", "tech"),
+          C("requires_composite_empire", "要先完成多元帝国整合", "bool", false), C("stable_culture_years", "文化稳定几年", "number", 50),
+          C("support_threshold", "支持度门槛", "number", 50), C("ai_start_support", "AI 发起的支持度", "number", 55), C("ai_attempt_interval_years", "AI 尝试间隔年数", "number", 3),
+          C("deadlock_notice_years", "僵局提示年数", "number", 5), C("start_mandate_cost", "发起时花的天命", "number", 5), C("noble_grievance_on_start", "发起时贵族怨气", "number", 8),
+          C("parliament_stage", "第几阶段召开议会", "number", 2, "1~4"), C("responsible_government_stage", "第几阶段实行责任政府", "number", 3, "1~4"),
+          C("parliament_seats", "议席总数", "number", 9, "建议奇数，最多 15"), C("parliament_term_years", "议会几年改选", "number", 5),
+          C("government_majority_acceleration", "执政过半时诉求加速", "number", 30)] },
+        { title: "资本主义萌芽", fields: [
+          C("trade_window_years", "近期海贸算几年内", "number", 10), C("max_gold_per_voyage", "每趟最多记多少金", "number", 5),
+          C("budding_years", "萌芽要持续几年", "number", 5), C("budding_decline_years", "萌芽衰退几年", "number", 3),
+          C("minimum_merchant_households", "最少商人家户", "number", 2), C("minimum_merchant_ratio", "商人家户最低比例", "number", 0.05),
+          C("no_trade_merchant_households", "没有海贸时最少商人家户", "number", 4), C("no_trade_merchant_cities", "没有海贸时最少分布城数", "number", 2)] },
+        { title: "派系对立宪的态度", fields: [
+          C("faction_stances", "派系倾向", "kv", undefined, "没列出的派系为 0；写了就整张替换默认表", () => S.lookups.factions),
+          C("budding_merchant_bonus", "萌芽后不敌视商人的派系加", "number", 12), C("merchant_affinity_weight", "商人亲和权重", "number", 0.15),
+          C("support_baseline", "算作支持立宪的线", "number", 50)] }
+      ] };
+    }
+
+    function marketSettingsSource() {
+      const goods = () => ids("goods");
+      return { id: "marketcfg", kind: "settings", label: "商品市场 · 工厂、换装与科技", icon: "iconMoney", file: COMM, claims: ["goods"], sections: [
+        { title: "市场", fields: [F("great_powers", "大国名额", "number", null, { def: 8, hint: "国力前几名是大国，小国可以签关税同盟并入接壤大国的市场" }),
+          F("tariff", "关税", "number", null, { def: 0.2, hint: "自由贸易 ×0.25、保护贸易 ×2" })] },
+        { title: "工厂配方", hint: "按工厂门类，每级每年的投入与产出；投入缺得越多减产越多",
+          claims: ["factories"], render: box => mapEditor(box, { file: COMM, get: c => mapAt(doc(COMM), "factories", c), keyLabel: "工厂门类",
+            keys: () => uniq(["kiln", "mint", "paper_mill", "iron_foundry", "wooden_shipyard", "print_shop", ...(doc(TECH)?.industry?.factory_types || []).map(t => t.replace(/^type_/, ""))]),
+            newValue: () => ({ inputs: {}, outputs: {} }),
+            renderValue: (map, key, cell) => { const g = document.createElement("div"); g.className = "grid two"; cell.appendChild(g); if (!isObj(map[key])) map[key] = {};
+              g.appendChild(fieldWidget(map[key], F("inputs", "投入", "kv", goods, { keepEmpty: true }), { file: COMM }));
+              g.appendChild(fieldWidget(map[key], F("outputs", "产出", "kv", goods, { keepEmpty: true }), { file: COMM })); } }) },
+        { title: "兵种换装", hint: "离不开的物资缺过一半就换不了", claims: ["arms"],
+          render: box => mapEditor(box, { file: COMM, get: c => mapAt(doc(COMM), "arms", c), keyLabel: "兵种", keys: () => ["Musket", "Artillery", "HeavyArtillery", "Rifle", "Mechanized", "Tank", "Helicopter", "Fighter", "Bomber"],
+            newValue: () => [], renderValue: (map, key, cell) => cell.appendChild(fieldWidget(map, F(key, "离不开的物资", "chips", goods, { keepEmpty: true, showKey: false }), { file: COMM })) }) },
+        { title: "科技离不开的物资", hint: "缺得越多研究越慢；也可以在“科技树 · 技术”里逐项改", claims: ["techs"],
+          render: box => mapEditor(box, { file: COMM, get: c => mapAt(doc(COMM), "techs", c), keyLabel: "科技", keys: namedOpts("tech"), known: () => new Set(ids("tech")),
+            newValue: () => [], renderValue: (map, key, cell) => cell.appendChild(fieldWidget(map, F(key, "物资", "chips", goods, { keepEmpty: true, showKey: false }), { file: COMM })) }) }
+      ] };
     }
 
     // ---------- 读写 ----------
     function doc(file) { return S.docs[file]?.data; }
-    function nodes(src = S.source) { const d = doc(src.file); return d ? (d[src.path] = d[src.path] || []) : []; }
-    function ids(sourceId) { const src = SOURCES.find(s => s.id === sourceId); return src ? nodes(src).map(n => n.id) : []; }
-    function templates() { return doc("InstitutionTrees/Common/Templates.json")?.templates || []; }
+    function nodes(src = S.source) { const d = doc(src.file); return d && Array.isArray(d[src.path]) ? d[src.path] : []; }
+    function ids(sourceId) { const src = SOURCES.find(s => s.id === sourceId); return src && src.path ? nodes(src).map(n => n.id) : []; }
+    // 选取器用：节点的中文名与层级
+    function itemsOf(sourceId) {
+      const src = SOURCES.find(s => s.id === sourceId);
+      if (!src || !src.path) return [];
+      return nodes(src).map(n => ({ id: n.id, name: nodeName(n, src), sub: src.level ? `L${n[src.level] ?? (src.kind === "goods" ? 0 : "?")}${src.group && n[src.group] ? " " + (BRANCH_LABEL[n[src.group]] || n[src.group]) : ""}` : "" }));
+    }
+    const namedOpts = sourceId => () => itemsOf(sourceId).map(x => [x.id, x.name && x.name !== x.id ? `${x.name}  ${x.id}` : x.id]);
+    function listAt(o, key, create) { if (!o) return []; if (!Array.isArray(o[key])) { if (!create) return []; o[key] = []; } return o[key]; }
+    function mapAt(o, key, create) { if (!o) return {}; if (!isObj(o[key])) { if (!create) return {}; o[key] = {}; } return o[key]; }
+    function templateDocs() { return Object.keys(S.docs).filter(f => f.startsWith("InstitutionTrees/Common/")); }
+    function templates() { return templateDocs().flatMap(f => doc(f)?.templates || []); }
     function templateOf(id) { return templates().find(t => t.id === id); }
-    function collect(path, field) { return uniq(nodes(SOURCES.find(s => s.path === path)).flatMap(n => n[field] || [])).sort(); }
+    function instDocs() { return SOURCES.filter(s => s.kind === "inst").map(s => s.file); }
+    function collect(sourceId, field) { const src = SOURCES.find(s => s.id === sourceId); return src ? uniq(nodes(src).flatMap(n => n[field] || [])).sort() : []; }
 
     async function loadDoc(file) {
-      const r = await api.readText(file);
-      if (!r.exists) return;
-      const indent = (r.text.match(/\n([ \t]+)"/) || [, "  "])[1];
-      S.docs[file] = { data: parseJsonLoose(r.text), indent, crlf: r.text.includes("\r\n") };
+      try {
+        const r = await api.readText(file);
+        if (!r.exists) return;
+        const indent = (r.text.match(/\n([ \t]+)"/) || [, "  "])[1];
+        let cst = null;
+        try { cst = cstParse(r.text); } catch { cst = null; }
+        S.docs[file] = { data: parseJsonLoose(r.text), indent, crlf: r.text.includes("\r\n"), cst };
+      } catch (e) { S.loadErrors.push(`${file}：${e.message}`); }
+    }
+
+    async function ensureLocales(keys) {
+      const missing = uniq(keys).filter(k => !(k in S.locales));
+      if (!missing.length) return false;
+      Object.assign(S.locales, await api.readLocales(missing));
+      return true;
     }
 
     async function loadAll() {
       SOURCES.length = 0;
-      S.docs = {}; S.dirty.clear(); S.localeEdits = {};
-      S.lookups.regimes = (await api.listDir("Scripts/Regimes/Configs")).filter(e => e.dir).map(e => e.name).sort();
-      await loadDoc("Technology/TechTree.json");
-      await loadDoc("Technology/LandmarkBooks.json");
-      await loadDoc("InstitutionTrees/Common/Templates.json");
-      SOURCES.push(techSource(), materialSource());
-      const lines = (await api.listDir("InstitutionTrees")).filter(e => !e.dir && e.name.endsWith(".json") && e.name !== "Settings.json").map(e => e.name.slice(0, -5)).sort();
-      for (const line of lines) { await loadDoc(`InstitutionTrees/${line}.json`); SOURCES.push(institutionSource(line)); }
-      SOURCES.push(templateSource(), landmarkSource());
-      // 所有制度线里出现过的特性，供下拉提示
-      const feats = new Set();
-      for (const s of SOURCES.filter(s => s.id.startsWith("inst:") || s.id === "templates"))
-        for (const n of nodes(s)) Object.keys(n.features || {}).forEach(f => feats.add(f));
-      for (const l of doc("Technology/TechTree.json")?.institution_links || []) feats.add(l.feature);
-      S.lookups.features = [...feats].sort();
+      S.docs = {}; S.dirty.clear(); S.localeEdits = {}; S.loadErrors = []; S.locales = {};
+      const L = S.lookups;
+      L.regimes = (await api.listDir("Scripts/Regimes/Configs")).filter(e => e.dir).map(e => e.name).sort();
+      L.classes = await readEnum("Scripts/GeneralSystems/ClassSystem.cs", "SocialClass", ["Labour", "Peasant", "Merchant", "Army", "Officer", "Noble", "Landlord", "Citizen", "Slave", "SlaveOwner", "Guoren", "Yeren", "Banner"]);
+      L.factions = (await readEnum("Scripts/Regimes/FixedFaction.cs", "FactionType", ["原始", "尊王", "诸侯", "中央", "自治", "攘夷", "绥靖", "血脉", "僭主", "神权", "共和", "民主", "革命", "融入", "同化", "共产", "无", "外戚", "宦官"])).filter(f => f !== "无");
+      L.ideologies = await readEnum("Scripts/GeneralSystems/PartySystem.cs", "PartyIdeology", ["Anarchism", "SocialDemocracy", "Libertarianism", "SocialLiberalism", "Capitalism", "ConservativeLiberalism", "Centrism", "Socialism", "Communism", "ReligiousDemocracy", "Authoritarianism", "Conservatism", "Fascism"]);
+      L.effects = await readStringSet("Scripts/GeneralSystems/InstitutionDefinitionRegistry.cs", "SupportedEffects", ["add_mandate", "change_tax_level", "set_regime_option", "modify_faction_power", "enable_claim", "change_regime", "unlock_succession_law", "set_succession_law", "grant_trait", "abolish_monarchy", "open_private_land_market", "enact_law", "relieve_malady"]);
+      try {
+        L.cultures = (await api.listCultures()).map(c => ({ name: c.name, cn: c.data?.translate_cz || "", line: c.data?.setting?.institution_line || "", traits: c.data?.setting?.political_traits || [] }));
+      } catch { L.cultures = []; }
+      L.traits = uniq(["strong_unification", "nomad", "raider", "dharmic", "dry_native", ...L.cultures.flatMap(c => c.traits)]);
+
+      for (const f of [TECH, BOOKS, COMM, SETTINGS]) await loadDoc(f);
+      const commons = (await api.listDir("InstitutionTrees/Common")).filter(e => !e.dir && e.name.toLowerCase().endsWith(".json")).map(e => e.name).sort();
+      for (const name of commons) await loadDoc(`InstitutionTrees/Common/${name}`);
+      const lines = (await api.listDir("InstitutionTrees")).filter(e => !e.dir && e.name.toLowerCase().endsWith(".json") && e.name.toLowerCase() !== "settings.json").map(e => e.name.slice(0, -5)).sort();
+      for (const line of lines) await loadDoc(`InstitutionTrees/${line}.json`);
+      L.lines = lines.filter(line => S.docs[`InstitutionTrees/${line}.json`]);
+
+      const all = [techSource(), materialSource(), techSettingsSource(), ...L.lines.map(institutionSource), instSettingsSource(),
+        ...commons.map(templateSource), landmarkSource(), goodsSource(), marketSettingsSource()];
+      SOURCES.push(...all.filter(s => S.docs[s.file]));
+
+      // 下拉提示：所有制度线、模板、科技树、名著里出现过的特性等
+      const feats = new Set(), branches = new Set(), reasons = new Set(["institution_resistance_reason_generic"]);
+      for (const s of SOURCES.filter(s => s.kind === "inst" || s.kind === "template"))
+        for (const n of nodes(s)) {
+          Object.keys(n.features || {}).forEach(f => feats.add(f));
+          if (n.branch) branches.add(n.branch);
+          if (n.resistance?.reason_key) reasons.add(n.resistance.reason_key);
+        }
+      for (const line of L.lines) { const r = doc(`InstitutionTrees/${line}.json`)?.default_resistance_reason_key; if (r) reasons.add(r); }
+      for (const l of doc(TECH)?.institution_links || []) feats.add(l.feature);
+      for (const t of doc(TECH)?.techs || []) for (const q of t.requires_institutions || []) feats.add(q.feature);
+      for (const f of doc(SETTINGS)?.constitution?.required_features || []) feats.add(f);
+      L.features = uniq([...feats]).sort();
+      L.instBranches = [...branches].sort();
+      L.reasonKeys = [...reasons].sort();
+      const comm = doc(COMM);
+      L.biomes = uniq((comm?.goods || []).flatMap(g => [...Object.keys(g.biomes || {}), ...Object.keys(g.prospect || {})])).sort();
+      L.resources = uniq([...(comm?.goods || []).flatMap(g => Object.keys(g.resources || {})), ...(doc(TECH)?.materials || []).flatMap(m => (m.resources || []).map(r => r.id))]).sort();
+
       const r = await api.readText("Locales/Cultures/Books/LandmarkBooks.csv");
       S.landmarkCsv = r.exists ? parseCsv(r.text) : { header: ["key", "cz", "en", "ch"], rows: [] };
-      // 读所有节点名称的本地化
+      // 节点名称、时代名、文明等级名、制度线名的本地化
       const keys = [];
-      for (const s of SOURCES) if (s.nameKey) for (const n of nodes(s)) keys.push(s.nameKey(n), s.descKey(n));
+      for (const s of SOURCES) if (s.nameKey) for (const n of nodes(s)) keys.push(s.nameKey(n), s.descKey?.(n));
+      for (const e of doc(TECH)?.eras || []) keys.push(e.key);
+      for (const c of doc(SETTINGS)?.culture_levels || []) keys.push(c.name_key);
+      for (const line of L.lines) keys.push(doc(`InstitutionTrees/${line}.json`)?.name_key || `institution_line_${line.toLowerCase()}`);
       S.locales = await api.readLocales(uniq(keys));
       const sel = document.getElementById("sourceSel");
       sel.innerHTML = SOURCES.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join("");
       const keep = S.source?.id;
-      selectSource(SOURCES.find(s => s.id === keep) ? keep : SOURCES[0].id);
+      if (SOURCES.length) selectSource(SOURCES.find(s => s.id === keep) ? keep : SOURCES[0].id);
+      if (S.loadErrors.length) toast("有文件读取失败(这些文件不会被改动)：\n" + S.loadErrors.join("\n"), true);
     }
 
     function selectSource(id) {
       S.source = SOURCES.find(s => s.id === id);
       S.selected = null;
       document.getElementById("sourceSel").value = id;
-      const groups = S.source.group ? uniq(nodes().map(n => n[S.source.group] || "")).sort() : [];
+      const settings = S.source.kind === "settings";
+      const groups = !settings && S.source.group ? uniq(nodes().map(n => n[S.source.group] || "")).sort() : [];
       document.getElementById("groupFilter").innerHTML = `<option value="">全部分组</option>` + groups.map(g => `<option>${esc(g)}</option>`).join("");
       document.getElementById("groupFilter").style.display = groups.length ? "" : "none";
+      for (const el of ["nodeTools", "nodeFilter", "graph"]) document.getElementById(el).style.display = settings ? "none" : "";
       renderList(); renderGraph(); renderEditor();
     }
 
     function nodeName(n, src = S.source) {
       if (src.landmark) {
         const row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`);
-        return row ? (row[1] || row[2]) : n.id;
+        return row ? (row[1] || row[2] || n.id) : n.id;
       }
       const key = src.nameKey?.(n);
       const edit = S.localeEdits[key];
       return edit?.cz || S.locales[key]?.cz || S.locales[key]?.en || n.id;
     }
+    function locText(key) { const v = { ...(S.locales[key] || {}), ...(S.localeEdits[key] || {}) }; return v.cz || v.en || ""; }
 
     function filteredNodes() {
       const q = document.getElementById("nodeFilter").value.trim().toLowerCase();
@@ -190,24 +565,31 @@
     function renderList() {
       const src = S.source;
       const list = document.getElementById("nodeList");
+      document.getElementById("saveBtn").classList.toggle("dirty", S.dirty.size > 0 || Object.keys(S.localeEdits).length > 0 || !!S.landmarkCsv?.dirty);
+      if (src.kind === "settings") {
+        list.innerHTML = src.sections.map((s, i) => `<div class="item" data-sec="${i}">${ico(src.icon, "sm")}${esc(s.title)}</div>`).join("");
+        list.querySelectorAll(".item").forEach(el => el.onclick = () => document.getElementById(`sec-${el.dataset.sec}`)?.scrollIntoView({ block: "start" }));
+        return;
+      }
       const sorted = [...filteredNodes()].sort((a, b) => (src.level ? (a[src.level] || 0) - (b[src.level] || 0) : 0) || String(a.id).localeCompare(String(b.id)));
       list.innerHTML = sorted.map(n => `<div class="item ${n === S.selected ? "active" : ""}" data-id="${esc(n.id)}">${ico(src.icon, "sm")}${esc(nodeName(n))}
-        <span class="sub">${src.level ? "L" + (n[src.level] ?? "?") + " · " : ""}${esc(n.id)}</span></div>`).join("");
+        <span class="sub">${src.level ? "L" + (n[src.level] ?? (src.kind === "goods" ? 0 : "?")) + " · " : ""}${esc(n.id)}</span></div>`).join("");
       list.querySelectorAll(".item").forEach(el => el.onclick = () => selectNode(el.dataset.id));
-      document.getElementById("saveBtn").classList.toggle("dirty", S.dirty.size > 0 || Object.keys(S.localeEdits).length > 0);
     }
 
     function selectNode(id) {
       S.selected = nodes().find(n => n.id === id) || null;
       renderList(); renderGraph(); renderEditor();
     }
+    function goTo(sourceId, id) { selectSource(sourceId); if (id) selectNode(id); }
 
     // ---------- 关系图 ----------
     function renderGraph() {
       const src = S.source, box = document.getElementById("graph");
+      if (src.kind === "settings") { box.innerHTML = ""; return; }
       const list = filteredNodes();
       const levelOf = n => src.level ? Number(n[src.level] || 0) : 0;
-      const levels = uniq(list.map(levelOf)).sort((a, b) => a - b);
+      const levels = uniq(list.map(levelOf).map(String)).map(Number).sort((a, b) => a - b);
       const cols = {};
       const pos = new Map();
       for (const n of [...list].sort((a, b) => String(a[src.group] || "").localeCompare(String(b[src.group] || "")) || String(a.id).localeCompare(String(b.id)))) {
@@ -216,7 +598,7 @@
         pos.set(n.id, { x: 12 + c * 190, y: 12 + (cols[c] - 1) * 34, n });
       }
       const w = 12 + levels.length * 190, h = 20 + Math.max(1, ...Object.values(cols)) * 34;
-      const refs = src.refFields.length ? src.refFields : [];
+      const refs = src.refFields;
       const sel = S.selected;
       const related = new Set();
       if (sel) {
@@ -225,7 +607,7 @@
       }
       let lines = "";
       for (const { x, y, n } of pos.values())
-        for (const f of refs) for (const id of n[f] || []) {
+        for (const f of refs) for (const id of Array.isArray(n[f]) ? n[f] : []) {
           const p = pos.get(id); if (!p) continue;
           const hot = sel && (n === sel || id === sel.id);
           const dash = f === "requires" || f === "requires_techs" ? "" : ' stroke-dasharray="4 3"';
@@ -239,219 +621,985 @@
       if (act) act.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
 
-    // ---------- 节点表单 ----------
-    function markDirty() { S.dirty.add(S.source.file); document.getElementById("saveBtn").classList.add("dirty"); }
+    // ---------- 表单控件 ----------
+    function markDirty(file = S.source.file) { S.dirty.add(file); document.getElementById("saveBtn").classList.add("dirty"); }
 
-    function renderEditor() {
-      const box = document.getElementById("editor"), src = S.source, n = S.selected;
-      if (!n) { box.innerHTML = `<p class="muted">从左侧或上面的图里选一个节点。共 ${nodes().length} 个节点。</p>`; return; }
-      const known = new Set(src.fields.map(f => f[0]).concat(["id"]));
-      const rest = Object.fromEntries(Object.entries(n).filter(([k]) => !known.has(k)));
-      const nameKey = src.nameKey?.(n), descKey = src.descKey?.(n);
-      const loc = k => ({ ...(S.locales[k] || {}), ...(S.localeEdits[k] || {}) });
-      const lmRow = src.landmark ? (S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`) || null) : null;
-      const inherited = n.template ? templateOf(n.template) : null;
-      box.innerHTML = `<div class="card">
-        <h2>${ico(src.icon, "lg")}${esc(nodeName(n))} <span class="badge">${esc(n.id)}</span></h2>
-        <div class="grid four">
-          <label class="field">id<input id="fId" value="${esc(n.id)}"></label>
-          ${src.landmark ? ["cz", "en", "ch"].map((l, i) => `<label class="field">书名 ${l}<input data-lm="${i + 1}" value="${esc(lmRow?.[i + 1] || "")}"></label>`).join("")
-          : ["cz", "en", "ch"].map(l => `<label class="field">名称 ${l}<input data-loc="${esc(nameKey)}" data-lang="${l}" value="${esc(loc(nameKey)[l] || "")}"></label>`).join("")}
-        </div>
-        ${src.landmark ? `<p class="muted">通用书名写在 Locales/Cultures/Books/LandmarkBooks.csv；各文化自己的书名在文化编辑器 → 书籍词库 → 传世名著。</p>` :
-          `<div class="grid three" style="margin-top:8px">${["cz", "en", "ch"].map(l => `<label class="field">描述 ${l}<textarea data-loc="${esc(descKey)}" data-lang="${l}" style="min-height:60px">${esc(loc(descKey)[l] || "")}</textarea></label>`).join("")}</div>
-          <p class="muted" style="margin:4px 0 0">本地化 key：${esc(nameKey)} / ${esc(descKey)}(保存时写入 Locales/cz.json、en.json、ch.json)</p>`}
-        ${inherited ? `<div class="note" style="margin-top:8px">继承公共模板 <b>${esc(inherited.id)}</b>：这里没写的字段沿用模板(对象逐字段合并、数组整体替换)。</div>` : ""}
-        <div class="grid two" id="fFields" style="margin-top:10px"></div>
-        <h3>其它字段(JSON)</h3>
-        <textarea class="code" id="fRest" style="min-height:160px">${esc(Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "")}</textarea>
-        <p class="muted">改完点别处生效。制度节点的 reform / politics / research / resistance / effects_on_complete 等写在这里。</p>
-        ${src.refFields.length ? `<h3>被谁依赖</h3><div class="chips">${nodes().filter(o => src.refFields.some(f => (o[f] || []).includes(n.id))).map(o => `<span class="chip" style="cursor:pointer" data-go="${esc(o.id)}">${esc(nodeName(o))}</span>`).join("") || `<span class="muted">没有</span>`}</div>` : ""}
-      </div>`;
-      const fields = box.querySelector("#fFields");
-      for (const [key, label, type, opt] of src.fields) fields.appendChild(fieldWidget(n, key, label, type, opt));
-      box.querySelector("#fId").onchange = e => renameNode(n, e.target.value.trim());
+    // 表单没覆盖的字段：顶层键整个列出；带点号的字段(如 reform.minimum_years)只占对象里的那几个子键，其余子键照样列出
+    function coverage(specs, claims = []) {
+      const direct = new Set(["id", ...claims]), nested = new Map();
+      for (const f of specs) {
+        if (!f.k || f.virtual) continue;
+        const [a, b] = f.k.split(".");
+        if (b === undefined) direct.add(a); else { if (!nested.has(a)) nested.set(a, new Set()); nested.get(a).add(b); }
+      }
+      return { direct, nested };
+    }
+    function restOf(n, cov) {
+      const out = {};
+      for (const [k, v] of Object.entries(n)) {
+        if (cov.direct.has(k)) continue;
+        const sub = cov.nested.get(k);
+        if (sub && isObj(v)) { const left = Object.keys(v).filter(x => !sub.has(x)); if (left.length) out[k] = Object.fromEntries(left.map(x => [x, v[x]])); continue; }
+        out[k] = v;
+      }
+      return out;
+    }
+    function applyRest(n, obj, cov) {
+      for (const k of Object.keys(n)) {
+        if (cov.direct.has(k)) continue;
+        const sub = cov.nested.get(k);
+        if (sub && isObj(n[k])) {
+          const keepSub = isObj(obj[k]) ? obj[k] : {};
+          let removed = false;
+          for (const x of Object.keys(n[k])) if (!sub.has(x) && !(x in keepSub)) { delete n[k][x]; removed = true; }
+          if (removed && !Object.keys(n[k]).length && !(k in obj)) delete n[k];
+          continue;
+        }
+        if (!(k in obj)) delete n[k];
+      }
+      for (const [k, v] of Object.entries(obj)) {
+        if (cov.direct.has(k)) continue;
+        if (cov.nested.has(k) && isObj(v) && isObj(n[k])) { for (const [x, y] of Object.entries(v)) if (!deepEq(n[k][x], y)) n[k][x] = y; }
+        else if (!deepEq(n[k], v)) n[k] = v;
+      }
+    }
+
+    // datalist 的选项：值是 id，旁边显示中文名
+    function dlOptions(opt) { return optsOf(opt).map(([v, l]) => `<option value="${esc(v)}"${l !== v ? ` label="${esc(l)}"` : ""}>`).join(""); }
+    // 时代下拉：值是档次数字，显示时代名
+    function eraOptions() { return (doc(TECH)?.eras || []).map(e => [String(e.tier), `${e.tier} ${locText(e.key) || e.key}`]); }
+
+    // 选取器：已选的显示中文名(带 id)；搜索框按中文名或 id 过滤，点选或回车加入；列表里没有的 id 也可以直接输入回车
+    function pickChips(values, { items, known = null, onChange, placeholder = "搜索添加…" }) {
+      const wrap = document.createElement("div");
+      wrap.className = "chips";
+      let cache = null;
+      const list = () => cache || (cache = items());
+      const nameOf = v => list().find(x => x.id === v)?.name || "";
+      const render = focus => {
+        wrap.innerHTML = values.map((v, i) => {
+          const miss = known && !known.has(v), nm = nameOf(v);
+          return `<span class="chip ${miss ? "missing" : ""}" title="${esc(miss ? `找不到 ${v}` : v)}">${esc(nm || v)}${nm && nm !== v ? `<span class="fkey">${esc(v)}</span>` : ""}<button data-i="${i}">×</button></span>`;
+        }).join("") + `<span class="chip-add pick"><input placeholder="${esc(placeholder)}"><div class="pickmenu" hidden></div></span>`;
+        wrap.querySelectorAll("button[data-i]").forEach(b => b.onclick = () => { values.splice(Number(b.dataset.i), 1); render(); onChange(values); });
+        const input = wrap.querySelector("input"), menu = wrap.querySelector(".pickmenu");
+        let hits = [], hi = -1;
+        const show = () => {
+          const q = input.value.trim().toLowerCase();
+          const score = x => (x.id.toLowerCase().startsWith(q) || (x.name || "").toLowerCase().startsWith(q)) ? 0 : 1;
+          hits = list().filter(x => !values.includes(x.id) && (!q || x.id.toLowerCase().includes(q) || (x.name || "").toLowerCase().includes(q) || (x.sub || "").toLowerCase().includes(q)));
+          if (q) hits.sort((a, b) => score(a) - score(b));
+          hits = hits.slice(0, 80);
+          hi = Math.min(hi, hits.length - 1);
+          menu.innerHTML = hits.map((x, i) => `<div data-h="${i}" class="${i === hi ? "on" : ""}"><span>${esc(x.name || x.id)}</span>${x.sub ? `<span class="fhint">${esc(x.sub)}</span>` : ""}${x.name && x.name !== x.id ? `<span class="fkey">${esc(x.id)}</span>` : ""}</div>`).join("")
+            || `<div class="fhint">${q ? "没有匹配；回车直接加入输入的内容" : "没有可选项"}</div>`;
+          menu.hidden = false;
+          menu.querySelectorAll("[data-h]").forEach(el => el.onmousedown = e => { e.preventDefault(); add(hits[Number(el.dataset.h)].id); });
+        };
+        const add = v => { if (v && !values.includes(v)) { values.push(v); render(true); onChange(values); } };
+        input.addEventListener("mousedown", () => setTimeout(show));
+        input.addEventListener("input", () => { hi = -1; show(); });
+        input.addEventListener("blur", () => setTimeout(() => { menu.hidden = true; }, 120));
+        input.addEventListener("keydown", e => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault(); if (menu.hidden) show();
+            hi = Math.max(0, Math.min(hits.length - 1, hi + (e.key === "ArrowDown" ? 1 : -1)));
+            menu.querySelectorAll("[data-h]").forEach((el, i) => el.classList.toggle("on", i === hi));
+            menu.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+            return;
+          }
+          if (e.key === "Escape") { menu.hidden = true; return; }
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const q = input.value.trim();
+          if (hi >= 0 && hits[hi]) return add(hits[hi].id);
+          if (!q) return;
+          if (list().some(x => x.id === q)) return add(q);
+          if (hits.length) return add(hits[0].id);
+          add(q);
+        });
+        if (focus) input.focus();
+      };
+      render();
+      return wrap;
+    }
+
+    // 一个字段的编辑控件。ctx: { file(默认当前数据源的文件), inherit(模板实例的模板，用来显示沿用值), onChange(k, v), rerender() }
+    function fieldWidget(n, f, ctx = {}) {
+      const file = ctx.file || S.source.file;
+      const own = f.k ? getPath(n, f.k) : undefined;
+      const inh = ctx.inherit && f.k ? getPath(ctx.inherit, f.k) : undefined;
+      const wrap = document.createElement("div");
+      if (f.k) wrap.dataset.k = f.k;
+      if (["refs", "chips", "kv", "table", "custom"].includes(f.type) || f.wide) wrap.style.gridColumn = "1 / -1";
+      const keyTag = f.k && f.showKey !== false ? `<span class="fkey">${esc(f.k)}</span>` : "";
+      const head = `<span class="fhead">${f.label}${keyTag}${inh !== undefined && own !== undefined ? `<button class="small inherit" data-inherit title="删掉本节点自己写的值，沿用模板">沿用模板</button>` : ""}</span>`;
+      const hint = f.hint ? `<div class="fhint">${f.hint}</div>` : "";
+      const fallback = inh !== undefined ? `模板：${summary(inh)}` : f.def !== undefined ? `默认 ${summary(f.def)}` : "";
+      // 模板实例里清空数组/对象要写成空的(否则会沿用模板)；其它情况清空就删掉这个键
+      const set = v => {
+        // 新建的节点：等于代码默认值的字段不写
+        if (S.newNodes.has(n) && inh === undefined && f.def !== undefined && deepEq(v, f.def)) v = "";
+        setPath(n, f.k, v, f.keepEmpty || inh !== undefined);
+        if (!ctx.draft) markDirty(file);
+        ctx.onChange?.(f.k, v);
+        // 模板实例头一次写自己的值：重画出“沿用模板”按钮
+        if (inh !== undefined && (getPath(n, f.k) !== undefined) !== (own !== undefined)) (ctx.rerender || renderEditor)();
+      };
+      const note = () => own === undefined && (inh !== undefined || f.def !== undefined) ? `<div class="fnote">${inh !== undefined ? "沿用模板" : "未填写时默认"}：${esc(summary(inh !== undefined ? inh : f.def))}</div>` : "";
+      if (f.type === "text" || f.type === "number") {
+        const listId = f.opt ? "dl" + Math.random().toString(36).slice(2) : "";
+        wrap.innerHTML = `<label class="field">${head}<input type="${f.type}" step="any" value="${esc(own ?? "")}" placeholder="${esc(fallback)}" ${listId ? `list="${listId}"` : ""}></label>
+          ${listId ? `<datalist id="${listId}">${dlOptions(f.opt)}</datalist>` : ""}${hint}`;
+        wrap.querySelector("input").onchange = e => {
+          const raw = e.target.value.trim();
+          set(f.type === "number" ? (raw === "" || isNaN(Number(raw)) ? "" : Number(raw)) : raw);
+        };
+      } else if (f.type === "select" || f.type === "bool" || f.type === "era") {
+        const cur = f.type === "bool" ? (own === true ? "true" : own === false ? "false" : "") : String(own ?? "");
+        let options = f.type === "bool" ? [["true", "是"], ["false", "否"]] : f.type === "era" ? eraOptions() : optsOf(f.opt).filter(([v]) => v !== "");
+        if (cur && !options.some(([v]) => String(v) === cur)) options = [[cur, cur], ...options];
+        const defOpt = inh === undefined && f.def !== undefined ? options.find(([v]) => String(v) === String(f.def)) : null;
+        options = [["", f.blank ? `(${f.blank})` : defOpt && f.type !== "bool" ? `(默认 ${defOpt[1]})` : fallback ? `(${fallback})` : "(无)"], ...options];
+        wrap.innerHTML = `<label class="field">${head}<select>${options.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>${hint}`;
+        wrap.querySelector("select").onchange = e => {
+          const v = e.target.value;
+          set(v === "" ? "" : f.type === "bool" ? v === "true" : f.type === "era" ? Number(v) : v);
+        };
+      } else if (f.type === "refs" || f.type === "chips") {
+        const target = f.type === "refs" ? (f.opt === "self" ? S.source.id : f.opt) : null;
+        const values = Array.isArray(own) ? [...own] : [];
+        const items = f.type === "refs" ? () => itemsOf(target) : () => optsOf(f.opt).map(([v, l]) => ({ id: String(v), name: l !== v ? l : "" }));
+        wrap.innerHTML = `<label class="field">${head}</label>${hint}${note()}`;
+        wrap.appendChild(pickChips(values, {
+          items, known: f.type === "refs" ? new Set(ids(target)) : null,
+          onChange: v => { set([...v]); if (!ctx.draft && target === S.source.id) renderGraph(); }
+        }));
+      } else if (f.type === "kv") {
+        const map = isObj(own) ? { ...own } : {};
+        const listId = "kv" + Math.random().toString(36).slice(2);
+        const draw = () => {
+          wrap.innerHTML = `<label class="field">${head}</label>${hint}${Object.keys(map).length ? "" : note()}<datalist id="${listId}">${dlOptions(f.opt)}</datalist>
+            <table class="sheet"><tr><th>键</th><th style="width:140px">值</th><th class="act"></th></tr>
+            ${Object.entries(map).map(([k, v], i) => `<tr><td><input list="${listId}" data-k="${i}" value="${esc(k)}"></td><td><input type="number" step="any" data-v="${i}" value="${esc(v)}"></td><td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
+            </table><button class="small" data-add style="margin-top:4px">＋ 一项</button>`;
+          const commit = () => set({ ...map });
+          wrap.querySelectorAll("[data-k]").forEach(inp => inp.onchange = () => {
+            const e = Object.entries(map); const i = Number(inp.dataset.k); const k = inp.value.trim();
+            if (k && k !== e[i][0] && k in map) { toast(`键 ${k} 已存在`, true); draw(); return; }
+            e[i][0] = k;
+            Object.keys(map).forEach(x => delete map[x]); e.forEach(([x, v]) => x && (map[x] = v)); commit(); draw();
+          });
+          wrap.querySelectorAll("[data-v]").forEach(inp => inp.onchange = () => { const k = Object.keys(map)[Number(inp.dataset.v)]; map[k] = inp.value === "" ? 0 : Number(inp.value); commit(); });
+          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { delete map[Object.keys(map)[Number(b.dataset.d)]]; commit(); draw(); });
+          wrap.querySelector("[data-add]").onclick = () => { let k = "new_key", i = 1; while (map[k] !== undefined) k = `new_key_${i++}`; map[k] = 1; commit(); draw(); };
+          bindInherit();
+        };
+        draw();
+        return wrap;
+      } else if (f.type === "table") {
+        // 对象数组：灵感 / 需要制度特性 / 发现材料的资源 / 制度效果
+        const cols = f.cols;
+        const rows = (Array.isArray(own) ? own : []).map(r => ({ ...r }));
+        const draw = () => {
+          wrap.innerHTML = `<label class="field">${head}</label>${hint}${rows.length ? "" : note()}
+            <table class="sheet"><tr>${cols.map(c => `<th>${c.label}</th>`).join("")}<th class="act"></th></tr>
+            ${rows.map((r, i) => `<tr>${cols.map(c => {
+              const v = r[c.f];
+              if (c.kind === "select") {
+                const opts = optsOf(c.opts);
+                const all = v !== undefined && v !== "" && !opts.some(([o]) => o === v) ? [[v, v], ...opts] : opts;
+                return `<td><select data-r="${i}" data-f="${c.f}" style="border:none">${all.map(([o, l]) => `<option value="${esc(o)}" ${o === (v ?? "") ? "selected" : ""}>${esc(l || "(无)")}</option>`).join("")}</select></td>`;
+              }
+              const dl = c.kind === "list" ? `list="dl_${f.k}_${c.f}"` : "";
+              return `<td><input data-r="${i}" data-f="${c.f}" ${c.kind === "number" ? 'type="number" step="any"' : ""} ${dl} value="${esc(v ?? "")}" placeholder="${c.def !== undefined ? esc("默认 " + c.def) : ""}"></td>`;
+            }).join("")}<td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
+            </table>${cols.filter(c => c.kind === "list").map(c => `<datalist id="dl_${f.k}_${c.f}">${dlOptions(c.opts)}</datalist>`).join("")}
+            <button class="small" data-add style="margin-top:4px">＋ 一行</button>`;
+          const commit = () => set(rows.map(r => ({ ...r })));
+          wrap.querySelectorAll("[data-r]").forEach(inp => inp.onchange = () => {
+            const c = cols.find(c => c.f === inp.dataset.f), r = rows[Number(inp.dataset.r)];
+            const raw = inp.value;
+            if (raw === "" && (c.omitEmpty || c.kind === "number")) delete r[c.f];
+            else r[c.f] = c.kind === "number" ? Number(raw) : raw;
+            commit();
+          });
+          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { rows.splice(Number(b.dataset.d), 1); commit(); draw(); });
+          wrap.querySelector("[data-add]").onclick = () => {
+            const r = {};
+            for (const c of cols) {
+              if (c.omitEmpty) continue;
+              r[c.f] = c.kind === "number" ? (c.def ?? 1) : c.kind === "select" ? (optsOf(c.opts)[0]?.[0] ?? "") : "";
+            }
+            rows.push(r); commit(); draw();
+          };
+          bindInherit();
+        };
+        draw();
+        return wrap;
+      } else if (f.type === "custom") {
+        wrap.innerHTML = `<label class="field">${head}</label>${hint}`;
+        f.render(wrap, n, ctx);
+      }
+      bindInherit();
+      return wrap;
+      function bindInherit() {
+        const b = wrap.querySelector("[data-inherit]");
+        if (b) b.onclick = e => { e.preventDefault(); setPath(n, f.k, ""); markDirty(file); (ctx.rerender || renderEditor)(); };
+      }
+    }
+
+    function renderFields(box, n, specs, ctx) {
+      let grid = null;
+      const adv = specs.findIndex(f => f.adv);
+      for (const [i, f] of specs.entries()) {
+        if (f.adv) {
+          // 「高级」：默认收起，标题上写已填了几项
+          const filled = specs.slice(i + 1).filter(x => x.k && !x.virtual && getPath(n, x.k) !== undefined).length;
+          const d = document.createElement("details");
+          d.className = "adv"; d.open = S.advOpen;
+          d.innerHTML = `<summary>高级(${filled ? `已填 ${filled} 项` : "都没填"}；没填的按默认值，输入框里的灰字就是默认值)</summary>`;
+          d.ontoggle = () => { S.advOpen = d.open; };
+          box.appendChild(d); box = d; grid = null; continue;
+        }
+        if (f.sec) {
+          const h = document.createElement("h3");
+          h.innerHTML = esc(f.sec) + (f.hint ? ` <span class="fhint">${esc(f.hint)}</span>` : "");
+          box.appendChild(h); grid = null; continue;
+        }
+        if (!grid) { grid = document.createElement("div"); grid.className = "fgrid"; box.appendChild(grid); }
+        grid.appendChild(fieldWidget(n, f, ctx));
+      }
+    }
+
+    function locInputs(key, label, langs = ["cz", "en", "ch"]) {
+      const v = { ...(S.locales[key] || {}), ...(S.localeEdits[key] || {}) };
+      return langs.map(l => `<label class="field">${label} ${l}<input data-loc="${esc(key)}" data-lang="${l}" value="${esc(v[l] || "")}"></label>`).join("");
+    }
+    function bindLoc(box) {
       box.querySelectorAll("[data-loc]").forEach(inp => inp.oninput = () => {
-        const k = inp.dataset.loc; S.localeEdits[k] = { ...(S.localeEdits[k] || {}), [inp.dataset.lang]: inp.value };
+        const k = inp.dataset.loc; if (!k) return;
+        S.localeEdits[k] = { ...(S.localeEdits[k] || {}), [inp.dataset.lang]: inp.value };
         document.getElementById("saveBtn").classList.add("dirty");
       });
+      const keys = uniq([...box.querySelectorAll("[data-loc]")].map(i => i.dataset.loc));
+      for (const k of keys) {
+        const q = l => box.querySelector(`[data-loc="${CSS.escape(k)}"][data-lang="${l}"]`);
+        bindZh(q("cz"), q("ch"), k);
+      }
+    }
+
+    // 简繁自动互填：一边改了，另一边空着或还是上次自动填的就跟着转换，手改过的不再动。
+    // 简体为主：繁体正好是改前简体的转换(原有文本多半如此)也算自动的；反过来不算，免得改繁体把手写的简体冲掉
+    function bindZh(cz, ch, key) {
+      if (!cz || !ch || typeof zhToTrad !== "function" || typeof zhToSimp !== "function") return;
+      let syncing = false;
+      const link = (from, to, conv, autoKey, loose) => {
+        let prev = from.value;
+        from.addEventListener("input", () => {
+          if (syncing) { prev = from.value; return; }
+          if (to.value === "" || to.value === S.zhAuto[autoKey] || (loose && to.value === conv(prev))) {
+            const v = conv(from.value);
+            S.zhAuto[autoKey] = v;
+            if (v !== to.value) { to.value = v; syncing = true; to.dispatchEvent(new Event("input", { bubbles: true })); syncing = false; }
+          }
+          prev = from.value;
+        });
+      };
+      link(cz, ch, zhToTrad, `${key}|ch`, true);
+      link(ch, cz, zhToSimp, `${key}|cz`, false);
+    }
+
+    // 对象数组(时代、文明等级、科技推动制度)：每行一张小卡片
+    function rowsEditor(box, o) {
+      const draw = () => {
+        const arr = o.get(false);
+        box.innerHTML = "";
+        arr.forEach((row, i) => {
+          const card = document.createElement("div");
+          card.className = "rowcard";
+          card.innerHTML = `<div class="rowhead"><b>#${i + 1}</b><span class="fhint">${o.info ? o.info(row) : ""}</span><span class="spacer"></span><button class="small danger" data-del>删除</button></div>`;
+          const grid = document.createElement("div"); grid.className = "fgrid"; card.appendChild(grid);
+          for (const f of o.fields) grid.appendChild(fieldWidget(row, f, { file: o.file, rerender: draw,
+            onChange: k => { if (o.loc && o.loc(row) && (k === "key" || k === "name_key")) ensureLocales([o.loc(row)]).then(draw); else if (k === "tier" || k === "node") draw(); } }));
+          if (o.loc && o.loc(row)) { const g = document.createElement("div"); g.className = "grid three"; g.style.marginTop = "6px"; g.innerHTML = locInputs(o.loc(row), "名称"); card.appendChild(g); bindLoc(g); }
+          card.querySelector("[data-del]").onclick = () => { arr.splice(i, 1); markDirty(o.file); draw(); };
+          box.appendChild(card);
+        });
+        const add = document.createElement("button");
+        add.className = "small"; add.textContent = "＋ 一行";
+        add.onclick = () => { o.get(true).push(o.newRow()); markDirty(o.file); draw(); };
+        box.appendChild(add);
+      };
+      draw();
+    }
+
+    // 键 → 值 的对象(工厂配方、兵种换装、科技离不开的物资、按制度线换的写法)
+    function mapEditor(box, o) {
+      const draw = () => {
+        const map = o.get(false);
+        const listId = "mk" + Math.random().toString(36).slice(2);
+        const known = o.known?.();
+        box.innerHTML = `<datalist id="${listId}">${dlOptions(o.keys || [])}</datalist>`;
+        const grid = document.createElement("div"); grid.className = "mapgrid"; box.appendChild(grid);
+        grid.innerHTML = `<div class="fhint">${esc(o.keyLabel)}</div><div></div><div></div>`;
+        Object.keys(map).forEach((key, i) => {
+          const k = document.createElement("div");
+          k.innerHTML = `<input list="${listId}" value="${esc(key)}" ${known && !known.has(key) ? 'style="color:var(--danger)" title="找不到这个 id"' : ""}>`;
+          const cell = document.createElement("div");
+          const del = document.createElement("div");
+          del.innerHTML = `<button class="small" title="删除这一项">×</button>`;
+          grid.append(k, cell, del);
+          o.renderValue(map, key, cell);
+          k.querySelector("input").onchange = e => {
+            const nk = e.target.value.trim();
+            if (!nk || nk === key) return draw();
+            if (nk in map) { toast(`${nk} 已存在`, true); return draw(); }
+            const entries = Object.entries(map); entries[i][0] = nk;
+            Object.keys(map).forEach(x => delete map[x]); entries.forEach(([x, v]) => map[x] = v);
+            markDirty(o.file); draw();
+          };
+          del.querySelector("button").onclick = () => { delete map[key]; if (!Object.keys(map).length) o.onEmpty?.(); markDirty(o.file); draw(); };
+        });
+        const add = document.createElement("button");
+        add.className = "small"; add.textContent = "＋ 一项"; add.style.marginTop = "6px";
+        add.onclick = () => { const m = o.get(true); let k = "new_key", n = 1; while (k in m) k = `new_key_${n++}`; m[k] = o.newValue(); markDirty(o.file); draw(); };
+        box.appendChild(add);
+      };
+      draw();
+    }
+
+    // 科技表单里的几个自定义控件
+    function eraNodeNote(wrap, n) {
+      const eras = (doc(TECH)?.eras || []).filter(e => (e.node || []).includes(n.id));
+      wrap.querySelector(".field").insertAdjacentHTML("beforeend", eras.length
+        ? `<span>是 ${eras.map(e => `<b>${esc(locText(e.key) || e.key)}</b>(第 ${e.tier} 档)`).join("、")} 的节点科技${eras.some(e => Number(e.tier) !== Number(n.tier ?? 1)) ? `<span style="color:var(--danger)">，但这项科技在第 ${n.tier ?? 1} 档</span>` : ""}</span>`
+        : `<span class="muted">不是哪个时代的节点科技(在“时代与研究参数”里设)</span>`);
+    }
+    function byLineWidget(wrap, n, ctx) {
+      const box = document.createElement("div"); wrap.appendChild(box);
+      mapEditor(box, { file: ctx.file || TECH, get: c => mapAt(n, "by_line", c), keyLabel: "制度线", keys: () => S.lookups.lines, known: () => new Set(S.lookups.lines),
+        onEmpty: () => delete n.by_line,
+        newValue: () => ({ key: "", requires_techs: [] }),
+        renderValue: (map, key, cell) => {
+          if (!isObj(map[key])) map[key] = {};
+          const g = document.createElement("div"); g.className = "fgrid"; cell.appendChild(g);
+          g.appendChild(fieldWidget(map[key], F("key", "名字 key", "text", null, { hint: "tech_&lt;key&gt;；不填用原名" }), { file: TECH }));
+          g.appendChild(fieldWidget(map[key], F("requires_techs", "这条线的前置", "refs", "tech", { keepEmpty: true }), { file: TECH }));
+        } });
+    }
+    function techGoodsWidget(wrap, n) {
+      const comm = doc(COMM);
+      if (!comm) { wrap.insertAdjacentHTML("beforeend", `<div class="fnote">没有 Technology/Commodities.json</div>`); return; }
+      const values = [...(comm.techs?.[n.id] || [])];
+      wrap.appendChild(pickChips(values, { items: () => itemsOf("goods"), known: new Set(ids("goods")),
+        onChange: v => { const m = mapAt(comm, "techs", true); if (v.length) m[n.id] = [...v]; else delete m[n.id]; markDirty(COMM); } }));
+    }
+    function eraInfo(r) {
+      const techs = doc(TECH)?.techs || [];
+      const share = clamp01(Number(doc(TECH)?.era_prior_share ?? 2 / 3));
+      const prior = techs.filter(t => Number(t.tier ?? 1) < Number(r.tier)).length;
+      const need = Math.ceil(prior * share - 1e-4);
+      const off = (r.node || []).filter(id => { const t = techs.find(x => x.id === id); return t && Number(t.tier ?? 1) !== Number(r.tier); });
+      return esc(locText(r.key) || r.key || "") + (Number(r.tier) > 1 ? ` · 此前各时代科技 ${prior} 项，进这个时代要研究 ${need} 项` : " · 研究过任一科技即进入") +
+        (off.length ? ` · <span style="color:var(--danger)">节点科技 ${esc(off.join("、"))} 不在这一档</span>` : "");
+    }
+
+    // 引用这个节点的地方(跨文件)
+    function usages(src, id) {
+      const out = [];
+      const push = (sourceId, nid, label) => out.push({ sourceId, id: nid, label });
+      if (src.kind === "tech") {
+        for (const t of doc(TECH)?.techs || []) {
+          if ((t.requires_techs || []).includes(id)) push("tech", t.id, `科技 ${nodeName(t, src)}`);
+          else if (Object.values(t.by_line || {}).some(v => (v?.requires_techs || []).includes(id))) push("tech", t.id, `科技 ${nodeName(t, src)}(按线前置)`);
+        }
+        const mat = SOURCES.find(s => s.id === "material");
+        for (const m of nodes(mat)) if ((m.requires_techs || []).includes(id)) push("material", m.id, `材料 ${nodeName(m, mat)}`);
+        for (const e of doc(TECH)?.eras || []) if ((e.node || []).includes(id)) push("techcfg", null, `时代 ${locText(e.key) || e.key}`);
+        for (const s of SOURCES.filter(s => s.kind === "inst" || s.kind === "template"))
+          for (const x of nodes(s)) if ((x.requires_techs || []).includes(id)) push(s.id, x.id, `${s.kind === "template" ? "模板" : s.line} · ${nodeName(x, s)}`);
+        const lm = SOURCES.find(s => s.id === "landmark");
+        if (lm) for (const b of nodes(lm)) if (b.tech === id || (b.required_techs || []).includes(id) || (b.techs && id in b.techs)) push("landmark", b.id, `名著 ${nodeName(b, lm)}`);
+        if (doc(COMM)?.techs && id in doc(COMM).techs) push("marketcfg", null, "商品市场");
+      } else if (src.kind === "material") {
+        const tech = SOURCES.find(s => s.id === "tech");
+        for (const t of doc(TECH)?.techs || []) if ((t.requires_materials || []).includes(id)) push("tech", t.id, `科技 ${nodeName(t, tech)}`);
+      } else if (src.kind === "template") {
+        for (const s of SOURCES.filter(s => s.kind === "inst")) for (const x of nodes(s)) if (x.template === id) push(s.id, x.id, `${s.line} · ${nodeName(x, s)}`);
+      } else {
+        for (const o of nodes(src)) if (src.refFields.some(f => (o[f] || []).includes(id))) push(src.id, o.id, nodeName(o, src));
+        if (src.kind === "inst" && (doc(src.file)?.root_nodes || []).includes(id)) out.unshift({ sourceId: src.id, id: null, label: "本线根节点" });
+      }
+      return out;
+    }
+
+    // ---------- 编辑区 ----------
+    function renderEditor() {
+      const box = document.getElementById("editor"), src = S.source, n = S.selected;
+      if (src.kind === "settings") return renderSettings(box, src);
+      if (!n) return renderNoSelection(box, src);
+      const cov = coverage(src.fields);
+      const rest = restOf(n, cov);
+      const nameKey = src.nameKey?.(n), descKey = src.descKey?.(n);
+      const lmRow = src.landmark ? (S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`) || null) : null;
+      const inherited = n.template ? templateOf(n.template) : null;
+      const uses = usages(src, n.id);
+      box.innerHTML = `<div class="card">
+        <h2>${ico(src.icon, "lg")}${esc(nodeName(n))} <span class="badge">${esc(n.id)}</span><span style="flex:1"></span><button class="small" id="dupBtn" title="复制一份放在它后面，名字加“(副本)”">复制本节点</button></h2>
+        <div class="grid four">
+          <label class="field">id<input id="fId" value="${esc(n.id)}"></label>
+          ${src.landmark ? ["cz", "en", "ch"].map((l, i) => `<label class="field">书名 ${l}<input data-lm="${i + 1}" value="${esc(lmRow?.[i + 1] || "")}"></label>`).join("") : locInputs(nameKey, "名称")}
+        </div>
+        ${src.landmark ? `<p class="muted">通用书名写在 Locales/Cultures/Books/LandmarkBooks.csv；各文化自己的书名在文化编辑器 → 书籍词库 → 传世名著。</p>` :
+          descKey ? `<div class="grid three" style="margin-top:8px">${["cz", "en", "ch"].map(l => `<label class="field">描述 ${l}<textarea data-loc="${esc(descKey)}" data-lang="${l}" style="min-height:60px">${esc({ ...(S.locales[descKey] || {}), ...(S.localeEdits[descKey] || {}) }[l] || "")}</textarea></label>`).join("")}</div>
+          <p class="muted" style="margin:4px 0 0">本地化 key：${esc(nameKey)} / ${esc(descKey)}(保存时写入 Locales/cz.json、en.json、ch.json)</p>`
+          : `<p class="muted" style="margin:4px 0 0">本地化 key：${esc(nameKey)}(保存时写入 Locales/cz.json、en.json、ch.json)</p>`}
+        ${inherited ? `<div class="note" style="margin-top:8px">继承公共模板 <b>${esc(inherited.id)}</b>：这里没写的字段沿用模板(对象逐字段合并、数组整体替换)，输入框里灰字是模板的值。</div>` : ""}
+        ${n.template && !inherited ? `<div class="note" style="margin-top:8px;color:var(--danger)">找不到公共模板 ${esc(n.template)}，游戏里会跳过这个节点。</div>` : ""}
+        <div id="fFields"></div>
+        <h3>其它字段(JSON)</h3>
+        <textarea class="code" id="fRest" style="min-height:120px">${esc(Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "")}</textarea>
+        <p class="muted">表单里没有的字段都在这里，原样保留；改完点别处生效。</p>
+        ${uses.length || src.refFields.length ? `<h3>被谁引用</h3><div class="chips uses">${uses.map((u, i) => `<span class="chip" data-use="${i}">${esc(u.label)}</span>`).join("") || `<span class="muted">没有</span>`}</div>` : ""}
+      </div>`;
+      renderFields(box.querySelector("#fFields"), n, src.fields, {
+        inherit: inherited,
+        onChange: k => {
+          if (k === src.level || k === src.group) { renderList(); renderGraph(); }
+          if (k === "template" || k === "name_key" || k === "description_key") ensureLocales([src.nameKey(n), src.descKey(n)]).finally(renderEditor);
+        }
+      });
+      box.querySelector("#fId").onchange = e => renameNode(n, e.target.value.trim());
+      bindLoc(box);
+      box.querySelectorAll("[data-loc]").forEach(inp => inp.addEventListener("input", () => { if (inp.dataset.loc === nameKey && inp.dataset.lang === "cz") { renderList(); renderGraph(); } }));
       box.querySelectorAll("[data-lm]").forEach(inp => inp.oninput = () => {
         let row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`);
         if (!row) { row = [`landmark_book_${n.id}`, "", "", ""]; S.landmarkCsv.rows.push(row); }
         row[Number(inp.dataset.lm)] = inp.value; S.landmarkCsv.dirty = true;
         document.getElementById("saveBtn").classList.add("dirty");
       });
+      if (src.landmark) bindZh(box.querySelector('[data-lm="1"]'), box.querySelector('[data-lm="3"]'), `landmark_book_${n.id}`);
+      box.querySelector("#dupBtn").onclick = duplicateNode;
       box.querySelector("#fRest").onchange = e => {
         let obj = {};
         try { obj = e.target.value.trim() ? parseJsonLoose(e.target.value) : {}; } catch (err) { return toast("其它字段 JSON 格式错误：" + err.message, true); }
-        for (const k of Object.keys(n)) if (!known.has(k)) delete n[k];
-        Object.assign(n, obj); markDirty(); toast("已更新其它字段");
+        if (!isObj(obj)) return toast("其它字段要写成一个 { } 对象", true);
+        applyRest(n, obj, cov); markDirty(); toast("已更新其它字段"); renderEditor();
       };
-      box.querySelectorAll("[data-go]").forEach(el => el.onclick = () => selectNode(el.dataset.go));
+      box.querySelectorAll("[data-use]").forEach(el => el.onclick = () => { const u = uses[Number(el.dataset.use)]; goTo(u.sourceId, u.id); });
     }
 
-    function setField(n, key, value) {
-      const empty = value === "" || value === null || value === undefined || (Array.isArray(value) && !value.length) ||
-        (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length);
-      if (empty) delete n[key]; else n[key] = value;
-      markDirty();
+    // 制度线不选节点时：这条线本身的设置(名称、根节点、立宪覆盖)
+    function renderNoSelection(box, src) {
+      const count = `从左侧或上面的图里选一个节点。共 ${nodes().length} 个节点。`;
+      if (src.kind !== "inst") { box.innerHTML = `<p class="muted">${count}</p>`; return; }
+      const d = doc(src.file);
+      const nameKey = d.name_key || `institution_line_${src.line.toLowerCase()}`;
+      const specs = [
+        F("name_key", "线名称 key", "text", null, { hint: `不填按 institution_line_${esc(src.line.toLowerCase())}` }),
+        F("root_nodes", "根节点", "refs", "self", { hint: "这条线所有文化开局即持有；根节点声明的政体就是初始政体" }),
+        F("default_resistance_reason_key", "默认反对理由文本键", "text", () => S.lookups.reasonKeys),
+        SEC("立宪(覆盖全局设置)", "不填 = 沿用“制度 · 全局设置”"),
+        F("constitution.enabled", "可以立宪", "bool", null, { blank: "沿用全局" }),
+        F("constitution.requires_composite_empire", "要先完成多元帝国整合", "bool", null, { blank: "沿用全局" }),
+        F("constitution.required_features", "要具备的制度特性", "chips", () => S.lookups.features),
+        F("constitution.required_techs", "要先研究出的科技", "refs", "tech")
+      ];
+      const cov = coverage(specs, ["nodes"]);
+      const rest = restOf(d, cov);
+      box.innerHTML = `<p class="muted">${count}</p><div class="card"><h2>${ico(src.icon, "lg")}${esc(locText(nameKey) || src.line)} <span class="badge">${esc(src.file)}</span></h2>
+        <div class="grid three">${locInputs(nameKey, "线名称")}</div><div id="lineFields"></div>
+        <h3>其它字段(JSON)</h3><textarea class="code" id="lineRest" style="min-height:80px">${esc(Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "")}</textarea></div>`;
+      renderFields(box.querySelector("#lineFields"), d, specs, { onChange: k => { if (k === "name_key") ensureLocales([d.name_key || `institution_line_${src.line.toLowerCase()}`]).finally(renderEditor); } });
+      bindLoc(box);
+      box.querySelector("#lineRest").onchange = e => {
+        let obj = {};
+        try { obj = e.target.value.trim() ? parseJsonLoose(e.target.value) : {}; } catch (err) { return toast("JSON 格式错误：" + err.message, true); }
+        if (!isObj(obj)) return toast("要写成一个 { } 对象", true);
+        applyRest(d, obj, cov); markDirty(); toast("已更新"); renderEditor();
+      };
     }
 
-    function fieldWidget(n, key, label, type, opt) {
-      const wrap = document.createElement("div");
-      const full = ["refs", "chips", "boosts", "instreq", "resources", "kv"].includes(type);
-      if (full) wrap.style.gridColumn = "1 / -1";
-      if (type === "text" || type === "number") {
-        wrap.innerHTML = `<label class="field">${label}<input type="${type}" step="any" value="${esc(n[key] ?? "")}"></label>`;
-        wrap.querySelector("input").onchange = e => { setField(n, key, type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value.trim()); if (key === S.source.level || key === S.source.group) { renderList(); renderGraph(); } };
-      } else if (type === "select") {
-        const options = uniq(["", ...opt(), n[key] || ""]);
-        wrap.innerHTML = `<label class="field">${label}<select>${options.map(o => `<option value="${esc(o)}" ${o === (n[key] || "") ? "selected" : ""}>${esc(o || "(无)")}</option>`).join("")}</select></label>`;
-        wrap.querySelector("select").onchange = e => { setField(n, key, e.target.value); if (key === "template") renderEditor(); if (key === S.source.group) { renderList(); renderGraph(); } };
-      } else if (type === "refs" || type === "chips") {
-        const target = type === "refs" ? (opt === "self" ? S.source.id : opt) : null;
-        const values = [...(n[key] || [])];
-        const suggestions = type === "refs" ? ids(target) : opt();
-        wrap.innerHTML = `<label class="field">${label}</label>`;
-        wrap.appendChild(chipEditor(values, {
-          suggestions, known: type === "refs" ? new Set(ids(target)) : null, placeholder: "回车添加",
-          onChange: v => { setField(n, key, [...v]); renderGraph(); }
-        }));
-      } else if (type === "kv") {
-        const map = { ...(n[key] || {}) };
-        const listId = "kv" + Math.random().toString(36).slice(2);
-        const draw = () => {
-          wrap.innerHTML = `<label class="field">${label}</label><datalist id="${listId}">${opt().map(s => `<option value="${esc(s)}">`).join("")}</datalist>
-            <table class="sheet"><tr><th>键</th><th style="width:140px">值</th><th class="act"></th></tr>
-            ${Object.entries(map).map(([k, v], i) => `<tr><td><input list="${listId}" data-k="${i}" value="${esc(k)}"></td><td><input type="number" step="any" data-v="${i}" value="${esc(v)}"></td><td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
-            </table><button class="small" data-add style="margin-top:4px">＋ 一项</button>`;
-          const commit = () => { setField(n, key, { ...map }); };
-          wrap.querySelectorAll("[data-k]").forEach(inp => inp.onchange = () => {
-            const e = Object.entries(map); const i = Number(inp.dataset.k); e[i][0] = inp.value.trim();
-            Object.keys(map).forEach(k => delete map[k]); e.forEach(([k, v]) => k && (map[k] = v)); commit(); draw();
-          });
-          wrap.querySelectorAll("[data-v]").forEach(inp => inp.onchange = () => { const k = Object.keys(map)[Number(inp.dataset.v)]; map[k] = Number(inp.value); commit(); });
-          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { delete map[Object.keys(map)[Number(b.dataset.d)]]; commit(); draw(); });
-          wrap.querySelector("[data-add]").onclick = () => { let k = "new_key", i = 1; while (map[k] !== undefined) k = `new_key_${i++}`; map[k] = 1; commit(); draw(); };
-        };
-        draw();
-      } else {
-        // 对象数组：boosts / requires_institutions / resources
-        const cols = {
-          boosts: [["type", "类型", ["resource", "building_type", "population", "cities", "war_knows", "contact_knows", "institution_feature"]], ["value", "值"], ["amount", "数量", "number"]],
-          instreq: [["feature", "制度特性", S.lookups.features], ["min_value", "最低值", "number"]],
-          resources: [["id", "资源 id"], ["amount", "数量", "number"]]
-        }[type];
-        const rows = (n[key] || []).map(r => ({ ...r }));
-        const draw = () => {
-          wrap.innerHTML = `<label class="field">${label}</label>
-            <table class="sheet"><tr>${cols.map(c => `<th>${c[1]}</th>`).join("")}<th class="act"></th></tr>
-            ${rows.map((r, i) => `<tr>${cols.map(([f, , kind]) => Array.isArray(kind)
-              ? `<td><select data-r="${i}" data-f="${f}" style="border:none">${uniq([...kind, r[f] || ""]).map(o => `<option ${o === r[f] ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></td>`
-              : `<td><input data-r="${i}" data-f="${f}" ${kind === "number" ? 'type="number" step="any"' : ""} value="${esc(r[f] ?? "")}"></td>`).join("")}
-              <td class="act"><button class="small" data-d="${i}">×</button></td></tr>`).join("")}
-            </table><button class="small" data-add style="margin-top:4px">＋ 一行</button>`;
-          const commit = () => setField(n, key, rows.map(r => ({ ...r })));
-          wrap.querySelectorAll("[data-r]").forEach(inp => inp.onchange = () => {
-            const kind = cols.find(c => c[0] === inp.dataset.f)[2];
-            rows[inp.dataset.r][inp.dataset.f] = kind === "number" ? Number(inp.value) : inp.value; commit();
-          });
-          wrap.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { rows.splice(Number(b.dataset.d), 1); commit(); draw(); });
-          wrap.querySelector("[data-add]").onclick = () => {
-            const r = {}; cols.forEach(([f, , kind]) => r[f] = kind === "number" ? 1 : Array.isArray(kind) ? (kind[0] || "") : ""); rows.push(r); commit(); draw();
-          };
-        };
-        draw();
-      }
-      return wrap;
+    function renderSettings(box, src) {
+      const d = doc(src.file);
+      const allFields = src.sections.flatMap(s => s.fields || []);
+      const cov = coverage(allFields, [...(src.claims || []), ...src.sections.flatMap(s => s.claims || [])]);
+      const rest = restOf(d, cov);
+      box.innerHTML = `<div class="card"><h2>${ico(src.icon, "lg")}${esc(src.label)} <span class="badge">${esc(src.file)}</span></h2><div id="secs"></div>
+        <h3>其它字段(JSON)</h3><textarea class="code" id="setRest" style="min-height:140px">${esc(Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "")}</textarea>
+        <p class="muted">表单里没有的字段都在这里，原样保留；改完点别处生效。</p></div>`;
+      const secs = box.querySelector("#secs");
+      src.sections.forEach((s, i) => {
+        const el = document.createElement("div");
+        el.className = "settings-sec"; el.id = `sec-${i}`;
+        el.innerHTML = `<h3>${esc(s.title)}</h3>${s.hint ? `<div class="fhint" style="margin:-4px 0 8px">${esc(s.hint)}</div>` : ""}`;
+        secs.appendChild(el);
+        if (s.fields) { const g = document.createElement("div"); el.appendChild(g); renderFields(g, d, s.fields, { file: src.file }); }
+        if (s.render) { const g = document.createElement("div"); g.style.marginTop = "8px"; el.appendChild(g); s.render(g); }
+      });
+      box.querySelector("#setRest").onchange = e => {
+        let obj = {};
+        try { obj = e.target.value.trim() ? parseJsonLoose(e.target.value) : {}; } catch (err) { return toast("其它字段 JSON 格式错误：" + err.message, true); }
+        if (!isObj(obj)) return toast("其它字段要写成一个 { } 对象", true);
+        applyRest(d, obj, cov); markDirty(src.file); toast("已更新其它字段"); renderEditor();
+      };
     }
 
-    // 改 id：同一文件里所有引用一起改，本地化 key(按 id 生成的那种)也跟着搬
-    function renameNode(n, newId) {
+    // ---------- 改名、增删 ----------
+    // 改一个文件里的数据；内容真的变了才记为待保存
+    function touch(file, fn) {
+      const d = doc(file); if (!d) return;
+      const before = JSON.stringify(d);
+      fn(d);
+      if (JSON.stringify(d) !== before) S.dirty.add(file);
+    }
+    const swapArr = (arr, a, b) => Array.isArray(arr) ? arr.map(x => x === a ? b : x) : arr;
+    const swapKeys = (obj, a, b) => isObj(obj) && a in obj ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k === a ? b : k, v])) : obj;
+
+    // 改 id：所有引用一起改(包括别的文件)，本地化 key(按 id 生成的那种)也跟着搬
+    async function renameNode(n, newId) {
       const src = S.source, oldId = n.id;
       if (!newId || newId === oldId) return;
       if (nodes().some(o => o.id === newId)) { toast(`id ${newId} 已存在`, true); renderEditor(); return; }
       const oldName = src.nameKey?.(n), oldDesc = src.descKey?.(n);
       n.id = newId;
-      for (const o of nodes()) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = o[f].map(x => x === oldId ? newId : x);
-      if (src.id === "material") for (const t of nodes(SOURCES.find(s => s.id === "tech")))
-        if (Array.isArray(t.requires_materials)) t.requires_materials = t.requires_materials.map(x => x === oldId ? newId : x);
-      if (src.id === "tech") {
-        const swap = arr => Array.isArray(arr) ? arr.map(x => x === oldId ? newId : x) : arr;
-        const swapKeys = obj => obj && typeof obj === "object" ? Object.fromEntries(Object.entries(obj).map(([k, v]) => [k === oldId ? newId : k, v])) : obj;
-        for (const m of nodes(SOURCES.find(s => s.id === "material"))) m.requires_techs = swap(m.requires_techs);
-        // 科技树里的其它引用：制度联动、工业、模组卡口
-        const tree = doc("Technology/TechTree.json");
-        for (const l of tree.institution_links || []) { l.requires_techs = swap(l.requires_techs); l.drivers = swapKeys(l.drivers); }
-        if (tree.industry) tree.industry.capitalist_budding_techs = swap(tree.industry.capitalist_budding_techs);
-        for (const g of tree.mod_gates || []) if (g.tech === oldId) g.tech = newId;
-        // 传世名著的触发技术和推动技术
-        const books = doc("Technology/LandmarkBooks.json");
-        if (books?.books) {
-          for (const b of books.books) { if (b.tech === oldId) b.tech = newId; b.techs = swapKeys(b.techs); }
-          S.dirty.add("Technology/LandmarkBooks.json");
+      markDirty();
+      for (const o of nodes()) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = swapArr(o[f], oldId, newId);
+      if (src.kind === "inst") touch(src.file, d => { if (Array.isArray(d.root_nodes)) d.root_nodes = swapArr(d.root_nodes, oldId, newId); });
+      if (src.kind === "material") touch(TECH, d => {
+        for (const t of d.techs || []) {
+          if (Array.isArray(t.requires_materials)) t.requires_materials = swapArr(t.requires_materials, oldId, newId);
+          for (const b of t.boosts || []) if (b.type === "material" && b.value === oldId) b.value = newId;
         }
+      });
+      if (src.kind === "template") for (const file of instDocs()) touch(file, d => { for (const x of d.nodes || []) if (x.template === oldId) x.template = newId; });
+      if (src.kind === "goods") touch(COMM, d => {
+        for (const k of Object.keys(d.techs || {})) d.techs[k] = swapArr(d.techs[k], oldId, newId);
+        for (const k of Object.keys(d.arms || {})) d.arms[k] = swapArr(d.arms[k], oldId, newId);
+        for (const r of Object.values(d.factories || {})) if (isObj(r)) { r.inputs = swapKeys(r.inputs, oldId, newId); r.outputs = swapKeys(r.outputs, oldId, newId); }
+      });
+      if (src.kind === "tech") {
+        touch(TECH, tree => {
+          for (const t of tree.techs || []) {
+            for (const v of Object.values(t.by_line || {})) if (isObj(v)) v.requires_techs = swapArr(v.requires_techs, oldId, newId);
+            for (const b of t.boosts || []) if (b.type === "tech" && b.value === oldId) b.value = newId;
+          }
+          for (const m of tree.materials || []) m.requires_techs = swapArr(m.requires_techs, oldId, newId);
+          for (const e of tree.eras || []) e.node = swapArr(e.node, oldId, newId);
+          for (const l of tree.institution_links || []) { l.requires_techs = swapArr(l.requires_techs, oldId, newId); l.drivers = swapKeys(l.drivers, oldId, newId); }
+          if (tree.industry) { tree.industry.capitalist_budding_techs = swapArr(tree.industry.capitalist_budding_techs, oldId, newId); tree.industry.employment_cap_bonus = swapKeys(tree.industry.employment_cap_bonus, oldId, newId); }
+          for (const g of tree.mod_gates || []) if (g.tech === oldId) g.tech = newId;
+        });
+        for (const file of [...instDocs(), ...templateDocs()]) touch(file, d => {
+          for (const x of d.nodes || d.templates || []) if (Array.isArray(x.requires_techs)) x.requires_techs = swapArr(x.requires_techs, oldId, newId);
+          if (isObj(d.constitution) && Array.isArray(d.constitution.required_techs)) d.constitution.required_techs = swapArr(d.constitution.required_techs, oldId, newId);
+        });
+        touch(SETTINGS, d => { if (isObj(d.constitution) && Array.isArray(d.constitution.required_techs)) d.constitution.required_techs = swapArr(d.constitution.required_techs, oldId, newId); });
+        touch(BOOKS, d => { for (const b of d.books || []) { if (b.tech === oldId) b.tech = newId; b.techs = swapKeys(b.techs, oldId, newId); if (Array.isArray(b.required_techs)) b.required_techs = swapArr(b.required_techs, oldId, newId); } });
+        touch(COMM, d => { d.techs = swapKeys(d.techs, oldId, newId); });
       }
       if (src.nameKey && !n.name_key) {
-        const newName = src.nameKey(n), newDesc = src.descKey(n);
+        const newName = src.nameKey(n), newDesc = src.descKey?.(n);
         if (newName !== oldName) S.localeEdits[newName] = { ...(S.locales[oldName] || {}), ...(S.localeEdits[oldName] || {}) };
-        if (newDesc !== oldDesc) S.localeEdits[newDesc] = { ...(S.locales[oldDesc] || {}), ...(S.localeEdits[oldDesc] || {}) };
+        if (newDesc && newDesc !== oldDesc) S.localeEdits[newDesc] = { ...(S.locales[oldDesc] || {}), ...(S.localeEdits[oldDesc] || {}) };
       }
       if (src.landmark) { const row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${oldId}`); if (row) { row[0] = `landmark_book_${newId}`; S.landmarkCsv.dirty = true; } }
-      markDirty(); renderList(); renderGraph(); renderEditor();
-      toast(`已改名 ${oldId} → ${newId}，引用已同步`);
+      renderList(); renderGraph(); renderEditor();
+      let extra = "";
+      if (src.kind === "inst") {
+        // 派系决议规则(ClaimRules.json)按节点 id 引用制度，那个文件归“派系决议规则”页管，这里只提醒
+        try { const r = await api.readText("ClaimRules.json"); if (r.exists && r.text.includes(`"${oldId}"`)) extra = `；ClaimRules.json 里还引用着 ${oldId}，请到“派系决议规则”页改`; } catch { }
+      }
+      toast(`已改名 ${oldId} → ${newId}，引用已同步${extra}`, !!extra);
     }
 
-    function addNode(clone) {
+    // ---------- 新建、复制 ----------
+    // 新建只问名称、时代/分支、前置；id 由英文名生成(没填就自动编号)，本地化 key、花费、层级等按前置和同档节点推算
+    const slug = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const median = arr => { const a = arr.filter(x => typeof x === "number" && isFinite(x)).sort((x, y) => x - y); return a.length ? a[Math.floor((a.length - 1) / 2)] : undefined; };
+    const pick = (o, keys) => Object.fromEntries(keys.filter(k => !isEmptyVal(o[k])).map(k => [k, o[k]]));
+    // 同类节点 id 不能重复(制度节点各线之间也不能重复)
+    function takenIds(src) {
+      const group = src.kind === "inst" || src.kind === "template" ? SOURCES.filter(s => s.kind === src.kind) : [src];
+      return new Set(group.flatMap(s => nodes(s).map(n => n.id)));
+    }
+    function uniqueId(src, base, numbered = false) {
+      const taken = takenIds(src);
+      if (!numbered && !taken.has(base)) return base;
+      let i = numbered ? 1 : 2;
+      while (taken.has(`${base}_${i}`)) i++;
+      return `${base}_${i}`;
+    }
+    function genId(src, en) {
+      const s = slug(en), line = src.line ? src.line.toLowerCase() : "";
+      if (s) return uniqueId(src, src.kind === "inst" && !s.startsWith(line + "_") ? `${line}_${s}` : s);
+      return uniqueId(src, { tech: "custom_tech", material: "custom_material", inst: `${line}_policy`, template: "custom_template", landmark: "custom_book", goods: "custom_good" }[src.kind] || "new_node", true);
+    }
+    function deriveNode(src, d) {
+      const auto = [];
+      const most = arr => { const c = {}; arr.forEach(x => { if (x) c[x] = (c[x] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a])[0]; };
+      if (src.kind === "tech") {
+        const pre = (d.requires_techs || []).map(id => nodes(src).find(t => t.id === id)).filter(Boolean);
+        const maxEra = Math.max(1, ...(doc(TECH)?.eras || []).map(e => Number(e.tier) || 0));
+        const tier = d.tier ?? (pre.length ? Math.min(maxEra, Math.max(...pre.map(t => Number(t.tier) || 1)) + 1) : 1);
+        if (d.tier === undefined) auto.push(`时代 ${tier}`);
+        const branch = d.branch || most(pre.map(t => t.branch)) || "science";
+        if (!d.branch) auto.push(`分支 ${BRANCH_LABEL[branch] || branch}`);
+        const sameTier = nodes(src).filter(t => Number(t.tier ?? 1) === tier);
+        const cost = median(sameTier.filter(t => t.branch === branch).map(t => t.cost)) ?? median(sameTier.map(t => t.cost)) ?? 10;
+        auto.push(`花费 ${cost}(同时代科技的中位数)`);
+        return { node: { branch, tier, cost, ...pick(d, ["requires_techs", "requires_materials"]) }, auto };
+      }
+      if (src.kind === "material") return { node: { tier: d.tier ?? 1, ...pick(d, ["requires_techs"]) }, auto: d.tier === undefined ? ["时代 1"] : [] };
+      if (src.kind === "inst" || src.kind === "template") {
+        const pre = (d.requires || []).map(id => nodes(src).find(n => n.id === id)).filter(Boolean);
+        const adv = d.advancement ?? (pre.length ? Math.max(...pre.map(n => Number(n.advancement) || 1)) + 1 : 1);
+        if (src.kind === "inst" && d.advancement === undefined) auto.push(`进阶度 ${adv}`);
+        const branch = d.branch || most(pre.map(n => n.branch));
+        if (!d.branch && branch) auto.push(`分支 ${BRANCH_LABEL[branch] || branch}`);
+        const node = pick(d, ["template"]);
+        if (branch && branch !== "administration") node.branch = branch;
+        if (src.kind === "inst" && adv !== 1) node.advancement = adv;
+        return { node: { ...node, ...pick(d, ["requires", "requires_techs"]) }, auto };
+      }
+      if (src.kind === "landmark") return { node: { ...pick(d, ["tech"]), category: d.category || "literature" }, auto: d.category ? [] : ["类别 文学"] };
+      if (src.kind === "goods") {
+        const tier = d.tier || "luxury";
+        const price = median(nodes(src).filter(g => g.tier === tier).map(g => g.price)) ?? 1;
+        return { node: { tier, price, ...pick(d, ["era"]) }, auto: [...(d.tier ? [] : ["门类 奢侈品"]), `价格 ${price}(同门类的中位数)`] };
+      }
+      return { node: { ...d }, auto };
+    }
+
+    function openNewNode() {
       const src = S.source;
-      const base = clone && S.selected ? JSON.parse(JSON.stringify(S.selected)) : src.template();
-      let id = clone && S.selected ? `${S.selected.id}_copy` : base.id, i = 2;
-      while (nodes().some(o => o.id === id)) id = `${base.id}_${i++}`;
-      base.id = id;
-      if (base.name_key && clone) base.name_key = `institution_${id}`;
-      if (base.description_key && clone) base.description_key = `institution_${id}_desc`;
-      nodes().push(base);
+      if (!src || src.kind === "settings") return;
+      document.getElementById("newDlg")?.remove();
+      const draft = {};
+      S.newNodes.add(draft);
+      delete S.zhAuto["__new|ch"]; delete S.zhAuto["__new|cz"];
+      const nm = src.landmark ? "书名" : "名称";
+      const dlg = document.createElement("dialog");
+      dlg.id = "newDlg";
+      dlg.innerHTML = `<h2 style="margin-top:0">${ico(src.icon, "lg")}新建 · ${esc(src.label)}</h2>
+        <div class="grid two">
+          <label class="field">${nm}(简体)<input id="nCz" placeholder="必填"></label>
+          <label class="field">${nm}(繁体，自动转换)<input id="nCh"></label>
+          <label class="field">英文名(可不填)<input id="nEn" placeholder="不填：保存时先用简体顶上"></label>
+          <label class="field">id(自动)<input id="nId"></label>
+        </div>
+        ${src.descKey ? `<label class="field" style="margin-top:8px">说明(简体，可不填)<textarea id="nDesc" style="min-height:54px"></textarea></label>` : ""}
+        <div id="nFields"></div>
+        <div class="note" id="nAuto" style="margin-top:10px"></div>
+        <div class="toolbar" style="margin-top:12px;justify-content:flex-end"><button id="nCancel">取消</button><button class="primary" id="nOk">创建</button></div>`;
+      document.body.appendChild(dlg);
+      const $ = q => dlg.querySelector(q);
+      let idTouched = false;
+      const refresh = () => {
+        if (!idTouched) $("#nId").value = genId(src, $("#nEn").value);
+        const { auto } = deriveNode(src, draft);
+        $("#nAuto").innerHTML = `id 由英文名生成(没填就自动编号)，本地化 key 自动起好${auto.length ? `；自动补上：${esc(auto.join("、"))}` : ""}。其余字段按代码默认值不写进文件，建好后可以在表单里改。`;
+      };
+      renderFields($("#nFields"), draft, newNodeFields(src), { draft: true, onChange: refresh });
+      bindZh($("#nCz"), $("#nCh"), "__new");
+      $("#nEn").oninput = refresh;
+      $("#nId").oninput = () => { idTouched = !!$("#nId").value.trim(); if (!idTouched) refresh(); };
+      const close = () => { dlg.close(); dlg.remove(); };
+      $("#nCancel").onclick = close;
+      $("#nOk").onclick = () => {
+        const cz = $("#nCz").value.trim();
+        if (!cz) { toast(`请先填${nm}(简体)`, true); $("#nCz").focus(); return; }
+        const id = $("#nId").value.trim() || genId(src, $("#nEn").value);
+        if (/\s/.test(id)) { toast("id 不能有空格", true); return; }
+        if (takenIds(src).has(id)) { toast(`id ${id} 已存在`, true); return; }
+        close();
+        createNode(src, draft, { id, cz, ch: $("#nCh").value.trim(), en: $("#nEn").value.trim(), desc: $("#nDesc")?.value.trim() || "" });
+      };
+      for (const q of ["#nCz", "#nCh", "#nEn", "#nId"]) $(q).addEventListener("keydown", e => { if (e.key === "Enter") $("#nOk").click(); });
+      refresh();
+      dlg.showModal();
+      $("#nCz").focus();
+    }
+
+    function createNode(src, draft, { id, cz, ch, en, desc }) {
+      const { node } = deriveNode(src, draft);
+      const trad = t => (t && typeof zhToTrad === "function" ? zhToTrad(t) : "");
+      let full;
+      if (src.kind === "inst" || src.kind === "template") {
+        const { template, ...rest } = node;
+        full = { id, ...(template ? { template } : {}), name_key: `institution_${id}`, ...(desc || !template ? { description_key: `institution_${id}_desc` } : {}), ...rest };
+      } else full = { id, ...node };
+      if (src.landmark) { S.landmarkCsv.rows.push([`landmark_book_${id}`, cz, en, ch || trad(cz)]); S.landmarkCsv.dirty = true; }
+      else {
+        S.localeEdits[src.nameKey(full)] = { cz, en, ch: ch || trad(cz) };
+        const dk = src.descKey?.(full);
+        // 没写说明也写一条空的，免得游戏里显示 key
+        if (dk && (desc || !full.template)) S.localeEdits[dk] = { cz: desc, en: "", ch: trad(desc) };
+      }
+      // 放在同层级最后一个节点后面，文件里还是按层级排
+      const list = listAt(doc(src.file), src.path, true);
+      let at = list.length;
+      if (src.level && full[src.level] !== undefined)
+        for (let i = list.length - 1; i >= 0; i--) if (Number(list[i][src.level] ?? 0) <= Number(full[src.level])) { at = i + 1; break; }
+      list.splice(at, 0, full);
+      S.newNodes.add(full);
+      markDirty(src.file);
+      document.getElementById("nodeFilter").value = "";
+      document.getElementById("groupFilter").value = "";
+      selectNode(id);
+      toast(`已新建 ${cz}(${id})，记得保存`);
+    }
+
+    // 复制：放在原节点后面，名字加“(副本)”；制度节点的副本用自己的名称 key
+    function duplicateNode() {
+      const src = S.source, n = S.selected;
+      if (!n || src.kind === "settings") return;
+      const copy = JSON.parse(JSON.stringify(n));
+      const id = uniqueId(src, `${n.id}_copy`);
+      copy.id = id;
+      if (src.kind === "inst" || src.kind === "template") {
+        copy.name_key = `institution_${id}`;
+        if (copy.description_key || !copy.template) copy.description_key = `institution_${id}_desc`;
+      }
+      const copyLoc = (from, to, mark) => {
+        if (!from || !to || from === to) return;
+        const v = { ...(S.locales[from] || {}), ...(S.localeEdits[from] || {}) };
+        S.localeEdits[to] = mark ? { cz: v.cz ? v.cz + "(副本)" : "", ch: v.ch ? v.ch + "(副本)" : "", en: v.en ? v.en + " (copy)" : "" } : { cz: v.cz || "", ch: v.ch || "", en: v.en || "" };
+      };
+      copyLoc(src.nameKey?.(n), src.nameKey?.(copy), true);
+      copyLoc(src.descKey?.(n), src.descKey?.(copy), false);
+      if (src.landmark) {
+        const row = S.landmarkCsv.rows.find(r => r[0] === `landmark_book_${n.id}`) || [];
+        S.landmarkCsv.rows.push([`landmark_book_${id}`, row[1] ? row[1] + "(副本)" : "", row[2] ? row[2] + " (copy)" : "", row[3] ? row[3] + "(副本)" : ""]);
+        S.landmarkCsv.dirty = true;
+      }
+      const list = nodes();
+      list.splice(list.indexOf(n) + 1, 0, copy);
+      S.newNodes.add(copy);
       markDirty(); selectNode(id);
+      toast(`已复制为 ${id}`);
     }
 
     function deleteNode() {
       const src = S.source, n = S.selected;
-      if (!n) return;
-      const users = nodes().filter(o => src.refFields.some(f => (o[f] || []).includes(n.id)));
-      if (!confirm(`删除节点 ${n.id}？${users.length ? `\n有 ${users.length} 个节点引用它，引用也会一起去掉。` : ""}`)) return;
+      if (!n || src.kind === "settings") return;
+      const uses = usages(src, n.id);
+      if (!confirm(`删除节点 ${n.id}？${uses.length ? `\n有 ${uses.length} 处引用它${src.refFields.length ? "，本文件里的前置/互斥/取代引用会一起去掉" : "，保存前检查会列出来"}。` : ""}`)) return;
       const list = nodes(); list.splice(list.indexOf(n), 1);
       for (const o of list) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = o[f].filter(x => x !== n.id);
+      if (src.kind === "inst") { const d = doc(src.file); if (Array.isArray(d.root_nodes)) d.root_nodes = d.root_nodes.filter(x => x !== n.id); }
       S.selected = null; markDirty(); renderList(); renderGraph(); renderEditor();
     }
 
-    // 保存前检查：引用了不存在的节点、id 重复
-    function validate(src) {
+    // 保存前检查：引用了不存在的节点、id 重复等
+    function validate() {
       const problems = [];
-      const all = new Set(nodes(src).map(n => n.id));
-      if (all.size !== nodes(src).length) problems.push(`${src.label} 有重复 id`);
-      for (const n of nodes(src)) for (const f of src.refFields) for (const r of n[f] || []) if (!all.has(r)) problems.push(`${n.id}.${f} → ${r} 不存在`);
-      if (src.id === "tech") { const mats = new Set(ids("material")); for (const n of nodes(src)) for (const r of n.requires_materials || []) if (!mats.has(r)) problems.push(`${n.id}.requires_materials → ${r} 不是材料`); }
+      const has = id => new Set(ids(id));
+      const techs = has("tech"), mats = has("material"), goods = has("goods");
+      const check = (where, list, set, what) => { for (const r of Array.isArray(list) ? list : []) if (!set.has(r)) problems.push(`${where} → ${r} 不是${what}`); };
+      for (const src of SOURCES.filter(s => s.path && S.dirty.has(s.file))) {
+        const all = new Set(nodes(src).map(n => n.id));
+        if (all.size !== nodes(src).length) problems.push(`${src.label} 有重复 id`);
+        for (const n of nodes(src)) {
+          for (const f of src.refFields) check(`${n.id}.${f}`, n[f], all, "本文件里的节点");
+          if (src.kind === "tech") { check(`${n.id}.requires_materials`, n.requires_materials, mats, "材料"); for (const [line, v] of Object.entries(n.by_line || {})) check(`${n.id}.by_line.${line}`, v?.requires_techs, techs, "科技"); }
+          if (["material", "inst", "template"].includes(src.kind)) check(`${n.id}.requires_techs`, n.requires_techs, techs, "科技");
+          if (src.kind === "inst" && n.template && !templateOf(n.template)) problems.push(`${n.id}.template → ${n.template} 不是公共模板`);
+          if (src.kind === "landmark") { if (n.tech) check(`${n.id}.tech`, [n.tech], techs, "科技"); check(`${n.id}.required_techs`, n.required_techs, techs, "科技"); check(`${n.id}.techs`, Object.keys(n.techs || {}), techs, "科技"); }
+        }
+        if (src.kind === "inst") check(`${src.line}.root_nodes`, doc(src.file).root_nodes, all, "本线节点");
+      }
+      if (S.dirty.has(TECH)) {
+        for (const e of doc(TECH).eras || []) check(`时代 ${e.tier}.node`, e.node, techs, "科技");
+        for (const l of doc(TECH).institution_links || []) check(`制度联动 ${l.feature}.requires_techs`, l.requires_techs, techs, "科技");
+      }
+      if (S.dirty.has(COMM)) {
+        const c = doc(COMM);
+        for (const [t, list] of Object.entries(c.techs || {})) { check("商品市场 techs", [t], techs, "科技"); check(`商品市场 techs.${t}`, list, goods, "商品"); }
+        for (const [a, list] of Object.entries(c.arms || {})) check(`商品市场 arms.${a}`, list, goods, "商品");
+        for (const [k, r] of Object.entries(c.factories || {})) check(`商品市场 factories.${k}`, [...Object.keys(r?.inputs || {}), ...Object.keys(r?.outputs || {})], goods, "商品");
+      }
+      if (S.dirty.has(SETTINGS)) {
+        const d = doc(SETTINGS);
+        if (d.default_line && !S.lookups.lines.includes(d.default_line)) problems.push(`default_line → ${d.default_line} 不是制度线`);
+        check("全局立宪 required_techs", d.constitution?.required_techs, techs, "科技");
+      }
       return problems;
     }
 
+    // ---------- 保存：保持原文件排版 ----------
+    // 读入时记下每个值在原文里的位置；保存时没改的值原样照抄，改过的对象/数组沿用原来的换行、缩进、空行与间隔，
+    // 只有新加的内容按同级的样式生成(同级是一行写完的就一行写，跨行的就跨行写)
+    function cstParse(text) {
+      let i = 0;
+      const fail = m => { throw new Error(`${m}(位置 ${i})`); };
+      const trivia = () => {
+        const s = i;
+        for (;;) {
+          const c = text[i];
+          if (c === " " || c === "\t" || c === "\n" || c === "\r" || c === "﻿") i++;
+          else if (c === "/" && text[i + 1] === "/") { const e = text.indexOf("\n", i); i = e < 0 ? text.length : e; }
+          else if (c === "/" && text[i + 1] === "*") { const e = text.indexOf("*/", i + 2); i = e < 0 ? text.length : e + 2; }
+          else break;
+        }
+        return text.slice(s, i);
+      };
+      const str = () => { const s = i; i++; while (i < text.length && text[i] !== '"') i += text[i] === "\\" ? 2 : 1; if (i >= text.length) fail("字符串没有结尾"); i++; return JSON.parse(text.slice(s, i)); };
+      const value = () => {
+        const start = i, c = text[i];
+        if (c === "{" || c === "[") {
+          const obj = c === "{", closeCh = obj ? "}" : "]", t = obj ? "o" : "a";
+          i++;
+          const items = [], v = obj ? {} : [];
+          let before = trivia();
+          if (text[i] === closeCh) { i++; return { t, start, end: i, items, close: before, v }; }
+          for (;;) {
+            const it = { before };
+            if (obj) {
+              if (text[i] !== '"') fail("缺少键名");
+              const ks = i; it.key = str(); it.rawKey = text.slice(ks, i);
+              const ss = i; trivia(); if (text[i] !== ":") fail("缺少冒号"); i++; trivia(); it.sep = text.slice(ss, i);
+            }
+            it.node = value();
+            if (obj) v[it.key] = it.node.v; else v.push(it.node.v);
+            items.push(it);
+            it.after = trivia();
+            if (text[i] === ",") {
+              i++; before = trivia();
+              if (text[i] === closeCh) { i++; return { t, start, end: i, items, close: before, v }; }
+              continue;
+            }
+            if (text[i] === closeCh) { const close = it.after; it.after = ""; i++; return { t, start, end: i, items, close, v }; }
+            fail("缺少逗号");
+          }
+        }
+        if (c === '"') str();
+        else { const m = /^(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)/.exec(text.slice(i, i + 80)); if (!m) fail("无法识别的值"); i += m[0].length; }
+        return { t: "p", start, end: i, v: JSON.parse(text.slice(start, i)) };
+      };
+      const lead = trivia();
+      const root = value();
+      const tail = text.slice(i);
+      if (!/^(\s|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*$/.test(tail)) fail("结尾有多余内容");
+      return { text, lead, root, tail };
+    }
+
+    function jsonInline(v, pad) {
+      if (Array.isArray(v)) return "[" + v.map(x => jsonInline(x, false)).join(", ") + "]";
+      if (isObj(v)) {
+        const ks = Object.keys(v).filter(k => v[k] !== undefined);
+        if (!ks.length) return "{}";
+        const body = ks.map(k => JSON.stringify(k) + ": " + jsonInline(v[k], false)).join(", ");
+        return pad ? "{ " + body + " }" : "{" + body + "}";
+      }
+      return v === undefined ? "null" : JSON.stringify(v);
+    }
+    function jsonFresh(v, ctx) {
+      if (!(Array.isArray(v) || isObj(v))) return v === undefined ? "null" : JSON.stringify(v);
+      if (ctx.pretty) return JSON.stringify(v, null, ctx.unit).replace(/\n/g, "\n" + ctx.indent);
+      return jsonInline(v, ctx.pad);
+    }
+    function jsonEmit(v, node, ctx) {
+      if (node && deepEq(v, node.v)) return ctx.src.slice(node.start, node.end);
+      const arr = Array.isArray(v);
+      if (arr || isObj(v)) return node && node.t === (arr ? "a" : "o") && node.items.length ? jsonEmitContainer(v, node, ctx) : jsonFresh(v, ctx);
+      return v === undefined ? "null" : JSON.stringify(v);
+    }
+    function jsonEmitContainer(v, node, ctx) {
+      const src = ctx.src, arr = Array.isArray(v), items = node.items;
+      const textOf = it => src.slice(it.node.start, it.node.end);
+      const ws = s => /^[ \t\r\n]*$/.test(s);
+      const indentOf = s => s.slice(s.lastIndexOf("\n") + 1).match(/^[ \t]*/)[0];
+      const multi = items.some(it => it.before.includes("\n")) || node.close.includes("\n");
+      const nl = items.find(it => it.before.includes("\n"));
+      const childIndent = nl ? indentOf(nl.before) : ctx.indent + ctx.unit;
+      const firstBefore = ws(items[0].before) ? items[0].before : (multi ? "\n" + childIndent : "");
+      const restBefore = multi ? "\n" + childIndent : (items[1] && ws(items[1].before) ? items[1].before : " ");
+      const sep = !arr && ws(items[0].sep.replace(":", "")) ? items[0].sep : ": ";
+      const prettyMember = multi && items.some(it => it.node.t !== "p" && textOf(it).includes("\n"));
+      const entries = arr ? v.map((x, i) => [i, x]) : Object.keys(v).filter(k => v[k] !== undefined).map(k => [k, v[k]]);
+      // 新旧元素对应：对象按键；数组先按 id、再按内容相同、最后按位置
+      const match = new Array(entries.length).fill(null);
+      const used = new Set();
+      if (!arr) {
+        const byKey = new Map(items.map(it => [it.key, it]));
+        entries.forEach(([k], p) => { const it = byKey.get(k); if (it) { match[p] = it; used.add(it); } });
+      } else {
+        entries.forEach(([, x], p) => {
+          if (!isObj(x) || typeof x.id !== "string") return;
+          const it = items.find(it => !used.has(it) && isObj(it.node.v) && it.node.v.id === x.id);
+          if (it) { match[p] = it; used.add(it); }
+        });
+        entries.forEach(([, x], p) => {
+          if (match[p]) return;
+          const it = items.find(it => !used.has(it) && deepEq(it.node.v, x));
+          if (it) { match[p] = it; used.add(it); }
+        });
+        entries.forEach(([, x], p) => {
+          if (match[p] || !items[p] || used.has(items[p])) return;
+          if (isObj(x) && typeof x.id === "string" && isObj(items[p].node.v) && typeof items[p].node.v.id === "string") return;
+          match[p] = items[p]; used.add(items[p]);
+        });
+      }
+      let out = arr ? "[" : "{";
+      entries.forEach(([k, x], p) => {
+        const it = match[p];
+        const before = p === 0 ? (it === items[0] ? it.before : firstBefore) : (it && it !== items[0] ? it.before : restBefore);
+        const lineIndent = before.includes("\n") ? indentOf(before) : ctx.indent;
+        const sib = it || match.slice(0, p).reverse().find(Boolean) || match.find(Boolean) || items[items.length - 1];
+        const sibText = sib ? textOf(sib) : "";
+        const childCtx = { src, unit: ctx.unit, indent: lineIndent, pretty: arr ? sibText.includes("\n") : prettyMember, pad: arr && /^[{\[] /.test(sibText) };
+        const body = it ? jsonEmit(x, it.node, childCtx) : jsonFresh(x, childCtx);
+        out += (p ? "," : "") + before + (arr ? "" : (it ? it.rawKey + it.sep : JSON.stringify(k) + sep)) + body + (it ? it.after : "");
+      });
+      if (!entries.length) return arr ? "[]" : "{}";
+      return out + node.close + (arr ? "]" : "}");
+    }
+
+    function serializeDoc(file) {
+      const d = S.docs[file];
+      const plain = () => JSON.stringify(d.data, null, d.indent) + "\n";
+      let text = null;
+      if (d.cst) {
+        try {
+          text = d.cst.lead + jsonEmit(d.data, d.cst.root, { src: d.cst.text, unit: d.indent, indent: "", pretty: true, pad: false }) + d.cst.tail;
+          if (!deepEq(parseJsonLoose(text), d.data)) { console.warn("保持排版写回结果不一致，改用整体重写", file); text = null; }
+        } catch (e) { console.warn("保持排版写回失败，改用整体重写", file, e); text = null; }
+      }
+      if (text === null) text = plain();
+      if (d.crlf) text = text.replace(/\r?\n/g, "\r\n");
+      return text;
+    }
+
     async function saveAll() {
-      const problems = SOURCES.filter(s => S.dirty.has(s.file)).flatMap(validate);
-      if (problems.length && !confirm("发现问题：\n" + problems.slice(0, 15).join("\n") + (problems.length > 15 ? "\n…" : "") + "\n\n仍然保存？")) return;
+      const problems = validate();
+      if (problems.length && !confirm("发现问题：\n" + problems.slice(0, 15).join("\n") + (problems.length > 15 ? `\n…共 ${problems.length} 条` : "") + "\n\n仍然保存？")) return;
       try {
-        for (const file of S.dirty) {
+        let count = 0;
+        for (const file of [...S.dirty]) {
           const d = S.docs[file];
-          let text = JSON.stringify(d.data, null, d.indent) + "\n";
-          if (d.crlf) text = text.replace(/\n/g, "\r\n");
+          if (!d) continue;
+          const text = serializeDoc(file);
           await api.writeText(file, text);
+          try { d.cst = cstParse(text); } catch { d.cst = null; }
+          S.dirty.delete(file); count++;
         }
         const edits = Object.fromEntries(Object.entries(S.localeEdits).filter(([k]) => k));
+        // 英文没填的先用中文顶上，游戏里不会显示成 key
+        let fallback = 0;
+        for (const [k, v] of Object.entries(edits)) {
+          const en = v.en !== undefined ? v.en : S.locales[k]?.en;
+          const zh = v.cz || S.locales[k]?.cz || v.ch || S.locales[k]?.ch || "";
+          if (!String(en || "").trim() && zh.trim()) { v.en = zh; fallback++; }
+        }
+        if (S.landmarkCsv?.dirty) for (const r of S.landmarkCsv.rows) if (!String(r[2] || "").trim() && String(r[1] || r[3] || "").trim()) { r[2] = r[1] || r[3]; fallback++; }
         if (Object.keys(edits).length) await api.writeLocales(edits);
         if (S.landmarkCsv?.dirty) { await api.writeText("Locales/Cultures/Books/LandmarkBooks.csv", serializeCsv(S.landmarkCsv)); S.landmarkCsv.dirty = false; }
         for (const [k, v] of Object.entries(edits)) S.locales[k] = { ...(S.locales[k] || {}), ...v };
-        const count = S.dirty.size;
-        S.dirty.clear(); S.localeEdits = {};
+        S.localeEdits = {};
         renderList();
-        toast(`已保存 ${count} 个文件${Object.keys(edits).length ? `，${Object.keys(edits).length} 条本地化` : ""}。游戏里重新加载世界后生效。`);
+        toast(`已保存 ${count} 个文件${Object.keys(edits).length ? `，${Object.keys(edits).length} 条本地化` : ""}${fallback ? `；${fallback} 条英文没填，先用中文顶上` : ""}。游戏里重新加载世界后生效。`);
       } catch (e) { toast("保存失败：" + e.message, true); }
     }
 
@@ -461,12 +1609,13 @@
       document.getElementById("sourceSel").onchange = e => selectSource(e.target.value);
       document.getElementById("nodeFilter").oninput = () => { renderList(); renderGraph(); };
       document.getElementById("groupFilter").onchange = () => { renderList(); renderGraph(); };
-      document.getElementById("addBtn").onclick = () => addNode(false);
-      document.getElementById("cloneBtn").onclick = () => addNode(true);
+      document.getElementById("addBtn").onclick = openNewNode;
+      document.getElementById("cloneBtn").onclick = duplicateNode;
       document.getElementById("delBtn").onclick = deleteNode;
       document.getElementById("saveBtn").onclick = saveAll;
-      document.getElementById("reloadBtn").onclick = () => { if (!S.dirty.size || confirm("放弃未保存的修改并重新读取？")) loadAll(); };
-      window.addEventListener("beforeunload", e => { if (S.dirty.size || Object.keys(S.localeEdits).length) { e.preventDefault(); e.returnValue = ""; } });
+      const unsaved = () => S.dirty.size || Object.keys(S.localeEdits).length || S.landmarkCsv?.dirty;
+      document.getElementById("reloadBtn").onclick = () => { if (!unsaved() || confirm("放弃未保存的修改并重新读取？")) loadAll(); };
+      window.addEventListener("beforeunload", e => { if (unsaved()) { e.preventDefault(); e.returnValue = ""; } });
       try { await loadAll(); } catch (e) { toast("读取失败：" + e.message, true); }
     }
     init();
