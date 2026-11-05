@@ -88,51 +88,88 @@ function setRegimeInRuleText(text, regime) {
   return text.replace(/("setting"\s*:\s*\{)/, `$1\n        "regime": ${JSON.stringify(regime)},`);
 }
 
-// 新建文化：从已有文化复制规则，可选连同词库 CSV 一起复制(文件名前缀、key 前缀替换成新文化)
-async function createCulture(modRoot, { name, copyFrom, copyCsv, translate_cz, translate_en, translate_ch }) {
+// 空白文化的最小规则：只写和代码默认不同的项；五类起名都要有(游戏起名时直接读，缺一类会出错)。
+// regime 写 Feudalism(写空串整个文化读不进去，不写默认律令制)
+function blankCultureRule(safe) {
+  const naming = (groups, rule) => ({ groups, rule });
+  return {
+    name: safe, color: "#888888", translate_cz: safe,
+    setting: {
+      regime: "Feudalism", traits: ["patriarchy"],
+      City: naming({ group_1: "CityNames1" }, ["group_1"]),
+      Kingdom: naming({ group_1: "CountryNames" }, ["group_1"]),
+      Clan: naming({ group_1: "ClanNames" }, ["group_1"]),
+      Family: naming({ group_1: "FamilyNames" }, ["group_1"]),
+      Unit: naming({ group_1: "UnitNamesMale1", group_2: "UnitNamesFemale1" }, ["group_1", "sex_male", "group_2", "sex_female"])
+    }
+  };
+}
+
+// 新建文化：从已有文化复制规则，可选连同词库 CSV 一起复制(文件名前缀、key 前缀替换成新文化)。
+//   ruleText：编辑器已经改好的 CultureRule.jsonc 原文(保留模板的注释)，name 必须是新文化 id；不给就按旧办法生成。
+//   csvFiles：只复制这些词库文件(模板文件夹里的文件名)；不给就全部复制。
+async function createCulture(modRoot, { name, copyFrom, copyCsv, csvFiles, ruleText, translate_cz, translate_en, translate_ch }) {
   const safe = String(name || "").trim();
   if (!/^[A-Za-z][A-Za-z0-9]*$/.test(safe)) throw new Error("文化名只能用英文字母和数字，并以字母开头，比如 Korea。");
+  const src = String(copyFrom || "").trim();
+  if (src && !/^[A-Za-z][A-Za-z0-9]*$/.test(src)) throw new Error(`模板文化名不对：${src}`);
   const root = culturesRoot(modRoot);
   const dir = path.join(root, `Culture_${safe}`);
   if (syncFs.existsSync(dir)) throw new Error(`文化 ${safe} 已存在。`);
+  let text = null;
+  if (ruleText !== undefined && ruleText !== null) {
+    let parsed;
+    try { parsed = parseJsonLoose(ruleText); } catch (e) { throw new Error(`新文化的规则格式有误：${e.message}`); }
+    if (!parsed || parsed.name !== safe) throw new Error(`新文化规则里的 name 应该是 ${safe}。`);
+    text = String(ruleText);
+  }
   await fs.mkdir(dir, { recursive: true });
-
-  let rule = { name: safe, color: "#888888", translate_cz: "", translate_en: "", translate_ch: "", species: [], setting: { regime: "", institution_line: "", traits: [], political_traits: [] } };
-  if (copyFrom) {
-    const srcDir = path.join(root, `Culture_${copyFrom}`);
-    const srcFile = path.join(srcDir, "CultureRule.jsonc");
-    if (syncFs.existsSync(srcFile)) {
-      rule = parseJsonLoose(await fs.readFile(srcFile, "utf8"));
-      rule.name = safe;
-      rule.species = [];
-    }
-    if (copyCsv && syncFs.existsSync(srcDir)) {
-      const lowerSrc = copyFrom.toLowerCase();
-      const lowerNew = safe.toLowerCase();
-      for (const file of await fs.readdir(srcDir)) {
-        if (!file.toLowerCase().endsWith(".csv")) continue;
-        const text = await fs.readFile(path.join(srcDir, file), "utf8");
-        const newFile = file.startsWith(copyFrom) ? safe + file.slice(copyFrom.length) : file;
-        // key 列里的文化名换成新文化，避免和原文化的本地化 key 撞车
-        const lines = text.split(/\r?\n/).map((line, index) => {
-          if (index === 0 || !line) return line;
-          const comma = line.indexOf(",");
-          if (comma < 0) return line;
-          const key = line.slice(0, comma)
-            .split(lowerSrc).join(lowerNew)
-            .split(copyFrom).join(safe);
-          return key + line.slice(comma);
-        });
-        await fs.writeFile(path.join(dir, newFile), lines.join("\r\n"), "utf8");
+  try {
+    let rule = blankCultureRule(safe);
+    if (src) {
+      const srcDir = path.join(root, `Culture_${src}`);
+      const srcFile = path.join(srcDir, "CultureRule.jsonc");
+      if (text === null && syncFs.existsSync(srcFile)) {
+        rule = parseJsonLoose(await fs.readFile(srcFile, "utf8"));
+        rule.name = safe;
+        delete rule.species; // 物种只能属于一个文化，不跟着模板走
+      }
+      if (copyCsv && syncFs.existsSync(srcDir)) {
+        const only = Array.isArray(csvFiles) ? new Set(csvFiles) : null;
+        const lowerSrc = src.toLowerCase();
+        const lowerNew = safe.toLowerCase();
+        for (const file of await fs.readdir(srcDir)) {
+          if (!file.toLowerCase().endsWith(".csv") || (only && !only.has(file))) continue;
+          const csv = await fs.readFile(path.join(srcDir, file), "utf8");
+          const newFile = file.startsWith(src) ? safe + file.slice(src.length) : file;
+          const nl = csv.includes("\r\n") ? "\r\n" : "\n";
+          // key 列里的文化名换成新文化，避免和原文化的本地化 key 撞车；换行符照原文件
+          const lines = csv.split(/\r?\n/).map((line, index) => {
+            if (index === 0 || !line) return line;
+            const comma = line.indexOf(",");
+            if (comma < 0) return line;
+            const key = line.slice(0, comma)
+              .split(lowerSrc).join(lowerNew)
+              .split(src).join(safe);
+            return key + line.slice(comma);
+          });
+          await fs.writeFile(path.join(dir, newFile), lines.join(nl), "utf8");
+        }
       }
     }
+    if (text === null) {
+      if (translate_cz) rule.translate_cz = translate_cz;
+      if (translate_en) rule.translate_en = translate_en; else delete rule.translate_en;
+      if (translate_ch) rule.translate_ch = translate_ch; else delete rule.translate_ch;
+      text = JSON.stringify(rule, null, 4) + "\n";
+    }
+    const file = path.join(dir, "CultureRule.jsonc");
+    await fs.writeFile(file, text, "utf8");
+    return { name: safe, file };
+  } catch (e) {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+    throw e;
   }
-  if (translate_cz !== undefined) rule.translate_cz = translate_cz;
-  if (translate_en !== undefined) rule.translate_en = translate_en;
-  if (translate_ch !== undefined) rule.translate_ch = translate_ch;
-  const file = path.join(dir, "CultureRule.jsonc");
-  await fs.writeFile(file, JSON.stringify(rule, null, 4) + "\n", "utf8");
-  return { name: safe, file };
 }
 
 // ---------- 本地化 ----------

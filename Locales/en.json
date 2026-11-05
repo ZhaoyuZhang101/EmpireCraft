@@ -10000,6 +10000,7 @@
   "scenario_event_do_banner_enclosure": "Enclose land for the banners",
   "scenario_event_do_banner_law": "Enact the Fugitive Law",
   "regime_type_Banner": "Eight Banners Regime",
+  "regime_type_Bakufu": "Shogunate",
   "class_banner": "Bannermen",
   "class_Banner": "Bannermen",
   "city_land_banner": "Banner land",
