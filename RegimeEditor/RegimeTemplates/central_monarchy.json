@@ -1,0 +1,484 @@
+{
+  "format": "EmpireCraftRegimeTemplate",
+  "version": 1,
+  "order": 10,
+  "name": {
+    "cz": "中央集权君主制",
+    "en": "Centralized Monarchy",
+    "ch": "中央集權君主制"
+  },
+  "summary": "君主世袭，中央设宰相与各部，地方设州县由科举出身的文官治理；打下的法理划成行政区，地方不能拥兵自立。",
+  "regime": {
+    "description": "君主世袭，中央设宰相与各部，地方设州县，官员经科举选拔，打下的土地划为行政区由朝廷派官治理",
+    "icon_url": "",
+    "era_name": true,
+    "has_cabinet": true,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
+    "cabinet_number": 4,
+    "leader_select_method": "Succession",
+    "default_kingdom": "{R}_kingdom",
+    "centre_empire_separate": true,
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": false,
+    "direct_member_types": [],
+    "partition_conquests": true,
+    "keep_member_roles": false,
+    "partition_chance_factor": 0.5,
+    "enfeoff_only_royal": true,
+    "enfeoff_virtual_only": true,
+    "laws": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55
+    ],
+    "Factions": [
+      {
+        "_id": "{R}-faction-1",
+        "Type": "绥靖",
+        "Name": "文官派",
+        "_requiredTraits": [
+          "jingshi"
+        ]
+      },
+      {
+        "_id": "{R}-faction-2",
+        "Type": "攘夷",
+        "Name": "武官派",
+        "_requiredTraits": [
+          "ambitious"
+        ]
+      },
+      {
+        "_id": "{R}-faction-3",
+        "Type": "尊王",
+        "Name": "保皇派"
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        1,
+        4
+      ],
+      "option_leader_select_method": [
+        1,
+        3
+      ],
+      "option_religion_type": [
+        1,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": [
+            "拟定",
+            "审核",
+            "执行"
+          ],
+          "merit": 5,
+          "honorary": 4,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "jingshi"
+          ]
+        }
+      ],
+      "division": [
+        {
+          "pre": "{R}_personnel_full",
+          "type": 2,
+          "powers": [
+            "人事"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "{R}_revenue_full",
+          "type": 2,
+          "powers": [
+            "财政"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "{R}_rites_full",
+          "type": 2,
+          "powers": [
+            "礼仪",
+            "教育"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "{R}_war_full",
+          "type": 2,
+          "powers": [
+            "军事"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "{R}_justice_full",
+          "type": 2,
+          "powers": [
+            "司法"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        },
+        {
+          "pre": "{R}_works_full",
+          "type": 2,
+          "powers": [
+            "建设"
+          ],
+          "merit": 7,
+          "honorary": 6,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi"
+          ]
+        }
+      ],
+      "harems": [
+        {
+          "pre": "",
+          "type": 7,
+          "powers": [
+            "生育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Harem"
+        },
+        {
+          "pre": "",
+          "type": 8,
+          "powers": [
+            "生育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Harem"
+        }
+      ],
+      "kingdoms": {
+        "{R}_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "{R}_city"
+        },
+        "{R}_prefecture": {
+          "pre": "",
+          "type": 4,
+          "merit": 8,
+          "honorary": 7,
+          "leader_select_method": "Exam",
+          "require_traits": [
+            "gongshi",
+            "jingshi"
+          ],
+          "condition": [
+            "empire_center:false",
+            "succession:false"
+          ],
+          "city_type": "{R}_city",
+          "capital_city_suffix_key": "city_suffix_prefecture"
+        },
+        "{R}_kingdom": {
+          "pre": "",
+          "type": 3,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "empire_center:false",
+            "succession:true"
+          ],
+          "city_type": "{R}_city"
+        }
+      },
+      "cities": {
+        "{R}_city": {
+          "pre": "",
+          "type": 5,
+          "merit": 9,
+          "honorary": 8,
+          "leader_select_method": "Default",
+          "require_traits": [
+            "gongshi",
+            "juren"
+          ]
+        }
+      },
+      "armies": {
+        "{R}_army_guard": {
+          "pre": "",
+          "type": 9,
+          "merit": -1,
+          "honorary": 2,
+          "leader_select_method": "Exam",
+          "require_traits": [
+            "gongshi",
+            "juren"
+          ],
+          "condition": [
+            "empire_center:true",
+            "is_capital:true"
+          ],
+          "peerageType": "Military"
+        },
+        "{R}_army_border": {
+          "pre": "",
+          "type": 10,
+          "merit": -1,
+          "honorary": 6,
+          "leader_select_method": "Exam",
+          "require_traits": [
+            "gongshi",
+            "juren"
+          ],
+          "condition": [
+            "city_is_border:true"
+          ],
+          "peerageType": "Military"
+        },
+        "{R}_army_garrison": {
+          "pre": "",
+          "type": 11,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Exam",
+          "peerageType": "Military"
+        }
+      }
+    }
+  },
+  "locales": {
+    "{R}_empire": {
+      "cz": "朝",
+      "en": "Dynasty",
+      "ch": "朝"
+    },
+    "{R}_centre": {
+      "cz": "京畿",
+      "en": "Capital Region",
+      "ch": "京畿"
+    },
+    "{R}_prefecture": {
+      "cz": "州",
+      "en": "Prefecture",
+      "ch": "州"
+    },
+    "{R}_kingdom": {
+      "cz": "国",
+      "en": "Kingdom",
+      "ch": "國"
+    },
+    "{R}_city": {
+      "cz": "县",
+      "en": "County",
+      "ch": "縣"
+    },
+    "{R}_army_guard": {
+      "cz": "禁军",
+      "en": "Imperial Guard",
+      "ch": "禁軍"
+    },
+    "{R}_army_border": {
+      "cz": "边军",
+      "en": "Frontier Army",
+      "ch": "邊軍"
+    },
+    "{R}_army_garrison": {
+      "cz": "镇兵",
+      "en": "Garrison",
+      "ch": "鎮兵"
+    },
+    "{R}_officiallevel_0": {
+      "cz": "皇帝",
+      "en": "Emperor",
+      "ch": "皇帝"
+    },
+    "{R}_officiallevel_1": {
+      "cz": "宰相",
+      "en": "Chancellor",
+      "ch": "宰相"
+    },
+    "{R}_officiallevel_2": {
+      "cz": "尚书",
+      "en": "Minister",
+      "ch": "尚書"
+    },
+    "{R}_officiallevel_3": {
+      "cz": "王",
+      "en": "Prince",
+      "ch": "王"
+    },
+    "{R}_officiallevel_4": {
+      "cz": "刺史",
+      "en": "Prefect",
+      "ch": "刺史"
+    },
+    "{R}_officiallevel_5": {
+      "cz": "县令",
+      "en": "Magistrate",
+      "ch": "縣令"
+    },
+    "{R}_officiallevel_7": {
+      "cz": "皇后",
+      "en": "Empress",
+      "ch": "皇后"
+    },
+    "{R}_officiallevel_8": {
+      "cz": "贵妃",
+      "en": "Noble Consort",
+      "ch": "貴妃"
+    },
+    "{R}_officiallevel_9": {
+      "cz": "禁军统领",
+      "en": "Commander of the Guard",
+      "ch": "禁軍統領"
+    },
+    "{R}_officiallevel_10": {
+      "cz": "边将",
+      "en": "Frontier General",
+      "ch": "邊將"
+    },
+    "{R}_officiallevel_11": {
+      "cz": "镇将",
+      "en": "Garrison Commander",
+      "ch": "鎮將"
+    },
+    "{R}_personnel_full": {
+      "cz": "吏部",
+      "en": "Ministry of Personnel",
+      "ch": "吏部"
+    },
+    "{R}_revenue_full": {
+      "cz": "户部",
+      "en": "Ministry of Revenue",
+      "ch": "戶部"
+    },
+    "{R}_rites_full": {
+      "cz": "礼部",
+      "en": "Ministry of Rites",
+      "ch": "禮部"
+    },
+    "{R}_war_full": {
+      "cz": "兵部",
+      "en": "Ministry of War",
+      "ch": "兵部"
+    },
+    "{R}_justice_full": {
+      "cz": "刑部",
+      "en": "Ministry of Justice",
+      "ch": "刑部"
+    },
+    "{R}_works_full": {
+      "cz": "工部",
+      "en": "Ministry of Works",
+      "ch": "工部"
+    }
+  }
+}

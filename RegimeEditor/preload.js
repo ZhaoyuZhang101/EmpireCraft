@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("regimeEditorDesktop", {
   openConfigsDir: () => ipcRenderer.invoke("open-configs-dir"),
   writeConfigs: (payload) => ipcRenderer.invoke("write-configs", payload),
   syncEnums: () => ipcRenderer.invoke("sync-enums"),
+  listRegimeTemplates: () => ipcRenderer.invoke("list-regime-templates"),
   // 文化编辑器 / 节点编辑器
   listCultures: () => ipcRenderer.invoke("list-cultures"),
   createCulture: (payload) => ipcRenderer.invoke("create-culture", payload),

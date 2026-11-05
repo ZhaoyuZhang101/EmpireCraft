@@ -1,0 +1,307 @@
+{
+  "format": "EmpireCraftRegimeTemplate",
+  "version": 1,
+  "order": 60,
+  "name": {
+    "cz": "议会共和制",
+    "en": "Parliamentary Republic",
+    "ch": "議會共和制"
+  },
+  "summary": "没有君主，元首按推选产生；中央设总理与各部，部长是政治主官，开放党禁后由执政联盟任命；不设地主阶层，省长经考试选任。",
+  "regime": {
+    "description": "现代议会共和制，国家元首选举产生，总理与各部部长组成政府，地方省长由文官担任",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": true,
+    "is_monarchy": false,
+    "allows_landlord_class": false,
+    "cabinet_number": 3,
+    "leader_select_method": "Vote",
+    "default_kingdom": "{R}_centre",
+    "centre_empire_separate": true,
+    "members_can_secede": false,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": false,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.0,
+    "laws": [
+      0,
+      1,
+      3,
+      6,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      54,
+      55
+    ],
+    "Factions": [
+      {
+        "_id": "{R}-faction-1",
+        "Type": "民主",
+        "Name": "自由党"
+      },
+      {
+        "_id": "{R}-faction-2",
+        "Type": "共和",
+        "Name": "保守党"
+      },
+      {
+        "_id": "{R}-faction-3",
+        "Type": "共产",
+        "Name": "社会党"
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        1
+      ],
+      "option_tax_level": [
+        2,
+        4
+      ],
+      "option_leader_select_method": [
+        2,
+        3
+      ],
+      "option_religion_type": [
+        0,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": [
+            "执行",
+            "拟定",
+            "人事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "powers": [
+            "审核"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      ],
+      "division": [
+        {
+          "pre": "{R}_finance_full",
+          "type": 3,
+          "powers": [
+            "财政"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "{R}_defence_full",
+          "type": 3,
+          "powers": [
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "{R}_interior_full",
+          "type": 3,
+          "powers": [
+            "人事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "{R}_justice_full",
+          "type": 3,
+          "powers": [
+            "司法"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "{R}_education_full",
+          "type": 3,
+          "powers": [
+            "教育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      ],
+      "harems": [],
+      "kingdoms": {
+        "{R}_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Vote",
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "{R}_city"
+        },
+        "{R}_province": {
+          "pre": "",
+          "type": 4,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Exam",
+          "condition": [
+            "empire_center:false"
+          ],
+          "city_type": "{R}_city"
+        }
+      },
+      "cities": {
+        "{R}_city": {
+          "pre": "",
+          "type": 5,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      }
+    }
+  },
+  "locales": {
+    "{R}_empire": {
+      "cz": "共和国",
+      "en": "Republic",
+      "ch": "共和國"
+    },
+    "{R}_centre": {
+      "cz": "首都特区",
+      "en": "Capital District",
+      "ch": "首都特區"
+    },
+    "{R}_province": {
+      "cz": "省",
+      "en": "Province",
+      "ch": "省"
+    },
+    "{R}_city": {
+      "cz": "市",
+      "en": "City",
+      "ch": "市"
+    },
+    "{R}_officiallevel_0": {
+      "cz": "总统",
+      "en": "President",
+      "ch": "總統"
+    },
+    "{R}_officiallevel_1": {
+      "cz": "总理",
+      "en": "Prime Minister",
+      "ch": "總理"
+    },
+    "{R}_officiallevel_2": {
+      "cz": "议长",
+      "en": "Speaker",
+      "ch": "議長"
+    },
+    "{R}_officiallevel_3": {
+      "cz": "部长",
+      "en": "Minister",
+      "ch": "部長"
+    },
+    "{R}_officiallevel_4": {
+      "cz": "省长",
+      "en": "Governor",
+      "ch": "省長"
+    },
+    "{R}_officiallevel_5": {
+      "cz": "市长",
+      "en": "Mayor",
+      "ch": "市長"
+    },
+    "{R}_finance_full": {
+      "cz": "财政部",
+      "en": "Ministry of Finance",
+      "ch": "財政部"
+    },
+    "{R}_defence_full": {
+      "cz": "国防部",
+      "en": "Ministry of Defence",
+      "ch": "國防部"
+    },
+    "{R}_interior_full": {
+      "cz": "内政部",
+      "en": "Ministry of the Interior",
+      "ch": "內政部"
+    },
+    "{R}_justice_full": {
+      "cz": "司法部",
+      "en": "Ministry of Justice",
+      "ch": "司法部"
+    },
+    "{R}_education_full": {
+      "cz": "教育部",
+      "en": "Ministry of Education",
+      "ch": "教育部"
+    }
+  }
+}

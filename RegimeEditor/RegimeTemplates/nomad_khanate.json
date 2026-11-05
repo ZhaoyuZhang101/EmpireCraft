@@ -1,0 +1,256 @@
+{
+  "format": "EmpireCraftRegimeTemplate",
+  "version": 1,
+  "order": 40,
+  "name": {
+    "cz": "游牧汗国",
+    "en": "Nomadic Khanate",
+    "ch": "遊牧汗國"
+  },
+  "summary": "大汗世袭，宗王与功臣各领兀鲁思(世袭封地)；支援中央军的兀鲁思也能拥兵自立，遗诏分治更常见。劫掠、游牧扩张看文化特性。",
+  "regime": {
+    "description": "草原汗国，大汗世袭，宗王与功臣各领兀鲁思，平时各自游牧，战时随大汗出征",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": false,
+    "is_monarchy": true,
+    "allows_landlord_class": true,
+    "cabinet_number": 0,
+    "leader_select_method": "Succession",
+    "default_kingdom": "{R}_ulus",
+    "centre_empire_separate": true,
+    "members_can_secede": true,
+    "secede_member_types": [],
+    "secede_ignores_central_army": true,
+    "indirect_rule": false,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": false,
+    "partition_chance_factor": 1.25,
+    "laws": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      13,
+      14,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      25,
+      27,
+      28,
+      29,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      50,
+      51,
+      52,
+      54,
+      55
+    ],
+    "Factions": [
+      {
+        "_id": "{R}-faction-1",
+        "Type": "融入",
+        "Name": "融合派"
+      },
+      {
+        "_id": "{R}-faction-2",
+        "Type": "攘夷",
+        "Name": "主战派",
+        "_requiredTraits": [
+          "bloodlust"
+        ]
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [
+        1
+      ],
+      "toggle_allow_army": [
+        1
+      ],
+      "toggle_support_army_to_center": [
+        0
+      ],
+      "option_tax_level": [
+        1,
+        3
+      ],
+      "option_leader_select_method": [
+        0,
+        3
+      ],
+      "option_religion_type": [
+        2,
+        4
+      ],
+      "option_succession_law": [
+        0,
+        5
+      ]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": [
+            "拟定",
+            "审核",
+            "执行"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "",
+          "type": 2,
+          "powers": [
+            "军事"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default",
+          "peerageType": "Military"
+        }
+      ],
+      "division": [],
+      "harems": [
+        {
+          "pre": "",
+          "type": 6,
+          "powers": [
+            "生育"
+          ],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Harem"
+        }
+      ],
+      "kingdoms": {
+        "{R}_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "empire_center:true"
+          ],
+          "city_type": "{R}_city"
+        },
+        "{R}_ulus": {
+          "pre": "",
+          "type": 3,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "support_center_army:false",
+            "empire_center:false"
+          ],
+          "city_type": "{R}_city"
+        },
+        "{R}_tumen": {
+          "pre": "",
+          "type": 4,
+          "merit": -1,
+          "honorary": -1,
+          "condition": [
+            "support_center_army:true",
+            "empire_center:false"
+          ],
+          "city_type": "{R}_city",
+          "peerageType": "Military"
+        }
+      },
+      "cities": {
+        "{R}_city": {
+          "pre": "",
+          "type": 5,
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      }
+    }
+  },
+  "locales": {
+    "{R}_empire": {
+      "cz": "汗国",
+      "en": "Khanate",
+      "ch": "汗國"
+    },
+    "{R}_centre": {
+      "cz": "汗庭",
+      "en": "Khan's Court",
+      "ch": "汗庭"
+    },
+    "{R}_ulus": {
+      "cz": "兀鲁思",
+      "en": "Ulus",
+      "ch": "兀魯思"
+    },
+    "{R}_tumen": {
+      "cz": "万户",
+      "en": "Tumen",
+      "ch": "萬戶"
+    },
+    "{R}_city": {
+      "cz": "帐",
+      "en": "Camp",
+      "ch": "帳"
+    },
+    "{R}_officiallevel_0": {
+      "cz": "大汗",
+      "en": "Great Khan",
+      "ch": "大汗"
+    },
+    "{R}_officiallevel_1": {
+      "cz": "大断事官",
+      "en": "Grand Judge",
+      "ch": "大斷事官"
+    },
+    "{R}_officiallevel_2": {
+      "cz": "怯薛长",
+      "en": "Keshig Commander",
+      "ch": "怯薛長"
+    },
+    "{R}_officiallevel_3": {
+      "cz": "汗",
+      "en": "Khan",
+      "ch": "汗"
+    },
+    "{R}_officiallevel_4": {
+      "cz": "万户长",
+      "en": "Tumen Commander",
+      "ch": "萬戶長"
+    },
+    "{R}_officiallevel_5": {
+      "cz": "达鲁花赤",
+      "en": "Darughachi",
+      "ch": "達魯花赤"
+    },
+    "{R}_officiallevel_6": {
+      "cz": "可敦",
+      "en": "Khatun",
+      "ch": "可敦"
+    }
+  }
+}

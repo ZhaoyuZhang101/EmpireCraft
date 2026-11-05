@@ -1,7 +1,7 @@
 {
   "name": "empirecraft-regime-editor",
-  "version": "0.1.7",
-  "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes.",
+  "version": "0.2.0",
+  "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes, claim rules, military and misc configs.",
   "main": "main.js",
   "author": "Codex",
   "license": "MIT",
@@ -21,6 +21,7 @@
     },
     "files": [
       "CustomRegimeTemplate/**/*",
+      "RegimeTemplates/**/*",
       "assets/**/*",
       "claims.html",
       "common.css",
@@ -29,11 +30,14 @@
       "editor-core.js",
       "index.html",
       "main.js",
+      "military.html",
+      "misc.html",
       "nodes.html",
-      "pixel-theme.css",
       "package.json",
+      "pixel-theme.css",
       "preload.js",
-      "regime_enum_sync.py"
+      "regime_enum_sync.py",
+      "zh-convert.js"
     ],
     "win": {
       "target": [
