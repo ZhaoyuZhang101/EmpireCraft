@@ -78,4 +78,6 @@ public class SaveData
     public List<EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRouteSave> world_map_silk;
     // 剧本这一时代的长城(格坐标折线 [x0, y0, x1, y1, …])，行政区以它为界(见 FrontierWalls；没有长城为 null)
     public List<float[]> world_map_walls;
+    // 剧本世界的日历，科技按年代封顶(见 TechCalendarRules；不是剧本开局的世界、旧档为 null)
+    public EmpireCraft.Scripts.GeneralSystems.TechCalendarSave world_map_tech_calendar;
 }

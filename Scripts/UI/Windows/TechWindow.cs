@@ -539,6 +539,11 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         if (TechnologySystem.Config.culture_level_max_tier.Count > 0)
             requires.Add(Mark(tech.tier <= TechnologySystem.GetMaxTierForCulture(_culture)) +
                          string.Format(LM.Get("tech_requires_culture_level"), needLevel));
+        // 剧本世界的年代：只有这一档还没开放才写
+        if (tech.tier > TechnologySystem.CalendarMaxTier() && TechnologySystem.CalendarOpenYear(tech.tier) is int opens)
+            requires.Add(Mark(!TechnologySystem.BeyondCalendar(_culture, tech)) +
+                         string.Format(LM.Get("tech_requires_calendar"), TechnologySystem.CalendarYearText(opens),
+                             TechnologySystem.CalendarYearText(TechnologySystem.CalendarYear())));
         requires.AddRange(tech.requires_institutions.Select(requirement =>
             Mark(TechnologySystem.IsInstitutionRequirementMet(_culture, requirement)) +
             TechnologySystem.DescribeFeature(new TechInstitutionLink
@@ -577,6 +582,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         var researchable = new List<string>();
         var materials = new List<string>();
         var blocked = new List<string>();
+        var dated = new List<string>();
         var seen = new HashSet<string>();
         var queue = new Queue<TechNodeConfig>();
         queue.Enqueue(tech);
@@ -592,6 +598,7 @@ public class TechWindow : AbstractWideWindow<TechWindow>
             if (current != tech && TechnologySystem.Requires(current, _culture).All(id => TechnologySystem.HasTech(_culture, id)))
             {
                 if (TechnologySystem.ArePrerequisitesMet(_culture, current)) researchable.Add(TechnologySystem.GetTechName(current.id, _culture));
+                else if (TechnologySystem.BeyondCalendar(_culture, current)) dated.Add(TechnologySystem.GetTechName(current.id));
                 else if (!TechnologySystem.AreCultureRequirementsMet(_culture, current))
                     blocked.Add(TechnologySystem.GetTechName(current.id));
             }
@@ -612,6 +619,8 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         }
         if (blocked.Count > 0)
             parts.Add(string.Format(LM.Get("tech_chain_blocked"), string.Join("、", blocked.Take(4))).ColorString("#FF8A7A"));
+        if (dated.Count > 0)
+            parts.Add(string.Format(LM.Get("tech_chain_calendar"), string.Join("、", dated.Take(4))).ColorString("#E9A85B"));
         return parts.Count == 0 ? null : string.Join("\n", parts);
     }
 

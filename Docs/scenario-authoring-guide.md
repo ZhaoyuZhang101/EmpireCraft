@@ -44,7 +44,7 @@
 | `order` | 窗口里的排序 |
 | `zh`/`en`/`tw`，`dzh`/`den`/`dtw` | 剧本名、剧本说明 |
 | `author` | 作者(自定剧本) |
-| `tech` | 文化 → 科技档(`Technology/TechTree.json` 的 tier)，`"*"` 为其余文化。明末华夏是 6 |
+| `tech` | 文化 → 科技档(`Technology/TechTree.json` 的 tier)，`"*"` 为其余文化。明末华夏是 6。开局之后各文化按 `year` 往后的年代封顶研究(世界法则「科技依年代」，见 `TechTree.json` 的 `eras[].year`)，这里写得比年代高的以开局的档次为准 |
 | `techExtra`/`techSkip` | 文化 → 额外点上/跳过的科技 id 列表 |
 | `inst` | 文化 → 开局直接施行的制度节点 id 列表(连同前置)，抄相近时代的 |
 | `culture` | 地区 id → 本时代文化(覆盖地区默认文化) |

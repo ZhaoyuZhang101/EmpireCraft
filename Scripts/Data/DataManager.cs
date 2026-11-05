@@ -99,6 +99,7 @@ public static class DataManager
         NormalizeSaveData(saveData);
         InstitutionSystem.ImportCultureStates(saveData?.cultureInstitutionStates);
         TechnologySystem.ImportStates(saveData?.cultureTechStates);
+        TechnologySystem.ImportCalendar(saveData?.world_map_tech_calendar);
         FamousTalentSystem.Import(saveData?.famousTalents);
         if (FactionRatioConverter.DiscardedLegacyEntryCount > 0)
         {
@@ -558,6 +559,7 @@ public static class DataManager
         saveData.cultureBindings = CulturePatch.ExportCultureBindings();
         saveData.cultureInstitutionStates = InstitutionSystem.ExportCultureStates();
         saveData.cultureTechStates = TechnologySystem.ExportStates();
+        saveData.world_map_tech_calendar = TechnologySystem.ExportCalendar();
         saveData.famousTalents = FamousTalentSystem.Export();
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);

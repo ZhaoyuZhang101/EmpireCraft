@@ -254,6 +254,7 @@ public static class WorldMapScenario
                 LogService.LogWarning($"[EmpireCraft][世界地图] {culture} 定科技制度失败: {exception.Message}");
             }
         }
+        TechnologySystem.BeginCalendar(_era.year, cultures.Count == 0 ? 0 : cultures.Max(key => _era.TechTier(key)));
     }
 
     #endregion

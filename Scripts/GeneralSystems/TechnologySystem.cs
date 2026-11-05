@@ -93,6 +93,8 @@ public sealed class TechEraConfig
     public string key = "";
     // 进这个时代的节点科技(研究了其中一项即可；见 TechnologySystem.GetEraTier)
     public List<string> node = new();
+    // 剧本世界里这一时代的科技从公元几年起才能研究，公元前写负数，不写不限(见 TechCalendarRules)
+    public int? year;
 }
 
 public sealed class TechResourceRequirement
@@ -323,6 +325,7 @@ public static class TechnologySystem
         _config.eras ??= new List<TechEraConfig>();
         foreach (TechEraConfig era in _config.eras.Where(era => era != null)) era.node ??= new List<string>();
         _config.eras.RemoveAll(era => era == null);
+        _eraOpenings = null;
         _priorTechs = null;
         EraCache.Clear();
         _config.research ??= new TechResearchConfig();
@@ -406,6 +409,7 @@ public static class TechnologySystem
     public static void ResetWorldState()
     {
         _loadedFromSave = false;
+        _calendar = null;
         _states = new Dictionary<string, CultureTechState>(StringComparer.Ordinal);
         ResearchedCache.Clear();
         Contacts.Clear();
@@ -679,6 +683,7 @@ public static class TechnologySystem
     // 文化制度对技术的约束(科技树关闭时不限制)
     public static bool AreCultureRequirementsMet(string culture, TechNodeConfig tech) =>
         !(PremodernLocked && tech.tier > PremodernMaxTier) &&
+        !BeyondCalendar(culture, tech) &&
         // 本文化的主体被迫弃核：停止核研究(见 NuclearDoctrineSystem)
         !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsResearchBanned(culture, tech.id) &&
         (!IsEnabled || tech.tier <= GetMaxTierForCulture(culture)) &&
@@ -774,6 +779,62 @@ public static class TechnologySystem
     public static float GetEraOutputMultiplier(string culture) =>
         1f + Math.Max(0f, Config.research.era_output_per_tier) *
         Math.Max(0, GetEraTier(culture) - Config.research.era_output_from_tier);
+
+    #region 剧本按年代封顶(见 TechCalendarRules)
+
+    // 年代未到时储备最多留几年的年产，免得年代一到一口气研究完整个时代
+    private const float CalendarBankYears = 10f;
+
+    private static TechCalendarSave _calendar;
+    private static List<(int tier, int? opens)> _eraOpenings;
+
+    public static bool CalendarActive => _calendar != null && IsEnabled &&
+                                         EmpireCraftWorldLawLibrary.empirecraft_law_tech_calendar?.isEnabled() != false;
+
+    public static TechCalendarSave ExportCalendar() => _calendar;
+
+    public static void ImportCalendar(TechCalendarSave saved) => _calendar = saved;
+
+    // 剧本开局：记下开局年份和剧本本身开局的最高档
+    public static void BeginCalendar(int year, int floor) => _calendar = new TechCalendarSave
+    {
+        year = year, started = World.world?.getCurWorldTime() ?? 0d, floor = floor
+    };
+
+    private static List<(int tier, int? opens)> EraOpenings()
+    {
+        EnsureLoaded();
+        return _eraOpenings ??= Config.eras.OrderBy(era => era.tier).Select(era => (era.tier, era.year)).ToList();
+    }
+
+    public static int CalendarYear() => _calendar == null ? 0
+        : TechCalendarRules.YearAfter(_calendar.year, Date.getYearsSince(_calendar.started));
+
+    public static int CalendarMaxTier() => !CalendarActive ? TechCalendarRules.NoLimit
+        : TechCalendarRules.MaxTier(CalendarYear(), _calendar.floor, EraOpenings());
+
+    // 年代未到的科技：穿越者自带的知识不受限；接触到的文化已经掌握的可以学过来，年代只拦自己发明
+    public static bool BeyondCalendar(string culture, TechNodeConfig tech) =>
+        tech != null && tech.tier > CalendarMaxTier() && culture != TransmigrantSystem.Culture &&
+        CountContactsKnowing(culture, tech.id) == 0;
+
+    // 这一档开放的年份(科技窗口写明)：往下数到第一个写了年份的时代
+    public static int? CalendarOpenYear(int tier)
+    {
+        int? opens = null;
+        foreach ((int eraTier, int? year) in EraOpenings())
+        {
+            if (eraTier > tier) break;
+            if (year.HasValue) opens = year;
+        }
+        return opens;
+    }
+
+    public static string CalendarYearText(int year) => year < 0
+        ? string.Format(LM.Get("world_map_year_bc"), -year)
+        : string.Format(LM.Get("world_map_year_ad"), year);
+
+    #endregion
 
     // 文化所处的时代(用户 2026-11-03 转群友建议："现在时代变迁太快了，导致科技也跟着快，600年就从原始部落发展到近代了"
     // "文化进时代的条件要修改，建议修改为【研究一定数量的科技+研究了某个节点科技】之后才能进入下一个时代。这个前置科技的数量
@@ -1354,6 +1415,8 @@ public static class TechnologySystem
             using (FrameProfiler.Measure("科技·加速事件")) CheckBoosts(culture, pair.Value);
             state.last_unfunded = 0f;
             using (FrameProfiler.Measure("科技·自动研究")) if (state.auto_research) SpendBank(culture, pair.Value, null);
+            float bankCap = points * CalendarBankYears;
+            if (state.research_bank > bankCap && CalendarActive && GetResearchTargets(culture).Count == 0) state.research_bank = bankCap;
             using (FrameProfiler.Measure("科技·时代")) CheckEra(culture, pair.Value);
             using (FrameProfiler.Measure("科技·名著")) LandmarkBookSystem.YearlyCheck(culture, pair.Value, state);
             using (FrameProfiler.Measure("科技·国家采纳")) AdoptRealms(culture, pair.Value);

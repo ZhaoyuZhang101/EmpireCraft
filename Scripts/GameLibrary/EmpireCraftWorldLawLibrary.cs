@@ -27,6 +27,7 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_tech_tree;
     public static WorldLawAsset empirecraft_law_combine_houses;
     public static WorldLawAsset empirecraft_law_premodern;
+    public static WorldLawAsset empirecraft_law_tech_calendar;
     public static WorldLawAsset empirecraft_law_no_commoners;
     public static WorldLawAsset empirecraft_law_fixed_settlements;
     public static WorldLawAsset empirecraft_law_fixed_city_borders;
@@ -189,6 +190,14 @@ public static class EmpireCraftWorldLawLibrary
             group_id = "EmpireCraftCommonSetting",
             icon_path = "ui/icons/iconBooks",
             default_state = false
+        });
+        // 科技依年代(默认开启)：只对剧本开局的世界起作用，各时代的科技要到相应的年代才能研究(见 TechCalendarRules)
+        AssetManager.world_laws_library.add(empirecraft_law_tech_calendar = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_tech_calendar),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKnowledge",
+            default_state = true
         });
         // 民居合并为文化城池(默认关闭)：开启后城市人口过 80 拆掉民居、建一座文化大城。
         // 装了 modernmod 想看 6~11 级民居的话不要开。

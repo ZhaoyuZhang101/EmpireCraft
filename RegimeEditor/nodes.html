@@ -336,7 +336,7 @@
           fields: [F("era_prior_share", "此前各时代科技要研究的比例", "number", null, { def: 0.6667, hint: "0.6667 = 三分之二(向上取整)" })],
           claims: ["eras"], render: box => rowsEditor(box, {
             file: TECH, get: create => listAt(doc(TECH), "eras", create), loc: r => r.key, info: eraInfo,
-            fields: [F("tier", "档次", "number"), F("key", "名称 key", "text"), F("node", "节点科技(研究出其中一项即可)", "refs", "tech")],
+            fields: [F("tier", "档次", "number"), F("key", "名称 key", "text"), F("node", "节点科技(研究出其中一项即可)", "refs", "tech"), F("year", "剧本世界几年起能研究(公元前写负数，不填不限)", "number")],
             newRow: () => ({ tier: Math.max(0, ...(doc(TECH).eras || []).map(e => Number(e.tier) || 0)) + 1, key: "tech_era_new", node: [] }) }) },
         { title: "超出时代的科技", hint: "档次高过本文化时代若干档以上的科技(下一个时代的照常，进下一时代要的节点科技就在那一档)，研究费用乘倍率",
           fields: [R("beyond_era_margin", "高出几档以上算超时代", 1), R("beyond_era_cost_multiplier", "超时代费用倍率", 10)] },

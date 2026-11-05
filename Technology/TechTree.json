@@ -92,16 +92,16 @@
   "era_prior_share": 0.6667,
   "eras": [
     { "tier": 1, "key": "tech_era_stone" },
-    { "tier": 2, "key": "tech_era_copper", "node": ["copper_smelting"] },
-    { "tier": 3, "key": "tech_era_bronze", "node": ["bronze_casting"] },
-    { "tier": 4, "key": "tech_era_iron", "node": ["ironworking"] },
-    { "tier": 5, "key": "tech_era_medieval", "node": ["steelmaking"] },
-    { "tier": 6, "key": "tech_era_gunpowder", "node": ["gunpowder"] },
-    { "tier": 7, "key": "tech_era_industrial", "node": ["industrialization"] },
-    { "tier": 8, "key": "tech_era_electric", "node": ["electricity"] },
-    { "tier": 9, "key": "tech_era_modern", "node": ["computing"] },
-    { "tier": 10, "key": "tech_era_atomic", "node": ["nuclear_fission"] },
-    { "tier": 11, "key": "tech_era_future", "node": ["icbm", "energy_weapons"] }
+    { "tier": 2, "key": "tech_era_copper", "node": ["copper_smelting"], "year": -4000 },
+    { "tier": 3, "key": "tech_era_bronze", "node": ["bronze_casting"], "year": -2500 },
+    { "tier": 4, "key": "tech_era_iron", "node": ["ironworking"], "year": -1000 },
+    { "tier": 5, "key": "tech_era_medieval", "node": ["steelmaking"], "year": 500 },
+    { "tier": 6, "key": "tech_era_gunpowder", "node": ["gunpowder"], "year": 1200 },
+    { "tier": 7, "key": "tech_era_industrial", "node": ["industrialization"], "year": 1760 },
+    { "tier": 8, "key": "tech_era_electric", "node": ["electricity"], "year": 1870 },
+    { "tier": 9, "key": "tech_era_modern", "node": ["computing"], "year": 1915 },
+    { "tier": 10, "key": "tech_era_atomic", "node": ["nuclear_fission"], "year": 1945 },
+    { "tier": 11, "key": "tech_era_future", "node": ["icbm", "energy_weapons"], "year": 2000 }
   ],
   "materials": [
     { "id": "wood", "tier": 1, "resources": [{ "id": "wood", "amount": 1 }] },
