@@ -499,6 +499,9 @@ public static class WildernessDevelopmentSystem
                 any ??= city;
                 if (owner != null && city.kingdom != owner && (owner.GetEmpire() == null || owner.GetEmpire() != city.kingdom.GetEmpire()))
                     continue;
+                // 隔水、翻山走不到的城不领(同原版扩张；以前只看挨着，河对岸的城也领过去，城跨河连片——用户 2026-11-05 转群友
+                // "城市跨水自动断开失效")
+                if (!CityExpansionPatch.Reachable(zone, city)) continue;
                 if (CityExpansionPatch.AtLimit(city))
                 {
                     full ??= city;

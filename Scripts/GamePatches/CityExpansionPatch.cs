@@ -56,8 +56,46 @@ public class CityExpansionPatch : GamePatch
                 finalizer: new HarmonyMethod(typeof(CityTerritoryProtection), nameof(CityTerritoryProtection.EndFounding)));
     }
 
-    public static bool AtLimit(City city) => city?.zones != null &&
-        ModClass.CITY_MAX_ZONES > 0 && city.zones.Count >= ModClass.CITY_MAX_ZONES;
+    public static bool AtLimit(City city)
+    {
+        if (city?.zones == null) return false;
+        int limit = ZoneLimit;
+        return limit > 0 && city.zones.Count >= limit;
+    }
+
+    // 每城地块上限：直接读模组设置里的当前值(至多一秒读一次)，不只靠回调写进 ModClass.CITY_MAX_ZONES(用户 2026-11-05 转群友
+    // "城市面积限制的设置失效")。加载器按"类名:方法名"找回调，类名只写了 ConfigActions、靠按名字搜所有程序集，装了别的有同名类的
+    // 模组时可能找错、回调不调，设置改了不生效；读到的值与 CITY_MAX_ZONES 不同时顺手写回去(移民等别处也用它)
+    private static int _limit = -1;
+    private static float _limitAt = -100f;
+
+    public static int ZoneLimit
+    {
+        get
+        {
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (_limit >= 0 && now >= _limitAt && now - _limitAt < 1f) return _limit;
+            _limitAt = now;
+            int value = ModClass.CITY_MAX_ZONES;
+            try
+            {
+                if (ModClass.modConfig?["Default"] is { } items && items.TryGetValue("City_Max_Zones_Text", out ModConfigItem item) &&
+                    int.TryParse(item.TextVal, out int parsed))
+                    value = global::System.Math.Max(0, parsed);
+            }
+            catch (global::System.Exception)
+            {
+                // 设置还没读进来：照 CITY_MAX_ZONES
+            }
+            if (value != ModClass.CITY_MAX_ZONES)
+            {
+                NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][城市扩张] 每城地块上限按设置改为 {value}(原 {ModClass.CITY_MAX_ZONES}，回调没把新值写进来)");
+                ModClass.CITY_MAX_ZONES = value;
+            }
+            _limit = value;
+            return value;
+        }
+    }
 
     // 神力手动划地(原版边界画笔、村镇改隶)期间：玩家是神，划地不受每城地块上限。
     // 上限只管自动扩张(不设上限时一大片荒漠会裂成两百来座小城)；以前画笔也被它拦下，城满了上限就一块也画不进去
