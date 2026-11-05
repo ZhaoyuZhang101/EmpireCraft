@@ -61,6 +61,7 @@
           <button type="button" data-open-section="rules">成员与分封</button>
           <button type="button" data-open-section="offices">官职结构</button>
           <button type="button" data-open-section="locales">译名表</button>
+          <button type="button" data-open-section="ideology">共和国部委(按执政理念)</button>
           <button type="button" data-open-section="cultures">文化绑定</button>
           <button type="button" data-open-section="preview">导出预览</button>
         </div>
@@ -215,6 +216,18 @@
         </div>
         <div class="note" id="cultureSummaryNote" style="margin-top:12px">还没有读取到文化配置。</div>
         <div class="cards" id="cultureCards"></div>
+      </section>
+
+      <section class="panel section-panel" id="ideology">
+        <h2>共和国部委(按执政理念) <span class="key-hint">IdeologyBureaus.json</span></h2>
+        <p class="muted">改行共和的帝国(革命建立共和国，或核心国在政体窗口切成现代政体)，帝国核心国的中央机构按当前执政理念整套换成这里的配置：核心机构(cores)和各部与法院(division)用这里的，后宫清空，国家类别、城市类别、军职仍用政体自己的。只作用于该帝国，不随文化同步。这是一份所有政体共用的文件，单独写入。</p>
+        <p class="field-hint">机构名是 pre 的本地化(写在 Locales 的三份语言文件，以 _full 结尾时直接显示为机构全称)；职位名沿用现代政体的等级名(Modern_officiallevel_等级号)。执政理念没有在这里配置的共和国，用现代政体自己的核心官职和部门官职。</p>
+        <div class="toolbar" style="margin:10px 0">
+          <button type="button" class="primary" id="ibSaveBtn">写入部委配置</button>
+          <button type="button" id="ibReloadBtn">重新读取</button>
+        </div>
+        <div class="note" id="ibStatus">还没有读取。</div>
+        <div id="ibBody" style="margin-top:10px"></div>
       </section>
 
       <section class="panel section-panel" id="preview">
@@ -725,8 +738,8 @@
       return nums.length?Math.max(...nums)+1:0;
     }
     function allOffices(){return SCOPES.flatMap(s=>state.offices[s]||[])}
-    function findOffice(scope,id){return (state.offices[scope]||[]).find(o=>o.id===id)}
-    function findOfficeAny(id){return allOffices().find(o=>o.id===id)}
+    function findOffice(scope,id){return (state.offices[scope]||[]).find(o=>o.id===id)||ibFind(id)}
+    function findOfficeAny(id){return allOffices().find(o=>o.id===id)||ibFind(id)}
     function condDefs(scope){return scope==="armies"?ARMY_CONDS:KINGDOM_CONDS}
     function serializeCond(row){
       if(row.kind==="raw") return String(row.raw??"");
@@ -1485,7 +1498,8 @@
     function renderOffices(){
       withPreservedScroll(()=>{
         const box=document.getElementById("officeCards");
-        box.innerHTML=SCOPES.map(scope=>{
+        const republicHint=regimeKeyValue()==="Modern"?`<div class="note">改行共和以后(切成现代政体一般就算)，帝国核心国的核心官职和部门官职会按执政理念整套换成<button type="button" class="small" data-open-section="ideology">共和国部委(按执政理念)</button>里的配置、后宫清空；下面的核心与部门官职只在那里没有对应理念时使用。</div>`:"";
+        box.innerHTML=republicHint+SCOPES.map(scope=>{
           const list=state.offices[scope];
           return `<div class="office-group"><div class="office-group-title">${scopeLabels[scope]}</div><div class="field-hint">${esc(scopeHints[scope])}</div>${list.length?list.map((o,i)=>officeCard(o,i,list)).join(""):`<div class="note">这个分类下还没有条目。</div>`}</div>`;
         }).join("");
@@ -1493,6 +1507,7 @@
       renderMetaLists();
     }
     function refreshOfficeDisplay(office){
+      if(office.ib){ibRefreshDisplay(office);return}
       const root=document.querySelector(`[data-office-root="${office.scope}:${office.id}"]`);
       if(!root) return;
       const title=root.querySelector("[data-office-title]");if(title) title.textContent=officeTitle(office);
@@ -1967,6 +1982,7 @@
       document.querySelectorAll("[data-open-section]").forEach(el=>el.classList.toggle("active",el.dataset.openSection===sectionId));
       if(sectionId==="locales") renderLocTable();
       if(sectionId==="preview") refreshPreviewNow();
+      if(sectionId==="ideology"){if(!ib.loaded&&!ib.loading) loadIdeologyBureaus().catch(err=>setStatus(`读取 IdeologyBureaus.json 失败：${err.message}`,true));else renderIdeologyBureaus()}
     }
     async function loadCultureRulesFromDesktop(){
       if(!isDesktopApp()||!desktopApi.loadCultureRules) throw new Error("当前不是桌面版，无法直接读取文化配置。");
@@ -1977,12 +1993,268 @@
       return result;
     }
 
+
+    // ================= 共和国部委(IdeologyBureaus.json，所有政体共用) =================
+    // 读取见 RepublicSystem.Bureaus / GetBureauOverride：键是 PartyIdeology 的名字；cores、division 任一写成 null 时
+    // 整个理念退回政体默认机构；不写或写空表则那一类机构为空(构造时默认是空表)
+    const IB_FILE="IdeologyBureaus.json";
+    const IDEOLOGIES=["Anarchism","SocialDemocracy","Libertarianism","SocialLiberalism","Capitalism","ConservativeLiberalism","Centrism","Socialism","Communism","ReligiousDemocracy","Authoritarianism","Conservatism","Fascism","Confucianism","Legalism","HuangLao","Mohism","Agrarianism","Strategists","Diplomatists","YinYang","ImperialPower","GreatClans","ConsortKin","Eunuchs","Animism","RoyalKin","MilitaryMerit"];
+    const MODERN_IDEOLOGY_COUNT=13;
+    const IB_POWERS=["宗教","备选","拟定","审核","执行","人事","财政","礼仪","军事","司法","建设","教育"].map(v=>[v,v]);
+    const IB_SCOPES=[["cores","核心机构","立法、行政等核心机构"],["division","各部与法院","政府各部、法院等"]];
+    const ib={loaded:false,loading:false,text:null,order:[],sets:{},current:"",deleted:new Set(),names:new Map(),nameEdits:new Map(),levelNames:new Map(),clean:""};
+    function ibAllOffices(){return Object.values(ib.sets).flatMap(s=>[...s.cores,...s.division])}
+    function ibFind(id){return ibAllOffices().find(o=>o.id===id)}
+    function ibIdeologyName(k){return state.localeCz?.[`party_ideology_${k}`]||k}
+    function ibName(key){return ib.nameEdits.get(key)||ib.names.get(key)||null}
+    function ibActiveKeys(){return ib.order.filter(k=>ib.sets[k]&&!ib.deleted.has(k))}
+    async function ibLoadNames(keys){
+      const need=uniqStr(keys).filter(k=>k&&!ib.names.has(k));
+      if(!need.length||!desktopApi?.readLocales) return;
+      const r=await desktopApi.readLocales(need);
+      for(const k of need){const v=r?.[k]||{};ib.names.set(k,{cz:v.cz||"",en:v.en||"",ch:v.ch||""})}
+    }
+    function ibMakeOffice(scope,ideology,raw,srcIndex,note){const o=makeOffice(scope,{},{raw,srcIndex,note});o.ib=ideology;return o}
+    async function loadIdeologyBureaus(){
+      if(!isDesktopApp()){renderIdeologyBureaus();return}
+      ib.loading=true;
+      try{
+        const [file,levels]=await Promise.all([desktopApi.readText(IB_FILE),desktopApi.readText(`${CONFIGS_DIR}/Republic/OfficialType.csv`)]);
+        ib.levelNames=new Map();
+        if(levels.exists) for(const [k,v] of RC.toMap(levels.text)){const m=/^Modern_officiallevel_(\d+)$/.exec(k);if(m) ib.levelNames.set(Number(m[1]),v.cz||v.ch||v.en||"")}
+        ib.text=file.exists?file.text:null;
+        ib.order=[];ib.sets={};ib.deleted=new Set();ib.nameEdits=new Map();ib.names=new Map();
+        if(file.exists){
+          const doc=RJ.parse(file.text);
+          if(!isObj(doc.value)) throw new Error("最外层不是对象");
+          for(const m of doc.root.members){
+            const k=m.key,raw=doc.value[k];
+            if(ib.sets[k]) continue;
+            ib.order.push(k);
+            const set={raw:isObj(raw)?clone(raw):raw,cores:[],division:[],note:RJ.leadComments(file.text,m.leadStart,m.keyStart)};
+            for(const [scope] of IB_SCOPES){
+              const node=m.node.type==="obj"?RJ.member(m.node,scope)?.node:null;
+              if(Array.isArray(raw?.[scope])) set[scope]=raw[scope].map((o,i)=>{const it=node?.type==="arr"?node.items[i]:null;return ibMakeOffice(scope,k,isObj(o)?o:{},i,it?RJ.leadComments(file.text,it.leadStart,it.node.start):"")});
+            }
+            ib.sets[k]=set;
+          }
+        }
+        await ibLoadNames(ibAllOffices().map(officePreValue));
+        if(!ib.sets[ib.current]) ib.current=ibActiveKeys()[0]||"";
+        ib.loaded=true;
+        ib.clean=ibSnapshot();
+      }finally{ib.loading=false}
+      renderIdeologyBureaus();
+    }
+    function ibBuildEntry(k){
+      const set=ib.sets[k];
+      const out=isObj(set.raw)?clone(set.raw):{};
+      for(const [scope] of IB_SCOPES){
+        const list=set[scope];
+        if(isObj(set.raw)&&set.raw[scope]===null&&!list.length) continue; // 原来写的 null(退回政体默认机构)保持不变
+        setOrdered(out,scope,list.map(o=>buildOffice(o,true)),["cores","division"]);
+      }
+      return out;
+    }
+    function ibBuildText(baseText){
+      const newDoc={};
+      for(const k of ibActiveKeys()) newDoc[k]=ibBuildEntry(k);
+      if(baseText===null||baseText===undefined) return RJ.stringify(newDoc);
+      return RJ.patch(RJ.parse(baseText),newDoc);
+    }
+    // 本次要写进 Locales 的机构名：改过的、缺的(自动补)，英文空的写简体
+    function ibNameChanges(info){
+      const changes={};
+      for(const [k,v] of ib.nameEdits){const base=ib.names.get(k)||{cz:"",en:"",ch:""};if(!deepEqual(v,base)) changes[k]={...v}}
+      for(const o of ibAllOffices()){
+        if(!ib.sets[o.ib]||ib.deleted.has(o.ib)) continue;
+        const k=officePreValue(o);
+        if(!k||changes[k]||hasText(ibName(k))||hasOwn(state.localeCz,k)) continue;
+        const cz=k.replace(/^ideology_office_/,"").replace(/_(full|all)$/,"");
+        changes[k]={cz,ch:zhConvert("cz",cz)??cz,en:""};
+        if(info) (info.added=info.added||[]).push(k);
+      }
+      for(const [k,v] of Object.entries(changes)){
+        if(String(v.en||"").trim()) continue;
+        const zh=String(v.cz||v.ch||"").trim();if(!zh) continue;
+        v.en=zh;if(info) info.enFallback=(info.enFallback||0)+1;
+      }
+      return changes;
+    }
+    function ibSnapshot(){try{return ibBuildText(ib.text)+"\u0000"+JSON.stringify(ibNameChanges())}catch(e){return "error:"+e.message}}
+    function ibDirty(){return ib.loaded&&ibSnapshot()!==ib.clean}
+    function ibValidate(){
+      const errors=[],warnings=[];
+      for(const k of ibActiveKeys()){
+        const set=ib.sets[k];const label=`${ibIdeologyName(k)}(${k})`;
+        if(!IDEOLOGIES.includes(k)) warnings.push(`${label} 不是代码里的理念名，游戏用不到。`);
+        if(isObj(set.raw)&&(set.raw.cores===null||set.raw.division===null)) warnings.push(`${label} 有一类写成了 null：这个理念整套退回现代政体的默认机构。`);
+        for(const [scope,name] of IB_SCOPES){
+          if(isObj(set.raw)&&set.raw[scope]===null) continue;
+          if(!set[scope].length) warnings.push(`${label} 没有${name}：游戏会按空表处理，这个理念的共和国没有${name}(不会退回政体默认机构)。`);
+        }
+        for(const o of [...set.cores,...set.division]){
+          if(!officePreValue(o)) warnings.push(`${label} 有一个机构没有机构键(pre)，游戏里显示不出机构名。`);
+          if(String(o.officeType).trim()===""||!Number.isFinite(Number(o.officeType))) errors.push(`${label} 的 ${officePreValue(o)||"机构"} 等级号不是数字。`);
+          for(const [f,n] of [["merit","功绩等级"],["honorary","官阶门槛"]]) if(String(o[f]).trim()!==""&&!Number.isFinite(Number(o[f]))) errors.push(`${label} 的 ${officePreValue(o)} ${n}不是数字。`);
+        }
+      }
+      return {errors,warnings};
+    }
+    function ibLevelLabel(t){const n=ib.levelNames.get(Number(t));return n?`${t} ${n}`:String(t)}
+    function ibTitle(o){const k=officePreValue(o);const v=ibName(k);return `${v?.cz||v?.ch||state.localeCz?.[k]||k||"未命名机构"}`}
+    function ibSummary(o){return [`职位 ${ibLevelLabel(o.officeType)}`,`选拔 ${labelFor(LEADER_METHODS,o.select)}`,o.powers?`能力 ${parseTags(o.powers).join("/")}`:"",o.politicalAppointment==="false"?"常任事务岗位":""].filter(Boolean).join(" | ")}
+    function ibOfficeCard(o,index,list){
+      const scope=o.scope;const a=path=>`data-kind="office" data-scope="${scope}" data-id="${o.id}" data-path="${path}"`;
+      const pre=officePreValue(o);const v=ibName(pre)||{cz:state.localeCz?.[pre]||"",ch:"",en:""};
+      const levels=uniqNumbers([...ib.levelNames.keys(),toInt(o.officeType,0)]);
+      const selectOptions=LEADER_METHODS.some(([x])=>x===o.select)?LEADER_METHODS:[...LEADER_METHODS,[o.select,o.select]];
+      const extra=officeExtraKeys(o);
+      const adv=[`功绩 ${o.merit}`,`官阶门槛 ${o.honorary}`,o.local?"本地选拔":"",o.requireTraits?"特质":"",o.description?"有说明":"",o.politicalAppointment?`任命 ${o.politicalAppointment==="true"?"政治主官":"常任事务"}`:"",`键 ${pre}`].filter(Boolean);
+      return `<div class="office" data-office-root="${scope}:${o.id}">
+        <div class="head"><strong data-office-title>${esc(ibTitle(o))}</strong><div class="office-tools">
+          <button type="button" data-ib-move="${o.id}" data-ib-dir="-1" ${index===0?"disabled":""}>↑</button>
+          <button type="button" data-ib-move="${o.id}" data-ib-dir="1" ${index===list.length-1?"disabled":""}>↓</button>
+          <button type="button" data-ib-toggle="${o.id}">${o.collapsed?"展开":"收起"}</button>
+          <button type="button" data-ib-copy="${o.id}">复制</button>
+          <button type="button" class="danger" data-ib-delete="${o.id}">删除</button></div></div>
+        <div class="office-summary" data-office-summary>${esc(ibSummary(o))}</div>
+        ${o.note?`<div class="field-hint">配置注释：${esc(o.note)}</div>`:""}
+        ${extra.length?`<div class="field-hint">其他字段原样保留：${esc(extra.join("、"))}</div>`:""}
+        ${o.collapsed?"":`
+        <div class="grid three" style="margin-top:8px">${[["cz","机构名 简体","如 国务院"],["ch","機構名 繁體",""],["en","Institution English","不填时写入简体"]].map(([l,t,ph])=>`<label class="field">${t}<input data-ibname-key="${esc(pre)}" data-ibname-lang="${l}" value="${esc(v[l]||"")}" placeholder="${esc(ph)}" ${pre?"":"disabled"} /></label>`).join("")}</div>
+        <div class="grid two" style="margin-top:8px">
+          <label class="field">职位(等级号) <span class="key-hint">type</span><select ${a("officeType")}>${levels.map(t=>`<option value="${t}" ${toInt(o.officeType,0)===t?"selected":""}>${esc(ibLevelLabel(t))}</option>`).join("")}</select><span class="field-hint">职位名取现代政体的等级名</span></label>
+          <label class="field">选拔方式 <span class="key-hint">leader_select_method</span><select ${a("select")}>${selectOptions.map(([x,t])=>`<option value="${esc(x)}" ${o.select===x?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
+        </div>
+        <div class="field" style="margin-top:8px"><span>能力 <span class="key-hint">powers</span></span><div data-tag-box="powers">${renderTagEditor(o.powers,IB_POWERS,"office","powers",scope,o.id,"输入能力后点添加")}</div></div>
+        <details class="adv" data-adv-office="${o.id}" ${o.advOpen?"open":""}><summary>高级：${esc(adv.join(" · "))}</summary>
+          <div class="grid three">
+            <label class="field">机构键 <span class="key-hint">pre</span><input data-ib-pre="${o.id}" value="${esc(pre)}" /><span class="field-hint">本地化 key，以 _full 结尾时直接显示为机构全称；新建时自动生成</span></label>
+            <label class="field">功绩等级 <span class="key-hint">merit</span><input ${a("merit")} value="${esc(o.merit)}" /><span class="field-hint">不写时为 0</span></label>
+            <label class="field">官阶门槛 <span class="key-hint">honorary</span><input ${a("honorary")} value="${esc(o.honorary)}" /><span class="field-hint">-1 不按官阶；不写时为 0</span></label>
+          </div>
+          <div class="grid two" style="margin-top:8px">
+            <label class="field">任命属性 <span class="key-hint">political_appointment</span><select ${a("politicalAppointment")}>
+              <option value="" ${o.politicalAppointment===""?"selected":""}>不写(默认，按政治主官)</option>
+              <option value="true" ${o.politicalAppointment==="true"?"selected":""}>政治主官：责任政府下由执政联盟任命</option>
+              <option value="false" ${o.politicalAppointment==="false"?"selected":""}>常任事务岗位：按一般选官补缺</option>
+            </select></label>
+            <label class="check"><input type="checkbox" data-kind="office-check" data-scope="${scope}" data-id="${o.id}" data-path="local" ${o.local?"checked":""} /> 本地选拔 <span class="key-hint">select_from_local</span>(默认否)</label>
+          </div>
+          <div class="field" style="margin-top:8px"><span>候选人特质(有其一即可) <span class="key-hint">require_traits</span></span><div data-tag-box="requireTraits">${renderTagEditor(o.requireTraits,TRAIT_OPTIONS,"office","requireTraits",scope,o.id,"输入特质后点添加")}</div></div>
+          <label class="field" style="margin-top:8px">说明 <span class="key-hint">description</span><input ${a("description")} value="${esc(o.description)}" placeholder="默认留空" /></label>
+        </details>`}
+      </div>`;
+    }
+    function renderIdeologyBureaus(){
+      const box=document.getElementById("ibBody");
+      if(!ib.loaded){
+        box.innerHTML=`<div class="note">${isDesktopApp()?(ib.loading?"正在读取 IdeologyBureaus.json……":"打开这一页时自动读取。"):"桌面版才能读取 IdeologyBureaus.json。"}</div>`;
+        ibRefreshStatus();return;
+      }
+      withPreservedScroll(()=>{
+        const keys=ibActiveKeys();
+        if(!ib.sets[ib.current]||ib.deleted.has(ib.current)) ib.current=keys[0]||"";
+        const set=ib.sets[ib.current];
+        const missing=IDEOLOGIES.filter(k=>!keys.includes(k));
+        const tabs=`<div class="tabs">${keys.map(k=>`<button type="button" data-ib-tab="${esc(k)}" class="${k===ib.current?"active":""}">${esc(ibIdeologyName(k))} <span class="key-hint">${esc(k)}</span></button>`).join("")}</div>`;
+        const tools=`<div class="toolbar">
+          <select id="ibAddPick" style="max-width:240px">${missing.map((k,i)=>`<option value="${k}">${esc(ibIdeologyName(k))} ${k}${IDEOLOGIES.indexOf(k)>=MODERN_IDEOLOGY_COUNT?"(古代理念)":""}</option>`).join("")}</select>
+          <button type="button" id="ibAddBtn" ${missing.length?"":"disabled"}>添加理念</button>
+          ${set?`<select id="ibCopyPick" style="max-width:240px">${keys.filter(k=>k!==ib.current).map(k=>`<option value="${k}">${esc(ibIdeologyName(k))} ${k}</option>`).join("")}</select>
+          <button type="button" id="ibCopyBtn">照抄这个理念的整套机构</button>
+          <button type="button" class="danger" id="ibDeleteBtn">删除本理念(改用现代政体默认机构)</button>`:""}
+        </div>`;
+        let body="";
+        if(set){
+          body=(set.note?`<div class="field-hint" style="margin-top:8px">配置注释：${esc(set.note)}</div>`:"")+IB_SCOPES.map(([scope,name,hint])=>{
+            const list=set[scope];
+            const isNull=isObj(set.raw)&&set.raw[scope]===null&&!list.length;
+            return `<div class="office-group" style="margin-top:12px"><div class="office-group-title">${name} <span class="key-hint">${scope}</span></div><div class="field-hint">${hint}${isNull?"；配置里写的是 null：这个理念整套退回现代政体的默认机构":""}</div>
+              ${list.map((o,i)=>ibOfficeCard(o,i,list)).join("")||`<div class="note warn">没有${name}。</div>`}
+              <div class="toolbar"><button type="button" data-ib-add="${scope}">添加${name.replace("各部与法院","部门")}</button></div></div>`;
+          }).join("");
+        }else body=`<div class="note">没有任何理念。用上面的“添加理念”加一个。</div>`;
+        box.innerHTML=tabs+tools+body;
+      });
+      ibRefreshStatus();
+    }
+    function ibRefreshDisplay(o){
+      const root=document.querySelector(`[data-office-root="${o.scope}:${o.id}"]`);
+      if(root){
+        const t=root.querySelector("[data-office-title]");if(t) t.textContent=ibTitle(o);
+        const s=root.querySelector("[data-office-summary]");if(s) s.textContent=ibSummary(o);
+      }
+      ibRefreshStatus();
+    }
+    let ibStatusTimer=null;
+    function ibRefreshStatus(){clearTimeout(ibStatusTimer);ibStatusTimer=setTimeout(ibRefreshStatusNow,120)}
+    function ibRefreshStatusNow(){
+      const el=document.getElementById("ibStatus");
+      if(!ib.loaded){el.className="note";el.textContent=isDesktopApp()?"还没有读取。":"桌面版才能读取。";return}
+      const {errors,warnings}=ibValidate();
+      const dirty=ibDirty();
+      el.className=errors.length?"note warn":"note";
+      el.innerHTML=`<div>${dirty?"有没写入的改动。":"与磁盘上的文件相比没有改动。"}</div>${errors.map(e=>`<div class="warn">错误：${esc(e)}</div>`).join("")}${warnings.map(w=>`<div>提醒：${esc(w)}</div>`).join("")}`;
+    }
+    function ibUsedPres(){return new Set([...ibAllOffices().map(officePreValue),...Object.keys(state.localeCz||{}).filter(k=>k.startsWith("ideology_office_")),...ib.names.keys(),...ib.nameEdits.keys()].map(k=>k.toLowerCase()))}
+    function ibNewPre(ideology){
+      const base=`ideology_office_${ideology.replace(/[A-Z]/g,(c,i)=>(i?"_":"")+c.toLowerCase())}_`;
+      const used=ibUsedPres();let n=1;
+      while(used.has(`${base}${n}_full`)) n++;
+      return `${base}${n}_full`;
+    }
+    function ibSetPre(o,pre){
+      if(pre.endsWith("_full")){o.namingMode="full";o.preBaseKey=pre.slice(0,-5)}
+      else if(pre.endsWith("_all")){o.namingMode="all";o.preBaseKey=pre.slice(0,-4)}
+      else{o.namingMode="none";o.preBaseKey=pre}
+    }
+    // 照邻居：同类最后一个机构的等级号、选拔方式、功绩、官阶门槛、特质；机构键自动起
+    function ibNewOffice(scope,ideology){
+      const list=ib.sets[ideology][scope];const last=list[list.length-1];
+      const seed={officeType:last?last.officeType:(scope==="cores"?"1":"3"),select:last?.select||"Default",requireTraits:last?.requireTraits||"",merit:last?.merit??"-1",honorary:last?.honorary??"-1",local:!!last?.local,politicalAppointment:last?.politicalAppointment||"",namingMode:"full",preBaseKey:""};
+      const o=makeOffice(scope,seed);o.ib=ideology;
+      ibSetPre(o,ibNewPre(ideology));
+      return o;
+    }
+    function ibCopyOffice(src,ideology){
+      const o=makeOffice(src.scope,{officeType:src.officeType,select:src.select,powers:src.powers,requireTraits:src.requireTraits,merit:src.merit,honorary:src.honorary,local:src.local,politicalAppointment:src.politicalAppointment,description:src.description,namingMode:src.namingMode,preBaseKey:src.preBaseKey});
+      o.description=src.description;o.peerageType=src.peerageType;o.ib=ideology;
+      return o;
+    }
+    async function saveIdeologyBureaus(){
+      if(!isDesktopApp()) throw new Error("当前不是桌面版，无法写入。");
+      if(!ib.loaded) throw new Error("还没有读取 IdeologyBureaus.json。");
+      const {errors}=ibValidate();
+      if(errors.length) throw new Error(errors.join(" "));
+      const disk=await desktopApi.readText(IB_FILE);
+      const diskText=disk.exists?disk.text:null;
+      if(diskText!==ib.text&&!confirm("IdeologyBureaus.json 在读取后被改过。继续写入会以编辑器里的内容为准，确定吗？")) return null;
+      const text=ibBuildText(diskText);
+      RJ.parse(text); // 写坏了就不写
+      const info={enFallback:0,added:[]};
+      const names=ibNameChanges(info);
+      const notes=[];
+      let written=false;
+      if(text!==diskText){await desktopApi.writeText(IB_FILE,text);written=true}
+      if(Object.keys(names).length){await desktopApi.writeLocales(names);notes.push(`机构名写入 Locales ${Object.keys(names).length} 条`)}
+      if(info.added.length) notes.push(`补了 ${info.added.length} 个缺的机构名(可再改)：${info.added.join("、")}`);
+      if(info.enFallback) notes.push(`${info.enFallback} 处英文名没填，写入了简体名`);
+      const current=ib.current;
+      await loadIdeologyBureaus();
+      ib.current=ib.sets[current]?current:ib.current;
+      renderIdeologyBureaus();
+      return {written,notes};
+    }
+
     // ================= 事件 =================
     const officeRerenderPaths=new Set(["categoryKeyRaw","preBaseKey","namingMode","preKey","cityType","select","politicalAppointment","peerageType"]);
     function onOfficeField(t,committed){
       const office=findOffice(t.dataset.scope,t.dataset.id);if(!office) return;
       office[t.dataset.path]=t.value;
       const path=t.dataset.path;
+      if(office.ib){if(committed&&officeRerenderPaths.has(path)||committed&&path==="officeType") renderIdeologyBureaus();else ibRefreshDisplay(office);return}
       if(committed&&(path==="officeType"||path==="categoryKeyRaw"||path==="preBaseKey"||path==="namingMode"||path==="preKey")){
         const oldCat=office.locKeys?.cat||"";
         relinkOfficeLocales(office);
@@ -2035,6 +2307,17 @@
     document.body.addEventListener("input",e=>{
       const t=e.target;
       if(t.dataset.kind==="office"&&t.tagName!=="SELECT"){onOfficeField(t,false);return}
+      if(t.dataset.ibnameKey!==undefined){
+        const key=t.dataset.ibnameKey;const lang=t.dataset.ibnameLang;const other=zhOther(lang);
+        const cur={...(ibName(key)||{cz:state.localeCz?.[key]||"",en:"",ch:""})};
+        const prev=cur[lang]||"";
+        cur[lang]=t.value;
+        if(other){const conv=autoFillValue(`ib|${key}`,lang,t.value,prev,cur[other]||"");if(conv!==null) cur[other]=conv}
+        ib.nameEdits.set(key,cur);
+        document.querySelectorAll(`[data-ibname-key="${CSS.escape(key)}"]`).forEach(el=>{if(el!==t) el.value=cur[el.dataset.ibnameLang]||""});
+        for(const o of ibAllOffices()) if(officePreValue(o)===key) ibRefreshDisplay(o);
+        ibRefreshStatus();return;
+      }
       if(t.dataset.locKey!==undefined||t.dataset.locMeta){
         const key=t.dataset.locMeta?empireTitleKey():t.dataset.locKey;
         const lang=t.dataset.locLang;const other=zhOther(lang);
@@ -2092,8 +2375,21 @@
     });
     document.body.addEventListener("change",e=>{
       const t=e.target;
-      if(t.dataset.kind==="office-check"){const office=findOffice(t.dataset.scope,t.dataset.id);if(!office) return;office[t.dataset.path]=t.checked;refreshPreview();return}
+      if(t.dataset.kind==="office-check"){const office=findOffice(t.dataset.scope,t.dataset.id);if(!office) return;office[t.dataset.path]=t.checked;if(office.ib) ibRefreshDisplay(office);else refreshPreview();return}
       if(t.dataset.kind==="office"){onOfficeField(t,true);return}
+      if(t.dataset.ibPre){
+        const o=ibFind(t.dataset.ibPre);if(!o) return;
+        const oldKey=officePreValue(o),newKey=t.value.trim();
+        ibSetPre(o,newKey);
+        const oldName=ibName(oldKey);
+        (async()=>{
+          await ibLoadNames([newKey]).catch(()=>{});
+          if(newKey&&oldKey!==newKey&&hasText(oldName)&&!hasText(ibName(newKey))) ib.nameEdits.set(newKey,{...oldName});
+          if(!ibAllOffices().some(x=>officePreValue(x)===oldKey)&&!ib.names.get(oldKey)?.cz) ib.nameEdits.delete(oldKey);
+          renderIdeologyBureaus();
+        })();
+        return;
+      }
       if(t.dataset.factionCheck){const f=state.factions.find(x=>x.id===t.dataset.factionCheck);if(!f) return;f[t.dataset.factionPath]=t.checked;refreshPreview();return}
       if(t.dataset.factionId){const f=state.factions.find(x=>x.id===t.dataset.factionId);if(!f) return;f[t.dataset.factionPath]=t.value;if(t.dataset.factionPath==="Name") renderFactions();refreshPreview();return}
       if(t.dataset.optionKey){
@@ -2127,7 +2423,7 @@
         office[path]=joinTags(values);
         const root=document.querySelector(`[data-office-root="${scope}:${id}"]`);
         const box=root?.querySelector(`[data-tag-box="${path}"]`);
-        if(box) box.innerHTML=renderTagEditor(office[path],path==="powers"?POWER_OPTIONS:TRAIT_OPTIONS,"office",path,scope,id,path==="powers"?"输入能力后点添加":"输入特质后点添加");
+        if(box) box.innerHTML=renderTagEditor(office[path],path==="powers"?(office.ib?IB_POWERS:POWER_OPTIONS):TRAIT_OPTIONS,"office",path,scope,id,path==="powers"?"输入能力后点添加":"输入特质后点添加");
         refreshOfficeDisplay(office);
       }else if(kind==="faction"){
         const f=state.factions.find(x=>x.id===id);if(!f) return;
@@ -2187,6 +2483,48 @@
     document.body.addEventListener("click",async e=>{
       const t=e.target.closest("button,[data-open-section]")||e.target;
       const d=t.dataset||{};
+      if(d.ibTab){ib.current=d.ibTab;renderIdeologyBureaus();return}
+      if(d.ibAdd){const o=ibNewOffice(d.ibAdd,ib.current);ib.sets[ib.current][d.ibAdd].push(o);renderIdeologyBureaus();document.querySelector(`[data-office-root="${o.scope}:${o.id}"] input[data-ibname-lang="cz"]`)?.focus();return}
+      if(d.ibMove||d.ibToggle||d.ibCopy||d.ibDelete){
+        const o=ibFind(d.ibMove||d.ibToggle||d.ibCopy||d.ibDelete);if(!o) return;
+        const list=ib.sets[o.ib][o.scope];const i=list.indexOf(o);
+        if(d.ibMove){const j=i+Number(d.ibDir);if(j>=0&&j<list.length) [list[i],list[j]]=[list[j],list[i]]}
+        else if(d.ibToggle) o.collapsed=!o.collapsed;
+        else if(d.ibCopy){
+          const c=ibCopyOffice(o,o.ib);ibSetPre(c,ibNewPre(o.ib));
+          const v=ibName(officePreValue(o))||(state.localeCz?.[officePreValue(o)]?{cz:state.localeCz[officePreValue(o)],ch:"",en:""}:null);
+          if(hasText(v)) ib.nameEdits.set(officePreValue(c),{...v});
+          list.splice(i+1,0,c);
+        }
+        else list.splice(i,1);
+        renderIdeologyBureaus();return;
+      }
+      if(t.id==="ibAddBtn"){
+        const k=document.getElementById("ibAddPick").value;if(!k) return;
+        if(ib.deleted.has(k)) ib.deleted.delete(k);
+        if(!ib.sets[k]){ib.sets[k]={raw:null,cores:[],division:[],note:""};ib.order.push(k)}
+        ib.current=k;renderIdeologyBureaus();return;
+      }
+      if(t.id==="ibCopyBtn"){
+        const from=document.getElementById("ibCopyPick").value;const src=ib.sets[from],dst=ib.sets[ib.current];if(!src||!dst) return;
+        if((dst.cores.length||dst.division.length)&&!confirm(`用「${ibIdeologyName(from)}」的整套机构替换「${ibIdeologyName(ib.current)}」现有的 ${dst.cores.length+dst.division.length} 个机构吗？`)) return;
+        for(const [scope] of IB_SCOPES) dst[scope]=src[scope].map(o=>ibCopyOffice(o,ib.current));
+        renderIdeologyBureaus();setStatus(`已照抄「${ibIdeologyName(from)}」的整套机构到「${ibIdeologyName(ib.current)}」，机构名共用`);return;
+      }
+      if(t.id==="ibDeleteBtn"){
+        if(!ib.current||!confirm(`删除「${ibIdeologyName(ib.current)}」的部委配置？这个理念的共和国会改用现代政体的默认机构。`)) return;
+        ib.deleted.add(ib.current);ib.current="";renderIdeologyBureaus();return;
+      }
+      if(t.id==="ibSaveBtn"){
+        try{const r=await saveIdeologyBureaus();if(r) setStatus(`IdeologyBureaus.json ${r.written?"已写入":"没有变化"}${r.notes.length?"；"+r.notes.join("；"):""}`)}
+        catch(err){setStatus(`写入部委配置失败：${err.message}`,true)}
+        return;
+      }
+      if(t.id==="ibReloadBtn"){
+        if(ibDirty()&&!confirm("部委配置有没写入的改动，确定重新读取吗？")) return;
+        try{await loadIdeologyBureaus();setStatus("已重新读取 IdeologyBureaus.json")}catch(err){setStatus(`读取 IdeologyBureaus.json 失败：${err.message}`,true)}
+        return;
+      }
       if(d.tagToggle!==undefined){
         const cur=tagValues(d.tagKind,d.tagPath,d.tagScope,d.tagId);
         setTagValues(d.tagKind,d.tagPath,d.tagScope,d.tagId,cur.includes(d.tagToggle)?cur.filter(v=>v!==d.tagToggle):cur.concat(d.tagToggle));return;
@@ -2323,7 +2661,7 @@
       document.getElementById("syncEnumsBtn").title="桌面版可直接运行同步脚本";
     }
     // 给测试与排错用
-    window.__regimeEditor={state,RJ,RC,buildOutputs,buildRegimeObject,validate,openRegime,loadTemplate,refreshRegimeList,isDirty,refreshPreviewNow,createRegime,deriveRegimeKey,autoFixBeforeSave,writeConfigsToFolder,instantiatePlaceholder,BLANK_TEMPLATE};
+    window.__regimeEditor={ib,ibBuildText,ibValidate,ibDirty,saveIdeologyBureaus,loadIdeologyBureaus,state,RJ,RC,buildOutputs,buildRegimeObject,validate,openRegime,loadTemplate,refreshRegimeList,isDirty,refreshPreviewNow,createRegime,deriveRegimeKey,autoFixBeforeSave,writeConfigsToFolder,instantiatePlaceholder,BLANK_TEMPLATE};
   })();
   </script>
 </body>

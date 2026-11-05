@@ -63,6 +63,8 @@
 
 `RegimeEditor` 的政体页能打开这里的每个目录(一个文件里有几个政体时分开打开，八旗这类只有 `OfficialType.csv` 的目录只编辑译名表)。写入时只重写改动过的值，注释、排版、编辑器不认识的字段和目录里的其他文件(如 `Naturalization.json`、`Senators.csv`)原样保留；`OfficialType.csv` 只改动过的行。新建政体可从 `RegimeEditor/RegimeTemplates/` 的常用原型、现有政体或空白模板开始，键名与类别名自动生成，不覆盖原有目录。新键名写入后编辑器自动运行 `regime_enum_sync.py`：只在 `RegimeSystem.cs` 的枚举末尾追加，不排序、不删除，旧存档的枚举值不变；之后要重新编译模组。
 
+模组根目录的 `IdeologyBureaus.json`(共和国按执政理念成套的中央机构，见 `RepublicSystem.GetBureauOverride`)在政体页的“共和国部委(按执政理念)”里编辑，单独写入；机构名写进 Locales。某个理念的 `cores` 或 `division` 写成 `null` 时整套退回现代政体的默认机构，不写或写空表则那一类机构为空。
+
 # 军制配置(Formations.json)
 
 建制是谁组织、谁出钱、怎么补、去哪打，和兵种(`CorpsArmSystem.Arm`)分开存。`formations` 定义各建制，`regimes` 按政体把军镇类别映射到建制，`fallback` 给没写的政体。读取失败时日志记 `[军制]`，一律按默认值的常备军。
