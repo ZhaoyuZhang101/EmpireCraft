@@ -330,38 +330,39 @@ namespace EmpireCraft.Scripts.HelperFunc
                 titleName, predecessorName), relatedActorId: predecessorId,
                 relatedPersonalIdentityId: predecessor?.id ?? -1L);
         }
+        // 判决上公屏(独立王国也报，2026-11 起)。犯人的名号、颜色、上不上公屏在立案时记下(施刑后罢了官、伏了诛也照原样写)；
+        // 卷宗、前科在这里补记(揭发罪行的计谋自己施刑，见 EmpireLawSystem.FinishCase)
         public static void LogLawEnforcement(LawEnforcementContext context)
         {
             if (context == null) return;
+            EmpireLawSystem.FinishCase(context);
 
             Actor actor = context.Actor;
             Kingdom kingdom = context.Kingdom;
-            Empire empire = kingdom?.GetEmpire();
-            if (actor == null || kingdom == null || empire == null) return;
-            if (!ShouldBroadcastLawActor(actor)) return;
+            if (actor == null || kingdom == null || kingdom.isRekt()) return;
+            Empire empire = kingdom.GetEmpire();
+            // 立案时没记(旧的调用方自己拼的案情)就按现在的身份判断
+            bool broadcast = string.IsNullOrEmpty(context.ActorLogName) ? ShouldBroadcastLawActor(actor) : context.Broadcast;
+            if (!broadcast) return;
 
-            string actorName = GetActorFullLogName(actor);
-
-            string lawName = context.Law != null ? context.Law.Name : context.LawType.ToString();
-            if (string.IsNullOrEmpty(lawName))
-            {
-                lawName = context.LawType.ToString();
-            }
-
-            string crimeDetailText = GetLawCrimeDetailText(lawName, context.CrimeDate);
+            string actorName = !string.IsNullOrEmpty(context.ActorLogName) ? context.ActorLogName : GetActorFullLogName(actor);
+            string crimeDetailText = GetLawCrimeDetailText(context.LawName, context.CrimeDate);
+            string reason = EmpireLawSystem.GetReasonText(context.ReasonKey);
+            if (!string.IsNullOrEmpty(reason)) crimeDetailText = string.Format(LM.Get("empire_law_crime_with_reason"), crimeDetailText, reason);
             string punishmentText = GetPunishmentText(context);
+            string kingdomColor = kingdom.getColor()._color_text;
             WorldLogMessage worldLog = new WorldLogMessage(
                 EmpireCraftWorldLogLibrary.empire_law_enforced_log,
                 actorName,
                 crimeDetailText,
                 punishmentText)
             {
-                color_special1 = actor.getColor()._color_text,
-                color_special2 = kingdom.getColor()._color_text,
-                color_special3 = kingdom.getColor()._color_text
+                color_special1 = !string.IsNullOrEmpty(context.ActorColorText) ? context.ActorColorText : kingdomColor,
+                color_special2 = kingdomColor,
+                color_special3 = kingdomColor
             };
 
-            if (ShouldRecordLawEnforcementHistory(actor, empire))
+            if (empire != null && ShouldRecordLawEnforcementHistory(actor, empire))
             {
                 worldLog.RecordIntoEmpire(empire);
                 return;
@@ -375,7 +376,6 @@ namespace EmpireCraft.Scripts.HelperFunc
             if (actor == null || kingdom == null) return;
 
             Empire empire = kingdom.GetEmpire();
-            if (empire == null) return;
             if (!ShouldBroadcastLawActor(actor)) return;
 
             string actorName = GetActorFullLogName(actor);
@@ -384,14 +384,14 @@ namespace EmpireCraft.Scripts.HelperFunc
                 EmpireCraftWorldLogLibrary.empire_law_arrest_log,
                 actorName,
                 string.IsNullOrEmpty(crimeDate) ? Date.getDate(World.world.getCurWorldTime()) : crimeDate,
-                crimeName)
+                EmpireLawSystem.LocalizeCrimeName(crimeName))
             {
                 color_special1 = actor.getColor()._color_text,
                 color_special2 = kingdom.getColor()._color_text,
                 color_special3 = kingdom.getColor()._color_text
             };
 
-            if (ShouldRecordLawEnforcementHistory(actor, empire))
+            if (empire != null && ShouldRecordLawEnforcementHistory(actor, empire))
             {
                 worldLog.RecordIntoEmpire(empire);
                 return;
@@ -400,29 +400,22 @@ namespace EmpireCraft.Scripts.HelperFunc
             worldLog.add();
         }
 
+        // 所施刑罚；减等、赎罪、开释、从重另注结果与缘由(八议、赎金、时代废刑……)
         private static string GetPunishmentText(LawEnforcementContext context)
         {
-            if (context == null || context.AppliedPunishments == null || context.AppliedPunishments.Count <= 0)
-            {
-                return LM.Get("empire_law_default_punishment");
-            }
-
-            List<string> punishmentNames = new List<string>();
-            foreach (PunishmentLevel punishment in context.AppliedPunishments)
-            {
-                string punishmentName = GetPunishmentName(punishment);
-                if (!string.IsNullOrEmpty(punishmentName))
-                {
-                    punishmentNames.Add(punishmentName);
-                }
-            }
-
-            if (punishmentNames.Count <= 0)
-            {
-                return LM.Get("empire_law_default_punishment");
-            }
-
-            return string.Join(", ", punishmentNames);
+            if (context == null) return LM.Get("empire_law_default_punishment");
+            List<PunishmentLevel> applied = (context.AppliedPunishments ?? new List<PunishmentLevel>())
+                .Where(p => p != PunishmentLevel.无罪).ToList();
+            string text = applied.Count > 0
+                ? EmpireLawSystem.GetPunishmentsText(applied)
+                : context.CaseRecorded ? EmpireLawSystem.GetOutcomeName(context.Outcome) : LM.Get("empire_law_default_punishment");
+            if (!context.CaseRecorded || context.Outcome == LawCaseOutcome.定罪) return text;
+            var notes = (context.Notes ?? new List<string>()).Select(EmpireLawSystem.FormatNote)
+                .Where(note => !string.IsNullOrEmpty(note)).ToList();
+            string outcome = EmpireLawSystem.GetOutcomeName(context.Outcome);
+            if (notes.Count == 0) return applied.Count == 0 ? outcome : string.Format(LM.Get("empire_law_punishment_with_outcome"), text, outcome);
+            string detail = string.Format(LM.Get("empire_law_outcome_detail"), outcome, string.Join(LM.Get("law_list_separator"), notes));
+            return applied.Count == 0 ? detail : string.Format(LM.Get("empire_law_punishment_with_outcome"), text, detail);
         }
 
         private static string GetLawCrimeDetailText(string crimeName, string crimeDate)
@@ -444,7 +437,7 @@ namespace EmpireCraft.Scripts.HelperFunc
                 .Replace("$crime$", localizedCrimeName ?? "");
         }
 
-        private static bool ShouldBroadcastLawActor(Actor actor)
+        public static bool ShouldBroadcastLawActor(Actor actor)
         {
             if (actor == null || actor.isRekt())
             {
@@ -459,17 +452,7 @@ namespace EmpireCraft.Scripts.HelperFunc
             return actor.isOfficer() || actor.IsOnOffice() || actor.GetOffice() != null || actor.isKing() || actor.HasTitle() || actor.isCityLeader();
         }
 
-        private static string GetPunishmentName(PunishmentLevel punishment)
-        {
-            string localeKey = "punishment_" + punishment.ToString();
-            string text = LM.Get(localeKey);
-            if (!string.IsNullOrEmpty(text) && text != localeKey)
-            {
-                return text;
-            }
-
-            return punishment.ToString();
-        }
+        public static string GetPunishmentName(PunishmentLevel punishment) => EmpireLawSystem.GetPunishmentName(punishment);
 
         private static bool ShouldRecordLawEnforcementHistory(Actor actor, Empire empire)
         {
@@ -576,6 +559,10 @@ namespace EmpireCraft.Scripts.HelperFunc
                 return "";
             }
 
+            // 罪名(枚举名或律法表的中文名)换成本地化的罪名；其余照旧按本地化键查
+            string lawName = EmpireLawSystem.LocalizeCrimeName(crimeName);
+            if (lawName != crimeName) return lawName;
+            if (!LM.Has(crimeName)) return crimeName;
             string localized = LM.Get(crimeName);
             return !string.IsNullOrEmpty(localized) && localized != crimeName ? localized : crimeName;
         }
@@ -776,7 +763,7 @@ namespace EmpireCraft.Scripts.HelperFunc
 
             new WorldLogMessage(EmpireCraftWorldLogLibrary.temporary_faction_official_fall_log,
                 actor.getName(),
-                crimeName)
+                EmpireLawSystem.LocalizeCrimeName(crimeName))
             {
                 color_special1 = actor.getColor()._color_text,
                 color_special2 = empire.CoreKingdom?.getColor()?._color_text ?? Toolbox.color_log_warning,
@@ -1150,7 +1137,7 @@ namespace EmpireCraft.Scripts.HelperFunc
             new WorldLogMessage(EmpireCraftWorldLogLibrary.追加罪行,
                 actor.name,
                 victim.name,
-                crime)
+                EmpireLawSystem.LocalizeCrimeName(crime))
             {
                 color_special1 = actor.getColor()._color_text,
                 color_special2 = victim.getColor()._color_text,
@@ -1254,7 +1241,7 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             new WorldLogMessage(EmpireCraftWorldLogLibrary.empire_take_back_title_log,
                 a.data.name,
-                crime,
+                EmpireLawSystem.LocalizeCrimeName(crime),
                 titles)
             {
                 color_special1 = a.getColor()._color_text,

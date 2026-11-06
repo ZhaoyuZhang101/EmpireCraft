@@ -114,6 +114,8 @@ public class WarPatch: GamePatch
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return;
         if (__instance.getMainAttacker() == null) return; // 坏战争，前置已经处理
+        // 叛乱：记下叛军眼下的首领，兵败后按律论处(见 LawEvents)
+        LawEvents.TrackRebelLeader(__instance);
 
         try
         {
@@ -448,6 +450,8 @@ public class WarPatch: GamePatch
                     RealmNamingSystem.ResolveCoerceWar(pWar, pWinner);
                     break;
             }
+            // 叛乱兵败、不奉诏平定：落到朝廷手里的首领按律论处(各项结局结算完之后，见 LawEvents)
+            LawEvents.OnWarEnded(pWar, pWinner);
             WorldLog.logWarEnded(pWar);
         }
         return false;

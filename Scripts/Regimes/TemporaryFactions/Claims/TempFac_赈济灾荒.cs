@@ -40,6 +40,8 @@ public class TempFac_赈济灾荒 : TemporaryFaction
             city.addResourcesToRandomStockpile("bread", amount);
             grain += amount;
         }
+        // 层层克扣：到手不足八成时，灾城主官按克扣的比例暗中记贪污(日后查办，见 LawEvents.ReliefSkimmed)
+        LawEvents.ReliefSkimmed(cities, efficiency);
         if (cities.Count > 0)
         {
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, -6f * efficiency);

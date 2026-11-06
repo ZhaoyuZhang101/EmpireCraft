@@ -235,6 +235,8 @@ public class KingdomPatch : GamePatch
             {
                 ShuiTuSystem.OnOverlordSucceeded(__instance);
                 NomadAppanageSystem.OnChieftainSucceeded(__instance, pActor);
+                // 不在帝国里的王国新君即位大赦(帝国之内的封国换君不赦，见 EmpireLawSystem.OnRulerAccession)
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.OnRulerAccession(__instance, pActor);
             }
             __instance.RemoveHeir();
         }

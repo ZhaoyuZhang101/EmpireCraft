@@ -16,7 +16,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     各有几率阵亡(为胜方统领所斩)、被俘、突围；
 //   · 被俘：君主、储君、有官爵封地的不降——赎回或遇害；其余的三成五归降敌国(换了国家，留在对方都城)、四成由本国出金赎回
 //     (国库付不起就被杀或放归)、其余不屈而死；
-//   · 城破(主城池陷落，见 FrontSystem.Surrender)：守在城里的统领三成殉国、三成被俘，其余趁乱出走。
+//   · 城破(主城池陷落，见 FrontSystem.Surrender)：守在城里的统领三成殉国、三成被俘，其余趁乱出走；
+//   · 大败溃散而生还、城破出走的统领，本国有机会按律追究(临阵脱逃、违抗军令，见 LawEvents)。
 // 只结算有统领实体的军(关了「军团统领实体」就没有这些事)。
 public static class BattleDrama
 {
@@ -40,8 +41,8 @@ public static class BattleDrama
         bool attackersLost = ratio <= 1f - RoutRatio, holdersLost = ratio >= RoutRatio;
         try
         {
-            Settle(city, attackers, holders, attackersLost);
-            Settle(city, holders, attackers, holdersLost);
+            Settle(city, attackers, holders, attackersLost, true);
+            Settle(city, holders, attackers, holdersLost, false);
         }
         catch (Exception exception)
         {
@@ -50,7 +51,7 @@ public static class BattleDrama
     }
 
     private static void Settle(City city, List<(Kingdom kingdom, CorpsData corps)> side,
-        List<(Kingdom kingdom, CorpsData corps)> enemy, bool beaten)
+        List<(Kingdom kingdom, CorpsData corps)> enemy, bool beaten, bool attacking)
     {
         Actor victor = enemy.Where(entry => General(entry.corps) != null).OrderByDescending(entry => entry.corps.strength)
             .Select(entry => General(entry.corps)).FirstOrDefault();
@@ -67,6 +68,8 @@ public static class BattleDrama
             else if (roll < (SlainChance + CapturedChance) * scale && victorKingdom != null) Captured(city, kingdom, general, victorKingdom, victor);
             else if (roll < (SlainChance + CapturedChance + BreakoutChance) * scale)
                 Announce(kingdom, general, string.Format(LM.Get("battle_breakout"), city.GetCityName()), false);
+            // 大败又溃散而统领生还：按律追究败将(临阵脱逃、违抗军令，见 LawEvents)
+            else if (beaten && routed) LawEvents.Routed(kingdom, general, corps, attacking);
         }
     }
 
@@ -168,6 +171,8 @@ public static class BattleDrama
                 }
                 else if (roll < MartyrChance + FallCaptureChance && attacker != null)
                     Captured(city, kingdom, general, attacker, victor);
+                // 趁乱出走：弃城之罪(临阵脱逃，见 LawEvents)
+                else LawEvents.CityFled(kingdom, general, corps);
             }
         }
         catch (Exception exception)

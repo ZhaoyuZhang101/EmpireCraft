@@ -34,6 +34,8 @@ public static class WarExtension
         public bool history_declaration_recorded;
         public bool history_end_recorded;
         public RebellionCauseData rebellion_cause;
+        // 叛乱一方(攻方)最近的首领：兵败后落到朝廷手里的按律论处(见 LawEvents.OnWarEnded)；-1 = 不是叛乱或还没记
+        public long rebel_leader_id = -1L;
         // 劫掠之战：盟主、出兵各部、抢够几城、战利品(见 NomadRaidSystem)；别的仗为空
         public EmpireCraft.Scripts.Data.RaidWarState raid;
         // 争草场之战：两家与争的城(见 SteppeOrderSystem)；别的仗为空

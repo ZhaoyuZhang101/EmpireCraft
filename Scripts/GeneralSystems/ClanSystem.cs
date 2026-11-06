@@ -1452,6 +1452,11 @@ public class PersonalClanIdentity
     public List<(long specific_clan, long identity)> concubines = new(); //小妾/情人
     public List<long> children = new List<long>();
     public List<CrimeRecord> crime_records = new List<CrimeRecord>();
+    // 前科(已判的案，与未发的 crime_records 分开；至多 8 条)与在押(刑期，刑满或大赦释放)，见 EmpireLawSystem.Records
+    public List<LawConvictionRecord> law_convictions;
+    public LawImprisonment law_imprisonment;
+    public bool ShouldSerializelaw_convictions() => law_convictions != null && law_convictions.Count > 0;
+    public bool ShouldSerializelaw_imprisonment() => law_imprisonment != null;
     public List<PersonalHistoryRecord> personal_history = new List<PersonalHistoryRecord>();
     // 个人恩怨(恩主、门生、宿敌，至多三条，见 PersonalTieSystem)
     public List<PersonalTie> ties { get; set; }

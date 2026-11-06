@@ -1471,6 +1471,7 @@ namespace EmpireCraft.Scripts.AI
 
                     empire.create_year_name();
                     TranslateHelper.LogEmperorNewYearName(pActor, empire);
+                    EmpireLawSystem.OnEraNameChanged(empire); // 改元大赦
                     return true;
                 }
             });

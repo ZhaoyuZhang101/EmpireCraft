@@ -20,7 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 驱逐(国教排他、不宽容时一半机会，见 ReligionFaith.IsExclusive)：该教各城 ExpelShare 的背景人口出走，送到接壤的同教外国城，
 //     没有就到接壤的外国城做难民(MigrationRelations：难民城五年稳定 −6)；城改奉国教；奉该教的国家十年内对本国好感 −40；
 //   · 迫害：没收寺产(每户 ConfiscatePerHousehold 入国库)；一半的城当场改奉国教，其余十年稳定少 PersecutionStability、
-//     当年各有 RevoltChance 机会举教起事(仍要稳定低于起事线，见 ReligiousTension)。
+//     当年各有 RevoltChance 机会举教起事(仍要稳定低于起事线，见 ReligiousTension)；这些城的城主仍奉该教的，
+//     有机会以宣扬异端论处(见 LawEvents.HereticLeaders)。
 public static class ReligiousPersecution
 {
     private const int MinCities = 2;
@@ -95,6 +96,7 @@ public static class ReligiousPersecution
         long seized = 0;
         int converted = 0;
         double now = World.world.getCurWorldTime();
+        var kept = new List<City>();
         foreach (City city in cities)
         {
             seized += (long)CityPopulationSystem.FiscalHouseholds(city) * ConfiscatePerHousehold;
@@ -107,7 +109,10 @@ public static class ReligiousPersecution
             }
             city.GetOrCreate().persecuted_at = now;
             ReligiousTension.TryPersecutionRevolt(city, RevoltChance);
+            kept.Add(city);
         }
+        // 没改宗的城：城主仍奉被禁之教的，以宣扬异端论处(起事分出去的不算，见 LawEvents.HereticLeaders)
+        LawEvents.HereticLeaders(realm, faith, kept);
         if (seized > 0) realm.AddMoney((int)Mathf.Min(int.MaxValue, seized), TreasuryCategory.RecoveredFunds);
         string text = string.Format(LM.Get("persecution_log"), realm.GetKingdomName(), faith.name, MoneyDisplay.Format(seized), converted);
         TranslateHelper.LogEventMessage(text, realm);

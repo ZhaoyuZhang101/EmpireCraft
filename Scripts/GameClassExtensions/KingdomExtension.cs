@@ -596,6 +596,9 @@ public static class KingdomExtension
         public LawType main_crime = default;
         public bool main_crime_recorded;
         public long main_crime_actor_id = -1L;
+        // 本国的执法记录：卷宗、在押者、上次大赦、近年处决(见 EmpireLawSystem.Records)；没判过案的国家为空
+        public EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawRealmState law_state;
+        public bool ShouldSerializelaw_state() => law_state != null;
         public TemporaryPushProgress PushProgress = new TemporaryPushProgress()
         {
             StartedToPushTf = false,

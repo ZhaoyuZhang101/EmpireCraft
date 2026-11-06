@@ -890,6 +890,8 @@ public class Empire : MetaObject<EmpireData>
         //记录历史
         this.RecordNewEmperorHistory(isNew);
         RulerTraitSystem.OnCrowned(this, actor);
+        // 新君即位大赦天下(只限君主制，见 EmpireLawSystem.OnRulerAccession)
+        EmpireLawSystem.OnRulerAccession(CoreKingdom, actor);
         // 君主早逝、皇位更迭频繁推高王朝积弊(用户 2026-10-26，见 DynasticCycleSystem.OnSuccession)
         if (!NoDynasty) DynasticCycleSystem.OnSuccession(this, actor, isNew);
     }

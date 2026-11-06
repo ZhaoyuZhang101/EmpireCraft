@@ -35,6 +35,8 @@ public class TempFac_大赦天下 : TemporaryFaction
             foreach (SocialClass socialClass in global::System.Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())
                 ClaimPolicySystem.AddGrievance(empire, socialClass, -3f);
             empire.AddMandate(2);
+            // 律法上的大赦：赦免未发之罪、释放在押的寻常罪犯(见 EmpireLawSystem.GrantAmnesty)
+            EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.GrantAmnesty(empire.CoreKingdom, "law_amnesty_reason_edict");
             CompletionOutcome = LM.Get("claim_outcome_大赦天下_done");
         }
         End();
