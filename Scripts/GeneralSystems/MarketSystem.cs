@@ -19,6 +19,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   价格：按市场总需求 ÷ 总供给在基础价的 0.25~4 倍之间浮动。
 //   传播：买方受卖方主流理念影响；卖方的宗教(买方没有自建神庙时)、跨国时卖方的语言有小概率传入。
 //   每次交换记作一次商队往来(见 ConstitutionalEconomySystem.RecordTrade)，城市就业的"近期航运"等都会计入。
+// 通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：
+//   国内的卖家只取本城近邻表里(人员口径)成本不过 domestic_max_cost 的同一市场的城(以前全帝国的城一视同仁，西陲买东海的粮)；
+//   外国邻城照旧要本城有市场或码头；买方付的价钱另加运费：市价 × domestic_freight × 成本(粮木石金属都又重又贱)，
+//   运费是路上的花销，卖方照市价卖；到手价低的卖家先卖。商路传播(理念、宗教、语言)按两城之间的通达强度打折。
 public static class MarketSystem
 {
     public enum Good { Food, Wood, Stone, Metal }
@@ -180,6 +184,41 @@ public static class MarketSystem
         return city.kingdom?.cities ?? new List<City>();
     }
 
+    // 能做生意的卖家及买方到它的成本(通达层没算好时成本为 -1，不收运费)：见类头
+    private static readonly List<ConnectivityNeighbour> NearBuffer = new();
+
+    private static List<(City seller, float cost)> SellersByCost(City city)
+    {
+        var sellers = new List<(City, float)>();
+        if (ConnectivitySystem.Ready && ConnectivitySystem.NearCities(city, NearBuffer, ConnectivitySystem.Config.domestic_max_cost) >= 0)
+        {
+            Empire empire = city.kingdom?.GetEmpire();
+            bool imperial = empire != null && !empire.isRekt() && !empire.IsArchived();
+            var seen = new HashSet<City>();
+            foreach (ConnectivityNeighbour near in NearBuffer)
+            {
+                City other = near.City;
+                if (other == city || other.isRekt() || Blockaded(other) || Embargoed(city.kingdom, other.kingdom)) continue;
+                bool domestic = other.kingdom == city.kingdom || imperial && other.kingdom?.GetEmpire() == empire;
+                if (!domestic || !seen.Add(other)) continue;
+                sellers.Add((other, near.Cost));
+            }
+            if ((city.hasBuildingType("type_market") || city.hasBuildingType("type_docks")) && city.neighbours_cities != null)
+                foreach (City other in city.neighbours_cities)
+                {
+                    if (other?.kingdom == null || other.isRekt() || other.kingdom.wild || seen.Contains(other)) continue;
+                    if (other.kingdom == city.kingdom || Embargoed(city.kingdom, other.kingdom) || Blockaded(other)) continue;
+                    float cost = ConnectivitySystem.NearCost(city, other, out _);
+                    if (cost < 0f || float.IsPositiveInfinity(cost)) cost = ConnectivitySystem.Config.domestic_max_cost;
+                    seen.Add(other);
+                    sellers.Add((other, cost));
+                }
+            return sellers;
+        }
+        foreach (City other in Sellers(city)) sellers.Add((other, -1f));
+        return sellers;
+    }
+
     // 能做生意的卖家：国内市场，加上有市场或码头时相邻、未交战的外国城市
     private static List<City> Sellers(City city)
     {
@@ -243,37 +282,40 @@ public static class MarketSystem
             float bought = 0f;
             // 本月已经用民间存款买粮花掉的钱
             float foodSpent = 0f;
-            List<City> sellers = null;
+            List<(City seller, float cost)> sellers = null;
+            float freightPerCost = ConnectivitySystem.Config.domestic_freight;
             foreach (Good good in Goods)
             {
                 if (capacity <= 0) break;
                 float need = Deficit(buyer, good);
                 if (need < 1f) continue;
-                sellers ??= Sellers(buyer);
+                sellers ??= SellersByCost(buyer);
                 float price = Price(buyer, good);
-                // 余量最多的卖家先卖(每种商品只算一次各卖家的余量)
-                var offers = new List<(City seller, float surplus)>(sellers.Count);
-                foreach (City candidate in sellers)
+                // 到手价(市价加运费，见类头)低的先卖，同价的余量多的先卖(每种商品只算一次各卖家的余量)
+                var offers = new List<(City seller, float surplus, float unit, float cost)>(sellers.Count);
+                foreach ((City candidate, float cost) in sellers)
                 {
                     float available = Surplus(candidate, good);
-                    if (available >= 1f) offers.Add((candidate, available));
+                    if (available >= 1f) offers.Add((candidate, available, cost > 0f ? price * (1f + freightPerCost * cost) : price, cost));
                 }
-                offers.Sort((a, b) => b.surplus.CompareTo(a.surplus));
-                foreach ((City seller, float surplus) in offers)
+                offers.Sort((a, b) => a.unit != b.unit ? a.unit.CompareTo(b.unit) : b.surplus.CompareTo(a.surplus));
+                foreach ((City seller, float surplus, float unit, float cost) in offers)
                 {
                     if (need < 1f || capacity <= 0) break;
                     // 粮食是百姓自己买，看民间存款；木石金属是公家买，看城市国库
                     float purse = good == Good.Food
                         ? Mathf.Max(0f, PopulationEconomySystem.Savings(buyer, data) - foodSpent)
                         : Mathf.Max(0, buyer.GetMoney());
-                    int affordable = price <= 0f ? 0 : Mathf.FloorToInt(purse / price);
+                    int affordable = unit <= 0f ? 0 : Mathf.FloorToInt(purse / unit);
                     int amount = Mathf.Min(Mathf.FloorToInt(Mathf.Min(need, surplus)), Mathf.Min(capacity, affordable));
                     amount = Mathf.Min(amount, Capacity(seller) * months);
                     if (amount <= 0) continue;
                     int moved;
                     using (PopulationEconomySystem.PrivateUse()) moved = Move(seller, buyer, good, amount);
                     if (moved <= 0) continue;
-                    int value = Mathf.CeilToInt(moved * price);
+                    // 买方付到手价(含运费)，卖方按市价卖；差额是路上的运费
+                    int value = Mathf.CeilToInt(moved * unit);
+                    int sale = Mathf.Min(value, Mathf.CeilToInt(moved * price));
                     // 买粮：钱换粮，民间家底不变；买木石金属：城市国库付钱，买来的算公家的
                     if (good != Good.Food)
                     {
@@ -283,12 +325,12 @@ public static class MarketSystem
                     else foodSpent += value;
                     // 卖方：先卖公家的存货，九成价钱归城市国库
                     int fromPublic = good == Good.Food ? 0 : PopulationEconomySystem.TakePublicStock(seller, MaterialId(good), moved);
-                    int publicValue = Mathf.FloorToInt(value * (float)fromPublic / moved);
+                    int publicValue = Mathf.FloorToInt(sale * (float)fromPublic / moved);
                     if (publicValue > 0)
                         seller.AddMoney(Mathf.FloorToInt(publicValue * SellerShare *
                             ClaimPolicySystem.TradeIncomeFactor(seller.kingdom)), TreasuryCategory.PublicTrade);
                     // 其余是百姓的货，九成价卖掉，家底少一成(商人的利润)；卖粮的钱里租地收成那部分是地主的
-                    int privateValue = value - publicValue;
+                    int privateValue = sale - publicValue;
                     int sellerGets = Mathf.FloorToInt(privateValue * SellerShare);
                     int rent = good == Good.Food
                         ? Mathf.FloorToInt(sellerGets * LandEconomySystem.BackgroundRentShare(seller)) : 0;
@@ -296,11 +338,11 @@ public static class MarketSystem
                     need -= moved;
                     capacity -= moved;
                     bought += value;
-                    RecordSale(seller, value);
+                    RecordSale(seller, sale);
                     bool foreign = seller.kingdom != buyer.kingdom &&
                                    (seller.kingdom?.GetEmpire() == null || seller.kingdom.GetEmpire() != buyer.kingdom.GetEmpire());
-                    ConstitutionalEconomySystem.RecordTrade(seller, buyer, foreign, value);
-                    Spread(seller, buyer, moved, foreign);
+                    ConstitutionalEconomySystem.RecordTrade(seller, buyer, foreign, sale);
+                    Spread(seller, buyer, moved, foreign, cost);
                 }
             }
             data.last_market_bought = bought;
@@ -346,13 +388,16 @@ public static class MarketSystem
         return CityResourceTransferSystem.Move(seller, buyer, MaterialId(good), amount);
     }
 
-    // 商路传播：理念、宗教、(跨国时)语言
-    private static void Spread(City seller, City buyer, int volume, bool foreign)
+    // 商路传播：理念、宗教、(跨国时)语言；通达层算好后按两城之间(人员口径)的通达强度打折(cost 为 -1 时不打折)
+    private static void Spread(City seller, City buyer, int volume, bool foreign, float cost = -1f)
     {
+        float reach = cost >= 0f ? ConnectivitySystem.StrengthOf(cost, seller) : 1f;
+        if (reach < 0f) reach = 1f;
+        if (reach <= 0f) return;
         PartyIdeology ideology = IdeologyPopulationSystem.GetDominant(seller);
         if (IdeologyPopulationSystem.GetDominant(buyer) != ideology)
-            IdeologyPopulationSystem.InfluenceCity(buyer, ideology, Mathf.Min(0.05f, IdeologyInfluencePerTrade * volume));
-        float chance = Mathf.Min(MaxReligionChance, ReligionChancePerVolume * volume);
+            IdeologyPopulationSystem.InfluenceCity(buyer, ideology, Mathf.Min(0.05f, IdeologyInfluencePerTrade * volume) * reach);
+        float chance = Mathf.Min(MaxReligionChance, ReligionChancePerVolume * volume) * reach;
         if (seller.religion != null && buyer.religion != seller.religion && !buyer.hasBuildingType("type_temple") &&
             UnityEngine.Random.value < chance)
             buyer.setReligion(seller.religion);

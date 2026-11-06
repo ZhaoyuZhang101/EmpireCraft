@@ -139,6 +139,18 @@ public static class ColonySystem
 
     private static object IslandOf(City city) => city?.getTile()?.region?.island;
 
+    // 离都城够远的海外：通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)按人员从都城走海路过去的成本，
+    // 不低于 colony_min_cost(20，约远洋帆船三百格)或走不到才算；没算好时照旧按地块距离 ColonyDistance
+    private static bool FarOverseas(City city, City capital)
+    {
+        if (ConnectivitySystem.Ready)
+        {
+            float cost = ConnectivitySystem.Cost(capital, city, ConnectivityMode.People);
+            if (cost >= 0f) return cost >= ConnectivitySystem.Config.colony_min_cost;
+        }
+        return Distance(city, capital) >= ColonyDistance;
+    }
+
     private static int Distance(City a, City b)
     {
         TileZone za = a?.getTile()?.zone, zb = b?.getTile()?.zone;
@@ -160,7 +172,7 @@ public static class ColonySystem
         var groups = realm.cities
             .Where(city => city != null && !city.isRekt() && city != realm.capital && IslandOf(city) is object island &&
                            island != home && AdministrativeControlSystem.Known(city) && city.GetOrCreate().admin_overseas &&
-                           Distance(city, realm.capital) >= ColonyDistance)
+                           FarOverseas(city, realm.capital))
             .GroupBy(IslandOf).ToList();
         foreach (var group in groups)
         {

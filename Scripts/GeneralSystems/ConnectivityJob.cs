@@ -11,6 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      沙漠冻土 ×2)，记下地形剖面(没变的沿用上一轮的)；③ 海路：每座临海城连同一水域最近的几座、别的陆地上最近的几座，
 //      各块陆地之间再连最近的一对，量海岸最近处；④ 拼成图；⑤ 每个文化(消息)、每个政权(消息、人员)从自己所有的城出发
 //      做有界最短路，记下到别的文化、政权的成本、强度与沿途障碍；⑥ 通信捷径(电报、广播、互联网)与航空。
+//   二档另算两样：货物路线(每个政权按人员的路走到 goods_max_cost，绕开与它交战的政权，记下沿途第三国，贸易据此算运费、过境税、封路)；
+//   每座城最近的 near_count 座城(人员口径，near_max_cost 以内，记成本与是否走海)，迁徙、国内市场、经济圈、难民、空城安置直接查表。
 public sealed class ConnectivityZoneGrid
 {
     public int Count;
@@ -69,6 +71,8 @@ public struct ConnectivityPair
     public ConnectivityBarrier Main, Second;
     public int WildRegion;
     public byte Flags;
+    // 货物路线沿途的第三国(政权下标；没有为 null)
+    public int[] Third;
 
     public bool Has(byte flag) => (Flags & flag) != 0;
 }
@@ -92,7 +96,12 @@ public sealed class ConnectivityResult
     public Dictionary<int, ConnectivityPair>[] CultureOut = Array.Empty<Dictionary<int, ConnectivityPair>>();
     public Dictionary<int, ConnectivityPair>[] RealmIdeasOut = Array.Empty<Dictionary<int, ConnectivityPair>>();
     public Dictionary<int, ConnectivityPair>[] RealmPeopleOut = Array.Empty<Dictionary<int, ConnectivityPair>>();
-    public int LandEdges, SeaEdges, AStarRuns, AStarFailed, Reused, Pairs, Units;
+    // 二档：货物路线(政权 → 政权)；每座城最近的几座城(点下标、成本、1 = 走了海路)，按成本由近到远
+    public Dictionary<int, ConnectivityPair>[] RealmGoodsOut = Array.Empty<Dictionary<int, ConnectivityPair>>();
+    public int[][] NearNodes = Array.Empty<int[]>();
+    public float[][] NearCosts = Array.Empty<float[]>();
+    public byte[][] NearFlags = Array.Empty<byte[]>();
+    public int LandEdges, SeaEdges, AStarRuns, AStarFailed, Reused, Pairs, Units, GoodsPairs;
     public double ComputeMs;
     // 日志用：政权之间(消息口径)各往来等级、各主障碍的对数；城最多的政权
     public readonly int[] LevelCounts = new int[4];
@@ -213,7 +222,8 @@ public sealed class ConnectivityHeap
 
 public sealed class ConnectivityJob
 {
-    private enum Stage { Land, Edges, Sea, SeaLands, Graph, Paths, Telecom, Done }
+    private enum Stage { Land, Edges, Sea, SeaLands, Graph, Paths, Near, Telecom, Done }
+    private const int NearChunk = 32;
 
     public readonly int Generation;
     public readonly ConnectivityResult Result = new();
@@ -238,6 +248,9 @@ public sealed class ConnectivityJob
     private readonly HashSet<long> _seaPairs = new();
     private readonly List<int> _coastal = new();
     private readonly List<(bool culture, int index, ConnectivityMode mode)> _tasks = new();
+    private readonly int[][] _realmEnemies;
+    private int[] _blockedStamp = Array.Empty<int>();
+    private bool[] _seaPath = Array.Empty<bool>();
     private List<int>[] _cultureNodes, _realmNodes;
     private HashSet<int>[] _cultureLands, _realmLands;
     private bool[] _cultureCoast, _realmCoast;
@@ -256,9 +269,10 @@ public sealed class ConnectivityJob
 
     public ConnectivityJob(int generation, ConnectivityConfig config, ConnectivityZoneGrid grid, ConnectivityNode[] nodes,
         List<ConnectivityLandLink> links, string[] cultures, ConnectivityTravel[] cultureIdeas, long[] realms,
-        ConnectivityTravel[] realmIdeas, ConnectivityTravel[] realmPeople)
+        ConnectivityTravel[] realmIdeas, ConnectivityTravel[] realmPeople, int[][] realmEnemies = null)
     {
         Generation = generation;
+        _realmEnemies = realmEnemies;
         _config = config;
         _grid = grid;
         _links = links;
@@ -346,7 +360,18 @@ public sealed class ConnectivityJob
                 if (_cursor < _tasks.Count)
                 {
                     var task = _tasks[_cursor++];
-                    Paths(task.culture, task.index, task.mode);
+                    if (task.mode == ConnectivityMode.Goods) Goods(task.index);
+                    else Paths(task.culture, task.index, task.mode);
+                    return;
+                }
+                _stage = Stage.Near;
+                _cursor = 0;
+                return;
+            case Stage.Near:
+                if (_cursor < Result.Nodes.Length)
+                {
+                    int end = Math.Min(Result.Nodes.Length, _cursor + NearChunk);
+                    for (; _cursor < end; _cursor++) Near(_cursor);
                     return;
                 }
                 _stage = Stage.Telecom;
@@ -695,6 +720,10 @@ public sealed class ConnectivityJob
         Result.CultureOut = Maps(cultures);
         Result.RealmIdeasOut = Maps(realms);
         Result.RealmPeopleOut = Maps(realms);
+        Result.RealmGoodsOut = Maps(realms);
+        Result.NearNodes = new int[n][];
+        Result.NearCosts = new float[n][];
+        Result.NearFlags = new byte[n][];
         for (int c = 0; c < cultures; c++)
             if (_cultureNodes[c].Count > 0) _tasks.Add((true, c, ConnectivityMode.Ideas));
         for (int r = 0; r < realms; r++)
@@ -702,12 +731,15 @@ public sealed class ConnectivityJob
             if (_realmNodes[r].Count == 0) continue;
             _tasks.Add((false, r, ConnectivityMode.Ideas));
             _tasks.Add((false, r, ConnectivityMode.People));
+            _tasks.Add((false, r, ConnectivityMode.Goods));
         }
         _dist = new float[n];
         _prevEdge = new int[n];
         _seen = new int[n];
         _done = new int[n];
         _hop = new bool[n];
+        _seaPath = new bool[n];
+        _blockedStamp = new int[realms];
         int targets = Math.Max(cultures, realms);
         _targetStamp = new int[targets];
         _targetNode = new int[targets];
@@ -943,6 +975,156 @@ public sealed class ConnectivityJob
         }
         int cx = x - _zoneMinX, cy = y - _zoneMinY;
         return cx < 0 || cy < 0 || cx >= _zoneWidth || cy >= _zoneHeight ? -1 : _zoneAt[cy * _zoneWidth + cx];
+    }
+
+    #endregion
+
+    #region 二档：货物路线与最近的城
+
+    // 一个政权的货物路线：按它人员的本事走，绕开与它交战的政权(战争封路)，走到 goods_max_cost；记沿途第三国
+    private void Goods(int realm)
+    {
+        ConnectivityTravel travel = Result.RealmPeople[realm];
+        (float[] cost, _) = Result.Costs(travel);
+        float cutoff = Math.Max(1f, _config.goods_max_cost);
+        if (++_stamp == int.MaxValue)
+        {
+            Array.Clear(_seen, 0, _seen.Length);
+            Array.Clear(_done, 0, _done.Length);
+            Array.Clear(_targetStamp, 0, _targetStamp.Length);
+            Array.Clear(_blockedStamp, 0, _blockedStamp.Length);
+            _stamp = 1;
+        }
+        if (_realmEnemies != null && realm < _realmEnemies.Length && _realmEnemies[realm] != null)
+            foreach (int enemy in _realmEnemies[realm])
+                if (enemy >= 0 && enemy < _blockedStamp.Length && enemy != realm) _blockedStamp[enemy] = _stamp;
+        _heap.Clear();
+        foreach (int s in _realmNodes[realm])
+        {
+            _seen[s] = _stamp;
+            _dist[s] = 0f;
+            _prevEdge[s] = -1;
+            _seaPath[s] = false;
+            _heap.Push(0f, s);
+        }
+        ConnectivityNode[] nodes = Result.Nodes;
+        while (_heap.Count > 0)
+        {
+            _heap.Pop(out float d, out int u);
+            if (_done[u] == _stamp || d > _dist[u]) continue;
+            _done[u] = _stamp;
+            int target = nodes[u].Realm;
+            if (target >= 0 && target < _targetStamp.Length && (_targetStamp[target] != _stamp || d < _targetDist[target]))
+            {
+                _targetStamp[target] = _stamp;
+                _targetDist[target] = d;
+                _targetNode[target] = u;
+            }
+            for (int i = Result.AdjStart[u]; i < Result.AdjStart[u + 1]; i++)
+            {
+                int e = Result.Adj[i];
+                float c = cost[e];
+                if (float.IsPositiveInfinity(c)) continue;
+                int v = Result.EdgeA[e] == u ? Result.EdgeB[e] : Result.EdgeA[e];
+                if (_done[v] == _stamp) continue;
+                int vr = nodes[v].Realm;
+                if (vr >= 0 && vr < _blockedStamp.Length && _blockedStamp[vr] == _stamp) continue;
+                float next = d + c + (nodes[u].Realm != vr ? _config.border_cost : 0f);
+                if (next > cutoff) continue;
+                if (_seen[v] == _stamp && _dist[v] <= next) continue;
+                _seen[v] = _stamp;
+                _dist[v] = next;
+                _prevEdge[v] = e;
+                _seaPath[v] = _seaPath[u] || Result.Edges[e].Sea;
+                _heap.Push(next, v);
+            }
+        }
+        Dictionary<int, ConnectivityPair> output = Result.RealmGoodsOut[realm];
+        var third = new List<int>();
+        for (int t = 0; t < Result.Realms.Length; t++)
+        {
+            if (t == realm || _targetStamp[t] != _stamp) continue;
+            int node = _targetNode[t];
+            float dist = _targetDist[t];
+            third.Clear();
+            int guard = nodes.Length;
+            for (int u = node; _prevEdge[u] >= 0 && guard-- > 0;)
+            {
+                int e = _prevEdge[u];
+                u = Result.EdgeA[e] == u ? Result.EdgeB[e] : Result.EdgeA[e];
+                int r = nodes[u].Realm;
+                if (r != realm && r != t && r >= 0 && !third.Contains(r)) third.Add(r);
+            }
+            float strength = ConnectivityRules.Strength(dist, travel.Length, _config);
+            Result.GoodsPairs++;
+            output[t] = new ConnectivityPair
+            {
+                PathCost = dist, Cost = dist, PathStrength = strength, Strength = strength, WildRegion = -1,
+                Main = ConnectivityBarrier.None, Second = ConnectivityBarrier.None,
+                Flags = _seaPath[node] ? ConnectivityPair.BySea : (byte)0,
+                Third = third.Count > 0 ? third.ToArray() : null
+            };
+        }
+    }
+
+    // 一座城最近的几座城(人员口径，按所在政权的本事)：有界最短路，弹出 near_count 座或超过 near_max_cost 就停
+    private void Near(int source)
+    {
+        ConnectivityNode[] nodes = Result.Nodes;
+        int realm = nodes[source].Realm;
+        ConnectivityTravel travel = realm >= 0 && realm < Result.RealmPeople.Length ? Result.RealmPeople[realm]
+            : new ConnectivityTravel { Mode = ConnectivityMode.People, Length = _config.people_length_base, FreightFactor = 1f };
+        (float[] cost, _) = Result.Costs(travel);
+        float cutoff = Math.Max(1f, _config.near_max_cost);
+        int want = Math.Max(1, _config.near_count);
+        if (++_stamp == int.MaxValue)
+        {
+            Array.Clear(_seen, 0, _seen.Length);
+            Array.Clear(_done, 0, _done.Length);
+            Array.Clear(_targetStamp, 0, _targetStamp.Length);
+            Array.Clear(_blockedStamp, 0, _blockedStamp.Length);
+            _stamp = 1;
+        }
+        _heap.Clear();
+        _seen[source] = _stamp;
+        _dist[source] = 0f;
+        _seaPath[source] = false;
+        _heap.Push(0f, source);
+        var found = new List<(int node, float cost, bool sea)>(want);
+        while (_heap.Count > 0 && found.Count < want)
+        {
+            _heap.Pop(out float d, out int u);
+            if (_done[u] == _stamp || d > _dist[u]) continue;
+            _done[u] = _stamp;
+            if (u != source) found.Add((u, d, _seaPath[u]));
+            for (int i = Result.AdjStart[u]; i < Result.AdjStart[u + 1]; i++)
+            {
+                int e = Result.Adj[i];
+                float c = cost[e];
+                if (float.IsPositiveInfinity(c)) continue;
+                int v = Result.EdgeA[e] == u ? Result.EdgeB[e] : Result.EdgeA[e];
+                if (_done[v] == _stamp) continue;
+                float next = d + c + (nodes[u].Realm != nodes[v].Realm ? _config.border_cost : 0f);
+                if (next > cutoff) continue;
+                if (_seen[v] == _stamp && _dist[v] <= next) continue;
+                _seen[v] = _stamp;
+                _dist[v] = next;
+                _seaPath[v] = _seaPath[u] || Result.Edges[e].Sea;
+                _heap.Push(next, v);
+            }
+        }
+        var ids = new int[found.Count];
+        var costs = new float[found.Count];
+        var flags = new byte[found.Count];
+        for (int i = 0; i < found.Count; i++)
+        {
+            ids[i] = found[i].node;
+            costs[i] = found[i].cost;
+            flags[i] = found[i].sea ? (byte)1 : (byte)0;
+        }
+        Result.NearNodes[source] = ids;
+        Result.NearCosts[source] = costs;
+        Result.NearFlags[source] = flags;
     }
 
     #endregion

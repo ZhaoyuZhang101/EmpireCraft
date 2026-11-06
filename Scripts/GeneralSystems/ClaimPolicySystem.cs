@@ -100,6 +100,10 @@ public static class ClaimPolicySystem
             if (IdeologyPopulationSystem.CityProsperity(foreign) > IdeologyPopulationSystem.CityProsperity(own) + 0.1f)
                 continue;
             float amount = Mathf.Min(CityPopulationSystem.CivilianBackground(foreign) * OpenInflowShare, OpenInflowCap);
+            // 通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：按两城之间人员往来的通达打折，
+            // 隔着雪山大漠接壤的邻城迁来的少
+            float reach = ConnectivitySystem.NeighbourStrength(foreign, own, ConnectivityMode.People);
+            if (reach >= 0f) amount *= reach;
             if (amount < 1f) continue;
             float transferred = CityPopulationSystem.TransferCivilianBackground(foreign, own, amount);
             moved += transferred;
@@ -134,6 +138,9 @@ public static class ClaimPolicySystem
             if (foreigners.Count == 0) continue;
             List<City> abroad = city.neighbours_cities?.Where(other => other?.data != null && !other.isRekt() &&
                 other.kingdom != null && other.kingdom.GetEmpire() != empire).ToList() ?? new List<City>();
+            // 通达层算好后：被赶的人先往走得过去的邻国城去(人员通达强的在前)
+            if (ConnectivitySystem.Ready && abroad.Count > 1)
+                abroad = abroad.OrderByDescending(other => ConnectivitySystem.NeighbourStrength(city, other, ConnectivityMode.People)).ToList();
             PopulationParallelSystem.Discard(city);
             foreach (PopGroup group in foreigners)
             {

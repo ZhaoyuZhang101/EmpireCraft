@@ -20,6 +20,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 互市：游牧与定居的邻国相安(不在打仗、近五年没劫掠过)，两边每年各得一笔市易之利，按两国中较少的人口算；
 //     本文化施行了商队贸易(特性 caravan_trade)的，与任何异族邻国都有陆路商路，所得多两成半
 //     (以前多五成；用户 2026-10-21 选文明平衡 A2"阿拉伯财政降一档"：互市、人头税、早早到高税叠在一起，前中期最富)；
+//     通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：两国人员往来的通达(取好的一边)
+//     不到 frontier_market_min 的不通市——接壤却隔着雪山大漠、商旅过不去的，互市开不起来；
 //   · 降部戍边：游牧政权战败、要向施行了羁縻的帝国称臣时，改为内附——整部并入帝国为羁縻州，承担边防(见 WarGoalSystem、
 //     JimiSystem 的边防义务)。
 public static class FrontierRelations
@@ -99,6 +101,12 @@ public static class FrontierRelations
         // 买和开的互市(见 NomadRaidSystem)：期内遭劫过也照常通市
         if (a.isInWarWith(b) || (RaidedWithin(a, MarketRaidYears) || RaidedWithin(b, MarketRaidYears)) &&
             !NomadRaidSystem.MarketTreaty(a, b)) return;
+        if (ConnectivitySystem.Ready)
+        {
+            float reach = Math.Max(ConnectivitySystem.Strength(a, b, ConnectivityMode.People),
+                ConnectivitySystem.Strength(b, a, ConnectivityMode.People));
+            if (reach >= 0f && reach < ConnectivitySystem.Config.frontier_market_min) return;
+        }
         int amount = Mathf.Min(Population(a), Population(b)) / 10;
         if (amount <= 0) return;
         Pay(a, caravanA ? Mathf.RoundToInt(amount * CaravanBonus) : amount);

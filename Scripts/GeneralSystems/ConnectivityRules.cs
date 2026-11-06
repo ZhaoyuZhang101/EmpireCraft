@@ -20,6 +20,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 强度 S = min(1, e^(−(成本 − 4)/衰减长度))：相邻两城城心之间的典型成本约 4，算满；紧密 ≥0.6、往来 ≥0.25、耳闻 ≥0.08，再低算隔绝。
 //   · 通信捷径(只算消息)：两边都有电报(且同一块陆地，或两边都工业化又临海——海底电缆)成本至多 6，广播至多 3，互联网至多 1；
 //     接收一方锁国或严审时没有。航空(只算人员)：出发一方有航空，成本至多 12。
+//   · 二档(贸易与迁徙，用户 2026-11-06 同意)：货物走人员的路，另算运费——运费占货价 = 成本 × 档位系数(粮木石金属 0.03、原料 0.015、
+//     制成品 0.01、奢侈品 0.005) × 运输科技(工业化 0.4、摩托化 0.25，买卖两边取好的)，每过一个第三国另加过境税 0.05，
+//     与买卖任一方交战的第三国封路；"千里不贩籴"：长安到撒马尔罕成本约 60，丝绸 +30%、粮食 +180%(工业化后 +72%)。
+//     迁徙、空城安置、经济圈、难民、互市、关税同盟、海上商路按人员成本与强度(数值见 ConnectivityConfig 二档一节)。
 public enum ConnectivityMode { People = 0, Goods = 1, Ideas = 2 }
 
 // 障碍(悬停与日志写"隔海""隔山"……)：按最优路径上各类多出来的成本排出主次
@@ -89,6 +93,31 @@ public sealed class ConnectivityConfig
     public float institution_alliance_min = 0.3f, institution_advanced_min = 0.35f;
     // 理念：不接壤、通达够 0.15 的也传；外国理念压力不接壤的要 0.25
     public float ideology_remote_min = 0.15f, ideology_pressure_min = 0.25f;
+    // 二档 · 贸易：货物路线最远算到多少成本；每个市场连运费最低的几个市场；运费档位系数、运输科技系数(取最低)、每过一个第三国的过境税；
+    // 关税同盟要的通达；海上商路各航海档的单程上限(≤0 不限)与运费系数；国内市场卖家最远成本与粮木石金属每成本的运费；互市要的通达
+    public float goods_max_cost = 240f;
+    public int market_links = 8;
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, float> freight_tiers = new() { ["basic"] = 0.03f, ["raw"] = 0.015f, ["manufactured"] = 0.01f, ["luxury"] = 0.005f };
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public Dictionary<string, float> freight_techs = new() { ["industrialization"] = 0.4f, ["motorization"] = 0.25f };
+    public float transit_tax = 0.05f;
+    public float union_min_strength = 0.4f;
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public float[] trade_route_range = { 24f, 64f, 192f, 576f, 0f };
+    public float route_freight = 0.01f;
+    public float domestic_max_cost = 20f, domestic_freight = 0.03f;
+    public float frontier_market_min = 0.3f;
+    // 二档 · 迁徙：每城记下最近的几座城(人员口径)、最远成本；迁徙看几座、多远(衰减长度的几倍)；经济圈最远成本(乘世界地图比例尺)；
+    // 空城安置最远成本；国家移民选址的成本预算与离原城最近成本(官办、自发)；殖民地按海路成本算多远
+    public int near_count = 24;
+    public float near_max_cost = 40f;
+    public int migration_candidates = 8;
+    public float migration_range = 2f;
+    public float circle_max_cost = 10f;
+    public float resettle_max_cost = 40f;
+    public float settle_budget = 16f, settle_min_cost = 5f, settle_min_cost_spontaneous = 2f;
+    public float colony_min_cost = 20f;
     // 结算：几年一轮；主线程取快照每帧几毫秒；后台线程开不起来时主线程每帧算几毫秒；城际寻路最多展开几块；同岛多近的两城连线
     public float pass_years = 1f;
     public float frame_ms = 1f, inline_frame_ms = 2f;
@@ -112,6 +141,11 @@ public sealed class ConnectivityConfig
         people_length_techs ??= defaults.people_length_techs;
         navigation_bands ??= defaults.navigation_bands;
         telecom_caps ??= defaults.telecom_caps;
+        freight_tiers ??= defaults.freight_tiers;
+        freight_techs ??= defaults.freight_techs;
+        trade_route_range = Fit(trade_route_range, defaults.trade_route_range);
+        if (near_count < 4) near_count = 4;
+        if (market_links < 1) market_links = 1;
         if (length_scale <= 0f) length_scale = 1f;
         if (astar_max_expand < 64) astar_max_expand = 64;
         if (pass_years <= 0f) pass_years = 1f;
@@ -135,6 +169,7 @@ public struct ConnectivityTravel
     public int Comm;                // 通信档 0 驿传、1 电报、2 广播、3 互联网
     public bool Open;               // 接收外来消息(不锁国、不严审)
     public float Length;            // 衰减长度
+    public float FreightFactor;     // 运输科技给的运费系数(二档；没有为 1)
 
     // 算边成本时用得到的几项拼成的键(同一键的成本表可以共用)
     public int CostKey => (int)Mode | Band << 2 | (Archipelago ? 1 : 0) << 5 | Habit << 6 | (Postal ? 1 : 0) << 8 |
@@ -354,6 +389,40 @@ public static class ConnectivityRules
         if (level == 1 && !sameLand && !bothCable) return float.PositiveInfinity;
         string key = level >= 3 ? "internet" : level == 2 ? "radio" : "telegraph";
         return config.telecom_caps != null && config.telecom_caps.TryGetValue(key, out float cap) && cap > 0f ? cap : float.PositiveInfinity;
+    }
+
+    // 运费占货价的比例(二档)：成本 × 档位系数 × 运输科技系数；档位没配的按制成品
+    public static float Freight(float cost, string tier, float techFactor, ConnectivityConfig config)
+    {
+        if (float.IsNaN(cost) || cost <= 0f) return 0f;
+        if (float.IsPositiveInfinity(cost)) return float.PositiveInfinity;
+        float factor = config.freight_tiers != null && tier != null && config.freight_tiers.TryGetValue(tier, out float value) ? value
+            : config.freight_tiers != null && config.freight_tiers.TryGetValue("manufactured", out float fallback) ? fallback : 0.01f;
+        return cost * factor * (techFactor > 0f ? techFactor : 1f);
+    }
+
+    // 运输科技系数：研究了的取最低，没有为 1
+    public static float FreightTech(Dictionary<string, float> techs, Func<string, bool> has)
+    {
+        float factor = 1f;
+        if (techs != null && has != null)
+            foreach (KeyValuePair<string, float> pair in techs)
+                if (pair.Value > 0f && pair.Value < factor && has(pair.Key)) factor = pair.Value;
+        return factor;
+    }
+
+    // 海上商路这一档的单程上限(格；≤0 不限)
+    public static float RouteRange(int band, ConnectivityConfig config)
+    {
+        float[] ranges = config.trade_route_range;
+        return ranges == null || ranges.Length == 0 ? 0f : ranges[Clamp(band, 0, ranges.Length - 1)];
+    }
+
+    // 直线海程 tiles 格按这一档的上船与航程算的成本(海上商路用，不经图)
+    public static float SeaLegCost(float tiles, int band, ConnectivityConfig config)
+    {
+        band = Clamp(band, 0, Bands - 1);
+        return config.sea_embark[band] + Math.Max(0f, tiles) / Math.Max(0.1f, config.sea_tiles_per_cost[band]);
     }
 
     private static int Clamp(int value, int min, int max) => value < min ? min : value > max ? max : value;

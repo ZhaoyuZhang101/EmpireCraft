@@ -68,6 +68,7 @@ public sealed class CommodityFileConfig
 //     乘人手、本文化的手艺(丝绸、瓷器、茶)、工厂(投入不足按比例减产)；
 //   · 需求：各阶层每千人的用度(奢侈品主要是贵族、官僚、商人、市民)、工厂投入、军队(打仗翻倍)；
 //   · 市场之间：陆上接壤或商路相连、不禁运不闭关的市场互通有无，到岸价低于本地价才买，进口方付价款(另加关税)给出口方(见 Trade)；
+//     通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)按货物路线连通、算运费与过境税、战争封路(见 LinkByRoutes)；
 //   · 通商政策：领衔国定重商、自由贸易、保护关税或闭关(见 PolicyOf)，定关税与外国货能挤进来多少；
 //   · 价格：一年只向供需定的价格走一段，手艺跟价增减，AI 建厂开矿看价格与缺口(见 FactoryAppeal、WantsMine)；
 //   · 缺口：科技研究按离不开的物资的缺口变慢(见 TechnologySystem.AddResearch)，工厂减产(见 FactorySystem.Produce)，
@@ -1014,8 +1015,99 @@ public static class CommodityMarketSystem
 
     private static int TechEdge(Market seller, Market buyer) => Math.Max(0, EraTier(seller.leader) - EraTier(buyer.leader));
 
+    // 二档(用户 2026-11-06 同意，见 ConnectivitySystem)：市场之间按货物路线连通、算运费——
+    //   · 连通：每个市场连成本最低的 market_links 个市场(成员国各自的货物路线里取一对最近的)，另加海上商路、丝路、澳宋船队的伙伴；
+    //     沿途有与买卖任一方交战的第三国的路线不通(战争封路；货物路线本来就绕开出发一方的敌国)；
+    //   · 运费：占货价 = 成本 × 档位系数(粮木石金属 0.03、原料 0.015、制成品 0.01、奢侈品 0.005) × 运输科技(工业化 0.4、摩托化 0.25，
+    //     买卖两边取好的)，每过一个第三国另加过境税 transit_tax；丝路等伙伴没有记下路线的按 goods_max_cost 算(只有奢侈品走得动)；
+    //   · 只走海路的照旧受港口封锁打折。通达层还没算好时照旧：接壤、商路、丝路连通，粮木石金属另加 0.5 的运费、别的不收。
+    private static readonly Dictionary<(long, long), (float cost, int third)> RouteCosts = new();
+    private static readonly Dictionary<long, float> FreightFactors = new();
+    private static bool _routed;
+
+    private static (long, long) RouteKey(long a, long b) => a < b ? (a, b) : (b, a);
+
+    private static void NoteRoute(long a, long b, float cost, int third)
+    {
+        (long, long) key = RouteKey(a, b);
+        if (!RouteCosts.TryGetValue(key, out var old) || cost < old.cost) RouteCosts[key] = (cost, third);
+    }
+
+    // 买方从卖方进这样物资的运费(占货价，含过境税)
+    private static float FreightOf(Market buyer, Market seller, CommodityConfig good)
+    {
+        if (!_routed) return good.tier == "basic" ? BasicFreight : 0f;
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        float cost = config.goods_max_cost;
+        int third = 0;
+        if (buyer?.leader != null && seller?.leader != null &&
+            RouteCosts.TryGetValue(RouteKey(buyer.leader.id, seller.leader.id), out var route))
+        {
+            cost = route.cost;
+            third = route.third;
+        }
+        float tech = Mathf.Min(FreightFactorOf(buyer), FreightFactorOf(seller));
+        return ConnectivitySystem.Freight(cost, good.tier, tech) + third * config.transit_tax;
+    }
+
+    private static float FreightFactorOf(Market market)
+    {
+        if (market?.leader == null) return 1f;
+        if (!FreightFactors.TryGetValue(market.leader.id, out float factor))
+            FreightFactors[market.leader.id] = factor = ConnectivitySystem.FreightFactor(market.leader);
+        return factor;
+    }
+
+    // 两个市场之间的运费(界面用，按制成品；通达层没算好时为 0)
+    public static float FreightBetween(Market buyer, Market seller, string tier = "manufactured")
+    {
+        if (!_routed || buyer?.leader == null || seller?.leader == null) return 0f;
+        return FreightOf(buyer, seller, new CommodityConfig { tier = tier });
+    }
+
+    // 按货物路线连通(见上)
+    private static void LinkByRoutes(Action<long, long, bool> link)
+    {
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        foreach (Market market in Markets.Values)
+        {
+            if (market.leader?.data == null || market.leader.isRekt()) continue;
+            var realms = new HashSet<Kingdom>();
+            foreach (Kingdom member in market.members)
+                if (ConnectivitySystem.RealmOf(member) is Kingdom root) realms.Add(root);
+            var chosen = new Dictionary<long, (float cost, bool sea, int third)>();
+            foreach (Kingdom realm in realms)
+            foreach (ConnectivityRoute route in ConnectivitySystem.GoodsRoutes(realm))
+            {
+                if (!MarketOfKingdom.TryGetValue(route.To.id, out long other) || other == market.leader.id ||
+                    !Markets.TryGetValue(other, out Market far) || far.leader?.data == null || RoadClosed(route, market, far)) continue;
+                if (!chosen.TryGetValue(other, out var old) || route.Cost < old.cost) chosen[other] = (route.Cost, route.BySea, route.ThirdCount);
+            }
+            foreach (KeyValuePair<long, (float cost, bool sea, int third)> pair in chosen)
+                NoteRoute(market.leader.id, pair.Key, pair.Value.cost, pair.Value.third);
+            foreach (KeyValuePair<long, (float cost, bool sea, int third)> pair in chosen.OrderBy(entry => entry.Value.cost).Take(config.market_links))
+                link(market.leader.id, pair.Key, pair.Value.sea);
+        }
+    }
+
+    // 沿途的第三国与买卖任一方交战：这条路不通
+    private static bool RoadClosed(ConnectivityRoute route, Market a, Market b)
+    {
+        if (route.Third == null) return false;
+        foreach (long id in route.Third)
+        {
+            Kingdom third = World.world.kingdoms.get(id);
+            if (third?.data == null || third.isRekt()) continue;
+            if (MarketSystem.Embargoed(third, a.leader) || MarketSystem.Embargoed(third, b.leader)) return true;
+        }
+        return false;
+    }
+
     private static void Trade()
     {
+        _routed = ConnectivitySystem.Ready;
+        RouteCosts.Clear();
+        FreightFactors.Clear();
         var links = new Dictionary<long, HashSet<long>>();
         // 陆上相连的市场：不在这里的只靠海路(见下面的破交)
         var landLinks = new HashSet<(long, long)>();
@@ -1032,7 +1124,7 @@ public static class CommodityMarketSystem
             if (city?.data == null || city.kingdom?.data == null || !MarketOfKingdom.TryGetValue(city.kingdom.id, out long own)) continue;
             try
             {
-                if (city.neighbours_kingdoms != null)
+                if (!_routed && city.neighbours_kingdoms != null)
                     foreach (Kingdom neighbour in city.neighbours_kingdoms)
                         if (neighbour?.data != null && !neighbour.isRekt() && MarketOfKingdom.TryGetValue(neighbour.id, out long other) &&
                             !neighbour.isEnemy(city.kingdom))
@@ -1041,7 +1133,12 @@ public static class CommodityMarketSystem
                 City partner = partnerId >= 0 ? World.world.cities.get(partnerId) : null;
                 // 港口被封锁、航线被敌方制海截断就断航
                 if (partner?.kingdom?.data != null && MarketOfKingdom.TryGetValue(partner.kingdom.id, out long overseas) &&
-                    SeaLaneOpen(city, partner)) Link(own, overseas, sea: true);
+                    SeaLaneOpen(city, partner))
+                {
+                    Link(own, overseas, sea: true);
+                    // 海上商路自己的海程成本(见 TradeRouteSystem.RouteCost)：货物路线没记下这一对时用它
+                    if (_routed && own != overseas) NoteRoute(own, overseas, TradeRouteSystem.RouteCost(city), 0);
+                }
             }
             catch (Exception exception)
             {
@@ -1053,6 +1150,16 @@ public static class CommodityMarketSystem
             foreach (Kingdom partner in TransmigrantSystem.SeaTradePartners(lingao))
                 if (MarketOfKingdom.TryGetValue(partner.id, out long other) && !partner.isEnemy(lingao))
                     Link(home, other, sea: true);
+        // 按货物路线连通(见 LinkByRoutes)
+        if (_routed)
+            try
+            {
+                LinkByRoutes((x, y, bySea) => Link(x, y, bySea));
+            }
+            catch (Exception exception)
+            {
+                Warn("货物路线", exception);
+            }
         // 丝绸之路(见 WorldMap.SilkRoadSystem)：沿途相邻两站的城所属的国家不交战就互市，中间隔着沙漠、别国也连得上
         try
         {
@@ -1107,8 +1214,7 @@ public static class CommodityMarketSystem
         foreach (CommodityConfig good in Goods.Values)
         {
             sales.Clear();
-            // 基础物资也买卖(以前不许，缺粮的市场买不到邻国的余粮)，又重又贱，另加运费
-            float freight = good.tier == "basic" ? BasicFreight : 0f;
+            // 基础物资也买卖(以前不许，缺粮的市场买不到邻国的余粮)，又重又贱，另加运费；通达层算好后各档都按路线算运费(见 FreightOf)
             // 最缺的先买(以前按字典顺序，先轮到的把邻国余货买光)
             foreach (Market buyer in Markets.Values.Where(market => market.leader?.data != null && !market.leader.isRekt() && market.linked.Count > 0 && market.demand.ContainsKey(good.id))
                          .OrderByDescending(market => Quote(market, good)).ThenByDescending(market => market.power))
@@ -1120,7 +1226,8 @@ public static class CommodityMarketSystem
                 float displaced = 0f;
                 float displaceShare = DisplaceFactor(buyer.policy);
                 foreach (long id in buyer.linked.Where(Markets.ContainsKey)
-                             .OrderByDescending(id => TechEdge(Markets[id], buyer)).ThenBy(id => Quote(Markets[id], good)))
+                             .OrderByDescending(id => TechEdge(Markets[id], buyer))
+                             .ThenBy(id => Quote(Markets[id], good) * (1f + FreightOf(buyer, Markets[id], good))))
                 {
                     Market seller = Markets[id];
                     if (seller.leader?.data == null || seller.leader.isRekt()) continue;
@@ -1128,6 +1235,8 @@ public static class CommodityMarketSystem
                     if (spare <= 0f) continue;
                     int edge = TechEdge(seller, buyer);
                     float tariff = TariffBetween(buyer, seller);
+                    float freight = FreightOf(buyer, seller, good);
+                    if (float.IsInfinity(freight) || float.IsNaN(freight)) continue;
                     float wedge = 1f + tariff + freight;
                     float room, deal;
                     if (edge > 0)
@@ -1296,7 +1405,12 @@ public static class CommodityMarketSystem
             if (own == null || own.great || own.leader != kingdom || UnityEngine.Random.value >= JoinChance) continue;
             Market best = null;
             float gain = 0.05f;
-            foreach (Kingdom neighbour in kingdom.cities.SelectMany(city => city.neighbours_kingdoms).Distinct())
+            // 通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)：不再只看接壤，通达(人员，两边取好的)够 union_min_strength 的大国都能并
+            IEnumerable<Kingdom> candidates = ConnectivitySystem.Ready
+                ? Markets.Values.Where(market => market.great && market.leader?.data != null && !market.leader.isRekt() &&
+                                                 UnionReach(kingdom, market.leader)).Select(market => market.leader).ToList()
+                : kingdom.cities.SelectMany(city => city.neighbours_kingdoms).Distinct();
+            foreach (Kingdom neighbour in candidates)
             {
                 Market other = MarketOf(neighbour);
                 if (other == null || other == own || !other.great || other.power < own.power * 3d) continue;
@@ -1313,6 +1427,14 @@ public static class CommodityMarketSystem
             TranslateHelper.LogEventOnly(string.Format(LM.Get("market_union_joined"), kingdom.GetKingdomFullName(),
                 best.leader.GetKingdomFullName()), kingdom);
         }
+    }
+
+    // 关税同盟够得着：两边人员往来的通达(取好的一边)不低于 union_min_strength
+    private static bool UnionReach(Kingdom kingdom, Kingdom leader)
+    {
+        float a = ConnectivitySystem.Strength(kingdom, leader, ConnectivityMode.People);
+        float b = ConnectivitySystem.Strength(leader, kingdom, ConnectivityMode.People);
+        return Math.Max(a, b) >= ConnectivitySystem.Config.union_min_strength;
     }
 
     // 通商政策：AI 领衔国每二十年看一次：技术领先又不入超的要自由贸易，技术落后、入超又有工厂的要保护关税，大国出超的要自由贸易，其余重商。

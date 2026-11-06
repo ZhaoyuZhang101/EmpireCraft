@@ -29,6 +29,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   理念传播与外国理念压力(IdeologySpreadSystem、PublicOpinionSystem、IdeologyPopulationSystem.ContactCity、LandmarkBookSystem)、
 //   教化(CultureRadiation：海路按航海档不再看战舰，路分等级，驿传，沙漠冻土无人区对消息 ×2)。
 //   朝贡只认接壤、宣战闸(WarReach)不变；宗教二档再接。
+// 二档接入(用户 2026-11-06 同意"先信息类、再贸易迁徙")：GoodsRoute/GoodsRoutes/Freight(商品市场连通、运费、过境、封路)、
+//   NearCities/NearCost/ClosestOf/StrengthOf(迁徙、国内市场、经济圈、难民、空城安置、开放移民与驱逐、市易传教)，
+//   都查本轮算好的表，主线程不按次寻路(难民、殖民这类偶发的才按需算一次)。
 public static class ConnectivitySystem
 {
     private enum Phase { Idle, Zones, Cities, Links, Groups, Compute }
@@ -70,6 +73,10 @@ public static class ConnectivitySystem
     private static readonly HashSet<(long, long)> PassPairs = new();
     private static readonly Dictionary<(int, int), List<int>> PassGrid = new();
     private static ConnectivityTravel[] _passCultureIdeas, _passRealmIdeas, _passRealmPeople;
+    private static int[][] _passRealmEnemies;
+    // 本轮图上各点对应的城(换上结果时记下，查表时直接取)
+    private static City[] _nodeCities = Array.Empty<City>();
+    private static readonly List<ConnectivityNeighbour> NearBuffer = new();
     private static double _snapshotMs;
     private static float _computeStarted;
     private static int _lastProgress;
@@ -117,6 +124,7 @@ public static class ConnectivitySystem
         ClearPass();
         EdgeCache.Clear();
         CityPaths.Clear();
+        _nodeCities = Array.Empty<City>();
         Volatile.Write(ref _queued, null);
         Version++;
     }
@@ -134,6 +142,7 @@ public static class ConnectivitySystem
         PassPairs.Clear();
         PassGrid.Clear();
         _passCultureIdeas = _passRealmIdeas = _passRealmPeople = null;
+        _passRealmEnemies = null;
         _cityNode = null;
         _cursor = 0;
     }
@@ -252,6 +261,7 @@ public static class ConnectivitySystem
                 _passCultureIdeas = new ConnectivityTravel[PassCultures.Count];
                 _passRealmIdeas = new ConnectivityTravel[PassRealms.Count];
                 _passRealmPeople = new ConnectivityTravel[PassRealms.Count];
+                _passRealmEnemies = new int[PassRealms.Count][];
                 _phase = Phase.Groups;
                 return;
             case Phase.Groups:
@@ -266,6 +276,7 @@ public static class ConnectivitySystem
                     int realm = _cursor - PassCultures.Count;
                     _passRealmIdeas[realm] = TravelOf(PassRealms[realm], ConnectivityMode.Ideas);
                     _passRealmPeople[realm] = TravelOf(PassRealms[realm], ConnectivityMode.People);
+                    _passRealmEnemies[realm] = EnemiesOf(PassRealms[realm]);
                 }
                 if (_cursor < PassCultures.Count + PassRealms.Count) return;
                 StartCompute();
@@ -448,12 +459,31 @@ public static class ConnectivitySystem
         PassLinks.Add(link);
     }
 
+    // 与这个政权交战的政权(下标)：货物路线绕开(战争封路)
+    private static int[] EnemiesOf(Kingdom realm)
+    {
+        var list = new List<int>();
+        try
+        {
+            foreach (Kingdom enemy in realm.getEnemiesKingdoms())
+            {
+                Kingdom root = RealmOf(enemy);
+                if (root != null && PassRealmIndex.TryGetValue(root.id, out int index) && !list.Contains(index)) list.Add(index);
+            }
+        }
+        catch (Exception)
+        {
+            // 敌国表取不到：不绕
+        }
+        return list.Count == 0 ? null : list.ToArray();
+    }
+
     private static void StartCompute()
     {
         var realms = new long[PassRealms.Count];
         for (int i = 0; i < realms.Length; i++) realms[i] = PassRealms[i].id;
         _job = new ConnectivityJob(++_generation, Config, _grid, PassNodes.ToArray(), new List<ConnectivityLandLink>(PassLinks),
-            PassCultures.ToArray(), _passCultureIdeas, realms, _passRealmIdeas, _passRealmPeople);
+            PassCultures.ToArray(), _passCultureIdeas, realms, _passRealmIdeas, _passRealmPeople, _passRealmEnemies);
         _computeStarted = _lastProgressAt = UnityEngine.Time.realtimeSinceStartup;
         _lastProgress = 0;
         _phase = Phase.Compute;
@@ -556,14 +586,22 @@ public static class ConnectivitySystem
             EdgeCache[key] = (_grid.Revision, a, b, edge);
         }
         _result = job.Result;
+        _nodeCities = PassNodeCities.Count == job.Result.Nodes.Length ? PassNodeCities.ToArray() : ResolveCities(job.Result);
         CityPaths.Clear();
         Version++;
         ConnectivityResult r = _result;
         LogService.LogInfo($"{LogTag} {r.Nodes.Length} 城、陆路 {r.LandEdges}(新寻路 {r.AStarRuns}、沿用 {r.Reused}、不通 {r.AStarFailed})、" +
-                           $"海路 {r.SeaEdges}、文化 {r.Cultures.Length}、政权 {r.Realms.Length}、记下的往来 {r.Pairs}；" +
+                           $"海路 {r.SeaEdges}、文化 {r.Cultures.Length}、政权 {r.Realms.Length}、记下的往来 {r.Pairs}、货物路线 {r.GoodsPairs}；" +
                            $"取快照 {_snapshotMs:0.0} 毫秒(分帧)、计算 {r.ComputeMs:0.0} 毫秒({(_inline || !Config.worker || _thread == null ? "主线程分帧" : "后台线程")})");
         LogSummary(r);
         ClearPass();
+    }
+
+    private static City[] ResolveCities(ConnectivityResult result)
+    {
+        var cities = new City[result.Nodes.Length];
+        for (int i = 0; i < cities.Length; i++) cities[i] = World.world?.cities?.get(result.Nodes[i].City);
+        return cities;
     }
 
     // 日志：政权之间(消息口径)的往来等级、主障碍分布，及城最多的政权往来最密的几家
@@ -670,6 +708,7 @@ public static class ConnectivitySystem
             Industrial = has("industrialization"),
             Motor = has("motorization"),
             Aviation = has("aviation"),
+            FreightFactor = ConnectivityRules.FreightTech(config.freight_techs, has),
             Comm = comm,
             Open = open,
             Length = ideas
@@ -850,11 +889,21 @@ public static class ConnectivitySystem
         return ConnectivityRules.Strength(cost, travel.Length, Config);
     }
 
-    // 附近的城(按成本由近到远，至多 count 座，不含自己)
+    // 附近的城(按成本由近到远，至多 count 座，不含自己)；人员、货物口径直接查本轮记下的表
     public static List<(City city, float cost)> Near(City city, ConnectivityMode mode = ConnectivityMode.People, int count = 12)
     {
         var list = new List<(City, float)>();
         if (!TryNode(city, out int node)) return list;
+        if (mode != ConnectivityMode.Ideas && node < _result.NearNodes.Length && _result.NearNodes[node] != null)
+        {
+            if (NearCities(city, NearBuffer) > 0)
+                foreach (ConnectivityNeighbour near in NearBuffer)
+                {
+                    list.Add((near.City, near.Cost));
+                    if (list.Count >= count) break;
+                }
+            return list;
+        }
         var order = new List<KeyValuePair<int, float>>(PathsFrom(node, mode));
         order.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (KeyValuePair<int, float> pair in order)
@@ -867,6 +916,137 @@ public static class ConnectivitySystem
         }
         return list;
     }
+
+    #region 二档：查表(主线程不按次寻路)
+
+    // 本城最近的城(人员口径，按成本由近到远，maxCost 以内)填进 into；返回个数，还没算(或这座城不在本轮图上)返回 -1
+    public static int NearCities(City city, List<ConnectivityNeighbour> into, float maxCost = float.MaxValue)
+    {
+        into?.Clear();
+        if (into == null || !TryNode(city, out int node) || node >= _result.NearNodes.Length || _result.NearNodes[node] == null) return -1;
+        int[] ids = _result.NearNodes[node];
+        float[] costs = _result.NearCosts[node];
+        byte[] flags = _result.NearFlags[node];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            if (costs[i] > maxCost) break;
+            City other = ids[i] < _nodeCities.Length ? _nodeCities[ids[i]] : null;
+            if (other?.data == null || other.isRekt()) continue;
+            into.Add(new ConnectivityNeighbour(other, costs[i], (flags[i] & 1) != 0));
+        }
+        return into.Count;
+    }
+
+    // from 的近邻表里 to 的成本：不在表里(远过 near_max_cost)为 +∞，还没算为 -1
+    public static float NearCost(City from, City to, out bool bySea)
+    {
+        bySea = false;
+        if (!TryNode(from, out int a) || !TryNode(to, out int b)) return -1f;
+        if (a == b) return 0f;
+        if (a >= _result.NearNodes.Length || _result.NearNodes[a] == null) return -1f;
+        int[] ids = _result.NearNodes[a];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            if (ids[i] != b) continue;
+            bySea = (_result.NearFlags[a][i] & 1) != 0;
+            return _result.NearCosts[a][i];
+        }
+        return float.PositiveInfinity;
+    }
+
+    // 这些城里离 from 成本最低、走得到的一座(先查近邻表，没有再按需算一次最短路——只给难民、殖民这类偶发的用)；
+    // 一座也走不到返回 null；还没算返回 null 且 cost 为 -1
+    public static City ClosestOf(City from, IEnumerable<City> candidates, ConnectivityMode mode, out float cost)
+    {
+        cost = -1f;
+        if (!TryNode(from, out int node) || candidates == null) return null;
+        var wanted = new Dictionary<int, City>();
+        foreach (City city in candidates)
+            if (city?.data != null && city != from && !city.isRekt() && _result.NodeOfCity.TryGetValue(city.id, out int other))
+                wanted[other] = city;
+        cost = float.PositiveInfinity;
+        if (wanted.Count == 0) return null;
+        City best = null;
+        if (mode != ConnectivityMode.Ideas && node < _result.NearNodes.Length && _result.NearNodes[node] != null)
+        {
+            int[] ids = _result.NearNodes[node];
+            for (int i = 0; i < ids.Length; i++)
+                if (wanted.TryGetValue(ids[i], out City city))
+                {
+                    cost = _result.NearCosts[node][i];
+                    return city;
+                }
+        }
+        foreach (KeyValuePair<int, float> pair in PathsFrom(node, mode))
+            if (pair.Value < cost && wanted.TryGetValue(pair.Key, out City city))
+            {
+                cost = pair.Value;
+                best = city;
+            }
+        return best;
+    }
+
+    // 从 from 出发走了 cost 的强度(按 from 所在政权的衰减长度)
+    public static float StrengthOf(float cost, City from, ConnectivityMode mode = ConnectivityMode.People)
+    {
+        if (cost < 0f) return -1f;
+        float length = TryNode(from, out int node) ? TravelAt(node, mode).Length : TravelOf(from?.kingdom, mode).Length;
+        return ConnectivityRules.Strength(cost, length, Config);
+    }
+
+    // 本城所在政权人员的衰减长度、航海档(本轮记下的；不在图上的现算)
+    public static float PeopleLength(City city) =>
+        TryNode(city, out int node) ? TravelAt(node, ConnectivityMode.People).Length : TravelOf(city?.kingdom, ConnectivityMode.People).Length;
+
+    public static int Band(City city) =>
+        TryNode(city, out int node) ? TravelAt(node, ConnectivityMode.People).Band : TravelOf(city?.kingdom, ConnectivityMode.People).Band;
+
+    // 运输科技给的运费系数(工业化 0.4、摩托化 0.25；没有为 1)
+    public static float FreightFactor(Kingdom kingdom)
+    {
+        Kingdom realm = RealmOf(kingdom);
+        if (realm != null && Ready && _result.RealmIndex.TryGetValue(realm.id, out int index)) return _result.RealmPeople[index].FreightFactor;
+        return TravelOf(kingdom, ConnectivityMode.People).FreightFactor;
+    }
+
+    public static float Freight(float cost, string tier, float techFactor) => ConnectivityRules.Freight(cost, tier, techFactor, Config);
+
+    // from 一方(按它的本事、绕开它的敌国)运货到 to 的路线；没有记下(远过 goods_max_cost、或被战争封死)时 Known 为假
+    public static ConnectivityRoute GoodsRoute(Kingdom from, Kingdom to)
+    {
+        if (!TryRealms(from, to, out int a, out int b, out bool same)) return default;
+        if (same) return new ConnectivityRoute(RealmOf(to), 0f, false, null);
+        return _result.RealmGoodsOut[a].TryGetValue(b, out ConnectivityPair pair) ? Route(b, pair) : default;
+    }
+
+    // from 一方的全部货物路线(商品市场每年连通时用)
+    public static List<ConnectivityRoute> GoodsRoutes(Kingdom from)
+    {
+        var list = new List<ConnectivityRoute>();
+        Kingdom realm = RealmOf(from);
+        if (realm == null || !Ready || !_result.RealmIndex.TryGetValue(realm.id, out int index)) return list;
+        foreach (KeyValuePair<int, ConnectivityPair> pair in _result.RealmGoodsOut[index])
+        {
+            ConnectivityRoute route = Route(pair.Key, pair.Value);
+            if (route.Known) list.Add(route);
+        }
+        return list;
+    }
+
+    private static ConnectivityRoute Route(int target, in ConnectivityPair pair)
+    {
+        Kingdom to = World.world?.kingdoms?.get(_result.Realms[target]);
+        if (to?.data == null || to.isRekt()) return default;
+        long[] third = null;
+        if (pair.Third != null)
+        {
+            third = new long[pair.Third.Length];
+            for (int i = 0; i < third.Length; i++) third[i] = _result.Realms[pair.Third[i]];
+        }
+        return new ConnectivityRoute(to, pair.Cost, pair.Has(ConnectivityPair.BySea), third);
+    }
+
+    #endregion
 
     // 教化(CultureRadiation)用：本轮的图、某文化(消息口径)走各条边的成本
     internal static ConnectivityResult Graph => Ready ? _result : null;
@@ -907,6 +1087,40 @@ public static class ConnectivitySystem
     }
 
     #endregion
+}
+
+// 近邻表的一项(二档)
+public readonly struct ConnectivityNeighbour
+{
+    public readonly City City;
+    public readonly float Cost;
+    public readonly bool BySea;
+
+    public ConnectivityNeighbour(City city, float cost, bool bySea)
+    {
+        City = city;
+        Cost = cost;
+        BySea = bySea;
+    }
+}
+
+// 一条货物路线(二档)：到哪个政权、成本、是否走海、沿途第三国(政权编号；没有为 null)
+public readonly struct ConnectivityRoute
+{
+    public readonly Kingdom To;
+    public readonly float Cost;
+    public readonly bool BySea;
+    public readonly long[] Third;
+    public bool Known => To != null;
+    public int ThirdCount => Third?.Length ?? 0;
+
+    public ConnectivityRoute(Kingdom to, float cost, bool bySea, long[] third)
+    {
+        To = to;
+        Cost = cost;
+        BySea = bySea;
+        Third = third;
+    }
 }
 
 // 两方之间的通达(查询结果)

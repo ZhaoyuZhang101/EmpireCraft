@@ -81,7 +81,15 @@ public static class ScorchedEarthSystem
             float refugees = RefugeeRate + (foreign ? ForeignRefugeeRate : 0f) + (scorch ? ScorchRefugeeRate : 0f);
             City refuge = null;
             float best = float.MaxValue;
-            if (oldKingdom.cities != null)
+            // 通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：逃往原主手里人员走过去成本最低、
+            // 走得到的城——不再隔海、隔着过不去的无人区"飞"过去；一座也走不到就地逃散(不迁)
+            bool reach = false;
+            if (ConnectivitySystem.Ready && oldKingdom.cities != null)
+            {
+                refuge = ConnectivitySystem.ClosestOf(city, oldKingdom.cities, ConnectivityMode.People, out float cost);
+                reach = cost >= 0f;
+            }
+            if (!reach && oldKingdom.cities != null)
                 foreach (City other in oldKingdom.cities)
                 {
                     if (other == null || other == city || other.isRekt()) continue;
