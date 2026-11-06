@@ -1,0 +1,118 @@
+{
+    "name": "Bantu",
+    "color": "#000000",
+    "translate_cz": "班图",
+    "setting": {
+        "regime": "Origin",
+        "institution_line": "Origins",
+        "political_traits": [
+            "dry_native",
+            "dharmic"
+        ],
+        "tianxia": "Umma",
+        "Constitution": {
+            "clauses": {
+                "religion": "StateReligion"
+            }
+        },
+        "Party": {
+            "untitled_groups": {
+                "Centrism": "UntitledCentrism",
+                "Socialism": "UntitledSocialism",
+                "ReligiousDemocracy": "UntitledReligiousDemocracy",
+                "Authoritarianism": "UntitledAuthoritarianism",
+                "Conservatism": "UntitledConservatism"
+            }
+        },
+        "traits": [
+            "patriarchy"
+        ],
+        "Wilderness": {
+            "words": {
+                "mountain": "WildMountain",
+                "desert": "WildDesert",
+                "tundra": "WildTundra",
+                "jungle": "WildJungle",
+                "swamp": "WildSwamp"
+            }
+        },
+        "City": {
+            "groups": {
+                "group_1": "CityNames1"
+            },
+            "rule": [
+                "group_1"
+            ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames1",
+                "group_3": "Clan",
+                "group_4": " "
+            },
+            "rule": [
+                "group_1",
+                "group_4",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": [
+                "",
+                "",
+                ""
+            ],
+            "sex_post_Female": [
+                "",
+                "",
+                ""
+            ]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "ClanNames1",
+                "group_3": "Family",
+                "group_4": " "
+            },
+            "rule": [
+                "group_1",
+                "group_4",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitNamesMale1",
+                "group_2": "UnitNamesFemale1"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "group_2",
+                "sex_female",
+                "space"
+            ],
+            "name_pos": 0,
+            "is_invert": true
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "CountryNames1"
+            },
+            "rule": [
+                "group_1"
+            ],
+            "name_pos": 0
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    },
+    "translate_en": "Bantu"
+}

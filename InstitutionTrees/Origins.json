@@ -1,0 +1,547 @@
+{
+  "name_key": "institution_line_origins",
+  "root_nodes": [
+    "origins_primitive_tribe"
+  ],
+  "default_resistance_reason_key": "institution_resistance_reason_tribal_privilege",
+  "constitution": {
+    "enabled": false
+  },
+  "nodes": [
+    {
+      "id": "origins_primitive_tribe",
+      "name_key": "institution_origins_primitive_tribe",
+      "description_key": "institution_origins_primitive_tribe_desc",
+      "branch": "society",
+      "regime": "Origin",
+      "features": {"no_surname": 1, "primordial_naming": 1}
+    },
+    {
+      "id": "origins_hereditary",
+      "name_key": "institution_origins_hereditary",
+      "description_key": "institution_origins_hereditary_desc",
+      "branch": "society",
+      "advancement": 2,
+      "politics": {
+        "support_classes": {
+          "Noble": 1,
+          "Landlord": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "requires_techs": [
+        "ritual_rites"
+      ],
+      "features": {
+        "noble_surname_only": 1
+      },
+      "requires": [
+        "origins_slavery"
+      ]
+    },
+    {
+      "id": "origins_tribal_meeting",
+      "name_key": "institution_origins_tribal_meeting",
+      "description_key": "institution_origins_tribal_meeting_desc",
+      "branch": "society",
+      "requires": [
+        "origins_primitive_tribe"
+      ],
+      "reform": {
+        "minimum_years": 20
+      },
+      "features": {
+        "no_surname": 1,
+        "primordial_naming": 1
+      }
+    },
+    {
+      "id": "origins_primitive_religion",
+      "name_key": "institution_origins_primitive_religion",
+      "description_key": "institution_origins_primitive_religion_desc",
+      "branch": "society",
+      "advancement": 2,
+      "requires": [
+        "origins_primitive_tribe"
+      ],
+      "requires_techs": [
+        "writing"
+      ],
+      "reform": {
+        "minimum_years": 20
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 1
+        },
+        "support_factions": {
+          "神权": 1
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "faction": "神权",
+          "int_value": 1
+        },
+        {
+          "type": "set_regime_option",
+          "option": "option_religion_type",
+          "int_value": 1
+        }
+      ]
+    },
+    {
+      "id": "origins_caravan_trade",
+      "name_key": "institution_origins_caravan_trade",
+      "description_key": "institution_origins_caravan_trade_desc",
+      "branch": "finance",
+      "requires": [
+        "origins_tribal_meeting"
+      ],
+      "politics": {
+        "support_classes": {
+          "Merchant": 1
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Low"
+        }
+      ],
+      "requires_cities": 3,
+      "requires_techs": [
+        "currency"
+      ],
+      "features": {
+        "no_surname": 1,
+        "primordial_naming": 1
+      }
+    },
+    {
+      "id": "origins_water_conservancy_project",
+      "name_key": "institution_origins_water_conservancy_project",
+      "description_key": "institution_origins_water_conservancy_project_desc",
+      "branch": "production",
+      "advancement": 2,
+      "politics": {
+        "support_classes": {
+          "Peasant": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 30
+      },
+      "requires": [
+        "origins_city_state"
+      ],
+      "requires_techs": [
+        "copper_smelting"
+      ]
+    },
+    {
+      "id": "origins_tribal_alliance",
+      "name_key": "institution_origins_tribal_alliance",
+      "description_key": "institution_origins_tribal_alliance_desc",
+      "branch": "military",
+      "advancement": 2,
+      "requires": [
+        "origins_tribal_meeting"
+      ],
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "toggle_allow_army",
+          "int_value": 1
+        }
+      ],
+      "features": {
+        "army_mobilization": 0.07
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1
+        }
+      },
+      "requires_techs": [
+        "military_register"
+      ]
+    },
+    {
+      "id": "origins_city_state",
+      "name_key": "institution_origins_city_state",
+      "description_key": "institution_origins_city_state_desc",
+      "advancement": 2,
+      "requires_techs": [
+        "masonry"
+      ],
+      "requires": [
+        "origins_slavery"
+      ],
+      "politics": {
+        "support_classes": {
+          "Citizen": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "features": {
+        "principate": 1,
+        "senate_election": 1
+      },
+      "effects_on_complete": [
+        {
+          "type": "add_mandate",
+          "int_value": 5
+        }
+      ],
+      "regime": "ClassicalRepublic"
+    },
+    {
+      "id": "origins_slavery",
+      "name_key": "institution_origins_slavery",
+      "description_key": "institution_origins_slavery_desc",
+      "branch": "society",
+      "requires": [
+        "origins_private_ownership"
+      ],
+      "politics": {
+        "support_classes": {
+          "SlaveOwner": 1
+        },
+        "oppose_classes": {
+          "Slave": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      }
+    },
+    {
+      "id": "origins_private_ownership",
+      "template": "land_sale_decree",
+      "name_key": "institution_origins_private_ownership",
+      "description_key": "institution_origins_private_ownership_desc",
+      "branch": "production",
+      "requires": [
+        "origins_caravan_trade"
+      ],
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "politics": {
+        "support_classes": {
+          "Landlord": 1
+        },
+        "oppose_classes": {
+          "Peasant": 1
+        }
+      }
+    },
+    {
+      "id": "origins_royal_power",
+      "name_key": "institution_origins_royal_power",
+      "description_key": "institution_origins_royal_power_desc",
+      "branch": "society",
+      "advancement": 3,
+      "requires": [
+        "origins_hereditary",
+        "origins_city_state",
+        "origins_primitive_religion",
+        "origins_tribal_alliance",
+        "origins_water_conservancy_project"
+      ],
+      "regime": "OriginFeudalism",
+      "features": {
+        "imperial_rule": 1
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 1,
+          "Army": 1,
+          "Landlord": 1,
+          "SlaveOwner": 1
+        },
+        "oppose_classes": {
+          "Peasant": 1,
+          "Merchant": 1,
+          "Citizen": 1
+        }
+      },
+      "absorb": {
+        "minimum_exposure": 75,
+        "minimum_contact_years": 100
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "exclusive_with": [],
+      "replaces": [
+        "origins_city_state"
+      ],
+      "requires_techs": [
+        "law_code"
+      ],
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 1,
+          "faction": "尊王"
+        }
+      ],
+      "requires_cities": 5
+    },
+    {
+      "id": "origins_tax_reform",
+      "name_key": "institution_origins_tax_reform",
+      "description_key": "institution_origins_tax_reform_desc",
+      "branch": "finance",
+      "advancement": 3,
+      "requires": [
+        "origins_royal_power"
+      ],
+      "requires_techs": [
+        "taxation"
+      ],
+      "politics": {
+        "oppose_classes": {
+          "Merchant": 1,
+          "Peasant": 1
+        },
+        "support_classes": {
+          "Noble": 1,
+          "Landlord": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Medium"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 1,
+          "faction": "尊王"
+        }
+      ],
+      "requires_cities": 10
+    },
+    {
+      "id": "origins_theocracy",
+      "name_key": "institution_origins_theocracy",
+      "description_key": "institution_origins_theocracy_desc",
+      "branch": "society",
+      "advancement": 3,
+      "requires": [
+        "origins_royal_power"
+      ],
+      "requires_techs": [
+        "canon_law"
+      ],
+      "politics": {
+        "support_classes": {
+          "Noble": 1,
+          "Landlord": 1
+        },
+        "support_factions": {
+          "神权": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "int_value": 2,
+          "faction": "神权"
+        },
+        {
+          "type": "set_regime_option",
+          "option": "option_religion_type",
+          "int_value": 3
+        },
+        {
+          "type": "enable_claim",
+          "value": "加强神权"
+        }
+      ],
+      "requires_cities": 10
+    },
+    {
+      "id": "origins_feudalization",
+      "name_key": "institution_origins_feudalization",
+      "description_key": "institution_origins_feudalization_desc",
+      "branch": "society",
+      "advancement": 3,
+      "requires": [
+        "origins_royal_power"
+      ],
+      "requires_techs": [
+        "charter_towns"
+      ],
+      "requires_cities": 10,
+      "effects_on_complete": [
+        {
+          "type": "set_succession_law",
+          "value": "分割继承法"
+        },
+        {
+          "type": "modify_faction_power",
+          "faction": "自治",
+          "int_value": 2
+        }
+      ],
+      "politics": {
+        "support_classes": {
+          "Landlord": 1,
+          "Army": 1
+        },
+        "oppose_classes": {
+          "Officer": 1
+        }
+      }
+    },
+    {
+      "id": "origins_imperial_guard_officer",
+      "name_key": "institution_origins_imperial_guard_officer",
+      "description_key": "institution_origins_imperial_guard_officer_desc",
+      "branch": "military",
+      "advancement": 3,
+      "requires": [
+        "origins_royal_power"
+      ],
+      "requires_techs": [
+        "standing_army"
+      ],
+      "features": {
+        "army_mobilization": 0.2
+      },
+      "politics": {
+        "support_classes": {
+          "Army": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "faction": "尊王",
+          "int_value": 1
+        }
+      ]
+    },
+    {
+      "id": "origins_caste_system",
+      "name_key": "institution_origins_caste_system",
+      "description_key": "institution_origins_caste_system_desc",
+      "branch": "society",
+      "advancement": 4,
+      "requires": [
+        "origins_theocracy",
+        "origins_imperial_guard_officer"
+      ],
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "High"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 5,
+          "faction": "尊王"
+        },
+        {
+          "type": "modify_faction_power",
+          "int_value": 5,
+          "faction": "神权"
+        }
+      ],
+      "reform": {
+        "minimum_years": 200
+      },
+      "politics": {
+        "support_classes": {
+          "Peasant": 1,
+          "Slave": 1,
+          "Citizen": 1,
+          "Merchant": 1,
+          "Labour": 1
+        },
+        "oppose_classes": {
+          "Noble": 1,
+          "Landlord": 1,
+          "Army": 1,
+          "SlaveOwner": 1
+        },
+        "support_factions": {
+          "尊王": 1,
+          "神权": 1
+        }
+      },
+      "exclusive_with": [
+        "origins_feudal_alliance"
+      ],
+      "requires_cities": 15,
+      "absorb": {
+        "enabled": false
+      }
+    },
+    {
+      "id": "origins_feudal_alliance",
+      "name_key": "institution_origins_feudal_alliance",
+      "description_key": "institution_origins_feudal_alliance_desc",
+      "branch": "society",
+      "advancement": 4,
+      "requires": [
+        "origins_feudalization",
+        "origins_tax_reform"
+      ],
+      "exclusive_with": [
+        "origins_caste_system"
+      ],
+      "requires_cities": 15,
+      "reform": {
+        "minimum_years": 200
+      },
+      "absorb": {
+        "minimum_exposure": 75,
+        "minimum_contact_years": 100,
+        "enabled": false
+      },
+      "features": {
+        "slavery_abolished": 1,
+        "army_prefecture": 1
+      },
+      "effects_on_complete": [
+        {
+          "type": "set_regime_option",
+          "option": "toggle_allow_army"
+        },
+        {
+          "type": "modify_faction_power",
+          "faction": "自治",
+          "int_value": 5
+        }
+      ],
+      "exclude_cultures": [
+        "India"
+      ]
+    }
+  ]
+}

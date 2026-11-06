@@ -1,0 +1,109 @@
+{
+  "OriginFeudalism": {
+    "description": "奴隶制部落向封建制度发展的一种过渡政体，受限于自然禀赋而无法进一步发展......吗？",
+    "icon_url": "",
+    "era_name": false,
+    "has_cabinet": true,
+    "is_monarchy": false,
+    "allows_landlord_class": true,
+    "cabinet_number": 5,
+    "leader_select_method": "Succession",
+    "default_kingdom": "OriginFeudalism_tribe",
+    "centre_empire_separate": true,
+    "members_can_secede": true,
+    "secede_member_types": [],
+    "secede_ignores_central_army": false,
+    "indirect_rule": true,
+    "direct_member_types": [],
+    "partition_conquests": false,
+    "keep_member_roles": true,
+    "partition_chance_factor": 1,
+    "laws": [0, 1, 2, 11, 12, 13, 14, 16, 17, 18, 20, 21, 24, 27, 28, 29, 32, 33, 34, 37, 38, 39, 40, 42, 43, 46, 47, 50, 51, 53, 54],
+    "Factions": [
+      {
+        "_id": "53652fae-7454-4f65-94fb-9796c9a06a28",
+        "Type": "自治",
+        "Name": "长老议事会"
+      },
+      {
+        "_id": "1439ae90-133e-440f-9599-2ae32010086d",
+        "Type": "尊王",
+        "Name": "共主派"
+      },
+      {
+        "_id": "6f9dd1f6-5a9d-4285-b491-3c754ea2b1b3",
+        "Type": "神权",
+        "Name": "大神庙"
+      }
+    ],
+    "options": {
+      "toggle_allow_diplomacy": [1],
+      "toggle_allow_army": [1],
+      "toggle_support_army_to_center": [0],
+      "option_tax_level": [1, 3],
+      "option_leader_select_method": [2, 3],
+      "option_religion_type": [2, 4],
+      "option_succession_law": [0, 5]
+    },
+    "bureau_config": {
+      "cores": [
+        {
+          "pre": "",
+          "type": 1,
+          "powers": ["礼仪", "宗教"],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "",
+          "type": 4,
+          "powers": ["人事", "财政"],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        },
+        {
+          "pre": "",
+          "type": 5,
+          "powers": ["军事", "司法"],
+          "merit": -1,
+          "honorary": -1,
+          "leader_select_method": "Default"
+        }
+      ],
+      "division": [],
+      "harems": [],
+      "kingdoms": {
+        "OriginFeudalism_centre": {
+          "pre": "",
+          "type": 0,
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Succession",
+          "condition": ["empire_center:true"],
+          "city_type": "OriginFeudalism_city"
+        },
+        "OriginFeudalism_tribe": {
+          "pre": "",
+          "type": 2,
+          "merit": -1,
+          "honorary": -1,
+          "condition": ["empire_center:false"],
+          "city_type": "OriginFeudalism_city"
+        }
+      },
+      "cities": {
+        "OriginFeudalism_city": {
+          "pre": "",
+          "type": 3,
+          "merit": -1,
+          "honorary": -1,
+          "select_from_local": true,
+          "leader_select_method": "Default"
+        }
+      }
+    }
+  }
+}

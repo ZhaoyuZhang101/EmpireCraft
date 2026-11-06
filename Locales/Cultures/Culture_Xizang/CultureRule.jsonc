@@ -1,0 +1,139 @@
+{
+    "name": "Xizang",
+    "color": "#00995E",
+    "translate_cz": "青藏",
+    "setting": {
+        "regime": "HuaxiaOrigin",
+        "institution_line": "Youmu",
+        "tianxia": "Steppe",
+        "Party": {
+            "untitled_groups": {
+                "Centrism": "UntitledCentrism",
+                "Communism": "UntitledCommunism",
+                "ReligiousDemocracy": "UntitledReligiousDemocracy",
+                "Conservatism": "UntitledConservatism"
+            }
+        },
+        "traits": [
+            "patriarchy"
+        ],
+        "political_traits": [
+            "nomad",
+            "raider"
+        ],
+        "Settlement": {
+            "yurt_village_modes": {
+                "surname": 1,
+                "words": 2
+            },
+            "yurt_town_modes": {
+                "words": 1
+            },
+            "yurt_words": "YurtWords",
+            "yurt_village_suffix": "YurtVillageSuffix",
+            "yurt_town_suffix": "YurtTownSuffix"
+        },
+        "Wilderness": {
+            "words": {
+                "mountain": "WildMountain",
+                "desert": "WildDesert",
+                "tundra": "WildTundra",
+                "jungle": "WildJungle",
+                "swamp": "WildSwamp"
+            },
+            "suffix": {
+                "desert": "WildDesertSuffix",
+                "swamp": "WildSwampSuffix"
+            }
+        },
+        "City": {
+            "groups": {
+                "group_1": "CityNames1",
+                "group_2": "CityNames2",
+                "group_3": "CityNames3"
+            },
+            "rule": [
+                "group_1",
+                "group_2",
+                "divider",
+                "group_3"
+            ],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames",
+                "group_2": " ",
+                "group_3": "Clan"
+            },
+            "rule": [
+                "group_1",
+                "group_2",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": [
+                "",
+                "",
+                ""
+            ],
+            "sex_post_Female": [
+                "",
+                "",
+                ""
+            ]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "FamilyNames",
+                "group_2": " ",
+                "group_3": "Family"
+            },
+            "rule": [
+                "group_1",
+                "group_2",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitNamesMale1",
+                "group_2": "UnitNamesMale2",
+                "group_3": "UnitNamesFemale1",
+                "group_4": "UnitNamesFemale2"
+            },
+            "rule": [
+                "group_1",
+                "sex_male",
+                "coin_flip",
+                "group_2",
+                "sex_male",
+                "group_3",
+                "sex_female",
+                "coin_flip",
+                "group_4",
+                "sex_female"
+            ],
+            "name_pos": 1,
+            "is_invert": false
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "CountryNames"
+            },
+            "rule": [
+                "group_1"
+            ],
+            "name_pos": 0
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    }
+}

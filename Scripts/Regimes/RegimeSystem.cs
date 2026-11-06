@@ -67,6 +67,8 @@ public enum KingdomType
     Colonial_governorate, // 殖民地政府的总督府(见 ColonySystem)；只追加
     Company_charter, // 特许公司(见 ColonySystem)；只追加
     Transmigrant_region, // 穿越政体的大区(早期叫特区，见 TransmigrantSystem.IsRegion)；只追加
+    OriginFeudalism_centre,
+    OriginFeudalism_tribe,
 }
 
 public enum ArmyOfficialType
@@ -94,6 +96,7 @@ public enum CityType
     Transmigrant_city, // 穿越政体的县；只追加
     Colonial_city, // 殖民地的城；只追加
     Company_factory, // 特许公司的商馆；只追加
+    OriginFeudalism_city,
 }
 public enum TaxLevel
 {
@@ -130,7 +133,8 @@ public enum RegimeType
     NomadFeudalism, // 本族定居后由部族领主分土世袭；不附带西方教廷、选帝侯与神罗制度
     Transmigrant, // 穿越政体：元老院为最高权力、执委会主席由元老院选出，无君主天命(见 TransmigrantSystem)；追加在末尾
     Colonial, // 殖民地政府：宗主国任免总督的海外附属政权(见 ColonySystem)；追加在末尾
-    Company // 特许公司：金融以后宗主国特许设立，董事会选总督、利润分红给宗主国(见 ColonySystem)；追加在末尾
+    Company, // 特许公司：金融以后宗主国特许设立，董事会选总督、利润分红给宗主国(见 ColonySystem)；追加在末尾
+    OriginFeudalism,
 }
 
 public enum ReligionLevel
@@ -444,22 +448,9 @@ public static class RegimeManager
                 LM.LoadLocales(Path.Combine(dir, "OfficialType.csv"));
                 var filePath = Path.Combine(dir, "SystemConfig.json");
                 if (File.Exists(filePath))
-                {
-                    var text = File.ReadAllText(filePath);
-                    var dict = JsonConvert.DeserializeObject<Dictionary<RegimeType, Regime>>(text);
-
-                    foreach (var regime in dict)
-                    {
-                        regime.Value.type = regime.Key;
-                        NormalizeRegime(regime.Value);
-                        regimes[regime.Key] = regime.Value; // 合并到总字典
-                        LogService.LogInfo("加载政体完成: " + regime.Key + " 来自 " + dir);
-                    }
-                }
+                    LoadRegimeFile(filePath);
                 else
-                {
                     LogService.LogInfo($"未发现政体配置文件: {filePath}");
-                }
             }
         }
         else
@@ -470,6 +461,46 @@ public static class RegimeManager
         // 制度科技线是独立的一套配置（InstitutionTrees/），跟政体目录互不依赖：
         // 政体目录缺失也照样把制度线读进来，反之亦然。
         InstitutionDefinitionRegistry.Load();
+    }
+
+    // 一个文件里的政体逐个读，哪个读不了只跳过哪个：以前整个文件一次反序列化，政体编辑器新建的政体名
+    // 还没进 RegimeType 枚举就抛异常，排在它后面的政体和全部制度线都没读，别的文化跟着坏
+    private static void LoadRegimeFile(string filePath)
+    {
+        Newtonsoft.Json.Linq.JObject root;
+        try
+        {
+            root = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(filePath));
+        }
+        catch (Exception e)
+        {
+            LogService.LogWarning($"政体配置 {filePath} 格式有误，整个文件跳过: {e.Message}");
+            return;
+        }
+        foreach (var property in root.Properties())
+        {
+            if (!Enum.TryParse(property.Name, false, out RegimeType type) || !Enum.IsDefined(typeof(RegimeType), type))
+            {
+                LogService.LogWarning($"政体 {property.Name}({filePath})不在代码的 RegimeType 枚举里，已跳过。" +
+                                      "在政体编辑器点“同步代码枚举”后重启游戏");
+                continue;
+            }
+            try
+            {
+                Regime regime = property.Value.ToObject<Regime>(JsonSerializer.CreateDefault());
+                if (regime == null) continue;
+                regime.type = type;
+                NormalizeRegime(regime);
+                regimes[type] = regime; // 合并到总字典
+                LogService.LogInfo("加载政体完成: " + type + " 来自 " + filePath);
+            }
+            catch (Exception e)
+            {
+                // 多半是 bureau_config 里的国家类别、城市类别、军职名不在 KingdomType/CityType/ArmyOfficialType 枚举里
+                LogService.LogWarning($"政体 {property.Name}({filePath})读取失败，已跳过: {e.Message}。" +
+                                      "新的类别名要在政体编辑器点“同步代码枚举”后重启游戏");
+            }
+        }
     }
     private static void NormalizeRegime(Regime regime)
     {

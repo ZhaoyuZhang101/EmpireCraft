@@ -2720,7 +2720,9 @@ public static partial class InstitutionSystem
                         kingdom.GetRegime()?.SetTaxLevel(taxLevel);
                 break;
             case "set_regime_option":
-                if (!realm.IsEmpire && MemberOnlyOptions.Contains(effect.option ?? "")) break;
+                // 没写改哪一项(编辑器里漏选)：拿空键查选项表会抛异常，校验时已报过
+                if (string.IsNullOrEmpty(effect.option)) break;
+                if (!realm.IsEmpire && MemberOnlyOptions.Contains(effect.option)) break;
                 foreach (Kingdom kingdom in EnumerateAffectedKingdoms(realm))
                 {
                     Regime regime = kingdom.GetRegime();

@@ -306,6 +306,9 @@ public static class InstitutionDefinitionRegistry
             {
                 LogService.LogWarning($"制度节点 {node.id} 配置了未知效果 {effect.type}，运行时会跳过。");
             }
+            foreach (InstitutionEffectConfig effect in node.effects_on_start.Concat(node.effects_on_complete)
+                         .Where(effect => effect?.type == "set_regime_option" && string.IsNullOrEmpty(effect.option)))
+                LogService.LogWarning($"制度节点 {node.id} 的 set_regime_option 没写 option(改哪一项)，运行时会跳过。");
         }
 
         foreach (string nodeId in Definitions.Keys.ToList())

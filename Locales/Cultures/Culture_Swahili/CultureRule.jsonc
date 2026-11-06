@@ -1,0 +1,113 @@
+{
+    "name": "Swahili",
+    "color": "#4B2350",
+    "translate_cz": "斯瓦希里",
+    "setting": {
+        "regime": "Origin",
+        "institution_line": "Arabic",
+        "political_traits": [
+            "dry_native",
+            "dharmic"
+        ],
+        "tianxia": "Umma",
+        "Constitution": {
+            "clauses": {
+                "religion": "StateReligion"
+            }
+        },
+        "Party": {
+            "untitled_groups": {
+                "Centrism": "Bantu:UntitledCentrism",
+                "Socialism": "Bantu:UntitledSocialism",
+                "ReligiousDemocracy": "Bantu:UntitledReligiousDemocracy",
+                "Authoritarianism": "Bantu:UntitledAuthoritarianism",
+                "Conservatism": "Bantu:UntitledConservatism"
+            }
+        },
+        "traits": [
+            "patriarchy"
+        ],
+        "Wilderness": {
+            "words": {
+                "mountain": "Bantu:WildMountain",
+                "desert": "Bantu:WildDesert",
+                "tundra": "Bantu:WildTundra",
+                "jungle": "Bantu:WildJungle",
+                "swamp": "Bantu:WildSwamp"
+            }
+        },
+        "City": {
+            "groups": {
+                "group_1": "CityNames1"
+            },
+            "rule": [],
+            "name_pos": 0
+        },
+        "Clan": {
+            "groups": {
+                "group_1": "ClanNames",
+                "group_3": "Clan",
+                "group_4": " "
+            },
+            "rule": [
+                "group_1",
+                "group_4",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false,
+            "sex_post_Male": [
+                "",
+                "",
+                ""
+            ],
+            "sex_post_Female": [
+                "",
+                "",
+                ""
+            ]
+        },
+        "Family": {
+            "groups": {
+                "group_1": "FamilyNames",
+                "group_3": "Family",
+                "group_4": " "
+            },
+            "rule": [
+                "group_1",
+                "group_4",
+                "group_3"
+            ],
+            "name_pos": 0,
+            "has_sex_post": false,
+            "use_local_as_lastname": false
+        },
+        "Unit": {
+            "groups": {
+                "group_1": "UnitMaleNames",
+                "group_2": "UnitFemaleNames"
+            },
+            "rule": [
+                "sex_male",
+                "sex_female",
+                "space"
+            ],
+            "name_pos": 0,
+            "is_invert": true
+        },
+        "Kingdom": {
+            "groups": {
+                "group_1": "KingdomNames"
+            },
+            "rule": [],
+            "name_pos": 0
+        }
+    },
+    "beaurau_config": {
+        "CoreOffice": [],
+        "Divisions": []
+    },
+    "translate_en": "Swahili",
+    "translate_ch": "斯瓦希里"
+}

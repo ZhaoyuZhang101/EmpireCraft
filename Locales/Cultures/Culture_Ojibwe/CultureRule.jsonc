@@ -4,7 +4,7 @@
     "translate_cz": "奥吉布瓦",
     "setting": {
         "regime": "Origin",
-        "institution_line": "Youmu",
+        "institution_line": "Origins",
         // 天下标识(用户 2026-10-21 定"补天下标识")：本文化自成一个天下；明写了，相邻的同文化帝国法理才会自动并成一个天下
         // (没写的一个帝国法理一个天下，常常凑不满 8 城、没有天命，见 TianxiaSystem.AutoArrange)
         "tianxia": "Ojibwe",
@@ -15,9 +15,10 @@
         },
         "City": {
             "groups": {
-                "group_1": "CityNames1"
+                "group_1": "CityNames1",
+                "group_2": "CityNames2"
             },
-            "rule": [ "group_1" ],
+            "rule": [ "group_1", "group_2" ],
             "name_pos": 0
         },
         "Clan": {
@@ -45,13 +46,18 @@
         },
         "Unit": {
             "groups": {
-                "group_1": "UnitNamesMale1",
-                "group_2": "UnitNamesFemale1"
+                "group_1": "UnitNamesRootword",
+                "group_2": "UnitNamesMale1",
+                "group_3": "UnitNamesFemale1"
             },
             "rule": [
                 "group_1",
-                "sex_male",
+                "coin_flip",
                 "group_2",
+                "sex_male",
+                "group_1",
+                "coin_flip",
+                "group_3",
                 "sex_female",
                 "space"
             ],
