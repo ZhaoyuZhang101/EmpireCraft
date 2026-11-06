@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 国情(「卷册」宽窗口，组件见 WideScrollWindow / WideKit)：帝国图层上点不属于帝国、也没被帝国覆盖的国家时打开，
 // 只放看一国时最常看的模组信息，详细的再跳到各自的窗口：
 //   · 左栏(固定)：国名、国家类别、身份(独立 / 某朝诸侯 / 某帝国朝贡国 / 某国附庸) → 君主、首都、政体、文化、宗教、同盟
-//     → 去处(军事、外交、市场、政体、科技、制度、原版王国界面，一张卡一行一项) → 地图颜色；
+//     → 去处(军事、外交、市场、政体、科技、制度、律法、原版王国界面，一张卡一行一项) → 地图颜色；
 //   · 右栏：页头(身份 · 战事) → 主指标(国力与排名、城池、人口、兵力) → 实力 | 经济 两栏 → 物资产需(见 GoodsCard) → 科技
 //     → 战事(一场一行，点开战争详情)。
 public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
@@ -101,6 +101,8 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         });
         links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKnowledge"), LM.Get("TechWindow Title"), () => TechWindow.Open(kingdom));
         links.AddRailLink(SpriteTextureLoader.getSprite("TabInstitutions"), LM.Get("kingdom_institutions"), () => InstitutionWindow.Open(kingdom));
+        // 律法：独立王国也按本国政体的律法执法(现行律条、宽严与司法、卷宗、在押，见 KingdomLawWindow)
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"), LM.Get("kov_open_law"), () => KingdomLawWindow.Open(kingdom));
         links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKingdom"), LM.Get("kov_open_vanilla"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;

@@ -135,6 +135,16 @@ public class UnitWindowPatch: GamePatch
         __instance.showStatRow("Peerages", actor.GetPeerageDisplayName(), MetaType.Unit, -1L);
         SocialClass socialClass = actor.GetOrCreate().socialClass;
         __instance.showStatRow("SocialClass", socialClass.ToTranslate(), MetaType.Unit, -1L);
+        // 刑狱：在押写余下刑期，否则有前科写次数(详见族谱窗口的生平列传)
+        if (EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.IsImprisoned(actor))
+            __instance.showStatRow("law_person_card", string.Format(LM.Get("law_person_imprisoned"),
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.GetImprisonmentYearsLeft(actor)), "#E6A166");
+        else
+        {
+            int convictions = EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.GetConvictions(actor)?.Count ?? 0;
+            if (convictions > 0)
+                __instance.showStatRow("law_person_card", string.Format(LM.Get("law_person_convictions"), convictions));
+        }
         if (actor.HasTitle() && actor.isKing())
         {
             string value = actor.kingdom != null && actor.kingdom.HasMainTitle() ? actor.kingdom.GetMainTitle().data.name : actor.GetTitle();

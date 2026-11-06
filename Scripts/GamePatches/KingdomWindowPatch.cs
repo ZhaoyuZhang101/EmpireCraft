@@ -83,6 +83,13 @@ public class KingdomWindowPatch: GamePatch
             militaryTab.Setup("kingdom_military", __instance.scroll_window,
                 action:(_) => KingdomMilitaryWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("TabMilitary"));
         }
+        // 律法：独立王国开本国律法窗口，帝国治下的转到帝国窗口的律法页(见 KingdomLawWindow.Open)
+        if (__instance.tabs._tabs.All(p => p.name != "empire_law"))
+        {
+            SimpleWindowTab lawTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            lawTab.Setup("empire_law", __instance.scroll_window,
+                action:(_) => KingdomLawWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"));
+        }
     }
     public static bool showStatsRows(KingdomWindow __instance)
     {

@@ -153,6 +153,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 constitutionTab.Setup("empire_constitution", this.TabsWindow, action: ShowConstitution,
                     sprite: SpriteTextureLoader.getSprite("TabConstitution"));
             }
+            // 律法：现行律条、宽严与司法、近来的卷宗与在押之人(见 EmpireWindow.Law、LawPanel)
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_law"))
+            {
+                var lawTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                lawTab.Setup("empire_law", this.TabsWindow, action: ShowLaw,
+                    sprite: SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_institutions"))
             {
                 var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

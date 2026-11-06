@@ -393,6 +393,10 @@ public static partial class EmpireLawSystem
         if (notes != null && !string.IsNullOrEmpty(key) && !notes.Contains(key)) notes.Add(key);
     }
 
+    // 给界面逐项写"原刑→今刑"用：一种刑罚在这个国家按时代、政体改成什么(notes 收集用到的说明键)
+    public static PunishmentLevel AdaptPunishment(Kingdom kingdom, PunishmentLevel punishment, ICollection<string> notes = null) =>
+        Adapt(punishment, GetPenalRegime(kingdom), notes);
+
     // 一种刑罚按时代、政体改成什么(notes 收集用到的规则)
     private static PunishmentLevel Adapt(PunishmentLevel punishment, PenalRegime regime, ICollection<string> notes)
     {
