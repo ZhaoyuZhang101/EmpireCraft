@@ -15,13 +15,20 @@ namespace EmpireCraft.Scripts.UI.Windows
     // 教廷与帝国页(西方，见 PapacySystem)：
     //   页头 → 主指标(教权、加冕、叙任权、什一税) → 两栏(教廷：本国服从的教宗、圣地、教廷所在、状态；大分裂中加服从与另一位教宗 |
     //   本国与教廷：叙任权之争、绝罚、两党、国教会、普世之名、宗教改革——本国新教之城占比与最大一支)
-    //   → 圣战卡 → 骑士团卡 → 按钮(加冕、绝罚或解除、号召圣战、创立骑士团)
+    //   → 圣战卡 → 骑士团卡 → 按钮(加冕、绝罚或解除、号召圣战、创立骑士团)；
+    //   阿拉伯一线(见 PapacySystem.Caliphate)另是一页：主指标(教权、册封、天课、对立哈里发) → 哈里发座卡(所奉的哈里发、圣地、所奉哈里发)
+    //   → 对立哈里发卡(见 IslamicSchismSystem，点开其国)
     public partial class EmpireWindow
     {
         public void ShowPapacy(WindowMetaTab pArg0)
         {
             Clear();
             Religion religion = PapacySystem.ReligionOf(_empire);
+            if (!PapacySystem.IsWestern(_empire) && PapacySystem.AppliesCaliphal(_empire))
+            {
+                ShowCaliphate(religion);
+                return;
+            }
             if (!PapacySystem.IsWestern(_empire) || religion == null || PapacySystem.HolyCity(religion) == null)
             {
                 var none = BeginPage("empire_papacy");
@@ -170,6 +177,45 @@ namespace EmpireCraft.Scripts.UI.Windows
                     RealmNamingSystem.DecreeRevoke(_empire);
                     ShowPapacy(pArg0);
                 }));
+            StartCoroutine(RefreshScrollLayout(resetToTop: true));
+        }
+
+        // 阿拉伯一线：所奉的哈里发(圣地之主或对立哈里发)、册封、天课；本教的对立哈里发
+        private void ShowCaliphate(Religion religion)
+        {
+            PapalRelationState state = PapacySystem.State(_empire);
+            Kingdom seat = IslamicSchismSystem.SeatFor(_empire, religion);
+            List<RivalCaliphateData> rivals = IslamicSchismSystem.ActiveRivals(religion);
+            string obedience = IslamicSchismSystem.ObedienceLabel(_empire);
+            if (obedience.Length == 0) obedience = LM.Get("caliph_obedience_orthodox");
+            var page = BeginPage("empire_papacy", religion.name, LM.Get("religion_hierarchy_caliphate"));
+            bool invested = PapacySystem.IsCrowned(_empire);
+            page.AddKpiRow(MainWidth,
+                (LM.Get("papacy_authority"), $"{PapacySystem.Authority(religion):0}", WideKit.Grade(PapacySystem.Authority(religion), 60, 35)),
+                (LM.Get("papacy_caliph_investiture"), LM.Get(invested ? "mandate_caliphal_investiture" : "mandate_uncrowned_caliphal"),
+                    invested ? WideKit.Green : WideKit.Orange),
+                (LM.Get("papacy_zakat"), MoneyDisplay.Format(state.tithe_paid), WideKit.Gold),
+                (LM.Get("religion_card_rival_caliphs"), rivals.Count.ToString(), rivals.Count > 0 ? WideKit.Red : WideKit.Green));
+
+            var see = page.BeginCard(MainWidth, LM.Get("religion_hierarchy_caliphate"), WideKit.Gold);
+            Actor caliph = seat?.king;
+            see.AddPersonRow(MainWidth, caliph, LM.Get("religion_head_caliph"),
+                caliph != null && caliph.isAlive() ? caliph.getName() : LM.Get("label_none"),
+                seat != null ? seat.GetKingdomName() : LM.Get("papacy_see_lost"));
+            see.AddListRow(MainWidth, 0, null, LM.Get("religion_row_obedience"), obedience, titleWidth: 80f);
+            see.AddListRow(MainWidth, 1, null, LM.Get("papacy_holy_city"),
+                PapacySystem.HolyCity(religion)?.GetCityName() ?? LM.Get("papacy_see_lost"), titleWidth: 80f);
+            string branch = IslamicSchismSystem.BranchLabel(religion);
+            if (branch.Length > 0) see.AddListRow(MainWidth, 2, null, LM.Get("religion_row_branch"), branch, titleWidth: 80f);
+
+            var rivalCard = page.BeginCard(MainWidth, LM.Get("religion_card_rival_caliphs"), WideKit.Red, rivals.Count.ToString());
+            if (rivals.Count == 0) rivalCard.AddParagraph(MainWidth, LM.Get("religion_rival_caliphs_none"), hex: WideKit.Muted);
+            for (int i = 0; i < rivals.Count; i++)
+            {
+                Kingdom rivalSeat = IslamicSchismSystem.Seat(rivals[i]);
+                rivalCard.AddListRow(MainWidth, i, null, IslamicSchismSystem.RivalSummary(rivals[i]), null,
+                    rivalSeat != null ? () => KingdomOverviewWindow.Open(rivalSeat) : null, WideKit.Gold, MainWidth - 20f);
+            }
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 

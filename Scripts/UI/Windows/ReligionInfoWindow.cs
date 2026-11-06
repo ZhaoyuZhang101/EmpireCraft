@@ -15,9 +15,11 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     // 宗教窗口(用户 2026-10-27 定稿示意图 Tasks/ui-mockups/religion-wide.png ②~⑥)：点宗教图层、原版宗教链接
     // (见 ReligionWindowRedirectPatch)、天下宗教名册打开。
-    //   · 左栏：宗教档案(名、地位、类型 · 天下 · 立教)、圣地、教首(教宗、哈里发、兼管的皇帝；大分裂中加对立教宗)、页目、原版宗教窗口；
+    //   · 左栏：宗教档案(名、地位、类型 · 天下 · 立教)、圣地(伊斯兰分出的另标分支：什叶派、伊斯玛仪派、对立哈里发自成一派)、
+    //     教首(教宗、哈里发、兼管的皇帝；大分裂中加对立教宗)、页目、原版宗教窗口；
     //   · 右栏六页：概况(主指标、宗教性质、近况、奉为国教的国家——大分裂中标出各国奉哪位教宗)、
-    //     教廷(教权、教宗正统构成、西方大分裂两边与各自服从的国、对立一线历任或上次大分裂、各帝国与教廷)、
+    //     教廷(教权、教宗正统构成、西方大分裂两边与各自服从的国、对立一线历任或上次大分裂、各帝国与教廷；
+    //     伊斯兰是哈里发座：对立哈里发、各对立哈里发的历任、已废的对立哈里发、复古运动，见 IslamicSchismSystem)、
     //     分布(各国信众、本教为国教的国家里的异教城)、谱系(母教与分出的教会、宗教改革各支的改革者与传布、并入的地方教会、与各分支的关系)、
     //     圣战与骑士团、大事记(按类筛选，见 ReligionChronicle)。
     public class ReligionInfoWindow : WideScrollWindow<ReligionInfoWindow>
@@ -124,6 +126,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 holy != null ? WideKit.Gold : WideKit.Red, 0);
             if (holy?.kingdom != null)
                 seat.AddRailRow(rowWidth, LM.Get("religion_holy_owner"), holy.kingdom.GetKingdomName(), WideKit.Soft, 1);
+            // 伊斯兰分出的分支(见 IslamicSchismSystem.BranchLabel)
+            string branch = IslamicSchismSystem.BranchLabel(religion);
+            if (branch.Length > 0) seat.AddRailRow(rowWidth, LM.Get("religion_row_branch"), branch, ReligionDisplay.Purple, 2);
 
             Actor leader = PapacySystem.Pope(religion);
             if (ReligionFaith.HasHierarchy(religion))
@@ -301,12 +306,17 @@ namespace EmpireCraft.Scripts.UI.Windows
             int crowned = empires.Count(PapacySystem.IsCrowned), banned = empires.Count(PapacySystem.IsExcommunicated);
             bool papal = PopeLegitimacy.Applies(religion);
             int legitimacy = PopeLegitimacy.Get(religion);
+            // 伊斯兰没有绝罚：第四格换成对立哈里发几位(见 IslamicSchismSystem)
+            bool caliphal = ReligionFaith.IsCaliphal(religion);
+            int rivals = caliphal ? IslamicSchismSystem.ActiveRivals(religion).Count : 0;
             page.AddKpiRow(PageWidth,
                 (LM.Get("papacy_authority"), $"{PapacySystem.Authority(religion):0}", WideKit.Orange),
                 (LM.Get("religion_pope_legitimacy"), papal ? legitimacy.ToString() : "—",
                     papal ? WideKit.Grade(legitimacy, 60, PopeLegitimacy.AntipopeBelow) : WideKit.Muted),
                 (LM.Get("religion_kpi_crowned"), $"{crowned} / {empires.Count}", WideKit.Cyan),
-                (LM.Get("religion_kpi_banned"), banned.ToString(), banned > 0 ? WideKit.Red : WideKit.Green));
+                caliphal
+                    ? (LM.Get("religion_card_rival_caliphs"), rivals.ToString(), rivals > 0 ? WideKit.Red : WideKit.Green)
+                    : (LM.Get("religion_kpi_banned"), banned.ToString(), banned > 0 ? WideKit.Red : WideKit.Green));
 
             var columns = page.BeginColumns(PageWidth);
             Actor head = PapacySystem.Pope(religion);
@@ -328,6 +338,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             foreach ((string key, int value) in PopeLegitimacy.Breakdown(religion))
                 parts.AddValueRow(ColumnWidth, row++, LM.Get(key), value > 0 && key != "pope_legit_base" ? $"+{value}" : value.ToString(),
                     value < 0 ? WideKit.Red : key == "pope_legit_base" ? WideKit.Soft : WideKit.Green);
+
+            // 伊斯兰：对立哈里发、各自的历任、已废的对立哈里发、复古运动
+            if (caliphal) DrawCaliphates(page, religion);
 
             // 西方大分裂：两位教宗与各自服从的国；没在闹的列上次(见 PapacySystem.Antipope)
             PapalSchismData schism = PapacySystem.ActiveSchism(religion);
@@ -384,6 +397,56 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
+        // 伊斯兰分裂(见 IslamicSchismSystem)：现存对立哈里发(点开其国)、各对立哈里发的历任、已废的(新的在前)、复古运动(新的在前)
+        private void DrawCaliphates(AutoVertLayoutGroup page, Religion religion)
+        {
+            List<RivalCaliphateData> active = IslamicSchismSystem.ActiveRivals(religion);
+            var card = page.BeginCard(PageWidth, LM.Get("religion_card_rival_caliphs"), WideKit.Red, active.Count.ToString());
+            if (active.Count == 0) card.AddParagraph(PageWidth, LM.Get("religion_rival_caliphs_none"), hex: WideKit.Muted);
+            int index = 0;
+            foreach (RivalCaliphateData rival in active)
+            {
+                Kingdom seat = IslamicSchismSystem.Seat(rival);
+                card.AddListRow(PageWidth, index++, null, IslamicSchismSystem.RivalSummary(rival), null,
+                    seat != null ? () => OpenKingdom(seat) : null, WideKit.Gold, PageWidth - 20f);
+            }
+            foreach (RivalCaliphateData rival in active)
+            {
+                List<ReligionExtension.ReligionHeadRecord> heads = rival.heads ?? new List<ReligionExtension.ReligionHeadRecord>();
+                if (heads.Count == 0) continue;
+                Kingdom seat = IslamicSchismSystem.Seat(rival);
+                string realm = seat?.capital?.GetCityName() ?? rival.seat_name;
+                var lineage = page.BeginCard(PageWidth, string.Format(LM.Get("religion_card_rival_heads"), realm), WideKit.Gold,
+                    heads.Count.ToString());
+                index = 0;
+                foreach (ReligionExtension.ReligionHeadRecord record in Enumerable.Reverse(heads).Take(MaxHeads))
+                {
+                    Actor person = World.world.units.get(record.actor_id);
+                    bool alive = person?.data != null && !person.isRekt() && person.isAlive();
+                    lineage.AddListRow(PageWidth, index++, null, alive ? person.getName() : record.name, HeadDetail(record), null,
+                        record.to < 0d ? WideKit.Gold : WideKit.Soft, 110f);
+                }
+            }
+            List<RivalCaliphateData> ended = IslamicSchismSystem.AllRivals(religion).Where(rival => rival.ended_at >= 0d)
+                .OrderByDescending(rival => rival.ended_at).ToList();
+            if (ended.Count > 0)
+            {
+                var past = page.BeginCard(PageWidth, LM.Get("religion_card_rival_caliphs_ended"), WideKit.Muted, ended.Count.ToString());
+                index = 0;
+                foreach (RivalCaliphateData rival in ended.Take(MaxHolders))
+                    past.AddListRow(PageWidth, index++, null, IslamicSchismSystem.RivalEndedSummary(rival), null, null, WideKit.Soft,
+                        PageWidth - 20f);
+            }
+            List<ReformMovementData> movements = IslamicSchismSystem.Movements(religion).OrderByDescending(movement => movement.founded_at)
+                .ToList();
+            if (movements.Count == 0) return;
+            var reform = page.BeginCard(PageWidth, LM.Get("religion_card_reform_movements"), WideKit.Orange, movements.Count.ToString());
+            index = 0;
+            foreach (ReformMovementData movement in movements.Take(MaxHolders))
+                reform.AddListRow(PageWidth, index++, null, IslamicSchismSystem.MovementSummary(movement), null, null,
+                    movement.stage == 2 ? WideKit.Soft : WideKit.Orange, PageWidth - 20f);
+        }
+
         // 西方大分裂：页眉一行起因与年数、对立一线历任，下面两栏各一位教宗与服从的国
         private void DrawSchism(AutoVertLayoutGroup page, Religion religion, PapalSchismData schism)
         {
@@ -436,10 +499,12 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private static string EmpireDetail(Empire empire)
         {
-            // 大分裂中先标奉哪位教宗(见 PapacySystem.Antipope)
+            // 大分裂中先标奉哪位教宗(见 PapacySystem.Antipope)；有对立哈里发时末尾标奉哪位哈里发(见 IslamicSchismSystem)
             string obedience = ReligionDisplay.ObedienceTag(empire.CoreKingdom);
             string detail = EmpirePapalDetail(empire);
-            return obedience.Length > 0 ? obedience + " · " + detail : detail;
+            if (obedience.Length > 0) detail = obedience + " · " + detail;
+            string caliph = IslamicSchismSystem.ObedienceLabel(empire);
+            return caliph.Length > 0 ? detail + " · " + caliph : detail;
         }
 
         private static string EmpirePapalDetail(Empire empire)
