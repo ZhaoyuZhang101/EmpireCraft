@@ -107,12 +107,23 @@ public static class ReligionSphere
         return Alive(religion) ? religion : null;
     }
 
-    // 地方教会：同天下的本土宗教，但不是正教
+    // 地方教会：同天下的本土宗教，但不是正教。
+    // 两段式立教的启示宗教(用户 2026-11-06 选"两段式"，见 NativeFaithSystem)与古神正教类型不同，立教 grace_years(150)年内不算地方教会：
+    // 不被并入古神、有自己的教阶，靠传教在本天下追上古神后接任正教(现任被超过两成五才换)
     public static bool IsLocalChurch(Religion religion)
     {
         if (!Alive(religion) || !IsNative(religion)) return false;
         Religion orthodox = OrthodoxOf(SphereOf(religion));
-        return orthodox != null && orthodox != religion;
+        if (orthodox == null || orthodox == religion) return false;
+        return !InRevelationGrace(religion, orthodox);
+    }
+
+    public static bool InRevelationGrace(Religion religion, Religion orthodox)
+    {
+        double revealed = religion.GetOrCreate().RevealedAt;
+        if (revealed < 0d || ReligionFaith.Of(religion) == ReligionFaith.Of(orthodox)) return false;
+        double now = World.world.getCurWorldTime();
+        return now < revealed || Date.getYearsSince(revealed) < ReligionTenets.Revelation.grace_years;
     }
 
     // 有城奉着本土宗教的天下(这些天下的城不再创教)

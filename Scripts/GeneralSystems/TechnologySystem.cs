@@ -1808,9 +1808,11 @@ public static class TechnologySystem
             // 文化城池自带藏书阁和庙宇(合并民居后原版的图书馆、神庙都建不起来了)，每级按一座图书馆加一座神庙算
             int cityLevels = city.buildings.Where(b => b?.asset != null && b.asset.id.StartsWith("city_", StringComparison.Ordinal))
                 .Sum(b => b.asset.upgrade_level);
+            // 庙宇科研按本城之教的教义(僧团寺院 +50%，见 ReligionTenets.TempleResearchFactor，用户 2026-11-06)
+            float perTemple = research.per_temple * ReligionTenets.TempleResearchFactor(city.hasReligion() ? city.religion : null);
             float citySchools = city.countBuildingsType("type_library") * research.per_library +
-                                cityLevels * (research.per_library + research.per_temple) +
-                                city.countBuildingsType("type_temple") * research.per_temple +
+                                cityLevels * (research.per_library + perTemple) +
+                                city.countBuildingsType("type_temple") * perTemple +
                                 city.countBuildingsType("type_university") * research.per_university +
                                 city.buildings.Count(b => b != null && IsFactory(b.asset)) * research.per_factory;
             if (city.kingdom != null && city.kingdom.hasEnemies())

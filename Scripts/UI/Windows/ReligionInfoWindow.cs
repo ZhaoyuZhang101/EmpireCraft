@@ -22,7 +22,8 @@ namespace EmpireCraft.Scripts.UI.Windows
     //     伊斯兰是哈里发座：对立哈里发、各对立哈里发的历任、已废的对立哈里发、复古运动，见 IslamicSchismSystem)、
     //     分布(各国信众、本教为国教的国家里的异教城)、谱系(母教与分出的教会、宗教改革各支的改革者与传布、并入的地方教会、与各分支的关系)、
     //     圣战与骑士团、大事记(按类筛选，见 ReligionChronicle)。
-    public class ReligionInfoWindow : WideScrollWindow<ReligionInfoWindow>
+    //   · 概况页另有教义卡与融合进度卡(用户 2026-11-06，见 ReligionInfoWindow.Tenets.cs)。
+    public partial class ReligionInfoWindow : WideScrollWindow<ReligionInfoWindow>
     {
         public enum Page { Overview, Papacy, Distribution, Lineage, HolyWar, Chronicle }
 
@@ -242,6 +243,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             else if (ReligionFaith.IsPapal(religion))
                 recent.AddValueRow(ColumnWidth, row, LM.Get("religion_row_reformations"),
                     PapacySystem.Reformations(religion).Count.ToString(), ReligionDisplay.Purple);
+
+            DrawTenets(page);
 
             var states = page.BeginCard(PageWidth, LM.Get("religion_card_states"), WideKit.Gold, _states.Count.ToString());
             if (_states.Count == 0) states.AddParagraph(PageWidth, LM.Get("religion_states_none"), hex: WideKit.Muted);
@@ -708,7 +711,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                 (ReligionDisplay.KindName(ReligionChronicle.KindSchism), _chronicleKind == ReligionChronicle.KindSchism,
                     () => SetChronicle(ReligionChronicle.KindSchism)),
                 (ReligionDisplay.KindName(ReligionChronicle.KindConversion), _chronicleKind == ReligionChronicle.KindConversion,
-                    () => SetChronicle(ReligionChronicle.KindConversion)));
+                    () => SetChronicle(ReligionChronicle.KindConversion)),
+                (ReligionDisplay.KindName(ReligionChronicle.KindSyncretism), _chronicleKind == ReligionChronicle.KindSyncretism,
+                    () => SetChronicle(ReligionChronicle.KindSyncretism)));
             List<ReligionExtension.ReligionEventData> shown = Enumerable.Reverse(events)
                 .Where(entry => _chronicleKind < 0 || entry.kind == _chronicleKind).Take(MaxEvents).ToList();
             var card = page.BeginCard(PageWidth, LM.Get("religion_card_chronicle"), WideKit.Gold, shown.Count.ToString());

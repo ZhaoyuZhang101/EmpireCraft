@@ -13,6 +13,7 @@ namespace EmpireCraft.Scripts.UI.Windows
     //   · 左栏：现存几教、信众；筛选(全部、有教阶、分出的教会)；按类型；
     //   · 右栏：主指标(最大宗教、国教最多、最近大事) → 两栏宗教卡(色条、名与地位、教首与类型·圣地、城/信众/国教/教权)，点开宗教窗口；
     //     西方大分裂中的教会多一行对立教宗与对立教廷(见 PapacySystem.Antipope)。
+    //   · 融过教义的宗教(用户 2026-11-06，见 SyncretismSystem)：左栏筛选"有融合"，卡上一行"教义 本有 n · 融合 m"。
     public class WorldReligionsWindow : WideScrollWindow<WorldReligionsWindow>
     {
         private const int MaxCards = 24;
@@ -37,6 +38,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             {
                 1 => ReligionFaith.HasHierarchy(religion),
                 2 => religion.GetOrCreate().ParentReligionId >= 0,
+                3 => ReligionTenets.Absorbed(religion).Count > 0,
                 _ => true
             };
         }
@@ -62,6 +64,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             menu.AddRailOption(Icon("iconFamily"), LM.Get("world_religions_split"),
                 _all.Count(religion => religion.GetOrCreate().ParentReligionId >= 0).ToString(), _filter == 2,
                 () => SetFilter(2, null), index++);
+            menu.AddRailOption(Icon("iconCulture", "iconReligion"), LM.Get("world_religions_syncretic"),
+                _all.Count(religion => ReligionTenets.Absorbed(religion).Count > 0).ToString(), _filter == 3,
+                () => SetFilter(3, null), index++);
 
             var types = rail.BeginRailMenu(LM.Get("world_religions_by_type"));
             index = 0;
@@ -120,6 +125,10 @@ namespace EmpireCraft.Scripts.UI.Windows
                     card.AddValueRow(width, 0, LM.Get("religion_row_antipope"),
                         string.Format(LM.Get("world_religions_antipope"), PapacySystem.Antipope(religion)?.getName() ?? LM.Get("label_none"),
                             schism.see_city_name, $"{PapacySystem.AntipopeShare(religion):P0}"), WideKit.Red);
+                int absorbed = ReligionTenets.Absorbed(religion).Count;
+                if (absorbed > 0)
+                    card.AddValueRow(width, 1, LM.Get("religion_card_tenets"),
+                        string.Format(LM.Get("world_religions_tenets_value"), ReligionTenets.Innate(religion).Count, absorbed), ReligionDisplay.Purple);
                 card.AddMetricRow(width,
                     (LM.Get("empire_list_metric_cities"), stat.Cities.ToString(), WideKit.Green),
                     (LM.Get("world_religions_people"), UIHelper.ShortCount(stat.People), WideKit.Value),

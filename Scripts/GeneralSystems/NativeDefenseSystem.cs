@@ -106,8 +106,9 @@ public static class NativeDefenseSystem
     {
         if (side == null || foe == null || city?.data == null || !Resisting(side, foe)) return 1f;
         string culture = CultureService.GetMainCulture(city);
+        // 国教在这片天下是本土宗教、又有"神国"之类的教义，再加(见 ReligionTenets.DefenseFactor，用户 2026-11-06)
         return CultureService.IsValidCulture(culture) && CultureService.SameKin(culture, CultureService.GetRealmCulture(Realm(side)))
-            ? Ardor
+            ? Ardor * ReligionTenets.DefenseFactor(Realm(side), city)
             : 1f;
     }
 

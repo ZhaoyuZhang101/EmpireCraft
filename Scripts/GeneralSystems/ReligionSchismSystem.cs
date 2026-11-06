@@ -55,7 +55,8 @@ public static class ReligionSchismSystem
     private const int PeaceYears = 50;
     private const double SecondsPerYear = 60d;
     private const float ShiaChance = 0.5f;
-    private const float NativeTurnChance = 0.02f, NativeRevertShare = 0.6f;
+    // 有本土大教时复归的比例(2026-11-06 由六成提到八成：另立的国教会仍是教会类型、传教力 1.0，在本天下反压本土宗教)
+    private const float NativeTurnChance = 0.02f, NativeRevertShare = 0.8f;
     private const int TurnCooldownYears = 50;
 
     private static bool Alive(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild;

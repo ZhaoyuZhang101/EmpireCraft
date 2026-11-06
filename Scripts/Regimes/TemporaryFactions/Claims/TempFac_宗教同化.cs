@@ -31,10 +31,23 @@ public class TempFac_宗教同化 : TemporaryFaction
             {
                 if (u?.data != null && !u.isRekt()) u.setReligion(empire.Religion);
             });
-            // 城一并改宗(以前只改国，城个个成了异教之城)
+            // 城一并改宗(以前只改国，城个个成了异教之城)：都城、无教之城、与帝国国教同天下的城当场改；
+            // 外天下的城留给国教推行(用户 2026-11-06 "古典时代全世界都信基督")
+            int converted = 0, spared = 0;
             foreach (City city in kingdom.cities.ToList())
-                if (city?.data != null && !city.isRekt() && city.religion != empire.Religion)
-                    BackgroundReligionSystem.Convert(city, empire.Religion, city.religion);
+            {
+                if (city?.data == null || city.isRekt() || city.religion == empire.Religion) continue;
+                if (city != kingdom.capital && city.hasReligion() &&
+                    !ReligionTenets.AtHome(empire.Religion, ReligionSphere.SphereOfCity(city)))
+                {
+                    spared++;
+                    continue;
+                }
+                BackgroundReligionSystem.Convert(city, empire.Religion, city.religion);
+                converted++;
+            }
+            ReligionDiagnostics.Add(ReligionDiagnostics.Assimilated, converted);
+            ReligionDiagnostics.Add(ReligionDiagnostics.AssimilationSpared, spared);
         }
         End();
     }

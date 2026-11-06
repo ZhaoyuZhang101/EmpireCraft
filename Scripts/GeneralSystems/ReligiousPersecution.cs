@@ -22,6 +22,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 迫害：没收寺产(每户 ConfiscatePerHousehold 入国库)；一半的城当场改奉国教，其余十年稳定少 PersecutionStability、
 //     当年各有 RevoltChance 机会举教起事(仍要稳定低于起事线，见 ReligiousTension)；这些城的城主仍奉该教的，
 //     有机会以宣扬异端论处(见 LawEvents.HereticLeaders)。
+// 本土之教(用户 2026-11-06 "古典时代全世界都信基督"，问答全按推荐)：被迫害的是这些城所在天下的本土宗教、国教又是外天下的
+// (过半的城如此)，几率 ×HomelandChanceFactor(0.3)、不驱逐、只改 HomelandConvertShare(两成)的城——
+// 以前外来的排他国教平均一次改掉本土教七成半的城，皈依后四十年推行期内七成会碰上一次，十年八年就把一个文明整片改过去。
 public static class ReligiousPersecution
 {
     private const int MinCities = 2;
@@ -31,6 +34,7 @@ public static class ReligiousPersecution
     private const float ExpelShare = 0.2f;
     private const int ConfiscatePerHousehold = 2;
     private const float ConvertShare = 0.5f;
+    private const float HomelandChanceFactor = 0.3f, HomelandConvertShare = 0.2f;
     private const float RevoltChance = 0.25f;
     public const float PersecutionStability = 8f;
     public const int PersecutionYears = 10;
@@ -69,12 +73,14 @@ public static class ReligiousPersecution
                 ReligiousTension.Policy.PollTax => PollTaxChance,
                 _ => Strapped(realm) ? PurgeChance : 0f
             };
+            bool homeland = Homeland(realm.religion, target.Key, target.ToList());
+            if (homeland) chance *= HomelandChanceFactor;
             if (UnityEngine.Random.value >= chance) continue;
             data.persecution_at = World.world.getCurWorldTime();
-            bool expel = policy == ReligiousTension.Policy.Intolerant && ReligionFaith.IsExclusive(realm.religion) &&
+            bool expel = !homeland && policy == ReligiousTension.Policy.Intolerant && ReligionFaith.IsExclusive(realm.religion) &&
                          UnityEngine.Random.value < 0.5f;
             if (expel) Expel(realm, target.Key, target.ToList());
-            else Persecute(realm, target.Key, target.ToList());
+            else Persecute(realm, target.Key, target.ToList(), homeland ? HomelandConvertShare : ConvertShare);
         }
     }
 
@@ -87,11 +93,24 @@ public static class ReligiousPersecution
         return members.SelectMany(member => member.cities).Where(city => city?.data != null && !city.isRekt()).ToList();
     }
 
+    // 被迫害的是本土之教：过半的城，该教是城所在天下的本土宗教，国教却不是这个天下的
+    private static bool Homeland(Religion state, Religion faith, List<City> cities)
+    {
+        if (state?.data == null || faith?.data == null || !ReligionSphere.IsNative(faith) || cities.Count == 0) return false;
+        int count = 0;
+        foreach (City city in cities)
+        {
+            string sphere = ReligionSphere.SphereOfCity(city);
+            if (ReligionTenets.AtHome(faith, sphere) && !ReligionTenets.AtHome(state, sphere)) count++;
+        }
+        return count * 2 > cities.Count;
+    }
+
     // 国库吃紧：不到半年经常收入
     private static bool Strapped(Kingdom realm) => realm.GetMoney() < StateDebtSystem.AnnualStableIncome(realm) / 2;
 
     // 迫害：没收寺产、一半的城改宗，其余不稳、可能起事
-    private static void Persecute(Kingdom realm, Religion faith, List<City> cities)
+    private static void Persecute(Kingdom realm, Religion faith, List<City> cities, float convertShare)
     {
         long seized = 0;
         int converted = 0;
@@ -101,7 +120,7 @@ public static class ReligiousPersecution
         {
             seized += (long)CityPopulationSystem.FiscalHouseholds(city) * ConfiscatePerHousehold;
             Religion state = city.kingdom.religion;
-            if (UnityEngine.Random.value < ConvertShare && state != null)
+            if (UnityEngine.Random.value < convertShare && state != null)
             {
                 BackgroundReligionSystem.Convert(city, state, faith);
                 converted++;
@@ -113,6 +132,7 @@ public static class ReligiousPersecution
         }
         // 没改宗的城：城主仍奉被禁之教的，以宣扬异端论处(起事分出去的不算，见 LawEvents.HereticLeaders)
         LawEvents.HereticLeaders(realm, faith, kept);
+        ReligionDiagnostics.Add(ReligionDiagnostics.Persecuted, converted);
         if (seized > 0) realm.AddMoney((int)Mathf.Min(int.MaxValue, seized), TreasuryCategory.RecoveredFunds);
         string text = string.Format(LM.Get("persecution_log"), realm.GetKingdomName(), faith.name, MoneyDisplay.Format(seized), converted);
         TranslateHelper.LogEventMessage(text, realm);
@@ -132,6 +152,7 @@ public static class ReligiousPersecution
             if (state != null) BackgroundReligionSystem.Convert(city, state, faith);
         }
         if (moved) CityPopulationSystem.InvalidateHouseholdCaches();
+        ReligionDiagnostics.Add(ReligionDiagnostics.Expelled, cities.Count);
         foreach (Kingdom other in World.world.kingdoms.list.ToList())
             if (Alive(other) && other != realm && Realm(other) == other && other.religion == faith)
                 MigrationRelations.Expelled(other, realm);

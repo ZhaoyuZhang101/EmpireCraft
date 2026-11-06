@@ -11,6 +11,8 @@ public static class ReligionChronicle
 {
     public const int MaxEvents = 100;
     public const int KindFounding = 0, KindPapacy = 1, KindHolyWar = 2, KindSchism = 3, KindConversion = 4;
+    // 教义融合(见 SyncretismSystem，用户 2026-11-06)
+    public const int KindSyncretism = 5;
 
     public static void Record(Religion religion, int kind, string text)
     {

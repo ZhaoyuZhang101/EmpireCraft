@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
+using static EmpireCraft.Scripts.GameClassExtensions.ReligionExtension;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -175,8 +176,75 @@ namespace EmpireCraft.Scripts.UI.Windows
             ReligionChronicle.KindHolyWar => WideKit.Red,
             ReligionChronicle.KindSchism => Purple,
             ReligionChronicle.KindConversion => WideKit.Cyan,
+            ReligionChronicle.KindSyncretism => WideKit.Orange,
             _ => WideKit.Green
         };
+
+        #region 教义(见 ReligionTenets、SyncretismSystem，用户 2026-11-06)
+
+        public static string TenetName(string id, string sphere) => SyncretismSystem.TenetName(id, sphere);
+
+        // 一条教义的效果(k：本有 1，融来的按六成)；没有数值效果的(教理、本有时只作显示的经典教阶)写说明
+        public static string TenetDetail(string id, string sphere, float k, bool innate)
+        {
+            ReligionTenetDef def = ReligionTenets.Def(id);
+            if (def == null) return "";
+            var parts = new List<string>();
+            if (!innate || def.innate_effects)
+            {
+                void Fx(float value, string key)
+                {
+                    if (Mathf.Abs(value) > 0.0001f) parts.Add(string.Format(LM.Get(key), value * k));
+                }
+
+                Fx(def.mission, "tenet_fx_mission");
+                Fx(def.inertia, "tenet_fx_inertia");
+                Fx(def.home_inertia, "tenet_fx_home_inertia");
+                if (def.saint_inertia > 0f)
+                    parts.Add(string.Format(LM.Get("tenet_fx_saint"), def.saint_inertia * k, SyncretismSystem.SphereLabel(sphere)));
+                if (def.resist > 0f) parts.Add(string.Format(LM.Get("tenet_fx_resist"), 1f - Mathf.Clamp01(def.resist * k)));
+                Fx(def.defense, "tenet_fx_defense");
+                Fx(def.temple_research, "tenet_fx_temple");
+                Fx(def.holy_city, "tenet_fx_holy");
+                Fx(def.concord, "tenet_fx_concord");
+                if (innate)
+                {
+                    Fx(def.openness, "tenet_fx_openness");
+                    if (def.slots != 0) parts.Add(string.Format(LM.Get("tenet_fx_slots"), def.slots));
+                    if (def.capture_immune) parts.Add(LM.Get("tenet_fx_capture"));
+                }
+                if (def.legitimacy != 0)
+                {
+                    int value = Mathf.RoundToInt(def.legitimacy * k);
+                    parts.Add(def.legitimacy_share > 0f
+                        ? string.Format(LM.Get("tenet_fx_legitimacy_share"), value, def.legitimacy_share)
+                        : string.Format(LM.Get("tenet_fx_legitimacy"), value));
+                }
+                if (def.organizes && !innate) parts.Add(LM.Get("tenet_fx_organizes"));
+            }
+            return parts.Count > 0 ? string.Join(" · ", parts) : LM.Get("tenet_" + id + "_desc");
+        }
+
+        // 融来的一条：效果 · 融自某教(某年)
+        public static string AbsorbedDetail(SyncreticTenetData entry)
+        {
+            string effect = TenetDetail(entry.tenet, entry.sphere, ReligionTenets.Syncretism.absorbed_strength, false);
+            return string.Format(LM.Get("religion_tenet_from"), effect, entry.from_name, HistoryDateFormatter.GetYear(entry.at));
+        }
+
+        // 本土加成一览：本天下、本土惰性倍数、外天下传教的折扣、升格
+        public static string HomeSummary(Religion religion)
+        {
+            string sphere = ReligionSphere.SphereOf(religion);
+            string text = string.Format(LM.Get("religion_home_summary"), SphereName(religion), ReligionTenets.HomeFactor(religion, sphere),
+                ReligionFaith.IsUniversal(religion) ? ReligionSphere.CrossUniversalFactor : ReligionSphere.CrossEthnicFactor);
+            if (ReligionTenets.IsOrganized(religion)) text += " · " + LM.Get("religion_tenet_organized");
+            Religion revealedOf = NativeFaithSystem.RevealedOf(sphere);
+            if (revealedOf == religion) text += " · " + LM.Get("religion_tenet_revealed");
+            return text;
+        }
+
+        #endregion
 
         public static string HeadCaption(Religion religion, Actor head)
         {

@@ -24,12 +24,15 @@ public class PlotAssetPatch : GamePatch
 
     // 开战谋划：无小人模式下能自己开战的国家(独立王国、帝国、附庸)不看君主本人的等级、武略、钱和国家声望(缘由见 EmpireCraftPlotsAddition.SkipsWarPlotRulerGate)，
     // 其余门槛与 check_is_possible 照原版 PlotAsset.checkIsPossible 的顺序查。
-    // 原版创教谋划在无小人模式下停用，改按背景人口创教(见 BackgroundReligionSystem)；有小人时创教者的天下已有本土宗教也不创(见 ReligionSphere)
+    // 原版创教谋划在无小人模式下停用，改按背景人口创教(见 BackgroundReligionSystem)；有小人时创教者的天下已有本土宗教也不创(见 ReligionSphere)，
+    // 也要到了立教的时代：教会、伊斯兰的天下交给两段式(先古神后启示)，别的天下要研究出礼仪祭祀(见 NativeFaithSystem.AllowsVanillaFounding，
+    // 用户 2026-11-06：以前有小人时原版谋划没有科技门槛，石器时代就能立出教会)
     public static bool checkIsPossible(PlotAsset __instance, Actor pActor, bool pWorldLawsCheck, ref bool __result)
     {
         if (VanillaIdentitySystem.BlocksPlot(__instance?.id) ||
             BackgroundReligionSystem.ReplacesVanillaPlot(__instance?.id) ||
             __instance?.id == "new_religion" && ReligionSphere.BlocksFounding(pActor) ||
+            __instance?.id == "new_religion" && !NativeFaithSystem.AllowsVanillaFounding(pActor) ||
             __instance?.id == "new_language" && VanillaIdentitySystem.TryReuseLanguage(pActor))
         {
             __result = false;

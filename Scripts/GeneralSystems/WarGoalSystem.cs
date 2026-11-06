@@ -112,8 +112,10 @@ public static class WarGoalSystem
         }
         float strength = WarSituation.StrengthRatio(defender, attacker);
         int theirs = WarSituation.SideCities(defender), ours = WarSituation.SideCities(attacker);
-        // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套
-        bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender);
+        // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套；
+        // 同一块陆地上相距不远、陆路走得过去的(宣战闸的陆上一条，通达层算好后按陆路成本，见 WarReach.LandNearby)也按陆战定目标
+        bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender) ||
+                       WarReach.LandNearby(attacker, defender);
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
@@ -188,18 +190,32 @@ public static class WarGoalSystem
         attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion &&
         CaliphateFaith.MayAdopt(defender, attacker.religion);
 
-    // 改宗：对方连同各城、城里的人改奉攻方的宗教
+    // 改宗：对方国教、君主、都城改奉攻方的宗教；其余的城只当场改与该教同天下的(或无教的)，外天下的城改走国教推行
+    // (此后四十年国教势能加倍，见 ReligionConversionSystem.RecentlyConverted；用户 2026-11-06 "古典时代全世界都信基督"，
+    // 以前一场圣战整国连城改宗，不看天下)
     private static bool Convert(Kingdom defender, Kingdom attacker)
     {
         if (!Convertible(attacker, defender)) return false;
         Religion faith = attacker.religion;
+        Religion old = defender.religion;
         defender.setReligion(faith);
+        if (defender.king?.data != null && defender.king.isAlive()) defender.king.setReligion(faith);
+        if ((defender.GetEmpire()?.CoreKingdom ?? defender) == defender) defender.GetOrCreate().religion_converted_at = World.world.getCurWorldTime();
+        int converted = 0, spared = 0;
         foreach (City city in defender.cities.ToList())
         {
-            if (city?.data == null || city.isRekt()) continue;
-            city.setReligion(faith);
-            city.units?.ForEach(actor => actor?.setReligion(faith));
+            if (city?.data == null || city.isRekt() || city.religion == faith) continue;
+            if (city != defender.capital && city.hasReligion() && !ReligionTenets.AtHome(faith, ReligionSphere.SphereOfCity(city)))
+            {
+                spared++;
+                continue;
+            }
+            BackgroundReligionSystem.Convert(city, faith, city.religion);
+            converted++;
         }
+        ReligionDiagnostics.Add(ReligionDiagnostics.HolyWar, converted);
+        ReligionDiagnostics.Add(ReligionDiagnostics.HolyWarSpared, spared);
+        if (old != null) SyncretismSystem.NoteConversion(old, faith);
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_converted"), defender.GetKingdomName(),
             attacker.GetKingdomName(), faith.name), attacker);
         return true;
