@@ -36,10 +36,11 @@
       "package.json",
       "pixel-theme.css",
       "preload.js",
-      "regime_enum_sync.py",
+      "regime-enum-sync.js",
       "zh-convert.js"
     ],
     "win": {
+      "icon": "assets/app-icon.ico",
       "target": [
         {
           "target": "portable",

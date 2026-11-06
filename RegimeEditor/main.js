@@ -1,11 +1,11 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
 const syncFs = require("node:fs");
 const {
   culturesRoot, inModRoot, listCultures, setRegimeInRuleText, createCulture, readLocales, writeLocales
 } = require("./editor-core");
+const { syncEnums } = require("./regime-enum-sync");
 
 function stripJsonComments(text) {
   return text
@@ -90,61 +90,6 @@ function sanitizeFolderName(name) {
   return safe;
 }
 
-async function runCommand(command, args, cwd) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd,
-      windowsHide: true,
-      shell: false
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
-        return;
-      }
-      reject(new Error((stderr || stdout || `进程退出码 ${code}`).trim()));
-    });
-  });
-}
-
-async function runEnumSync(modRoot) {
-  const editorDir = path.join(modRoot, "RegimeEditor");
-  const scriptPath = path.join(editorDir, "regime_enum_sync.py");
-  const exeCandidates = [
-    path.join(editorDir, "regime_enum_sync.exe"),
-    path.join(editorDir, "EnumSyncPublish", "RegimeEnumSync.exe")
-  ];
-
-  const attempts = [];
-  attempts.push(() => runCommand("python", [scriptPath, modRoot], modRoot));
-  attempts.push(() => runCommand("py", ["-3", scriptPath, modRoot], modRoot));
-  attempts.push(() => runCommand("python3", [scriptPath, modRoot], modRoot));
-  for (const exePath of exeCandidates) {
-    attempts.push(() => runCommand(exePath, [modRoot], modRoot));
-  }
-
-  let lastError = null;
-  for (const attempt of attempts) {
-    try {
-      return await attempt();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("同步脚本运行失败。");
-}
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1560,
@@ -152,6 +97,7 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 760,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, "assets", "app-icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -293,10 +239,14 @@ app.whenReady().then(() => {
     return result;
   });
 
+  // 同步代码枚举：编辑器自带(regime-enum-sync.js)，不用装 Python；出错时把真正的原因带回去
   ipcMain.handle("sync-enums", async () => {
-    const modRoot = resolveModRoot();
-    const result = await runEnumSync(modRoot);
-    return result;
+    try {
+      const result = syncEnums(resolveModRoot());
+      return { stdout: result.text, changed: result.changed, problems: result.problems };
+    } catch (error) {
+      return { error: error.message };
+    }
   });
 
   createWindow();

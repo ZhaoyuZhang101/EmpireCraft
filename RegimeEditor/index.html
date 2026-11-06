@@ -1944,9 +1944,11 @@
       // 有新键名时自动同步代码枚举(只在末尾追加)
       if(enumMissing.length&&desktopApi.syncEnums){
         try{
-          await desktopApi.syncEnums();
+          const synced=await desktopApi.syncEnums();
+          if(synced?.error) throw new Error(synced.error);
           await loadEnumMembers();
           notes.push(`已自动同步代码枚举，新增 ${enumMissing.join("、")}；重新编译模组后游戏才认得`);
+          for(const problem of synced?.problems||[]) notes.push(`枚举同步提醒：${problem}`);
         }catch(err){notes.push(`自动同步代码枚举失败：${err.message}，请手动点“同步代码枚举”`)}
       }
       // 重新从磁盘读一遍，之后的改动以刚写入的文件为准
@@ -2628,7 +2630,7 @@
         if(vn){vn.hidden=false;vn.innerHTML=`<div>上次写入：${esc(files)}${tail?"；"+esc(tail):""}</div>${result.notes.map(n=>`<div>· ${esc(n)}</div>`).join("")}`}
       }catch(err){setStatus(`写入政体目录失败：${err.message}`,true)}
     });
-    document.getElementById("syncEnumsBtn").addEventListener("click",async()=>{try{const result=await syncEnumsToCode();setStatus(result?.stdout?`同步完成：${result.stdout}`:"同步完成")}catch(err){setStatus(`同步枚举失败：${err.message}`,true)}});
+    document.getElementById("syncEnumsBtn").addEventListener("click",async()=>{try{const result=await syncEnumsToCode();setStatus(result?.stdout||"同步完成")}catch(err){setStatus(`同步枚举失败：${err.message}`,true)}});
     document.getElementById("downloadBtn").addEventListener("click",()=>{
       try{
         const out=buildOutputs();
@@ -2658,7 +2660,7 @@
       })();
     }else{
       document.getElementById("writeConfigsBtn").title="桌面版可直接写入到 Scripts/Regimes/Configs";
-      document.getElementById("syncEnumsBtn").title="桌面版可直接运行同步脚本";
+      document.getElementById("syncEnumsBtn").title="桌面版可直接同步代码枚举";
     }
     // 给测试与排错用
     window.__regimeEditor={ib,ibBuildText,ibValidate,ibDirty,saveIdeologyBureaus,loadIdeologyBureaus,state,RJ,RC,buildOutputs,buildRegimeObject,validate,openRegime,loadTemplate,refreshRegimeList,isDirty,refreshPreviewNow,createRegime,deriveRegimeKey,autoFixBeforeSave,writeConfigsToFolder,instantiatePlaceholder,BLANK_TEMPLATE};
