@@ -102,14 +102,16 @@ public static class DynasticCycleSystem
         }
         state.last_dynastic_update = now;
         TrackRuler(empire, state, now);
-        // 君主资质：庸弱、昏聩、荒淫、暴虐加速衰败，明君(含开国雄主、中兴之主)给增长打六折(见 RulerQualitySystem)
-        float ruler = interregnum ? 0f : RulerQualitySystem.StrainDelta(empire.Emperor);
+        // 君主资质：庸弱、昏聩、荒淫、暴虐加速衰败，明君(含开国雄主、中兴之主)给增长打六折(见 RulerQualitySystem)；
+        // 看实际理政的人，被权臣、外戚挟制的明君、中兴之主不打折(用户 2026-11-06 选"傀儡管不了"，见 MaladySystem.Governance)
+        (RulerQualitySystem.Grade grade, bool restorer, _) = MaladySystem.Governance(empire);
+        float ruler = interregnum ? 0f : RulerQualitySystem.StrainDelta(grade);
         // 六条朝政积弊合计(见 MaladySystem)、派系失衡(见 FactionBalanceSystem)、连年饥荒(见 FamineUnrestSystem)推高王朝积弊；
         // 只取正——六弊治下来只是不再推高，王朝积弊照样不降
         float extra = Math.Max(0f, ruler) + Math.Max(0f, MaladySystem.StrainDelta(empire)) +
                       Math.Max(0f, FactionBalanceSystem.StrainDelta(empire)) + Math.Max(0f, FamineUnrestSystem.StrainDelta(empire));
         float growth = DynasticCycleRules.AnnualGrowth(GetAge(empire), governanceBurden, bankrupt, atWar, corruption,
-            interregnum, RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer), ruler < 0f, extra,
+            interregnum, restorer, ruler < 0f, extra,
             state.harsh_other_burden);
         // 历史周期律：积弊随王朝年岁慢慢沉积，开国气象里不涨、立国头 80 年二成、160 年内四成五(同 MaladySystem.Pace)
         float pace = MaladySystem.Pace(empire);

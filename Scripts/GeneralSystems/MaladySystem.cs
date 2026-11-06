@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       武备 +禁军空饷×6(昏聩荒淫 +1)；党争 +各派最大怨望/25(庸弱 +2、被挟制 +1)；苛捐 暴虐 +4、荒淫 +2、国库亏空 +3；
 //   · 历史周期律(用户 2026-10-14)：积弊随王朝年岁慢慢沉积——立国头 80 年只按二成的速度滋生，80~160 年四成五，
 //     一百六十年后才全速；开国气象(统一战争期间、统一后 30 年，见 Empire.InFoundingGrace)里不滋生；消退照常；
-//   · 革除：明君、中兴之主在位逐年消退；整顿吏治告成 吏治 -15；改朝换代旧弊一扫而空(各留两成)——
+//   · 革除：明君、中兴之主在位逐年消退(被权臣、外戚挟制的不算，见 Governance)；整顿吏治告成 吏治 -15；改朝换代旧弊一扫而空(各留两成)——
 //     权臣篡位、外戚代立是朝廷里的易代，积弊原样留下(玩家建议"如司马故事")；兵变禅让、宗室另立或复国减半
 //     (用户 2026-10-26 改朝换代三档，见 DynasticCycleSystem.OnDynastyChanged)。六弊照旧可治可降，王朝积弊却只能延缓；
 //   · 效果(轻重 s = 积弊/100)：
@@ -110,14 +110,30 @@ public static class MaladySystem
         }
     }
 
+    // 积弊看实际理政的人：
+    //   · 幕府：天皇是傀儡，朝政由将军掌着，看将军的资质(用户 2026-10-21 选"幕府会倒、应仁之乱"：以前按傀儡天皇算)；
+    //   · 傀儡管不了(用户 2026-11-06 选)：被权臣、外戚(或苏丹)挟制的君主想管也管不了，明君、中兴之主给王朝积弊的折扣
+    //     和六弊的逐年消退都不算，按中主算；庸弱、昏聩、荒淫、暴虐照算(以前挟制下的明君照样打六折、六弊每年降 2.5)。
+    // 王朝积弊(见 DynasticCycleSystem.Update)与六弊同用这里
+    public static (RulerQualitySystem.Grade grade, bool restorer, bool shogunate) Governance(Empire empire)
+    {
+        bool shogunate = MilitaryRegency.KindOf(empire) == MilitaryRegency.Shogun;
+        Actor regent = shogunate ? MilitaryRegency.Regent(empire) : null;
+        Actor ruler = regent ?? empire.Emperor;
+        RulerQualitySystem.Grade grade = RulerQualitySystem.Of(ruler);
+        bool restorer = regent != null ? RulerTraitSystem.HasActiveTrait(ruler, RulerTraitSystem.Restorer) :
+            RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer);
+        if (empire.data.is_been_controlled && regent == null)
+        {
+            restorer = false;
+            if (grade == RulerQualitySystem.Grade.Wise) grade = RulerQualitySystem.Grade.Average;
+        }
+        return (grade, restorer, shogunate);
+    }
+
     private static void Grow(Empire empire)
     {
-        // 幕府：天皇是傀儡，朝政由将军掌着，积弊看将军的资质(用户 2026-10-21 选"幕府会倒、应仁之乱"：以前按傀儡天皇算)
-        bool shogunate = MilitaryRegency.KindOf(empire) == MilitaryRegency.Shogun;
-        Actor ruler = shogunate ? MilitaryRegency.Regent(empire) ?? empire.Emperor : empire.Emperor;
-        RulerQualitySystem.Grade grade = RulerQualitySystem.Of(ruler);
-        bool restorer = shogunate ? RulerTraitSystem.HasActiveTrait(ruler, RulerTraitSystem.Restorer) :
-            RulerTraitSystem.ReignedBy(empire.CoreKingdom, RulerTraitSystem.Restorer);
+        (RulerQualitySystem.Grade grade, bool restorer, bool shogunate) = Governance(empire);
         float common = restorer ? -6f : grade switch
         {
             RulerQualitySystem.Grade.Fatuous => 6f,

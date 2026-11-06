@@ -166,7 +166,9 @@ public static class RulerQualitySystem
         _ => ("mandate_ruler_order", 10)
     };
 
-    public static float StrainDelta(Actor ruler) => Of(ruler) switch
+    public static float StrainDelta(Actor ruler) => StrainDelta(Of(ruler));
+
+    public static float StrainDelta(Grade grade) => grade switch
     {
         Grade.Wise => -0.3f,
         Grade.Weak => 0.15f,
