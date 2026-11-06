@@ -22,17 +22,17 @@ namespace EmpireCraft.Scripts.UI.Components;
 //       原版城市图层(用户 2026-10-29 "无人区层基本和城市层级同级，只要调到城市图层就会自动出现")：每片像一座城一样画成一块领地，
 //       整片底色(不透明度同国色)，边线同城界(实线、深一档)，没有纹样；
 //     普通地图拉近到原版只画边框(色块内部透明)时也只画边线；
-//   · 平滑国界下(由整图画布画的图层)按格贴着地形画(用户 2026-10-29 "平滑模式下图层要完全贴合地形"；范围见 WildernessShape)：
-//     无人区的格才填色、撒纹样，包在里面的洞露地形(城市图层上当领地一起填)；外沿虚线按格描，挨着同一片(连同洞)、水面、
-//     有归属的格(国界在那边，画布上的归属)不描；画布上有归属的无人区格是并进了国土，不画。国、城的色块在这些格上让开(见画布)，
-//     两层不叠色、不留缝。平滑国界关着、别的图层上照旧按地块画；
+//   · 平滑国界下按格画(轮廓见 WildernessShape：一片无人区同一座城一样按地块平滑出圆滑的轮廓，用户 2026-11-06 起不再逐格贴地形)：
+//     轮廓里的格才填色、撒纹样；外沿虚线按格描，挨着同一片、水面、有归属的格(国界在那边，画布上的归属)不描；
+//     画布上有归属的无人区格是并进了国土，不画。国、城的色块在这些格上让开(见画布)，两层不叠色、不留缝。
+//     平滑国界关着时照旧按地块画；
 //   · 区域变了(WildernessSystem.Version)、换图层、换画法时整片重画(镜头里的先画)，每帧画到 BuildBudgetMs 为止；
-//     另每帧核对一段地块(SweepPerFrame)：样子对不上(并进、脱离国土，挨着的地块有了城；贴地形时是这块重算过)的连同四邻重画；
-//     贴地形时格子变了由 WildernessShape 通知，画布上的归属变了由画布通知(见 SmoothBorders.CanvasProcess)；
+//     另每帧核对一段地块(SweepPerFrame)：样子对不上(并进、脱离国土，挨着的地块有了城；按格画时是这块重算过)的连同四邻重画；
+//     按格画时格子变了由 WildernessShape 通知，画布上的归属变了由画布通知(见 SmoothBorders.CanvasProcess)；
 //   · 悬停(点一下也行)无人区：提示名字、类型、多少地块、归属哪国(哪个法理)与"没修路的地方军队过不去"；
 //     雨林、大泽另有开发度与谁在开发(见 WildernessDevelopmentSystem)，开发中的地块底色淡一点(类型色画法)；
 //   · 预划县址(用户 2026-11-03 转群友"建议生成无人区时无人区内部自带分割好的空壳城市"，见 WildernessPlotSystem)：同一片里各县址之间
-//     描一道比外沿更淡、更疏的虚线(两边只描编号大的一侧，一道线；按地块、贴地形两种画法都描，并进国土的不描)，
+//     描一道比外沿更淡、更疏的虚线(两边只描编号大的一侧，一道线；按地块、按格两种画法都描，并进国土的不描)，
 //     悬停提示多一行"预定县：某某(未开/已解锁待设/已设县 某城)"；县址变了(WildernessPlotSystem.Version)同区域变了一样整片重画。
 // 无人区关着(WildernessSystem.Enabled 为假)或没有区域时什么都不画
 public static class WildernessOverlay
@@ -134,7 +134,7 @@ public static class WildernessOverlay
         int option = layer?.getZoneOptionState() ?? 0;
         // 普通地图拉近时原版国土只画边框(色块内部透明)：无人区也只画边线
         bool bare = !PureMapMode.Enabled && calc._cached_should_be_clear_color;
-        // 平滑国界开着：哪个图层都按格贴地形画(先对上这一帧的格子)。以前只在整图画布画的图层(国家、帝国、城市、联盟)上贴，
+        // 平滑国界开着：哪个图层都按格画(先对上这一帧的格子)。以前只在整图画布画的图层(国家、帝国、城市、联盟)上贴，
         // 别的图层又退回按地块的方格(用户 2026-10-29 "而且我都开了平滑了""这怎么还是方的")；
         // 画布画这个图层时才看画布上的归属(并进国土的只留纹样)，不画时没有国土可并
         WildernessShape.Tick();
@@ -175,7 +175,7 @@ public static class WildernessOverlay
         return CityViewMap.Active ? Look.Fill : Look.None;
     }
 
-    // 区域变了、换了图层或画法：原来画过的与眼下的无人区地块(贴地形时连同伸出去、有无人区格的地块)都重画
+    // 区域变了、换了图层或画法：原来画过的与眼下的无人区地块(按格画时连同轮廓伸过去、有无人区格的地块)都重画
     private static void MarkAll(ZoneCalculator calc)
     {
         Marked.Clear();
@@ -190,7 +190,7 @@ public static class WildernessOverlay
         Marked.Clear();
     }
 
-    // 画布整张画过(换图层、进图，见 SmoothBorders.CanvasBuild)：贴地形画的块看画布上的归属，都重画
+    // 画布整张画过(换图层、进图，见 SmoothBorders.CanvasBuild)：按格画的块看画布上的归属，都重画
     internal static void CanvasRebuilt()
     {
         if (!_fitted) return;
@@ -200,7 +200,7 @@ public static class WildernessOverlay
     }
 
     // 一块地该画成的样子：0 不是无人区、没有城；1 有城(无人区外沿虚线不画向它)；2 以上是哪片无人区、什么类型、并进国土没有。
-    // 贴地形时：0 没有无人区的格，2 以上是这块重算过几次(格子变了、周围是不是无人区变了都加一)
+    // 按格画时：0 没有无人区的格，2 以上是这块重算过几次(格子变了、周围是不是无人区变了都加一)
     private static int KeyOf(TileZone zone, out WildRegion region, out bool absorbed)
     {
         absorbed = false;
@@ -372,9 +372,9 @@ public static class WildernessOverlay
         return ground != null && (ground.ocean || ground.liquid && !ground.lava);
     }
 
-    // ───────── 平滑国界下按格贴地形(见 WildernessShape) ─────────
+    // ───────── 平滑国界下按格画(轮廓见 WildernessShape) ─────────
 
-    // 一块地按格画：无人区的格填色、撒纹样；包在里面的洞露地形(城市图层上当领地一起填，不留窟窿)；
+    // 一块地按格画：轮廓里的格填色、撒纹样；
     // 画布上有归属的格(并进国土)只留纹样、不描边；外沿虚线(城市图层是实线)按格描(见 FittedSide)
     private static void DrawFitted(TileZone zone)
     {
@@ -396,7 +396,7 @@ public static class WildernessOverlay
         WildRegion region = null;
         int shown = 0;
         Color32 fill = Clear, edge = Clear, mark = Clear, plotEdge = Clear;
-        // 县址分界(见 WildernessPlotSystem)：挨着编号小的县址那几边，按格只描两边同一片(不是洞)的地方
+        // 县址分界(见 WildernessPlotSystem)：挨着编号小的县址那几边，按格只描两边同一片的地方
         int plot = WildernessPlotSystem.IdAt(zone.id);
         bool plotUp = PlotZone(zone.zone_up, plot), plotDown = PlotZone(zone.zone_down, plot);
         bool plotLeft = PlotZone(zone.zone_left, plot), plotRight = PlotZone(zone.zone_right, plot);
@@ -406,8 +406,7 @@ public static class WildernessOverlay
             if (tile?.data == null) continue;
             int id = tile.data.tile_id;
             int slot = WildernessShape.AreaAt(id);
-            bool hole = slot != 0 && WildernessShape.HoleAt(id);
-            if (slot == 0 || Water(tile) || hole && !province)
+            if (slot == 0 || Water(tile))
             {
                 Put(tile, Clear);
                 continue;
@@ -435,12 +434,12 @@ public static class WildernessOverlay
             }
             bool absorbed = Owned(id);
             Color32 color = absorbed || _bare ? Clear : fill;
-            if (marks && !hole && !absorbed && Mark(region.Kind, tile.x, tile.y)) color = mark;
+            if (marks && !absorbed && Mark(region.Kind, tile.x, tile.y)) color = mark;
             if (!absorbed && (province || ((tile.x + tile.y) >> 1 & 1) == 0) &&
                 (FittedSide(tile.tile_up, slot, province) || FittedSide(tile.tile_down, slot, province) ||
                  FittedSide(tile.tile_left, slot, province) || FittedSide(tile.tile_right, slot, province)))
                 color = edge;
-            else if (plots && !absorbed && !hole && PlotDash(tile) && FittedPlot(tile, slot, plotUp, plotDown, plotLeft, plotRight))
+            else if (plots && !absorbed && PlotDash(tile) && FittedPlot(tile, slot, plotUp, plotDown, plotLeft, plotRight))
                 color = plotEdge;
             Put(tile, color);
         }
@@ -454,7 +453,7 @@ public static class WildernessOverlay
         return next >= 0 && next < plot;
     }
 
-    // 这一格在地块交界上、朝描县界的那几边，交界那边的格也是这一片(不是洞、不是水)
+    // 这一格在地块交界上、朝描县界的那几边，交界那边的格也是这一片(不是水)
     private static bool FittedPlot(WorldTile tile, int slot, bool up, bool down, bool left, bool right)
     {
         WorldTileZoneBorder border = tile.world_tile_zone_border;
@@ -467,10 +466,10 @@ public static class WildernessOverlay
     {
         if (next?.data == null || Water(next)) return false;
         int id = next.data.tile_id;
-        return WildernessShape.AreaAt(id) == slot && !WildernessShape.HoleAt(id);
+        return WildernessShape.AreaAt(id) == slot;
     }
 
-    // 这一边描不描：挨着同一片的格(连同洞)、水面、地图外不描；城市图层上挨着别的都描(同城界)；
+    // 这一边描不描：挨着同一片的格、水面、地图外不描；城市图层上挨着别的都描(同城界)；
     // 别的图层只描向无主的地、别片没并进国土的无人区——挨着有归属的格(国土、别片并进国土的)那边有国界，同按地块画时
     private static bool FittedSide(WorldTile next, int slot, bool province)
     {

@@ -223,9 +223,26 @@ public static class WildernessSystem
     //   · 法理没人取得、没挂上法理(最近的城没有法理)：归跟着的城所在的国(城在没人取得的法理里也照样归它的国)；
     //   · 否则这一片周边的城(与区域相邻的地块上的城)全属于同一个国家：归那个国家(见 RefreshOwners)；
     //   · 都不是：中立(null)
+    //   · 太小的碎块(不到 MinZones 块、不挨着本国的地，或没有归属)并进四周挨得最多的那一国(见 RefreshFragments)
     public static Kingdom OwnerOf(TileZone zone) => Resolve(zone, out _);
 
     private static Kingdom Resolve(TileZone zone, out bool byTitle)
+    {
+        Kingdom owner = BaseResolve(zone, out byTitle);
+        if (Merged.Count == 0 || Index(zone) < 0 || IsNeutral(zone) ||
+            !Merged.TryGetValue(zone.id, out (Kingdom from, Kingdom into) merge) || merge.from != owner ||
+            merge.into?.data == null || merge.into.isRekt()) return owner;
+        byTitle = false;
+        return merge.into;
+    }
+
+    // 这块无人区归 owner(OwnerOf 的结果)是因太小并进来的(见 RefreshFragments)：显示按 owner 画，不按跟着的城所在的省
+    public static bool MergedInto(TileZone zone, Kingdom owner) =>
+        owner != null && Merged.Count > 0 && zone != null && Merged.TryGetValue(zone.id, out (Kingdom from, Kingdom into) merge) &&
+        merge.into == owner;
+
+    // 不算碎块合并的归属(见 OwnerOf)
+    private static Kingdom BaseResolve(TileZone zone, out bool byTitle)
     {
         byTitle = false;
         int index = Index(zone);
@@ -456,6 +473,7 @@ public static class WildernessSystem
         _neutralZones = new bool[0];
         _parents = new City[0];
         Owners.Clear();
+        Merged.Clear();
         Dirty.Clear();
         _regroup = _pending = false;
         _built = false;
@@ -482,6 +500,7 @@ public static class WildernessSystem
         _builtAt = -1d;
         _titleSignature = 0L;
         Owners.Clear();
+        Merged.Clear();
         _settling = 0;
         Version++;
     }
@@ -1947,6 +1966,7 @@ public static class WildernessSystem
         }
         foreach (KingdomTitle stale in Owners.Keys.Where(title => !seen.Contains(title)).ToList()) Owners.Remove(stale);
         if (RefreshSurround()) changed = true;
+        if (RefreshFragments()) changed = true;
         return changed;
     }
 
@@ -2012,6 +2032,116 @@ public static class WildernessSystem
             changed = true;
         }
         return changed;
+    }
+
+    // 太小的碎块并进最近的大国(用户 2026-11-06 "特别小的土地就别填补国家了, 直接并进最近的大国不就好了"，又说"一旦城市变更政权
+    // 对应的无人区也要变更, 不然会导致飞地")：按本来的归属(BaseResolve)把无人区地块连成片——八邻相连、同一归属，跨片的无人区也连
+    // (行政上分给谁跟哪片山脉沙漠无关)；不到 MinZones 块的一片，有归属却不挨着本国的地(城的地块、本国的剧本史实领土)，
+    // 或没有归属(永久中立的不算)，改归四周挨得最多的那一国(城的地块、别的无人区、剧本史实领土都算，按挨着的块数；一样多的编号小的先)；
+    // 四周没有国家的照旧。记成(本来归属 → 并进哪国)：本来归属变了(城换了主)当场不再算，等下一核(RefreshOwners)重算
+    private static readonly Dictionary<int, (Kingdom from, Kingdom into)> Merged = new(), FreshMerged = new();
+    private static Kingdom[] _baseOwner = new Kingdom[0];
+    private static int[] _fragmentMark = new int[0];
+    private static readonly List<int> FragmentZones = new();
+    private static readonly Dictionary<Kingdom, int> FragmentNeighbours = new();
+
+    private static bool RefreshFragments()
+    {
+        int size = _zones.Length;
+        if (_baseOwner.Length != size)
+        {
+            _baseOwner = new Kingdom[size];
+            _fragmentMark = new int[size];
+        }
+        else Array.Clear(_fragmentMark, 0, size);
+        FreshMerged.Clear();
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+                if (id >= 0 && id < size && _zones[id] != null) _baseOwner[id] = BaseResolve(_zones[id], out _);
+        int mark = 0;
+        foreach (WildRegion region in _regions)
+            foreach (int start in region.Zones)
+            {
+                if (!Fragmentable(start, size) || _fragmentMark[start] != 0) continue;
+                Kingdom owner = _baseOwner[start];
+                mark++;
+                FragmentZones.Clear();
+                FragmentNeighbours.Clear();
+                bool home = false;
+                _fragmentMark[start] = mark;
+                FragmentZones.Add(start);
+                for (int i = 0; i < FragmentZones.Count; i++)
+                {
+                    TileZone zone = _zones[FragmentZones[i]];
+                    if (zone?.neighbours_all == null) continue;
+                    foreach (TileZone next in zone.neighbours_all)
+                    {
+                        if (next == null || next.id < 0 || next.id >= size) continue;
+                        if (Fragmentable(next.id, size) && _baseOwner[next.id] == owner)
+                        {
+                            if (_fragmentMark[next.id] == mark) continue;
+                            _fragmentMark[next.id] = mark;
+                            FragmentZones.Add(next.id);
+                            continue;
+                        }
+                        Kingdom other = NeighbourOwner(next, size);
+                        if (other == null) continue;
+                        if (other == owner)
+                        {
+                            home = true;
+                            continue;
+                        }
+                        FragmentNeighbours.TryGetValue(other, out int count);
+                        FragmentNeighbours[other] = count + 1;
+                    }
+                }
+                if (FragmentZones.Count >= MinZones || owner != null && home || FragmentNeighbours.Count == 0) continue;
+                Kingdom into = null;
+                int most = 0;
+                foreach (KeyValuePair<Kingdom, int> pair in FragmentNeighbours)
+                {
+                    if (pair.Value < most || pair.Value == most && into != null && pair.Key.id > into.id) continue;
+                    most = pair.Value;
+                    into = pair.Key;
+                }
+                if (into == null) continue;
+                foreach (int id in FragmentZones) FreshMerged[id] = (owner, into);
+            }
+        FragmentZones.Clear();
+        FragmentNeighbours.Clear();
+        bool changed = FreshMerged.Count != Merged.Count;
+        if (!changed)
+            foreach (KeyValuePair<int, (Kingdom from, Kingdom into)> pair in FreshMerged)
+                if (!Merged.TryGetValue(pair.Key, out (Kingdom from, Kingdom into) old) || old.from != pair.Value.from ||
+                    old.into != pair.Value.into)
+                {
+                    changed = true;
+                    break;
+                }
+        if (!changed)
+        {
+            FreshMerged.Clear();
+            return false;
+        }
+        Merged.Clear();
+        foreach (KeyValuePair<int, (Kingdom from, Kingdom into)> pair in FreshMerged) Merged[pair.Key] = pair.Value;
+        FreshMerged.Clear();
+        return true;
+    }
+
+    // 参与碎块合并的无人区地块(永久中立的不并)
+    private static bool Fragmentable(int id, int size) =>
+        id >= 0 && id < size && _zones[id] != null && Index(_zones[id]) >= 0 && !IsNeutral(id);
+
+    // 挨着的那块地归哪国：城的地块按城，别的无人区按本来的归属，剧本史实领土按史实；都不是为 null
+    private static Kingdom NeighbourOwner(TileZone next, int size)
+    {
+        Kingdom kingdom;
+        City city = next.city;
+        if (city != null) kingdom = city.data != null && !city.isRekt() ? city.kingdom : null;
+        else if (Index(next) >= 0) kingdom = IsNeutral(next.id) ? null : _baseOwner[next.id];
+        else kingdom = WorldMap.WorldMapWilderness.KnownOwner(next);
+        return kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild && !kingdom.isNeutral() ? kingdom : null;
     }
 
     #endregion

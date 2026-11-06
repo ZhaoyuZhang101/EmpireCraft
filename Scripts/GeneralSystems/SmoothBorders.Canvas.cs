@@ -22,10 +22,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 颜色：边框、战线朱红、帝国金边、兼属斜纹、提亮都按格现查，换图层整张一遍、当帧完成，不翻牌；
 //   · 城换了主(不算被占、收复)：镜头里的地块照旧翻牌，从新主人那边一圈圈翻过来(同 PlanSweeps)，挨着的邻块翻到一半时跟着换；
 //   · 原版各处让地块重画的信号(战线、兼属斜纹、水陆、占领、推进……，见 Stamp、Repaint)都记成要重画的块，下一帧画好；
-//   · 无人区(用户 2026-10-29 "平滑模式下图层要完全贴合地形")：哪些格是无人区按格贴着地形定(见 UI.Components.WildernessShape)，
-//     这些格不归任何城(城的轮廓在那里让开，算轮廓时无人区的地块也不当候选，城的地盘一直伸到无人区的格为止，不留缝、不叠色)；
-//     国家、帝国图层(按城池归属那一档)上不归城的格按图层补的归属涂：并进国土的无人区(WildernessTerritory)按这片各块的持有国平滑、
-//     轮廓同样贴地形，被一国包住的无主地(EnclaveFill)按本块的——以前画布只认城，这两样在平滑国界下都是空的。
+//   · 无人区(用户 2026-11-06 "要把无人区当作特殊的无人城市来看待""分割只是单纯的行政的分割, 它本身还是属于一个整体的,
+//     可以参考战线的占领模式")：一片无人区同一座城一样按地块平滑出圆滑的轮廓(见 UI.Components.WildernessShape，不再逐格贴地形)，
+//     轮廓里的格不归任何城(城的轮廓在那里让开，算轮廓时无人区的地块也不当候选，城的地盘一直伸到无人区的轮廓为止，不留缝、不叠色)；
+//     国家、帝国图层(按城池归属那一档)上不归城的格按图层补的归属涂：并进国土的无人区(WildernessTerritory)同被占的城一样，
+//     轮廓不动、里面按这片各块的持有国平滑出分界，被一国包住的无主地(EnclaveFill)按本块的——以前画布只认城，这两样在平滑国界下都是空的。
 // 原版画法的图层(教化、政令、财富这类热力图)照旧走原版巡检(ZonePaintBudget 分帧)。
 // 画布出错时本局退回原版巡检(见 CanvasDraw)。
 public static partial class SmoothBorders
@@ -89,7 +90,7 @@ public static partial class SmoothBorders
 
     internal static bool CanvasActive => _canvasLayer != null && _canvasReady;
 
-    // 这个图层由画布画(无人区图层据此按格贴地形画，见 WildernessOverlay)
+    // 这个图层由画布画(无人区图层据此看画布上的归属，见 WildernessOverlay)
     internal static bool CanvasDraws(MetaTypeAsset layer) => layer != null && CanvasHandles(layer, layer.getZoneOptionState());
 
     // 画布上这一格归了谁(无人区图层：无人区的格有归属是并进了国土，只留纹样；挨着有归属的格不描外沿)
@@ -211,7 +212,7 @@ public static partial class SmoothBorders
             return false;
         }
         using var timing = FrameProfiler.Measure("平滑国界·整图画布");
-        // 无人区按格贴地形：先对上这一帧的(变了的块记进 CanvasDirty，下面一起画)
+        // 无人区的轮廓：先对上这一帧的(变了的块记进 CanvasDirty，下面一起画)
         WildernessShape.Tick();
         EnsurePixelState(calc.pixels);
         if (!ReferenceEquals(_canvasWorld, World.world) || _canvasW != MapBox.width || _canvasH != MapBox.height ||
@@ -333,7 +334,7 @@ public static partial class SmoothBorders
             ColorZone(calc.pixels, zx, zy);
         _canvasReady = true;
         calc.setDirty();
-        // 无人区图层看画布上各格归了谁(并进国土、挨着国土不描边)：整张画过，贴地形的那些块都重画
+        // 无人区图层看画布上各格归了谁(并进国土、挨着国土不描边)：整张画过，有无人区格的那些块都重画
         if (WildernessShape.Active) WildernessOverlay.CanvasRebuilt();
         double ms = (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
         LogService.LogInfo($"[EmpireCraft][全图换色] {layer.id}：整图画布{(geometry ? "连同城的轮廓" : "")}整张画好，用了 {ms:0} 毫秒");
@@ -562,6 +563,7 @@ public static partial class SmoothBorders
         OwnerZones.Clear();
         PaintZones.Clear();
         LeadZones.Clear();
+        bool handover = false;
         foreach (int id in RefreshList)
         {
             if (id < 0 || id >= _zoneSeen.Length) continue;
@@ -578,11 +580,14 @@ public static partial class SmoothBorders
                 OwnerZones.Add(near);
             }
             if (political && !CanvasNoFlip.Contains(id)) LeadZones.Add(id);
+            // 城换了主：它辖下的无人区跟着换(见 WildernessTerritory.Nudge)，不留飞地
+            if (political && _canvasCityKeyed) handover = true;
             // 无人区的格变了：只这块的城的轮廓重算(周围的块的轮廓若也跟着变，WildernessShape 一并记了)
             if (_canvasCityKeyed && CanvasReshape.Contains(id)) ShapeZones.Add(id);
         }
         CanvasNoFlip.Clear();
         CanvasReshape.Clear();
+        if (handover) WildernessTerritory.Nudge();
         foreach (int id in OwnerZones)
         {
             int zx = id % _zonesX, zy = id / _zonesX;
@@ -738,7 +743,7 @@ public static partial class SmoothBorders
     #region 形状与归属
 
     // 一块地各格属于哪座城(同 SmoothedOwnerAt(x, y, cities: true))：周围 3×3 块同一座城(或都没有)直接填；
-    // 无人区的格(按格贴地形，见 WildernessShape)不归城
+    // 无人区轮廓里的格(见 WildernessShape)不归城
     private static void BuildCityShape(int zx, int zy)
     {
         _shapeKey[zy * _zonesX + zx] = ShapeKey(zx, zy);
@@ -765,7 +770,7 @@ public static partial class SmoothBorders
     private static readonly int[] CandidateIds = new int[9];
 
     // B 样条加噪声：同 SmoothedOwnerAt，候选按城编号、噪声按城的散列。
-    // 无人区的地块不当候选(那里的格归不归城由 WildernessShape 定，地形不对、交给画布的格照样归邻城)：
+    // 无人区的地块不当候选(那里的格归不归城由 WildernessShape 的轮廓定)：
     // 城的地盘一直伸到无人区的格为止，不因为挨着无人区的地块往回缩出一道缝；周围全是无人区的格不归谁
     private static int CityAt(int x, int y)
     {
@@ -838,8 +843,8 @@ public static partial class SmoothBorders
         }
     }
 
-    // 国家、帝国图层(按城池归属那一档)上不归城的格：图层补的归属。无人区判给这片的格(连同包在里面的洞、地形不对邻城又不要的)
-    // 按这片周围各块补的归属平滑——并进国土的无人区轮廓贴地形，一片分属几国时国界照样圆滑；
+    // 国家、帝国图层(按城池归属那一档)上不归城的格：图层补的归属。无人区轮廓里的格
+    // 按这片周围各块补的归属平滑(同被占的城：轮廓不动，里面按各块的控制方分)——一片分属几国时分界照样圆滑；
     // 别的格看本块补的(被一国包住的无主地，见 EnclaveFill)，无人区的地块里 B 样条判给外面的格不补(无人区的边是圆的)
     private static int FillAt(int x, int y, int t, int zoneId)
     {

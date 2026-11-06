@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   · 归属查询返回那一国(帝国图层取它的城在图层上的样子)：原版按它上色、算边线，国界把这些地块圈进去，国土与它的无人区之间不画线；
 //     平滑国界、悬停高亮、点选都按这个；只管"按城池归属"那一档；
 //   · 原版只画城的地块，画完本图层后补画这些地块；平滑国界的整图画布不走原版巡检，按这里的归属逐格涂：
-//     无人区的格(按格贴地形，见 WildernessShape)连同包在里面的洞涂这片各块的持有国，轮廓同样贴着山脉、沙漠走(见 SmoothBorders.FillAt)；
+//     无人区轮廓里的格(见 WildernessShape)按这片各块的持有国平滑涂色，同被占的城(见 SmoothBorders.FillAt)；
+//     城换了主，跟着它的无人区随即改画(见 Nudge)；太小的碎块并进四周挨得最多的那一国(见 WildernessSystem.RefreshFragments)；
 //   · 同国土一个样(用户 10-30 "像王国纳入帝国图层或者城市纳入王国一样……平时只能看到帝国名称，鼠标放上去才会显示无人区的名字")：
 //     国色不淡、不撒纹样、不标无人区名(只标在没并进国土的那部分，见 TerritoryLabelRenderer.SubmitWilderness)；
 //     国名、帝国名的铭牌把并进的地块算进去排版(见 ZonesOf)；
@@ -284,6 +285,12 @@ public static class WildernessTerritory
         }
     }
 
+    // 城换了主(整图画布扫到的，见 SmoothBorders.CanvasProcess)：跟着这些城的无人区很快重算归属，不等满 RefreshSeconds
+    // (用户 2026-11-06 "一旦城市变更政权对应的无人区也要变更, 不然会导致飞地")；攒 NudgeSeconds 一起算，一场仗连丢几城只算一回
+    private const float NudgeSeconds = 0.2f;
+
+    internal static void Nudge() => _next = Mathf.Min(_next, Time.unscaledTime + NudgeSeconds);
+
     // 每帧(PureMapPatch.AfterZoneAnimations，纯净地图开没开都调)
     public static void Tick()
     {
@@ -375,10 +382,10 @@ public static class WildernessTerritory
                     }
                     Kingdom owner = WildernessSystem.OwnerOf(zone);
                     if (owner?.data == null || owner.isRekt()) continue;
-                    // 跟着的城属于持有国(或同一帝国的省)：画成那座城所在的国(省)
+                    // 跟着的城属于持有国(或同一帝国的省)：画成那座城所在的国(省)；太小并进邻国的碎块按并进的国画
                     Kingdom drawn = owner;
                     IMetaObject meta = null;
-                    if (origin?.kingdom != null && SameRealm(origin.kingdom, owner))
+                    if (origin?.kingdom != null && SameRealm(origin.kingdom, owner) && !WildernessSystem.MergedInto(zone, owner))
                     {
                         meta = MetaAt(layer, origin);
                         if (meta != null) drawn = origin.kingdom;
