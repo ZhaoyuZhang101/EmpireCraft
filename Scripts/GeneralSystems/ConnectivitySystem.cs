@@ -885,6 +885,8 @@ public static class ConnectivitySystem
         {
             cost = _result.Costs(travel).cost[edge];
             if (!float.IsPositiveInfinity(cost) && _result.Nodes[x].Realm != _result.Nodes[y].Realm) cost += Config.border_cost;
+            // 直接相连的是海路、这一方渡不过去(航海档不够)：就是隔绝，不另寻路
+            if (float.IsPositiveInfinity(cost) && _result.Edges[edge].Sea) return 0f;
             if (float.IsPositiveInfinity(cost)) cost = PathsFrom(x, mode).TryGetValue(y, out float path) ? path : cost;
         }
         else cost = PathsFrom(x, mode).TryGetValue(y, out float path) ? path : float.PositiveInfinity;
@@ -1050,6 +1052,36 @@ public static class ConnectivitySystem
 
     #endregion
 
+    #region 本城直接相连的城(查表)
+
+    // 本城在本轮图上直接相连的城(陆路、海路)及通达：outbound 按本城所在政权的本事走出去，inbound 为对方按它自己的本事走过来
+    // (传教、传书看传过来的一方)；走不了的边(没有航海渡不过的海)不列；同一座城既有陆路又有海路的取强的。
+    // 还没算(或这座城不在本轮图上)返回 null
+    public static List<ConnectivityLink> Links(City city, ConnectivityMode mode, bool inbound = false)
+    {
+        if (!TryNode(city, out int node)) return null;
+        var list = new List<ConnectivityLink>();
+        ConnectivityTravel own = TravelAt(node, mode);
+        for (int i = _result.AdjStart[node]; i < _result.AdjStart[node + 1]; i++)
+        {
+            int edge = _result.Adj[i];
+            int other = _result.EdgeA[edge] == node ? _result.EdgeB[edge] : _result.EdgeA[edge];
+            City near = other < _nodeCities.Length ? _nodeCities[other] : null;
+            if (near?.data == null || near.isRekt() || near == city) continue;
+            ConnectivityTravel travel = inbound ? TravelAt(other, mode) : own;
+            float cost = _result.Costs(travel).cost[edge];
+            if (float.IsPositiveInfinity(cost)) continue;
+            if (_result.Nodes[node].Realm != _result.Nodes[other].Realm) cost += Config.border_cost;
+            var link = new ConnectivityLink(near, cost, ConnectivityRules.Strength(cost, travel.Length, Config), _result.Edges[edge].Sea);
+            int index = list.FindIndex(entry => entry.City == near);
+            if (index < 0) list.Add(link);
+            else if (link.Strength > list[index].Strength) list[index] = link;
+        }
+        return list;
+    }
+
+    #endregion
+
     #region 三档：外交与战争(查表)
 
     // 发起一方(按它的本事：航海档、路、驿传，不要战舰)派使节到对方的强度；还没算返回 -1
@@ -1147,6 +1179,22 @@ public static class ConnectivitySystem
     }
 
     #endregion
+}
+
+// 本城直接相连的一座城(见 ConnectivitySystem.Links)：成本、强度、是否海路
+public readonly struct ConnectivityLink
+{
+    public readonly City City;
+    public readonly float Cost, Strength;
+    public readonly bool BySea;
+
+    public ConnectivityLink(City city, float cost, float strength, bool bySea)
+    {
+        City = city;
+        Cost = cost;
+        Strength = strength;
+        BySea = bySea;
+    }
 }
 
 // 近邻表的一项(二档)

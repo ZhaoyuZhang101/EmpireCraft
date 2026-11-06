@@ -38,6 +38,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 跨天下改信、改宗的几率一律 ×CrossChanceFactor(0.5)，本天下已有本土大教再 ×ForeignChanceFactor(0.5)；
 //   · 通达(ConnectivitySystem，消息口径，按传教一方的本事)：邻城势能 × min(1, 强度/0.6)，跨天下的民族宗教强度再按衰减长度 ×0.6 折；
 //     圣地加成只给强度 ≥0.3 的邻城；通达层算好后，只隔无人区的邻城也算邻城(以前隔着就断)；没算好时照旧(原版邻城、不打折)；
+//     通达层算好后邻城改取本城在城际图上直接相连的城(ConnectivitySystem.Links：陆路连同隔海的港口，海路按传教一方的航海档，
+//     没有航海渡不过的海不算)，强度直接用图上那条边的，不再逐对查；
 //   · 国教势能 ×(0.4 + 0.6 × 政令控制力)：山后、隔无人区的边地不随朝廷改宗(AdministrativeControlSystem)；
 //   · 以融合御同化：城奉的宗教从某教一系融过教义的，那一系对这城的势能 ×0.85ⁿ(至多 ×0.55，见 ReligionTenets.Pull)。
 public static class BackgroundReligionSystem
@@ -146,9 +148,17 @@ public static class BackgroundReligionSystem
         return ReligionSphere.IsForeignToNativeLand(religion, citySphere) ? CrossChanceFactor * ForeignChanceFactor : CrossChanceFactor;
     }
 
-    // 传教够得着的邻城：原版邻城；通达层算好后加上只隔无人区的邻城(只隔着无人区以前就断了，现在按通达打折)
+    // 传教够得着的邻城：原版邻城；通达层算好后改为城际图上直接相连的城(陆路、海路，见类头)，这座城不在图上时
+    // 照旧原版邻城加只隔无人区的邻城
     internal static IEnumerable<City> Contacts(City city)
     {
+        List<ConnectivityLink> links = ConnectivitySystem.Links(city, ConnectivityMode.Ideas, inbound: true);
+        if (links != null)
+        {
+            foreach (ConnectivityLink link in links)
+                if (link.Strength > 0f) yield return link.City;
+            yield break;
+        }
         if (city?.neighbours_cities != null)
             foreach (City neighbour in city.neighbours_cities)
                 if (neighbour != null) yield return neighbour;
@@ -159,9 +169,12 @@ public static class BackgroundReligionSystem
 
     // 从 from 城传到 to 城的通达(0~1，按传教一方的本事、消息口径)：强度到"紧密"(0.6)以上不打折；
     // 跨天下的民族宗教走不远(衰减长度 ×0.6，即强度 ^(1/0.6))；通达层没算好时为 1(照旧)
-    internal static float Reach(City from, City to, Religion religion, string targetSphere)
+    internal static float Reach(City from, City to, Religion religion, string targetSphere) =>
+        Scale(ConnectivitySystem.NeighbourStrength(from, to, ConnectivityMode.Ideas), religion, targetSphere);
+
+    // 强度折成传教的通达(见 Reach；strength 为 -1 时照旧为 1)
+    private static float Scale(float strength, Religion religion, string targetSphere)
     {
-        float strength = ConnectivitySystem.NeighbourStrength(from, to, ConnectivityMode.Ideas);
         if (strength < 0f) return 1f;
         if (strength <= 0f) return 0f;
         if (religion?.data != null && !ReligionFaith.IsUniversal(religion) && !string.IsNullOrEmpty(targetSphere) &&
@@ -205,14 +218,19 @@ public static class BackgroundReligionSystem
         if (state != null)
             Add(pressure, state, StateWeight * StateFactor(city.kingdom) * ReligionFaith.Mission(state) *
                                  ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]) * ControlFactor(city));
-        foreach (City neighbour in Contacts(city))
+        // 邻城连同图上那条边传过来的强度(通达层没算好、这座城不在图上时强度为 -1，照旧逐对查)
+        List<ConnectivityLink> links = ConnectivitySystem.Links(city, ConnectivityMode.Ideas, inbound: true);
+        IEnumerable<(City neighbour, float strength)> contacts = links != null
+            ? links.Select(link => (link.City, link.Strength))
+            : Contacts(city).Select(other => (other, -1f));
+        foreach ((City neighbour, float strength) in contacts)
         {
             if (!faith.TryGetValue(neighbour, out Religion religion) || religion == null) continue;
-            float reach = Reach(neighbour, city, religion, sphere);
+            float reach = strength >= 0f ? Scale(strength, religion, sphere) : Reach(neighbour, city, religion, sphere);
             if (reach <= 0f) continue;
             float weight = NeighbourWeight * ReligionFaith.Mission(religion) * ReligionSphere.CrossFactor(religion, sphere) *
                            Mathf.Sqrt(people[neighbour]) * reach;
-            if (religion.GetCity() == neighbour && HolyReach(neighbour, city))
+            if (religion.GetCity() == neighbour && (strength >= 0f ? strength >= HolyReachMin : HolyReach(neighbour, city)))
                 weight *= HolyCityFactor * ReligionTenets.HolyCityFactor(religion);
             Add(pressure, religion, weight);
         }
