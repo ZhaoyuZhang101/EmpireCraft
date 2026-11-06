@@ -70,7 +70,7 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
     {
         if (FailedAt.TryGetValue(city.id, out double failed) && Date.getYearsSince(failed) < 1) return;
         var culture = city.kingdom?.GetEmpireCraftCulture();
-        culture = EmpireCraftBuildingLibrary.VALID_CULTURE_BUILDING.Contains(culture) ? culture : "Western";
+        culture = EmpireCraftBuildingLibrary.BuildingCulture(culture);
         BuildingAsset asset = AssetManager.buildings.get($"city_{culture?.ToLower()}_0");
         if (asset == null) return;
         Building placed = Place(city, asset);

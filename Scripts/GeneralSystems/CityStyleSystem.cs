@@ -13,7 +13,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 本国君主走"改建城池"决议(每座要改的城花国库 CostPerCity，并记工役、算大兴土木，见 CorveeSystem)，各城才按现文化风格逐年翻新——
 //     先拆旧、起工地，再建成新式，新旧混杂，约 RebuildYears 年改完(布局逐个地块改，城墙与都城地标改完才换)。
 // 文化系：华夏(华夏、中国、山海)、日本、西欧(西方、法兰克、日耳曼、斯拉夫、精灵)、罗马、维京、阿拉伯(阿拉伯、犹太)、
-//   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及制度线属游牧的各文化)、林地(奥吉布瓦)；其余按华夏的通用图块画。
+//   波斯、埃及、印度、阿兹特克、游牧(游牧文化，及有游牧特性的各文化)、林地(奥吉布瓦、班图、祖鲁)；其余按制度线取。
+// 女真、青藏虽有游牧特性，城照华夏城池画(金、后金、清筑城定居，藏地河谷是城堡寺院，用户 2026-11-06 "满洲和藏的城市风格也检查一下")，
+// 斯瓦希里照阿拉伯的海岸城邦。
 // 游牧的城是蒙古包营地，不修路(见 UrbanFabric、RoadNetwork)。林地(奥吉布瓦)、阿兹特克以前也不修路(用户转玩家 2026-10-17
 // "不止游牧，像奥吉布瓦以及阿兹特克这种明显部落制的，也没必要画路")；用户 2026-10-21 改选"阿兹特克、奥吉布瓦不再吃游牧的亏"：
 // 阿兹特克的城照定居城修路，林地的城只修最低一档的路(土路，见 RoadGradeCap)，游牧营地照旧不修。
@@ -36,7 +38,9 @@ public static class CityStyleSystem
         "India" => "india",
         "Aztec" => "aztec",
         "Youmu" => "nomad",
-        "Ojibwe" => "woodland",
+        "Ojibwe" or "Bantu" or "Zulu" => "woodland",
+        "Manzhou" or "Xizang" => "huaxia",
+        "Swahili" => "arab",
         _ => NomadCulture(culture) ? "nomad" : LineFamily(culture)
     };
 
@@ -48,6 +52,7 @@ public static class CityStyleSystem
             "Arabic" => "arab",
             "Japan" => "japan",
             "Youmu" => "woodland",
+            "Origins" => "woodland",
             _ => "huaxia"
         };
 

@@ -7,6 +7,26 @@ namespace EmpireCraft.Scripts.GameLibrary;
 public static class EmpireCraftBuildingLibrary
 {
     public static List<string> VALID_CULTURE_BUILDING = new List<string> { "Huaxia", "Shanhai", "Japan", "Western", "Youmu", "Aztec", "Ojibwe", "Arab", "Egypt", "Persepolis", "India" };
+
+    // 没有自己城池贴图的文化借哪一套：按城市风格系(CityStyleSystem.Family)取，女真、青藏借华夏，斯瓦希里借阿拉伯，
+    // 班图、祖鲁借林地(奥吉布瓦)的木栅营地；以前一律借西欧石堡
+    public static string BuildingCulture(string culture)
+    {
+        if (!string.IsNullOrEmpty(culture) && VALID_CULTURE_BUILDING.Contains(culture)) return culture;
+        return EmpireCraft.Scripts.GeneralSystems.CityStyleSystem.Family(culture ?? "") switch
+        {
+            "huaxia" => "Huaxia",
+            "japan" => "Japan",
+            "arab" => "Arab",
+            "persia" => "Persepolis",
+            "egypt" => "Egypt",
+            "india" => "India",
+            "aztec" => "Aztec",
+            "nomad" => "Youmu",
+            "woodland" => "Ojibwe",
+            _ => "Western"
+        };
+    }
     public static void init()
     {
         var lib = AssetManager.buildings;
