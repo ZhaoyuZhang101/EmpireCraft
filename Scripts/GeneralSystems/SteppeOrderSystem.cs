@@ -22,13 +22,13 @@ public static partial class SteppeOrderSystem
     public const int PeaceMaxCities = 2;
 
     // 平时(没有雄主在位)的游牧政权主动开一般战争，只许打两城以内、不在帝国里的小国；别的政权、雄主、部落不受此限。
-    // 八旗多元制也不受此限：它是要入主中原的帝国，不是草原常态下的部落(明清鼎革里清打了头几年就只收草原，再不南下)
+    // 编旗的政权(八旗多元制、入关前的后金)也不受此限：它是要入主中原的帝国，不是草原常态下的部落(明清鼎革里清打了头几年就只收草原，再不南下)
     public static bool PeacetimeWarAllowed(Kingdom initiator, Kingdom target)
     {
         if (initiator?.data == null || target?.data == null) return true;
         Kingdom realm = FrontSystem.Realm(initiator);
         if (!NomadRaidSystem.IsNomad(realm) || TribalFissionService.IsTribal(initiator) || RulerTraitSystem.FounderReigns(realm) ||
-            BannerSystem.Practices(realm))
+            BannerSystem.Organized(realm))
             return true;
         return !target.IsEmpire() && !target.IsInEmpire() && (target.cities?.Count ?? 0) <= PeaceMaxCities;
     }

@@ -3771,6 +3771,8 @@ public class Empire : MetaObject<EmpireData>
         monthlyChange += FactionBalanceSystem.MinisterBonus(this, candidate);
         monthlyChange = PowerfulMinisterRules.ApplyMandate(monthlyChange, Mandate);
         monthlyChange = PowerfulMinisterRules.ApplyEmpressDowagerRate(monthlyChange, isEmpressDowager);
+        // 军机处：成年皇帝亲裁，权臣坐大慢到三分之一(见 LateImperialSystem)
+        monthlyChange = LateImperialSystem.MinisterGrowth(this, monthlyChange, isRegent || isEmpressDowager);
         int previousProgress = data.powerful_minister_progress;
         data.powerful_minister_progress = PowerfulMinisterRules.Advance(data.powerful_minister_progress,
             candidate.renown, elapsedMonths, monthlyChange, out int cost);

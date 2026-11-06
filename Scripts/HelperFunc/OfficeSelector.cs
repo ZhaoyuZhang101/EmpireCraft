@@ -418,6 +418,14 @@ public static class OfficeSelector
             foreach (Actor unit in pool)
                 if (IsPreferredOfficeCandidate(unit, kingdom)) preferred.Add(unit);
         ListPool<Actor> candidates = ready ? pool : preferred.Any() ? preferred : pool;
+        // 族群等第(见 EthnicRankSystem)：帝国核心的缺按配额先尽上等——四等人给国族色目，满汉复职的满缺给国族
+        using ListPool<Actor> upper = new ListPool<Actor>();
+        if (EthnicRankSystem.FavorsUpper(kingdom))
+        {
+            foreach (Actor unit in candidates)
+                if (EthnicRankSystem.IsUpper(kingdom, unit)) upper.Add(unit);
+            if (upper.Any()) candidates = upper;
+        }
         if (kingdom.hasCulture())
             return ListSorters.getUnitSortedByAgeAndTraits(candidates, kingdom.culture);
         candidates.Sort(ListSorters.sortUnitByAgeOldFirst);

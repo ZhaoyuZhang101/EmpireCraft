@@ -19,7 +19,7 @@ PERSON = {"fam", "giv", "age", "sex", "rel", "of", "heir", "mo", "in", "house", 
 FAMOUS = {"fam", "giv", "age", "sex", "kind", "rank", "post", "in"}
 RELS = {"son", "daughter", "grandson", "granddaughter", "brother", "sister", "nephew", "cousin", "wife", "consort"}
 CULTURES = {"Huaxia", "Youmu", "Japan", "Roma", "Frankish", "Germanic", "Viking", "Slavonic", "Arab", "Persepolis", "India", "Egypt",
-            "Kosher"}
+            "Kosher", "Manzhou"}
 RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud"}
 GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}

@@ -109,8 +109,10 @@ public static class FormationSystem
     private static FormationRegimeMap MapOf(Kingdom kingdom)
     {
         Regimes.Regime regime = kingdom?.GetRegime();
-        // 八旗多元制：底下是律令的朝廷，军制单算一套(见 BannerSystem)
-        string key = BannerSystem.Practices(kingdom) ? "Banner" : regime?.type.ToString();
+        // 八旗多元制：底下是律令的朝廷，军制单算一套；入关前编旗的汗国：中央是八旗，外藩照部落(见 BannerSystem)
+        // 外藩(编旗王朝治下别的游牧文化，见 BannerSystem.Frontier)：编部落兵，不编绿营
+        string key = BannerSystem.LeagueBound(kingdom) ? "BannerKhanate"
+            : BannerSystem.Practices(kingdom) ? "Banner" : BannerSystem.Organized(kingdom) ? "BannerKhanate" : regime?.type.ToString();
         return key != null && Config.regimes.TryGetValue(key, out FormationRegimeMap map) ? map : Config.fallback;
     }
 

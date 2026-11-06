@@ -118,6 +118,12 @@ public class CityWindowPatch : GamePatch
             land.MigrationBlocked ? "#E66B66" : "#66D98A", pIconPath: "iconChildren");
         if (metaObject.GetOrCreate().manchu_city)
             __instance.showStatRow("city_manchu_city", LM.Get("city_manchu_city_value"), "#F3C34A", pIconPath: "iconKings");
+        // 族群等第(见 EthnicRankSystem)：城里人数最多的一等
+        int mainRank = EthnicRankSystem.MainRank(metaObject, out EthnicRankRules.Scheme rankScheme);
+        if (rankScheme != EthnicRankRules.Scheme.None)
+            __instance.showStatRow("city_ethnic_rank", EthnicRankSystem.RankName(rankScheme, mainRank, metaObject.kingdom?.GetEmpire()),
+                mainRank == EthnicRankRules.Ruling ? "#F3C34A" : mainRank == EthnicRankRules.Late ? "#E66B66" : "#B8C6CC",
+                pIconPath: "iconKings");
         __instance.showStatRow("city_landless_population", $"{land.LandlessPopulationRatio:P0}",
             land.LandlessPopulationRatio >= LandEconomySystem.RebellionLandlessThreshold ? "#E66B66" : "#B8C6CC",
             pIconPath: "iconChildren");

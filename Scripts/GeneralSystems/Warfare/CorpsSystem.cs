@@ -797,11 +797,11 @@ public static class CorpsSystem
         return corps;
     }
 
-    // 事件编成的地方部队(见 TransmigrantSystem.Events)：按本国此刻该用的建制，不占手动组建的钱
-    public static CorpsData RaiseStanding(Kingdom kingdom, City home, float people)
+    // 事件编成的地方部队(见 TransmigrantSystem.Events)：按本国此刻该用的建制(或指定的建制，如团练成勇营)，不占手动组建的钱
+    public static CorpsData RaiseStanding(Kingdom kingdom, City home, float people, string formation = null)
     {
         if (!Enabled || kingdom == null || home == null) return null;
-        return Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime(), manual: true);
+        return Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime(), manual: true, formation: formation);
     }
 
     // 手动解散(交战中的不能解散)
@@ -950,7 +950,8 @@ public static class CorpsSystem
             PopGroup group = source == null ? null
                 : CityPopulationSystem.DrawBackground(source, candidate => SlaverySystem.CanRecruit(candidate, corps.militia) &&
                                                                            !(trained && candidate.social_class == SocialClass.Noble) &&
-                                                                           BannerSystem.MayRecruit(bannerCorps, ruling, candidate));
+                                                                           BannerSystem.MayRecruit(bannerCorps, ruling, candidate) &&
+                                                                           EthnicRankSystem.MayRecruit(kingdom, corps, source, candidate));
             // 最近一城可能只有奴隶，继续找下一座，不能因此挡住邻城的自由民补员。
             if (group == null) continue;
             float want = need - taken;

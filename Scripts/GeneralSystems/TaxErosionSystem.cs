@@ -33,7 +33,9 @@ public static class TaxErosionSystem
         float hidden = category switch
         {
             TreasuryCategory.LandTax => HiddenLand * annexation,
-            TreasuryCategory.ResidentTax => FleeingHouseholds * annexation + LeviesFlight * levies,
+            // 摊丁入亩以后不再为躲丁役逃亡(见 LateImperialSystem)
+            TreasuryCategory.ResidentTax => FleeingHouseholds * annexation +
+                                            (LateImperialSystem.LandPollMerged(empire) ? 0f : LeviesFlight * levies),
             _ => 0f
         };
         float fraud = ClerkFraud * graft;

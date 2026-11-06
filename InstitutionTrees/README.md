@@ -34,7 +34,7 @@
 { "id": "...", "cultures": ["Youmu"], "exclude_cultures": ["India"], "requires_traits": ["nomad"] }
 ```
 
-- `cultures`：只有这些文化能推行、吸收；`exclude_cultures`：这些文化不能；`requires_traits`：文化要有其中一个政治特性（见 `Locales/Cultures/README.md` 的 `political_traits`）。
+- `cultures`：只有这些文化能推行、吸收；`exclude_cultures`：这些文化不能；`requires_traits`：文化要有其中一个政治特性（见 `Locales/Cultures/README.md` 的 `political_traits`）；`exclude_traits`：有其中任一政治特性的文化不能。
 - 不合本文化的节点在树上显示为锁定，原因"本文化没有这一传统"。
 - 只想换叫法不必过滤：节点名、说明的文本键加 `_<文化小写>` 后缀（如 `institution_arabic_tribal_shura_india`），这个文化看到的就是另一套名字；政体的国家类别、官名同理（各政体 `OfficialType.csv` 里的 `Arabic_caliphate_india`）。与线同名的文化（华夏、罗马、游牧、日本）用线本身的叫法。
 

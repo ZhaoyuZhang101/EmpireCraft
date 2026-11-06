@@ -891,6 +891,8 @@ public static class CityPopulationSystem
         foreach (City other in city.neighbours_cities_kingdom)
         {
             if (other == null || other == city || other.isRekt() || other.kingdom != city.kingdom) continue;
+            // 封禁的龙兴之地不许属地之民迁入(见 BannerSystem.Frontier)
+            if (BannerSystem.MigrationBarred(city, other)) continue;
             CityPopulationData otherData = Get(other);
             if (otherData == null) continue;
             float pull = Pull(other, otherData);

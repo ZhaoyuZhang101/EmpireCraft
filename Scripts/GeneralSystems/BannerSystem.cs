@@ -6,6 +6,7 @@ using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
+using EmpireCraft.Scripts.System;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
@@ -21,13 +22,23 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     开局在旗下的城三成编旗，满城八分；不纳粮，每年从国库领旗饷，发不出就有怨气；城丢了每年一成出旗为民；
 //   · 满城：驻防重镇。每几年挑一座治下人口最多的外族大城建一座，也可以由事件点名；城不因鞭长莫及失稳，城里多出旗人，
 //     原住的汉民被迁出一部分，农民添怨；
-//   · 跑马圈地：只由事件点名(banner_enclosure)。旗地占城中土地的份额进 LandEconomySystem，民田少了失地的就多，那份田赋收不上来，
+//   · 跑马圈地：事件点名(banner_enclosure)，或入关后按时间表自动圈(见 BannerSystem.Conquest)。旗地占城中土地的份额进 LandEconomySystem，民田少了失地的就多，那份田赋收不上来，
 //     百姓逃散一些，农民、地主添怨，兼并添一笔；
-//   · 逃人法：事件颁行(banner_law)，走已有的 LawType.逃人法 与 fugitive_household_law_enacted，百姓不能迁徙，每年再添一点怨气。
-public static class BannerSystem
+//   · 逃人法：事件颁行(banner_law)或入关后自动颁行，久安以后放宽(见 BannerSystem.Conquest)，走已有的 LawType.逃人法 与 fugitive_household_law_enacted，百姓不能迁徙，每年再添一点怨气。
+//
+// 女真(满洲)文化从制度树里长出八旗(用户 2026-11-06 选"从制度树里长出来")：文化带政治特性 banner(八旗传统)，
+// 游牧线的千户制在女真叫猛安谋克，后接只给 banner 文化的「八旗制度」(特性 eight_banners)。两档：
+//   · 编旗(Organized)：统治族群施行了八旗制度——本族之城成丁编旗、军制换八旗、八旗战力随战和起落；入关前不发旗饷、不圈地；
+//   · 八旗多元制(Practices)：编旗的王朝入主、朝廷采纳华夏制度时自动改行(见 TryEnter)，路线固定兼用；北归、不再是复合帝国时退回编旗。
+public static partial class BannerSystem
 {
+    public const string Trait = "banner";
+    public const string Feature = "eight_banners";
+
     public sealed class Summary
     {
+        // 八旗多元制(入主以后)；否则只是编旗，没有旗饷、满城、圈地、逃人法
+        public bool multi;
         public float bannermen;
         public float people;
         public int enclosed;
@@ -35,6 +46,15 @@ public static class BannerSystem
         public float vigor;
         public int stipend;
         public int unpaidYears;
+        // 入关三政：入关几年(-1 未入关)、剃发易服、永停圈地、放宽逃人法
+        public float enteredYears = -1f;
+        public bool queued, enclosureStopped, lawRelaxed;
+        // 外藩几部、其中与中央有姻亲的几部；封禁：0 未入关、1 封禁、2 弛禁(闯关东)
+        public int leagues, leaguesMarried, seal;
+        // 生计：闲散几成、汉军出旗、办了勇营的行省
+        public float idle;
+        public bool hanjunReleased;
+        public List<string> yongying = new();
         public List<string> garrisons = new();
     }
 
@@ -50,6 +70,26 @@ public static class BannerSystem
 
     public static bool Practices(Empire empire) =>
         empire?.CoreKingdom?.data != null && !empire.CoreKingdom.isRekt() && empire.CoreKingdom.GetOrCreate().banner_regime;
+
+    private static Kingdom CoreOf(Kingdom kingdom) => kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
+
+    // 本国(帝国按核心)的统治族群：征服王朝按统治文化，别的按核心的文化
+    public static string RulingCultureOf(Kingdom kingdom)
+    {
+        Kingdom core = CoreOf(kingdom);
+        if (core?.data == null || core.isRekt()) return "";
+        Empire empire = core.GetEmpire();
+        return CompositeEmpireService.IsComposite(empire)
+            ? CompositeEmpireService.GetRulingCulture(empire)
+            : CultureService.GetRealmCulture(core);
+    }
+
+    // 编旗：八旗多元制，或统治族群施行了八旗制度
+    public static bool Organized(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return false;
+        return Practices(kingdom) || InstitutionSystem.HasFeature(RulingCultureOf(kingdom), Feature);
+    }
 
     // 政体叫法：国情、官制这些地方显示八旗多元制，别的照旧
     public static string RegimeName(Kingdom kingdom, string fallback) =>
@@ -69,6 +109,43 @@ public static class BannerSystem
         foreach (City city in core.cities ?? new List<City>())
             if (city?.data != null && !city.isRekt()) city.GetOrCreate().banner_home = true;
         LogService.LogInfo($"[EmpireCraft][八旗] {empire.GetEmpireFullName()} 立八旗多元制，政体 {core.GetRegime()?.type}，{core.cities?.Count ?? 0} 城");
+    }
+
+    // 编旗的王朝入主(采纳华夏制度，见 CompositeEmpireService.AdoptCentralInstitutions)：改行八旗多元制。
+    // 朝廷、国号照入主的常规走(不像剧本那样定死)，只是路线固定兼用；本族之城算旗下旧地
+    public static bool TryEnter(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || Practices(empire) || !CompositeEmpireService.IsComposite(empire)) return false;
+        string ruling = CompositeEmpireService.GetRulingCulture(empire);
+        if (!InstitutionSystem.HasFeature(ruling, Feature) ||
+            InstitutionSystem.GetCultureLine(CompositeEmpireService.GetInstitutionalCulture(empire)) != "Huaxia") return false;
+        var extra = core.GetOrCreate();
+        extra.banner_regime = true;
+        extra.banner_vigor = Mathf.Max(extra.banner_vigor, BannerRules.VigorEntry);
+        foreach (City city in CitiesOf(empire).ToList())
+            if (string.Equals(CultureService.GetMainCulture(city, initialize: false), ruling, global::System.StringComparison.Ordinal))
+                city.GetOrCreate().banner_home = true;
+        string text = string.Format(LM.Get("banner_enter_history"), empire.GetEmpireName());
+        empire.RecordHistory(directContent: text, kingdomId: core.id);
+        TranslateHelper.LogEventMessage(text, core);
+        LogService.LogInfo($"[EmpireCraft][八旗] {empire.GetEmpireName()} 入主，改行八旗多元制");
+        return true;
+    }
+
+    // 不再是复合帝国(北归、帝国散了)：退回编旗，满城、旗地、逃人法跟着作废
+    private static void Leave(Empire empire)
+    {
+        var extra = empire.CoreKingdom.GetOrCreate();
+        extra.banner_regime = false;
+        extra.banner_fugitive_law = false;
+        foreach (City city in CitiesOf(empire).ToList())
+        {
+            var cityExtra = city.GetOrCreate();
+            cityExtra.manchu_city = false;
+            cityExtra.banner_land = 0f;
+        }
+        LogService.LogInfo($"[EmpireCraft][八旗] {empire.GetEmpireName()} 不再是征服王朝，退回编旗");
     }
 
     // 进世界后、开局兵力之前当场编旗，禁旅八旗才有兵可补
@@ -92,17 +169,22 @@ public static class BannerSystem
     {
         if (city?.data == null || data?.groups == null) return;
         var extra = city.GetOrCreate();
-        bool practices = Practices(city.kingdom);
-        if (!practices && !extra.banner_home && !extra.manchu_city && !data.groups.Any(group => group.social_class == SocialClass.Banner)) return;
+        bool organized = Organized(city.kingdom);
+        if (!organized && !extra.banner_home && !extra.manchu_city && !data.groups.Any(group => group.social_class == SocialClass.Banner)) return;
         float have = CityPopulationSystem.BackgroundOfClass(city, SocialClass.Banner);
         SocialClass commoner = GuoyeSystem.CommonerOf(city);
-        if (!practices)
+        if (!organized)
         {
             if (have > 0f) SlaverySystem.Convert(city, data, SocialClass.Banner, commoner, BannerRules.ToRelease(have, years));
             return;
         }
+        TickVigor(CoreOf(city.kingdom));
+        // 入关前：本族为主的城都是旗下旧地(出则为兵、入则为民)，入主后照旧算旧地
+        if (!extra.banner_home && !Practices(city.kingdom) &&
+            string.Equals(CultureService.GetMainCulture(city, initialize: false), RulingCultureOf(city.kingdom), global::System.StringComparison.Ordinal))
+            extra.banner_home = true;
         float enroll = BannerRules.ToEnroll(TotalOf(data), have, BannerRules.TargetShare(extra.banner_home, extra.manchu_city), years);
-        if (enroll > 0f) SlaverySystem.Convert(city, data, commoner, SocialClass.Banner, enroll);
+        if (enroll > 0f) Enroll(city, data, commoner, enroll);
     }
 
     // 税收折扣(乘在税率上)：旗人不纳粮，旗地不交田赋
@@ -126,13 +208,24 @@ public static class BannerSystem
         return group.social_class == SocialClass.Banner || group.culture == rulingCulture;
     }
 
-    public static string RulingCulture(Kingdom kingdom) =>
-        CompositeEmpireService.GetRulingCulture((kingdom?.GetEmpire()?.CoreKingdom ?? kingdom)?.GetEmpire());
+    public static string RulingCulture(Kingdom kingdom) => RulingCultureOf(kingdom);
 
     public static float Vigor(Kingdom kingdom)
     {
-        Kingdom core = kingdom?.GetEmpire()?.CoreKingdom ?? kingdom;
+        Kingdom core = CoreOf(kingdom);
         return core?.data == null ? BannerRules.VigorMax : core.GetOrCreate().banner_vigor;
+    }
+
+    // 八旗战力一年一算(编旗的城结算人口时、帝国例行检查时，谁先到谁算)
+    private static void TickVigor(Kingdom core)
+    {
+        if (core?.data == null || core.isRekt()) return;
+        var extra = core.GetOrCreate();
+        if (extra.banner_vigor_at >= 0d && Date.getYearsSince(extra.banner_vigor_at) < 1) return;
+        extra.banner_vigor_at = World.world.getCurWorldTime();
+        // 闲散多了战力败得更快(见 BannerSystem.Livelihood)
+        float idle = Practices(core) ? BannerRules.IdleShare(Bannermen(core.GetEmpire()), extra.banner_quota) : 0f;
+        extra.banner_vigor = BannerRules.NextVigor(extra.banner_vigor, core.hasEnemies(), idle);
     }
 
     private static IEnumerable<City> CitiesOf(Empire empire)
@@ -152,23 +245,34 @@ public static class BannerSystem
     // 每年(帝国例行检查，见 EmpireCraftEmpireBehCheckMandate)
     public static void Yearly(Empire empire)
     {
-        if (!Practices(empire)) return;
+        if (empire?.CoreKingdom?.data == null || empire.CoreKingdom.isRekt()) return;
+        // 编旗的王朝入主以后才改行八旗多元制(剧本的大清开局就是)；不再是征服王朝就退回编旗
+        if (!Practices(empire)) TryEnter(empire);
+        else if (!CompositeEmpireService.IsComposite(empire)) Leave(empire);
+        if (!Organized(empire.CoreKingdom)) return;
         Kingdom core = empire.CoreKingdom;
         var extra = core.GetOrCreate();
-        extra.banner_vigor = BannerRules.NextVigor(extra.banner_vigor, core.hasEnemies());
-        PayStipend(empire, core, extra);
+        TickVigor(core);
+        LeagueYearly(empire);
+        if (!Practices(empire)) return;
+        float bannermen = Bannermen(empire);
+        LivelihoodYearly(empire, core, extra, bannermen);
+        PayStipend(empire, core, extra, bannermen);
         if (extra.banner_fugitive_law)
         {
             ApplyFugitiveLaw(empire);
             ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, LawGrievance);
         }
         TryBuildGarrison(empire, core, extra);
+        ConquestYearly(empire, core, extra);
+        SealYearly(empire, core, extra);
+        MilitiaYearly(empire, core, extra);
     }
 
-    private static void PayStipend(Empire empire, Kingdom core, KingdomExtension.KingdomExtraData extra)
+    // 旗饷按缺发(闲散不领，见 BannerSystem.Livelihood)
+    private static void PayStipend(Empire empire, Kingdom core, KingdomExtension.KingdomExtraData extra, float bannermen)
     {
-        float bannermen = CitiesOf(empire).Sum(city => CityPopulationSystem.BackgroundOfClass(city, SocialClass.Banner));
-        int due = BannerRules.StipendDue(bannermen);
+        int due = BannerRules.StipendDue(bannermen, extra.banner_quota);
         int paid = BannerRules.StipendPaid(due, core.GetMoney());
         if (paid > 0) core.SubMoney(paid, TreasuryCategory.Military);
         extra.banner_stipend = paid;
@@ -215,11 +319,11 @@ public static class BannerSystem
         return true;
     }
 
-    // 跑马圈地：只由事件点名。返回圈了几座城
+    // 跑马圈地：事件点名，或入关后自动圈(见 BannerSystem.Conquest)；永停圈地以后不再圈。返回圈了几座城
     public static int Enclose(Kingdom realm, IEnumerable<City> cities)
     {
         Empire empire = realm?.GetEmpire();
-        if (empire?.data == null || !Practices(empire)) return 0;
+        if (empire?.data == null || !Practices(empire) || empire.CoreKingdom.GetOrCreate().banner_enclosure_stopped) return 0;
         int done = 0;
         foreach (City city in cities)
         {
@@ -233,6 +337,7 @@ public static class BannerSystem
             done++;
         }
         if (done == 0) return 0;
+        empire.CoreKingdom.GetOrCreate().banner_enclosures++;
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Peasant, EnclosePeasantGrievance);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Landlord, EncloseLandlordGrievance);
         ClaimPolicySystem.AddGrievance(empire, SocialClass.Banner, -EncloseBannerRelief);
@@ -276,12 +381,26 @@ public static class BannerSystem
     public static Summary SummaryOf(Empire empire)
     {
         var summary = new Summary();
-        if (!Practices(empire)) return summary;
+        if (empire?.CoreKingdom == null || !Organized(empire.CoreKingdom)) return summary;
+        summary.multi = Practices(empire);
         var extra = empire.CoreKingdom.GetOrCreate();
         summary.fugitiveLaw = extra.banner_fugitive_law;
         summary.vigor = extra.banner_vigor;
         summary.stipend = extra.banner_stipend;
         summary.unpaidYears = extra.banner_unpaid_years;
+        summary.enteredYears = YearsSince(extra.banner_entered_at);
+        summary.queued = extra.banner_queue_at >= 0d;
+        summary.enclosureStopped = extra.banner_enclosure_stopped;
+        summary.lawRelaxed = extra.banner_law_relaxed;
+        foreach (Kingdom league in LeaguesOf(empire))
+        {
+            summary.leagues++;
+            if (RoyalMarriageSystem.Allied(league, empire.CoreKingdom)) summary.leaguesMarried++;
+        }
+        summary.seal = extra.banner_entered_at < 0d ? 0 : extra.banner_seal_lifted ? 2 : 1;
+        summary.hanjunReleased = extra.banner_hanjun_released;
+        foreach (Kingdom member in empire.kingdoms_list ?? new List<Kingdom>())
+            if (member?.data != null && !member.isRekt() && member.GetOrCreate().banner_yongying) summary.yongying.Add(member.GetKingdomName());
         foreach (City city in CitiesOf(empire))
         {
             summary.bannermen += CityPopulationSystem.BackgroundOfClass(city, SocialClass.Banner);
@@ -291,6 +410,7 @@ public static class BannerSystem
             if (cityExtra.banner_land > 0f) summary.enclosed++;
             if (cityExtra.manchu_city) summary.garrisons.Add(city.GetCityName());
         }
+        if (summary.multi) summary.idle = BannerRules.IdleShare(summary.bannermen, extra.banner_quota);
         return summary;
     }
 }

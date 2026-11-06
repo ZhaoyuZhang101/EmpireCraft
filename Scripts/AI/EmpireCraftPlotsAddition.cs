@@ -502,6 +502,8 @@ namespace EmpireCraft.Scripts.AI
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
                     // 推恩令下不允许统合封国(一人本就不得兼领两国)
                     if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
+                    // 盟旗分治：外藩不许统合成大国(见 BannerSystem.Frontier)
+                    if (allKingdoms.Any(BannerSystem.LeagueBound)) return false;
                     // 西方封建制与城邦无法整合土地，施行中央集权(直辖治理)后可以
                     if (allKingdoms.Any(k => PersonalUnionService.IsUnionRegime(k) && !FeudalVassalService.HasDirectAdministration(k)))
                         return false;
@@ -515,6 +517,7 @@ namespace EmpireCraft.Scripts.AI
                     if (!pActor.isKing()) return false;
                     var allKingdoms = GetKingdomsRuledByActor(pActor);
                     if (allKingdoms.Any(k => GraceEdictService.IsActive(k.GetEmpire()))) return false;
+                    if (allKingdoms.Any(BannerSystem.LeagueBound)) return false;
                     // 西方封建制与城邦无法整合土地，施行中央集权(直辖治理)后可以
                     if (allKingdoms.Any(k => PersonalUnionService.IsUnionRegime(k) && !FeudalVassalService.HasDirectAdministration(k)))
                         return false;
@@ -1635,6 +1638,8 @@ namespace EmpireCraft.Scripts.AI
                     // 正统门槛 40；汗国连吃败仗时抬高(兵败离心，见 NomadCycleSystem.SecessionGate)
                     if (empire.Legitimacy > NomadCycleSystem.SecessionGate(kingdom) || !RebellionSystem.CanAttempt(kingdom) ||
                         !CityStabilitySystem.CanRise(kingdom.capital)) return false;
+                    // 外藩有姻亲、或八旗战力尚在，不自立(见 BannerSystem.Frontier)
+                    if (BannerSystem.LeagueRestrains(kingdom)) return false;
                     if (regime == null) return false;
                     // 哪些政体、哪类成员能拥兵自立读政体配置(members_can_secede 等，见 Scripts/Regimes/Configs/README.md)：
                     // 封建、阿拉伯的成员；律令制的藩镇(世袭节度使、都护)；游牧的兀鲁思(大汗弱时自立为汗国，各有自己的军队，

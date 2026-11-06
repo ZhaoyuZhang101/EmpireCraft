@@ -211,10 +211,12 @@ public sealed class InstitutionNodeConfig
     public List<string> replaces = new();
     public List<string> exclusive_with = new();
     // 同一条线里只给部分文化(用户 2026-10-19 选"加文化特性与节点过滤")：cultures 只有这些文化能推行、吸收，
-    // exclude_cultures 这些文化不能，requires_traits 文化要有其中一个政治特性(如 nomad，见 OnomasticsRule)
+    // exclude_cultures 这些文化不能，requires_traits 文化要有其中一个政治特性(如 nomad，见 OnomasticsRule)，
+    // exclude_traits 有其中任一政治特性的文化不能(如四等人制不给有八旗传统的文化，它们走旗民分治)
     public List<string> cultures = new();
     public List<string> exclude_cultures = new();
     public List<string> requires_traits = new();
+    public List<string> exclude_traits = new();
     public InstitutionResearchConfig research = new();
     public InstitutionPoliticsConfig politics = new();
     public InstitutionReformConfig reform = new();
@@ -448,6 +450,7 @@ public static class InstitutionConfigNormalizer
             node.cultures ??= new List<string>();
             node.exclude_cultures ??= new List<string>();
             node.requires_traits ??= new List<string>();
+            node.exclude_traits ??= new List<string>();
             node.research ??= new InstitutionResearchConfig();
             node.politics ??= new InstitutionPoliticsConfig();
             node.politics.support_classes ??= new Dictionary<SocialClass, float>();

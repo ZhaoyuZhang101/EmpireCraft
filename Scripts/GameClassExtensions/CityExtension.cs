@@ -65,6 +65,10 @@ public static class CityExtension
         public bool banner_home;
         public bool manchu_city;
         public float banner_land;
+        // 族群等第(见 EthnicRankSystem)：四等人定制时已在这个帝国(按核心记)治下的城，城里属地文化之民算汉人，否则算南人
+        public long rank_early_core = -1L;
+        // 改土归流的时间(见 LateImperialSystem)：土司旧地十年里渐渐服帖
+        public double tusi_reformed_at = -1d;
         // 关闭军团统领实体时，WarBox 载具只记在城里的账面上(见 WarBoxVehicles)
         public int virtual_vehicles;
         // 行政控制力(见 AdministrativeControlSystem)：-1 = 还没算过；离治所几块地，陆路不通的飞地按直线折算

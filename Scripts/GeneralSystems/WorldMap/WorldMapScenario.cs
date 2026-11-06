@@ -244,10 +244,8 @@ public static class WorldMapScenario
                 var skip = new HashSet<string>(_era.SkippedTechs(culture));
                 foreach (TechNodeConfig tech in techs.Where(tech => tech.tier <= tier && !skip.Contains(tech.id)))
                     TechnologySystem.ForceResearch(culture, tech.id);
-                if (_era.techExtra.TryGetValue(culture, out List<string> extra))
-                    foreach (string id in extra) TechnologySystem.ForceResearch(culture, id);
-                if (_era.inst.TryGetValue(culture, out List<string> nodes))
-                    foreach (string node in nodes) InstitutionSystem.ForceEnactNode(culture, node);
+                foreach (string id in _era.ExtraTechs(culture)) TechnologySystem.ForceResearch(culture, id);
+                foreach (string node in _era.Institutions(culture)) InstitutionSystem.ForceEnactNode(culture, node);
             }
             catch (Exception exception)
             {

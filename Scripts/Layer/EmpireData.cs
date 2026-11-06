@@ -344,6 +344,8 @@ public class EmpireData : MetaObjectData
     public double composite_cultural_name_adopted_timestamp { get; set; } = -1L;
     // 征服王朝的治理路线(见 CompositeEmpireService.GetRoute)：0 未定、1 分治、2 兼用、3 从俗；定下或改换的时间
     public int composite_route { get; set; } = 0;
+    // 族群等第(见 EthnicRankSystem)定制的时间；-1 = 没有等第
+    public double ethnic_ranks_since { get; set; } = -1d;
     public double composite_route_since { get; set; } = -1d;
     // 本俗反扑(国语骑射，见 CompositeEmpireService.ProclaimNativism)：重申的时间，二十年内不从俗
     public double nativist_revival_at { get; set; } = -1d;

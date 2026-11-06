@@ -256,6 +256,27 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - faith);
             Note(ref detail, ReligiousTension.Describe(city));
         }
+        // 族群等第(见 EthnicRankSystem)：四等人、旗民分治下等第低的城不服
+        float rank = EthnicRankSystem.StabilityShift(city, out string rankDetail);
+        if (rank != 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural + rank);
+            Note(ref detail, rankDetail);
+        }
+        // 剃发易服以后的属地之城(见 BannerSystem.Conquest)
+        float queue = BannerSystem.QueueStabilityLoss(city);
+        if (queue >= 0.5f)
+        {
+            natural = CityStabilityRules.Clamp(natural - queue);
+            Note(ref detail, LM.Get("banner_queue_stability_detail"));
+        }
+        // 改土归流以后的土司旧地(见 LateImperialSystem)
+        float tusi = LateImperialSystem.TusiStabilityLoss(city);
+        if (tusi >= 0.5f)
+        {
+            natural = CityStabilityRules.Clamp(natural - tusi);
+            Note(ref detail, LM.Get("tusi_reform_stability_detail"));
+        }
         // 遭迫害的城(见 ReligiousPersecution)
         float persecuted = ReligiousPersecution.StabilityLoss(city);
         if (persecuted > 0f)

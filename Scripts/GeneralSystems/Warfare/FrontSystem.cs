@@ -1024,9 +1024,9 @@ public static partial class FrontSystem
     {
         if (city?.kingdom == null || attacker == null || Friendly(attacker, city.kingdom)) return 0f;
         if (LandEconomySystem.WouldSurrenderTo(city, attacker, out _)) return 0f;
-        // 团练只从守方还占着的那部分城里抽；兵败如山倒时减半(见 FrontCollapse)
+        // 团练只从守方还占着的那部分城里抽；兵败如山倒时减半(见 FrontCollapse)；四等人禁汉人南人执兵器(见 EthnicRankSystem)
         return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * HeldShare(city) *
-               FrontCollapse.Militia(city.kingdom, attacker);
+               FrontCollapse.Militia(city.kingdom, attacker) * EthnicRankSystem.MilitiaFactor(city);
     }
 
     // 城里还归守方(城主一方)控制的地块占几成(高山不算)

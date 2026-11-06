@@ -56,7 +56,7 @@ MING_FAMOUS = [
 ]
 
 QING = polity(
-    "qing", "清", "Qing", "Youmu", "shenyang",
+    "qing", "清", "Qing", "Manzhou", "shenyang",
     r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, banner=True, core="manchuria",
     era_name="崇德|Chongde", era_year=3, dynasty="aisin_gioro",
     ruler=person("爱新觉罗|Aisin Gioro", "皇太极|Hong Taiji", 46, f="ag01"),

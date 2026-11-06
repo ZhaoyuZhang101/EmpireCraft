@@ -26,6 +26,8 @@ public static class HaremSuccessionSystem
             Actor emperor = empire?.Emperor;
             if (core?.data == null || emperor?.data == null || !emperor.isAlive() ||
                 core.GetRegime()?.type is not (RegimeType.LvLing or RegimeType.ZhouFeudalism)) return;
+            // 秘密立储：后宫也不知道储君是谁(见 LateImperialSystem)
+            if (LateImperialSystem.SecretSuccession(core)) return;
             float chance = RulerQualitySystem.Of(emperor) switch
             {
                 RulerQualitySystem.Grade.Dissolute => DissoluteChance,

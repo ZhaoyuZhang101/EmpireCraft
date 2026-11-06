@@ -49,6 +49,8 @@ public class TempFac_册立储君 : TemporaryFaction
         if (core == null || regime == null || faction == null || empire.Emperor == null ||
             regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession ||
             regime.GetSuccessionLaw() == SuccessionLawType.强者继承法) return false;
+        // 秘密立储：储君由皇帝暗定，朝臣无从议立(见 LateImperialSystem)
+        if (LateImperialSystem.SecretSuccession(core)) return false;
         var candidates = EmpireCraftKingdomBehCheckHeir.HeirCandidates(core);
         if (candidates.Count < 2) return false;
         Actor current = core.GetHeir();

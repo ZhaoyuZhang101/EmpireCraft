@@ -103,9 +103,9 @@ public static class GreatPowerDiplomacy
         TranslateHelper.LogEventMessage(text, ca);
     }
 
-    // 八旗政权要入主中原：不与华夏各朝通好(一纸三十年互不侵犯，入关就打不下去了)
+    // 编旗的政权(入关前的后金也算)要入主中原：不与华夏各朝通好(一纸三十年互不侵犯，入关就打不下去了)
     private static bool BarredByConquest(Kingdom a, Kingdom b) =>
-        BannerSystem.Practices(a) && IsHuaxia(b) || BannerSystem.Practices(b) && IsHuaxia(a);
+        BannerSystem.Organized(a) && IsHuaxia(b) || BannerSystem.Organized(b) && IsHuaxia(a);
 
     private static bool IsHuaxia(Kingdom kingdom) =>
         InstitutionSystem.GetCultureLine(CultureService.GetRealmCulture(kingdom)) == "Huaxia";

@@ -46,7 +46,8 @@ Locales/Cultures/
                                      // 不给兵不给地、不绕开战闸门。省略时 strong_unification 算 1、否则 0
         "political_traits": ["strong_unification"], // 模组政治特质：strong_unification 强统一诉求(唯一中央、易帜、临时政府、统一继承)；
                                      // nomad 游牧(游牧扩张、牧帐、放牧加倍)；raider 劫掠传统(派系可提劫掠)；
-                                     // dharmic 法教传统(不发起圣战、宗教宽容)；dry_native 旱地故土(适应旱地与农地，不按制度线推定)
+                                     // dharmic 法教传统(不发起圣战、宗教宽容)；dry_native 旱地故土(适应旱地与农地，不按制度线推定)；
+                                     // banner 八旗传统(游牧线可推行八旗制度：本族编旗、军制换八旗，入主中原改行八旗多元制；女真用)
         "Religion": "ReligionNames", // 宗教名词库
         "City":    { "groups": { "group_1": "CityNames1" }, "rule": ["group_1"], "name_pos": 0 },
         "Kingdom": { "groups": { "group_1": "CountryNames" }, "rule": ["group_1"], "name_pos": 0, "english_type_prefix": false },

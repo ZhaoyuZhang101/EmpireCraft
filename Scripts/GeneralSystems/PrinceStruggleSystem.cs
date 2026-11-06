@@ -82,6 +82,8 @@ public static class PrinceStruggleSystem
         Kingdom core = empire?.CoreKingdom;
         if (emperor?.data == null || !emperor.isAlive() || core?.data == null ||
             !EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKing.NeedSuccession(core)) return;
+        // 秘密立储：谁是储君无人知晓，废太子、宫门之变都没了由头(见 LateImperialSystem)
+        if (LateImperialSystem.SecretSuccession(core)) return;
         List<Actor> princes = Princes(empire, emperor);
         if (princes.Count < 2) return;
         Actor heir = core.HasHeir() ? core.GetHeir() : null;

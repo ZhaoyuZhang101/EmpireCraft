@@ -130,8 +130,8 @@ public static partial class CompositeEmpireService
         else next = RouteJoint;
         // 剧本定下入主国号的(世界地图后金)：入关就走兼用(金清兼用)，不行分治
         if (next == RouteDual && ScriptedConquestName(empire) != null) next = RouteJoint;
-        // 开局定下朝廷的(大清、大金)：路线就是兼用，不分治、不从俗(见 EstablishCourt)
-        if (FixedCourt(empire)) next = RouteJoint;
+        // 开局定下朝廷的(大清、大金)、八旗多元制：路线就是兼用，不分治、不从俗(见 EstablishCourt、BannerSystem)——首崇满洲，旗民分治
+        if (FixedCourt(empire) || BannerSystem.Practices(empire)) next = RouteJoint;
         if (next == current) return;
         empire.data.composite_route = next;
         empire.data.composite_route_since = World.world?.getCurWorldTime() ?? -1d;
@@ -610,6 +610,8 @@ public static partial class CompositeEmpireService
         empire.data.composite_identity_adopted_timestamp = World.world.getCurWorldTime();
         empire.data.last_composite_identity_update_timestamp = empire.data.composite_identity_adopted_timestamp;
         empire.data.composite_route = 0;
+        // 编旗的王朝采纳华夏制度：改行八旗多元制，路线固定兼用(见 BannerSystem.TryEnter)
+        BannerSystem.TryEnter(empire);
         PopulationShares(empire, rulingCulture, institutionalCulture, out float rulingShare, out _);
         UpdateRoute(empire, rulingCulture, institutionalCulture, rulingShare);
 
@@ -720,6 +722,8 @@ public static partial class CompositeEmpireService
             emperorUsesInstitution, emperorUsesRuling);
         if (route == RouteAdopt) delta += 1;
         else if (route == RouteDual) delta = Math.Min(delta, 1);
+        // 四等人防汉化(见 EthnicRankSystem)
+        if (delta > 0) delta = Math.Max(0, delta - EthnicRankSystem.IntegrationDrag(empire));
         // 融合完成后统治文化就是制度文化，不再有"保留旧俗的统治族群"压着融合度
         // (以前完成融合的王朝次年又被压回 69、退回"复合帝国")；从俗的王朝统治族群自己在改俗，也不压
         bool rulingEliteStillExists = !integrated && route != RouteAdopt && (emperorUsesRuling || rulingShare >= 0.08f);

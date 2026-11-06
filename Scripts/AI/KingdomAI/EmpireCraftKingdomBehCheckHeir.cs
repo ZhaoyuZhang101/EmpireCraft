@@ -38,6 +38,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             ConstitutionalSuccessionSystem.TryHandleVacancy(kingdom);
             return BehResult.Continue;
         }
+        // 秘密立储：皇帝在诸皇子里按才具暗定储君(见 LateImperialSystem)
+        if (!vacancy) LateImperialSystem.Designate(kingdom);
         // 在位时从本继承法起点复查，不保留以前级联到旁系的结果。
         InstallHeir(kingdom, ResolveHeir(kingdom, vacancy));
         return BehResult.Continue;
@@ -63,6 +65,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         var data = kingdom.GetOrCreate();
         if (data.logged_heir_identity == identity) return;
         data.logged_heir_identity = identity;
+        // 秘密立储不昭告天下(见 LateImperialSystem)
+        if (LateImperialSystem.SecretSuccession(kingdom)) return;
         TranslateHelper.LogKingChooseHeir(kingdom, heir.relation, heir.actor);
     }
 

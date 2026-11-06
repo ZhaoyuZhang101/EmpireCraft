@@ -218,6 +218,7 @@
         F("cultures", "只给这些文化", "chips", cultureSugg),
         F("exclude_cultures", "这些文化不能", "chips", cultureSugg),
         F("requires_traits", "文化要有其中一个政治特性", "chips", () => S.lookups.traits, { hint: "如 nomad 游牧、raider 劫掠传统(见各文化 CultureRule.jsonc 的 political_traits)" }),
+        F("exclude_traits", "有这些政治特性的文化不能", "chips", () => S.lookups.traits, { hint: "如 banner 八旗传统(四等人制不给它，它走旗民分治)" }),
         SEC("推行"),
         F("reform.base_progress_per_year", "每年进度", "number", null, { def: 8 }),
         F("reform.minimum_years", "至少几年", "number", null, { def: 5 }),

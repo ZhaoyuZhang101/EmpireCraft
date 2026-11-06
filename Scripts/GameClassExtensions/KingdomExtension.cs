@@ -561,10 +561,29 @@ public static class KingdomExtension
         // 八旗多元制(见 BannerSystem)：只记在帝国核心上
         public bool banner_regime;
         public float banner_vigor = 100f;
+        public double banner_vigor_at = -1d;
         public double banner_city_at = -1d;
         public bool banner_fugitive_law;
         public int banner_stipend;
         public int banner_unpaid_years;
+        // 入关三政(见 BannerSystem.Conquest)：入关(都城移进属地之城)的时间、圈了几次、永停圈地、剃发易服的时间、放宽逃人法
+        public double banner_entered_at = -1d;
+        public int banner_enclosures;
+        public bool banner_enclosure_stopped;
+        public double banner_queue_at = -1d;
+        public bool banner_law_relaxed;
+        // 封禁(见 BannerSystem.Frontier)：龙兴之地弛禁以后闯关东
+        public bool banner_seal_lifted;
+        // 八旗生计与勇营(见 BannerSystem.Livelihood)：旗缺与上次核缺、汉军出旗、上次办团练；成员国(行省)办过勇营、督抚拥兵自重
+        public float banner_quota;
+        public double banner_quota_at = -1d;
+        public bool banner_hanjun_released;
+        public double banner_militia_at = -1d;
+        public bool banner_yongying;
+        public bool banner_autonomous;
+        // 清代朝制(见 LateImperialSystem)：秘密立储上次暗定储君、改土归流上次改设流官(记在帝国核心上)
+        public double secret_heir_at = -1d;
+        public double tusi_reform_at = -1d;
         public bool is_peasant_revolutionary_government = false;
         public bool is_peasant_land_rebellion = false;
         public long peasant_land_rebellion_war_id = -1L;

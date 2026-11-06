@@ -7,6 +7,7 @@
 
     "banner_guard": { "template": "formation_template_banner", "numeral": "banner", "source": "banner", "raise": 0.7, "training": 0.7, "upkeep": 1.4 },
     "green_standard": { "template": "formation_template_stem", "numeral": "stem", "modern_template": "formation_template_modern_division", "training": 1.2, "veteran_cap": 70, "upkeep": 0.8, "task": "mixed" },
+    "yongying": { "template": "formation_template_stem", "numeral": "stem", "modern_template": "formation_template_modern_division", "source": "local", "raise": 1.2, "training": 1.0, "veteran_cap": 85, "upkeep": 0.9, "task": "mixed" },
     "xiangyong": { "template": "formation_template_stem", "numeral": "stem", "modern_template": "formation_template_modern_division", "source": "local", "raise": 1.5, "training": 1.4, "veteran_cap": 50, "upkeep": 0.6, "denied_arms": ["Mechanized", "Tank", "Helicopter", "Fighter", "Bomber", "HeavyArtillery"], "task": "garrison", "reach": 12, "command": "local" },
     "imperial_guard": { "template": "formation_template_stem", "numeral": "stem", "modern_template": "formation_template_modern_corps" },
     "frontier_army": { "template": "formation_template_stem", "numeral": "stem", "modern_template": "formation_template_modern_division", "task": "mixed" },
@@ -80,6 +81,7 @@
   },
   "regimes": {
     "Banner": { "central": "banner_guard", "district": "green_standard", "prefecture": "xiangyong", "manual": "banner_guard" },
+    "BannerKhanate": { "central": "banner_guard", "district": "tribal_host", "prefecture": "tribal_levy", "manual": "banner_guard" },
     "LvLing": { "central": "imperial_guard", "district": "frontier_army", "prefecture": "fubing", "manual": "imperial_guard" },
     "Feudalism": { "central": "royal_host", "district": "vassal_host", "prefecture": "feudal_levy", "manual": "royal_host" },
     "ZhouFeudalism": { "central": "royal_army_zhou", "district": "vassal_army_zhou", "prefecture": "citizen_levy_zhou", "manual": "royal_army_zhou" },

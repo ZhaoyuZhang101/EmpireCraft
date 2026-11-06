@@ -2,8 +2,10 @@
     "name": "Manzhou",
     "color": "#856100",
     "translate_cz": "女真",
+    "translate_ch": "女真",
     "setting": {
-        "regime": "NomadFeudalism",
+        // 默认游牧(用户 2026-11-06)；游牧线的千户制在女真叫猛安谋克，后接只给 banner 特性的八旗制度(见 BannerSystem)
+        "regime": "YouMu",
         "institution_line": "Youmu",
         "tianxia": "Steppe",
         "Party": {
@@ -17,9 +19,11 @@
         "traits": [
             "patriarchy"
         ],
+        // 游牧、劫掠传统、八旗传统(banner：能推行游牧线的八旗制度，入主中原改行八旗多元制)
         "political_traits": [
             "nomad",
-            "raider"
+            "raider",
+            "banner"
         ],
         "Settlement": {
             "yurt_village_modes": {

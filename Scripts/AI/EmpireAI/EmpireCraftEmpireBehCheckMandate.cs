@@ -22,6 +22,8 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         RitesSystem.Yearly(empire);
         GuoyeSystem.Yearly(empire);
         BannerSystem.Yearly(empire);
+        EthnicRankSystem.Yearly(empire);
+        LateImperialSystem.Yearly(empire);
         ImperialSealSystem.Yearly(empire);
         CliqueSystem.Yearly(empire);
         // 还没入派的在任官员(城主、成员国君主等)按入派规矩补录，朋党归不进去的也在这里补

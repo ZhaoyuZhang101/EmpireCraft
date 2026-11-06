@@ -398,11 +398,31 @@ public sealed class WorldMapEra
         : string.Format(NeoModLoader.General.LM.Get("world_map_year_ad"), year);
 
     public int TechTier(string cultureKey) =>
-        tech.TryGetValue(cultureKey ?? "", out int tier) ? tier : tech.TryGetValue("*", out int any) ? any : 3;
+        tech.TryGetValue(KeyFor(tech, cultureKey), out int tier) ? tier : tech.TryGetValue("*", out int any) ? any : 3;
 
     public IEnumerable<string> SkippedTechs(string cultureKey) =>
         (techSkip.TryGetValue("*", out var any) ? any : new List<string>())
-        .Concat(techSkip.TryGetValue(cultureKey ?? "", out var own) ? own : new List<string>());
+        .Concat(techSkip.TryGetValue(KeyFor(techSkip, cultureKey), out var own) ? own : new List<string>());
+
+    public List<string> ExtraTechs(string cultureKey) =>
+        techExtra.TryGetValue(KeyFor(techExtra, cultureKey), out var extra) ? extra : new List<string>();
+
+    public List<string> Institutions(string cultureKey) =>
+        inst.TryGetValue(KeyFor(inst, cultureKey), out var nodes) ? nodes : new List<string>();
+
+    // 剧本没单写这个文化(后来加的文化包，如女真)：照同一条制度线上写了的文化取——先取与线同名的(游牧线取游牧)，
+    // 再取别的同线文化；以前没写的文化从部落起步、科技照"*"
+    public static string KeyFor<T>(Dictionary<string, T> table, string cultureKey)
+    {
+        cultureKey ??= "";
+        if (table == null || table.ContainsKey(cultureKey)) return cultureKey;
+        string line = EmpireCraft.Scripts.Data.OnomasticsRule.GetInstitutionLine(cultureKey);
+        if (string.IsNullOrEmpty(line)) return cultureKey;
+        if (table.ContainsKey(line)) return line;
+        foreach (string key in table.Keys.OrderBy(key => key, StringComparer.Ordinal))
+            if (key != "*" && EmpireCraft.Scripts.Data.OnomasticsRule.GetInstitutionLine(key) == line) return key;
+        return cultureKey;
+    }
 
     public string RegionCulture(WorldMapRegion region) =>
         region == null ? "" : culture.TryGetValue(region.id, out string value) ? value : region.culture;

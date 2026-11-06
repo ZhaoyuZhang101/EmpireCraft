@@ -376,7 +376,7 @@ public static class PopulationEconomySystem
         // 世家荫户少收(见 GentrySystem)；城外镇村毁于兵火，那几份不交税(见 RuralSettlementSystem)
         // 奢侈品买得到，手头活络，税多收一点(±5%，见 CommodityMarketSystem)
         // 旗人不纳粮、旗地不交田赋(见 BannerSystem)
-        double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * BannerSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
+        double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * BannerSystem.TaxFactor(city) * EthnicRankSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
                           RuralSettlementSystem.OutputFactor(city) * CommodityMarketSystem.LuxuryTaxFactor(city);
         float remaining = income, due = 0f;
         long wholeTotal = 0;
