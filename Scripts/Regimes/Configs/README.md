@@ -78,7 +78,7 @@
 | `modern_template` | 空 | 文化进工业时代后改用的模板语言键；空表示不变 |
 | `scope` | `formation` | 编号范围：`kingdom` 全国一套、`formation` 本建制一套、`region` 每座驻地一套 |
 | `echelons` | 无 | 按满编取层级，`below` 是上限，最后一项不写 `below`；层级随满编变，番号不变 |
-| `source` | `any` | 兵源：`any` 各城、`local` 只从驻地附近、`trained` 只收归化台账里的合格军人(花钱募的不受限)、`banner` 只收旗人和统治族群(别的军不收旗人) |
+| `source` | `any` | 兵源：`any` 各城、`local` 只从驻地附近、`trained` 只收归化台账里的合格军人(花钱募的不受限)、`banner` 只收旗人、统治族群和蒙古(游牧文化)百姓(别的军不收旗人) |
 | `raise` | 1 | 补员速度倍数 |
 | `training` | 1 | 新兵冲淡老兵的倍数，越大训练越差 |
 | `veteran_cap` | 100 | 老兵值上限 |

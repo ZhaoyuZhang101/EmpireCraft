@@ -5,9 +5,9 @@
     "setting": {
         "regime": "Origin",
         "institution_line": "Arabic",
+        // 法教传统(dharmic)是印度的；斯瓦希里奉伊斯兰、走阿拉伯线，不带它才有哈里发册封、天课与圣战
         "political_traits": [
-            "dry_native",
-            "dharmic"
+            "dry_native"
         ],
         "tianxia": "Umma",
         "Constitution": {

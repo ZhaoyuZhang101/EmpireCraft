@@ -8,7 +8,8 @@
         "political_traits": [
             "dry_native"
         ],
-        "tianxia": "Zulu",
+        // 天下标识：与班图同属"非洲"天下(撒哈拉以南的原始封建线诸族)
+        "tianxia": "Africa",
         "Constitution": {
             "clauses": {
                 "religion": "StateReligion"

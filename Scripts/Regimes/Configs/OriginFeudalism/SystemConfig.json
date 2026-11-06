@@ -4,7 +4,9 @@
     "icon_url": "",
     "era_name": false,
     "has_cabinet": true,
-    "is_monarchy": false,
+    // 君主制(2026-11-06)：至高王世袭，孔雀、贵霜、莫卧儿与班图诸王国才有联姻、王室、空位期、传国玉玺、立储这些君主玩法；
+    // 君主选任方式随之改为世袭(下面 option_leader_select_method 第一位 0；以前是 2 推举，核心没有继承人)
+    "is_monarchy": true,
     "allows_landlord_class": true,
     "cabinet_number": 5,
     "leader_select_method": "Succession",
@@ -41,7 +43,7 @@
       "toggle_allow_army": [1],
       "toggle_support_army_to_center": [0],
       "option_tax_level": [1, 3],
-      "option_leader_select_method": [2, 3],
+      "option_leader_select_method": [0, 3],
       "option_religion_type": [2, 4],
       "option_succession_law": [0, 5]
     },

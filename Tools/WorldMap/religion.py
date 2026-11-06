@@ -37,7 +37,9 @@ RELIGIONS = [
     R("arab_pagan", [(EARLY, "阿拉伯诸神|Arabian Polytheism")], "Folk", "Umma", [[EARLY, "mecca"]]),
     R("egyptian", [(EARLY, "埃及诸神|Egyptian Religion")], "Folk", "Umma", [[EARLY, "thebes"]]),
     R("punic", [(EARLY, "迦太基诸神|Punic Religion")], "Folk", "Umma", [[EARLY, "carthage"]]),
-    R("african", [(EARLY, "非洲传统信仰|African Traditional Religion")], "Folk", "Umma", [[EARLY, "djenne"]]),
+    # 非洲传统信仰归"非洲"天下(班图、祖鲁的天下标识，2026-11-06)：以前记在乌玛，是乌玛的地方小教，丢了圣地或只剩几城就整体改奉
+    # 乌玛的正教(见 ReligionSphere)；班图、祖鲁的天下里也没有本土宗教，还会另创新教
+    R("african", [(EARLY, "非洲传统信仰|African Traditional Religion")], "Folk", "Africa", [[EARLY, "djenne"]]),
     R("islam", [(EARLY, "伊斯兰教|Islam")], "Islam", "Umma", [[EARLY, "mecca"]]),
     R("shia", [(EARLY, "什叶派|Shia Islam")], "Islam", "Umma", [[EARLY, "kufa"]], parent="islam", split="shia"),
     R("judaism", [(EARLY, "犹太教|Judaism")], "Judaism", "Kosher", [[EARLY, "jerusalem"]]),

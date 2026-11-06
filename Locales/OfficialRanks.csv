@@ -358,6 +358,26 @@ official_rank_army_aztec_6,老练武士,Tequihua,老練武士
 official_rank_army_aztec_7,青年武士,Telpochtli,青年武士
 official_rank_army_aztec_8,见习武士,Novice Warrior,見習武士
 
+official_rank_court_origins_0,王室重臣,Grand Counsellor,王室重臣
+official_rank_court_origins_1,王室顾问,Royal Counsellor,王室顧問
+official_rank_court_origins_2,大管家,High Steward,大管家
+official_rank_court_origins_3,贡赋总管,Master of Tribute,貢賦總管
+official_rank_court_origins_4,王使,Royal Envoy,王使
+official_rank_court_origins_5,仓廪官,Keeper of Stores,倉廩官
+official_rank_court_origins_6,传令官,Herald,傳令官
+official_rank_court_origins_7,头人,Headman,頭人
+official_rank_court_origins_8,王仆,Royal Retainer,王僕
+
+official_rank_army_origins_0,大战帅,High Warlord,大戰帥
+official_rank_army_origins_1,战帅,Warlord,戰帥
+official_rank_army_origins_2,军团长,Host Leader,軍團長
+official_rank_army_origins_3,千人长,Captain of a Thousand,千人長
+official_rank_army_origins_4,近卫长,Captain of the Guard,近衛長
+official_rank_army_origins_5,百人长,Captain of a Hundred,百人長
+official_rank_army_origins_6,勇士长,Champion,勇士長
+official_rank_army_origins_7,勇士,Warrior,勇士
+official_rank_army_origins_8,持矛兵,Spearman,持矛兵
+
 official_rank_court_roman_0,执政官级,Consular Rank,執政官級
 official_rank_court_roman_1,监察官级,Censorial Rank,監察官級
 official_rank_court_roman_2,裁判官级,Praetorian Rank,裁判官級

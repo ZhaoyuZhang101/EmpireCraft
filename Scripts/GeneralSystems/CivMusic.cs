@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 文明乐：镜头拉近到某一系文明的地盘时，缓入循环播放那一系的曲子，原版背景音乐同时淡出；拉远或离开就反过来。
 //   曲子：Music/civ/<文化系>_<n>.ogg(八系：huaxia 华夏、japan 日本、western 西方、norse 北欧、arab 阿拉伯、steppe 草原、
-//     india 印度、america 美洲；出处见 Docs/CREDITS.md，加工见 Tools/SoundForge/civ_music_forge.py)。
+//     india 印度、america 美洲(非洲的班图、祖鲁也借这一系)；出处见 Docs/CREDITS.md，加工见 Tools/SoundForge/civ_music_forge.py)。
 //     不放 GameResources：NML 会把那里除图片、wav 以外的文件全当文本读进内存。
 //     用时才从文件开一路流(FMOD 的流，不整首读进内存)，开过的留着下次用。
 //   哪一系：每半秒看屏幕中心和上下左右四点(各离中心四分之一屏)所在地块的城——城的主流文化，没有就取所属国的文化；
@@ -265,17 +265,23 @@ public static class CivMusic
             case "Aztec":
             case "Ojibwe":
                 return "america";
+            // 班图、祖鲁没有自己的曲子：借美洲那一系(鼓与木管为主的部族曲，比西方、阿拉伯的更像)；斯瓦希里走阿拉伯线，按线放阿拉伯
+            case "Bantu":
+            case "Zulu":
+                return "america";
             case "ElfFancy":
                 return null;
         }
         if (culture.IsNomadCulture()) return "steppe";
-        // 别的(自定义)文化按制度线：罗马线的西方各族(法兰克、日耳曼、斯拉夫、西方、罗马……)都算西方
+        // 别的(自定义)文化按制度线：罗马线的西方各族(法兰克、日耳曼、斯拉夫、西方、罗马……)都算西方；
+        // 原始封建线的自定义文化同班图、祖鲁，放美洲那一系(以前这条线不放曲子)
         return InstitutionSystem.GetCultureLine(culture) switch
         {
             "Roma" => "western",
             "Huaxia" => "huaxia",
             "Japan" => "japan",
             "Arabic" => "arab",
+            "Origins" => "america",
             _ => null
         };
     }

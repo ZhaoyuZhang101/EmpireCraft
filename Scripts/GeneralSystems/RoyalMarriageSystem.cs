@@ -13,7 +13,7 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 王室联姻与继承(西方封建制、阿拉伯政体的君主国；用户 2026-10-19 选"西方与阿拉伯君主国"，华夏、游牧走和亲，
-// 见 FrontierRelations)：
+// 见 FrontierRelations。原始封建制 2026-11-06 改为君主制后也议婚：印度从阿拉伯政体改走它，孔雀、莫卧儿与班图诸王国照旧联姻)：
 //   ① 联姻：每年各国可能为储君、国王(没有正室时)、成年未婚的王子公主向他国王室议婚——对方的国王、储君或王子公主，
 //      异性、成年、未婚、不是近亲；看对方国力、是否接壤、信仰与文化是否相同、两国好感，配国王、储君的更体面。
 //      只与够得着的国家议婚(用户 2026-11-04 "超远距离外交的bug"；以前全世界的王室都挑，隔半个地图也结亲)：同宣战的远近
@@ -31,7 +31,7 @@ public static class RoyalMarriageSystem
 
     public static bool Applies(Kingdom kingdom) =>
         kingdom?.data != null && !kingdom.isRekt() && kingdom.hasKing() &&
-        kingdom.GetRegime()?.type is RegimeType.Feudalism or RegimeType.Arabic;
+        kingdom.GetRegime()?.type is RegimeType.Feudalism or RegimeType.Arabic or RegimeType.OriginFeudalism;
 
     #region 议婚(RoyalHouseSystem 每月调用；各国按编号分到十二个月里，每国每年一次机会，不在同一帧里全算)
 
