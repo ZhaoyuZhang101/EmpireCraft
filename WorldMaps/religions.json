@@ -1166,6 +1166,105 @@
    "islam",
    "islam"
   ],
+  "hausa": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "islam"
+  ],
+  "kanem": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "islam",
+   "islam"
+  ],
+  "yoruba": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "benin": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "kongo": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "catholic"
+  ],
+  "ndongo": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "lunda": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "luba": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "great_lakes": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "zimbabwe": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
+  "nguni": [
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african",
+   "african"
+  ],
   "italy_n": [
    "hellenic",
    "hellenic",
@@ -1773,6 +1872,12 @@
   },
   "champa": {
    "1628": "hindu"
+  },
+  "luanda": {
+   "1628": "catholic"
+  },
+  "sofala": {
+   "1628": "catholic"
   }
  }
 }

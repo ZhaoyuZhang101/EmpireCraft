@@ -3356,7 +3356,7 @@
    "id": "jurchen_jin",
    "zh": "金",
    "en": "Jin",
-   "c": "Youmu",
+   "c": "Manzhou",
    "seat": [
     "youyan",
     "manchuria"
@@ -6075,7 +6075,7 @@
    "id": "tibet",
    "zh": "吐蕃",
    "en": "Tibet",
-   "c": "Youmu",
+   "c": "Xizang",
    "seat": [
     "tibet"
    ],
@@ -9102,7 +9102,7 @@
    "id": "aisin_gioro",
    "zh": "金",
    "en": "Later Jin",
-   "c": "Youmu",
+   "c": "Manzhou",
    "seat": [
     "manchuria"
    ],

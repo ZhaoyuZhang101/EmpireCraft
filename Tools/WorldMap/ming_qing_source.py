@@ -56,7 +56,7 @@ MING_FAMOUS = [
 ]
 
 QING = polity(
-    "qing", "清", "Qing", "Youmu", "shenyang",
+    "qing", "清", "Qing", "Manzhou", "shenyang",
     r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, banner=True, core="manchuria",
     era_name="崇德|Chongde", era_year=3, dynasty="aisin_gioro",
     ruler=person("爱新觉罗|Aisin Gioro", "皇太极|Hong Taiji", 46, f="ag01"),
@@ -393,6 +393,7 @@ def main():
     # 清有了红夷大炮(1631 仿造)：科技按文化算，游牧诸部一起带上
     era["techExtra"] = dict(era["techExtra"])
     era["techExtra"]["Youmu"] = ["gunpowder", "matchlock", "hongyi_cannon"]
+    era["techExtra"]["Manzhou"] = ["gunpowder", "matchlock", "hongyi_cannon"]
     ranks = dict(era["ranks"])
     for cid in ("lingao", "chaghan", "shenyang"):
         ranks.pop(cid, None)

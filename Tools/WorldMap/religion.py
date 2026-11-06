@@ -110,6 +110,13 @@ REGIONS = {
     "mauretania": ["punic", "hellenic", "hellenic"] + ["islam"] * 4,
     "sahel": ["african"] * 6 + ["islam"],
     "swahili": ["african"] * 5 + ["islam", "islam"],
+    # 豪萨诸城的君主 14 世纪才奉伊斯兰；加涅姆的赛法瓦王朝 1085 年起奉伊斯兰；刚果王国 1491 年起奉天主教
+    "hausa": ["african"] * 6 + ["islam"],
+    "kanem": ["african"] * 5 + ["islam", "islam"],
+    "yoruba": ["african"] * 7, "benin": ["african"] * 7,
+    "kongo": ["african"] * 6 + ["catholic"],
+    "ndongo": ["african"] * 7, "lunda": ["african"] * 7, "luba": ["african"] * 7, "great_lakes": ["african"] * 7,
+    "zimbabwe": ["african"] * 7, "nguni": ["african"] * 7,
     "italy_n": ["hellenic"] * 3 + ["catholic"] * 4,
     "italy_c": ["hellenic"] * 3 + ["catholic"] * 4,
     "italy_s": ["hellenic"] * 3 + ["catholic"] * 4,
@@ -187,6 +194,7 @@ CITIES = {
     "bijapur": {1628: "islam"}, "golconda": {1628: "islam"}, "ahmednagar": {1628: "islam"}, "devagiri": {1628: "islam"},
     "srinagar": {1628: "islam"},
     "champa": {1628: "hindu"},
+    "luanda": {1628: "catholic"}, "sofala": {1628: "catholic"},
 }
 
 

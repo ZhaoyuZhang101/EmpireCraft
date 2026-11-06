@@ -97,7 +97,7 @@ def add(D, R, P, find):
         ("朱由校|Zhu Youjiao", 1620, 1627, "悊", "熹宗", "天启", "mg15", "mg14", ""),
     ])
 
-    ag = D("aisin_gioro", "金|Later Jin", "Youmu", ["manchuria"], "爱新觉罗|Aisin Gioro")
+    ag = D("aisin_gioro", "金|Later Jin", "Manzhou", ["manchuria"], "爱新觉罗|Aisin Gioro")
     P(ag, "ag_giocangga", "觉昌安|Giocangga")
     P(ag, "ag_taksi", "塔克世|Taksi", "ag_giocangga")
     han(ag, [("努尔哈赤|Nurhaci", 1616, 1626, "武", "太祖", "天命", "ag01", "ag_taksi", "")])

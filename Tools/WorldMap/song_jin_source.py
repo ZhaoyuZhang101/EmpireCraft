@@ -21,7 +21,8 @@ ALTS = {
 }
 
 # 1190 年以后才有的国，或 1140 年已经没了的
-DROP = {"leon", "bulgaria", "cilicia", "almohad", "ghurid", "cyprus", "ayyubid", "salghurid", "chahamana", "yadava"}
+# 贝宁：1180 年埃韦卡一世立奥巴王朝以前，伊戈多米戈多照独立的城
+DROP = {"leon", "bulgaria", "cilicia", "almohad", "ghurid", "cyprus", "ayyubid", "salghurid", "chahamana", "yadava", "benin"}
 
 REPLACE = {
     "ayyubid": [
@@ -190,6 +191,8 @@ PEOPLE = {
     "pagan": dict(ruler=person("", "阿隆悉都|Alaungsithu", 50)),
     "khmer": dict(r=["khmer", "dvaravati"], ruler=person("", "苏利耶跋摩|Suryavarman", 45)),
     "kediri": dict(ruler=person("", "阇耶巴耶|Jayabaya", 30)),
+    # 基尔瓦在 12 世纪末才控制索法拉的金子
+    "kilwa": dict(cities=["kilwa"]),
 }
 
 RELATIONS = [

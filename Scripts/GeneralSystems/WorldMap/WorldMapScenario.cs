@@ -232,8 +232,11 @@ public static class WorldMapScenario
     {
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
+        // 原始部落圈的文化(上古的班图、纳塔尔的祖鲁……)这一时代可能没有剧本城，部落要到补空时才立(见 PlanTribes)：
+        // 照样按本时代给科技、制度，不然这些部落一项科技都没有
         var cultures = new HashSet<string>(_cities.Select(city => city.culture)
             .Concat(_polities.Select(polity => polity.culture))
+            .Concat((_era.tribes ?? new List<WorldMapTribes>()).Where(area => area != null).Select(area => area.culture))
             .Where(CultureService.IsValidCulture));
         List<TechNodeConfig> techs = TechnologySystem.Techs.ToList();
         foreach (string culture in cultures)
