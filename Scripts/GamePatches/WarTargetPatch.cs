@@ -91,7 +91,8 @@ public class WarTargetPatch : GamePatch
                 coreOnly && !GeneralSystems.DeJureAgenda.HoldsCoreOf(initiator, target) ||
                 realmOnly && !GeneralSystems.UnificationSystem.SameRealm(initiator, target))
                 continue;
-            float distance = Kingdom.distanceBetweenKingdom(initiator, target);
+            // 远近：通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)按人员走过去的成本，翻山越岭的算远；没算好时照旧量直线
+            float distance = GeneralSystems.ConnectivitySystem.WarTargetOrder(initiator, target, Kingdom.distanceBetweenKingdom(initiator, target));
             if (distance >= bestDistance) continue;
             bestDistance = distance;
             best = target;

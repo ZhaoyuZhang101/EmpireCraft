@@ -23,6 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (核心王国与它的行政区，不含封国、附庸、别的朝贡国)够得着(InReach：接壤、只隔着走得通的无人区、或隔海在一方水师辐射内；
 //     用户 2026-11-05 选"收紧到接壤"，隔着第三国不算，以前同一块陆地上相距不过 80 格也算)；已经在朝贡的够不着满 DriftYears 年就断了(道远不通，朝贡遂绝)。
 //     剧本、神力定下的朝贡照样立(不过闸)，够不着的同样过些年断了。
+//     几年断：通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)按两边人员往来强度(取好的一边)S，DriftYears × (0.5 + S)——
+//     隔着雪山大漠的五年就断，隔着窄海往来方便的十五年；"够得着"本身照旧只认接壤(用户 11-05 选定)。
 public static class TributaryRelations
 {
     public const float ReturnGiftShare = 0.3f;
@@ -33,6 +35,16 @@ public static class TributaryRelations
     private static readonly Dictionary<long, (double at, long empire, bool reach, double farSince)> Reach = new();
 
     public static void ResetWorldState() => Reach.Clear();
+
+    // 够不着几年断朝贡(见类头)
+    private static float DriftLimit(Kingdom tributary, Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        float a = ConnectivitySystem.Strength(tributary, core, ConnectivityMode.People);
+        float b = ConnectivitySystem.Strength(core, tributary, ConnectivityMode.People);
+        if (a < 0f || b < 0f) return DriftYears;
+        return DriftYears * (0.5f + (a > b ? a : b));
+    }
 
     // 宗主的直辖之地：核心王国与它的行政区(律令制的道、都护府，行省、总督区……见 IsAdministrativeKingdomType)
     public static List<Kingdom> Direct(Empire empire)
@@ -66,7 +78,7 @@ public static class TributaryRelations
             state = (now, empire.id, reach, farSince);
             Reach[tributary.id] = state;
         }
-        if (state.reach || state.farSince < 0d || Date.getYearsSince(state.farSince) < DriftYears) return false;
+        if (state.reach || state.farSince < 0d || Date.getYearsSince(state.farSince) < DriftLimit(tributary, empire)) return false;
         Reach.Remove(tributary.id);
         LogService.LogInfo($"[EmpireCraft][朝贡] {tributary.GetKingdomName()} 与{empire.GetEmpireName()}道远不通已满 {DriftYears} 年，不再朝贡");
         return true;

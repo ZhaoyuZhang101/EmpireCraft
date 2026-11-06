@@ -24,6 +24,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     制成品 0.01、奢侈品 0.005) × 运输科技(工业化 0.4、摩托化 0.25，买卖两边取好的)，每过一个第三国另加过境税 0.05，
 //     与买卖任一方交战的第三国封路；"千里不贩籴"：长安到撒马尔罕成本约 60，丝绸 +30%、粮食 +180%(工业化后 +72%)。
 //     迁徙、空城安置、经济圈、难民、互市、关税同盟、海上商路按人员成本与强度(数值见 ConnectivityConfig 二档一节)。
+//   · 三档(外交与战争)：议婚、通好、结盟按发起一方的人员往来强度(航海档，不要战舰)不低于 diplomacy_min_strength(0.25)；
+//     议婚"近便"加分 1.5 × 强度；两帝宿怨按隔绝度(≥0.8 −5、≥0.5 −20，否则 −50)；挑战争目标按人员成本排远近；
+//     宣战闸的"同一块陆地上相距不远"改按近邻表的陆路成本(不过 24，同以前)。
 public enum ConnectivityMode { People = 0, Goods = 1, Ideas = 2 }
 
 // 障碍(悬停与日志写"隔海""隔山"……)：按最优路径上各类多出来的成本排出主次
@@ -118,6 +121,11 @@ public sealed class ConnectivityConfig
     public float resettle_max_cost = 40f;
     public float settle_budget = 16f, settle_min_cost = 5f, settle_min_cost_spontaneous = 2f;
     public float colony_min_cost = 20f;
+    // 三档 · 外交：议婚、通好、结盟要的人员往来强度；议婚近便加分；两帝宿怨按隔绝度分三档(远、中、近)
+    public float diplomacy_min_strength = 0.25f;
+    public float marriage_bonus = 1.5f;
+    public float rivalry_far_isolation = 0.8f, rivalry_mid_isolation = 0.5f;
+    public int rivalry_far = -5, rivalry_mid = -20, rivalry_near = -50;
     // 结算：几年一轮；主线程取快照每帧几毫秒；后台线程开不起来时主线程每帧算几毫秒；城际寻路最多展开几块；同岛多近的两城连线
     public float pass_years = 1f;
     public float frame_ms = 1f, inline_frame_ms = 2f;

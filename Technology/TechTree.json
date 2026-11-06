@@ -35,7 +35,7 @@
     "world_first_min_tier": 3, "prehistoric_flat": 4.0, "prehistoric_per_city": 0.6, "prehistoric_max_tier": 2, "early_cost_max_tier": 3, "early_cost_multiplier": 0.5,
     "era_output_from_tier": 2, "era_output_per_tier": 0.75, "beyond_era_margin": 1, "beyond_era_cost_multiplier": 10.0
   },
-  "_comment_connectivity": "通达层(见 Scripts/GeneralSystems/ConnectivityRules.cs、ConnectivitySystem.cs)：城与城之间走多远，按地形、路、海与出行一方的交通通信科技算，技术扩散、制度吸收、理念传播、教化按它打折。用户 2026-11-06 选定：隔离强度'标准'(length_scale 1)、海'视距可渡'(没有近海引航只能渡 sight_hop_tiles 格，列岛文化 archipelago_hop_tiles 格)、先接信息类、再贸易迁徙。二档：goods_max_cost 起是贸易与迁徙(运费占货价 = 成本 × freight_tiers 档位系数 × freight_techs 运输科技系数，每过一个第三国另加 transit_tax；near_* 是每城记下的近邻表)。成本单位：平原一块地记 1；强度 = min(1, e^(-(成本 - contact_offset)/衰减长度))，紧密/往来/耳闻按 close/contact/heard_strength。terrain_base 依次为平原、林、丘、漠、雪、沼、丛、山、河、城、山脊；road_grade_factors 为路等级 0~5；sea_* 各项按航海档 0 无、1 近海引航、2 远洋航海、3 工业化(蒸汽)、4 电力或摩托化，sea_range ≤0 为不限。",
+  "_comment_connectivity": "通达层(见 Scripts/GeneralSystems/ConnectivityRules.cs、ConnectivitySystem.cs)：城与城之间走多远，按地形、路、海与出行一方的交通通信科技算，技术扩散、制度吸收、理念传播、教化按它打折。用户 2026-11-06 选定：隔离强度'标准'(length_scale 1)、海'视距可渡'(没有近海引航只能渡 sight_hop_tiles 格，列岛文化 archipelago_hop_tiles 格)、先接信息类、再贸易迁徙。二档：goods_max_cost 起是贸易与迁徙(运费占货价 = 成本 × freight_tiers 档位系数 × freight_techs 运输科技系数，每过一个第三国另加 transit_tax；near_* 是每城记下的近邻表)。三档：diplomacy_min_strength 是议婚、通好、结盟要的人员往来强度，rivalry_* 是两帝宿怨按隔绝度分档。成本单位：平原一块地记 1；强度 = min(1, e^(-(成本 - contact_offset)/衰减长度))，紧密/往来/耳闻按 close/contact/heard_strength。terrain_base 依次为平原、林、丘、漠、雪、沼、丛、山、河、城、山脊；road_grade_factors 为路等级 0~5；sea_* 各项按航海档 0 无、1 近海引航、2 远洋航海、3 工业化(蒸汽)、4 电力或摩托化，sea_range ≤0 为不限。",
   "connectivity": {
     "enabled": true,
     "length_scale": 1.0, "contact_offset": 4.0, "min_strength": 0.05,
@@ -72,6 +72,8 @@
     "near_count": 24, "near_max_cost": 40.0, "migration_candidates": 8, "migration_range": 2.0,
     "circle_max_cost": 10.0, "resettle_max_cost": 40.0,
     "settle_budget": 16.0, "settle_min_cost": 5.0, "settle_min_cost_spontaneous": 2.0, "colony_min_cost": 20.0,
+    "diplomacy_min_strength": 0.25, "marriage_bonus": 1.5,
+    "rivalry_far_isolation": 0.8, "rivalry_mid_isolation": 0.5, "rivalry_far": -5, "rivalry_mid": -20, "rivalry_near": -50,
     "pass_years": 1.0, "frame_ms": 1.0, "inline_frame_ms": 2.0, "astar_max_expand": 2500, "link_tiles": 64.0,
     "sea_neighbours": 8, "sea_other_land": 4, "worker": true
   },

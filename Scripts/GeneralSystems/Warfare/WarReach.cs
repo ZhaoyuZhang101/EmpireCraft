@@ -17,6 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   游牧过沙漠冻土、阿拉伯过沙漠的不算隔着)，沿直线的地形阻力也不过 LandCost(见 TerrainResistance.LineCost；
 //   用户 2026-10-26："印度打不到西藏"，以前量山地、冻土、沙漠的天堑深浅，已改成无人区)，或隔海在水师辐射内(StraitReach)；
 //   内乱不拦：叛乱、煽动、挑拨(神力)、全面战争，同一帝国内，封建上下级，开国不满一年的新政权宣战(刚分出来的叛军、割据打原主)。
+//   "同一块陆地上相距不远"的地形阻力：通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)不再沿直线取样，
+//   查两城近邻表里不走海的那条路的成本(真实绕路、走路、过关都算进去)，门槛照旧 LandCost(24)；查不准时照旧沿直线估。
 // 接壤改成"法理相连且走得通"(用户 2026-11-04 转群友"邻国宣战机制把无人区法理算上""不至于打了整整 10 年的静坐战"，问答定
 // "法理相连且走得通才算")：三国剧本 90 年存档，真接壤的 201 对国家里 59 对一处都走不通，20 场仗 6 场两边走不到一起，最长打了 15 年。
 //   · 隔着无人区相邻(见 WildernessNeighbours)、走得通的算邻国，不限 LandTiles(走廊常比它长)；
@@ -211,10 +213,25 @@ public static class WarReach
                 if ((x.city_center - y.city_center).sqrMagnitude > limit) continue;
                 WorldTile tile = y.getTile();
                 if (tile != null && at.isSameIsland(tile) && WildernessPassage.Reachable(at.zone, tile.zone, x.kingdom) &&
-                    TerrainResistance.LineCost(at.zone, tile.zone, x.kingdom) <= LandCost) return true;
+                    LandCostWithin(x, y, at, tile)) return true;
             }
         }
         return false;
+    }
+
+    // 两城之间陆路的地形阻力不过 LandCost(见类头)
+    private static bool LandCostWithin(City x, City y, WorldTile at, WorldTile tile)
+    {
+        float cost = ConnectivitySystem.NearLandCost(x, y, LandCost);
+        if (cost >= 0f) return cost <= LandCost;
+        return TerrainResistance.LineCost(at.zone, tile.zone, x.kingdom) <= LandCost;
+    }
+
+    // 两边(帝国连同成员)同一块陆地上有两座城相距不远、走得过去(同 Reachable 的陆上一条；定战争目标分陆战、跨海用，见 WarGoalSystem)
+    public static bool LandNearby(Kingdom a, Kingdom b)
+    {
+        if (a?.data == null || b?.data == null || a.isRekt() || b.isRekt()) return false;
+        return LandNear(Members(a), Members(b));
     }
 
     private static List<City> Cities(List<Kingdom> realm) =>

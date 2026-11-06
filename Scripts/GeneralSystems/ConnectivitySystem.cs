@@ -32,6 +32,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 二档接入(用户 2026-11-06 同意"先信息类、再贸易迁徙")：GoodsRoute/GoodsRoutes/Freight(商品市场连通、运费、过境、封路)、
 //   NearCities/NearCost/ClosestOf/StrengthOf(迁徙、国内市场、经济圈、难民、空城安置、开放移民与驱逐、市易传教)，
 //   都查本轮算好的表，主线程不按次寻路(难民、殖民这类偶发的才按需算一次)。
+// 三档接入(外交与战争)：CanContact/ContactStrength(议婚、通好、结盟、外交界面)、PeopleCost/WarTargetOrder(挑战争目标排远近)、
+//   NearLandCost(宣战闸的陆上近邻，见 WarReach.LandNear)；都是查表。
 public static class ConnectivitySystem
 {
     private enum Phase { Idle, Zones, Cities, Links, Groups, Compute }
@@ -1044,6 +1046,64 @@ public static class ConnectivitySystem
             for (int i = 0; i < third.Length; i++) third[i] = _result.Realms[pair.Third[i]];
         }
         return new ConnectivityRoute(to, pair.Cost, pair.Has(ConnectivityPair.BySea), third);
+    }
+
+    #endregion
+
+    #region 三档：外交与战争(查表)
+
+    // 发起一方(按它的本事：航海档、路、驿传，不要战舰)派使节到对方的强度；还没算返回 -1
+    public static float ContactStrength(Kingdom initiator, Kingdom target) => Strength(initiator, target, ConnectivityMode.People);
+
+    // 外交够得着(议婚、通好、结盟)：强度不低于 diplomacy_min_strength；还没算返回 null(调用方照旧)
+    public static bool? CanContact(Kingdom initiator, Kingdom target)
+    {
+        float strength = ContactStrength(initiator, target);
+        return strength < 0f ? null : strength >= Config.diplomacy_min_strength;
+    }
+
+    // 两边谁派使节都行(通好这类没有发起一方的)：两个方向取好的
+    public static bool? CanContactEither(Kingdom a, Kingdom b)
+    {
+        float x = ContactStrength(a, b), y = ContactStrength(b, a);
+        if (x < 0f || y < 0f) return null;
+        return Math.Max(x, y) >= Config.diplomacy_min_strength;
+    }
+
+    // from 一方人员走到 to 的成本(政权之间各取最近的一对城)：同一政权 0；远得不必算(强度不到 min_strength)为 +∞；还没算 -1
+    public static float PeopleCost(Kingdom from, Kingdom to)
+    {
+        if (!TryRealms(from, to, out int a, out int b, out bool same)) return -1f;
+        if (same) return 0f;
+        return _result.RealmPeopleOut[a].TryGetValue(b, out ConnectivityPair pair) ? pair.Cost : float.PositiveInfinity;
+    }
+
+    // 挑战争目标排远近用：通达层算好后按人员成本(远得不必算的排在后面、再按直线)，没算好时照旧按直线距离 fallback
+    public static float WarTargetOrder(Kingdom from, Kingdom to, float fallback)
+    {
+        float cost = PeopleCost(from, to);
+        if (cost < 0f) return Ready ? 1e5f + fallback : fallback;
+        return float.IsPositiveInfinity(cost) ? 1e6f + fallback : cost;
+    }
+
+    // 两城之间的陆路成本(近邻表里不走海的那一项，两边都查，取低的)：都不在表里为 +∞；
+    // 近邻表满了、表里最远的还不到 within(说明对方可能只是被更近的城挤出了表)或还没算，返回 -1(调用方照旧估算)
+    public static float NearLandCost(City a, City b, float within)
+    {
+        if (!TryNode(a, out int x) || !TryNode(b, out int y)) return -1f;
+        if (x == y) return 0f;
+        float best = float.PositiveInfinity;
+        bool saturated = false;
+        foreach ((int from, int to) in new[] { (x, y), (y, x) })
+        {
+            if (from >= _result.NearNodes.Length || _result.NearNodes[from] == null) return -1f;
+            int[] ids = _result.NearNodes[from];
+            float[] costs = _result.NearCosts[from];
+            for (int i = 0; i < ids.Length; i++)
+                if (ids[i] == to && (_result.NearFlags[from][i] & 1) == 0 && costs[i] < best) best = costs[i];
+            if (ids.Length >= Config.near_count && ids.Length > 0 && costs[ids.Length - 1] < within) saturated = true;
+        }
+        return float.IsPositiveInfinity(best) && saturated ? -1f : best;
     }
 
     #endregion

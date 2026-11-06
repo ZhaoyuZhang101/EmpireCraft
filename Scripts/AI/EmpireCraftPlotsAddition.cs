@@ -2822,7 +2822,9 @@ namespace EmpireCraft.Scripts.AI
                 .ThenByDescending(target => DeJureAgenda.HoldsCoreOf(pInitiatorKingdom, target))
                 // 有统一倾向的文化先打同一天下的(见 UnificationDrive)
                 .ThenByDescending(target => UnificationDrive.Prefers(pInitiatorKingdom, target))
-                .ThenBy(target => Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target))
+                // 再就近：通达层算好后按人员走过去的成本(翻山越岭的算远)，没算好时照旧量直线(见 ConnectivitySystem.WarTargetOrder)
+                .ThenBy(target => ConnectivitySystem.WarTargetOrder(pInitiatorKingdom, target,
+                    Kingdom.distanceBetweenKingdom(pInitiatorKingdom, target)))
                 .ThenBy(target => World.world.diplomacy?.getOpinion(pInitiatorKingdom, target)?.total ?? 0)
                 .ThenBy(target => target.id)
                 .FirstOrDefault();
