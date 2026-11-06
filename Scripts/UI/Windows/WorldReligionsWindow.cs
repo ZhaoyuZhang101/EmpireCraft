@@ -11,7 +11,8 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     // 天下宗教名册(用户 2026-10-27 定稿示意图 ①，主栏"文化与理念"组的按钮打开)：
     //   · 左栏：现存几教、信众；筛选(全部、有教阶、分出的教会)；按类型；
-    //   · 右栏：主指标(最大宗教、国教最多、最近大事) → 两栏宗教卡(色条、名与地位、教首与类型·圣地、城/信众/国教/教权)，点开宗教窗口。
+    //   · 右栏：主指标(最大宗教、国教最多、最近大事) → 两栏宗教卡(色条、名与地位、教首与类型·圣地、城/信众/国教/教权)，点开宗教窗口；
+    //     西方大分裂中的教会多一行对立教宗与对立教廷(见 PapacySystem.Antipope)。
     public class WorldReligionsWindow : WideScrollWindow<WorldReligionsWindow>
     {
         private const int MaxCards = 24;
@@ -114,6 +115,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                         holy != null ? holy.GetCityName() : LM.Get("papacy_see_lost")),
                     leader != null ? leader.getName() : ReligionDisplay.HierarchyName(religion),
                     leader != null ? ReligionDisplay.HeadCaption(religion, leader) : null);
+                var schism = PapacySystem.ActiveSchism(religion);
+                if (schism != null)
+                    card.AddValueRow(width, 0, LM.Get("religion_row_antipope"),
+                        string.Format(LM.Get("world_religions_antipope"), PapacySystem.Antipope(religion)?.getName() ?? LM.Get("label_none"),
+                            schism.see_city_name, $"{PapacySystem.AntipopeShare(religion):P0}"), WideKit.Red);
                 card.AddMetricRow(width,
                     (LM.Get("empire_list_metric_cities"), stat.Cities.ToString(), WideKit.Green),
                     (LM.Get("world_religions_people"), UIHelper.ShortCount(stat.People), WideKit.Value),

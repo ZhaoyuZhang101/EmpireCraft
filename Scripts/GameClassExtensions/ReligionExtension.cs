@@ -37,6 +37,12 @@ public static class ReligionExtension
         // 本宗教已分出过正教会、什叶派(各一次)
         public bool EasternSplit;
         public bool ShiaSplit;
+        // 伊斯兰诸分裂(对立哈里发、什叶派与伊斯玛仪派、复古运动，见 IslamicSchismSystem)；旧档与别的宗教为空
+        public IslamicSchismState Islamic;
+        // 西方大分裂(对立教宗与各国的服从，见 PapacySystem.Antipope)：没闹过是 null
+        public PapalSchismData PapalSchism;
+        // 分出的缘由与发端(宗教改革的改革者、诸侯，国教会，对立一线分立，见 PapacySystem.Reformation)：旧档、别的教会是 null
+        public SplitOriginData SplitOrigin;
         // 教宗(见 PapalElection；LeaderID 记现任教宗)：怎么选立的(0 未记、1 枢机推举、2 世俗强立)、选立时间
         public int PopeChosenBy;
         public double PopeChosenAt = -1d;

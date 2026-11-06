@@ -13,7 +13,8 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.UI.Windows
 {
     // 教廷与帝国页(西方，见 PapacySystem)：
-    //   页头 → 主指标(教权、加冕、叙任权、什一税) → 两栏(教廷：教宗、圣地、教廷所在、状态 | 本国与教廷：叙任权之争、绝罚、两党)
+    //   页头 → 主指标(教权、加冕、叙任权、什一税) → 两栏(教廷：本国服从的教宗、圣地、教廷所在、状态；大分裂中加服从与另一位教宗 |
+    //   本国与教廷：叙任权之争、绝罚、两党、国教会、普世之名、宗教改革——本国新教之城占比与最大一支)
     //   → 圣战卡 → 骑士团卡 → 按钮(加冕、绝罚或解除、号召圣战、创立骑士团)
     public partial class EmpireWindow
     {
@@ -39,7 +40,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             string crown = !crownable ? LM.Get("papacy_crown_na")
                 : PapacySystem.IsHolySee(_empire) ? LM.Get("papacy_crown_holy_see")
                 : PapacySystem.IsExcommunicated(_empire) ? LM.Get("papacy_crown_banned")
-                : PapacySystem.IsCrowned(_empire) ? LM.Get(state.self_crowned ? "papacy_crown_self" : "papacy_crown_pope")
+                : PapacySystem.IsCrowned(_empire)
+                    ? LM.Get(state.self_crowned ? "papacy_crown_self" : state.crowned_by_rival ? "papacy_crown_antipope" : "papacy_crown_pope")
                 : LM.Get("papacy_crown_none");
             string crownHex = !crownable ? WideKit.Muted
                 : PapacySystem.IsExcommunicated(_empire) ? WideKit.Red
@@ -52,9 +54,13 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             var columns = page.BeginColumns(MainWidth);
             var see = columns.BeginColumnCard(HalfWidth, "papacy_see_title", WideKit.Gold, null, "TabPapacy");
-            Actor pope = PapacySystem.Pope(religion);
-            see.AddPersonRow(HalfWidth, pope, LM.Get("papacy_pope"), pope?.getName() ?? LM.Get("label_none"),
-                papacy != null ? papacy.GetKingdomName() : LM.Get("papacy_see_lost"));
+            // 西方大分裂：头一行是本国服从的那位(奉对立教宗的显示对立教宗与扶立者)，另一位列在下面(见 PapacySystem.Antipope)
+            PapalSchismData schism = PapacySystem.ActiveSchism(religion);
+            bool antipope = schism != null && PapacySystem.FollowsAntipope(_empire);
+            Actor pope = antipope ? PapacySystem.Antipope(religion) : PapacySystem.Pope(religion);
+            Kingdom obeyed = antipope ? PapacySystem.AntipopeSee(religion) : papacy;
+            see.AddPersonRow(HalfWidth, pope, LM.Get(antipope ? "papacy_antipope" : "papacy_pope"), pope?.getName() ?? LM.Get("label_none"),
+                obeyed != null ? obeyed.GetKingdomName() : LM.Get("papacy_see_lost"));
             see.AddListRow(HalfWidth, 0, null, LM.Get("papacy_holy_city"), PapacySystem.HolyCity(religion)?.GetCityName() ?? "", titleWidth: 50f);
             see.AddListRow(HalfWidth, 1, null, LM.Get("papacy_state"), PapacyStatus(religion), titleWidth: 50f);
             if (papacy != null)
@@ -63,6 +69,16 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (PopeLegitimacy.Applies(religion))
                 see.AddListRow(HalfWidth, 3, null, LM.Get("religion_pope_legitimacy"), PopeLegitimacy.Get(religion).ToString(),
                     titleWidth: 50f);
+            if (schism != null)
+            {
+                see.AddListRow(HalfWidth, 4, null, LM.Get("papacy_obedience"),
+                    string.Format(LM.Get(antipope ? "papacy_obedience_2" : "papacy_obedience_1"),
+                        antipope ? schism.see_city_name : PapacySystem.HolyCity(religion)?.GetCityName() ?? ""), titleWidth: 50f);
+                Actor other = antipope ? PapacySystem.Pope(religion) : PapacySystem.Antipope(religion);
+                string otherSeat = antipope ? PapacySystem.HolyCity(religion)?.GetCityName() ?? "" : schism.see_city_name;
+                see.AddListRow(HalfWidth, 5, null, LM.Get(antipope ? "papacy_other_pope" : "papacy_antipope"),
+                    $"{other?.getName() ?? LM.Get("label_none")} · {otherSeat}", titleWidth: 50f);
+            }
 
             var realm = columns.BeginColumnCard(HalfWidth, "papacy_realm_title", WideKit.Cyan);
             string contest = PapacySystem.InContest(_empire)
@@ -82,6 +98,11 @@ namespace EmpireCraft.Scripts.UI.Windows
                 realm.AddListRow(HalfWidth, 4, null, LM.Get("papacy_national_church"), religion.name, titleWidth: 56f);
             // 普世之名(见 RealmNamingSystem.Universal)
             realm.AddListRow(HalfWidth, 5, null, LM.Get("papacy_universal_name"), RealmNamingSystem.UniversalStatus(_empire), titleWidth: 56f);
+            // 宗教改革：本国奉新教会的城占比与最大一支(见 PapacySystem.Reformation)
+            (Religion reformed, float reformedShare) = PapacySystem.ReformedShare(_empire, religion);
+            realm.AddListRow(HalfWidth, 6, null, LM.Get("papacy_reformation"),
+                reformed != null ? string.Format(LM.Get("papacy_reformation_value"), $"{reformedShare:P0}", reformed.name) : LM.Get("label_none"),
+                titleWidth: 56f);
 
             War crusade = PapacySystem.ActiveCrusade(religion);
             var holyWar = page.BeginCard(MainWidth, "papacy_crusade_title", WideKit.Red,

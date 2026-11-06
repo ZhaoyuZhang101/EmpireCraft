@@ -19,7 +19,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (一个天下一个正教，天下别处有就不另立，见 ReligionSphere) → 都没有才在都城立教。立教时世界上还没有伊斯兰的从名库取名，
 //     否则以都城命名；本天下有别教的正教时记它为母宗教(不记就成了地方教会，没有哈里发座，还会被并掉)。
 //     改奉走君主皈依(ReligionConversionSystem.Convert)：君主、国家、都城当场改，其余 40 年内按国教势能加倍陆续改；
-//   · 不许改走：君主皈依、入主从俗、异文明复归、宗教融入诉求、圣战改宗都只放行伊斯兰(MayAdopt)，改奉别的伊斯兰教派不拦；
+//   · 不许改走：君主皈依、入主从俗、异文明复归、宗教融入诉求、圣战改宗都只放行伊斯兰(MayAdopt)，改奉别的伊斯兰教派
+//     (什叶派、伊斯玛仪派、对立哈里发自成的一派，见 IslamicSchismSystem)不拦；
 //     伊斯兰也不并进别教的正教(见 ReligionSphere.YearlyPass)；
 //   · 吸引力：中央与奉同教的成员，境内的国教势能 ×AttractionFactor(见 BackgroundReligionSystem.StateFactor)；
 //     有小人时没有势能，常年每年 ManualCityChance 逐城改宗(见 ReligionConversionSystem.ManualCityConversion)。只管境内，不向外加；
@@ -78,7 +79,8 @@ public static class CaliphateFaith
         empire.data.empire_type_key = "";
     }
 
-    // 每年一次(挂在 ReligiousTension 的年度扫描上，排在统治者皈依前面)
+    // 每年一次(挂在 ReligiousTension 的年度扫描上，排在统治者皈依前面)；定教之后接着结算伊斯兰诸分裂
+    // (对立哈里发、什叶派、复古运动，见 IslamicSchismSystem——它自己守着一年一次，另挂一处也不会重算)
     public static void YearlyPass()
     {
         if (ModClass.IS_CLEAR || ModClass.EMPIRE_MANAGER == null) return;
@@ -88,6 +90,14 @@ public static class CaliphateFaith
             if (empire.data.pre_caliphate_faith && ReligionFaith.IsCaliphal(empire.CoreKingdom?.religion))
                 SetPreIslamic(empire, false);
             TrySettle(empire);
+        }
+        try
+        {
+            IslamicSchismSystem.YearlyPass();
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][宗教] 伊斯兰分裂结算失败: {exception.Message}");
         }
     }
 

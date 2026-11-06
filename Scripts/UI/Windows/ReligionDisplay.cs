@@ -101,9 +101,12 @@ namespace EmpireCraft.Scripts.UI.Windows
             return string.IsNullOrEmpty(hex) ? WideKit.Value : hex.StartsWith("#") ? hex : "#" + hex;
         }
 
-        // 分出的缘由：皇帝兼管 → 东西大分裂；伊斯兰 → 争位分出；其余 → 宗教改革
+        // 分出的缘由：对立一线分立、国教会(见 PapacySystem.Antipope、Reformation)；皇帝兼管 → 东西大分裂；伊斯兰 → 争位分出；其余 → 宗教改革
         public static string SplitCause(Religion religion)
         {
+            int origin = PapacySystem.SplitOrigin(religion)?.kind ?? 0;
+            if (origin == PapacySystem.OriginRivalLine) return LM.Get("religion_split_antipope");
+            if (origin == PapacySystem.OriginNational) return LM.Get("religion_split_national");
             if (religion.GetOrCreate().Caesaropapist) return LM.Get("religion_split_great_schism");
             // 哈里发立教时记了本天下别教的正教作母宗教(见 CaliphateFaith)，不是争位分出来的
             if (ReligionFaith.IsCaliphal(religion) && Parent(religion) is Religion parent && !ReligionFaith.IsCaliphal(parent))
@@ -123,6 +126,46 @@ namespace EmpireCraft.Scripts.UI.Windows
             until = HistoryDateFormatter.GetYear(end);
             return now < end && now >= parent.GetOrCreate().ReligiousPeaceUntil;
         }
+
+        // 分出的教会的发端：类别 · 发起人 · 发端之城(旧档、剧本带的没有)
+        public static string OriginText(Religion religion)
+        {
+            SplitOriginData origin = PapacySystem.SplitOrigin(religion);
+            return origin == null ? "" : string.Format(LM.Get("religion_origin_value"), LM.Get("religion_origin_" + origin.kind),
+                origin.founder_name, origin.city_name);
+        }
+
+        // 宗教改革分出的一支：发端、年份、城数、奉为国教的国数
+        public static string ReformationDetail(Religion church)
+        {
+            int cities = church.cities?.Count ?? 0;
+            int states = World.world.kingdoms.list.Count(kingdom => kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild &&
+                                                                    kingdom.religion == church);
+            SplitOriginData origin = PapacySystem.SplitOrigin(church);
+            return origin == null
+                ? string.Format(LM.Get("religion_reformation_legacy"), cities, states)
+                : string.Format(LM.Get("religion_reformation_detail"), origin.founder_name, origin.city_name,
+                    HistoryDateFormatter.GetYear(origin.at), cities, states);
+        }
+
+        // 大分裂的起因、收场
+        public static string SchismCause(PapalSchismData schism) => LM.Get("antipope_cause_" + schism.cause);
+
+        public static string SchismOutcome(PapalSchismData schism) =>
+            string.Format(LM.Get("religion_schism_end_" + schism.outcome), schism.outcome_place);
+
+        // 一国(帝国按中央)奉哪位教宗：大分裂中才有，否则空串
+        public static string ObedienceTag(Kingdom kingdom)
+        {
+            int obedience = PapacySystem.PapalObedience(kingdom);
+            return obedience == PapacySystem.PapalObedienceNone ? "" : LM.Get("religion_obedience_tag_" + obedience);
+        }
+
+        // 国名列表：至多 count 个，多的记"等 N 国"
+        public static string RealmNames(List<Kingdom> kingdoms, int count = 8) =>
+            kingdoms.Count == 0 ? LM.Get("label_none")
+                : string.Join("、", kingdoms.Take(count).Select(kingdom => kingdom.GetKingdomName())) +
+                  (kingdoms.Count > count ? string.Format(LM.Get("religion_realms_more"), kingdoms.Count) : "");
 
         public static string KindName(int kind) => LM.Get("religion_event_kind_" + kind);
 

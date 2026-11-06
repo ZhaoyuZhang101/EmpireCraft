@@ -29,6 +29,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     苏丹、应仁由争位者一家执政(MilitaryRegency.Usurp)，割据的复奉号令；争位者败(或已亡)——留在帝国，诸部复服，守方胜正统 +5；
 //     决胜：攻下对方都城即定胜负，打满两年后一方兵力达对方两倍对方认输(见 ContestMonthly)；
 //     满五年强制议和或中途议和——争位者与随攻方的割据成员离开帝国各自独立(Empire.leave，不另开战)，没随攻方的复奉号令；
+//     哈里发争位这样相持分裂的，仍奉本教的争位者五成自称哈里发(对立哈里发，用户 2026-11-06，见 IslamicSchismSystem.OnContestSplit)；
+//     哈里发、苏丹争位开战时争位一方可能另奉什叶派、投向已有的什叶派或另立伊斯玛仪派(见 ReligionSchismSystem.OnSuccessionContest)；
 //     土崩瓦解——两年收束时没响应的，帝国存续就复奉号令，灭亡就照 TryFall/Absorb 的直辖规则。
 //     以争位、分裂收场才记大分裂冷却(UpheavalGuard.Mark)，土崩瓦解每省起义各自记，中途化解不记。
 // 化解(预警、割据两阶段，每月)：正统回到该类门槛 +8 且积弊均值低于该类积弊门槛(土崩瓦解另要内忧降到 0.2 以下——它的首义看的是
@@ -81,6 +83,7 @@ public static class SchismSystem
         _lastTick = -1d;
         LoggedMomentum.Clear();
         Declaring = false;
+        IslamicSchismSystem.ResetWorldState();
     }
 
     #region 查询
@@ -598,6 +601,8 @@ public static class SchismSystem
         }
         List<Kingdom> stayed = Members(empire);
         Restore(empire, stayed);
+        // 哈里发争位相持：自立的争位者仍奉本教的，可能自称哈里发(对立哈里发，见 IslamicSchismSystem)
+        if (kind == Caliph) IslamicSchismSystem.OnContestSplit(empire, claimant);
         UpheavalGuard.Mark(empire, $"{KindName(kind)}·相持分裂", detail: $"带走 {cities}/{total} 城");
         LogService.LogInfo($"{Tag} {name} {KindName(kind)}·争位之战相持{years}年({winner})：{person}({realm})与 {LogNames(followers)} " +
                            $"离开帝国自立(共 {leavers.Count} 家 {cities} 城)，没随攻方的 {LogNames(stayed)} 复奉号令");

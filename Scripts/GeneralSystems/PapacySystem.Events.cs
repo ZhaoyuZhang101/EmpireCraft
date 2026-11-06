@@ -16,10 +16,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 教廷的大事件(每年随教权与帝国结算)：
 //   · 教廷之囚：圣地落在世俗强国(帝国中央或成员)手里。挟持者的君主由教宗加冕(教廷在本帝国，见 Coronation)；
-//     与挟持者交战的帝国每年按 教权/100 的概率遭绝罚(教宗受挟)；被挟持满 20 年出现对立教宗(大分裂)，大分裂期间教权目标再 -20；
-//     圣地脱离挟持即告结束；
-//   · 宗教改革脱离罗马：文化施行了宗教改革的西方帝国(教廷所在的、皇帝仍奉旧教的选帝制帝国除外)以皇帝为首另立国教会(新宗教，圣地在帝都)，
-//     帝国各国、各城、城里的人改奉国教会；没收教产(两年经常收入)；母宗教教权 -8。国教会记下母宗教，
+//     与挟持者交战的帝国每年按 教权/100 的概率遭绝罚(教宗受挟)；被挟持满 20 年出现对立教宗(大分裂，真有一位对立教宗与两边服从，
+//     见 PapacySystem.Antipope)，大分裂期间教权目标再 -20；圣地脱离挟持即告结束(大分裂另由公会议收场)；
+//   · 宗教改革脱离罗马(君主率国改宗，用户 2026-11-06 选"更合史实的宗教改革"后不再是唯一的路，见 PapacySystem.Reformation)：
+//     文化施行了宗教改革的西方帝国(教廷所在的、皇帝仍奉旧教的选帝制帝国除外)每年 RealmBreakChance + 境内新教之城占比 ×RealmShareFactor
+//     机会脱离——境内某支新教会已占 AdoptShare 以上就改奉那支(君主、中央、都城改奉，成员国与各城随之慢慢改)，否则以皇帝为首另立国教会
+//     (新宗教，圣地在帝都；帝国各国、各城、城里的人当场改奉)；没施行的，境内新教之城过半也有 PeopleBreakChance。两条路都没收教产
+//     (两年经常收入)；母宗教教权 -8(改奉现成新教会 -6)。以前本文化一施行宗教改革，头一年就整个帝国改宗。国教会记下母宗教，
 //     此后 30 年内母宗教的教廷可号召讨伐异端(教权 40 以上)；讨伐异端的圣战打完(不论胜负)即"教随国定"，母宗教 50 年内不再讨伐异端；
 //   · 骑士团国世俗化：骑士团国所在文化施行了宗教改革或世俗化，大团长改为世袭公国，骑士团解散；
 //   · 圣座帝国：教廷(教皇国)自己做了帝国中央——国号改为"某某圣座"，正统按教权计((教权-50)/2)，不需要加冕。
@@ -38,9 +41,9 @@ public static partial class PapacySystem
         return papacy != null && empire?.CoreKingdom == papacy && papacy.GetKingdomType() == KingdomType.Feudalism_papal_state;
     }
 
-    // 每年随 UpdateReligion：教廷之囚的起止、大分裂(对立教宗)。
-    // 对立教宗：教廷之囚满 SchismYears 年，或教宗正统低于 PopeLegitimacy.AntipopeBelow 时每年 AntipopeChance；
-    // 教廷脱困、教宗正统(不计对立教宗那一项)回到 PopeLegitimacy.HealedAt 以上才弥合(见 PopeLegitimacy)
+    // 每年随 UpdateReligion：教廷之囚的起止、大分裂(对立教宗)起头。
+    // 对立教宗：教廷之囚满 SchismYears 年，或教宗正统低于 PopeLegitimacy.AntipopeBelow 时每年 AntipopeChance，扶立得成才起
+    // (见 PapacySystem.Antipope.StartSchism)；站队、对立一线推举、公会议弥合与分立按年另结(SchismYearly)
     private static void UpdateCaptivity(Religion religion)
     {
         var data = religion.GetOrCreate();
@@ -56,24 +59,14 @@ public static partial class PapacySystem
             ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
             return;
         }
+        // 大分裂进行中：收场按年另结(见 SchismYearly)
+        if (data.Schism) return;
         bool papal = PopeLegitimacy.Applies(religion);
-        if (data.Schism)
-        {
-            if (captive || papal && PopeLegitimacy.Get(religion, countSchism: false) < PopeLegitimacy.HealedAt) return;
-            data.Schism = false;
-            string ended = string.Format(LM.Get("papal_schism_ended_log"), religion.name);
-            TranslateHelper.LogEventMessage(ended, Papacy(religion));
-            ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, ended);
-            return;
-        }
         bool longCaptive = captive && now >= data.CaptiveSince && Date.getYearsSince(data.CaptiveSince) >= SchismYears;
         bool weakPope = papal && PopeLegitimacy.Get(religion) < PopeLegitimacy.AntipopeBelow &&
                         UnityEngine.Random.value < PopeLegitimacy.AntipopeChance;
         if (!longCaptive && !weakPope) return;
-        data.Schism = true;
-        string schism = string.Format(LM.Get("papal_schism_log"), religion.name);
-        TranslateHelper.LogEventMessage(schism, Papacy(religion));
-        ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, schism);
+        StartSchism(religion, longCaptive ? SchismByCaptivity : SchismByWeakPope);
     }
 
     // 教宗受挟：与挟持者交战的帝国遭绝罚
@@ -87,13 +80,22 @@ public static partial class PapacySystem
         return true;
     }
 
-    // 宗教改革脱离罗马：另立国教会
+    // 宗教改革脱离罗马(君主率国改宗)：改奉境内已占上风的新教会，或另立国教会
     private static void TryBreakWithRome(Empire empire)
     {
-        if (InstitutionSystem.IsEnacted(empire, NodeReformation)) BreakWithRome(empire);
+        if (!IsWestern(empire) || HolyRomanSystem.KeepsOldFaith(empire)) return;
+        PapalRelationState state = State(empire);
+        Religion old = ReligionOf(empire);
+        if (state == null || old == null || state.national_church_id >= 0 || IsReformedChurch(old)) return;
+        bool enacted = InstitutionSystem.IsEnacted(empire, NodeReformation);
+        (Religion church, float share) = ReformedShare(empire, old);
+        float chance = enacted ? RealmBreakChance + share * RealmShareFactor : share >= 0.5f ? PeopleBreakChance : 0f;
+        if (chance <= 0f || UnityEngine.Random.value >= chance) return;
+        if (church != null && share >= AdoptShare) AdoptRealmReformation(empire, church, old);
+        else if (enacted) BreakWithRome(empire);
     }
 
-    // 另立国教会：本文化施行宗教改革时(TryBreakWithRome)；教权低落、圣战屡败时也会提早(见 ReligionSchismSystem)
+    // 另立国教会：本文化施行宗教改革后君主率国脱离、境内又没有占上风的新教会时(TryBreakWithRome)
     public static bool BreakWithRome(Empire empire)
     {
         // 选帝制帝国的皇帝不随宗教改革脱离罗马，由诸侯另立新教会(见 HolyRomanSystem.SeedReformation)
@@ -114,6 +116,11 @@ public static partial class PapacySystem
         var churchData = church.GetOrCreate();
         churchData.ParentReligionId = old.data.id;
         churchData.SplitAt = World.world.getCurWorldTime();
+        churchData.SplitOrigin = new SplitOriginData
+        {
+            kind = OriginNational, founder_id = head.id, founder_name = head.getName(), city_id = capital.data.id,
+            city_name = capital.GetCityName(), at = churchData.SplitAt
+        };
         state.national_church_id = church.data.id;
         foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
         {

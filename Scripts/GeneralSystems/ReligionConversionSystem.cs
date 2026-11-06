@@ -20,6 +20,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     此后 ConversionPushYears 年国教势能加倍(无小人模式见 BackgroundReligionSystem.StateFactor；有小人时每年 ManualCityChance 逐城改宗)。
 //   · 入主从俗(用户 2026-10-27 选"做"，伊儿汗国改宗伊斯兰、元崇佛)：君主奉的是民族宗教(不是教会、伊斯兰、法教)，治下过半人口
 //     奉另一个天下的本土大教，每年 AdoptSubjectsChance 改奉治下的大教，不看皈依冷却；握着本教圣地的不改。
+//   · 别的系统借用的口子(这里的规则照旧)：宗教改革的诸侯择教、君主率国改奉新教会，东西大分裂随之改宗的帝国中央，都记下
+//     religion_converted_at(见 PapacySystem.Reformation、ReligionSchismSystem)——独立王国、帝国中央因此 ConversionPushYears 年内
+//     国教势能加倍(RecentlyConverted)、成员国陆续随中央(FollowRealm)、有小人时逐城改宗(ManualCityConversion)，CooldownYears 年不再皈依。
 public static class ReligionConversionSystem
 {
     private const float AdoptSubjectsChance = 0.1f;

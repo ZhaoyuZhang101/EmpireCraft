@@ -15,9 +15,10 @@ namespace EmpireCraft.Scripts.UI.Windows
 {
     // 宗教窗口(用户 2026-10-27 定稿示意图 Tasks/ui-mockups/religion-wide.png ②~⑥)：点宗教图层、原版宗教链接
     // (见 ReligionWindowRedirectPatch)、天下宗教名册打开。
-    //   · 左栏：宗教档案(名、地位、类型 · 天下 · 立教)、圣地、教首(教宗、哈里发、兼管的皇帝)、页目、原版宗教窗口；
-    //   · 右栏六页：概况(主指标、宗教性质、近况、奉为国教的国家)、教廷(教权、教宗正统构成、各帝国与教廷)、
-    //     分布(各国信众、本教为国教的国家里的异教城)、谱系(母教与分出的教会、并入的地方教会、与各分支的关系)、
+    //   · 左栏：宗教档案(名、地位、类型 · 天下 · 立教)、圣地、教首(教宗、哈里发、兼管的皇帝；大分裂中加对立教宗)、页目、原版宗教窗口；
+    //   · 右栏六页：概况(主指标、宗教性质、近况、奉为国教的国家——大分裂中标出各国奉哪位教宗)、
+    //     教廷(教权、教宗正统构成、西方大分裂两边与各自服从的国、对立一线历任或上次大分裂、各帝国与教廷)、
+    //     分布(各国信众、本教为国教的国家里的异教城)、谱系(母教与分出的教会、宗教改革各支的改革者与传布、并入的地方教会、与各分支的关系)、
     //     圣战与骑士团、大事记(按类筛选，见 ReligionChronicle)。
     public class ReligionInfoWindow : WideScrollWindow<ReligionInfoWindow>
     {
@@ -133,6 +134,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                     PopeLegitimacy.Applies(religion)
                         ? string.Format(LM.Get("religion_pope_legitimacy_short"), PopeLegitimacy.Get(religion))
                         : null);
+                // 西方大分裂：对立教宗与对立教廷
+                PapalSchismData schism = PapacySystem.ActiveSchism(religion);
+                if (schism != null)
+                {
+                    Actor antipope = PapacySystem.Antipope(religion);
+                    who.AddPersonRow(cardWidth, antipope, LM.Get("papacy_antipope"),
+                        antipope != null ? antipope.getName() : LM.Get("label_none"), schism.see_city_name);
+                }
             }
 
             var menu = rail.BeginRailMenu(LM.Get("religion_rail_group"));
@@ -211,13 +220,23 @@ namespace EmpireCraft.Scripts.UI.Windows
             recent.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_crusade"),
                 crusade != null ? crusade.data.name : LM.Get("label_none"), crusade != null ? WideKit.Red : WideKit.Soft);
             recent.AddValueRow(ColumnWidth, row++, LM.Get("papacy_orders_title"), PapacySystem.Orders(religion).Count().ToString(), WideKit.Gold);
+            PapalSchismData schism = PapacySystem.ActiveSchism(religion);
             recent.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_antipope"),
-                LM.Get(data.Schism ? "religion_yes" : "religion_no"), data.Schism ? WideKit.Red : WideKit.Green);
+                schism != null
+                    ? $"{PapacySystem.Antipope(religion)?.getName() ?? LM.Get("label_none")} · {schism.see_city_name}"
+                    : LM.Get(data.Schism ? "religion_yes" : "religion_no"), data.Schism ? WideKit.Red : WideKit.Green);
             recent.AddValueRow(ColumnWidth, row++, LM.Get("papacy_state_captive"),
                 LM.Get(PapacySystem.IsCaptive(religion) ? "religion_yes" : "religion_no"),
                 PapacySystem.IsCaptive(religion) ? WideKit.Red : WideKit.Green);
-            recent.AddValueRow(ColumnWidth, row, LM.Get("religion_row_children"), ReligionDisplay.Children(religion).Count.ToString(),
+            recent.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_children"), ReligionDisplay.Children(religion).Count.ToString(),
                 ReligionDisplay.Purple);
+            // 分出的教会：发端；有教廷的普世教会：宗教改革分出几支(见 PapacySystem.Reformation)
+            string origin = ReligionDisplay.OriginText(religion);
+            if (origin.Length > 0)
+                recent.AddValueRow(ColumnWidth, row, LM.Get("religion_row_origin"), origin, ReligionDisplay.Purple);
+            else if (ReligionFaith.IsPapal(religion))
+                recent.AddValueRow(ColumnWidth, row, LM.Get("religion_row_reformations"),
+                    PapacySystem.Reformations(religion).Count.ToString(), ReligionDisplay.Purple);
 
             var states = page.BeginCard(PageWidth, LM.Get("religion_card_states"), WideKit.Gold, _states.Count.ToString());
             if (_states.Count == 0) states.AddParagraph(PageWidth, LM.Get("religion_states_none"), hex: WideKit.Muted);
@@ -259,6 +278,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                     : "papacy_crown_none");
             }
             if (ReligionConversionSystem.RecentlyConverted(kingdom)) detail += " · " + LM.Get("religion_state_converted");
+            string obedience = ReligionDisplay.ObedienceTag(kingdom);
+            if (obedience.Length > 0) detail += " · " + obedience;
             return detail;
         }
 
@@ -308,6 +329,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                 parts.AddValueRow(ColumnWidth, row++, LM.Get(key), value > 0 && key != "pope_legit_base" ? $"+{value}" : value.ToString(),
                     value < 0 ? WideKit.Red : key == "pope_legit_base" ? WideKit.Soft : WideKit.Green);
 
+            // 西方大分裂：两位教宗与各自服从的国；没在闹的列上次(见 PapacySystem.Antipope)
+            PapalSchismData schism = PapacySystem.ActiveSchism(religion);
+            if (schism != null) DrawSchism(page, religion, schism);
+            else if (data.PapalSchism != null && data.PapalSchism.ended_at >= 0d)
+            {
+                var last = page.BeginCard(PageWidth, LM.Get("religion_schism_last"), WideKit.Muted);
+                last.AddValueRow(PageWidth, 0, ReligionDisplay.SchismCause(data.PapalSchism),
+                    string.Format(LM.Get("religion_schism_last_value"), HistoryDateFormatter.GetYear(data.PapalSchism.started_at),
+                        HistoryDateFormatter.GetYear(data.PapalSchism.ended_at), ReligionDisplay.SchismOutcome(data.PapalSchism)),
+                    WideKit.Soft);
+            }
+
             // 天下之名：只有教廷能授，也只授教廷所在天下这一个(见 RealmNamingSystem.SeeLead)
             if (ReligionFaith.IsPapal(religion))
             {
@@ -351,6 +384,36 @@ namespace EmpireCraft.Scripts.UI.Windows
             }
         }
 
+        // 西方大分裂：页眉一行起因与年数、对立一线历任，下面两栏各一位教宗与服从的国
+        private void DrawSchism(AutoVertLayoutGroup page, Religion religion, PapalSchismData schism)
+        {
+            (List<Kingdom> rome, List<Kingdom> rival) = PapacySystem.Obediences(religion);
+            float share = PapacySystem.AntipopeShare(religion);
+            var card = page.BeginCard(PageWidth, LM.Get("religion_card_schism"), WideKit.Red,
+                string.Format(LM.Get("religion_schism_header"), Date.getYearsSince(schism.started_at), ReligionDisplay.SchismCause(schism)));
+            string line = string.Join("、", (schism.line ?? new List<RivalPopeRecord>()).Select(record =>
+                string.Format(LM.Get("religion_schism_line_entry"), record.name, HistoryDateFormatter.GetYear(record.from),
+                    record.to < 0d ? LM.Get("religion_head_now") : HistoryDateFormatter.GetYear(record.to))));
+            card.AddValueRow(PageWidth, 0, LM.Get("religion_schism_line"), line.Length > 0 ? line : LM.Get("label_none"), WideKit.Soft);
+
+            var columns = page.BeginColumns(PageWidth);
+            Actor pope = PapacySystem.Pope(religion);
+            var left = columns.BeginColumnCard(ColumnWidth, LM.Get("religion_schism_side_rome"), WideKit.Gold,
+                string.Format(LM.Get("religion_schism_side_detail"), rome.Count, $"{1f - share:P0}"));
+            left.AddPersonRow(ColumnWidth, pope, LM.Get("papacy_pope"), pope != null ? pope.getName() : LM.Get("label_none"),
+                PapacySystem.HolyCity(religion)?.GetCityName() ?? LM.Get("papacy_see_lost"));
+            left.AddParagraph(ColumnWidth, ReligionDisplay.RealmNames(rome), hex: WideKit.Soft);
+
+            Actor antipope = PapacySystem.Antipope(religion);
+            Kingdom patron = PapacySystem.AntipopeSee(religion);
+            var right = columns.BeginColumnCard(ColumnWidth, LM.Get("religion_schism_side_antipope"), WideKit.Red,
+                string.Format(LM.Get("religion_schism_side_detail"), rival.Count, $"{share:P0}"));
+            right.AddPersonRow(ColumnWidth, antipope, LM.Get("papacy_antipope"),
+                antipope != null ? antipope.getName() : LM.Get("label_none"),
+                string.Format(LM.Get("religion_schism_see_detail"), schism.see_city_name, patron?.GetKingdomName() ?? LM.Get("label_none")));
+            right.AddParagraph(ColumnWidth, ReligionDisplay.RealmNames(rival), hex: WideKit.Soft);
+        }
+
         private static string HeadDetail(ReligionExtension.ReligionHeadRecord record)
         {
             bool reigning = record.to < 0d;
@@ -373,11 +436,19 @@ namespace EmpireCraft.Scripts.UI.Windows
 
         private static string EmpireDetail(Empire empire)
         {
+            // 大分裂中先标奉哪位教宗(见 PapacySystem.Antipope)
+            string obedience = ReligionDisplay.ObedienceTag(empire.CoreKingdom);
+            string detail = EmpirePapalDetail(empire);
+            return obedience.Length > 0 ? obedience + " · " + detail : detail;
+        }
+
+        private static string EmpirePapalDetail(Empire empire)
+        {
             if (!PapacySystem.Applies(empire) && !PapacySystem.AppliesCaliphal(empire)) return LM.Get("religion_empire_na");
             var state = PapacySystem.State(empire);
             if (PapacySystem.IsExcommunicated(empire)) return LM.Get("papacy_crown_banned");
             string crown = LM.Get(PapacySystem.IsCrowned(empire)
-                ? state.self_crowned ? "papacy_crown_self" : "papacy_crown_pope"
+                ? state.self_crowned ? "papacy_crown_self" : state.crowned_by_rival ? "papacy_crown_antipope" : "papacy_crown_pope"
                 : HolyRomanSystem.Romzug(empire) == HolyRomanSystem.RomzugTravelling ? "religion_romzug" : "papacy_crown_none");
             if (!PapacySystem.Applies(empire)) return crown;
             return string.Format(LM.Get("religion_empire_detail"), crown, LM.Get("papacy_investiture_" + PapacySystem.Investiture(empire)),
@@ -461,6 +532,22 @@ namespace EmpireCraft.Scripts.UI.Windows
                 AddTreeRow(tree, index++, child, i == children.Count - 1 ? "└ " : "├ ", religion);
                 foreach (Religion grandchild in ReligionDisplay.Children(child))
                     AddTreeRow(tree, index++, grandchild, "　└ ", religion);
+            }
+
+            // 宗教改革各支：改革者、发端之城与年份、传布到几城几国(见 PapacySystem.Reformation)
+            if (ReligionFaith.IsPapal(root))
+            {
+                List<Religion> reforms = PapacySystem.Reformations(root);
+                var reformCard = page.BeginCard(PageWidth, LM.Get("religion_card_reformation"), WideKit.Gold, reforms.Count.ToString());
+                if (reforms.Count == 0) reformCard.AddParagraph(PageWidth, LM.Get("religion_reformation_none"), hex: WideKit.Muted);
+                index = 0;
+                foreach (Religion church in reforms.Take(MaxHolders))
+                {
+                    Religion target = church;
+                    reformCard.AddListRow(PageWidth, index++, null, church.name, ReligionDisplay.ReformationDetail(church),
+                        church == religion ? null : () => Open(target, Page.Lineage), church == religion ? WideKit.Gold : ReligionDisplay.TextHex(church),
+                        110f);
+                }
             }
 
             var merged = page.BeginCard(PageWidth, LM.Get("religion_card_absorbed"), WideKit.Gold, absorbed.Count.ToString());

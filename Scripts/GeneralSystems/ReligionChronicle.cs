@@ -4,7 +4,8 @@ using EmpireCraft.Scripts.GameClassExtensions;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 宗教大事记(用户 2026-10-27 选"记"：宗教窗口里可翻)：创立、并入、君主皈依、迫害驱逐、分裂、圣战、加冕、教宗选立、
-// 绝罚、教廷之囚与对立教宗都记进相关宗教自己的大事记；每教留最近 MaxEvents 条。
+// 绝罚、教廷之囚与对立教宗(西方大分裂的起头与站队、大国换边、对立一线推举、公会议或分立收场，见 PapacySystem.Antipope)、
+// 宗教改革(改革者发端、诸侯改奉、君主率国改宗、成员国起兵，见 PapacySystem.Reformation)都记进相关宗教自己的大事记；每教留最近 MaxEvents 条。
 // 文字在记的时候拼好(各系统写世界日志、史书用的同一句)，读档后照原样显示。
 public static class ReligionChronicle
 {
