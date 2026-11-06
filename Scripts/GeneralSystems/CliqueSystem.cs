@@ -47,7 +47,7 @@ public static class CliqueSystem
     private const float FoundShare = 0.15f, SwitchChance = 0.35f, MergeRatio = 8f, MergeChance = 0.3f, MergeDistance = 70f,
         SplitRatio = 40f, SplitChance = 0.1f, EunuchRiseChance = 0.2f, EunuchPurgeChance = 0.3f;
     private const int FoundMinMembers = 3, MinOfficials = 4, MinCliques = 2, FoundRecruits = 6,
-        MaxSwitchesPerYear = 4, MinYearsBeforeMerge = 3, FoundRatio = 10, SplitMinGroup = 3, SplitMinMembers = 6,
+        MaxSwitchesPerYear = 4, MaxEnrollPerYear = 12, MinYearsBeforeMerge = 3, FoundRatio = 10, SplitMinGroup = 3, SplitMinMembers = 6,
         EunuchFoundRatio = 8;
 
     public static bool IsEunuch(Actor actor) => actor?.data != null && !actor.isRekt() && actor.hasTrait(EunuchTrait);
@@ -363,12 +363,21 @@ public static class CliqueSystem
         var byIdeology = cliques.GroupBy(clique => clique.Ideology)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(clique => clique.Count).First());
         var leaders = new HashSet<long>(cliques.Select(clique => clique.Leader));
-        int switches = 0;
+        int switches = 0, enrolled = 0;
         foreach (Actor actor in officials.OrderBy(_ => Random.value))
         {
-            if (switches >= MaxSwitchesPerYear) break;
+            if (switches >= MaxSwitchesPerYear && enrolled >= MaxEnrollPerYear) break;
             if (leaders.Contains(actor.id) || !byIdeology.TryGetValue(Stance(empire, actor), out FixedFaction home)) continue;
             FixedFaction current = cliques.FirstOrDefault(clique => clique.Members.Contains(actor.id));
+            // 还没入派的在任官员按身份、学说直接归入(以前和改换门庭共用每年 4 人、三成五的机会，朋党常年只有几个人)
+            if (current == null && !actor.HasFaction())
+            {
+                if (enrolled >= MaxEnrollPerYear) continue;
+                actor.SetFaction(home);
+                enrolled++;
+                continue;
+            }
+            if (switches >= MaxSwitchesPerYear) continue;
             if (current == home || current != null && current.Ideology == home.Ideology || Random.value > SwitchChance) continue;
             actor.SetFaction(home);
             switches++;

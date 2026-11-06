@@ -73,6 +73,19 @@ public static class OfficeManager
         return res;
     }
 
+    // 撤掉一个官职，挂在上面的人一并卸任(以前只删官职，人身上还留着"在任"和官身里的官职编号)
+    public static void RemoveAndRetire(long pOfficeID)
+    {
+        if (!Offices.TryGetValue(pOfficeID, out OfficeObject office)) return;
+        Actor holder = office == null || office.actor_id < 0 ? null : World.world?.units?.get(office.actor_id);
+        if (holder?.data != null && !holder.isRekt() && holder.GetOrCreate().OfficeId == pOfficeID)
+        {
+            holder.EndOffice();
+            if (holder.HasOfficeIdentity() && holder.GetIdentity()?.GetOfficeId() == pOfficeID) holder.GetIdentity().RemoveOffice();
+        }
+        Offices.Remove(pOfficeID);
+    }
+
     // 清掉没有主人的官职：存活国家、存活城市、未解散帝国的中央机构(含后宫)、仍在的原版军队之外的官职都删掉，
     // 挂在上面的人一并卸任。以前国家灭亡、城市被毁、帝国解散、军队解散后旧官职一直留着；
     // 军队官职的归属不进存档，读档后认不回来又新建一份；中央机构每次重建还把每个官职登记两次。
@@ -273,22 +286,44 @@ public class OfficeObject
         }
     }
 
+    // 重建官署时沿用的官职：只换配置(选法、权力、名号前缀……)，在任的人、任期、历任不动
+    public void ApplyConfig(BureauSetting config)
+    {
+        officeType = config.type;
+        political_appointment = config.political_appointment;
+        pre = config.pre;
+        merit = config.merit;
+        honorary = config.honorary;
+        require_traits = config.require_traits;
+        select_from_local = config.select_from_local;
+        leader_select_method = config.leader_select_method;
+        powers = config.powers;
+    }
+
+    // 这个人能不能任这个官(SetActor 的门槛)。选人时先过一遍：以前选中妃嫔、君主配偶这类任不上的人，
+    // SetActor 不声不响地拒掉，下一轮又选中同一人，官位一直空着
+    public bool Accepts(Actor actor)
+    {
+        if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
+            ConstitutionalSuccessionSystem.ThroneBound(constitutionalCore.GetEmpire()) &&
+            !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return false;
+        if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return false;
+        // 君主之位以外的官职(城主、朝官)只任成年人；君主可以是幼主(用户 2026-10-17 选"国君可以是幼主，城主不行")
+        if (!actor.isAdult() && !(meta_object is Kingdom ruler && ruler.GetOffice() == this)) return false;
+        // 后宫以外的官职不任用妃嫔与在位君主的配偶；君主之位(本国的君主官职)不受影响
+        if (leader_select_method != LeaderSelectMethod.Harem && !(meta_object is Kingdom ruled && ruled.GetOffice() == this) &&
+            actor.IsHaremOrConsort()) return false;
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return false;
+        return true;
+    }
+
     public void SetActor (Actor actor)
     {
         // 神圣罗马式选帝制：选出别的成员国的君主时，他带着自家领国成为帝国中央，不调进原中央(见 HolyRomanSystem)
         if (is_local && meta_object is Kingdom electedSeat &&
             EmpireCraft.Scripts.GeneralSystems.HolyRomanSystem.TryElectHouse(electedSeat, actor)) return;
-        if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
-            ConstitutionalSuccessionSystem.ThroneBound(constitutionalCore.GetEmpire()) &&
-            !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return;
-        if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return;
-        // 君主之位以外的官职(城主、朝官)只任成年人；君主可以是幼主(用户 2026-10-17 选"国君可以是幼主，城主不行")
-        if (!actor.isAdult() && !(meta_object is Kingdom ruler && ruler.GetOffice() == this)) return;
-        // 后宫以外的官职不任用妃嫔与在位君主的配偶；君主之位(本国的君主官职)不受影响
-        if (leader_select_method != LeaderSelectMethod.Harem && !(meta_object is Kingdom ruled && ruled.GetOffice() == this) &&
-            actor.IsHaremOrConsort()) return;
-        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(actor) ||
-            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return;
+        if (!Accepts(actor)) return;
         var originalActor = GetActor();
         if (originalActor != null && !originalActor.isRekt())
         {
@@ -314,8 +349,9 @@ public class OfficeObject
             CultureService.SyncActorToCityMainCulture(actor, actor.city ?? actor.kingdom?.capital);
         }
         actor.CheckSpecificClan();
-        //初始化角色官职
-        if (actor.kingdom.GetRegime().GetLeaderSelectMethod() != LeaderSelectMethod.Exam)
+        //初始化角色官职：科举国家的官身由科举给，没考过(宗族、职业补任或从人口补上来)的也给一份，
+        //否则这些人没有官阶，也进不了派系、内阁
+        if (actor.kingdom.GetRegime().GetLeaderSelectMethod() != LeaderSelectMethod.Exam || !actor.HasOfficeIdentity())
         {
             actor.InitialIdentity();
         }
@@ -464,67 +500,57 @@ public class CenterOffice
     public List<long> CoreOffices { get; set; } = new List<long>();
     public List<long> Divisions { get; set; } = new List<long>();
     public List<long> Harems { get; set; } = new List<long>();
+    // 重建中央官署。同一种官职(类型号相同)沿用原来的官职对象，在任的人、任期、历任都留着；新设的官职空着等补，
+    // 撤掉的官职连人一起卸任。以前每次重建都整套删掉换成空缺：征服王朝成员国政体一变(每年制度同步)、读档、
+    // 存档前的帝国更新都会重建，中枢官职常年没人，存档里看到的整个朝廷都是空的
     public void Init(Kingdom pKingdom)
     {
-        CoreOffices.ForEach(id=>OfficeManager.Remove(id));
-        CoreOffices.Clear();
         Regime pRegime = pKingdom.GetRegime();
         // 共和国的核心国：中央机构按执政理念成套(见 RepublicSystem / IdeologyBureaus.json)
         // 华夏律令制在秦汉阶段设三公九卿(见 CourtSystem.Dynasty)
         BureauConfig bureau = RepublicSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ??
                               CourtSystem.GetBureauOverride(pKingdom, pRegime.bureau_config) ?? pRegime.bureau_config;
-        foreach (var core in bureau.cores)
-        {
-
-            var o = new OfficeObject();
-            // 下面自己取 id 登记；这里再登记一次的话，第一个 id 没人记得，永远留在官职表里
-            o.InitialOffice(core, isNew: false);
-            o.regimeType = pKingdom.GetRegime().type;
-            o.meta_object = pKingdom;
-            o.is_local = false;
-            o.select_from_local = false;
-            o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
-            o.actor_id = -1L;
-            o.history_officers.Clear();
-            OfficeManager.Offices.Add(o.OfficeID, o);
-            CoreOffices.Add(o.OfficeID);
-        }
-        Divisions.ForEach(id=>OfficeManager.Remove(id));
-        Divisions.Clear();
-        foreach (var div in bureau.division)
-        {
-
-            var o = new OfficeObject();
-            o.InitialOffice(div, isNew: false);
-            o.regimeType = pKingdom.GetRegime().type;
-            o.select_from_local = false;
-            o.meta_object = pKingdom;
-            o.is_local = false;
-            o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
-            o.actor_id = -1L;
-            o.history_officers.Clear();
-            OfficeManager.Offices.Add(o.OfficeID, o);
-            Divisions.Add(o.OfficeID);
-        }
-        Harems.ForEach(id=>OfficeManager.Remove(id));
-        Harems.Clear();
-        if (bureau.harems == null) return;
-        foreach (var div in bureau.harems)
-        {
-            var o = new OfficeObject();
-            o.InitialOffice(div, isNew: false);
-            o.regimeType = pKingdom.GetRegime().type;
-            o.select_from_local = false;
-            o.meta_object = pKingdom;
-            o.is_local = false;
-            o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
-            o.actor_id = -1L;
-            o.history_officers.Clear();
-            OfficeManager.Offices.Add(o.OfficeID, o);
-            Harems.Add(o.OfficeID);
-        }
-
+        Rebuild(CoreOffices, bureau.cores, pKingdom);
+        Rebuild(Divisions, bureau.division, pKingdom);
+        Rebuild(Harems, bureau.harems, pKingdom);
         SyncFactionRatios(pKingdom);
+    }
+
+    private static void Rebuild(List<long> ids, List<BureauSetting> configs, Kingdom pKingdom)
+    {
+        var pool = new List<OfficeObject>();
+        foreach (long id in ids)
+            if (OfficeManager.Offices.TryGetValue(id, out OfficeObject old) && old != null && !pool.Contains(old)) pool.Add(old);
+        var kept = new HashSet<long>();
+        ids.Clear();
+        RegimeType regimeType = pKingdom.GetRegime().type;
+        foreach (BureauSetting config in configs ?? new List<BureauSetting>())
+        {
+            OfficeObject o = pool.FirstOrDefault(old => old.officeType == config.type);
+            if (o != null)
+            {
+                pool.Remove(o);
+                o.ApplyConfig(config);
+            }
+            else
+            {
+                o = new OfficeObject();
+                // 下面自己取 id 登记；这里再登记一次的话，第一个 id 没人记得，永远留在官职表里
+                o.InitialOffice(config, isNew: false);
+                o.OfficeID = OverallHelperFunc.IdGenerator.NextId();
+                o.actor_id = -1L;
+                o.history_officers.Clear();
+                OfficeManager.Offices.Add(o.OfficeID, o);
+            }
+            o.regimeType = regimeType;
+            o.meta_object = pKingdom;
+            o.is_local = false;
+            o.select_from_local = false;
+            ids.Add(o.OfficeID);
+            kept.Add(o.OfficeID);
+        }
+        foreach (OfficeObject stale in pool)
+            if (!kept.Contains(stale.OfficeID)) OfficeManager.RemoveAndRetire(stale.OfficeID);
     }
 
     // 派系占比挂回核心国现在的派系：读档时占比表的键只是记着编号的占位派系(见 FactionRatioConverter)，

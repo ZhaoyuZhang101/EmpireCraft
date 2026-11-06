@@ -24,6 +24,8 @@ public class EmpireCraftEmpireBehCheckMandate : GameAIEmpireBase
         BannerSystem.Yearly(empire);
         ImperialSealSystem.Yearly(empire);
         CliqueSystem.Yearly(empire);
+        // 还没入派的在任官员(城主、成员国君主等)按入派规矩补录，朋党归不进去的也在这里补
+        ActorAI.EmpireCraftActorCheckFaction.EnrollOfficials(empire);
         AncientSchoolsSystem.Yearly(empire);
         JimiTributeSystem.Yearly(empire);
         // 今上为还没定谥的先帝定谥号、庙号(见 Empire.ConferPosthumousNames)

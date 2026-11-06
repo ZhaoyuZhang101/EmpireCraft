@@ -18,24 +18,60 @@ public class EmpireCraftActorCheckFaction : GameAIActorBase
 
     public override BehResult execute(Actor pActor)
     {
-        if (pActor == null) return BehResult.Continue;
+        TryJoin(pActor);
+        return BehResult.Continue;
+    }
 
-        if (!pActor.isAdult()) return BehResult.Continue;
-        if (pActor.HasFaction()) return BehResult.Continue;
-        if (!pActor.IsOnOffice()) return BehResult.Continue;
-        if (!pActor.HasOfficeIdentity()) return BehResult.Continue;
-        if (pActor.IsEmperor()) return BehResult.Continue;
+    // 年度补录：在任官员入派以前只靠人物自己的 AI(本行为)，可这套 AI 只在无小人模式的闲居者身上按时跑，
+    // 城主、成员国君主、有小人模式下的官员几乎轮不到，派系里常年只有几个人。每年由帝国把还没入派的在任官员
+    // 照同样的规矩过一遍，每帝国每年至多 MaxEnrollPerYear 人
+    private const int MaxEnrollPerYear = 12;
+    private static readonly Dictionary<long, double> LastEnroll = new();
+    private static object _enrollWorld;
+
+    public static int EnrollOfficials(Empire empire)
+    {
+        if (empire?.CoreKingdom == null || empire.isRekt() || empire.IsArchived() || World.world == null) return 0;
+        if (!ReferenceEquals(_enrollWorld, World.world))
+        {
+            _enrollWorld = World.world;
+            LastEnroll.Clear();
+        }
+        double now = World.world.getCurWorldTime();
+        if (LastEnroll.TryGetValue(empire.getID(), out double last) && now >= last && Date.getYearsSince(last) < 1) return 0;
+        LastEnroll[empire.getID()] = now;
+        int joined = 0;
+        foreach (Actor actor in empire.getUnits()
+                     .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && !actor.HasFaction() &&
+                                     actor.IsOnOffice())
+                     .OrderByDescending(actor => actor.renown).ToList())
+        {
+            if (joined >= MaxEnrollPerYear) break;
+            if (TryJoin(actor)) joined++;
+        }
+        return joined;
+    }
+
+    public static bool TryJoin(Actor pActor)
+    {
+        if (pActor == null) return false;
+
+        if (!pActor.isAdult()) return false;
+        if (pActor.HasFaction()) return false;
+        if (!pActor.IsOnOffice()) return false;
+        if (!pActor.HasOfficeIdentity()) return false;
+        if (pActor.IsEmperor()) return false;
 
         Kingdom pKingdom = pActor.kingdom;
 
-        if (pKingdom == null) return BehResult.Continue;
-        if (pKingdom.isRekt()) return BehResult.Continue;
+        if (pKingdom == null) return false;
+        if (pKingdom.isRekt()) return false;
 
         Empire empire = pKingdom.GetEmpire();
 
         if (empire == null)
         {
-            return BehResult.Continue;
+            return false;
         }
 
         var coreKingdom = empire.CoreKingdom;
@@ -43,21 +79,21 @@ public class EmpireCraftActorCheckFaction : GameAIActorBase
         if (coreKingdom == null)
         {
             empire.CheckDissolve(null);
-            return BehResult.Continue;
+            return false;
         }
 
         Regime regime = coreKingdom.GetRegime();
 
         if (regime == null)
         {
-            return BehResult.Continue;
+            return false;
         }
 
         var factions = regime.GetPlayerFactions();
 
         if (factions == null || factions.Count == 0)
         {
-            return BehResult.Continue;
+            return false;
         }
 
         int kingdomFactionRatioTotal = pKingdom.GetFactionRatioTotal();
@@ -69,7 +105,8 @@ public class EmpireCraftActorCheckFaction : GameAIActorBase
 
         foreach (var f in factions)
         {
-            if (f == null)
+            // 被禁的派系(党禁)不收人
+            if (f == null || f.Ban)
             {
                 continue;
             }
@@ -123,14 +160,14 @@ public class EmpireCraftActorCheckFaction : GameAIActorBase
 
         if (ps.Count == 0)
         {
-            return BehResult.Continue;
+            return false;
         }
 
         double sum = ps.Sum(t => t.p);
 
         if (sum <= 0)
         {
-            return BehResult.Continue;
+            return false;
         }
 
         // 国家已有派系影响力时，不能有“不加入”的概率
@@ -159,6 +196,6 @@ public class EmpireCraftActorCheckFaction : GameAIActorBase
             // TranslateHelper.LogOfficerJoinFaction(pActor.GetOffice(), pActor, chosen);
         }
 
-        return BehResult.Continue;
+        return chosen != null;
     }
 }

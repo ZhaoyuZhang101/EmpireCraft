@@ -520,6 +520,9 @@ public static partial class CompositeEmpireService
         if (!IsComposite(empire) || member?.data == null || member.isRekt() || member.GetEmpire() != empire)
             return false;
         if (RepublicSystem.IsRegimeLocked(member)) return false;
+        // 成员国的政体是手选的或水土出路改的(记为手选，见 ShuiTuSystem.RegimeFree)，不按辖境文化改回去：
+        // 以前久居农地的汗国被水土改成汗国分封制，这里每年又改回游牧，两边来回改，中央官署跟着年年重建
+        if (member != empire.CoreKingdom && member.GetOrCreate().regime_manually_selected) return false;
 
         string culture = member == empire.CoreKingdom
             ? GetCourtCulture(empire)

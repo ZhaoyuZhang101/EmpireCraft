@@ -1442,7 +1442,8 @@ public static class CityPopulationSystem
         // 谋划的目标(要刺杀、废立的人)也留着：并入人口后谋划还指着这个已回收的单位，存档时原版空引用
         if (IsPlotTarget(actor)) return true;
         if (PureMapMode.Enabled) return PureNotable(actor);
-        if (actor.isKing() || actor.isCityLeader()) return true;
+        // 在任官员一律留着：宗室远支先判成贵族、不算要紧，以前在任也会被月度并入回收，官位跟着空出来
+        if (actor.isKing() || actor.isCityLeader() || actor.IsOnOffice()) return true;
         if (actor.isFavorite() || actor.isCameraFollowingUnit()) return true;
         if (actor.plot != null) return true;
         // 各步分别累计计时(见 FrameProfiler)，用来找月度并入"分类"一步的大头
@@ -1493,7 +1494,7 @@ public static class CityPopulationSystem
         PopulationJurenRanking.Reset();
     }
 
-    private static bool ImmediatelyProtected(Actor actor) => actor.isKing() || actor.isCityLeader() ||
+    private static bool ImmediatelyProtected(Actor actor) => actor.isKing() || actor.isCityLeader() || actor.IsOnOffice() ||
         actor.isFavorite() || actor.isCameraFollowingUnit() || actor.plot != null || CorpsSystem.IsGeneral(actor);
 
     // 要紧的贵族：君主、继承人、君主与储君的配偶和子女、有封地或爵位的人。其余宗室并入虚拟族谱，需要时再落成。

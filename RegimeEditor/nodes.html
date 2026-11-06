@@ -30,15 +30,26 @@
     details.adv>summary{cursor:pointer;color:var(--accent2);padding:6px 0}
     #newDlg{width:min(780px,94vw)}
     #newDlg .fgrid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+    #lineDlg{width:min(720px,94vw)}
+    #importDlg{width:min(860px,94vw)}
+    #importDlg .pickall{max-height:46vh;overflow:auto;border:1px solid var(--line);padding:4px 8px;margin-top:8px}
+    #importDlg .lvl{font-size:12px;color:var(--muted);margin:8px 0 2px;border-bottom:1px dashed var(--line)}
+    #importDlg label.row{display:flex;gap:8px;align-items:center;padding:2px 0;cursor:pointer}
+    #importDlg label.row.off{opacity:.55;cursor:default}
+    #importDlg label.row .fkey{margin-left:auto}
   </style>
 </head>
 <body>
   <div class="layout">
     <aside class="side">
       <label class="field">数据源<select id="sourceSel"></select></label>
+      <div class="toolbar">
+        <button class="small" id="newLineBtn" title="在 InstitutionTrees 里新建一条制度科技线：空白起步，或整条复制一条现有的线">＋ 新建科技树</button>
+      </div>
       <div class="toolbar" id="nodeTools">
         <button class="primary small" id="addBtn"><img class="ico sm" src="assets/icons/iconShovelPlus.png">新节点</button>
         <button class="small" id="cloneBtn">复制</button>
+        <button class="small" id="importBtn" title="从别的科技树挑节点复制到这条线">导入节点</button>
         <button class="small danger" id="delBtn">删除</button>
       </div>
       <input id="nodeFilter" placeholder="搜索 id / 名称…" />
@@ -525,17 +536,21 @@
       for (const c of doc(SETTINGS)?.culture_levels || []) keys.push(c.name_key);
       for (const line of L.lines) keys.push(doc(`InstitutionTrees/${line}.json`)?.name_key || `institution_line_${line.toLowerCase()}`);
       S.locales = await api.readLocales(uniq(keys));
-      const sel = document.getElementById("sourceSel");
-      sel.innerHTML = SOURCES.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join("");
+      renderSourceSel();
       const keep = S.source?.id;
       if (SOURCES.length) selectSource(SOURCES.find(s => s.id === keep) ? keep : SOURCES[0].id);
       if (S.loadErrors.length) toast("有文件读取失败(这些文件不会被改动)：\n" + S.loadErrors.join("\n"), true);
+    }
+
+    function renderSourceSel() {
+      document.getElementById("sourceSel").innerHTML = SOURCES.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join("");
     }
 
     function selectSource(id) {
       S.source = SOURCES.find(s => s.id === id);
       S.selected = null;
       document.getElementById("sourceSel").value = id;
+      document.getElementById("importBtn").style.display = S.source.kind === "inst" ? "" : "none";
       const settings = S.source.kind === "settings";
       const groups = !settings && S.source.group ? uniq(nodes().map(n => n[S.source.group] || "")).sort() : [];
       document.getElementById("groupFilter").innerHTML = `<option value="">全部分组</option>` + groups.map(g => `<option>${esc(g)}</option>`).join("");
@@ -1351,6 +1366,13 @@
       toast(`已新建 ${cz}(${id})，记得保存`);
     }
 
+    // 把一条本地化文字抄到新 key 上(mark：名字后面加“(副本)”)
+    function copyLoc(from, to, mark) {
+      if (!from || !to || from === to) return;
+      const v = { ...(S.locales[from] || {}), ...(S.localeEdits[from] || {}) };
+      S.localeEdits[to] = mark ? { cz: v.cz ? v.cz + "(副本)" : "", ch: v.ch ? v.ch + "(副本)" : "", en: v.en ? v.en + " (copy)" : "" } : { cz: v.cz || "", ch: v.ch || "", en: v.en || "" };
+    }
+
     // 复制：放在原节点后面，名字加“(副本)”；制度节点的副本用自己的名称 key
     function duplicateNode() {
       const src = S.source, n = S.selected;
@@ -1362,11 +1384,6 @@
         copy.name_key = `institution_${id}`;
         if (copy.description_key || !copy.template) copy.description_key = `institution_${id}_desc`;
       }
-      const copyLoc = (from, to, mark) => {
-        if (!from || !to || from === to) return;
-        const v = { ...(S.locales[from] || {}), ...(S.localeEdits[from] || {}) };
-        S.localeEdits[to] = mark ? { cz: v.cz ? v.cz + "(副本)" : "", ch: v.ch ? v.ch + "(副本)" : "", en: v.en ? v.en + " (copy)" : "" } : { cz: v.cz || "", ch: v.ch || "", en: v.en || "" };
-      };
       copyLoc(src.nameKey?.(n), src.nameKey?.(copy), true);
       copyLoc(src.descKey?.(n), src.descKey?.(copy), false);
       if (src.landmark) {
@@ -1390,6 +1407,282 @@
       for (const o of list) for (const f of src.refFields) if (Array.isArray(o[f])) o[f] = o[f].filter(x => x !== n.id);
       if (src.kind === "inst") { const d = doc(src.file); if (Array.isArray(d.root_nodes)) d.root_nodes = d.root_nodes.filter(x => x !== n.id); }
       S.selected = null; markDirty(); renderList(); renderGraph(); renderEditor();
+    }
+
+    // ---------- 新建科技树、从别的树导入节点 ----------
+    // 制度节点 id 各线之间不能重复，线与线之间也不许有前置/互斥/取代(游戏载入时会禁用跨线引用的节点)。
+    // 所以导入是“复制成本线的节点”：id 换成本线前缀，选中节点之间的引用跟着换；
+    // 指向没导入节点的引用，本线有同一公共模板的实例就接到它上面，否则去掉并列出来。
+    const INST_REFS = ["requires", "requires_any", "exclusive_with", "replaces"];
+    const LINE_ID_RE = /^[A-Za-z][A-Za-z0-9_]*$/;
+    const lineLabel = s => locText(doc(s.file)?.name_key || `institution_line_${s.line.toLowerCase()}`) || s.line;
+    // 一条线的 id 前缀：用得最多的那个(罗马线多数是 western_)，再加按线名的(roma_)
+    function linePrefixes(list, line) {
+      const c = {};
+      for (const n of list) { const m = /^([a-z0-9]+)_/.exec(String(n.id)); if (m) c[m[1]] = (c[m[1]] || 0) + 1; }
+      const best = Object.keys(c).sort((a, b) => c[b] - c[a])[0];
+      return uniq([...(best && c[best] * 2 >= list.length ? [best + "_"] : []), slug(line) + "_"]);
+    }
+    function lineTaken(id) {
+      const low = id.toLowerCase();
+      return low === "settings" || low === "common" || (S.lookups.lines || []).some(l => l.toLowerCase() === low);
+    }
+    function lineIdFrom(en) {
+      const words = String(en || "").match(/[A-Za-z0-9]+/g) || [];
+      let base = words.map(w => w[0].toUpperCase() + w.slice(1)).join("");
+      if (!/^[A-Za-z]/.test(base)) base = "Custom" + (base || "Line");
+      let id = base, i = 2;
+      while (lineTaken(id)) id = `${base}${i++}`;
+      return id;
+    }
+
+    // from：来源制度线；to：目标制度线；picked：要导入的节点 id。keepOrder：照来源顺序接在末尾(整条复制用)
+    function importInstNodes(from, to, picked, { dropCultures = true, keepOrder = false } = {}) {
+      const fromList = nodes(from), toList = listAt(doc(to.file), "nodes", true);
+      const pres = linePrefixes(fromList, from.line), toPre = linePrefixes(toList, to.line)[0];
+      const taken = takenIds(to);
+      const tplHere = new Map(toList.filter(n => n.template).map(n => [n.template, n.id]));
+      const idMap = new Map(), fresh = new Set(), skipped = [], dropped = [];
+      for (const n of fromList) {
+        if (!picked.has(n.id)) continue;
+        if (n.template && tplHere.has(n.template)) {
+          idMap.set(n.id, tplHere.get(n.template));
+          skipped.push(`${nodeName(n, from)}：本线已有同一公共模板的 ${tplHere.get(n.template)}`);
+          continue;
+        }
+        const old = String(n.id), pre = pres.find(p => old.startsWith(p));
+        const base = old.includes("@") ? `${old.split("@")[0]}@${to.line}` : pre ? toPre + old.slice(pre.length) : toPre + old;
+        let id = base, i = 2;
+        while (taken.has(id)) id = `${base}_${i++}`;
+        taken.add(id); fresh.add(id); idMap.set(n.id, id);
+        if (n.template) tplHere.set(n.template, id);
+      }
+      const fromById = new Map(fromList.map(n => [n.id, n]));
+      const added = [];
+      for (const n of fromList) {
+        const id = idMap.get(n.id);
+        if (!fresh.has(id)) continue;
+        const copy = JSON.parse(JSON.stringify(n));
+        copy.id = id;
+        for (const f of INST_REFS) {
+          if (!Array.isArray(copy[f])) continue;
+          const out = [];
+          for (const r of copy[f]) {
+            const tpl = fromById.get(r)?.template;
+            const target = idMap.get(r) || (tpl && tplHere.get(tpl));
+            if (target) out.push(target); else dropped.push(`${id}.${f} → ${r}`);
+          }
+          if (out.length) copy[f] = uniq(out); else delete copy[f];
+        }
+        if (dropCultures) { delete copy.cultures; delete copy.exclude_cultures; }
+        // 名称、说明另起本线的文本键，文字照抄，以后两条线各改各的；套模板又没自己起名的照旧沿用模板
+        if (!copy.template || copy.name_key) copy.name_key = `institution_${id}`;
+        if (!copy.template || copy.description_key) copy.description_key = `institution_${id}_desc`;
+        const node = {};
+        for (const k of ["id", "template", "name_key", "description_key"]) if (k in copy) node[k] = copy[k];
+        Object.assign(node, copy);
+        copyLoc(from.nameKey(n), to.nameKey(node), false);
+        copyLoc(from.descKey(n), to.descKey(node), false);
+        let at = toList.length;
+        if (!keepOrder)
+          for (let i = toList.length - 1; i >= 0; i--) if (Number(toList[i].advancement ?? 1) <= Number(node.advancement ?? 1)) { at = i + 1; break; }
+        toList.splice(at, 0, node);
+        S.newNodes.add(node);
+        added.push(node);
+      }
+      if (added.length) markDirty(to.file);
+      return { added, skipped, dropped, idMap };
+    }
+
+    function showReport(title, lines) {
+      document.getElementById("reportDlg")?.remove();
+      const dlg = document.createElement("dialog");
+      dlg.id = "reportDlg";
+      dlg.style.width = "min(720px,94vw)";
+      dlg.innerHTML = `<h2 style="margin-top:0">${esc(title)}</h2><div style="max-height:56vh;overflow:auto">${lines.map(l => `<div class="fhint" style="font-size:13px">${esc(l)}</div>`).join("")}</div>
+        <div class="toolbar" style="margin-top:12px;justify-content:flex-end"><button class="primary" id="rOk">知道了</button></div>`;
+      document.body.appendChild(dlg);
+      dlg.querySelector("#rOk").onclick = () => { dlg.close(); dlg.remove(); };
+      dlg.showModal();
+    }
+
+    function openNewLine() {
+      if (!S.lookups.lines) return;
+      document.getElementById("lineDlg")?.remove();
+      for (const k of ["__line|ch", "__line|cz", "__root|ch", "__root|cz"]) delete S.zhAuto[k];
+      const lines = SOURCES.filter(s => s.kind === "inst");
+      const dlg = document.createElement("dialog");
+      dlg.id = "lineDlg";
+      dlg.innerHTML = `<h2 style="margin-top:0">${ico("iconWorldLaws", "lg")}新建科技树(制度线)</h2>
+        <div class="grid two">
+          <label class="field">名称(简体)<input id="lCz" placeholder="必填，如 波斯"></label>
+          <label class="field">名称(繁体，自动转换)<input id="lCh"></label>
+          <label class="field">英文名(可不填)<input id="lEn" placeholder="如 Persia；用来起线 id"></label>
+          <label class="field">线 id = 文件名(自动)<input id="lId"></label>
+        </div>
+        <label class="field" style="margin-top:8px">从哪里起步<select id="lFrom">
+          <option value="">空白：只有一个根节点</option>
+          ${lines.map(s => `<option value="${esc(s.id)}">整条复制：${esc(lineLabel(s))} (${esc(s.line)})，${nodes(s).length} 个节点</option>`).join("")}
+        </select></label>
+        <div id="lBlank" class="grid three" style="margin-top:8px">
+          <label class="field">根节点名称(简体)<input id="lRootCz" value="原始部落"></label>
+          <label class="field">根节点名称(繁体)<input id="lRootCh" value="原始部落"></label>
+          <label class="field">初始政体<select id="lRegime">${(S.lookups.regimes || []).map(r => `<option${r === "Origin" ? " selected" : ""}>${esc(r)}</option>`).join("")}</select></label>
+        </div>
+        <label id="lCopyOpt" style="display:none;margin-top:8px"><input type="checkbox" id="lDropCult" checked> 去掉节点上的“只给这些文化 / 这些文化不能”(原线按它自己的文化写的；政治特性条件保留)</label>
+        <div class="note" id="lNote" style="margin-top:10px"></div>
+        <div class="toolbar" style="margin-top:12px;justify-content:flex-end"><button id="lCancel">取消</button><button class="primary" id="lOk">创建</button></div>`;
+      document.body.appendChild(dlg);
+      const $ = q => dlg.querySelector(q);
+      let idTouched = false;
+      const refresh = () => {
+        if (!idTouched) $("#lId").value = lineIdFrom($("#lEn").value);
+        const copy = !!$("#lFrom").value, id = $("#lId").value.trim();
+        $("#lBlank").style.display = copy ? "none" : "";
+        $("#lCopyOpt").style.display = copy ? "" : "none";
+        $("#lNote").innerHTML = `保存后写成 InstitutionTrees/${esc(id || "…")}.json，节点 id 用 ${esc(slug(id) + "_")} 开头。` +
+          (copy ? "整条复制：节点 id 换成新前缀，名称、说明照抄成新的文本键，前置关系照原样，以后两条线各改各的。" : "根节点所有走这条线的文化开局就有，它的政体就是初始政体；建好后用“新节点”“导入节点”往上加。") +
+          "<br>要让文化走这条线：到“文化”页把它们的“制度科技线”选成它，没有文化认领的线游戏里不会出现。";
+      };
+      bindZh($("#lCz"), $("#lCh"), "__line");
+      bindZh($("#lRootCz"), $("#lRootCh"), "__root");
+      $("#lEn").oninput = refresh;
+      $("#lFrom").onchange = refresh;
+      $("#lId").oninput = () => { idTouched = !!$("#lId").value.trim(); refresh(); };
+      const close = () => { dlg.close(); dlg.remove(); };
+      $("#lCancel").onclick = close;
+      $("#lOk").onclick = async () => {
+        const cz = $("#lCz").value.trim();
+        if (!cz) { toast("请先填名称(简体)", true); $("#lCz").focus(); return; }
+        const id = $("#lId").value.trim() || lineIdFrom($("#lEn").value);
+        if (!LINE_ID_RE.test(id)) { toast("线 id 只能用英文字母、数字、下划线，并以字母开头", true); return; }
+        if (/^(settings|common)$/i.test(id)) { toast("Settings、Common 是制度目录里的保留名，换个 id", true); return; }
+        if (lineTaken(id)) { toast(`已经有 ${id} 这条线了(文件名不分大小写)`, true); return; }
+        try { if ((await api.readText(`InstitutionTrees/${id}.json`)).exists) { toast(`InstitutionTrees/${id}.json 已经存在(可能是读不进来的文件)，换个 id`, true); return; } } catch { }
+        const from = SOURCES.find(s => s.id === $("#lFrom").value) || null;
+        const o = { cz, ch: $("#lCh").value.trim(), en: $("#lEn").value.trim(), rootCz: $("#lRootCz").value.trim() || "原始部落", rootCh: $("#lRootCh").value.trim(),
+          regime: $("#lRegime").value, dropCultures: $("#lDropCult").checked };
+        close();
+        createLine(id, from, o);
+      };
+      for (const q of ["#lCz", "#lCh", "#lEn", "#lId"]) $(q).addEventListener("keydown", e => { if (e.key === "Enter") $("#lOk").click(); });
+      refresh();
+      dlg.showModal();
+      $("#lCz").focus();
+    }
+
+    function createLine(id, from, o) {
+      const trad = t => (t && typeof zhToTrad === "function" ? zhToTrad(t) : t || "");
+      const file = `InstitutionTrees/${id}.json`, nameKey = `institution_line_${id.toLowerCase()}`;
+      const data = { name_key: nameKey, root_nodes: [] };
+      // 整条复制时，线上的其它设置(默认反对理由、立宪覆盖等)也照抄
+      if (from) for (const [k, v] of Object.entries(doc(from.file))) if (!["name_key", "root_nodes", "nodes"].includes(k)) data[k] = JSON.parse(JSON.stringify(v));
+      data.nodes = [];
+      S.docs[file] = { data, indent: "  ", crlf: false, cst: null };
+      S.localeEdits[nameKey] = { cz: o.cz, en: o.en, ch: o.ch || trad(o.cz) };
+      const src = institutionSource(id);
+      const insts = SOURCES.filter(s => s.kind === "inst");
+      const after = insts.find(s => s.line.localeCompare(id) > 0);
+      SOURCES.splice(after ? SOURCES.indexOf(after) : insts.length ? SOURCES.indexOf(insts[insts.length - 1]) + 1 : SOURCES.length, 0, src);
+      S.lookups.lines = [...(S.lookups.lines || []), id].sort();
+      const notes = [];
+      if (from) {
+        const r = importInstNodes(from, src, new Set(nodes(from).map(n => n.id)), { dropCultures: o.dropCultures, keepOrder: true });
+        data.root_nodes = (doc(from.file).root_nodes || []).map(x => r.idMap.get(x)).filter(Boolean);
+        notes.push(`从 ${from.line} 复制了 ${r.added.length} 个节点`);
+        if (r.dropped.length) notes.push(`${r.dropped.length} 条引用原线里就找不到，已去掉`);
+      } else {
+        const rid = uniqueId(src, `${slug(id)}_origin`);
+        const root = { id: rid, name_key: `institution_${rid}`, description_key: `institution_${rid}_desc`, branch: "society", advancement: 1,
+          reform: { minimum_years: 1, allow_force: false }, absorb: { enabled: false }, ...(o.regime ? { regime: o.regime } : {}) };
+        data.nodes.push(root);
+        data.root_nodes = [rid];
+        S.localeEdits[root.name_key] = { cz: o.rootCz, en: "", ch: o.rootCh || trad(o.rootCz) };
+        S.localeEdits[root.description_key] = { cz: "", en: "", ch: "" };
+        S.newNodes.add(root);
+      }
+      markDirty(file);
+      renderSourceSel();
+      selectSource(src.id);
+      toast(`已新建科技树 ${o.cz}(${id})${notes.length ? "，" + notes.join("，") : ""}。记得保存，再到“文化”页让文化走这条线`);
+    }
+
+    function openImport() {
+      const to = S.source;
+      if (!to || to.kind !== "inst") return;
+      const others = SOURCES.filter(s => s.kind === "inst" && s !== to);
+      if (!others.length) { toast("没有别的科技树可以导入", true); return; }
+      document.getElementById("importDlg")?.remove();
+      const picked = new Set();
+      const toTpl = new Map(nodes(to).filter(n => n.template).map(n => [n.template, n.id]));
+      const dlg = document.createElement("dialog");
+      dlg.id = "importDlg";
+      dlg.innerHTML = `<h2 style="margin-top:0">${ico("iconWorldLaws", "lg")}导入节点到 ${esc(lineLabel(to))} (${esc(to.line)})</h2>
+        <div class="grid two">
+          <label class="field">从哪条线<select id="iFrom">${others.map(s => `<option value="${esc(s.id)}">${esc(lineLabel(s))} (${esc(s.line)})，${nodes(s).length} 个节点</option>`).join("")}</select></label>
+          <label class="field">筛选<input id="iFilter" placeholder="搜索 id / 名称…"></label>
+        </div>
+        <div class="toolbar" style="margin-top:6px"><button class="small" id="iAll" title="勾上筛选出来的全部节点">全选</button><button class="small" id="iNone">全不选</button>
+          <button class="small" id="iPre" title="把选中节点的前置一路往上补齐">补上前置</button><span style="flex:1"></span><span class="fhint" id="iCount"></span></div>
+        <div class="pickall" id="iList"></div>
+        <label style="display:block;margin-top:8px"><input type="checkbox" id="iDropCult" checked> 去掉节点上的“只给这些文化 / 这些文化不能”(原线按它自己的文化写的)</label>
+        <div class="note" style="margin-top:8px">导入的是副本：id 换成本线前缀，名称、说明照抄成新的文本键；选中节点之间的前置、互斥、取代跟着换。线与线之间不能互相引用，指向没选上节点的引用会去掉(本线有同一公共模板的就接到它上面)，导入后会列出来。</div>
+        <div class="toolbar" style="margin-top:12px;justify-content:flex-end"><button id="iCancel">取消</button><button class="primary" id="iOk">导入</button></div>`;
+      document.body.appendChild(dlg);
+      const $ = q => dlg.querySelector(q);
+      const from = () => SOURCES.find(s => s.id === $("#iFrom").value);
+      const dupOf = n => n.template && toTpl.get(n.template);
+      const count = () => { $("#iCount").textContent = picked.size ? `已选 ${picked.size} 个` : "还没选"; };
+      const render = () => {
+        const src = from(), q = $("#iFilter").value.trim().toLowerCase();
+        const list = nodes(src).filter(n => !q || String(n.id).toLowerCase().includes(q) || nodeName(n, src).toLowerCase().includes(q));
+        const lv = n => Number(n.advancement ?? 1);
+        const levels = uniq(list.map(n => String(lv(n)))).map(Number).sort((a, b) => a - b);
+        $("#iList").innerHTML = levels.map(l => `<div class="lvl">进阶度 ${l}</div>` + list.filter(n => lv(n) === l).map(n => {
+          const dup = dupOf(n);
+          return `<label class="row${dup ? " off" : ""}" title="${esc(dup ? `本线已有同一公共模板的 ${dup}` : n.id)}"><input type="checkbox" data-id="${esc(n.id)}"${picked.has(n.id) ? " checked" : ""}${dup ? " disabled" : ""}>${esc(nodeName(n, src))}` +
+            `${n.branch ? `<span class="fhint">${esc(BRANCH_LABEL[n.branch] || n.branch)}</span>` : ""}${dup ? `<span class="fhint">本线已有</span>` : ""}<span class="fkey">${esc(n.id)}</span></label>`;
+        }).join("")).join("") || `<p class="muted">没有节点</p>`;
+        $("#iList").querySelectorAll("input[data-id]").forEach(cb => cb.onchange = () => { if (cb.checked) picked.add(cb.dataset.id); else picked.delete(cb.dataset.id); count(); });
+        count();
+      };
+      $("#iFrom").onchange = () => { picked.clear(); render(); };
+      $("#iFilter").oninput = render;
+      $("#iAll").onclick = () => { $("#iList").querySelectorAll("input[data-id]:not(:disabled)").forEach(cb => picked.add(cb.dataset.id)); render(); };
+      $("#iNone").onclick = () => { picked.clear(); render(); };
+      // 前置(全部)都补上；前置(任一)一个都没选时才补，补全部候选，用不着的再取消
+      $("#iPre").onclick = () => {
+        const byId = new Map(nodes(from()).map(n => [n.id, n]));
+        const ok = id => byId.has(id) && !dupOf(byId.get(id));
+        const before = picked.size, stack = [...picked];
+        while (stack.length) {
+          const n = byId.get(stack.pop());
+          if (!n) continue;
+          const any = (n.requires_any || []).filter(ok);
+          const need = [...(n.requires || []).filter(ok), ...(any.some(id => picked.has(id) || dupOf(byId.get(id))) ? [] : any)];
+          for (const id of need) if (!picked.has(id)) { picked.add(id); stack.push(id); }
+        }
+        render();
+        toast(picked.size > before ? `补上了 ${picked.size - before} 个前置` : "选中的节点前置都已选上");
+      };
+      const close = () => { dlg.close(); dlg.remove(); };
+      $("#iCancel").onclick = close;
+      $("#iOk").onclick = () => {
+        if (!picked.size) { toast("先勾选要导入的节点", true); return; }
+        const src = from();
+        const r = importInstNodes(src, to, picked, { dropCultures: $("#iDropCult").checked });
+        close();
+        selectSource(to.id);
+        if (r.added.length) selectNode(r.added[0].id);
+        const head = `已从 ${lineLabel(src)} 导入 ${r.added.length} 个节点，记得保存`;
+        if (!r.skipped.length && !r.dropped.length) { toast(head); return; }
+        showReport(head, [
+          ...(r.skipped.length ? [`跳过 ${r.skipped.length} 个(同一公共模板一条线只留一个，引用它的已接到本线那个上)：`, ...r.skipped.map(x => "· " + x)] : []),
+          ...(r.dropped.length ? [`去掉了 ${r.dropped.length} 条指向没导入节点的引用，需要的话在表单里重新接：`, ...r.dropped.map(x => "· " + x)] : [])
+        ]);
+      };
+      render();
+      dlg.showModal();
     }
 
     // 保存前检查：引用了不存在的节点、id 重复等
@@ -1611,6 +1904,8 @@
       document.getElementById("groupFilter").onchange = () => { renderList(); renderGraph(); };
       document.getElementById("addBtn").onclick = openNewNode;
       document.getElementById("cloneBtn").onclick = duplicateNode;
+      document.getElementById("importBtn").onclick = openImport;
+      document.getElementById("newLineBtn").onclick = openNewLine;
       document.getElementById("delBtn").onclick = deleteNode;
       document.getElementById("saveBtn").onclick = saveAll;
       const unsaved = () => S.dirty.size || Object.keys(S.localeEdits).length || S.landmarkCsv?.dirty;

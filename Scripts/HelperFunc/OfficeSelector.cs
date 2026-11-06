@@ -52,13 +52,13 @@ public static class OfficeSelector
         switch (method)
         {
             case LeaderSelectMethod.Exam:
-                actor = TryGetExamOfficer(office, pKingdom)??TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
+                actor = TryGetExamOfficer(office, pKingdom)??TryGetClanOfficer(pKingdom, office)??TryGetProfessionOfficer(pKingdom, office);
                 break;
             case LeaderSelectMethod.Succession:
                 // 世家子弟入仕(九品中正、察举、世卿世禄，见 GentrySystem)
                 actor = GentrySystem.Candidate(pKingdom, unit => unit.isUnitFitToRule() && unit.CanServeOffice(pKingdom) &&
-                                                                 IsPreferredOfficeCandidate(unit, pKingdom))
-                        ?? TryGetClanOfficer(pKingdom)??TryGetProfessionOfficer(pKingdom);
+                                                                 IsPreferredOfficeCandidate(unit, pKingdom) && office.Accepts(unit))
+                        ?? TryGetClanOfficer(pKingdom, office)??TryGetProfessionOfficer(pKingdom, office);
                 break;
             case LeaderSelectMethod.Vote:
                 // 穿越政体：执委会主席由元老院全体大会从元老里选(见 TransmigrantSystem.ElectChairman)，选不出也不找外人
@@ -68,10 +68,10 @@ public static class OfficeSelector
                     if (actor == null) return;
                     break;
                 }
-                actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom);
+                actor = TryGetFeudalElectiveRuler(office, pKingdom) ?? TryGetProfessionOfficer(pKingdom, office);
                 break;
             case LeaderSelectMethod.Army:
-                actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom);
+                actor = TryGetStrongerLeader(office, pKingdom)??TryGetProfessionOfficer(pKingdom, office);
                 break;
             case LeaderSelectMethod.Harem:
                 if (!EmpireCraftWorldLawLibrary.empirecraft_law_allow_harem.isEnabled())
@@ -81,12 +81,15 @@ public static class OfficeSelector
                 actor = TryGetHarem(office, pKingdom);
                 break;
             default:
-                actor = TryGetProfessionOfficer(pKingdom);
+                actor = TryGetProfessionOfficer(pKingdom, office);
                 break;
         }
 
         // 等着起事的流寇不任官(见 ScenarioEventSystem.IsReserved)，换人
         if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsReserved(actor)) actor = null;
+        // 选出的人任不上(妃嫔、君主配偶……)就当没选出，下面从人口里补；以前 SetActor 拒掉后官位空着，下一轮又选中同一人
+        // (君主之位照旧：选帝、立宪皇位有自己的规矩)
+        if (actor != null && office != pKingdom.GetOffice() && !office.Accepts(actor)) actor = null;
         // 前现代父系(母系)文化：选出的人不合择官偏好时，无小人模式先从人口里补一名合偏好的人，补不出才用原人选
         // (选帝侯预先选立的储君不换人)
         if (actor != null && method != LeaderSelectMethod.Harem && regime?.type != RegimeType.Transmigrant &&
@@ -293,6 +296,7 @@ public static class OfficeSelector
             if (unit.isUnitFitToRule() && unit.isAdult() && unit.CanServeOffice(pKingdom) && !unit.IsEmperor() && !unit.IsOnOffice() && unit.hasClan()&& (!unit.isKing()||(unit.isKing()&&unit.kingdom.GetRegime().GetLeaderSelectMethod()!=LeaderSelectMethod.Succession)))
             {
                 if (unit.IsSkeleton()) continue;
+                if (!pOffice.Accepts(unit)) continue;
                 if (unit.HasOfficeIdentity()&&unit.isActor()&&unit.hasCulture())
                 {
                     var flag1 = false;
@@ -317,7 +321,7 @@ public static class OfficeSelector
         }
         return SelectBestCandidate(pool, pKingdom);
     }
-    private static Actor TryGetProfessionOfficer(Kingdom pKingdom)
+    private static Actor TryGetProfessionOfficer(Kingdom pKingdom, OfficeObject office = null)
     {
         if (pKingdom == null || pKingdom.isRekt() || pKingdom.units == null)
         {
@@ -339,6 +343,7 @@ public static class OfficeSelector
             {
                 continue;
             }
+            if (office != null && !office.Accepts(unit)) continue;
             int num2 = 1;
             if (unit.is_profession_citizen)
             {
@@ -364,7 +369,7 @@ public static class OfficeSelector
         }
         return actor ?? fallback;
     }
-    private static Actor TryGetClanOfficer(Kingdom pKingdom)
+    private static Actor TryGetClanOfficer(Kingdom pKingdom, OfficeObject office = null)
     {
         Clan clan = null;
         if (pKingdom.data.royal_clan_id.hasValue())
@@ -377,7 +382,8 @@ public static class OfficeSelector
         {
             foreach (Actor unit in city.units)
             {
-                if (unit.isUnitFitToRule() && unit.isAdult() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice() && !unit.IsSkeleton())
+                if (unit.isUnitFitToRule() && unit.isAdult() && unit.CanServeOffice(pKingdom) && !unit.isKing() && !unit.isCityLeader() && unit.hasClan()&&!unit.IsOnOffice() && !unit.IsSkeleton() &&
+                    (office == null || office.Accepts(unit)))
                 {
                     if (clan != null && unit.clan == clan)
                     {
