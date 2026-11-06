@@ -24,7 +24,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 宫门之变(用户 2026-10-27 举"玄武门之变"，游戏里不写史名，按都城起名"某城宫门之变")：兵变夺位不再一掷成事——
 //   皇子率本部(是军团统领的按所统军团的兵力，否则按实力折算的亲兵)伏于都城宫门，与京城禁军(空饷的不算，不奉诏的不出力)对垒，
 //   伏击者占先手(兵力按一倍半算)：胜则诛太子、逼皇帝退位；败则皇子伏诛。胜负、兵力写进史书。
-//   宫门之变、诸王争位兵败的皇子先按律以篡位论处(律有夷三族的连坐妻小，见 LawEvents)，再伏诛。
+//   宫门之变、诸王争位兵败的皇子先按律以篡位论处(只处死本人，不连坐妻小，见 LawEvents)，再伏诛。
 // 诸王之乱(用户举"八王之乱"，游戏里叫"诸王之乱")：诸王争位时，宗室里就藩为王(做着帝国成员国君主)的，实力不弱于新君六成的
 //   各自起兵(至多四家，各打一场"某王争位之战"，标"诸王之乱")——谁攻下京城谁即位(见 CityPatch 藩王索取皇位)，余下的接着打新君；
 //   没有就藩之王才照旧由最强的兄弟一掷定胜负。
@@ -133,7 +133,7 @@ public static class PrinceStruggleSystem
         {
             Record(empire, string.Format(LM.Get("palace_gate_coup_failed_history"), gate, rival.getName(),
                 CorpsSystem.ShortStrength(rebels / AmbushFactor), CorpsSystem.ShortStrength(guards)), rival);
-            // 事败按律以篡位论处(律有夷三族的连坐妻小)；律法关闭、本政体无此律、律里没有死刑的，照旧伏诛(见 LawEvents)
+            // 事败按律以篡位论处(只处死本人，不连坐妻小)；律法关闭、本政体无此律、律里没有死刑的，照旧伏诛(见 LawEvents)
             LawEvents.FailedUsurper(rival, core, "law_reason_failed_coup");
             BiographySystem.Kill(rival, BiographySystem.Format("death_cause_strife_lost", emperor.getName()), emperor, executed: true);
         }

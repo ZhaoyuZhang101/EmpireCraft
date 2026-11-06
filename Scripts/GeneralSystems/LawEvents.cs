@@ -18,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 叛乱兵败(守方胜，或议和时叛军已经灭亡)：叛军首领活着落到朝廷手里——人在守方或守方所在帝国境内、不再是一国之君——
 //     按谋反论处；地方独立、附庸独立按叛国，举教起事按煽动叛乱，藩王争位按篡位(见 OnWarEnded；首领见 TrackRebelLeader)；
 //   · 不奉诏之战朝廷获胜、抗命的嗣君被废：按谋反论处；
-//   · 宫门之变、诸王争位兵败的皇子：先按篡位论处(律有夷三族的连坐妻小；律法关闭、本政体无此律的不论)，之后照旧伏诛
+//   · 宫门之变、诸王争位兵败的皇子：先按篡位论处(只处死本人，不连坐妻小；律法关闭、本政体无此律的不论)，之后照旧伏诛
 //     (见 PrinceStruggleSystem)；
 //   · 大军(满编 BigCorps 以上，义军、骑士团的不算)大败又溃散而统领生还：RoutChance 机会论处——全军覆没只身逃还、守御溃散
 //     按临阵脱逃，攻城大败按违抗军令；城破时趁乱出走的守城统领 CityFledChance 机会按临阵脱逃论处；
@@ -30,7 +30,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 朝议"赈济灾荒"被层层克扣(到手不足 SkimLine)：灾城主官按克扣的比例记贪污，每回至多 SkimMax 人(见 TempFac_赈济灾荒)；
 //   · 构陷宿敌去职记陷害；遣刺客杀了同国的人记杀人，刺杀本国君主记谋反(见 PersonalTieSystem)；
 //   · 世家兼并郡望之田：AnnexChance 机会给在任官员、城主的族人记非法侵占土地(见 GentrySystem.Kin)。
-// 罪名对应的刑罚照 EmpireLawConfig(谋反、篡位是死刑、夷三族，临阵脱逃是死刑……)，各政体可在律法里删改。
+// 罪名对应的刑罚照 EmpireLawConfig(谋反是死刑、夷三族，篡位只处死本人，临阵脱逃是死刑……)，各政体可在律法里删改。
 public static class LawEvents
 {
     private const float BigCorps = 3000f;

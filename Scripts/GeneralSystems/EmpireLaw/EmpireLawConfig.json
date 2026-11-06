@@ -20,7 +20,7 @@
     "Category": "王权与国家安全",
     "Name": "篡位罪",
     "Description": "以非法手段夺取皇位、伪造继承权或拥立伪帝者有罪。",
-    "Punishments": ["死刑", "夷三族"],
+    "Punishments": ["死刑"],
     "Note": "属极重罪。"
   },
   {
