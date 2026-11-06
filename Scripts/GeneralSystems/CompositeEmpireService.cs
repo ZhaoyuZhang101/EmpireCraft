@@ -626,6 +626,22 @@ public static partial class CompositeEmpireService
         return true;
     }
 
+    // 守老家的帝国(编旗的、剧本开局定下朝廷的大清大金)：统治文化；别的返回 null。
+    // 本族老家留作直辖，不按当地文化分成游牧封国、也不设省(见 Empire.GetProtectedDirectCityIds)：
+    // 以前清开局就把满洲按游牧之地封给五个宗王(连储君都封了出去)，兴京又设了省交给外姓，直辖只剩盛京一片
+    public static string HomelandCulture(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core?.data == null || core.isRekt() || !BannerSystem.Organized(core) && !FixedCourt(empire)) return null;
+        string ruling = IsComposite(empire) ? GetRulingCulture(empire) : CultureService.GetRealmCulture(core);
+        return CultureService.IsValidCulture(ruling) ? ruling : null;
+    }
+
+    public static bool IsHomeland(City city, string rulingCulture) =>
+        city?.data != null && !city.isRekt() &&
+        BannerRules.KeepsHome(city.hasTitle() ? CultureService.GetEffectiveTitleCulture(city.GetTitle()) : "", rulingCulture,
+            city.GetOrCreate().banner_home);
+
     // 剧本开局就定下的朝廷(八旗多元制的大清、天眷新制以后的大金)：
     public static bool FixedCourt(Empire empire) =>
         empire?.CoreKingdom?.data != null && !empire.CoreKingdom.isRekt() && empire.CoreKingdom.GetOrCreate().fixed_court;

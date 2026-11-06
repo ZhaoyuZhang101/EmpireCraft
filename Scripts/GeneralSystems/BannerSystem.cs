@@ -216,6 +216,19 @@ public static partial class BannerSystem
         return core?.data == null ? BannerRules.VigorMax : core.GetOrCreate().banner_vigor;
     }
 
+    // 八旗交战加成(见 FrontSystem)：编旗之国的禁旅八旗，随八旗锐气起落；绿营、外藩部落兵不加
+    public static float CombatFactor(Kingdom kingdom, CorpsData corps) =>
+        corps != null && FormationSystem.BannerSource(corps) && Organized(kingdom) ? BannerRules.CombatFactor(Vigor(kingdom)) : 1f;
+
+    // 旗人皆兵(见 CorpsSystem 征兵)：编旗之国的中央(禁旅八旗所在)征兵时，城里的旗人多算一份；行省的绿营不收旗人，不算
+    public static float ExtraLevy(City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        if (city?.data == null || city.isRekt() || kingdom?.data == null || CoreOf(kingdom) != kingdom || !Organized(kingdom)) return 0f;
+        return CityPopulationSystem.BackgroundOfClass(city, SocialClass.Banner) * BannerRules.ExtraLevy *
+               AdministrativeControlSystem.Yield(city);
+    }
+
     // 八旗战力一年一算(编旗的城结算人口时、帝国例行检查时，谁先到谁算)
     private static void TickVigor(Kingdom core)
     {

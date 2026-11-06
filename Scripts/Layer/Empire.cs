@@ -4596,6 +4596,11 @@ public class Empire : MetaObject<EmpireData>
             foreach (City city in GetPartitionTitleCities(foundingTitle))
                 if (city != null && !city.isRekt()) protectedCities.Add(city.id);
         }
+        // 八旗、开局定下朝廷的征服王朝：本族老家留作直辖(见 CompositeEmpireService.HomelandCulture)
+        string homeland = CompositeEmpireService.HomelandCulture(this);
+        if (homeland != null && CoreKingdom?.cities != null)
+            foreach (City city in CoreKingdom.cities)
+                if (CompositeEmpireService.IsHomeland(city, homeland)) protectedCities.Add(city.id);
         return protectedCities;
     }
 
@@ -4734,8 +4739,12 @@ public class Empire : MetaObject<EmpireData>
 
     private Actor FindPartitionGovernor(City capital, Regime regime, bool createAdministration)
     {
+        // 储君(连同剧本点名的继承人)不出去当封国国君：当了别国国君就不再是本国储君(以前清开局把储君福临封了出去，皇太极死后是豪格继位)
+        long heir = CoreKingdom?.GetHeir()?.id ?? -1L;
+        List<long> scriptedHeirs = CoreKingdom?.GetOrCreate()?.scripted_heirs;
         bool IsEligible(Actor actor) => actor != null && !actor.isRekt() && actor.isActor() &&
             actor.isAlive() && actor.isAdult() && !actor.isKing() && actor.id != (Emperor?.id ?? -1L) &&
+            actor.id != heir && scriptedHeirs?.Contains(actor.id) != true &&
             actor.isUnitFitToRule();
 
         if (createAdministration)

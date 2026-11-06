@@ -1124,10 +1124,12 @@ public static partial class FrontSystem
         // 开国雄主的军队锐不可当(见 RulerTraitSystem.FounderCombat)
         // 本土帝国在本族的城上抵御异族入侵，战斗欲望更强(见 NativeDefenseSystem)
         // 穿越政权的新式操典与组织(见 TransmigrantSystem.CombatFactor)
+        // 禁旅八旗随八旗锐气加成(见 BannerSystem.CombatFactor)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                               PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
                                               TransmigrantSystem.CombatFactor(entry.kingdom) *
+                                              BannerSystem.CombatFactor(entry.kingdom, entry.corps) *
                                               ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                               NativeDefenseSystem.CombatFactor(entry.kingdom, owner, city)) *
                        (landing ? LandingAttack : 1f) * ground.Attack;
@@ -1143,6 +1145,7 @@ public static partial class FrontSystem
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
                                             PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
                                             TransmigrantSystem.CombatFactor(entry.kingdom) *
+                                            BannerSystem.CombatFactor(entry.kingdom, entry.corps) *
                                             ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                             NativeDefenseSystem.CombatFactor(entry.kingdom, attacker, city) *
                                             (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench

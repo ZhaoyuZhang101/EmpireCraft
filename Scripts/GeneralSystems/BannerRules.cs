@@ -11,6 +11,19 @@ public static class BannerRules
     public const float VigorFloor = 30f, VigorMax = 100f, VigorEntry = 90f, VigorPeaceDecay = 0.6f, VigorWarGain = 0.4f;
     public const int CityIntervalYears = 3, CityMax = 14, CitiesPerGarrison = 10;
 
+    // 守老家(八旗、开局定下朝廷的征服王朝)：旗下旧地，或法理地的文化就是统治文化的，留作直辖，不按当地文化分成封国、也不设省
+    public static bool KeepsHome(string titleCulture, string rulingCulture, bool bannerHome) =>
+        bannerHome || !string.IsNullOrEmpty(rulingCulture) && string.Equals(titleCulture, rulingCulture, StringComparison.Ordinal);
+
+    // 八旗交战加成：禁旅八旗锐气满时 ×(1+EliteBonus)，锐气落到谷底(VigorFloor)就和别的军一样
+    public const float EliteBonus = 0.5f;
+
+    public static float CombatFactor(float vigor) =>
+        1f + EliteBonus * Math.Min(1f, Math.Max(0f, (vigor - VigorFloor) / (VigorMax - VigorFloor)));
+
+    // 旗人皆兵：征兵时城里的旗人多算这么多份进兵源
+    public const float ExtraLevy = 1f;
+
     // 一座城旗人该占几成：旗人世代驻防，旧地(开局就在旗下的城)成丁皆兵，满城次之，别的城不编旗
     public static float TargetShare(bool home, bool manchuCity) => home ? HomeShare : manchuCity ? GarrisonShare : 0f;
 

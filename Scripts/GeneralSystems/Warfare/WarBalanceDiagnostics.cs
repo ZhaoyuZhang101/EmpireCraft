@@ -182,7 +182,8 @@ public static class WarBalanceDiagnostics
                     $"火力×{Weighted(side, entry => FrontSystem.Firepower(entry.kingdom, entry.corps)):0.00} " +
                     $"统帅×{Weighted(side, entry => WarCommandSystem.Factor(entry.kingdom)):0.00} " +
                     $"补给×{Weighted(side, LogisticsSystem.AttackFactor):0.00} " +
-                    $"雄主×{Weighted(side, entry => RulerTraitSystem.FounderCombat(entry.kingdom)):0.00}");
+                    $"雄主×{Weighted(side, entry => RulerTraitSystem.FounderCombat(entry.kingdom)):0.00} " +
+                    $"八旗×{Weighted(side, entry => BannerSystem.CombatFactor(entry.kingdom, entry.corps)):0.00}");
     }
 
     private static float Weighted(List<(Kingdom kingdom, CorpsData corps)> side, global::System.Func<CorpsData, float> value) =>
