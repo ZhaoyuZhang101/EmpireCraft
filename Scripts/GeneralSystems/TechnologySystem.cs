@@ -43,7 +43,8 @@ public sealed class TechResearchConfig
     // 文化规模：每多一座城科技费用增加多少，封顶多少
     public float cost_per_extra_city = 0.02f;
     public float cost_city_scaling_max = 1f;
-    // 技术扩散：每有一个接触中的文化(接壤/交战/同一帝国)已掌握，费用降低多少，封顶多少
+    // 技术扩散：每有一个接触中的文化(接壤/交战/同一帝国)已掌握，费用降低多少，封顶多少；
+    // 通达层算好后每个文化按通达强度折算(隔山隔海的打折，见 RebuildContacts、ConnectivitySystem)
     public float diffusion_per_contact = 0.2f;
     public float diffusion_max = 0.5f;
     // 加速事件一次给多少比例的研究进度
@@ -215,6 +216,8 @@ public sealed class TechTreeConfig
     public List<TechEraConfig> eras = new();
     public List<TechMaterialConfig> materials = new();
     public List<TechNodeConfig> techs = new();
+    // 通达层(距离、地形、交通通信科技定各国各文化之间往来的远近，见 ConnectivityRules、ConnectivitySystem)
+    public ConnectivityConfig connectivity = new();
 }
 
 #endregion
@@ -342,6 +345,8 @@ public static class TechnologySystem
         _config.industry.employment_cap_bonus ??= new Dictionary<string, float>();
         _config.industry.capitalist_budding_techs ??= new List<string>();
         _config.building_swap_guards ??= new List<TechSwapGuardConfig>();
+        _config.connectivity ??= new ConnectivityConfig();
+        _config.connectivity.Normalize();
         _techs = new Dictionary<string, TechNodeConfig>(StringComparer.Ordinal);
         foreach (TechNodeConfig tech in _config.techs.Where(tech => !string.IsNullOrWhiteSpace(tech?.id)))
         {
@@ -414,6 +419,8 @@ public static class TechnologySystem
         ResearchedCache.Clear();
         Contacts.Clear();
         WarContacts.Clear();
+        ContactWeights.Clear();
+        _weightedContacts = false;
         StraitNeighbours.Clear();
         _lastScan = -1d;
     }
@@ -750,6 +757,14 @@ public static class TechnologySystem
     public static float GetDiffusionDiscount(string culture, string techId)
     {
         TechResearchConfig research = Config.research;
+        // 通达层算好后：每个已掌握的接触文化按通达强度折算(见 RebuildContacts)
+        if (_weightedContacts && ContactWeights.TryGetValue(culture ?? "", out Dictionary<string, float> weights))
+        {
+            float sum = 0f;
+            foreach (KeyValuePair<string, float> pair in weights)
+                if (_states.TryGetValue(pair.Key, out CultureTechState state) && state.researched_techs.Contains(techId)) sum += pair.Value;
+            return Math.Min(research.diffusion_max, sum * research.diffusion_per_contact);
+        }
         return Math.Min(research.diffusion_max, CountContactsKnowing(culture, techId) * research.diffusion_per_contact);
     }
 
@@ -1429,12 +1444,25 @@ public static class TechnologySystem
         }
     }
 
-    // 文化之间的接触：城市接壤、正在交战、同属一个帝国(含朝贡国)。技术只沿着接触扩散
+    // 文化之间的接触：城市接壤、正在交战、同属一个帝国(含朝贡国)。技术只沿着接触扩散。
+    // 通达层算好后(用户 2026-11-06 选"标准"，见 ConnectivitySystem)不再只分有无，按强度给权重——
+    //   · 地理：学的一方从教的一方学得到的通达强度(两边谁走得过去都算，列岛视距渡海只算列岛那一边，同 D2"日本能出岛")，
+    //     隔着雪山大漠、没有航海隔着海的低，电报以后远处也连得上；以前接壤就算、翻不过的山脊也算，隔着无人区的邻城反倒不算；
+    //   · 政治：同一帝国至少 0.8、朝贡国与宗主至少 0.6，正在交战的至少 0.5(战场上见识过)；
+    //   · 折扣 = 每个已掌握的接触文化 diffusion_per_contact × 权重，封顶 diffusion_max；
+    //     权重不低于 tech_contact_min(0.3)的才算"接触中"(加速事件、年代限制、缺材料靠贸易兜底、科技窗口的计数)。
+    //   通达层还没算好(读档后几秒)时照旧：接壤、教化一成五、列岛隔海、同帝国，二值。
+    private static readonly Dictionary<string, Dictionary<string, float>> ContactWeights = new(StringComparer.Ordinal);
+    private static bool _weightedContacts;
+
     private static void RebuildContacts(Dictionary<string, List<City>> citiesByCulture)
     {
         Contacts.Clear();
         WarContacts.Clear();
+        ContactWeights.Clear();
+        _weightedContacts = ConnectivitySystem.Ready;
         var empireCultures = new Dictionary<long, HashSet<string>>();
+        var tributaryCultures = new Dictionary<long, HashSet<string>>();
         foreach (KeyValuePair<string, List<City>> pair in citiesByCulture)
         foreach (City city in pair.Value)
         {
@@ -1451,8 +1479,8 @@ public static class TechnologySystem
                     Link(WarContacts, other, pair.Key);
                 }
             }
-            // 教化：四方文化教化到本城一成五以上，也算接触过(见 CultureRadiation)
-            IReadOnlyDictionary<string, float> radiance = CultureRadiation.SharesOf(city);
+            // 教化：四方文化教化到本城一成五以上，也算接触过(见 CultureRadiation)；通达层算好后由它统一按强度给
+            IReadOnlyDictionary<string, float> radiance = _weightedContacts ? null : CultureRadiation.SharesOf(city);
             if (radiance != null)
                 foreach (KeyValuePair<string, float> influence in radiance)
                 {
@@ -1461,7 +1489,7 @@ public static class TechnologySystem
                     Link(Contacts, influence.Key, pair.Key);
                 }
             // 列岛文化：隔海相望的外国也算接触(见 CitiesAcrossStrait)。只记列岛这一边，对岸的文化不因此多出接触
-            if (TianxiaSystem.IsArchipelago(pair.Key))
+            if (!_weightedContacts && TianxiaSystem.IsArchipelago(pair.Key))
                 foreach (City across in CitiesAcrossStrait(city))
                 {
                     if (across.isRekt() || across.kingdom == city.kingdom) continue;
@@ -1470,16 +1498,83 @@ public static class TechnologySystem
                 }
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
             // 朝贡国与宗主也算一家(以前注释说含朝贡国，代码只看帝国成员；见 TributaryRelations)
-            if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain) empireId = suzerain.id;
+            bool tributary = false;
+            if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain)
+            {
+                empireId = suzerain.id;
+                tributary = true;
+            }
             if (empireId < 0) continue;
             if (!empireCultures.TryGetValue(empireId, out HashSet<string> cultures))
                 empireCultures[empireId] = cultures = new HashSet<string>(StringComparer.Ordinal);
             cultures.Add(pair.Key);
+            if (!tributary) continue;
+            if (!tributaryCultures.TryGetValue(empireId, out HashSet<string> tributaries))
+                tributaryCultures[empireId] = tributaries = new HashSet<string>(StringComparer.Ordinal);
+            tributaries.Add(pair.Key);
         }
         foreach (HashSet<string> cultures in empireCultures.Values)
         foreach (string a in cultures)
         foreach (string b in cultures)
             Link(Contacts, a, b);
+        if (_weightedContacts) WeighContacts(citiesByCulture, empireCultures, tributaryCultures);
+    }
+
+    // 按通达强度给接触权重(见 RebuildContacts)，再按权重重排"接触中"的文化
+    private static void WeighContacts(Dictionary<string, List<City>> citiesByCulture, Dictionary<long, HashSet<string>> empireCultures,
+        Dictionary<long, HashSet<string>> tributaryCultures)
+    {
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        var political = new Dictionary<(string, string), float>();
+        foreach (KeyValuePair<long, HashSet<string>> empire in empireCultures)
+        {
+            tributaryCultures.TryGetValue(empire.Key, out HashSet<string> tributaries);
+            foreach (string a in empire.Value)
+            foreach (string b in empire.Value)
+            {
+                if (a == b) continue;
+                bool members = tributaries == null || !tributaries.Contains(a) && !tributaries.Contains(b);
+                float floor = members ? config.tech_empire_floor : config.tech_tributary_floor;
+                if (!political.TryGetValue((a, b), out float old) || floor > old) political[(a, b)] = floor;
+            }
+        }
+        var cultures = new List<string>();
+        foreach (string culture in citiesByCulture.Keys)
+            if (CultureService.IsValidCulture(culture)) cultures.Add(culture);
+        var contacts = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (string learner in cultures)
+        {
+            Contacts.TryGetValue(learner, out HashSet<string> binary);
+            WarContacts.TryGetValue(learner, out HashSet<string> enemies);
+            var weights = new Dictionary<string, float>(StringComparer.Ordinal);
+            var touching = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string source in cultures)
+            {
+                if (source == learner) continue;
+                float weight = ConnectivitySystem.CultureLearn(learner, source);
+                // 这一轮通达层里还没有这个文化(新起的)：照旧按有无接触
+                if (weight < 0f) weight = binary != null && binary.Contains(source) ? 1f : 0f;
+                bool strong = weight >= config.tech_contact_min;
+                if (enemies != null && enemies.Contains(source))
+                {
+                    weight = Math.Max(weight, config.tech_war_floor);
+                    strong = true;
+                }
+                if (political.TryGetValue((learner, source), out float floor))
+                {
+                    weight = Math.Max(weight, floor);
+                    strong = true;
+                }
+                if (weight <= 0f) continue;
+                weights[source] = Math.Min(1f, weight);
+                if (strong) touching.Add(source);
+            }
+            ContactWeights[learner] = weights;
+            contacts[learner] = touching;
+        }
+        Contacts.Clear();
+        foreach (KeyValuePair<string, HashSet<string>> pair in contacts)
+            if (pair.Value.Count > 0) Contacts[pair.Key] = pair.Value;
     }
 
     // 列岛文化(CultureRule 标了 archipelago 的，见 TianxiaSystem.IsArchipelago)隔海相望的近邻(用户 2026-10-21 选文明平衡 D2"日本能出岛")：

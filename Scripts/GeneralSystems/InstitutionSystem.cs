@@ -1091,9 +1091,16 @@ public static partial class InstitutionSystem
     // 接壤的、文明等级更高的异文化政权数(帝国按全体成员的边境算；邻国是帝国的算帝国，自己推制度的独立王国也算一个)。
     // 列岛文化隔海相望的外国也算接壤(用户 2026-10-21 选文明平衡 D2：岛上没有接壤的外国，以前拿不到这份加速；
     // 不要水师，见 TechnologySystem.CitiesAcrossStrait)，别的文化照旧只认陆上接壤
+    // 通达层算好后(用户 2026-11-06)：不再只数接壤的(加列岛隔海)，数通达强度不低于 institution_advanced_min 的更先进政权——
+    // 隔着雪山大漠接壤的不算，隔着窄海、沿着商路往来密切的也算
     private static int CountAdvancedBorderEmpires(InstitutionRealm realm, string culture)
     {
         if (realm == null || realm.IsEmpire && realm.Empire.kingdoms_list == null) return 0;
+        if (ConnectivitySystem.Ready)
+        {
+            int counted = CountAdvancedReachable(realm, culture);
+            if (counted >= 0) return counted;
+        }
         IEnumerable<Kingdom> members = realm.IsEmpire ? realm.Empire.kingdoms_list : realm.Scope;
         int ownLevel = GetCultureRanking(culture).Level;
         bool archipelago = TianxiaSystem.IsArchipelago(culture);
@@ -1135,6 +1142,41 @@ public static partial class InstitutionSystem
             }
         }
         return neighbours.Count;
+    }
+
+    // 按通达数更先进的政权；本政权这一轮还没进通达层(新立的)返回 -1，照旧数接壤
+    private static int CountAdvancedReachable(InstitutionRealm realm, string culture)
+    {
+        Kingdom own = realm.IsEmpire ? realm.Empire.CoreKingdom : realm.Kingdom;
+        if (own == null || own.isRekt()) return -1;
+        int ownLevel = GetCultureRanking(culture).Level;
+        float min = ConnectivitySystem.Config.institution_advanced_min;
+        if (!ConnectivitySystem.Knows(own)) return -1;
+        var counted = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Kingdom other in World.world.kingdoms.list)
+        {
+            if (other == null || other.isRekt() || !other.isCiv() || other == own) continue;
+            Empire otherEmpire = other.GetEmpire();
+            string key;
+            string otherCulture;
+            if (otherEmpire != null)
+            {
+                if (otherEmpire == realm.Empire || otherEmpire.isRekt() || otherEmpire.IsArchived() || otherEmpire.CoreKingdom != other ||
+                    otherEmpire.CoreKingdom.isRekt()) continue;
+                key = "e" + otherEmpire.id;
+                otherCulture = GetPrimaryCulture(otherEmpire);
+            }
+            else if (KingdomReformsEnabledFor(other) && other != realm.Kingdom && InstitutionRealm.IsSovereignKingdom(other))
+            {
+                key = "k" + other.id;
+                otherCulture = CultureService.GetInstitutionCulture(other);
+            }
+            else continue;
+            if (!CultureService.IsValidCulture(otherCulture) || string.Equals(otherCulture, culture, StringComparison.Ordinal)) continue;
+            if (GetCultureRanking(otherCulture).Level <= ownLevel) continue;
+            if (ConnectivitySystem.LearnStrength(own, other) >= min) counted.Add(key);
+        }
+        return counted.Count;
     }
 
     private static void CompleteReform(InstitutionRealm realm, InstitutionNodeConfig node)
@@ -2531,8 +2573,17 @@ public static partial class InstitutionSystem
             }
         }
 
-        // 渠道二：陆地边境相邻（用城市的邻国集合，不做逐格地形判断）
+        // 渠道二：陆地边境相邻（用城市的邻国集合）。通达层算好后按地理通达打折(用户 2026-11-06 选"标准"，见 ConnectivitySystem)：
+        //   权重 = land_border_weight × 学的一方从对方学得到的强度——隔着雪山、大漠接壤的邻国比平原上的邻国慢得多
         // 渠道四：城市的主流文化跟统治它的政权的法理文化不同 —— 占领融合
+        bool weighted = ConnectivitySystem.Ready;
+        ConnectivityConfig reach = ConnectivitySystem.Config;
+        float Geo(string learner, string source)
+        {
+            if (!weighted) return 1f;
+            float strength = ConnectivitySystem.CultureLearn(learner, source);
+            return strength < 0f ? 1f : strength;
+        }
         var allianceGroups = new Dictionary<Alliance, HashSet<string>>();
         foreach (City city in World.world.cities.list.Where(city => city != null && !city.isRekt()))
         {
@@ -2546,7 +2597,14 @@ public static partial class InstitutionSystem
                 foreach (Kingdom neighbour in city.neighbours_kingdoms)
                 {
                     if (neighbour == null || neighbour.isRekt() || neighbour == owner) continue;
-                    LinkBoth(ownerCulture, CultureService.GetRealmCulture(neighbour), rule.land_border_weight);
+                    string neighbourCulture = CultureService.GetRealmCulture(neighbour);
+                    if (!weighted)
+                    {
+                        LinkBoth(ownerCulture, neighbourCulture, rule.land_border_weight);
+                        continue;
+                    }
+                    Link(ownerCulture, neighbourCulture, rule.land_border_weight * Geo(neighbourCulture, ownerCulture));
+                    Link(neighbourCulture, ownerCulture, rule.land_border_weight * Geo(ownerCulture, neighbourCulture));
                 }
             }
             if (owner.hasAlliance())
@@ -2564,13 +2622,35 @@ public static partial class InstitutionSystem
             }
         }
 
-        // 渠道三之二：同盟
+        // 渠道三之二：同盟(通达层算好后：盟友隔得远的，往来照样打折，至少按 institution_alliance_min 算)
         foreach (HashSet<string> members in allianceGroups.Values)
         {
             List<string> list = members.ToList();
             for (int i = 0; i < list.Count; i++)
             for (int j = i + 1; j < list.Count; j++)
-                LinkBoth(list[i], list[j], rule.alliance_or_tributary_weight);
+            {
+                if (!weighted)
+                {
+                    LinkBoth(list[i], list[j], rule.alliance_or_tributary_weight);
+                    continue;
+                }
+                Link(list[i], list[j], rule.alliance_or_tributary_weight * Math.Max(reach.institution_alliance_min, Geo(list[j], list[i])));
+                Link(list[j], list[i], rule.alliance_or_tributary_weight * Math.Max(reach.institution_alliance_min, Geo(list[i], list[j])));
+            }
+        }
+
+        // 渠道五：远播(用户 2026-11-06 选"标准")——不接壤的文化，通达够 institution_remote_min 的也有往来：
+        // 隔着窄海、沿着商路、电报以后隔着大洋，权重 institution_remote_weight × 强度(各渠道取最大，不累加)
+        if (weighted)
+        {
+            List<string> present = presentCultures.ToList();
+            foreach (string target in present)
+            foreach (string source in present)
+            {
+                if (target == source) continue;
+                float strength = ConnectivitySystem.CultureLearn(target, source);
+                if (strength >= reach.institution_remote_min) Link(source, target, reach.institution_remote_weight * strength);
+            }
         }
 
         return contacts;

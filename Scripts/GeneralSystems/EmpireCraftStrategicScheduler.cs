@@ -78,6 +78,8 @@ public static class EmpireCraftStrategicScheduler
         AdministrativeControlSystem.Tick();
         // 水土：游牧离草、定居入草(每帧至多一个政权，一年一次，见 ShuiTuSystem)
         ShuiTuSystem.Tick();
+        // 通达层：城与城之间走多远(快照分帧、计算在后台线程，见 ConnectivitySystem)；教化接着用它的城际图
+        ConnectivitySystem.Tick();
         CultureRadiation.Tick();
         CityStabilitySystem.Tick();
         // 府库积压：每年一次国库、城库余钱折损(见 TreasuryHoardSystem)

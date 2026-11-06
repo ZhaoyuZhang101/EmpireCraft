@@ -229,7 +229,9 @@ public static class PublicOpinionSystem
         state.ideology_pressure?.Clear();
     }
 
-    // 外国压力：只算执政理念与本国不同、且跟本国接壤或交战的帝国
+    // 外国压力：只算执政理念与本国不同、且跟本国接壤或交战的帝国。
+    // 通达层算好后(用户 2026-11-06 选"标准"，见 ConnectivitySystem)：接壤的按本国从对方学得到的通达强度(不算电讯)打折，
+    // 隔着雪山大漠的压力小；不接壤、通达够 ideology_pressure_min 的(隔着窄海)也算，同样打折；电讯一路照旧另算
     private static List<IdeologyPressureSource> ComputePressure(Empire empire, PartyIdeology governing, string culture)
     {
         var result = new List<IdeologyPressureSource>();
@@ -241,6 +243,21 @@ public static class PublicOpinionSystem
             Empire other = neighbour?.kingdom?.GetEmpire();
             if (other != null && other != empire && !other.isRekt() && !other.IsArchived()) borders.Add(other);
         }
+        var geography = new Dictionary<Empire, float>();
+        if (ConnectivitySystem.Ready)
+            foreach (Empire other in ModClass.EMPIRE_MANAGER.ToList())
+            {
+                if (other == null || other == empire || other.isRekt() || other.IsArchived() || other.CoreKingdom == null ||
+                    other.CoreKingdom.isRekt()) continue;
+                float strength = ConnectivitySystem.LearnStrength(empire.CoreKingdom, other.CoreKingdom, telecom: false);
+                if (strength < 0f) continue;
+                if (borders.Contains(other)) geography[other] = strength;
+                else if (strength >= ConnectivitySystem.Config.ideology_pressure_min)
+                {
+                    geography[other] = strength;
+                    borders.Add(other);
+                }
+            }
         double ownPower = Math.Max(1d, empire.CoreKingdom.GetNationalPower());
         int ownEra = TechnologySystem.GetEraTier(culture);
         // 电报、广播、互联网：本国开放时，不接壤的国家的理念也会形成压力(按通信等级打折，见 MediaSystem)
@@ -263,6 +280,7 @@ public static class PublicOpinionSystem
             float amount = BasePressure * ratio * (1f + 0.25f * Math.Max(0, eraGap));
             if (empire.CoreKingdom.isEnemy(source.CoreKingdom)) amount *= 0.5f;
             if (remote.TryGetValue(source, out float linkFactor)) amount *= linkFactor;
+            else if (geography.TryGetValue(source, out float strength)) amount *= strength;
             result.Add(new IdeologyPressureSource
             {
                 empire_id = source.getID(),

@@ -355,6 +355,28 @@ public static partial class IdeologyPopulationSystem
         { _contactWavePending = false; LandmarkBookSystem.StartCityInfluence(); }
     }
 
+    // 外来理念从哪座外国邻城来。通达层算好后(用户 2026-11-06，见 ConnectivitySystem)：挑通达最强的外国邻城，
+    // 再按强度掷一次——隔着雪山大漠的邻城多半传不过来，那就按本城自己的主流理念算
+    private static City ForeignContact(City city)
+    {
+        if (city.neighbours_cities == null) return null;
+        if (!ConnectivitySystem.Ready)
+            return city.neighbours_cities.FirstOrDefault(neighbour => neighbour != null && neighbour.kingdom != city.kingdom &&
+                                                                   neighbour.units?.Count > 0);
+        City best = null;
+        float strongest = -1f;
+        foreach (City neighbour in city.neighbours_cities)
+        {
+            if (neighbour == null || neighbour.kingdom == city.kingdom || !(neighbour.units?.Count > 0)) continue;
+            float strength = ConnectivitySystem.NeighbourStrength(neighbour, city);
+            if (strength < 0f) strength = 1f;
+            if (strength <= strongest) continue;
+            strongest = strength;
+            best = neighbour;
+        }
+        return best != null && UnityEngine.Random.value < strongest ? best : null;
+    }
+
     private static void ContactCity(City city)
     {
         if (city?.units == null || city.isRekt()) return;
@@ -364,8 +386,7 @@ public static partial class IdeologyPopulationSystem
                 actor.GetFaction()?.IsParty == true)
             .GroupBy(actor => actor.GetFaction().Ideology)
             .ToDictionary(group => group.Key, group => group.Count());
-        City foreignCity = city.neighbours_cities?.FirstOrDefault(neighbour => neighbour != null &&
-            neighbour.kingdom != city.kingdom && neighbour.units?.Count > 0);
+        City foreignCity = ForeignContact(city);
         PartyIdeology foreign = foreignCity == null ? GetDominant(city) : GetDominant(foreignCity);
         Empire empire = city.kingdom?.GetEmpire();
         var grievances = empire == null ? null : InstitutionSystem.GetClassGrievances(empire);
