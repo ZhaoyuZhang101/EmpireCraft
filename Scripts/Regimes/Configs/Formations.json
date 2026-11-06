@@ -92,6 +92,7 @@
     "NomadFeudalism": { "central": "lord_retinue", "district": "tribal_host", "prefecture": "tribal_levy", "manual": "lord_retinue" },
     "Origin": { "central": "warband", "district": "warband", "prefecture": "warband", "manual": "warband" },
     "HuaxiaOrigin": { "central": "warband", "district": "warband", "prefecture": "warband", "manual": "warband" },
+    "OriginFeudalism": { "central": "royal_host", "district": "vassal_host", "prefecture": "warband", "manual": "royal_host" },
     "ClassicalRepublic": { "central": "citizen_legion", "district": "allied_force", "prefecture": "citizen_levy", "manual": "citizen_legion" },
     "Bakufu": { "central": "shogunate_army", "district": "daimyo_army", "prefecture": "ashigaru_levy", "manual": "shogunate_army" },
     "Transmigrant": {
