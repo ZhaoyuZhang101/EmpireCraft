@@ -372,6 +372,7 @@ public static class DataManager
         WildernessSystem.Load(saveData.wild_regions, saveData.wild_next_id);
         WildernessDevelopmentSystem.Load(saveData.wild_development);
         RoadTreatySystem.Load(saveData.road_treaties);
+        MilitaryAccessSystem.Load(saveData.military_access);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -612,6 +613,7 @@ public static class DataManager
         saveData.wild_next_id = WildernessSystem.NextId;
         saveData.wild_development = WildernessDevelopmentSystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();
+        saveData.military_access = MilitaryAccessSystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.world_map_zone_km = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm;

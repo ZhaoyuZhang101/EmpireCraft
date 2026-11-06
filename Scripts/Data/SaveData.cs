@@ -62,6 +62,8 @@ public class SaveData
         new EmpireCraft.Scripts.GeneralSystems.WildDevelopmentData();
     // 通路之约：两国交好的年数、有过友好时期的、议定的(见 RoadTreatySystem)
     public RoadTreatyData road_treaties = new RoadTreatyData();
+    // 借道：主国许借道国借道，单向，有起止(见 MilitaryAccessSystem)。旧档没有，从无约起
+    public MilitaryAccessData military_access = new MilitaryAccessData();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;

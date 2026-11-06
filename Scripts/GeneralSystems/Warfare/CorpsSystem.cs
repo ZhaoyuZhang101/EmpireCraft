@@ -252,6 +252,8 @@ public static class CorpsSystem
     {
         _monthAt = now;
         _monthFirst = first;
+        try { MilitaryAccessSystem.Monthly(); }
+        catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][借道] 年结失败: {exception}"); }
         MonthQueue.Clear();
         foreach (Kingdom kingdom in World.world.kingdoms.ToList()) MonthQueue.Enqueue(kingdom);
         _monthPhase = MonthPhase.Kingdoms;
@@ -1773,6 +1775,8 @@ public static class CorpsSystem
             return Nearer(current, target, side);
         }
         PathFailures.Remove(corps.id);
+        // 要穿过的第三国记下，年底向它借道
+        if (side != null) MilitaryAccessSystem.NoteCrossing(side, path);
         path.RemoveAt(0);
         Paths[corps.id] = (target.id, path);
         return ZoneById(path[0]);
@@ -1796,13 +1800,17 @@ public static class CorpsSystem
     }
 
     // 按代价寻路(八方向)：路上的地块代价 1，路外按兵种加价(OffRoad 的倒数)，山地、沼泽、丛林再按兵种加价(Rough 的倒数)，
-    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable)，
+    // 斜走乘 1.41；不可通行的地块与海面不进，终点除外。给了 side 时不相干的第三国的地加重八倍(能绕就绕，见 FrontSystem.Passable；
+    // 许 side 借道的不算，见 MilitaryAccessSystem)，
     // 隔着城墙的两块地不走(关门对 side 开着的除外，进终点也一样，见 WallPassage)；不给 side(皇帝出行等借用)不看城墙。
     // 无人区同城墙只看给了 side 的：对 side 过不去的不进(终点除外)，困在里面的在无人区里每步加重 ForeignStep 倍走出去(见 WildBlocks)
+    // 隔得太远绕不动时(搜满 MaxPathSearch 还没到)不加重再找一次，直接穿过去(见 FindPath)
     private const float ForeignStep = 8f, EnemyStep = 3f;
     // 上一次寻路被城墙挡掉的走法数(诊断日志用)
     private static int _wallBlocked;
     private static float _wallLoggedAt = -100f;
+    // 上一次寻路搜满 MaxPathSearch 也没到；到不了(无人区、城墙隔断，或四周走遍)的不算
+    private static bool _pathExhausted;
     // 先从终点往回走几百块：城墙(连同高山、海面)把终点围在一小片里、走遍了也到不了出发地，就不必把外面几千块搜一遍
     // (围城：城被一圈城墙围着、关门在敌方手里，攻城的军每次寻路都要搜满 MaxPathSearch)
     private const int EnclosureSearch = 512;
@@ -1850,6 +1858,25 @@ public static class CorpsSystem
 
     private static List<int> FindPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm, Kingdom side = null)
     {
+        List<int> path = SearchPath(from, to, arm, side, ForeignStep, EnemyStep, 1f);
+        // 第三国、敌占区每步加重好几倍，估价跟不上，隔着四五十块就搜不到头。以前到这里就只剩朝目标方向贴着走，
+        // 碰到湖、山就停在岸边(军队卡在飞地回不来)。绕不动就不绕：不加重，按路外的走法估价，直奔目标再找一次
+        if (path == null && _pathExhausted)
+            path = SearchPath(from, to, arm, side, 1f, 1f, 1f / Mathf.Max(0.1f, CorpsArmSystem.OffRoad(arm)));
+        return path;
+    }
+
+    // 还要走多远的估价：一块至少 1，斜走 1.41(以前只算直走，斜着的路估低了，要多搜很多块)。
+    // 略放大一点，一样远的路先走离目标近的，不把一大片等价的路线都搜一遍
+    private static float PathEstimate(TileZone a, TileZone b)
+    {
+        int dx = Mathf.Abs(a.x - b.x), dy = Mathf.Abs(a.y - b.y);
+        return (Mathf.Max(dx, dy) + 0.41f * Mathf.Min(dx, dy)) * 1.001f;
+    }
+
+    private static List<int> SearchPath(TileZone from, TileZone to, CorpsArmSystem.Arm arm, Kingdom side, float foreignStep, float enemyStep, float estimate)
+    {
+        _pathExhausted = false;
         var passable = new Dictionary<long, bool>();
         // 无人区：给了 side 才看；困在过不去的无人区里(stranded)的可以在无人区里走，好走出去
         bool wild = side != null && WildernessPassage.Active;
@@ -1911,18 +1938,22 @@ public static class CorpsSystem
                 if (wilderness && neighbour != to && WildernessPassage.Open(zone, way)) continue;
                 float step = RoadNetwork.IsRoad(neighbour) ? 1f : offRoad;
                 if (TerrainSystem.SlowsMarch(neighbour) || WarWeather.SlowsMarch(neighbour)) step *= rough;
-                if (neighbour != to && Foreign(neighbour)) step *= ForeignStep;
-                if (neighbour != to && Enemy(neighbour)) step *= EnemyStep;
+                if (neighbour != to && Foreign(neighbour)) step *= foreignStep;
+                if (neighbour != to && Enemy(neighbour)) step *= enemyStep;
                 if (wilderness) step *= ForeignStep;
                 if (neighbour.x != zone.x && neighbour.y != zone.y) step *= 1.41f;
                 float total = here + step;
                 if (PathSeen(neighbour) && _pathCost[neighbour.id] <= total) continue;
                 PathReach(neighbour, total, zone.id);
-                PushHeap(PathOpen, (total + ZoneDistance(neighbour, to), neighbour));
+                PushHeap(PathOpen, (total + estimate * PathEstimate(neighbour, to), neighbour));
             }
         }
         PathOpen.Clear();
-        if (!PathSeen(to)) return null;
+        if (!PathSeen(to))
+        {
+            _pathExhausted = _pathClosedCount >= MaxPathSearch;
+            return null;
+        }
         var path = new List<int>();
         for (int id = to.id; id != -1; id = _pathPrevious[id]) path.Add(id);
         path.Reverse();

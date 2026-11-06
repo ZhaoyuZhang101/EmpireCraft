@@ -290,13 +290,14 @@ public static partial class FrontSystem
     // 当前在算战线段的一方的敌国签名(见 Sectors)
     private static long _routeSignature;
 
-    // 能走的地块：陆地、不是高山、不是本方过不去的无人区(见 WildernessPassage)，归属无主或本方、盟友、交战敌国(不相干的第三国不走)
+    // 能走的地块：陆地、不是高山、不是本方过不去的无人区(见 WildernessPassage)，归属无主或本方、盟友、交战敌国、
+    // 许本方借道的国家(见 MilitaryAccessSystem)；不相干的第三国不走
     public static bool Passable(Kingdom side, TileZone zone)
     {
         if (zone == null || TerrainSystem.Impassable(zone) || SeaRegionSystem.IsSea(zone) ||
             !WildernessPassage.Passable(zone, side)) return false;
         Kingdom owner = Controller(zone);
-        return owner == null || owner.wild || Friendly(side, owner) || Hostile(side, owner);
+        return owner == null || owner.wild || Friendly(side, owner) || Hostile(side, owner) || MilitaryAccessSystem.Grants(owner, side);
     }
 
     private static bool LandRoute(Kingdom side, City target)
@@ -328,6 +329,8 @@ public static partial class FrontSystem
         }
         if (LandRoutes.Count > 20000) LandRoutes.Clear();
         LandRoutes[key] = (found, now, _routeSignature);
+        // 近处的敌城走不到：年底看是不是被第三国隔着，向它借道
+        if (!found) MilitaryAccessSystem.NoteBlocked(side, target);
         return found;
     }
 
@@ -349,6 +352,8 @@ public static partial class FrontSystem
         // 敌国签名：陆路缓存(见 LandRoute)只在敌国没变时沿用
         long signature = Realm(side).id;
         foreach (Kingdom hostile in hostiles) signature = unchecked(signature * 31 + hostile.id);
+        // 借道签了、废了，能走的地也变了
+        signature = unchecked(signature * 31 + MilitaryAccessSystem.Version);
         _routeSignature = signature;
         foreach (Kingdom hostile in hostiles)
             foreach (City city in hostile.cities ?? new List<City>())
@@ -368,6 +373,8 @@ public static partial class FrontSystem
         if (hostiles.Count == 0 || origin == null) return land;
         long signature = Realm(side).id;
         foreach (Kingdom hostile in hostiles) signature = unchecked(signature * 31 + hostile.id);
+        // 借道签了、废了，能走的地也变了
+        signature = unchecked(signature * 31 + MilitaryAccessSystem.Version);
         _routeSignature = signature;
         HashSet<City> home = HomeCities(side);
         var sectors = new Dictionary<City, Sector>();
@@ -830,15 +837,87 @@ public static partial class FrontSystem
         var result = new Dictionary<long, int>();
         List<City> cities = kingdom.cities?.Where(city => city?.data != null && !city.isRekt() && city.getTile()?.zone != null)
             .ToList() ?? new List<City>();
-        if (cities.Count <= 1) return result;
+        if (cities.Count == 0) return result;
         bool Frontier(City city) => city.zones.Any(zone => (zone?.neighbours_all ?? Array.Empty<TileZone>())
             .Any(next => next?.city?.kingdom != null && next.city.kingdom != kingdom));
         List<City> order = cities.OrderByDescending(city => city == kingdom.capital)
             .ThenByDescending(Frontier).ThenByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)).ToList();
-        int index = 0;
+        // 各片各自轮：军只派到驻地那一片的城。飞地四周都是别国，总排在边境城前头，以前本土的军也会被派过去
+        Dictionary<long, int> pieces = StationPieces(kingdom, order);
+        var groups = new Dictionary<int, List<City>>();
+        foreach (City city in order)
+        {
+            int piece = pieces[city.data.id];
+            if (!groups.TryGetValue(piece, out List<City> group)) groups[piece] = group = new List<City>();
+            group.Add(city);
+        }
+        int main = kingdom.capital?.data != null && pieces.TryGetValue(kingdom.capital.data.id, out int capitalPiece)
+            ? capitalPiece : pieces[order[0].data.id];
+        var turns = new Dictionary<int, int>();
         foreach (CorpsData entry in corps.Where(entry => !entry.militia).OrderBy(entry => entry.id))
-            result[entry.id] = order[index++ % order.Count].getTile().zone.id;
+        {
+            City home = CorpsSystem.Home(entry);
+            int piece = home != null && pieces.TryGetValue(home.data.id, out int homePiece) ? homePiece : main;
+            turns.TryGetValue(piece, out int turn);
+            turns[piece] = turn + 1;
+            List<City> group = groups[piece];
+            TileZone station = group[turn % group.Count].getTile().zone;
+            result[entry.id] = Walkable(kingdom, entry, station) ? station.id : NearestStation(kingdom, entry, order);
+        }
         return result;
+    }
+
+    // 本国的城连成几片：经本方、同一势力和并肩作战的友邦、许本方借道的国家的城连着，或隔着走得通的无人区小径连着；
+    // 隔第三国的飞地、隔着本方过不去的无人区的城各成一片。返回 城编号 → 片号
+    private static Dictionary<long, int> StationPieces(Kingdom kingdom, List<City> cities)
+    {
+        var pieces = new Dictionary<long, int>();
+        var friendly = new Dictionary<long, bool>();
+        var seen = new HashSet<long>();
+        var queue = new Queue<City>();
+        void Visit(City from, City next)
+        {
+            if (next?.data == null || next.isRekt() || next.kingdom == null || seen.Contains(next.data.id)) return;
+            if (!friendly.TryGetValue(next.kingdom.id, out bool ok))
+                friendly[next.kingdom.id] = ok = Friendly(kingdom, next.kingdom) || MilitaryAccessSystem.Grants(next.kingdom, kingdom);
+            if (!ok) return;
+            TileZone a = from.getTile()?.zone, b = next.getTile()?.zone;
+            if (a == null || b == null || !CorpsSystem.SameLand(a, b) || !WildernessPassage.Walks(a, b, kingdom)) return;
+            seen.Add(next.data.id);
+            queue.Enqueue(next);
+        }
+        int piece = 0;
+        foreach (City root in cities)
+        {
+            if (!seen.Add(root.data.id)) continue;
+            queue.Enqueue(root);
+            while (queue.Count > 0)
+            {
+                City city = queue.Dequeue();
+                if (city.kingdom == kingdom) pieces[city.data.id] = piece;
+                foreach (City next in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>()) Visit(city, next);
+                foreach (City next in WildernessNeighbours.Of(city)) Visit(city, next);
+            }
+            piece++;
+        }
+        return pieces;
+    }
+
+    // 隔着过不去的无人区回不了驻地那一片的军：就近驻到走得到的本国的城，一座也没有就原地驻防，不再对着无人区干等、反复寻路
+    private static int NearestStation(Kingdom kingdom, CorpsData corps, List<City> cities)
+    {
+        TileZone at = CorpsSystem.Zone(corps), best = null;
+        float nearest = float.MaxValue;
+        foreach (City city in cities)
+        {
+            TileZone zone = city.getTile().zone;
+            if (!Walkable(kingdom, corps, zone)) continue;
+            float distance = CorpsSystem.ZoneDistance(at, zone);
+            if (distance >= nearest) continue;
+            nearest = distance;
+            best = zone;
+        }
+        return best?.id ?? at?.id ?? HomeZone(corps);
     }
 
     private static int StationZone(CorpsData corps, Dictionary<long, int> stations) =>

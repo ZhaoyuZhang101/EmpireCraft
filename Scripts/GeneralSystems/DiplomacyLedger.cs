@@ -200,6 +200,11 @@ public static class DiplomacyLedger
             Add("diplomacy_tie_subsidy_paid", Gold, b.GetOrCreate().last_given_alliance_timestamp, 20);
         if (eb != null && eb.CoreKingdom == b && a.GetGivenAllianceEmpire() == eb)
             Add("diplomacy_tie_subsidy_received", Gold, a.GetOrCreate().last_given_alliance_timestamp, 20);
+        // 借道：按约上的起止(续约过的到期不是起始加年数)
+        if (MilitaryAccessSystem.Find(b, a) is { } passage)
+            ties.Add(new Tie { text = LM.Get("diplomacy_tie_access_in"), hex = Cyan, since = passage.since, until = passage.until });
+        if (MilitaryAccessSystem.Find(a, b) is { } granted)
+            ties.Add(new Tie { text = LM.Get("diplomacy_tie_access_out"), hex = Cyan, since = granted.since, until = granted.until });
         if (CommodityMarketSystem.UnionOf(b) == a) Add("diplomacy_tie_union_member", Green);
         if (CommodityMarketSystem.UnionOf(a) == b) Add("diplomacy_tie_union_leader", Green);
         if (RoyalMarriageSystem.Allied(a, b)) Add("diplomacy_tie_marriage", "#FF8FB0", MarriageSince(a, b), 20);

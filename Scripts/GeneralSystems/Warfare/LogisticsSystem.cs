@@ -53,9 +53,9 @@ public static class LogisticsSystem
         return until > 0d && World.world != null && World.world.getCurWorldTime() < until;
     }
 
-    // 一国一月的补给结算里：各控制方与本国的关系(友、敌、都不是)只判一次；同一块地、同样走不走海路的补给线只找一次
-    // (几支军常挤在同一块地上)。都只在这一国这一次结算里有效
-    private const sbyte RelationFriendly = 1, RelationHostile = 2, RelationNeither = 3;
+    // 一国一月的补给结算里：各控制方与本国的关系(友、敌、都不是、许本国借道)只判一次；同一块地、同样走不走海路的补给线只找一次
+    // (几支军常挤在同一块地上)。都只在这一国这一次结算里有效。许借道的地运粮按本方的地折损，但不是粮源(见 MilitaryAccessSystem)
+    private const sbyte RelationFriendly = 1, RelationHostile = 2, RelationNeither = 3, RelationAccess = 4;
     private static readonly Dictionary<long, sbyte> Relations = new();
     private static readonly Dictionary<int, float> SupplyByZone = new();
 
@@ -64,7 +64,8 @@ public static class LogisticsSystem
         if (other == null) return RelationNeither;
         if (Relations.TryGetValue(other.id, out sbyte known)) return known;
         sbyte relation = FrontSystem.Friendly(kingdom, other) ? RelationFriendly
-            : FrontSystem.Hostile(kingdom, other) ? RelationHostile : RelationNeither;
+            : FrontSystem.Hostile(kingdom, other) ? RelationHostile
+            : MilitaryAccessSystem.Grants(other, kingdom) ? RelationAccess : RelationNeither;
         Relations[other.id] = relation;
         return relation;
     }
@@ -230,7 +231,7 @@ public static class LogisticsSystem
         float loss;
         sbyte relation = Relation(kingdom, controller);
         if (controller == null) loss = NeutralLoss;
-        else if (relation == RelationFriendly) loss = FriendlyLoss;
+        else if (relation is RelationFriendly or RelationAccess) loss = FriendlyLoss;
         else if (relation == RelationHostile)
         {
             if (depth > FrontlineDepth) return 1f;

@@ -15,7 +15,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 每项一个判定(能做返回 null，不能做返回原因的本地化键)与一个执行；执行前再判一次，执行都算神力所为(见 MembershipCooldown.ByGod)；
 //   · 宣战照 WarGate.Forbidden 的顺序逐条给原因(ForbiddenReason)，再看停战、够不够得着(WarReach)，先挑战争目标；
 //   · 停战、通好、保护约没有现成的公开入口，按各自系统的字段直接写(到期年限照各系统)；
-//   · 好感修正记在 KingdomExtraData.god_opinion，由好感项 opinion_god_favor 读(见 EmpireCraftOpinionAddition)，双向各改一档。
+//   · 好感修正记在 KingdomExtraData.god_opinion，由好感项 opinion_god_favor 读(见 EmpireCraftOpinionAddition)，双向各改一档；
+//   · 借道：对方许焦点国借道(单向，见 MilitaryAccessSystem)，已有的再签就是续约；撤回把两国之间两个方向的都作废。
 public static class DiplomacyActions
 {
     public sealed class Action
@@ -131,6 +132,31 @@ public static class DiplomacyActions
                         b.GetKingdomFullName()), a);
                     return null;
                 })
+            }
+        },
+        new Group
+        {
+            titleKey = "diplomacy_group_access",
+            actions =
+            {
+                Make("diplomacy_act_access_short", CanBorrowPassage, (a, b, _) =>
+                {
+                    MilitaryAccessSystem.Sign(b, a, false, true);
+                    return null;
+                }),
+                Make("diplomacy_act_access_long", CanBorrowPassage, (a, b, _) =>
+                {
+                    MilitaryAccessSystem.Sign(b, a, true, true);
+                    return null;
+                }),
+                Make("diplomacy_act_access_end", (a, b) =>
+                    MilitaryAccessSystem.Find(b, a) != null || MilitaryAccessSystem.Find(a, b) != null ? null : "diplomacy_reason_no_access",
+                    (a, b, _) =>
+                    {
+                        MilitaryAccessSystem.Revoke(b, a, "military_access_ended");
+                        MilitaryAccessSystem.Revoke(a, b, "military_access_ended");
+                        return null;
+                    })
             }
         },
         new Group
@@ -255,6 +281,14 @@ public static class DiplomacyActions
         }
         World.world.alliances.forceAlliance(a, b);
         return DiplomacyLedger.Allied(a, b) ? null : "diplomacy_reason_failed";
+    }
+
+    // ───────── 借道 ─────────
+    // 交战的借不了；同一帝国、并肩作战的本来就能走
+    private static string CanBorrowPassage(Kingdom a, Kingdom b)
+    {
+        if (a.isInWarWith(b) || FrontSystem.Hostile(a, b)) return "diplomacy_reason_at_war";
+        return FrontSystem.Friendly(a, b) ? "diplomacy_reason_access_needless" : null;
     }
 
     // ───────── 宣战 ─────────
