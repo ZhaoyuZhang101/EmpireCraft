@@ -8404,6 +8404,7 @@
   "tech_clear_target": "Let AI choose",
   "tech_force_all": "Unlock all",
   "tech_reset_culture": "Reset",
+  "tech_reset_culture_confirm": "Reset: the {0} culture will fall back to the Primitive Age, institutions that lack their techs will be revoked, and buildings beyond its techs will be downgraded city by city. Click again within {1} seconds to confirm.",
   "tech_materials_title": "Materials",
   "tech_status_researched": "Known",
   "tech_status_researching": "Researching",

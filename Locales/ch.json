@@ -8419,6 +8419,7 @@
   "tech_clear_target": "交給AI選擇",
   "tech_force_all": "全部解鎖",
   "tech_reset_culture": "重置科技",
+  "tech_reset_culture_confirm": "重置科技：{0}文化將退回原始時代，缺科技的制度一併撤下，超出科技的建築逐城降級。{1} 秒內再點一次確認。",
   "tech_materials_title": "材料",
   "tech_status_researched": "已掌握",
   "tech_status_researching": "研究中",
