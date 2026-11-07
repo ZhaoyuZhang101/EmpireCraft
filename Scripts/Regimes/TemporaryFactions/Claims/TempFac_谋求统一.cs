@@ -81,9 +81,9 @@ public class TempFac_谋求统一 : TemporaryFaction
                 if (selfCore != null && targetCore != null && selfCore.id == targetCore.id)
                 {
                     Empire targetEmpire = kingdom.GetEmpire();
-                    // 同争一个帝国核心的对手帝国也要与本帝国接壤，不隔着别国远征
+                    // 同争一个帝国核心的对手帝国也要与本帝国接壤(法理相连且走得通，见下)，不隔着别国远征
                     if (targetEmpire != null && Allowed(targetEmpire.CoreKingdom) && WarSituation.Power(empire) >= WarSituation.Power(targetEmpire) &&
-                        targetEmpire.kingdoms_list.Any(member => member != null && !member.isRekt() && empire.IsNeighbourWith(member)))
+                        targetEmpire.kingdoms_list.Any(member => member != null && !member.isRekt() && WarReach.WarNear(empire.CoreKingdom, member)))
                     {
                         SetKingdomTarget(targetEmpire.CoreKingdom);
                         return true;
@@ -100,8 +100,9 @@ public class TempFac_谋求统一 : TemporaryFaction
                 }
             };
             if (kingdom.IsInEmpire()) continue;
-            // 接壤或隔海相望(见 StraitReach)
-            if (empire.IsNeighbourWith(kingdom) || StraitReach.Across(empire.CoreKingdom, kingdom))
+            // 法理相连且走得通、或隔海相望(见 WarReach.WarNear，同开战谋划挑目标)。2026-11-07 群友"帝国不会主动出击统一天下"：
+            // 以前只认原版邻城(地块相接，Empire.IsNeighbourWith)，隔着无人区的天下各家朝廷提不出统一；真接壤却走不通的开战闸本来也拦
+            if (WarReach.WarNear(empire.CoreKingdom, kingdom))
             {
                 if (kingdom.species_id == empire.CoreKingdom.species_id)
                 {

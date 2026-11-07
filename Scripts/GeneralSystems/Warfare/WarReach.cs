@@ -167,6 +167,41 @@ public static class WarReach
         return false;
     }
 
+    // 走得通的邻城：地块相接、或只隔着无人区，且两边城心军队走得到一起(任一方的走法，同 Borders)。
+    // 天下大势量两家接壤用(见 UnificationSystem.Borders；2026-11-07 群友"帝国不会主动出击统一天下"：那边以前只认地块相接的原版邻城，
+    // 隔着无人区的天下各家既不算统一的对手、共主也不去平定)；没开无人区时就是原版邻城
+    public static IEnumerable<City> WalkableNeighbours(City city)
+    {
+        if (city?.data == null) yield break;
+        TileZone from = city.getTile()?.zone;
+        if (city.neighbours_cities != null)
+            foreach (City other in city.neighbours_cities)
+            {
+                if (other?.kingdom == null || other.isRekt()) continue;
+                TileZone to = other.getTile()?.zone;
+                if (WildernessPassage.Walks(from, to, city.kingdom) || WildernessPassage.Walks(from, to, other.kingdom)) yield return other;
+            }
+        foreach (City other in WalkableWildNeighbours(city)) yield return other;
+    }
+
+    // 发起国(连同所在帝国)法理相连且走得通的各国，一次算好(同 WarNear 的陆上一条；朝堂挑目标要逐国问一遍，见 TempFac_扩张地盘)
+    public static HashSet<Kingdom> WalkableNeighbourKingdoms(Kingdom initiator)
+    {
+        var result = new HashSet<Kingdom>();
+        if (initiator?.data == null || initiator.isRekt()) return result;
+        foreach (Kingdom x in Members(initiator))
+        {
+            if (x.cities == null) continue;
+            foreach (City city in x.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                foreach (City other in WalkableNeighbours(city))
+                    if (other.kingdom != null) result.Add(other.kingdom);
+            }
+        }
+        return result;
+    }
+
     // 只隔着无人区、又走得通的邻城(AcrossWild 不看走不走得通；隔着过不去的雪山大漠的不算，见 WildernessPassage)
     public static IEnumerable<City> WalkableWildNeighbours(City city)
     {

@@ -56,6 +56,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 雄主之后第一次汗位更替必乱：不看积弊、正统(见 TakeHeroTurmoil、NomadCycleSystem.OnKhanSucceeded)，之后照常。
 // 问鼎按占城、国力从大到小逐家核对(见 PickContender)：前朝冷却、开国气象只挡它自己，不冻结全天下；对手国力按除它以外的各家算。
 // 文化的统一倾向(见 UnificationDrive)只放宽久乱之后的门槛，开战闸门、军饷都不绕。
+// 上面说的"接壤"(问鼎够不够得着别家、统一者挑谁开战、连着三年够不着、共主收拾残局)都按法理相连且走得通算，只隔着走得通的
+// 无人区也算(2026-11-07 群友"然后还是老问题，帝国不会主动出击统一天下"，见 Borders；以前只认原版邻城，隔着无人区的各家
+// 统一者不打、共主不平定，三年后统一草草收束)。共主收拾残局掷中了却一家也动不了时记"[天下诊断] ... 收拾残局无从下手"(见 DiagnosePacify)。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
@@ -678,8 +681,13 @@ public static class UnificationSystem
     // 这一家是这个天下的人(都城在这片里)：只有它们能做统一者、是统一的对象
     private static bool Belongs(Kingdom sovereign, Realm realm) => Alive(sovereign) && realm.members.Contains(sovereign);
 
-    // 两家接壤(领地相邻，或隔海相望，见 StraitReach)。各家的接壤表每帧建一次(以前每问一次就把全世界的城扫一遍，
-    // 统一者对每个对手各问一次)
+    // 两家接壤：法理相连且走得通(邻城地块相接、或只隔着无人区，两边军队走得到一起，见 WarReach.WalkableNeighbours)，或隔海相望(见 StraitReach)。
+    // 各家的接壤表每帧建一次(以前每问一次就把全世界的城扫一遍，统一者对每个对手各问一次)。
+    // 2026-11-07 群友"然后还是老问题，帝国不会主动出击统一天下"：以前只认原版邻城(地块真正相接)。10-29 起连片的山脉沙漠划成无人区、
+    // 不归任何城，隔着它的两座城不再是原版邻城(三国剧本 90 年存档：法理相邻却不接壤的城 429 对)；11-04 开战闸与 AI 挑目标已改成
+    // "法理相连且走得通才算邻国"(见 WarReach)，这里漏了——隔着无人区的天下各家：问鼎时算"够不着别家"、统一者不对它们宣战、
+    // 连着三年"够不着"就把统一草草收束(过半的还受天命、得三十年开国气象)、共主收拾残局也不去平定。
+    // 真接壤却走不通的(隔着过不去的高山)同样不算，同 11-04 的定案；没开无人区时与原版邻城一样
     private static readonly Dictionary<Kingdom, HashSet<Kingdom>> Adjacency = new();
     private static int _adjacencyFrame = -1;
 
@@ -691,10 +699,10 @@ public static class UnificationSystem
             Adjacency.Clear();
             foreach (City city in World.world.cities.list)
             {
-                if (city?.data == null || city.isRekt() || city.neighbours_cities == null || city.kingdom == null) continue;
+                if (city?.data == null || city.isRekt() || city.kingdom == null) continue;
                 Kingdom own = Sovereign(city.kingdom);
                 if (own == null) continue;
-                foreach (City next in city.neighbours_cities)
+                foreach (City next in WarReach.WalkableNeighbours(city))
                 {
                     if (next?.kingdom == null || next.isRekt()) continue;
                     Kingdom other = Sovereign(next.kingdom);
@@ -1012,7 +1020,7 @@ public static class UnificationSystem
     }
 
     // 收拾残局：受了这个天下天命的共主(帝国，不在统一战争里，不是周室一系)，每年 PacifyChance 的机会对天下里剩下的一家动手——
-    // 接壤(或隔海相望)、都城在这片天下里、不是它的朝贡国、岁币之国、附庸，过得了开战闸门(停战、联姻、扶立……见 WarGate)、
+    // 接壤(法理相连且走得通，隔着走得通的无人区也算，见 Borders；或隔海相望)、都城在这片天下里、不是它的朝贡国、岁币之国、附庸，过得了开战闸门(停战、联姻、扶立……见 WarGate)、
     // 够得着(见 WarReach)的，离共主都城近的先：
     //   · 先索称臣纳贡：对方不是帝国、国力不到共主的 PacifyYieldShare，按国力悬殊有机会称臣(至多 PacifyYieldChance，
     //     见 TributaryRelations.Submit；共主没有朝贡制度的收不成，照样开战)；
@@ -1063,6 +1071,37 @@ public static class UnificationSystem
             Record(holder, "unify_pacify_war_history", dynasty, name);
             return;
         }
+        DiagnosePacify(realm, holder, empire, dynasty);
+    }
+
+    // 诊断(2026-11-07 群友"帝国不会主动出击统一天下")：共主这一年掷中了收拾残局，天下里却一家也没动成(也没在打)——各家卡在哪。
+    // 卡点变了才记，没变的 ContestLogYears 年一行(同问鼎诊断)；只记日志
+    private static void DiagnosePacify(Realm realm, Kingdom holder, Empire empire, string dynasty)
+    {
+        var parts = new List<string>();
+        int rest = 0;
+        foreach (Kingdom member in realm.members)
+        {
+            if (member == holder || !Alive(member) || Sovereign(member) != member || Exempt(member)) continue;
+            // 正与天下里的一家交战(平定之战还在打)：不算无从下手
+            if (holder.isInWarWith(member)) return;
+            string why = !Borders(holder, member) ? "不接壤或走不通"
+                : member.GetTakenAllianceEmpire() == empire ? "朝贡国(开战闸不打)"
+                : !WarGate.CanDeclare(holder, member) ? "开战闸(停战、姻亲、盟约、国力不足两倍……)"
+                : !WarReach.Reachable(holder, member) ? "够不着"
+                : "宣战被拦";
+            if (parts.Count < ContestLogTop) parts.Add($"{member.GetKingdomName()} {why}");
+            else rest++;
+        }
+        if (parts.Count == 0) return;
+        string key = $"{realm.line}#pacify";
+        string sign = string.Join(",", parts);
+        double now = World.world.getCurWorldTime();
+        if (ContestLogged.TryGetValue(key, out var last) && last.sign == sign && now >= last.at && Date.getYearsSince(last.at) < ContestLogYears)
+            return;
+        ContestLogged[key] = (sign, now);
+        LogService.LogInfo($"[EmpireCraft][天下诊断] {realm.line} 共主 {dynasty} 收拾残局无从下手：{string.Join("；", parts)}" +
+                           (rest > 0 ? $"(另 {rest} 家)" : ""));
     }
 
     // 一家的正规军(帝国连同各成员国)：现有兵力与满编；没有军团制时按士兵与历来最多的士兵
