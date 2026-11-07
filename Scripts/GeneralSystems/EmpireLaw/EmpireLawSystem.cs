@@ -149,7 +149,7 @@ public class LawEnforcementContext
     public PersonalClanIdentity Identity { get; set; }
     public string ActorName { get; set; }
     public string ActorLogName { get; set; }
-    public string ActorColorText { get; set; }
+    public UnityEngine.Color? ActorColorText { get; set; }
     // 上公屏(官员、君主、有爵位封号的人；当场拿获的要人)
     public bool Broadcast { get; set; }
     // 当场拿获、罪证确凿(Prosecute)

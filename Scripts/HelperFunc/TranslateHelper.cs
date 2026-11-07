@@ -350,14 +350,14 @@ namespace EmpireCraft.Scripts.HelperFunc
             string reason = EmpireLawSystem.GetReasonText(context.ReasonKey);
             if (!string.IsNullOrEmpty(reason)) crimeDetailText = string.Format(LM.Get("empire_law_crime_with_reason"), crimeDetailText, reason);
             string punishmentText = GetPunishmentText(context);
-            string kingdomColor = kingdom.getColor()._color_text;
+            UnityEngine.Color kingdomColor = kingdom.getColor()._color_text;
             WorldLogMessage worldLog = new WorldLogMessage(
                 EmpireCraftWorldLogLibrary.empire_law_enforced_log,
                 actorName,
                 crimeDetailText,
                 punishmentText)
             {
-                color_special1 = !string.IsNullOrEmpty(context.ActorColorText) ? context.ActorColorText : kingdomColor,
+                color_special1 = context.ActorColorText ?? kingdomColor,
                 color_special2 = kingdomColor,
                 color_special3 = kingdomColor
             };
