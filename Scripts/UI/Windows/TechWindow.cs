@@ -265,7 +265,13 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         buttons.AddButtonIntoHoriLayout("tech_reset_culture", LM.Get("tech_reset_culture"),
             () =>
             {
-                TechnologySystem.ResetCulture(_culture);
+                // 同科技回退神力退回原始(用户 2026-11-07 "重置科技按钮也改成同一套")：制度、建筑一并处理，读档不反弹
+                TechRollbackResult result = TechnologySystem.ResetCulture(_culture, _kingdom);
+                string name = _culture.GetCultureTranslate();
+                WorldTip.showNow(result.techs > 0
+                    ? string.Format(LM.Get("tech_rollback_done"), name, TechnologySystem.EraName(result.to_era),
+                        TechnologySystem.EraName(result.from_era), result.techs, result.institutions, result.cities)
+                    : string.Format(LM.Get("tech_rollback_already"), name, result.institutions, result.cities), false, "top", 4f);
                 _selectedId = "";
                 Rebuild();
             }, size: new Vector2(60, 11));

@@ -2236,11 +2236,10 @@ public static class TechnologySystem
         return revoked.Count;
     }
 
-    public static void ResetCulture(string culture)
-    {
-        if (!_states.Remove(culture ?? "")) return;
-        ResearchedCache.Remove(culture);
-    }
+    // 重置本文化的科技：退回原始时代，同科技回退神力(见 TechRollbackSystem.ToPrimitive；缺科技的制度撤下、超出科技的建筑降级、
+    // 读档不按建筑与制度补回)。用户 2026-11-07 "重置科技按钮也改成同一套"——以前是把科技存档整个删掉，下一年开局补齐又全补回来
+    public static TechRollbackResult ResetCulture(string culture, Kingdom kingdom = null) =>
+        TechRollbackSystem.ToPrimitive(culture, kingdom);
 
     #endregion
 

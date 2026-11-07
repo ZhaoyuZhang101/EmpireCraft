@@ -28,7 +28,8 @@ public sealed class TechRollbackResult
 // 我整了半天，让他们一个个科技都成为原始，但问题很快他就反弹了"，要"单独做个godpower来回退科技")：
 //   · 科技回退(点城，见 TechRollbackPowers)：城所属国家的文化(同科技窗口)退回上一个时代——当前最高时代档的科技连同以它们为前置的
 //     后续科技全部删掉；连点一路退到原始时代(一项科技不剩)；
-//   · 举世退回原始(按钮点两下确认)：天下所有文化一齐退回原始时代。
+//   · 举世退回原始(按钮点两下确认)：天下所有文化一齐退回原始时代；
+//   · 科技窗口的「重置科技」：本文化一次退回原始时代(见 ToPrimitive)。
 //   城界、地块、国家、帝国、人物与人口一概不动。
 // 以前逐项回退会"反弹"，是因为：读档后第一次结算按城里现有的建筑把对应科技补回来(BackfillBuildings)；没开局补齐过的文化按建筑
 // 与已推行的制度补齐(Bootstrap)；旧档按各国现行政体、已推行的制度补记科技(BackfillRegimes、BackfillCivicsLine)；储备的科技点
@@ -113,14 +114,27 @@ public static class TechRollbackSystem
         int era = TechnologySystem.GetEraTier(culture);
         int keep = era <= 1 ? -1 : era - 1;
         TechRollbackResult result = RollBackCulture(culture, keep, null);
-        if (result.techs > 0)
-        {
-            string text = string.Format(LM.Get("tech_rollback_log"), culture.GetCultureTranslate(),
-                TechnologySystem.EraName(result.from_era), TechnologySystem.EraName(result.to_era));
-            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogMajor(text, kingdom);
-            Record(culture, text);
-        }
+        Announce(culture, kingdom, result);
         return result;
+    }
+
+    // 科技窗口的「重置科技」(用户 2026-11-07 "重置科技按钮也改成同一套")：本文化一次退回原始时代，同举世退回原始里的一个文化。
+    // 以前是把本文化的科技存档整个删掉，下一年按开局补齐(Bootstrap)从城里的建筑、已推行的制度把科技全补回来——又是"反弹"
+    public static TechRollbackResult ToPrimitive(string culture, Kingdom kingdom)
+    {
+        TechRollbackResult result = RollBackCulture(culture, -1, null);
+        Announce(culture, kingdom, result);
+        return result;
+    }
+
+    // 真退了科技才写世界日志、记史书
+    private static void Announce(string culture, Kingdom kingdom, TechRollbackResult result)
+    {
+        if (result.techs <= 0) return;
+        string text = string.Format(LM.Get("tech_rollback_log"), culture.GetCultureTranslate(),
+            TechnologySystem.EraName(result.from_era), TechnologySystem.EraName(result.to_era));
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogMajor(text, kingdom);
+        Record(culture, text);
     }
 
     // 举世退回原始：存过科技、制度的文化与眼下有国家、有城的文化，一齐退回原始时代
