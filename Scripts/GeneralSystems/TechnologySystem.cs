@@ -423,6 +423,7 @@ public static class TechnologySystem
         _weightedContacts = false;
         StraitNeighbours.Clear();
         _lastScan = -1d;
+        TechRollbackSystem.ResetWorldState();
     }
 
     // 这个世界是读档读进来的(不是新开的)：读档后各文化按现行政体补记一次制度与科技(见 BackfillRegimes)
@@ -1361,6 +1362,9 @@ public static class TechnologySystem
             InstitutionNodeConfig node = EmpireFormationService.ImperialNode(culture);
             if (node == null || !InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => InstitutionSystem.IsPrerequisiteHeld(culture, id)))
                 continue;
+            // 用神力退回过科技的文化(见 TechRollbackSystem)：先得有这套帝制要的科技，不能凭前代帝国把撤下的帝制直接承袭回来
+            if (_states.TryGetValue(culture, out CultureTechState rolled) && rolled.rolled_back && !AreInstitutionTechsMet(culture, node, out _))
+                continue;
             if (InstitutionSystem.ForceEnactNode(culture, node.id) > 0)
                 LogService.LogInfo($"[EmpireCraft][制度] {culture} 前代有过帝国，「{InstitutionSystem.GetNodeName(node)}」承袭前代，直接施行");
         }
@@ -1394,8 +1398,9 @@ public static class TechnologySystem
                 Bootstrap(culture, pair.Value);
                 LandmarkBookSystem.MarkExisting(culture, state);
             }
-            // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
-            else if (!addResearch) BackfillBuildings(culture, pair.Value);
+            // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)；
+            // 用神力退回过科技的文化不补(见 TechRollbackSystem：降级没赶上的、打下来的别国建筑不该把科技又补回去)
+            else if (!addResearch && !state.rolled_back) BackfillBuildings(culture, pair.Value);
             // 读进来的旧档：各国现行政体说明对应的制度、科技早就有了(新开的世界只记一下，照常从头研究)
             if (!state.regime_line)
             {
@@ -2235,6 +2240,110 @@ public static class TechnologySystem
     {
         if (!_states.Remove(culture ?? "")) return;
         ResearchedCache.Remove(culture);
+    }
+
+    #endregion
+
+    #region 科技回退(上帝之力，见 TechRollbackSystem)
+
+    // 某一时代档的名字(档次以下没有时代的是原始时代，同 GetEraName)
+    public static string EraName(int tier)
+    {
+        TechEraConfig era = Config.eras.Where(e => e.tier <= tier).OrderByDescending(e => e.tier).FirstOrDefault();
+        return era == null ? LM.Get("tech_era_primitive") : LM.Get(era.key);
+    }
+
+    // 本文化退回 keepTier 档(含)：档次高于 keepTier 的已研究科技连同以它为前置的(直接或间接)一并删掉；keepTier < 1 时什么都不留
+    // (时代按"研究过任一科技为石器时代"算，原始时代就是一项不剩)。绑在科技上的材料(requires_techs，见 DiscoverMaterials)
+    // 前置不全了就遗忘，要这些材料的科技也删掉；只靠资源发现的木、石、铜等不动(明年照样从城里的资源再发现)。
+    // 删掉的科技视同从未研究：已投入的进度、在研、玩家目标、加速事件记录、获得时间都清掉；退回时代以上的在研进度也清掉；
+    // 科技点储备清零(否则下一年一口气又买回来)；士兵换装停下。各国(在帝国里按帝国)的采纳记录同样去掉。
+    // 开局补齐(Bootstrap)和读档补记(政体、典章、海军、传播媒介)一律标成已做过，再记下 rolled_back(读档不按建筑补科技、
+    // 承袭帝制要先有科技)——以前在科技窗口逐项回退、或"重置科技"，读档或下一年就按城里的建筑、已推行的制度、各国政体全补回来了
+    public static TechRollbackResult RollBack(string culture, int keepTier)
+    {
+        var result = new TechRollbackResult { culture = culture ?? "" };
+        if (!CultureService.IsValidCulture(culture)) return result;
+        EnsureLoaded();
+        CultureTechState state = GetState(culture);
+        result.from_era = GetEraTier(culture);
+        var kept = new HashSet<string>(state.researched_techs.Select(TechnologyStateRules.Canonical), StringComparer.Ordinal);
+        var removed = new HashSet<string>(StringComparer.Ordinal);
+        var dropped = new HashSet<string>(StringComparer.Ordinal);
+        bool Above(string id) => _techs.TryGetValue(id ?? "", out TechNodeConfig tech) ? tech.tier > keepTier : keepTier < 1;
+        // 前置 → 以它为前置的科技(按本文化的制度线，见 Requires)
+        var dependents = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (TechNodeConfig tech in Config.techs)
+        foreach (string required in Requires(tech, culture))
+        {
+            string key = TechnologyStateRules.Canonical(required) ?? "";
+            if (!dependents.TryGetValue(key, out List<string> list)) dependents[key] = list = new List<string>();
+            list.Add(tech.id);
+        }
+        var queue = new Queue<string>(kept.Where(Above));
+        for (int guard = 0; guard < 64; guard++)
+        {
+            while (queue.Count > 0)
+            {
+                string id = queue.Dequeue();
+                if (!kept.Remove(id)) continue;
+                removed.Add(id);
+                if (dependents.TryGetValue(id, out List<string> next))
+                    foreach (string other in next)
+                        if (kept.Contains(other)) queue.Enqueue(other);
+            }
+            foreach (TechMaterialConfig material in Config.materials)
+            {
+                if (dropped.Contains(material.id) || !state.discovered_materials.Contains(material.id) ||
+                    material.requires_techs.All(id => kept.Contains(TechnologyStateRules.Canonical(id)))) continue;
+                dropped.Add(material.id);
+                foreach (TechNodeConfig other in Config.techs)
+                    if (kept.Contains(other.id) && other.requires_materials.Contains(material.id)) queue.Enqueue(other.id);
+            }
+            if (queue.Count == 0) break;
+        }
+        state.researched_techs.RemoveAll(id => removed.Contains(TechnologyStateRules.Canonical(id)));
+        foreach (string id in removed) state.timestamps.Remove("tech:" + id);
+        state.discovered_materials.RemoveAll(dropped.Contains);
+        foreach (string id in dropped) state.timestamps.Remove("mat:" + id);
+        bool Forget(string id) => removed.Contains(TechnologyStateRules.Canonical(id)) || Above(TechnologyStateRules.Canonical(id));
+        foreach (string id in state.tech_progress.Keys.Where(Forget).ToList()) state.tech_progress.Remove(id);
+        state.current_techs.RemoveAll(Forget);
+        state.player_targets.RemoveAll(Forget);
+        state.boosted.RemoveAll(Forget);
+        state.progress = 0f;
+        state.research_bank = 0f;
+        state.last_unfunded = 0f;
+        state.modernize_years = 0;
+        state.bootstrapped = state.regime_line = state.naval_line = state.civics_line = state.media_line = true;
+        state.rolled_back = true;
+        TechnologyStateRules.SyncLegacy(state);
+        ResearchedCache.Remove(culture);
+        EraCache.Remove(culture);
+        result.to_era = GetEraTier(culture);
+        state.last_era_tier = result.to_era;
+        result.techs = removed.Count;
+        result.materials = dropped.Count;
+        ForgetRealmAdoption(culture, removed);
+        return result;
+    }
+
+    // 退掉的科技从各国的采纳记录里去掉：独立国家看本国文化，帝国(成员共用一份)看核心国的文化
+    private static void ForgetRealmAdoption(string culture, HashSet<string> removed)
+    {
+        if (removed.Count == 0 || World.world?.kingdoms == null) return;
+        var seen = new HashSet<RealmTechState>();
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv()) continue;
+            Layer.Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+            Kingdom owner = empire?.CoreKingdom ?? kingdom;
+            if (!string.Equals(GetCultureOf(owner), culture, StringComparison.Ordinal)) continue;
+            RealmTechState realm = GetRealmState(kingdom);
+            if (realm == null || !seen.Add(realm)) continue;
+            realm.adopted.RemoveAll(id => removed.Contains(TechnologyStateRules.Canonical(id)));
+            foreach (string id in removed) realm.progress.Remove(id);
+        }
     }
 
     #endregion

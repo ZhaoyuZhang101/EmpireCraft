@@ -30,6 +30,9 @@ public sealed class CultureTechState
     public bool media_line;
     // 读档后按本文化各国现行政体补记过制度与科技(见 TechnologySystem.BackfillRegimes)
     public bool regime_line;
+    // 用「科技回退」神力退回过时代(见 TechRollbackSystem)：此后读档不再按城里现有的建筑补科技(BackfillBuildings)，
+    // 承袭前代帝制也要先有科技(ImperialPrecedent)，免得退回去的科技、制度又被补回来
+    public bool rolled_back;
     // 每项技术各自的已投入研究点(加速事件可以给还没开始研究的技术预存进度)；
     // 上面的 progress 是旧存档字段，读档时并入这里
     public Dictionary<string, float> tech_progress = new();

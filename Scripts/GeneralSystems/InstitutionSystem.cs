@@ -1350,14 +1350,19 @@ public static partial class InstitutionSystem
 
     // 玩家手动回退：撤销本文化已掌握的一项制度，连同必须以它为前置的后续制度；它们当初取代的旧制度随之恢复。
     // 这是已废除君主制的文化重新允许君主制的唯一途径(其他途径见 RepublicSystem.CanRestore 等的拦截)
-    public static int ForceRevokeNode(string culture, string nodeId)
+    public static int ForceRevokeNode(string culture, string nodeId) => ForceRevokeNodes(culture, new[] { nodeId });
+
+    // 一次回退多项(科技回退神力撤下缺科技的制度，见 TechRollbackSystem)：同上，连同后续制度、恢复被取代的旧制度。
+    // announce = false 时不发世界消息、不记史书(调用方自己记一条总的)，改革作废与持久效果同步照旧
+    public static int ForceRevokeNodes(string culture, IEnumerable<string> nodeIds, bool announce = true)
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
-        if (state == null || InstitutionDefinitionRegistry.Get(nodeId) == null ||
-            !state.enacted_node_ids.Contains(nodeId)) return 0;
+        if (state == null || nodeIds == null) return 0;
         var revoked = new HashSet<string>();
         var queue = new Queue<string>();
-        queue.Enqueue(nodeId);
+        foreach (string nodeId in nodeIds)
+            if (InstitutionDefinitionRegistry.Get(nodeId) != null && state.enacted_node_ids.Contains(nodeId)) queue.Enqueue(nodeId);
+        if (queue.Count == 0) return 0;
         while (queue.Count > 0)
         {
             string id = queue.Dequeue();
@@ -1392,14 +1397,44 @@ public static partial class InstitutionSystem
             state.enacted_node_ids.Add(replaced);
             state.enacted_timestamps[replaced] = World.world?.getCurWorldTime() ?? 0d;
         }
-        AfterForceRevoke(culture, removed);
+        AfterForceRevoke(culture, removed, announce);
         return removed.Count;
     }
 
-    private static void AfterForceRevoke(string culture, List<InstitutionNodeConfig> removed)
+    // 科技回退以后(见 TechRollbackSystem)：本文化各帝国、各独立王国正在推的改革，目标制度缺了科技或前置制度的作废——
+    // 推进时只看开始改革时的条件，不作废的话推完又把缺科技的制度施行回来。返回作废的项数
+    public static int DropReformsLackingTech(string culture)
+    {
+        CultureInstitutionState cultureState = GetOrCreateCultureState(culture);
+        if (cultureState == null) return 0;
+        bool Void(InstitutionEmpireState state)
+        {
+            InstitutionNodeConfig node = state?.active_reform == null ? null : InstitutionDefinitionRegistry.Get(state.active_reform.node_id);
+            return node != null && (!TechnologySystem.AreInstitutionTechsMet(culture, node, out _) ||
+                                    !InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(cultureState, id)));
+        }
+        int dropped = 0;
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+        {
+            if (empire?.data == null || empire.IsArchived() || empire.isRekt() || empire.CoreKingdom == null ||
+                !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal) || !Void(empire.data.institution_state)) continue;
+            empire.data.institution_state.active_reform = null;
+            dropped++;
+        }
+        foreach (Kingdom kingdom in CultureKingdomRealms(culture))
+        {
+            InstitutionEmpireState state = kingdom.GetOrCreate().institution_state;
+            if (!Void(state)) continue;
+            state.active_reform = null;
+            dropped++;
+        }
+        return dropped;
+    }
+
+    private static void AfterForceRevoke(string culture, List<InstitutionNodeConfig> removed, bool announce = true)
     {
         if (removed.Count == 0 || ModClass.EMPIRE_MANAGER == null) return;
-        string content = string.Format(LM.Get("institution_force_revoked_history"), culture.GetCultureTranslate(),
+        string content = !announce ? null : string.Format(LM.Get("institution_force_revoked_history"), culture.GetCultureTranslate(),
             string.Join("、", removed.Select(node => GetNodeName(node, culture))));
         Kingdom messageKingdom = null;
         foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
@@ -1410,11 +1445,11 @@ public static partial class InstitutionSystem
             if (empireState?.active_reform != null && removed.Any(node => node.id == empireState.active_reform.node_id))
                 empireState.active_reform = null;
             SyncSharedEffects(empire);
-            empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
+            if (content != null) empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
             messageKingdom ??= empire.CoreKingdom;
         }
         SyncCultureKingdoms(culture, nodeId => removed.Any(node => node.id == nodeId));
-        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
+        if (content != null) EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, messageKingdom);
     }
 
     private static void AfterForceEnact(string culture, List<InstitutionNodeConfig> added,

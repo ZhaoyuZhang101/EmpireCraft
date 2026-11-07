@@ -544,6 +544,22 @@ internal static class MainTab
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/" + toggle)));
         AddButton(CULTURE_BRUSH_GROUP, PowerButtonCreator.CreateGodPowerButton(RealmCulturePowers.Restore,
             SpriteTextureLoader.getSprite("ui/icons/godpowers/" + RealmCulturePowers.Restore)));
+        // 科技回退：点城退回上一个时代；举世退回原始(点两下确认)，见 TechRollbackPowers
+        TechRollbackPowers.Init();
+        foreach (string powerId in TechRollbackPowers.Ids)
+        {
+            PowerButton rollback = PowerButtonCreator.CreateGodPowerButton(powerId,
+                SpriteTextureLoader.getSprite("ui/icons/godpowers/" + powerId));
+            TipButton rollbackTip = rollback?.GetComponent<TipButton>();
+            if (rollbackTip != null)
+            {
+                rollbackTip.textOnClick = powerId;
+                rollbackTip.textOnClickDescription = powerId + "_description";
+                rollbackTip.text_description_2 = "";
+                rollbackTip.type = "normal";
+            }
+            AddButton(CULTURE_BRUSH_GROUP, rollback);
+        }
         foreach ((string powerId, string culture) in CityCulturePower.Init())
         {
             PowerButton brush = PowerButtonCreator.CreateGodPowerButton(powerId, EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture));
