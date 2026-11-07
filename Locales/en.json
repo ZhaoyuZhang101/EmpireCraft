@@ -1980,6 +1980,7 @@
   "unify_settled_history": "{0} holds most of the realm; this war of unification winds down, short of full unity",
   "unify_pacify_tribute_history": "{0}, awed by {1}, submits as a tributary",
   "unify_pacify_war_history": "{0}, holding the Mandate, marches to pacify {1}",
+  "unify_pacify_tributary_history": "{0}, holding the Mandate, ends {1}'s tributary status and marches to pacify it",
   "unify_lost_history": "{0} loses most of its land; its war of unification falters",
   "unify_stall_history": "{0} cannot reach the rest of the realm; the unification stalls short of completion",
   "harem_power_title": "Harem Power",

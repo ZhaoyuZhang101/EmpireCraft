@@ -1982,6 +1982,7 @@
   "unify_settled_history": "{0}據有天下過半，這一輪統一戰爭收束，天下尚未盡歸一家",
   "unify_pacify_tribute_history": "{0}懾於{1}天威，稱臣納貢",
   "unify_pacify_war_history": "{0}奉天命，興師平定{1}",
+  "unify_pacify_tributary_history": "{0}奉天命，罷{1}朝貢，興師平定",
   "unify_lost_history": "{0}失地過半，統一大業中輟",
   "unify_stall_history": "{0}久戰不能盡收天下，統一大業受阻",
   "harem_power_title": "後宮幹政",

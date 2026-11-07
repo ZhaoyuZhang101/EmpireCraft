@@ -1983,6 +1983,7 @@
   "unify_settled_history": "{0}据有天下过半，这一轮统一战争收束，天下尚未尽归一家",
   "unify_pacify_tribute_history": "{0}慑于{1}天威，称臣纳贡",
   "unify_pacify_war_history": "{0}奉天命，兴师平定{1}",
+  "unify_pacify_tributary_history": "{0}奉天命，罢{1}朝贡，兴师平定",
   "unify_lost_history": "{0}失地过半，统一大业中辍",
   "unify_stall_history": "{0}久战不能尽收天下，统一大业受阻",
   "harem_power_title": "后宫干政",

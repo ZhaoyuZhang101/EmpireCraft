@@ -65,11 +65,15 @@ public static class WarGoalSystem
 
     private static readonly List<(long city, long to)> PendingCessions = new();
     private static readonly List<(long lord, long subject)> PendingVassals = new();
+    // 统一战争(含共主平定之战)议和割让、吞并的城：易主时记作统一所得(不计代际侵占，见 AdministrativeControlSystem.GenerationConquests)。
+    // 和约结算时仗还没结束，城却排在之后几帧才易主，那时已认不出是统一战争——以前只有战时攻下的城算统一所得(2026-11-07 用户选 B)
+    private static readonly HashSet<long> UnificationCessions = new();
 
     public static void ResetWorldState()
     {
         PendingCessions.Clear();
         PendingVassals.Clear();
+        UnificationCessions.Clear();
         WarObjective.ResetWorldState();
     }
 
@@ -136,11 +140,15 @@ public static class WarGoalSystem
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
         // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，或这一代人侵占的法理已满(统一战争不限，
-        // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)
+        // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)。
+        // 统一战争(含共主平定天下的仗，用户 2026-11-07 选「平定之战算统一战争」，见 UnificationSystem.IsUnificationWar)
+        // 不因过度扩张改称臣，只有路程太远、鞭长莫及的照旧改
         if (data.war_goal is WarGoal.吞并 or WarGoal.割地)
         {
             string generation = null;
-            if (AdministrativeControlSystem.BeyondReach(attacker, defender.capital) ||
+            if ((UnificationSystem.IsUnificationWar(war)
+                    ? AdministrativeControlSystem.OutOfReach(attacker, defender.capital)
+                    : AdministrativeControlSystem.BeyondReach(attacker, defender.capital)) ||
                 AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))
             {
                 // 行封建附庸的，对方远在控制范围之外也收不成附庸(见 FeudalVassalService.TooFar)，只求赔款
@@ -574,6 +582,14 @@ public static class WarGoalSystem
     // 割让攻方占了一半以上的城；吞并且对方丢了一半城或都城时，主守方余下的城一并归主攻方(帝国核心不整体吞并，只割城)
     private static void Cede(War war, Kingdom attacker, Kingdom defender, bool annex)
     {
+        int pending = PendingCessions.Count;
+        CedeCities(war, attacker, defender, annex);
+        if (!UnificationSystem.IsUnificationWar(war)) return;
+        for (int i = pending; i < PendingCessions.Count; i++) UnificationCessions.Add(PendingCessions[i].city);
+    }
+
+    private static void CedeCities(War war, Kingdom attacker, Kingdom defender, bool annex)
+    {
         List<(City city, Kingdom holder)> held = Contiguous(HeldCities(war, war._list_defenders, war._list_attackers), out int dropped);
         // 连不上的城退还原主，改求赔款(见 Contiguous)
         if (dropped > 0)
@@ -774,6 +790,7 @@ public static class WarGoalSystem
         {
             (long cityId, long toId) = PendingCessions[0];
             PendingCessions.RemoveAt(0);
+            bool unification = UnificationCessions.Remove(cityId);
             City city = World.world.cities.get(cityId);
             Kingdom to = World.world.kingdoms.get(toId);
             if (city?.data == null || city.isRekt() || to?.data == null || to.isRekt() || city.kingdom == to) continue;
@@ -782,6 +799,7 @@ public static class WarGoalSystem
                 Kingdom from = city.kingdom;
                 bool capital = from?.data != null && from.capital == city;
                 AdministrativeControlSystem.MarkConquered(city, to);
+                if (unification) city.GetOrCreate().conquered_unification = true;
                 city.joinAnotherKingdom(to);
                 done++;
                 // 周室诸侯的都城在和约中割走，与攻破都城一样灭其国；割走王畿则攻者取而代之
