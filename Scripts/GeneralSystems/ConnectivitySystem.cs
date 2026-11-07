@@ -40,8 +40,11 @@ public static class ConnectivitySystem
 
     private const string LogTag = "[EmpireCraft][通达]";
     // 读档后等路网规划最多几秒(真实时间)；提前一轮至少隔几个游戏月、几秒真实时间；后台卡住多久改主线程
-    private const float RoadWaitSeconds = 20f, EarlyRealSeconds = 20f, StallSeconds = 30f;
-    private const int EarlyMonths = 3;
+    // 重算的节奏(用户 2026-11-07 转群友"帧率明显放慢了")：一年一轮在快进时几秒一轮、路网又几乎一直在变，
+    // 原来最短 20 秒就整轮重算(主线程取快照、后台算、每轮分配十几兆)，托管堆大时招来频繁的 GC 停顿。
+    // 两轮之间至少隔 MinPassRealSeconds 秒现实时间；路网、无人区这类变化至少攒 EarlyRealSeconds 秒、EarlyMonths 个月才提前算
+    private const float RoadWaitSeconds = 20f, EarlyRealSeconds = 120f, MinPassRealSeconds = 60f, StallSeconds = 30f;
+    private const int EarlyMonths = 6;
     private const int ZoneBatch = 64;
     private const int CityCacheLimit = 256;
 
@@ -206,7 +209,9 @@ public static class ConnectivitySystem
         if (_result == null && _lastPass < 0d)
             return RoadNetwork.RoadPlansComplete || real - _worldAt >= RoadWaitSeconds;
         if (_forcePass) return true;
-        if (_lastPass < 0d || now < _lastPass || Date.getYearsSince(_lastPass) >= Config.pass_years) return true;
+        if (_lastPass < 0d || now < _lastPass) return true;
+        if (real - _lastPassReal < MinPassRealSeconds) return false;
+        if (Date.getYearsSince(_lastPass) >= Config.pass_years) return true;
         bool changed = WildernessSystem.Version != _wildVersion || RoadNetwork.Version != _roadVersion ||
                        MapWallSystem.Version != _wallVersion || WildernessDevelopmentSystem.Version != _devVersion ||
                        world.cities.list.Count != _cityCount;
