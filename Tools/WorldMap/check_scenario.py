@@ -28,9 +28,9 @@ CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gon
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
-           "grant_title": ("a", "person", "name"), "rally": ("a", "b"),
+           "grant_title": ("a", "person", "name"), "rally": ("a", "b"), "submit": ("a", "b"),
            "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",)}
-STEP = {"kind", "a", "b", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
+STEP = {"kind", "a", "b", "c", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
 
 errors, notes = [], []

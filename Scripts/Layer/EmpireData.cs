@@ -95,6 +95,9 @@ public class EmpireData : MetaObjectData
     public string directPre = "";
     // 失都改称(见 CapitalLossNamingSystem)：核心首都失陷的时间(-1 = 没失陷)、是否已加方位、加方位前原来的前缀
     public double core_capital_lost_since = -1d;
+    // 南渡偏安(见 SouthernRetreatSystem)：哪年南渡的(-1 没有)，朝廷眼下坐的都城(京师)
+    public double southern_retreat_at = -1d;
+    public long southern_retreat_seat = -1L;
     public bool capital_loss_prefix_applied;
     public string capital_loss_previous_prefix = "";
     public string core_name = "";

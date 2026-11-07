@@ -92,6 +92,8 @@
   "Southern": "South",
   "Northern": "North",
   "capital_loss_renamed": "{0} has not recovered its old capital {1} in {2} years; history now calls it {3}.",
+  "southern_retreat_history": "{0} has lost its capital {1}; the court carries on at {2}, and the people still hold to it for now.",
+  "mandate_southern_retreat": "Retreat south: the people hold to the dynasty",
   "wartime_custody_settled": "{0} settles the war: {1}, held by the central court, goes to {2}.",
   "institution_huaxia_jimi_system": "Jimi Loose Rule",
   "institution_huaxia_jimi_system_desc": "Rule by local custom, governing peoples through their own. Regions of other cultures or peoples are overseen by a Protectorate-General and organised as jimi prefectures under hereditary local chiefs.\n· Jimi prefectures keep their customs and pay less tax\n· They must send troops when the border is threatened\n· Once enacted, Jimi Planning decides region by region between jimi and direct rule",

@@ -11,6 +11,20 @@ public static class ScenarioPlotRules
 
     public static readonly char[] NameSeparators = { '、', ',', '，' };
 
+    // 称帝的国号写成"大某|Great X|大某"的(大顺、大西)："大"是美号，本名是"某"，三种文字各去掉"大"、"Great "。
+    // 中文以"大"起头、英文以"Great "起头才算(大理这类"大"是本名的一部分，英文也不写 Great)；不是的原样返回 false
+    public static bool SplitGrand(string parts, out string plain)
+    {
+        plain = parts ?? "";
+        string[] p = plain.Split('|');
+        if (p.Length < 2 || p[0].Length < 2 || p[0][0] != '大' || !p[1].StartsWith("Great ", StringComparison.Ordinal)) return false;
+        p[0] = p[0].Substring(1);
+        p[1] = p[1].Substring("Great ".Length);
+        if (p.Length > 2 && p[2].Length >= 2 && p[2][0] == '大') p[2] = p[2].Substring(1);
+        plain = string.Join("|", p);
+        return true;
+    }
+
     public static IEnumerable<string> Names(string field)
     {
         if (string.IsNullOrWhiteSpace(field)) yield break;

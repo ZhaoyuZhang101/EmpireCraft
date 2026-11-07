@@ -363,7 +363,7 @@ public static class ScenarioEventSystem
                     ModClass.EMPIRE_MANAGER?.NewEmpire(a, allowCultureRival: true, forceNewCore: true);
                 Empire empire = a.GetEmpire();
                 if (empire == null || empire.CoreKingdom != a) return "称不了帝";
-                if (!string.IsNullOrWhiteSpace(step.name)) Rename(a, Text(step.name));
+                if (!string.IsNullOrWhiteSpace(step.name)) Proclaim(empire, a, step.name);
                 return null;
             }
             case "rename":
@@ -430,6 +430,27 @@ public static class ScenarioEventSystem
                 Kingdom court = Realm(step.b);
                 if (court == null) return "对方不在";
                 _state.rally = new ScenarioRally { conqueror = a.data.id, court = court.data.id };
+                return null;
+            }
+            case "submit":
+            {
+                // 起义军归附朝廷，共抗入侵者(大顺余部、大西军归明抗清)：a 连同手下的成员一起归附 b 的帝国，c 是入侵者
+                Kingdom court = Realm(step.b);
+                if (court == null) return "朝廷不在";
+                Empire target = court.GetEmpire();
+                if (target == null || target.isRekt() || target.IsArchived() || target.CoreKingdom != court) return "朝廷不是帝国";
+                if (a.GetEmpire() == target) return null;
+                Kingdom enemy = string.IsNullOrEmpty(step.c) ? null : Realm(step.c);
+                Empire own = a.GetEmpire();
+                List<Kingdom> members = own == null || own.CoreKingdom != a ? new List<Kingdom>()
+                    : own.kingdoms_list.Where(member => member?.data != null && !member.isRekt() && member != a).ToList();
+                if (!Submit(a, enemy ?? court, court, target, 0f)) return "没并进去";
+                foreach (Kingdom member in members)
+                {
+                    if (member.isRekt() || member.GetEmpire() == target) continue;
+                    DiplomacyActions.EndWars(member, court);
+                    target.join(member, true, pForce: true);
+                }
                 return null;
             }
             case "heir":
@@ -778,6 +799,21 @@ public static class ScenarioEventSystem
 
     // 事件文字、国号可写"简体|英文|繁体"(预设剧本)，按界面语言取；自定剧本里写的一种文字照用
     private static string Text(string value) => WorldMapData.PickParts((value ?? "").Trim()).Trim();
+
+    // 称帝定国号：只定国号，不改法理的名字(以前连王国法理一并改成"大顺"，法理图层上冒出一块"大顺")；
+    // 写成"大某"的，"大"是美号(同开局的大明，见 RealmNamingSystem.GrandPrefix)，国号本名是"某"
+    private static void Proclaim(Empire empire, Kingdom kingdom, string parts)
+    {
+        if (ScenarioPlotRules.SplitGrand(parts, out string plain))
+        {
+            empire.data.directPre = RealmNamingSystem.GrandPrefix;
+            empire.data.name_source = RealmNamingSystem.SourceGrandName;
+        }
+        string name = Text(plain);
+        empire.SetEmpireName(name);
+        kingdom.SetKingdomName(name);
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+    }
 
     // 改国号：帝国改帝号，王国改主法理名(国名照主法理定)
     private static void Rename(Kingdom kingdom, string name)

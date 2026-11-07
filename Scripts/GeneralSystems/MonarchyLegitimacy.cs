@@ -106,6 +106,9 @@ public static class MonarchyLegitimacy
             if (income > 0L && debt > income) items.Add(("mandate_state_debt", -Mathf.Min(6, (int)(debt / income) * 2)));
             if (StateDebtSystem.DefaultedRecently(core)) items.Add(("mandate_debt_default", -5));
         }
+        // 南渡偏安：士民仍奉为正朔，正统保底(见 SouthernRetreatSystem)
+        int retreat = SouthernRetreatSystem.LegitimacyBonus(empire, items.Sum(item => item.value));
+        if (retreat > 0) items.Add(("mandate_southern_retreat", retreat));
         return items;
     }
 }

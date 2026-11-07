@@ -177,6 +177,8 @@ public sealed class WorldMapEventStep
     public string goal = "";
     public string culture = "";
     public string person = "";
+    // submit：入侵者(写进史书"迫于某兵势")
+    public string c = "";
     public List<string> cities;
 }
 
