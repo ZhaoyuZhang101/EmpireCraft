@@ -61,7 +61,7 @@ public static partial class PapacySystem
         empire?.data != null && InstitutionSystem.GetCultureLine(InstitutionSystem.GetCustomsCulture(empire)) == Line;
 
     // 有教廷可言：西方文化、君主制、奉一个有圣地的普世教会(同天下的地方教会没有教廷，见 ReligionSphere；
-    // 别的类型的宗教没有教廷，见 ReligionFaith——犹太文化走罗马制度线也没有)
+    // 别的类型的宗教没有教廷，见 ReligionFaith——犹太文化走罗马制度线也没有)。奉教派的也算：教派没有教廷，只能自行加冕
     public static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && IsWestern(empire) && !RepublicSystem.IsRepublic(empire) &&
@@ -74,11 +74,19 @@ public static partial class PapacySystem
         return city?.data != null && !city.isRekt() && city.kingdom != null && !city.kingdom.wild ? city : null;
     }
 
-    // 教廷：控制圣地的国家(须奉本宗教)；只有普世教会、伊斯兰有教阶(见 ReligionFaith)，
-    // 同天下的地方教会没有教廷(一个天下只有正教有教宗、哈里发座，见 ReligionSphere)
+    // 有教廷(教宗、哈里发座)：普世教会、伊斯兰的本宗(见 ReligionFaith)。同天下的地方教会、分出去的教派都没有——
+    // 一个天下一处圣地、一位教宗，号召力在本宗(见 ReligionSphere"教派与圣地")
+    public static bool HasSee(Religion religion) =>
+        ReligionFaith.HasHierarchy(religion) && !ReligionSphere.IsLocalChurch(religion) && !ReligionSphere.IsBranch(religion);
+
+    // 能号召圣战：普世教会、伊斯兰，地方教会和教派不号召
+    public static bool CallsHolyWar(Religion religion) =>
+        ReligionFaith.WagesHolyWar(religion) && !ReligionSphere.IsLocalChurch(religion) && !ReligionSphere.IsBranch(religion);
+
+    // 教廷：控制圣地的国家(须奉本宗教)
     public static Kingdom Papacy(Religion religion)
     {
-        if (!ReligionFaith.HasHierarchy(religion) || ReligionSphere.IsLocalChurch(religion)) return null;
+        if (!HasSee(religion)) return null;
         Kingdom holder = HolyCity(religion)?.kingdom;
         return holder?.data != null && !holder.isRekt() && holder.religion == religion ? holder : null;
     }
@@ -260,9 +268,8 @@ public static partial class PapacySystem
         if (papacy == null)
         {
             Kingdom strongest = Strongest(religion);
-            // 圣战：普世教会、伊斯兰(见 ReligionFaith)，地方教会不号召
-            if (strongest != null && ReligionFaith.WagesHolyWar(religion) && !ReligionSphere.IsLocalChurch(religion))
-                TryCrusade(religion);
+            // 圣战：普世教会、伊斯兰的本宗(见 ReligionFaith)，地方教会、教派不号召
+            if (strongest != null && CallsHolyWar(religion)) TryCrusade(religion);
             UpdateOrders(religion);
             return;
         }
@@ -286,7 +293,7 @@ public static partial class PapacySystem
         if (data.Schism) target -= SchismPenalty;
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + (target - data.PapalAuthority) * AuthorityDrift, 0f, 100f);
         // 圣战：普世教会的十字军、伊斯兰的吉哈德(见 ReligionFaith)
-        if (ReligionFaith.WagesHolyWar(religion)) TryCrusade(religion);
+        if (CallsHolyWar(religion)) TryCrusade(religion);
         UpdateOrders(religion);
     }
 

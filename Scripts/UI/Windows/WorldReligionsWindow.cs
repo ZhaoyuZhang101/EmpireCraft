@@ -34,7 +34,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (_type != null && ReligionFaith.Of(religion) != _type) return false;
             return _filter switch
             {
-                1 => ReligionFaith.HasHierarchy(religion),
+                1 => PapacySystem.HasSee(religion),
                 2 => religion.GetOrCreate().ParentReligionId >= 0,
                 _ => true
             };
@@ -57,7 +57,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             menu.AddRailOption(Icon("iconReligion"), LM.Get("world_religions_all"), _all.Count.ToString(), _filter == 0 && _type == null,
                 () => SetFilter(0, null), index++);
             menu.AddRailOption(Icon("iconKings", "iconKingdom"), LM.Get("world_religions_hierarchy"),
-                _all.Count(ReligionFaith.HasHierarchy).ToString(), _filter == 1, () => SetFilter(1, null), index++);
+                _all.Count(PapacySystem.HasSee).ToString(), _filter == 1, () => SetFilter(1, null), index++);
             menu.AddRailOption(Icon("iconFamily"), LM.Get("world_religions_split"),
                 _all.Count(religion => religion.GetOrCreate().ParentReligionId >= 0).ToString(), _filter == 2,
                 () => SetFilter(2, null), index++);
@@ -107,18 +107,19 @@ namespace EmpireCraft.Scripts.UI.Windows
                 card.AddColorStrip(width, ReligionDisplay.MainColor(religion));
                 (string standing, string hex) = ReligionDisplay.Standing(religion);
                 UIHelper.AddCardTitle(card, width, religion.name, WideKit.Gold, standing.ColorString(hex), 0f);
-                City holy = PapacySystem.HolyCity(religion);
+                // 圣地一个天下一处：教派随本宗，地方教会没有
+                City holy = ReligionSphere.HolySite(religion);
                 Actor leader = PapacySystem.Pope(religion);
                 card.AddPersonRow(width, leader,
                     string.Format(LM.Get("world_religions_caption"), ReligionDisplay.FaithName(religion),
-                        holy != null ? holy.GetCityName() : LM.Get("papacy_see_lost")),
-                    leader != null ? leader.getName() : ReligionDisplay.HierarchyName(religion),
+                        holy != null ? holy.GetCityName() : LM.Get(ReligionSphere.IsLocalChurch(religion) ? "label_none" : "papacy_see_lost")),
+                    leader != null ? leader.getName() : ReligionDisplay.HierarchyValue(religion),
                     leader != null ? ReligionDisplay.HeadCaption(religion, leader) : null);
                 card.AddMetricRow(width,
                     (LM.Get("empire_list_metric_cities"), stat.Cities.ToString(), WideKit.Green),
                     (LM.Get("world_religions_people"), UIHelper.ShortCount(stat.People), WideKit.Value),
                     (LM.Get("world_religions_states"), stat.States.ToString(), WideKit.Cyan),
-                    (LM.Get("papacy_authority"), ReligionFaith.HasHierarchy(religion) ? $"{PapacySystem.Authority(religion):0}" : "—",
+                    (LM.Get("papacy_authority"), PapacySystem.HasSee(religion) ? $"{PapacySystem.Authority(religion):0}" : "—",
                         WideKit.Gold));
                 Religion target = religion;
                 UIHelper.MakeClickable(card.gameObject, () => ReligionInfoWindow.Open(target));

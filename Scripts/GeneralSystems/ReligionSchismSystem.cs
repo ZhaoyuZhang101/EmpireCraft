@@ -15,10 +15,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // (ParentReligionId)，不算地方教会，不会被并入正教(见 ReligionSphere)：
 //   · 东西教会大分裂(每个普世教会一次)：立教满 SchismMinAge 年，奉它的帝国(SchismMinCities 城以上、教廷不在本帝国、
 //     帝都离圣地超过地图宽度的 FarShare)与教廷交战、遭绝罚、教廷正闹对立教宗或教权低于 40 时，每年 SchismChance 机会另立正教会：
-//     圣地在帝都，皇帝兼管教会(Caesaropapist：不算教廷之囚，加冕在自家)，帝国各国各城改宗；就近(离新圣地比离旧圣地近)、
+//     中心在帝都(圣地随本宗，没有教宗，见 ReligionSphere"教派与圣地")，皇帝兼管教会(Caesaropapist)，帝国各国各城改宗；就近(离新圣地比离旧圣地近)、
 //     不与它交战的同教独立国各 FollowChance 随之；旧教教权 −10，此后 PeaceYears 年不讨伐这支"异端"；
 //   · 逊尼什叶分裂(每个伊斯兰教一次)：哈里发、苏丹更替之乱破局开争位之战时(SchismSystem.Proclaim)，ShiaChance 机会
-//     争位者另奉什叶派(圣地在其都城，自有伊玛目——哈里发座)，随攻方的割据成员同改；
+//     争位者另奉什叶派(中心在其都城；圣地仍随本宗，没有哈里发座)，随攻方的割据成员同改；
 //   · 宗教改革提早：普世教会教权低于 EarlyReformAuthority、圣战失利满 EarlyReformLosses 次，仍交什一税的西方帝国
 //     每年 EarlyReformChance 机会提前脱离罗马(PapacySystem.BreakWithRome，不必等本文化施行宗教改革)；
 //   · 异文明立教(用户 2026-10-27 截图全图基督教 397/404 城："不同文化的帝国应该有自己创建宗教的机会，甚至分裂宗教""为什么没有触发"，
@@ -26,7 +26,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     势能压得住；君主皈依只看邻国、境内已奉的世界性宗教；大分裂只给奉教廷的西方帝国。现在奉外来宗教(不是本文明的)、
 //     SchismMinCities 城以上、没握着它圣地的帝国，每年 NativeTurnChance：本文明已有本土大教的 NativeRevertShare 复归——
 //     皇帝率帝国改奉(成员国陆续随之，城里人按国教势能加倍慢慢改，见 ReligionConversionSystem)；否则从外来宗教分出本国教会：
-//     圣地在帝都，记母宗教、天下记本文明，帝国各国各城当场改奉，普世教会的由皇帝兼管。皈依、立教后 TurnCooldownYears 年不再判。
+//     中心在帝都(圣地随本宗)，记母宗教、天下记本文明，帝国各国各城当场改奉，普世教会的由皇帝兼管。皈依、立教后 TurnCooldownYears 年不再判。
 public static class ReligionSchismSystem
 {
     private const int SchismMinAge = 100;
@@ -89,7 +89,7 @@ public static class ReligionSchismSystem
         }
     }
 
-    // 从外来宗教分出本国教会：圣地在帝都，天下记本文明，帝国各国各城当场改奉
+    // 从外来宗教分出本国教会：中心在帝都，天下记本文明，帝国各国各城当场改奉
     private static void NationalChurch(Empire empire, Religion old, string sphere)
     {
         Kingdom core = empire.CoreKingdom;

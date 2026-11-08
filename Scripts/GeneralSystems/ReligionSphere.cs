@@ -19,7 +19,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 传教：本天下的无教之城、奉地方教会的城，正教的势能加倍；无教之城不挨着正教的城也有一份正教势能(见 BackgroundReligionSystem.Pressure)；
 //   · 并入(每年)：地方教会(同天下的本土小教)丢了圣地(圣地已不奉它)或只剩 MergeMaxCities 城以下时，整体改奉正教；
 //   · 教廷：地方教会没有教宗/哈里发座(PapacySystem.Papacy 返回空)，奉它的帝国也不算有教廷往来(没有加冕、什一税、天课)。
-//   分出去的教会不算地方教会，这三条都不管它，宗教改革、诸侯新教会照旧。
+//   分出去的教会不算地方教会，这三条都不管它，宗教改革、诸侯新教会照旧；但普世教会、伊斯兰分出的教派也没有教廷，圣地随本宗(见下"教派与圣地")。
 public static class ReligionSphere
 {
     public const int MergeMaxCities = 3;
@@ -81,6 +81,55 @@ public static class ReligionSphere
     }
 
     public static bool IsNative(Religion religion) => religion?.data != null && religion.GetOrCreate().ParentReligionId < 0;
+
+    #region 教派与圣地
+
+    // 一个天下一处圣地(用户 2026-11-08 看路德宗也有圣地马格德堡、自己的教宗："号召力还是在罗马""不能说我分一个宗教就重新创建一个圣地"
+    // "圣地应该一个天下只能有一个""能冠以天下名的教宗就只能有一个")：
+    //   · 教派：从普世教会、伊斯兰分出去的(母宗教还在、类型相同)——东正教会、新教各宗、国教会、什叶派。不另立圣地，没有教宗、哈里发座，
+    //     不号召圣战；圣地随本宗，自己记的那座城(Religion.CityID)只是本宗的中心；
+    //   · 地方教会(同天下的本土小教)没有圣地，那座城也只是中心；
+    //   · 别的类型(法教、腾格里等)照旧各有圣地，分出的也一样(佛教、萨满本是另一教，只是记了所出)。
+    // 母宗教绝了，教派才自立，自己那座城成圣地。
+    public static Religion BranchParent(Religion religion)
+    {
+        if (!Alive(religion) || !ReligionFaith.HasHierarchy(religion)) return null;
+        long id = religion.GetOrCreate().ParentReligionId;
+        Religion parent = id >= 0 ? World.world.religions.get(id) : null;
+        return Alive(parent) && parent != religion && ReligionFaith.Of(parent) == ReligionFaith.Of(religion) ? parent : null;
+    }
+
+    public static bool IsBranch(Religion religion) => BranchParent(religion) != null;
+
+    // 教派所出的本宗(顺母宗教往上找；不是教派的就是自己)
+    public static Religion Root(Religion religion)
+    {
+        Religion current = religion;
+        for (int depth = 0; depth < 8; depth++)
+        {
+            Religion parent = BranchParent(current);
+            if (parent == null) break;
+            current = parent;
+        }
+        return current;
+    }
+
+    // 圣地：本宗的那座城(教廷所在)；教派随本宗，地方教会没有
+    public static City HolySite(Religion religion)
+    {
+        Religion root = Root(religion);
+        if (!Alive(root) || IsLocalChurch(root)) return null;
+        return PapacySystem.HolyCity(root);
+    }
+
+    // 本宗的中心：教派、地方教会自己记的那座城(不是圣地)；别的返回空
+    public static City Center(Religion religion)
+    {
+        if (!Alive(religion) || !IsBranch(religion) && !IsLocalChurch(religion)) return null;
+        return PapacySystem.HolyCity(religion);
+    }
+
+    #endregion
 
     // 跨文明传教的阻力(用户 2026-10-27 选"普世 ×0.25、民族 ×0.05")：城的天下与宗教的天下不同时势能打的折
     public const float CrossUniversalFactor = 0.25f, CrossEthnicFactor = 0.05f;

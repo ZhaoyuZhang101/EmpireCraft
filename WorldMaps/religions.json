@@ -40,7 +40,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "hellenic",
@@ -64,7 +65,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "celtic",
@@ -88,7 +90,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "germanic",
@@ -108,7 +111,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "slavic",
@@ -128,7 +132,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "tengri",
@@ -148,7 +153,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "shamanism",
@@ -168,7 +174,8 @@
    ],
    "parent": "tengri",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "bon",
@@ -188,7 +195,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "manichaean",
@@ -208,7 +216,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "zoroastrian",
@@ -228,7 +237,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "arab_pagan",
@@ -248,7 +258,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "egyptian",
@@ -268,7 +279,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "punic",
@@ -288,7 +300,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "african",
@@ -308,7 +321,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "islam",
@@ -328,7 +342,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "shia",
@@ -348,7 +363,8 @@
    ],
    "parent": "islam",
    "caesaro": false,
-   "split": "shia"
+   "split": "shia",
+   "crusade": []
   },
   {
    "id": "judaism",
@@ -368,7 +384,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "catholic",
@@ -392,7 +409,13 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": [
+    [
+     -9999,
+     "jerusalem"
+    ]
+   ]
   },
   {
    "id": "orthodox",
@@ -412,7 +435,8 @@
    ],
    "parent": "catholic",
    "caesaro": true,
-   "split": "eastern"
+   "split": "eastern",
+   "crusade": []
   },
   {
    "id": "armenian",
@@ -432,7 +456,8 @@
    ],
    "parent": "catholic",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "coptic",
@@ -452,7 +477,8 @@
    ],
    "parent": "catholic",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "lutheran",
@@ -472,7 +498,8 @@
    ],
    "parent": "catholic",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "anglican",
@@ -492,7 +519,8 @@
    ],
    "parent": "catholic",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "reformed",
@@ -512,7 +540,8 @@
    ],
    "parent": "catholic",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "hindu",
@@ -536,7 +565,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "buddhism",
@@ -560,7 +590,8 @@
    ],
    "parent": "hindu",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "animism",
@@ -575,7 +606,8 @@
    "holy": [],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   },
   {
    "id": "shinto",
@@ -595,7 +627,8 @@
    ],
    "parent": "",
    "caesaro": false,
-   "split": ""
+   "split": "",
+   "crusade": []
   }
  ],
  "regions": {

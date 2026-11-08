@@ -73,6 +73,7 @@ public static partial class PapacySystem
             if (IsSecularPath(empire) && Investiture(empire) == InvestitureChurch && UnityEngine.Random.value < ContestChance)
             {
                 state.investiture_contest_at = World.world.getCurWorldTime();
+                NoteClash(state);
                 Record(empire, string.Format(LM.Get("papal_contest_started_history"), empire.GetEmpireFullName(),
                     Pope(religion)?.getName() ?? LM.Get("label_none")));
             }
@@ -92,12 +93,26 @@ public static partial class PapacySystem
         }
     }
 
+    // 与教廷正面相争过(叙任权之争、遭绝罚；旧档按留下的痕迹算)：帝国自称神圣的由头(见 HolyBlocker)
+    private static void NoteClash(PapalRelationState state)
+    {
+        if (state != null && state.papal_clash_at < 0d) state.papal_clash_at = World.world.getCurWorldTime();
+    }
+
+    public static bool HadClash(Empire empire)
+    {
+        PapalRelationState state = State(empire);
+        return state != null && (state.papal_clash_at >= 0d || state.investiture_won || state.investiture_contest_at >= 0d ||
+                                 state.excommunicated_at >= 0d || state.coerced_at >= 0d);
+    }
+
     public static void Excommunicate(Empire empire, PapalRelationState state, string reasonKey)
     {
         Actor emperor = empire.Emperor;
         if (emperor == null || IsExcommunicated(empire)) return;
         Religion religion = ReligionOf(empire);
         state.excommunicated_at = World.world.getCurWorldTime();
+        NoteClash(state);
         state.excommunicated_ruler_id = emperor.id;
         state.excommunication_reason = reasonKey;
         string text = string.Format(LM.Get("papal_ban_history"), Pope(religion)?.getName() ?? LM.Get("label_none"),

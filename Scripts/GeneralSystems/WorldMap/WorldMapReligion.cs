@@ -17,9 +17,10 @@ public static class WorldMapReligion
     {
         public string id = "", faith = "", sphere = "", parent = "", split = "";
         public bool caesaro;
-        // 名(按年换名)、圣地(按年换城)：[年, 值]
+        // 名(按年换名)、圣地(按年换城；分出的教会记的是本宗中心，圣地随母教)、圣战目标(圣地以外要收复的城)：[年, 值]
         public List<List<object>> n = new();
         public List<List<object>> holy = new();
+        public List<List<object>> crusade = new();
     }
 
     private sealed class FileData
@@ -112,6 +113,11 @@ public static class WorldMapReligion
                 Religion religion = Found(definition, holy, year);
                 if (religion == null) continue;
                 made[id] = religion;
+                // 圣战目标(天主教会的耶路撒冷：圣地仍是罗马，见 PapacySystem.CrusadeCity)
+                string crusadeId = AtYear(definition.crusade, year);
+                City crusade = string.IsNullOrEmpty(crusadeId) ? null
+                    : places.FirstOrDefault(place => place.id == crusadeId && place.city?.data != null && !place.city.isRekt())?.city;
+                if (crusade != null) religion.GetOrCreate().CrusadeCityId = crusade.data.id;
             }
             catch (Exception exception)
             {

@@ -193,7 +193,8 @@ public static class EmpireCraftOpinionAddition
                 if (pMain.hasReligion()&&pMain.GetRegime()!=null)
                 {
                     Religion religion = pMain.religion;
-                    if (religion.GetCity() == pTarget.capital && pTarget.religion == religion)
+                    // 教派那座城只是中心，不算圣地(见 ReligionSphere"教派与圣地")
+                    if (religion.GetCity() == pTarget.capital && pTarget.religion == religion && !GeneralSystems.ReligionSphere.IsBranch(religion))
                     {
                         result = 100*(int)pMain.GetRegime().GetReligionLevel();
                     }

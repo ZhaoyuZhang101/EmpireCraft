@@ -105,11 +105,21 @@ public static class ReligionMap
         }
         else
         {
-            bool holy = PapacySystem.HolyCity(faith) == city;
-            Line(tooltip, "religion_tip_faith", holy ? string.Format(LM.Get("religion_tip_holy"), faith.name) : faith.name,
-                ReligionDisplay.TextHex(faith));
+            // 圣地一个天下一处；教派、地方教会自己那座城只是中心(见 ReligionSphere"教派与圣地")
+            bool holy = ReligionSphere.HolySite(faith) == city;
+            bool center = !holy && ReligionSphere.Center(faith) == city;
+            string label = holy ? string.Format(LM.Get("religion_tip_holy"), faith.name)
+                : center ? string.Format(LM.Get("religion_tip_center"), faith.name) : faith.name;
+            Line(tooltip, "religion_tip_faith", label, ReligionDisplay.TextHex(faith));
             if (holy && PapacySystem.Pope(faith) is Actor head)
                 Line(tooltip, "religion_tip_head", $"{ReligionDisplay.HeadTitle(faith)} {head.getName()}", "#F3C34A");
+        }
+        // 别教的圣战目标(耶路撒冷之于天主教会)
+        foreach (Religion religion in World.world.religions)
+        {
+            if (!ReligionDisplay.Alive(religion) || religion == faith || religion.GetOrCreate().CrusadeCityId != city.data.id ||
+                !PapacySystem.CallsHolyWar(religion)) continue;
+            Line(tooltip, "religion_crusade_city", religion.name, ReligionDisplay.TextHex(religion));
         }
         if (kingdom?.data != null && !kingdom.wild)
         {
@@ -141,11 +151,20 @@ public static class ReligionMap
         (string standing, string standingHex) = ReligionDisplay.Standing(religion);
         Line(tooltip, "religion_tip_type", $"{ReligionDisplay.FaithName(religion)} · {ReligionDisplay.SphereName(religion)}");
         Line(tooltip, "religion_tip_standing", standing, standingHex);
-        City holy = PapacySystem.HolyCity(religion);
+        // 圣地一个天下一处：教派随本宗，地方教会没有，它们自己那座城只是中心
+        City holy = ReligionSphere.HolySite(religion), center = ReligionSphere.Center(religion);
+        bool local = ReligionSphere.IsLocalChurch(religion);
         Line(tooltip, "papacy_holy_city", holy != null
             ? $"{holy.GetCityName()}({holy.kingdom?.GetKingdomName() ?? ""})"
-            : LM.Get("papacy_see_lost"), holy != null ? Plain : Bad);
-        if (ReligionFaith.HasHierarchy(religion))
+            : LM.Get(local ? "label_none" : "papacy_see_lost"), holy != null || local ? Plain : Bad);
+        if (center != null && center != holy)
+            Line(tooltip, "religion_center_city", $"{center.GetCityName()}({center.kingdom?.GetKingdomName() ?? ""})");
+        if (PapacySystem.CallsHolyWar(religion) && PapacySystem.CrusadeCity(religion) is City target && target != holy)
+            Line(tooltip, "religion_crusade_city", $"{target.GetCityName()}({target.kingdom?.GetKingdomName() ?? ""})",
+                target.kingdom?.religion == religion ? Plain : Bad);
+        if (ReligionFaith.HasHierarchy(religion) && !PapacySystem.HasSee(religion))
+            Line(tooltip, "religion_tip_head", ReligionDisplay.HierarchyValue(religion), Plain);
+        if (PapacySystem.HasSee(religion))
         {
             Actor head = PapacySystem.Pope(religion);
             string headText = head != null ? head.getName() : LM.Get("label_none");

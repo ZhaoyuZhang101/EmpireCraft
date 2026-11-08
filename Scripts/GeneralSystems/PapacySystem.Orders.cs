@@ -55,7 +55,7 @@ public static partial class PapacySystem
         var data = religion.GetOrCreate();
         data.Orders ??= new List<KnightOrderData>();
         int index = data.Orders.Count % 3 + 1;
-        string place = index == 1 ? religion.GetCity()?.GetCityName() ?? host.capital?.GetCityName()
+        string place = index == 1 ? CrusadeCity(religion)?.GetCityName() ?? host.capital?.GetCityName()
             : host.capital?.GetCityName() ?? host.GetKingdomName();
         var order = new KnightOrderData
         {

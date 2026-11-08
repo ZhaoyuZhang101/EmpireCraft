@@ -24,8 +24,8 @@ public class EmpireCraftCityBehCheckReligion: GameAICityBase
         if (pCity.hasReligion())
         {
             Religion pReligion = pCity.getReligion();
-            // 没有教阶的宗教、地方教会(同天下的本土小教)没有教廷，圣城不神权自立(见 ReligionFaith、ReligionSphere)
-            if (pReligion.GetCity() == pCity && ReligionFaith.HasHierarchy(pReligion) && !ReligionSphere.IsLocalChurch(pReligion))
+            // 没有教阶的宗教、地方教会(同天下的本土小教)、分出去的教派没有教廷，圣城(中心)不神权自立(见 PapacySystem.HasSee)
+            if (pReligion.GetCity() == pCity && PapacySystem.HasSee(pReligion))
             {
                 if (pCity.kingdom?.getReligion() != pReligion) return BehResult.Continue;
                 // 圣城本就是一城之国的都城(创教之城多是城邦都城)：这国就是教廷所在，整国政教合一，封建化后即为教宗国。

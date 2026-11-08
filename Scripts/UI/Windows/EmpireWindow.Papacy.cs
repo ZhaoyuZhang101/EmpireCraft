@@ -20,7 +20,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         public void ShowPapacy(WindowMetaTab pArg0)
         {
             Clear();
-            Religion religion = PapacySystem.ReligionOf(_empire);
+            // 奉教派的帝国：教派没有教廷，这页看号召力所在的本宗(见 ReligionSphere"教派与圣地")
+            Religion own = PapacySystem.ReligionOf(_empire);
+            Religion religion = ReligionSphere.Root(own);
             if (!PapacySystem.IsWestern(_empire) || religion == null || PapacySystem.HolyCity(religion) == null)
             {
                 var none = BeginPage("empire_papacy");
@@ -78,8 +80,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             List<Kingdom> ghibellines = PapacySystem.PartyMembers(_empire, PapacySystem.PartyEmperor);
             realm.AddListRow(HalfWidth, 2, null, LM.Get("papacy_party_pope"), Names(guelphs), titleWidth: 56f);
             realm.AddListRow(HalfWidth, 3, null, LM.Get("papacy_party_emperor"), Names(ghibellines), titleWidth: 56f);
-            if (state.national_church_id >= 0)
-                realm.AddListRow(HalfWidth, 4, null, LM.Get("papacy_national_church"), religion.name, titleWidth: 56f);
+            if (state.national_church_id >= 0 || own != religion)
+                realm.AddListRow(HalfWidth, 4, null, LM.Get("papacy_national_church"), own.name, titleWidth: 56f);
             // 普世之名(见 RealmNamingSystem.Universal)
             realm.AddListRow(HalfWidth, 5, null, LM.Get("papacy_universal_name"), RealmNamingSystem.UniversalStatus(_empire), titleWidth: 56f);
 

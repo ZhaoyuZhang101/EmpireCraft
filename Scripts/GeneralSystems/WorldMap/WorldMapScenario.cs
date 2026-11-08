@@ -2561,7 +2561,7 @@ public static class WorldMapScenario
         HolyRomanSystem.GoldenBullAtStart(empire, _era?.year ?? 0);
         if (empire?.data == null || empire.isRekt() || lead == null) return;
         RealmNamingSystem.GrantUniversalAtStart(empire, lead);
-        PapacySystem.GrantHoly(empire);
+        PapacySystem.GrantHoly(empire, crownFirst: true);
     }
 
     #endregion

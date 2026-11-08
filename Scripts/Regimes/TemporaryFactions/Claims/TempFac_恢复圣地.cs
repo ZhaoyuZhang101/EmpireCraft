@@ -69,7 +69,8 @@ public class TempFac_恢复圣地 : TemporaryFaction
         if (empire.CoreKingdom?.GetRegime()?.type == RegimeType.Feudalism && !PapacySystem.PapalRule(empire))
             return false;
         var religion = empire.Religion;
-        if (religion == null || religion.isRekt()) return false;
+        // 教派、地方教会那座城只是中心，立不了教宗国(见 PapacySystem.HasSee)
+        if (religion == null || religion.isRekt() || !PapacySystem.HasSee(religion)) return false;
         var religionCity = religion.GetCity();
         if (religionCity?.kingdom == null || religionCity.isRekt()) return false;
         Kingdom holder = religionCity.kingdom;

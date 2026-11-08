@@ -464,7 +464,9 @@
     "lines": {
       "Roma": {
         "any": [
-          "western_clerical_supremacy"
+          "western_clerical_supremacy",
+          "western_concordat",
+          "western_secular_estates"
         ]
       }
     }

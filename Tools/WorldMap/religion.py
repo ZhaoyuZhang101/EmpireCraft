@@ -1,6 +1,7 @@
 """世界地图各时代的宗教：生成 WorldMaps/religions.json(开局按它立教、定圣地、各城信仰，见 WorldMapReligion)。
 
-  religions：各宗教 名(按年换名) 类型(FaithType) 天下(Sphere) 母宗教(分出的教会) 圣地(按年，城不在图上或不信本教时取本教最大的城)；
+  religions：各宗教 名(按年换名) 类型(FaithType) 天下(Sphere) 母宗教(分出的教会) 圣地(按年，城不在图上或不信本教时取本教最大的城；
+             分出的教会没有自己的圣地，这里记的是本宗的中心，圣地随母教) 圣战目标(crusade：圣地以外要收复的城，天主教会的耶路撒冷)；
   regions：各地区七个时代的宗教(年份同 YEARS)，按当时多数人的信仰(伊斯兰早期的西亚、北非按统治者)；
   cities：个别城另算(十字军据点、葡属荷属港口、天竺诸苏丹国的都城……)。
 开局年不在 YEARS 上的取离它最近的时代。
@@ -17,9 +18,9 @@ YEARS = [-260, 117, 230, 750, 800, 1190, 1628]
 EARLY = -9999
 
 
-def R(id, names, faith, sphere, holy, parent="", caesaro=False, split=""):
+def R(id, names, faith, sphere, holy, parent="", caesaro=False, split="", crusade=None):
     return {"id": id, "n": [[year, name + "|" + tw(name.split("|")[0])] for year, name in names], "faith": faith,
-            "sphere": sphere, "holy": holy, "parent": parent, "caesaro": caesaro, "split": split}
+            "sphere": sphere, "holy": holy, "parent": parent, "caesaro": caesaro, "split": split, "crusade": crusade or []}
 
 
 RELIGIONS = [
@@ -42,7 +43,7 @@ RELIGIONS = [
     R("shia", [(EARLY, "什叶派|Shia Islam")], "Islam", "Umma", [[EARLY, "kufa"]], parent="islam", split="shia"),
     R("judaism", [(EARLY, "犹太教|Judaism")], "Judaism", "Kosher", [[EARLY, "jerusalem"]]),
     R("catholic", [(EARLY, "大公教会|Catholic Church"), (1054, "天主教会|Roman Catholic Church")], "Church", "Roma",
-      [[EARLY, "rome"]]),
+      [[EARLY, "rome"]], crusade=[[EARLY, "jerusalem"]]),
     R("orthodox", [(EARLY, "东正教会|Eastern Orthodox Church")], "Church", "Roma", [[EARLY, "byzantium"]],
       parent="catholic", caesaro=True, split="eastern"),
     R("armenian", [(EARLY, "亚美尼亚使徒教会|Armenian Apostolic Church")], "Church", "Roma", [[EARLY, "artaxata"]],
@@ -203,6 +204,7 @@ def main():
     problems += ["城 %s 不在表上" % c for c in CITIES if c not in cities]
     problems += ["%s 未知宗教 %s" % (c, x) for c, row in CITIES.items() for x in row.values() if x not in ids]
     problems += ["%s 圣地 %s 不在表上" % (r["id"], h[1]) for r in RELIGIONS for h in r["holy"] if h[1] not in cities]
+    problems += ["%s 圣战目标 %s 不在表上" % (r["id"], h[1]) for r in RELIGIONS for h in r["crusade"] if h[1] not in cities]
     problems += ["%s 母宗教 %s 未知" % (r["id"], r["parent"]) for r in RELIGIONS if r["parent"] and r["parent"] not in ids]
     if problems:
         raise SystemExit("\n".join(problems))

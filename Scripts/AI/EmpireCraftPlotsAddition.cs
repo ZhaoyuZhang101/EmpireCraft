@@ -1339,7 +1339,7 @@ namespace EmpireCraft.Scripts.AI
                     }
                     if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
                         return false;
-                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital)
+                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital && !ReligionSphere.IsBranch(kingdom.religion))
                     {
                         Religion religion = kingdom.religion;
                         
@@ -1357,7 +1357,7 @@ namespace EmpireCraft.Scripts.AI
                     if (regime == null) return false;
                     if (regime.type != RegimeType.Feudalism || regime.GetReligionLevel() != ReligionLevel.High)
                         return false;
-                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital)
+                    if (kingdom.hasReligion() && kingdom.religion.GetCity() == kingdom.capital && !ReligionSphere.IsBranch(kingdom.religion))
                     {
                         Religion religion = kingdom.religion;
 

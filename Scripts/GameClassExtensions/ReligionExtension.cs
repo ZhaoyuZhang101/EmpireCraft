@@ -19,6 +19,8 @@ public static class ReligionExtension
         public double CrusadeCooldownUntil = -1d;
         public int CrusadeCount;
         public int CrusadeLosses;
+        // 圣战要收复的城(-1 = 就是圣地)：真实地图天主教会记耶路撒冷，圣地仍是罗马(见 PapacySystem.CrusadeCity)
+        public long CrusadeCityId = -1L;
         // 本宗教的骑士团(含已解散的)
         public List<KnightOrderData> Orders = new();
         // 教廷之囚的起始时间(-1 = 没有)、大分裂(对立教宗)
@@ -32,7 +34,7 @@ public static class ReligionExtension
         public string Sphere = "";
         // 宗教类型(FaithType 的名字，见 ReligionFaith)；旧档空着，头一次查时补上
         public string Faith = "";
-        // 皇帝兼管教会(东西教会大分裂分出的正教会，见 ReligionSchismSystem)：圣地在皇帝手里不算教廷之囚
+        // 皇帝兼管教会(东西教会大分裂分出的正教会，见 ReligionSchismSystem)
         public bool Caesaropapist;
         // 本宗教已分出过正教会、什叶派(各一次)
         public bool EasternSplit;

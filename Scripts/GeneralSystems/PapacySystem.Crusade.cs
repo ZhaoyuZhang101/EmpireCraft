@@ -14,15 +14,16 @@ using UnityEngine;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 圣战(每个宗教每年随教权结算检定一次；同一宗教同时只有一场，打完冷却 15 年)：
-//   · 号召者：教廷；圣地丢了没有教廷时，由本宗教最强的国家(帝国按中央)号召。
+//   · 号召者：教廷；圣地丢了没有教廷时，由本宗教最强的国家(帝国按中央)号召。分出去的教派、地方教会不号召(号召力在本宗，见 CallsHolyWar)。
 //   · 目标(依次检定，满足一项就有一半可能号召)：
-//       收复圣地——圣地被异教国家占着(教权 30 以上)；
+//       收复圣地——圣战目标(CrusadeCity：本宗另记的那处，如耶路撒冷；没记就是圣地)被异教国家占着(教权 30 以上)；
 //       援救同教——同宗教国家被异教国家攻打、已经丢了城(教权 50 以上)，讨伐攻方；
 //       讨伐异端——被绝罚满两年、拒不悔罪的帝国(教权 50 以上)；
 //       东征异教——教权 80 以上、号召者太平无事时，打与本宗教国家接壤的异教国家里城最多的一个。
 //   · 响应：同宗教各国(帝国按中央，被绝罚的除外)按 35%、教宗加冕过 +25%、西方文化 +10%、离号召者每 20 块地 -5% 检定加入攻方，最多八国；
 //     被讨伐方的同教国家(异教时)按三成检定加入守方，最多五国(护教圣战)。攻下的城改信攻方宗教(见 CityPatch)。
-//   · 结局：开战目标为割地，攻方占了一半以上的城归占领者；收复圣地时圣地交给教廷(没有教廷就交给号召者)。
+//   · 结局：开战目标为割地，攻方占了一半以上的城归占领者；收复圣地时圣地交给教廷(没有教廷就交给号召者)，
+//     收复的是另记的那处时骑士团立国，没有骑士团就归出力最多的同教国。
 //     攻方胜：教权 +15，参战的帝国正统上升；攻方未胜：教权 -10，圣战失利次数 +1(宗教改革的苗头)。
 public static partial class PapacySystem
 {
@@ -41,8 +42,28 @@ public static partial class PapacySystem
         return war != null && war.isAlive() && !war.hasEnded() ? war : null;
     }
 
+    // 圣战要收复的城：本宗另记了一处的取那处(真实地图天主教会是耶路撒冷，圣地仍是罗马——用户 2026-11-08 选
+    // "罗马是圣地，耶城作圣战目标")，没记就是圣地。教派随本宗
+    public static City CrusadeCity(Religion religion)
+    {
+        Religion root = ReligionSphere.Root(religion);
+        if (root?.data == null) return null;
+        long id = root.GetOrCreate().CrusadeCityId;
+        City city = id >= 0 ? World.world.cities.get(id) : null;
+        return city?.data != null && !city.isRekt() ? city : root.GetCity();
+    }
+
+    // 圣战目标被异教占着：圣地被本宗以外的人占着就算(教派占着圣地也要收复)；另记的那处(耶路撒冷)被同出一宗的教派占着不算
+    private static bool HolyLandLost(Religion religion, City city)
+    {
+        Kingdom holder = city?.kingdom;
+        if (city?.data == null || city.isRekt() || holder?.data == null || holder.wild || holder.religion == religion) return false;
+        return city == religion.GetCity() || ReligionSphere.Root(holder.religion) != ReligionSphere.Root(religion);
+    }
+
     private static void TryCrusade(Religion religion)
     {
+        if (!CallsHolyWar(religion)) return;
         var data = religion.GetOrCreate();
         double now = World.world.getCurWorldTime();
         if (ActiveCrusade(religion) != null || now < data.CrusadeCooldownUntil) return;
@@ -57,10 +78,8 @@ public static partial class PapacySystem
 
     private static (Kingdom target, int kind) FindTarget(Religion religion, Kingdom caller, float authority)
     {
-        City holy = religion.GetCity();
-        if (authority >= 30f && holy?.data != null && !holy.isRekt() && holy.kingdom != null && !holy.kingdom.wild &&
-            holy.kingdom.religion != religion)
-            return (Realm(holy.kingdom), CrusadeHolyLand);
+        City holy = CrusadeCity(religion);
+        if (authority >= 30f && HolyLandLost(religion, holy)) return (Realm(holy.kingdom), CrusadeHolyLand);
         // 讨伐异端：宗教改革分出去的国教会
         if (authority >= 40f && HereticTarget(religion) is Kingdom heretic) return (heretic, CrusadeHeretic);
         if (authority < 50f) return (null, 0);
@@ -110,12 +129,13 @@ public static partial class PapacySystem
         WarExtension.WarExtraData snapshot = war.GetOrCreate();
         snapshot.crusade_religion_id = religion.data.id;
         snapshot.crusade_kind = kind;
-        snapshot.crusade_city_id = religion.GetCity()?.data?.id ?? -1L;
+        City holyLand = CrusadeCity(religion);
+        snapshot.crusade_city_id = holyLand?.data?.id ?? -1L;
         WarGoalSystem.Preset(war, WarGoal.割地);
         war.data.name = string.Format(LM.Get("crusade_war_name"), data.CrusadeCount, religion.name);
         string goal = kind switch
         {
-            CrusadeHolyLand => string.Format(LM.Get("crusade_kind_holy"), religion.GetCity()?.GetCityName() ?? ""),
+            CrusadeHolyLand => string.Format(LM.Get("crusade_kind_holy"), holyLand?.GetCityName() ?? ""),
             CrusadeRescue => LM.Get("crusade_kind_rescue"),
             CrusadeHeretic => LM.Get("crusade_kind_heretic"),
             _ => LM.Get("crusade_kind_infidel")
@@ -198,12 +218,15 @@ public static partial class PapacySystem
                 AddAuthority(religion, 15f);
                 foreach (Kingdom kingdom in war._list_attackers.ToList())
                     if (kingdom?.data != null && !kingdom.isRekt() && kingdom.IsEmpire()) kingdom.GetEmpire()?.AddMandate(25);
-                // 收复圣地：圣地交给教廷；没有教廷时由骑士团在圣地立国，没有骑士团就交给号召者
+                // 收复圣地：圣地交给教廷；没有教廷时由骑士团在圣地立国，没有骑士团就交给号召者。
+                // 收复的是圣地以外另记的那处(耶路撒冷)：不交教廷，骑士团立国，没有骑士团就归出力最多的同教国(十字军国家)
                 City holy = snapshot.crusade_kind == CrusadeHolyLand ? World.world.cities.get(snapshot.crusade_city_id) : null;
+                bool see = holy != null && holy == religion.GetCity();
                 if (holy?.data != null && !holy.isRekt() && holy.kingdom?.religion != religion &&
-                    !(Papacy(religion) == null && TryFoundOrderState(religion, holy)))
+                    !((!see || Papacy(religion) == null) && TryFoundOrderState(religion, holy)))
                 {
-                    Kingdom receiver = Papacy(religion) ?? (caller?.data != null && !caller.isRekt() ? caller : null);
+                    Kingdom receiver = see ? Papacy(religion) : LeadingCrusader(war, religion);
+                    receiver ??= caller?.data != null && !caller.isRekt() ? caller : null;
                     if (receiver != null)
                     {
                         holy.joinAnotherKingdom(receiver);
@@ -231,6 +254,18 @@ public static partial class PapacySystem
         {
             LogService.LogWarning($"[EmpireCraft][圣战] 结算失败: {exception.Message}");
         }
+    }
+
+    // 攻方里奉本宗教、城最多的(教廷除外)
+    private static Kingdom LeadingCrusader(War war, Religion religion)
+    {
+        Kingdom papacy = Papacy(religion), best = null;
+        foreach (Kingdom kingdom in war?._list_attackers?.ToList() ?? new List<Kingdom>())
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom == papacy || kingdom.religion != religion) continue;
+            if (best == null || kingdom.cities.Count > best.cities.Count) best = kingdom;
+        }
+        return best;
     }
 
     private static void RecordReligion(Kingdom kingdom, string text)

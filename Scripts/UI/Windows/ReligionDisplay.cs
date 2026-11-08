@@ -65,6 +65,18 @@ namespace EmpireCraft.Scripts.UI.Windows
             ? LM.Get("religion_hierarchy_papacy")
             : ReligionFaith.IsCaliphal(religion) ? LM.Get("religion_hierarchy_caliphate") : LM.Get("religion_hierarchy_none");
 
+        // 教阶一栏的值：有教廷的写教廷/哈里发座；教派写"号召在本宗"，地方教会写"号召在正教"(一个天下一处圣地、一位教宗)
+        public static string HierarchyValue(Religion religion)
+        {
+            if (!ReligionFaith.HasHierarchy(religion) || PapacySystem.HasSee(religion)) return HierarchyName(religion);
+            Religion root = ReligionSphere.IsBranch(religion)
+                ? ReligionSphere.Root(religion)
+                : ReligionSphere.OrthodoxOf(ReligionSphere.SphereOf(religion));
+            return Alive(root) && root != religion
+                ? string.Format(LM.Get("religion_hierarchy_branch"), root.name)
+                : LM.Get("religion_hierarchy_none");
+        }
+
         // 教首的称呼：皇帝兼管的教会称皇帝，普世教会称教宗，伊斯兰称哈里发
         public static string HeadTitle(Religion religion) => religion?.data != null && religion.GetOrCreate().Caesaropapist
             ? LM.Get("religion_head_emperor")

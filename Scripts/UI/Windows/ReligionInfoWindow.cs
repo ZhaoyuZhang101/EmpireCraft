@@ -117,22 +117,40 @@ namespace EmpireCraft.Scripts.UI.Windows
                 ReligionDisplay.SphereName(religion)).ColorString(WideKit.Muted), 6, 9f);
             head.AddRailText(string.Format(LM.Get("religion_rail_age"), religion.getAge()).ColorString(WideKit.Muted), 6, 9f);
 
-            City holy = PapacySystem.HolyCity(religion);
+            // 圣地一个天下一处：教派随本宗，地方教会没有；它们自己那座城只是中心(见 ReligionSphere"教派与圣地")
+            City holy = ReligionSphere.HolySite(religion), center = ReligionSphere.Center(religion);
+            bool local = ReligionSphere.IsLocalChurch(religion);
             var seat = rail.BeginRailCard();
-            seat.AddRailRow(rowWidth, LM.Get("papacy_holy_city"), holy != null ? holy.GetCityName() : LM.Get("papacy_see_lost"),
-                holy != null ? WideKit.Gold : WideKit.Red, 0);
+            int seatRow = 0;
+            seat.AddRailRow(rowWidth, LM.Get("papacy_holy_city"),
+                holy != null ? holy.GetCityName() : LM.Get(local ? "label_none" : "papacy_see_lost"),
+                holy != null ? WideKit.Gold : local ? WideKit.Soft : WideKit.Red, seatRow++);
             if (holy?.kingdom != null)
-                seat.AddRailRow(rowWidth, LM.Get("religion_holy_owner"), holy.kingdom.GetKingdomName(), WideKit.Soft, 1);
+                seat.AddRailRow(rowWidth, LM.Get("religion_holy_owner"), holy.kingdom.GetKingdomName(), WideKit.Soft, seatRow++);
+            if (center != null && center != holy)
+                seat.AddRailRow(rowWidth, LM.Get("religion_center_city"), center.GetCityName(), WideKit.Soft, seatRow++);
+            City crusadeCity = PapacySystem.CallsHolyWar(religion) ? PapacySystem.CrusadeCity(religion) : null;
+            if (crusadeCity != null && crusadeCity != holy && crusadeCity != religion.GetCity())
+                seat.AddRailRow(rowWidth, LM.Get("religion_crusade_city"), crusadeCity.GetCityName(), WideKit.Red, seatRow);
 
-            Actor leader = PapacySystem.Pope(religion);
-            if (ReligionFaith.HasHierarchy(religion))
+            Religion root = ReligionSphere.Root(religion);
+            if (PapacySystem.HasSee(religion))
             {
+                Actor leader = PapacySystem.Pope(religion);
                 var who = rail.BeginRailCard();
                 who.AddPersonRow(cardWidth, leader, ReligionDisplay.HeadCaption(religion, leader),
                     leader != null ? leader.getName() : LM.Get("label_none"),
                     PopeLegitimacy.Applies(religion)
                         ? string.Format(LM.Get("religion_pope_legitimacy_short"), PopeLegitimacy.Get(religion))
                         : null);
+            }
+            else if (root != religion && ReligionDisplay.Alive(root))
+            {
+                // 教派没有自己的教宗：号召力在本宗，这里给出本宗的教宗
+                Actor leader = PapacySystem.Pope(root);
+                var who = rail.BeginRailCard();
+                who.AddPersonRow(cardWidth, leader, string.Format(LM.Get("religion_hierarchy_branch"), root.name),
+                    leader != null ? leader.getName() : LM.Get("label_none"), null);
             }
 
             var menu = rail.BeginRailMenu(LM.Get("religion_rail_group"));
@@ -183,7 +201,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             Religion religion = _religion;
             (string standing, _) = ReligionDisplay.Standing(religion);
             page.AddPageHeader(PageWidth, LM.Get("religion_page_overview"), standing);
-            bool hierarchy = ReligionFaith.HasHierarchy(religion);
+            bool hierarchy = PapacySystem.HasSee(religion);
             page.AddKpiRow(PageWidth,
                 (string.Format(LM.Get("religion_kpi_people"), Share()), UIHelper.ShortCount(_people), WideKit.Green),
                 (LM.Get("religion_kpi_cities"), _cities.Count.ToString(), WideKit.Gold),
@@ -196,7 +214,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             var nature = columns.BeginColumnCard(ColumnWidth, LM.Get("religion_card_nature"), WideKit.Gold,
                 ReligionDisplay.FaithName(religion));
             int row = 0;
-            nature.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_hierarchy"), ReligionDisplay.HierarchyName(religion),
+            nature.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_hierarchy"), ReligionDisplay.HierarchyValue(religion),
                 hierarchy ? WideKit.Gold : WideKit.Soft);
             nature.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_exclusive"), ReligionDisplay.ExclusiveName(religion));
             nature.AddValueRow(ColumnWidth, row++, LM.Get("religion_row_mission"), ReligionDisplay.MissionName(religion), WideKit.Green);
@@ -271,12 +289,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                 page.AddEmptyCard(PageWidth, ReligionDisplay.HierarchyName(religion), LM.Get("religion_no_hierarchy_hint"));
                 return;
             }
+            if (!PapacySystem.HasSee(religion))
+            {
+                DrawNoSee(page, religion);
+                return;
+            }
             Kingdom see = PapacySystem.Papacy(religion);
             page.AddPageHeader(PageWidth, ReligionDisplay.HierarchyName(religion),
                 see != null ? see.GetKingdomName() : LM.Get("papacy_see_lost"), SeeState(religion));
-            List<Empire> empires = (ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
-                .Where(empire => empire?.data != null && !empire.IsArchived() && !empire.isRekt() &&
-                                 PapacySystem.ReligionOf(empire) == religion).ToList();
+            List<Empire> empires = EmpiresOf(religion);
             int crowned = empires.Count(PapacySystem.IsCrowned), banned = empires.Count(PapacySystem.IsExcommunicated);
             bool papal = PopeLegitimacy.Applies(religion);
             int legitimacy = PopeLegitimacy.Get(religion);
@@ -326,22 +347,14 @@ namespace EmpireCraft.Scripts.UI.Windows
                 naming.AddParagraph(PageWidth, LM.Get("religion_tianxia_name_hint"), hex: WideKit.Muted);
             }
 
-            var relations = page.BeginCard(PageWidth, LM.Get("religion_card_empires"), WideKit.Gold, empires.Count.ToString());
-            if (empires.Count == 0) relations.AddParagraph(PageWidth, LM.Get("religion_empires_none"), hex: WideKit.Muted);
-            int index = 0;
-            foreach (Empire empire in empires)
-            {
-                Kingdom core = empire.CoreKingdom;
-                relations.AddListRow(PageWidth, index++, null, empire.GetEmpireFullName(), EmpireDetail(empire),
-                    () => OpenKingdom(core), WideKit.Hex(core?.getColor()?._color_text ?? Color.white), 120f);
-            }
+            DrawEmpires(page, empires);
 
             // 历代教首：新的在前
             List<ReligionExtension.ReligionHeadRecord> heads = ReligionHeads.Of(religion);
             var lineage = page.BeginCard(PageWidth, string.Format(LM.Get("religion_card_heads"), ReligionDisplay.HeadTitle(religion)),
                 WideKit.Gold, heads.Count.ToString());
             if (heads.Count == 0) lineage.AddParagraph(PageWidth, LM.Get("religion_heads_none"), hex: WideKit.Muted);
-            index = 0;
+            int index = 0;
             foreach (ReligionExtension.ReligionHeadRecord record in Enumerable.Reverse(heads).Take(MaxHeads))
             {
                 Actor person = World.world.units.get(record.actor_id);
@@ -359,6 +372,66 @@ namespace EmpireCraft.Scripts.UI.Windows
             string detail = string.Format(LM.Get("religion_head_detail"), HistoryDateFormatter.GetYear(record.from),
                 reigning ? LM.Get("religion_head_now") : HistoryDateFormatter.GetYear(record.to), years, chosen);
             return reigning || string.IsNullOrEmpty(record.end) ? detail : detail + " · " + LM.Get(record.end);
+        }
+
+        private static List<Empire> EmpiresOf(Religion religion) =>
+            (ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
+            .Where(empire => empire?.data != null && !empire.IsArchived() && !empire.isRekt() &&
+                             PapacySystem.ReligionOf(empire) == religion).ToList();
+
+        private void DrawEmpires(AutoVertLayoutGroup page, List<Empire> empires)
+        {
+            var relations = page.BeginCard(PageWidth, LM.Get("religion_card_empires"), WideKit.Gold, empires.Count.ToString());
+            if (empires.Count == 0) relations.AddParagraph(PageWidth, LM.Get("religion_empires_none"), hex: WideKit.Muted);
+            int index = 0;
+            foreach (Empire empire in empires)
+            {
+                Kingdom core = empire.CoreKingdom;
+                relations.AddListRow(PageWidth, index++, null, empire.GetEmpireFullName(), EmpireDetail(empire),
+                    () => OpenKingdom(core), WideKit.Hex(core?.getColor()?._color_text ?? Color.white), 120f);
+            }
+        }
+
+        // 教派、地方教会没有教廷(一个天下一处圣地、一位教宗，见 ReligionSphere"教派与圣地")：给出号召力所在的本宗/正教与本教的中心
+        private void DrawNoSee(AutoVertLayoutGroup page, Religion religion)
+        {
+            bool branch = ReligionSphere.IsBranch(religion);
+            Religion root = branch ? ReligionSphere.Root(religion) : ReligionSphere.OrthodoxOf(ReligionSphere.SphereOf(religion));
+            bool rooted = ReligionDisplay.Alive(root) && root != religion;
+            page.AddPageHeader(PageWidth, ReligionDisplay.HierarchyName(religion), ReligionDisplay.HierarchyValue(religion));
+            List<Empire> empires = EmpiresOf(religion);
+            page.AddKpiRow(PageWidth,
+                (LM.Get("papacy_authority"), rooted && PapacySystem.HasSee(root) ? $"{PapacySystem.Authority(root):0}" : "—",
+                    WideKit.Orange),
+                (LM.Get("religion_kpi_crowned"), $"{empires.Count(PapacySystem.IsCrowned)} / {empires.Count}", WideKit.Cyan),
+                (LM.Get("religion_kpi_cities"), _cities.Count.ToString(), WideKit.Gold));
+
+            var columns = page.BeginColumns(PageWidth);
+            Actor pope = rooted ? PapacySystem.Pope(root) : null;
+            Kingdom papacy = rooted ? PapacySystem.Papacy(root) : null;
+            City holy = ReligionSphere.HolySite(religion) ?? (rooted ? PapacySystem.HolyCity(root) : null);
+            var see = columns.BeginColumnCard(ColumnWidth, LM.Get("religion_card_root_see"), WideKit.Gold,
+                rooted ? root.name : LM.Get("label_none"));
+            see.AddPersonRow(ColumnWidth, pope, rooted ? ReligionDisplay.HeadCaption(root, pope) : LM.Get("label_none"),
+                pope != null ? pope.getName() : LM.Get("label_none"));
+            see.AddValueRow(ColumnWidth, 0, LM.Get("papacy_holy_city"), holy?.GetCityName() ?? LM.Get("label_none"), WideKit.Gold);
+            see.AddValueRow(ColumnWidth, 1, rooted ? ReligionDisplay.HierarchyName(root) : LM.Get("religion_hierarchy_papacy"),
+                papacy != null ? papacy.GetKingdomName() : LM.Get("papacy_see_lost"), papacy != null ? WideKit.Soft : WideKit.Red);
+
+            City center = ReligionSphere.Center(religion);
+            var own = columns.BeginColumnCard(ColumnWidth, religion.name, ReligionDisplay.Purple);
+            int row = 0;
+            own.AddValueRow(ColumnWidth, row++, LM.Get("religion_center_city"), center?.GetCityName() ?? LM.Get("label_none"));
+            own.AddValueRow(ColumnWidth, row++, LM.Get("religion_holy_owner"), center?.kingdom?.GetKingdomName() ?? LM.Get("label_none"));
+            if (branch)
+                own.AddValueRow(ColumnWidth, row, LM.Get("religion_row_split_cause"), ReligionDisplay.SplitCause(religion), ReligionDisplay.Purple);
+            string rootName = rooted ? root.name : LM.Get("label_none");
+            own.AddParagraph(ColumnWidth, string.Format(LM.Get(branch ? "religion_branch_hint" : "religion_local_hint"), religion.name, rootName,
+                    rooted ? ReligionDisplay.HeadTitle(root) : LM.Get("papacy_pope"), holy?.GetCityName() ?? LM.Get("label_none"),
+                    center?.GetCityName() ?? LM.Get("label_none")),
+                hex: WideKit.Muted);
+
+            DrawEmpires(page, empires);
         }
 
         private static string SeeState(Religion religion)

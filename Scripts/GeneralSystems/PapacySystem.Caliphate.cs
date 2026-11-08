@@ -38,7 +38,7 @@ public static partial class PapacySystem
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && IsCaliphal(empire) && !RepublicSystem.IsRepublic(empire) &&
         RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) && HolyCity(ReligionOf(empire)) != null &&
-        ReligionFaith.IsCaliphal(ReligionOf(empire)) && !ReligionSphere.IsLocalChurch(ReligionOf(empire));
+        ReligionFaith.IsCaliphal(ReligionOf(empire)) && HasSee(ReligionOf(empire));
 
     private static void CaliphalYear(Empire empire, Religion religion)
     {

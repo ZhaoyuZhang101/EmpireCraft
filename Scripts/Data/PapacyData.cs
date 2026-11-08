@@ -52,6 +52,10 @@ public sealed class PapalRelationState
     public double coerced_at = -1d;
     // 逼冕之战打输的时间(十年内不再逼冕)
     public double coerce_failed_at = -1d;
+    // 持名以来不再堪为天下之主的起始时间(-1 = 仍堪当)，连续 RealmNamingSystem.LapseYears 年帝位空缺
+    public double universal_unfit_since = -1d;
+    // 头一次与教廷正面相争(叙任权之争、遭绝罚)的时间(-1 = 没有)：帝国自称神圣要有这个由头(见 PapacySystem.HolyBlocker)
+    public double papal_clash_at = -1d;
     // 神圣之名(见 PapacySystem.GrantHoly)：授名前国号原有的前缀(方位、"大"等)，去掉神圣之名时还原
     public string holy_previous_prefix = "";
 }

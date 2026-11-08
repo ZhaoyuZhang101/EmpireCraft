@@ -48,19 +48,24 @@ public static partial class PapacySystem
 
     // 神圣之名(用户 2026-10-27 要"让帝国加上神圣前缀的按钮"，并补上加冕称神圣帝国的事件；以前只有神授君权决议能给，
     // 那条决议要教宗国就在本帝国里，又读空的帝国国教，几乎从不触发)：
-    //   · 授名：没由教宗加冕过的先加冕(教廷不在、已脱离罗马的自行加冕)，国号加"神圣"前缀；天下之名关着时国号取教廷都城的法理
-    //     (原型"神圣罗马")；史书、世界日志记"教宗为某加冕，尊为某某人的皇帝，某某自此称神圣某某"；
+    //   · 授名：国号加"神圣"前缀(剧本开局的神圣罗马另先由教宗加冕)；天下之名关着时国号取教廷都城的法理(原型"神圣罗马")；
+    //     史书、世界日志记"某自称承天受命，为某某人的皇帝，某某自此称神圣某某"；
     //   · 去名：前缀还原为授名前的(方位、"大"等)；
-    //   · 神授君权决议(见 TempFac_神授君权)与教廷页的按钮共用这里；持有普世之名的帝国由教宗加冕时也自动授(见 RealmNamingSystem.OnPapalCoronation)。
+    //   · 神授君权诉求(见 TempFac_神授君权)与教廷页的按钮共用这里。
+    //   · 用户 2026-11-08 按史实改：神圣不是教宗授的——1157 年巴巴罗萨与教廷争权时才自称"神圣帝国"，帝国的神圣直接来自上帝、
+    //     不靠教宗，那时罗马之名已承袭三百多年。所以教宗加冕不再顺带授神圣；持普世之名满 HolyYears 年、又与教廷正面相争过
+    //     (叙任权之争、遭绝罚，见 HadClash)的，由神授君权诉求自称神圣。上帝视角的按钮不看这两条。
+    public const int HolyYears = 100;
+
     public static bool HasHolyName(Empire empire) =>
         empire?.data != null && empire.data.directPre == OverallHelperFunc.HolyPrefixKey;
 
-    // 授不了神圣之名的缘由(同 CrownBlocker)。
+    // 授不了神圣之名的缘由(同 CrownBlocker)；decree = 上帝视角的按钮，不看持名年限与争权由头。
     // 神圣依附于普世之名(用户 2026-10-27 截图"神圣北海帝国"："没有了教宗授予的天下之名那么神圣也不会存在，建议收回")：
-    // 没持有教宗授予的普世之名(或因绝罚暂停)的称不得神圣——神授君权决议、教廷页按钮都按这里；收回普世之名时神圣一并去掉
-    // (见 RealmNamingSystem.RevokeUniversal)，每年核对时没有普世之名还挂着神圣的也去掉。天下之名规则关着时照旧不要求
-    // 神圣全世界只有一个：罗马系各文化只认一座圣城、一个教廷，别的教宗国授不了；教廷得在，不能自封；已有一家称神圣就不再授
-    public static string HolyBlocker(Empire empire)
+    // 没持有普世之名(或因绝罚暂停)的称不得神圣；收回普世之名时神圣一并去掉(见 RealmNamingSystem.RevokeUniversal)，
+    // 每年核对时没有普世之名还挂着神圣的也去掉。天下之名规则关着时不看普世之名，持名年限改看教宗加冕过。
+    // 神圣全世界只有一个：罗马系各文化只认一座圣城、一个教廷；已有一家称神圣就不再有
+    public static string HolyBlocker(Empire empire, bool decree = false)
     {
         if (!Applies(empire)) return "papacy_block_regime";
         if (IsHolySee(empire)) return "papacy_block_holy_see";
@@ -71,11 +76,23 @@ public static partial class PapacySystem
         if (BrokeWithRome(empire) || Papacy(religion) == null) return "papacy_holy_block_no_see";
         if (RealmNamingSystem.Enabled && !RealmNamingSystem.HoldsUniversal(empire)) return "papacy_holy_block_universal";
         if (OtherHolyEmpire(empire) != null) return "papacy_holy_block_taken";
+        if (decree) return null;
+        if (!HeldLongEnough(empire)) return "papacy_holy_block_young";
+        if (!HadClash(empire)) return "papacy_holy_block_clash";
         return null;
     }
 
+    // 持普世之名满 HolyYears 年(天下之名规则关着时：教宗加冕过满这些年)
+    private static bool HeldLongEnough(Empire empire)
+    {
+        PapalRelationState state = State(empire);
+        double since = RealmNamingSystem.Enabled ? state?.universal_at ?? -1d : state?.crowned_at ?? -1d;
+        if (!RealmNamingSystem.Enabled && (state == null || state.self_crowned)) return false;
+        return since >= 0d && World.world.getCurWorldTime() >= since && Date.getYearsSince(since) >= HolyYears;
+    }
+
     // 那个唯一的教会：奉普世教会、圣地还在、圣地属罗马系文化(或教会本就属罗马天下)的宗教里，罗马天下的优先，再是没有母宗教的，
-    // 再是立教最早的。分出去的教派、别的天下自立的教会都排在后面，它们的圣城不算数
+    // 再是立教最早的。别的天下自立的教会排在后面，分出去的教派没有教廷(见 HasSee)，不算
     public static Religion TheChurch()
     {
         Religion best = null;
@@ -83,7 +100,7 @@ public static partial class PapacySystem
         if (World.world?.religions == null) return null;
         foreach (Religion religion in World.world.religions.list)
         {
-            if (religion?.data == null || !ReligionFaith.IsPapal(religion) || ReligionSphere.IsLocalChurch(religion)) continue;
+            if (religion?.data == null || !ReligionFaith.IsPapal(religion) || !HasSee(religion)) continue;
             City city = HolyCity(religion);
             if (city == null) continue;
             bool romanSphere = ReligionSphere.SphereOf(religion) == Line;
@@ -124,30 +141,31 @@ public static partial class PapacySystem
             RevokeHoly(empire);
             return true;
         }
-        if (HolyBlocker(empire) != null) return false;
+        if (HolyBlocker(empire, decree: true) != null) return false;
         GrantHoly(empire);
         return true;
     }
 
-    // 正在授神圣之名(授名途中顺带的加冕不再触发自动授名，见 RealmNamingSystem.OnPapalCoronation)
+    // 正在授神圣之名(防重入)
     internal static bool GrantingHoly { get; private set; }
 
-    public static void GrantHoly(Empire empire)
+    // crownFirst = 剧本开局(神圣罗马开局即神圣)：没由教宗加冕的先由教宗加冕。别处称神圣不牵涉加冕(神圣是帝国自称的)
+    public static void GrantHoly(Empire empire, bool crownFirst = false)
     {
         if (GrantingHoly) return;
         GrantingHoly = true;
-        try { GrantHolyCore(empire); }
+        try { GrantHolyCore(empire, crownFirst); }
         finally { GrantingHoly = false; }
     }
 
-    private static void GrantHolyCore(Empire empire)
+    private static void GrantHolyCore(Empire empire, bool crownFirst)
     {
         Religion religion = ReligionOf(empire);
         Kingdom papacy = Papacy(religion);
         PapalRelationState state = State(empire);
         Actor emperor = empire.Emperor;
         bool self = BrokeWithRome(empire) || papacy == null;
-        if (!IsCrowned(empire) || state.self_crowned && !self)
+        if (crownFirst && (!IsCrowned(empire) || state.self_crowned && !self))
         {
             Crown(empire, state, emperor, self, papacy);
             if (!self) RealmNamingSystem.OnPapalCoronation(empire, RealmNamingSystem.CoronationVia(empire, papacy, false));
@@ -158,11 +176,8 @@ public static partial class PapacySystem
         empire.data.directPre = OverallHelperFunc.HolyPrefixKey;
         string seatName = RealmNamingSystem.Enabled ? null : papacy?.capital?.GetTitle()?.name;
         empire.SetEmpireName(string.IsNullOrWhiteSpace(seatName) ? empire.GetEmpireName() : seatName);
-        Actor pope = Pope(religion);
-        string text = self || pope == null
-            ? string.Format(LM.Get("holy_name_self_history"), emperor.getName(), people, before, empire.GetEmpireFullName())
-            : string.Format(LM.Get("holy_name_granted_history"), pope.getName(), emperor.getName(), people, before,
-                empire.GetEmpireFullName());
+        // 帝国自称神圣(承天受命、不假教宗)
+        string text = string.Format(LM.Get("holy_name_self_history"), emperor.getName(), people, before, empire.GetEmpireFullName());
         EventRecorder.Record(empire, text);
         emperor.RecordPersonalHistory(text);
         ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
@@ -202,7 +217,8 @@ public static partial class PapacySystem
     public static bool ActCrusade(Empire empire)
     {
         Religion religion = ReligionOf(empire);
-        if (religion == null || ActiveCrusade(religion) != null) return false;
+        // 教派、地方教会没有号召力(见 CallsHolyWar)
+        if (religion == null || !CallsHolyWar(religion) || ActiveCrusade(religion) != null) return false;
         Kingdom papacy = Papacy(religion);
         Kingdom caller = papacy != null && !IsCaptive(religion) ? papacy : Strongest(religion);
         if (caller == null) return false;
@@ -221,7 +237,7 @@ public static partial class PapacySystem
         data.Orders ??= new global::System.Collections.Generic.List<KnightOrderData>();
         int index = data.Orders.Count % 3 + 1;
         Kingdom host = empire.CoreKingdom;
-        string place = index == 1 ? religion.GetCity()?.GetCityName() ?? host.capital?.GetCityName()
+        string place = index == 1 ? CrusadeCity(religion)?.GetCityName() ?? host.capital?.GetCityName()
             : host.capital?.GetCityName() ?? host.GetKingdomName();
         var order = new KnightOrderData
         {
