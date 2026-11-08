@@ -51,6 +51,9 @@ public static class WorldMapScenario
         public City city;
         // 补空立的随机小国：没有史料，城名国名按本地文化随机起
         public bool random;
+        // 城心那块地；建城时原版顺手领的一圈退过了没有(见 ReleaseFoundingRings)
+        public TileZone seat;
+        public bool ringReleased;
     }
 
     private sealed class PlannedPolity
@@ -339,6 +342,7 @@ public static class WorldMapScenario
                     actor.GetModName().SetName(actor);
                 }
                 planned.city.GetOrCreate().placed_by_hand = true;
+                planned.seat = zone;
             }
             if (polity.kingdom != null && polity.capital?.city != null) polity.kingdom.setCapital(polity.capital.city);
             polity.founder = founder;
@@ -1393,6 +1397,8 @@ public static class WorldMapScenario
             _wildAnchors.Clear();
             return;
         }
+        // 补空的小国刚立好：同样退回建城时领的一圈，从城心往外铺
+        ReleaseFoundingRings();
         var seeds = _cities.Where(planned => planned.random && planned.city != null && !planned.city.isRekt())
             .Select(planned => (planned.city, TerritoryBudget[3], TerritoryCap[3]))
             .ToList();
@@ -1416,6 +1422,30 @@ public static class WorldMapScenario
 
     #endregion
 
+    // 建城时原版顺手领的一圈退回去，只留城心那块(用户 2026-11-08 "欧洲的领土也好直啊"，问答选"开局铺地加起伏")：
+    // City.newCity 把城心连同四周八块一起领下(3×3)，城密的地方(欧洲补空的小国隔三块就是一座)这些方块先把平原铺满了，
+    // 后面按地形代价、每块地代价互不相干(TerritoryGrain)的铺辖地、铺满已经无地可分，开局版图就是一格格方块，城界横平竖直。
+    // 退掉以后从城心往外铺，城界顺着地势弯；剧本刷的、历史行政范围先分，也不再被邻城的方块挡住。
+    // 照原图分地的(exact)只按刷的分，不退。剧本编辑器的预览本来就从城心往外铺(见 ScenarioPreviewRules)，退了以后开局与预览更一致
+    private static void ReleaseFoundingRings()
+    {
+        if (_era?.exact == true) return;
+        int released = 0;
+        foreach (PlannedCity planned in _cities)
+        {
+            if (planned.ringReleased || planned.city == null || planned.city.isRekt() || planned.seat == null) continue;
+            planned.ringReleased = true;
+            if (planned.seat.city != planned.city) continue;
+            foreach (TileZone zone in planned.city.zones.ToList())
+            {
+                if (zone == planned.seat) continue;
+                planned.city.removeZone(zone);
+                if (zone.city == null) released++;
+            }
+        }
+        if (released > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 退回建城时领的一圈 {released} 块");
+    }
+
     // 开局辖地：各城按地形代价同时往外铺，国界停在山脊、大漠、海峡上(见 WorldMapZones.Fill)
     // 开局定下的长城走向(化简成格坐标折线，见 WorldMapWalls.Plan)：铺辖地、分行政区都按它分两边，随存档(见 FrontierWalls)
     private static List<List<Vector2>> _wallLines;
@@ -1430,6 +1460,7 @@ public static class WorldMapScenario
             _wallLines = WorldMapWalls.Plan(_era, _frame, _size);
             WorldMapZones.SetWalls(_wallLines);
         }
+        ReleaseFoundingRings();
         var seeds = _cities.Where(planned => planned.city != null && !planned.city.isRekt())
             .Select(planned => (planned.city, TerritoryBudget[Mathf.Clamp(planned.rank, 0, 3)],
                 TerritoryCap[Mathf.Clamp(planned.rank, 0, 3)]))
