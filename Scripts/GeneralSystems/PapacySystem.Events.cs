@@ -181,10 +181,12 @@ public static partial class PapacySystem
         return true;
     }
 
-    // 圣座帝国：国号改"某某圣座"
+    // 皇帝就是教宗的帝国(见 PopeIsEmperor)：天下空缺时教宗自授天下之名(RealmNamingSystem ④)；天下之名已归别家时国号改"某某圣座"，
+    // 不再一直叫"教宗国"
     private static void NameHolySee(Empire empire, PapalRelationState state)
     {
-        if (state.holy_see_named || !IsHolySee(empire)) return;
+        if (state.holy_see_named || !PopeIsEmperor(empire) || RealmNamingSystem.HoldsUniversal(empire) ||
+            RealmNamingSystem.Enabled && RealmNamingSystem.Holder(empire) == null) return;
         City holy = HolyCity(ReligionOf(empire));
         if (holy == null) return;
         state.holy_see_named = true;

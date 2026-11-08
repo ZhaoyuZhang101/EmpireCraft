@@ -97,12 +97,24 @@ public static partial class PapacySystem
         return king?.data != null && !king.isRekt() && king.isAlive() ? king : null;
     }
 
-    // 教廷落在世俗强国手里：圣地所在国不是教皇国，而且是帝国的一部分；皇帝兼管的教会(正教会)不算
+    // 教廷落在世俗强国手里：圣地所在国不是教皇国，而且是帝国的成员；皇帝兼管的教会(正教会)不算。
+    // 圣地在帝国核心国自己手里的是皇帝就是教宗(见 PopeIsEmperor)，也不算——教宗不能是自己的囚徒
     public static bool IsCaptive(Religion religion)
     {
         Kingdom holder = Papacy(religion);
-        return holder != null && holder.GetKingdomType() != KingdomType.Feudalism_papal_state && holder.GetEmpire() != null &&
-               !religion.GetOrCreate().Caesaropapist;
+        Empire empire = holder?.GetEmpire();
+        return holder != null && holder.GetKingdomType() != KingdomType.Feudalism_papal_state && empire != null &&
+               empire.CoreKingdom != holder && !religion.GetOrCreate().Caesaropapist;
+    }
+
+    // 皇帝就是教宗：圣座帝国，或帝国核心国自己握着圣地(教宗即握圣地之国的君主，见 Pope)——教宗国称帝后核心的类别成了帝国、
+    // 宗教等级也常被改掉，以前只当"握着教廷的世俗帝国"，国号一直是"教宗国"。这样的帝国由教宗自授天下之名
+    // (见 RealmNamingSystem.CoronationVia)，不称神圣(神圣是皇帝对教廷的自我标榜，见 HolyBlocker)。教廷在成员国、附庸手里的不算
+    public static bool PopeIsEmperor(Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null) return false;
+        return IsHolySee(empire) || Papacy(ReligionOf(empire)) == core;
     }
 
     public static float Authority(Religion religion) => religion?.data == null ? 0f : religion.GetOrCreate().PapalAuthority;

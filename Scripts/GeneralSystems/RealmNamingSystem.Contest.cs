@@ -31,7 +31,8 @@ public static partial class RealmNamingSystem
         if (empire?.data == null || empire.isRekt() || empire.IsArchived() || empire.CoreKingdom == null ||
             empire.CoreKingdom.isRekt() || empire.CoreKingdom.HasCustomCountryNaming()) return false;
         if (!IsHuaxia(empire) && !IsWestern(empire)) return false;
-        if (PapacySystem.IsHolySee(empire)) return false;
+        // 皇帝就是教宗、没取天下之名的(称"某某圣座")不参与同名相争；自授了天下之名的照常
+        if (PapacySystem.PopeIsEmperor(empire) && !HoldsUniversal(empire)) return false;
         return !IsModernGovernment(empire) || NamedAfterTianxia(empire);
     }
 

@@ -68,7 +68,8 @@ public static partial class PapacySystem
     public static string HolyBlocker(Empire empire, bool decree = false)
     {
         if (!Applies(empire)) return "papacy_block_regime";
-        if (IsHolySee(empire)) return "papacy_block_holy_see";
+        // 皇帝就是教宗的不称神圣(上帝按钮也一样)
+        if (PopeIsEmperor(empire)) return "papacy_holy_block_pope";
         if (empire.Emperor == null) return "papacy_crown_block_vacant";
         if (IsExcommunicated(empire)) return "papacy_crown_block_banned";
         Religion religion = ReligionOf(empire);

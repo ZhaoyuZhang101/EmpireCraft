@@ -27,6 +27,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       ② 承袭：取得后随帝国走，新君不论世袭、选帝都当即承袭，不待教宗加冕；不再每年收回转授给更强的一家；
 //       ③ 空缺：帝国亡了、脱离罗马、不再是西方，或连续 LapseYears 年连 KeepShare 都据不到、又不护教廷(不复为天下之主)，帝位才空出来；
 //          绝罚期间照旧暂停(名字退回本名，悔罪、解除后恢复)；天授(剧本开局、上帝视角)的不受③里的年限；
+//       ④ 教宗自授：皇帝就是教宗(圣座帝国，或教宗国成了帝国核心，见 PapacySystem.PopeIsEmperor)，天下空缺时教宗自授天下之名
+//          (ViaSelf，不看堪当)，国号改称"罗马帝国"之类而不是一直叫"教宗国"；但不称神圣；
 //     收回后改回取得前的本名，那本名若也是天下之名(旧规则下得来的)，改用本帝国法理名；
 //     教廷页"授普世之名"在天下已有普世皇帝时改为"转授"：从那家收回、授给本帝国(上帝视角)；
 //   · "神圣"不是教宗授的：1157 年巴巴罗萨在与教廷争权时才自称神圣帝国(神圣直接来自上帝，不靠教宗)，距 800 年已三百多年。
@@ -34,7 +36,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     教宗加冕不再顺带授神圣。普世之名不排"第几帝国"。
 public static partial class RealmNamingSystem
 {
-    public const int ViaNone = 0, ViaFavor = 1, ViaPressure = 2, ViaWar = 3, ViaControl = 4, ViaDecree = 5;
+    public const int ViaNone = 0, ViaFavor = 1, ViaPressure = 2, ViaWar = 3, ViaControl = 4, ViaDecree = 5, ViaSelf = 6;
 
     // 挟冕之辱：教廷对逼冕的帝国好感 −30，二十年回复
     private const int CoercionGrudge = 30;
@@ -61,7 +63,7 @@ public static partial class RealmNamingSystem
         Kingdom core = empire?.CoreKingdom;
         if (core == null || lead == null) return false;
         if (TianxiaSystem.Holder(lead) == core) return true;
-        if (ControlsPapacy(empire, PapacySystem.Papacy(PapacySystem.ReligionOf(empire)))) return true;
+        if (PapacySystem.PopeIsEmperor(empire) || ControlsPapacy(empire, PapacySystem.Papacy(PapacySystem.ReligionOf(empire)))) return true;
         (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
         return total > 0 && held.TryGetValue(core, out int mine) && mine >= total * KeepShare;
     }
@@ -138,10 +140,11 @@ public static partial class RealmNamingSystem
     }
 
     // 教宗加冕时取得普世之名的途径(PapacySystem.Coronation 调用；不够格返回 ViaNone)：只有护教的(教廷在本帝国手里)才承统，
-    // 好感请冕、兵临施压不再算(见文件头①)
+    // 好感请冕、兵临施压不再算(见文件头①)；皇帝就是教宗的自授(④)
     public static int CoronationVia(Empire empire, Kingdom papacy, bool romzugArrived)
     {
         if (!Enabled || !IsWestern(empire) || papacy == null) return ViaNone;
+        if (PapacySystem.PopeIsEmperor(empire)) return ViaSelf;
         return ControlsPapacy(empire, papacy) ? ViaControl : ViaNone;
     }
 
@@ -155,20 +158,20 @@ public static partial class RealmNamingSystem
         else TryGrantUniversal(empire, via);
     }
 
-    // 授普世之名；quiet = 读档追授，只记史册不上公告。只有护教承统(ViaControl)与天授(ViaDecree)两途
+    // 授普世之名；quiet = 读档追授，只记史册不上公告。只有护教承统(ViaControl)、教宗自授(ViaSelf)与天授(ViaDecree)三途
     public static bool TryGrantUniversal(Empire empire, int via, bool quiet = false)
     {
-        if (via != ViaControl && via != ViaDecree || !Enabled || empire?.data == null || empire.CoreKingdom == null ||
+        if (via != ViaControl && via != ViaDecree && via != ViaSelf || !Enabled || empire?.data == null || empire.CoreKingdom == null ||
             !IsWestern(empire)) return false;
         // 只有那个唯一的教廷授得了天下之名，别的教宗国授不了(见 PapacySystem.TheChurch)
         if (PapacySystem.ReligionOf(empire) != PapacySystem.TheChurch()) return false;
         PapalRelationState state = Papal(empire);
         EmpireCore lead = SeeLead(empire);
-        if (state == null || lead == null || PapacySystem.IsHolySee(empire)) return false;
+        if (state == null || lead == null) return false;
         if (state.universal_lead_id >= 0 && !state.universal_suspended) return false;
         if (OtherUniversal(lead, empire) != null) return false;
-        // 教宗只授堪当的(天授不论)
-        if (via != ViaDecree && !Capable(empire, lead)) return false;
+        // 教宗只授堪当的(天授、教宗自授不论)
+        if (via == ViaControl && !Capable(empire, lead)) return false;
         string baseName = TianxiaBaseName(lead);
         if (string.IsNullOrWhiteSpace(baseName)) return false;
         Religion religion = PapacySystem.ReligionOf(empire);
@@ -185,7 +188,8 @@ public static partial class RealmNamingSystem
         state.universal_unfit_since = -1d;
         // 教廷所在天下的基名与本帝国法理名一样时名字不变，只记身份
         bool renamed = !string.Equals(before, empire.GetEmpireFullName(), StringComparison.Ordinal);
-        string text = string.Format(LM.Get(renamed ? "realm_universal_granted_history" : "realm_universal_recognized_history"),
+        string text = string.Format(LM.Get(via == ViaSelf ? "realm_universal_self_history"
+                : renamed ? "realm_universal_granted_history" : "realm_universal_recognized_history"),
             PapacySystem.Pope(religion)?.getName() ?? LM.Get("label_none"), empire.Emperor?.getName() ?? "",
             before, empire.GetEmpireFullName(), TianxiaSystem.Name(lead), LM.Get("realm_universal_via_" + via));
         if (quiet) empire.RecordHistory(directContent: text, actorId: empire.Emperor?.id ?? -1L, kingdomId: empire.CoreKingdom.id);
@@ -283,6 +287,8 @@ public static partial class RealmNamingSystem
         }
         if (state.universal_lead_id < 0)
         {
+            // 皇帝就是教宗：天下空缺就自授(不必等下一任教宗加冕)
+            if (PapacySystem.PopeIsEmperor(empire) && !PapacySystem.IsExcommunicated(empire) && TryGrantUniversal(empire, ViaSelf)) return;
             // 读档追授：本局之前就由教宗加冕、仍在位、没有被绝罚、护着教廷的(每个帝国只核一次)
             if (RetroChecked.Add(empire.data.id) && state.crowned_at >= 0d && state.crowned_at < _sessionStart && !state.self_crowned &&
                 PapacySystem.IsCrowned(empire) && !PapacySystem.IsExcommunicated(empire) && !PapacySystem.BrokeWithRome(empire))
@@ -483,7 +489,7 @@ public static partial class RealmNamingSystem
     public static bool DecreeUniversal(Empire empire)
     {
         Empire holder = Holder(empire);
-        if (holder != null && (!Enabled || !IsWestern(empire) || PapacySystem.IsHolySee(empire) || PapacySystem.BrokeWithRome(empire)))
+        if (holder != null && (!Enabled || !IsWestern(empire) || PapacySystem.BrokeWithRome(empire)))
             return false;
         if (holder != null) RevokeUniversal(holder, "realm_universal_reason_transferred");
         return TryGrantUniversal(empire, ViaDecree);

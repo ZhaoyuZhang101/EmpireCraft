@@ -90,7 +90,7 @@ public static partial class PapacySystem
         Empire empire = holder.IsInEmpire() || holder.IsEmpire() ? holder.GetEmpire() : null;
         if (holder.IsEmpire())
             return holy.isCapitalCity()
-                ? $"圣地是{empire?.GetEmpireFullName()}的帝都，立不了教宗国(教廷受皇帝挟制)"
+                ? $"圣地是{empire?.GetEmpireFullName()}的帝都，皇帝即教宗(可自授天下之名，不称神圣)"
                 : $"圣地在{empire?.GetEmpireFullName()}皇帝自家领内，待「恢复圣地」分出(要先确立国教、施行教权至上)";
         RegimeType? regime = holder.GetRegime()?.type;
         if (regime != RegimeType.Feudalism) return $"圣地之主是{regime}政体，封建化之后才有教宗国";
