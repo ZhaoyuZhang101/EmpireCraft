@@ -349,26 +349,53 @@ public static partial class ParliamentSystem
             // 优先没有官职的党员，免得为了凑部长把行政区长官调空
             Actor candidate = RankCandidates(empire, party, used)
                 .Where(actor => actor.CanServeOffice(empire.CoreKingdom))
-                .OrderBy(actor => actor.IsOnOffice() ? 1 : 0).FirstOrDefault();
+                .OrderBy(actor => actor.IsOnOffice() ? 1 : 0).FirstOrDefault() ?? RecruitMinister(empire, office, party, used);
             if (candidate == null) continue;
             office.SetActor(candidate);
             if (office.GetActor() != candidate) continue;
             used.Add(candidate.id);
             changed = true;
         }
-        // 按配额补不上的(某党人手不够、党员都不能任官)：先由联盟其他党的党员补，再不行由文官补任
-        foreach (OfficeObject office in vacancies.Where(office => office.GetActor() == null))
+        // 按配额补不上的(某党人手不够、党员都不能任官)：先由联盟其他党的党员补，再不行由文官补任。
+        // 还坐着联盟以外的人的也在这里换：以前只补空位，换届后执政党挑不出人，在野党的部长就原地留任，
+        // 内阁里一个执政党的人都没有(宪法写着部长随党)
+        foreach (OfficeObject office in vacancies.Where(office => !coalition.Contains(office.GetActor()?.GetFaction()?.GetID() ?? "")))
         {
+            Actor before = office.GetActor();
             Actor candidate = members.SelectMany(item => RankCandidates(empire, item.faction, used))
                 .Where(actor => actor.CanServeOffice(empire.CoreKingdom))
                 .OrderBy(actor => actor.IsOnOffice() ? 1 : 0).FirstOrDefault();
             if (candidate != null) office.SetActor(candidate);
             if (office.GetActor() == null) office.Select(empire.CoreKingdom);
-            if (office.GetActor() == null) continue;
-            used.Add(office.GetActor().id);
+            Actor now = office.GetActor();
+            if (now == null || now == before) continue;
+            used.Add(now.id);
             changed = true;
         }
         if (!announce || !changed) return;
+        RecordCabinet(empire, offices);
+    }
+
+    // 执政党实体党员不够分部长时补一名党员：无小人模式从京城人口里推举(同组党时推举发起人，见 PartySystem.SpawnFounder)，
+    // 有小人模式吸收京城里没入派、没任官的成年人。补上的人记入本党，理念随党
+    private static Actor RecruitMinister(Empire empire, OfficeObject office, FixedFaction party, HashSet<long> used)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || party == null) return null;
+        Actor recruit = CityPopulationSystem.SpawnForOffice(office, core) ??
+                        core.capital?.units?
+                            .Where(actor => IsValidMember(empire, actor) && !used.Contains(actor.id) && !actor.HasFaction() &&
+                                            !actor.IsOnOffice() && !actor.isKing() && !actor.isCityLeader() &&
+                                            actor.CanServeOffice(core) && office.Accepts(actor))
+                            .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        if (recruit == null) return null;
+        if (party.IsParty || party.IsClique) IdeologyPopulationSystem.Set(recruit, party.Ideology);
+        recruit.SetFaction(party);
+        return recruit;
+    }
+
+    private static void RecordCabinet(Empire empire, List<OfficeObject> offices)
+    {
         string lineup = string.Join("、", offices.Select(office => office.GetActor()?.GetFaction())
             .Where(party => party != null).GroupBy(party => party.Name)
             .Select(group => string.Format(LM.Get("parliament_cabinet_party_entry"), group.Key, group.Count())));
