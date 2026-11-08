@@ -176,6 +176,9 @@ internal static class MainTab
         DiplomacyWindow.CreateAndInit(nameof(DiplomacyWindow), new Vector2(480f, 380f));
         // 市场汇总(见 CommodityMarketSystem、MarketWindow)
         MarketWindow.CreateAndInit(nameof(MarketWindow), new Vector2(480f, 380f));
+        // 无人区(地图上点无人区、营建页「无人区」按钮打开，见 WildernessWindow)；各图层点地块没接的、点在无人区上的交给它
+        WildernessWindow.CreateAndInit(nameof(WildernessWindow), new Vector2(480f, 380f));
+        WildernessWindow.HookClicks();
         SetWindowIcons();
     }
 
@@ -209,6 +212,7 @@ internal static class MainTab
             [nameof(ReligionInfoWindow)] = "iconReligion",
             [nameof(WorldReligionsWindow)] = "iconReligion",
             [nameof(WarInfoWindow)] = "iconWar",
+            [nameof(WildernessWindow)] = "iconLand",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {
@@ -523,6 +527,19 @@ internal static class MainTab
         SettlementPowers.Init();
         foreach (string id in SettlementPowers.Ids)
             AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
+        // 无人区名册(全图各片、改名，见 WildernessWindow)：跟在中立区、开发、法理这几个无人区权能后面
+        var wildernessButton = PowerButtonCreator.CreateWindowButton("wild_window", nameof(WildernessWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/wild_window"));
+        AddButton(BUILD_GROUP, wildernessButton);
+        wildernessButton._button.OnHover(() =>
+        {
+            Tooltip.show(wildernessButton, "normal", new TooltipData
+            {
+                tip_name = "show_wild_window",
+                tip_description = "show_wild_window_description"
+            });
+        });
+        wildernessButton._button.OnHoverOut(Tooltip.hideTooltip);
         // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
         CityDissolutionPower.init();
         AddButton(BUILD_GROUP,

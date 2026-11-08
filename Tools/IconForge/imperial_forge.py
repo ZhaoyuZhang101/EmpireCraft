@@ -1776,6 +1776,15 @@ FACTORY_TYPES = {
 
 
 # ═════════════ 生成 ═════════════
+def obj_peaks(img):
+    """无人区：两座枪灰石峰(后高前低)，峰顶骨白积雪，山脚一道旧铜地平线。"""
+    over(img, shade(poly([(88, 216), (164, 52), (244, 216)]), SLATE, bevel=12, grain=0.45))
+    over(img, shade(poly([(164, 52), (140, 104), (156, 96), (166, 112), (178, 94), (190, 104)]), BONE, bevel=6, gloss=0.6))
+    over(img, shade(poly([(12, 216), (92, 92), (172, 216)]), STEEL, bevel=12, grain=0.45))
+    over(img, shade(poly([(92, 92), (72, 132), (86, 124), (96, 138), (106, 122), (114, 130)]), BONE, bevel=6, gloss=0.6))
+    over(img, shade(rrect([8, 212, 248, 228], 4), BRASS, bevel=5, gloss=0.6))
+
+
 # 人口、矿藏笔刷(这几个对象定义在 GODPOWERS 之后，这里补进去)
 GODPOWERS.update({
     "population_add": (obj_people, "plus"),
@@ -1790,6 +1799,8 @@ GODPOWERS.update({
     # 无人区法理：法理 + 笔(刷给取的王国法理)；还给自动的规矩：法理 + 笔 + 叉
     "wild_title": (lambda i: (obj_title(i), obj_brush(i)), None),
     "wild_title_clear": (lambda i: (obj_title(i), obj_brush(i)), "cross"),
+    # 无人区窗口(名册、改名，见 WildernessWindow)：雪峰 + 放大镜
+    "wild_window": (lambda i: obj_peaks(i), "lens"),
     # 名臣名将窗口按钮
     "famous_talents": (obj_swords, "crown"),
     "bestow_famous_general": (obj_sword, "up"),

@@ -62,6 +62,7 @@ public sealed class WildRegion
     public int Id;                       // 稳定编号(存档里沿用)
     public WildKind Kind;
     public string Name;                  // 全名，如"撒哈拉大沙漠"(由 WildernessNaming 起)
+    public bool CustomName;              // 名字是在无人区窗口里改的(见 WildernessSystem.Rename)：自动起名不再动它
     public string Culture;               // 起名所依的文化 id
     public readonly List<int> Zones = new(); // 地块 id
     public TileZone Center;              // 标名字的位置(区域里最靠中间的一块)
@@ -80,6 +81,9 @@ public class WildRegionData
     public int id;
     public int kind;
     public string name;
+    // 名字是改过的(见 WildRegion.CustomName)
+    public bool custom_name;
+    public bool ShouldSerializecustom_name() => custom_name;
     public string culture;
     public List<int> zones = new List<int>();
     // 与 zones 一一对应：各块挂的法理编号(没挂为 -1)
@@ -526,7 +530,8 @@ public static class WildernessSystem
         foreach (WildRegion region in _regions)
         {
             var data = new WildRegionData { id = region.Id, kind = (int)region.Kind, name = region.Name, culture = region.Culture,
-                neutral = region.Neutral, origins = new List<long>(region.Zones.Count) };
+                custom_name = region.CustomName && !string.IsNullOrEmpty(region.Name), neutral = region.Neutral,
+                origins = new List<long>(region.Zones.Count) };
             foreach (int id in region.Zones)
             {
                 City origin = OriginOf(_zones[id]);
@@ -851,6 +856,7 @@ public static class WildernessSystem
         public int Id;
         public WildKind Kind;
         public string Name, Culture;
+        public bool CustomName;
     }
 
     // 外沿放宽的门槛(见类头的常量)：山脉六成、熔岩一成五(只看岩浆格)，别的五成
@@ -881,7 +887,8 @@ public static class WildernessSystem
             foreach (WildRegionData data in _saved)
             {
                 int index = olds.Count;
-                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture });
+                olds.Add(new OldRegion { Id = data.id, Kind = (WildKind)data.kind, Name = data.name, Culture = data.culture,
+                    CustomName = data.custom_name && !string.IsNullOrEmpty(data.name) });
                 var neutral = data.neutralZones == null ? null : new HashSet<int>(data.neutralZones);
                 for (int k = 0; k < data.zones.Count; k++)
                 {
@@ -907,7 +914,8 @@ public static class WildernessSystem
             for (int index = 0; index < _regions.Count; index++)
             {
                 WildRegion region = _regions[index];
-                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture });
+                olds.Add(new OldRegion { Id = region.Id, Kind = region.Kind, Name = region.Name, Culture = region.Culture,
+                    CustomName = region.CustomName });
                 foreach (int id in region.Zones)
                 {
                     if (id < 0 || id >= size) continue;
@@ -1090,6 +1098,7 @@ public static class WildernessSystem
                 region.Id = olds[old].Id;
                 region.Name = olds[old].Name;
                 region.Culture = olds[old].Culture;
+                region.CustomName = olds[old].CustomName;
                 if (!string.IsNullOrEmpty(region.Name)) used.Add(region.Name);
             }
             else region.Id = _nextId++;
@@ -1337,10 +1346,40 @@ public static class WildernessSystem
     public static string DisplayName(WildRegion region) =>
         region == null ? "" : !string.IsNullOrEmpty(region.Name) ? region.Name : WildernessNaming.KindName(region.Kind) ?? "";
 
+    // 改名(用户 2026-11-08 "无人区没法自定义命名")：改过的名字随存档、重划时跟着这一片走，附近有没有文明都不再自动改；
+    // 留空恢复自动起名(附近有文明的当场按文化重起，没有的只标类型)。名字太长截到 MaxNameLength 字。有变化返回 true
+    public const int MaxNameLength = 24;
+
+    public static bool Rename(WildRegion region, string name)
+    {
+        if (region == null) return false;
+        name = (name ?? "").Trim();
+        if (name.Length > MaxNameLength) name = name.Substring(0, MaxNameLength);
+        if (name.Length == 0)
+        {
+            if (!region.CustomName) return false;
+            region.CustomName = false;
+            region.Name = null;
+            region.Culture = null;
+            var used = new HashSet<string>(_regions.Where(other => other != region && !string.IsNullOrEmpty(other.Name))
+                .Select(other => other.Name));
+            NameAll(new List<WildRegion> { region }, used);
+        }
+        else
+        {
+            if (region.CustomName && region.Name == name) return false;
+            region.Name = name;
+            region.CustomName = true;
+        }
+        Version++;
+        return true;
+    }
+
     // 给没起名(或以前没有文化时按通用词库起的)的各片起名：大的先挑；附近没有文明的不起(名字去掉)。有变化返回 true
     private static bool NameAll(List<WildRegion> regions, HashSet<string> used)
     {
-        List<WildRegion> pending = regions.Where(region => string.IsNullOrEmpty(region.Name) || string.IsNullOrEmpty(region.Culture))
+        List<WildRegion> pending = regions.Where(region => !region.CustomName &&
+                                                           (string.IsNullOrEmpty(region.Name) || string.IsNullOrEmpty(region.Culture)))
             .OrderByDescending(region => region.Zones.Count).ThenBy(region => region.Id).ToList();
         if (pending.Count == 0) return false;
         bool earth = WorldMap.WorldMapWilderness.OnEarth;
