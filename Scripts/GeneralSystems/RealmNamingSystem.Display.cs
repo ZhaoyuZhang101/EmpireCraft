@@ -26,11 +26,19 @@ public static partial class RealmNamingSystem
                 return string.Format(LM.Get("realm_name_source_restored"), empire.GetEmpireName(),
                     LM.Get(string.IsNullOrWhiteSpace(empire.data.founding_prefix) ? RealmNameRules.Later : empire.data.founding_prefix));
             case SourceGrandName:
-                return LM.Get("realm_name_source_grand");
+                return string.IsNullOrWhiteSpace(empire.data.name_place_title)
+                    ? LM.Get("realm_name_source_grand")
+                    : string.Format(LM.Get("realm_name_source_grand_place"), empire.data.name_place_title);
+            case SourceKingdomTitle:
+                return string.IsNullOrWhiteSpace(empire.data.name_blocked_core)
+                    ? string.Format(LM.Get("realm_name_source_own"), empire.GetEmpireName())
+                    : string.Format(LM.Get("realm_name_source_own_blocked"), empire.GetEmpireName(), empire.data.name_blocked_core);
+            case SourceScenario:
+                return LM.Get("realm_name_source_scenario");
             case SourceRebelBanner:
                 return string.Format(LM.Get("realm_name_source_banner"), empire.GetEmpireName());
             case SourceUsurper:
-                return LM.Get("realm_name_source_usurper");
+                return string.Format(LM.Get("realm_name_source_usurper"), empire.GetEmpireName());
             case SourceTianxia:
             {
                 EmpireCore lead = NamedTianxia(empire);

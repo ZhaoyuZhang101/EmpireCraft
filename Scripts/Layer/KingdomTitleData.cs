@@ -34,6 +34,8 @@ public class KingdomTitleData: MetaObjectData
 
     public long owner = -1L;
     public string province_name { get; set; }
+    // 名字照地名起的(城名、当时所属行政区的名字)：王国照旧可以这么叫，称帝时不拿它当帝国号(见 RealmNamingSystem.PlaceTitle)
+    public bool place_name;
     // 法理名合不合法理文化已经核对过(见 NameCultureRepair)：只核对一次，以后法理文化变了名字也不改
     public bool name_culture_checked;
 

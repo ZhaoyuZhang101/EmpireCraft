@@ -58,8 +58,11 @@ public static partial class RealmNamingSystem
             EmpireFoundingNameChoice restored = SelectRestorationName(empire, kingdom, DominionCore(kingdom), riseCore);
             if (restored != null) return restored;
         }
-        // ② 帝国法理
-        if (proclaim && route is EmpireFormationRoute.Dominion or EmpireFormationRoute.Legitimacy or EmpireFormationRoute.Seal)
+        empire.data.name_blocked_core = "";
+        empire.data.name_place_title = "";
+        // ② 帝国法理：握着它的首府就用它的名字(用户 2026-11-08 "拿到帝国核心就能称帝"，不必据三分之二，也不论走哪条称帝路线)；
+        //    别国已用这个名字为国号、它还归现存的帝国，就用自家发家的王国法理名(③)
+        if (proclaim)
         {
             EmpireCore core = TitleNameCore(kingdom, empire);
             if (core != null)
@@ -70,11 +73,13 @@ public static partial class RealmNamingSystem
                 MarkReuse(empire, kingdom, coreName, lead);
                 return new EmpireFoundingNameChoice(coreName, EmpireFoundingNameSource.DominionCore);
             }
+            empire.data.name_blocked_core = CoreName(SeatCore(kingdom, empire));
         }
         // ③ 起义军打的前朝旗号
         if (_challengeFounding == 0 && SelectBannerName(empire, kingdom) is EmpireFoundingNameChoice banner) return banner;
-        // ③ 自家王国法理名
-        string own = OwnTitleName(kingdom);
+        // ③ 自家王国法理名(地名起的王国法理不当帝国号)
+        string own = OwnTitleName(kingdom, out string place);
+        empire.data.name_place_title = place ?? "";
         if (!string.IsNullOrWhiteSpace(own))
         {
             empire.data.name_source = SourceKingdomTitle;
@@ -90,21 +95,30 @@ public static partial class RealmNamingSystem
         return new EmpireFoundingNameChoice(grand, EmpireFoundingNameSource.GrandName);
     }
 
-    // ② 够格的帝国法理：据三分之二、占首府、无主、名字没人在用；主法理所在的那个优先，其次据城多的
+    // ② 够格的帝国法理：握着首府、无主、名字没别国在用、不是地名
     private static EmpireCore TitleNameCore(Kingdom kingdom, Empire founding)
+    {
+        EmpireCore core = SeatCore(kingdom, founding);
+        return core != null && HolderOf(core, founding) == null && !EmpireCoreManager.IsClaimedByContest(core, founding) &&
+               !NameInUse(CoreName(core), founding) && !IsPlaceName(CoreName(core))
+            ? core
+            : null;
+    }
+
+    // 握着首府的帝国法理(至少三城)：主法理所在的那个优先，其次据城多的
+    public static EmpireCore SeatCore(Kingdom kingdom, Empire founding = null)
     {
         if (kingdom?.data == null || EmpireCoreControl.Sovereign(kingdom) != kingdom) return null;
         EmpireCore main = MainTitleCore(kingdom);
         EmpireCore best = null;
-        int bestHeld = 0;
+        int bestHeld = -1;
         foreach (EmpireCore core in EmpireCoreManager.EmpireCores.Values.ToList())
         {
-            if (!IsFormalCore(core) || HolderOf(core, founding) != null || EmpireCoreManager.IsClaimedByContest(core, founding)) continue;
+            if (!IsFormalCore(core)) continue;
             (int held, int total) = Holding(core, kingdom);
-            if (!RealmNameRules.HoldsShare(held, total)) continue;
+            if (total < RealmNameRules.CoreNameMinCities) continue;
             City seat = EmpireCoreManager.GetRepresentativeCity(core);
             if (seat?.kingdom == null || EmpireCoreControl.Sovereign(seat.kingdom) != kingdom) continue;
-            if (NameInUse(CoreName(core), founding)) continue;
             if (core == main) return core;
             if (held <= bestHeld) continue;
             best = core;
@@ -130,13 +144,16 @@ public static partial class RealmNamingSystem
                                                                                other.CoreKingdom != null &&
                                                                                string.Equals(other.GetEmpireName(), name, StringComparison.Ordinal)) == true;
 
-    // ③ 自家王国法理名：主法理，其次都城所在的王国法理(据点)
-    private static string OwnTitleName(Kingdom kingdom)
+    // ③ 自家王国法理名：发家的主法理，其次都城所在的王国法理(据点)；照地名起的跳过，place 带回第一个跳过的
+    private static string OwnTitleName(Kingdom kingdom, out string place)
     {
-        foreach (string candidate in new[] { kingdom.GetMainTitle()?.data?.name, kingdom.capital?.GetTitle()?.data?.name })
+        place = null;
+        foreach (KingdomTitle title in new[] { kingdom.GetMainTitle(), kingdom.capital?.GetTitle() })
         {
-            string name = EmpireCoreManager.NormalizeCoreName(candidate);
-            if (!string.IsNullOrWhiteSpace(name)) return name;
+            string name = EmpireCoreManager.NormalizeCoreName(title?.data?.name);
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            if (!PlaceTitle(title)) return name;
+            place ??= name;
         }
         return "";
     }
@@ -382,15 +399,19 @@ public static partial class RealmNamingSystem
         string fief = "";
         // 封国：他持有的王国法理(即位时接过来的京畿主法理、都城法理不算)
         KingdomTitle seatTitle = empire.CoreKingdom.GetMainTitle(), capitalTitle = empire.CoreKingdom.capital?.GetTitle();
+        // 照地名起的封国不当帝国号，改用美号
         foreach (long titleId in usurper?.GetOwnedTitle()?.ToList() ?? new List<long>())
         {
             KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER?.get(titleId);
-            if (title == null || title == seatTitle || title == capitalTitle) continue;
+            if (title == null || title == seatTitle || title == capitalTitle || PlaceTitle(title)) continue;
             fief = EmpireCoreManager.NormalizeCoreName(title.data?.name);
             if (!string.IsNullOrWhiteSpace(fief)) break;
         }
-        if (string.IsNullOrWhiteSpace(fief) && usurper?.kingdom != null && usurper.kingdom != empire.CoreKingdom)
-            fief = EmpireCoreManager.NormalizeCoreName(usurper.kingdom.GetMainTitle()?.data?.name);
+        KingdomTitle home = usurper?.kingdom != null && usurper.kingdom != empire.CoreKingdom ? usurper.kingdom.GetMainTitle() : null;
+        if (string.IsNullOrWhiteSpace(fief) && home != null && !PlaceTitle(home))
+            fief = EmpireCoreManager.NormalizeCoreName(home.data?.name);
+        empire.data.name_blocked_core = "";
+        empire.data.name_place_title = "";
         EmpireCore lead = TianxiaSystem.Lead(EmpireCoreManager.Get(empire));
         empire.data.founding_prefix = "";
         if (!string.IsNullOrWhiteSpace(fief) && !string.Equals(fief, empire.GetEmpireName(), StringComparison.Ordinal))

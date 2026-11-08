@@ -10,9 +10,11 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-// 华夏：据有帝国法理三分之二称帝、以帝国法理为号(方案第 1 步)。
-//   · 据有：按城数，本国连同附庸(EmpireCoreControl 口径，城归最上层宗主)，帝国法理至少三城，据 ⌈总城×2/3⌉；
-//     同时据两个以上时主法理所在的那个优先，其次据城多的；
+// 华夏：据有帝国法理称帝、以帝国法理为号(方案第 1 步)。
+//   · 据有：握着帝国法理的首府即可(用户 2026-11-08 "拿到帝国核心就能称帝")，或按城数据三分之二；本国连同附庸
+//     (EmpireCoreControl 口径，城归最上层宗主)，帝国法理至少三城；同时握两个以上时主法理所在的那个优先，其次据城多的；
+//   · 国号与法理绑死(用户 2026-11-08)：称帝即用握着首府的那个帝国法理的名字，前提是它无主、没别国以它为国号；
+//     不然用自家发家的王国法理名，那个是地名(城名、行政区名)就用美号(见 RealmNamingSystem.Place)；
 //   · 称帝：称帝路线「据有法理」(EmpireFormationRoute.Dominion)，走原有称帝剧情；不必国力胜过同文化各帝国；
 //   · 绑法理：主法理所在帝国法理空闲先绑它(都城留在本帝国法理)，否则绑据三分之二的那个；那个还被旧朝占着就按僭越称帝
 //     (临时法理、互为正统对手)；
@@ -22,12 +24,14 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   新法理就是祖上那个法理、或两个首都重合时称"后"(用户 2026-10-20 选定)。复国方位定下后失都不再改方位(见 CapitalLossNamingSystem)。
 public static partial class RealmNamingSystem
 {
-    // 这一国据有三分之二的帝国法理(华夏；没有返回 null)
+    // 这一国可以凭它称帝的帝国法理(华夏；没有返回 null)：握着首府的(用户 2026-11-08 "拿到帝国核心就能称帝")，其次据三分之二的
     public static EmpireCore DominionCore(Kingdom kingdom)
     {
         if (!Enabled || kingdom?.data == null || kingdom.isRekt() || !IsHuaxia(kingdom)) return null;
         Kingdom holder = EmpireCoreControl.Sovereign(kingdom);
         if (holder != kingdom) return null;
+        EmpireCore seatCore = SeatCore(kingdom);
+        if (seatCore != null) return seatCore;
         EmpireCore main = MainTitleCore(kingdom);
         EmpireCore best = null;
         int bestHeld = 0;
@@ -70,7 +74,7 @@ public static partial class RealmNamingSystem
         EmpireCore core = DominionCore(kingdom);
         if (core == null) return "";
         (int held, int total) = Holding(core, kingdom);
-        return $"，据有 {CoreName(core)} {held}/{total} 城";
+        return $"，据有 {CoreName(core)} {held}/{total} 城{(SeatCore(kingdom) == core ? "(握首府)" : "")}";
     }
 
     // 称帝绑哪个帝国法理(BecomeEmpireAndStartEnfeoff 调用)；返回要按僭越与之并立的帝国(没有为 null)
@@ -87,10 +91,16 @@ public static partial class RealmNamingSystem
             forceNewCore = true;
             return holder ?? seatContested;
         }
+        forceNewCore = false;
+        // 国号用的就是这个帝国法理(握着首府、名字没别国在用)：绑它，国号与法理一致
+        if (seatContested == null && TitleNameCore(kingdom, null) == dominion)
+        {
+            bind = dominion;
+            return null;
+        }
         EmpireCore main = MainTitleCore(kingdom);
         bool mainFree = seatContested == null && main != null && HolderOf(main) == null &&
                         !EmpireCoreManager.IsClaimedByContest(main);
-        forceNewCore = false;
         bind = mainFree ? main : dominion;
         return null;
     }
@@ -180,10 +190,10 @@ public static partial class RealmNamingSystem
         bool Taken(string name) => EmpireCoreManager.EmpireCores.Values.Any(core =>
             core != null && string.Equals(CoreName(core), name, StringComparison.Ordinal));
         if (!Taken(own)) return null;
-        string title = EmpireCoreManager.NormalizeCoreName(empire.CoreKingdom?.GetMainTitle()?.data?.name);
-        if (!string.IsNullOrWhiteSpace(title) && !Taken(title)) return title;
-        string capital = empire.CoreKingdom?.capital?.GetCityName();
-        return !string.IsNullOrWhiteSpace(capital) && !Taken(capital) ? capital : null;
+        // 不再拿都城名给帝国法理起名：后来绑上这个法理的国家国号就成了城名(用户 2026-11-08 "这种应该是绝对避免的")
+        KingdomTitle main = empire.CoreKingdom?.GetMainTitle();
+        string title = EmpireCoreManager.NormalizeCoreName(main?.data?.name);
+        return !string.IsNullOrWhiteSpace(title) && !Taken(title) && !PlaceTitle(main) ? title : null;
     }
 
     // 帝国绑完法理(EmpireManager.NewEmpire 末尾)：开国之君的宗族补记祖上帝国法理

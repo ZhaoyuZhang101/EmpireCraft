@@ -107,7 +107,7 @@ public static class EmpireFormationService
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return EmpireFormationRoute.None;
         if (!IsAllianceRepresentative(kingdom, culture)) return EmpireFormationRoute.None;
-        // 据有法理(华夏)：据有某帝国法理三分之二即可称帝，不必国力胜过同文化各帝国(用户 2026-10-20 拍板)
+        // 据有法理(华夏)：握着某帝国法理的首府(用户 2026-11-08)或据三分之二即可称帝，不必国力胜过同文化各帝国(用户 2026-10-20 拍板)
         if (RealmNamingSystem.DominionRoute(kingdom)) return EmpireFormationRoute.Dominion;
         if (OutmatchedByEmpire(kingdom, culture)) return EmpireFormationRoute.None;
         if (MeetsLegitimacy(kingdom)) return EmpireFormationRoute.Legitimacy;

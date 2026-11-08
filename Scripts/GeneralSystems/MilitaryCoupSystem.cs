@@ -138,6 +138,9 @@ public static class MilitaryCoupSystem
         // 元首更替沿用帝国国号，不把军队拥立写成以驻地法理命名的新王朝。
         bool principate = empire.IsPrincipate();
         string newName = principate ? oldName : seat != null && seat.hasTitle() ? seat.GetTitle()?.data?.name : null;
+        // 华夏：照地名起的法理不当帝国号(用户 2026-11-08)，留给篡位定号(封国名，没有就美号，见 RealmNamingSystem.NameUsurper)
+        if (!principate && seat != null && RealmNamingSystem.IsHuaxia(empire) && RealmNamingSystem.PlaceTitle(seat.GetTitle()))
+            newName = null;
         string place = (seat ?? general.city ?? capital).GetCityName();
         state.last_coup_at = World.world.getCurWorldTime();
         PrinceStruggleSystem.Note(core, general, PrinceStruggleSystem.NoteMilitaryCoup);

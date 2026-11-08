@@ -62,6 +62,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         string kingdomName = city.SelectKingdomName();
         data.province_name = title_capital.GetCityName();
         this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
+        // 城里没有古国名、借了所属国的名字：那国是道、省这类行政区，或本来就叫城名的，这个法理名就是地名
+        this.data.place_name = string.IsNullOrEmpty(kingdomName) && RealmNamingSystem.IsPlaceName(this.data.name);
         this.addCity(city);
         data.original_actor_asset = king?.asset?.id ?? city.kingdom.data.original_actor_asset;
         CultureService.InitializeTitleCulture(this);
@@ -512,6 +514,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                     titleName = this.title_capital.GetCityName();
                 }
                 this.data.name = titleName ?? "";
+                this.data.place_name = !this.title_capital.HasKingdomName() && RealmNamingSystem.IsPlaceName(this.data.name);
                 tChanged = true;
             }
         }

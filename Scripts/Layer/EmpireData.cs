@@ -106,6 +106,9 @@ public class EmpireData : MetaObjectData
     // 与旧朝同名时加的方位前缀、改用天下之名(普世之名、唯一合法政府)前的本名
     public int name_source;
     public long named_core_id = -1L;
+    // 国号来由的补充(帝国界面左栏)：握着首府、却因别国已用其名而没用上的帝国法理；因是地名而没用上的王国法理
+    public string name_blocked_core = "";
+    public string name_place_title = "";
     public string founding_prefix = "";
     public string rival_name_prefix = "";
     public string pre_tianxia_name = "";

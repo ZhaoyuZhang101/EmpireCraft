@@ -1948,12 +1948,9 @@ public static class WorldMapScenario
                 try { polity.empire = ModClass.EMPIRE_MANAGER.NewEmpire(polity.kingdom, false, true, false, null, true, core); }
                 finally { Empire.ScriptedFoundingName = null; }
                 if (polity.empire == null) continue;
-                // 美号(明)：加"大"前缀，国号不当帝国法理名
-                if (polity.data.grand)
-                {
-                    polity.empire.data.directPre = RealmNamingSystem.GrandPrefix;
-                    polity.empire.data.name_source = RealmNamingSystem.SourceGrandName;
-                }
+                // 美号(明)：加"大"前缀，国号不当帝国法理名；别的是剧本定下的国号(帝国界面标"剧本所定")
+                polity.empire.data.name_source = polity.data.grand ? RealmNamingSystem.SourceGrandName : RealmNamingSystem.SourceScenario;
+                if (polity.data.grand) polity.empire.data.directPre = RealmNamingSystem.GrandPrefix;
                 polity.empire.SetEmpireName(polity.name);
                 polity.kingdom.SetKingdomName(polity.name);
                 if (polity.data.banner) BannerSystem.Establish(polity.kingdom, polity.empire);

@@ -900,7 +900,8 @@ public static partial class CompositeEmpireService
         bool han = !string.IsNullOrWhiteSpace(own) &&
                    (InstitutionSystem.GetCultureLine(CultureService.GetEffectiveTitleCulture(main)) == "Huaxia" ||
                     NameCultureRepair.FromLine(own, "Huaxia"));
-        string name = !string.IsNullOrWhiteSpace(historic) ? historic.Trim() : han ? own : null;
+        // 照地名起的主法理不当帝国号(见 RealmNamingSystem.PlaceTitle)，往下取美号
+        string name = !string.IsNullOrWhiteSpace(historic) ? historic.Trim() : han && !RealmNamingSystem.PlaceTitle(main) ? own : null;
         if (string.IsNullOrWhiteSpace(name) || ModClass.EMPIRE_MANAGER?.Any(other => other?.data != null && other != empire &&
                 !other.isRekt() && !other.IsArchived() && string.Equals(other.GetEmpireName(), name, StringComparison.Ordinal)) == true)
             return null;

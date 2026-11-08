@@ -809,11 +809,11 @@ public static class ScenarioEventSystem
     // 写成"大某"的，"大"是美号(同开局的大明，见 RealmNamingSystem.GrandPrefix)，国号本名是"某"
     private static void Proclaim(Empire empire, Kingdom kingdom, string parts)
     {
-        if (ScenarioPlotRules.SplitGrand(parts, out string plain))
-        {
-            empire.data.directPre = RealmNamingSystem.GrandPrefix;
-            empire.data.name_source = RealmNamingSystem.SourceGrandName;
-        }
+        bool grand = ScenarioPlotRules.SplitGrand(parts, out string plain);
+        if (grand) empire.data.directPre = RealmNamingSystem.GrandPrefix;
+        empire.data.name_source = grand ? RealmNamingSystem.SourceGrandName : RealmNamingSystem.SourceScenario;
+        empire.data.name_place_title = "";
+        empire.data.name_blocked_core = "";
         string name = Text(plain);
         empire.SetEmpireName(name);
         kingdom.SetKingdomName(name);
@@ -824,7 +824,11 @@ public static class ScenarioEventSystem
     private static void Rename(Kingdom kingdom, string name)
     {
         Empire empire = kingdom.GetEmpire();
-        if (empire != null && empire.CoreKingdom == kingdom) empire.SetEmpireName(name);
+        if (empire != null && empire.CoreKingdom == kingdom)
+        {
+            empire.data.name_source = RealmNamingSystem.SourceScenario;
+            empire.SetEmpireName(name);
+        }
         KingdomTitle main = kingdom.GetMainTitle();
         if (main?.data != null) main.data.name = name;
         kingdom.SetKingdomName(name);

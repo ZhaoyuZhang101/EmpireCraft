@@ -24,6 +24,8 @@ public static partial class RealmNamingSystem
 
     // EmpireData.name_source：国号来源
     public const int SourceLegacy = 0, SourceKingdomTitle = 1, SourceEmpireTitle = 2, SourceRestoration = 3, SourceTianxia = 4;
+    // 剧本定下的国号(开局称帝、剧情事件称帝改号)
+    public const int SourceScenario = 8;
 
     public const string HuaxiaLine = "Huaxia", WesternLine = "Roma";
 

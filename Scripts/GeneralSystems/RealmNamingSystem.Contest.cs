@@ -15,7 +15,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 只管同名相争：好几家都在用(或让出过)同一个帝国法理名、同一个天下之名时，只有据有其一半以上城的那家能用——
 //     争帝国法理名看那个帝国法理自己的城，争天下之名看整个天下的城(按城数，本国连附庸，EmpireCoreControl 口径)；
 //     恰好两家各半时看谁受着天命；没人过半就谁都不用。不同的名各归各家、互不影响；
-//   · 用不了的改用自家王国法理名(都城所在的，其次主法理)，没有就用都城名，与别国重名再加方位(相对重名那国的都城)；
+//   · 用不了的改用自家王国法理名(都城所在的，其次主法理；照地名起的不算)，没有就用美号，与别国重名再加方位(相对重名那国的都城)；
 //   · 只有一家要用这个名字时照旧，按资格直接用(让出过的、对手没了也复称)；
 //   · 新冒出同名(绝嗣裂土、两朝分立、据有法理称帝、复国……)每月一查当即改正，不算换名；正统易手每年一查，
 //     一家十年内至多换一次，免得来回改；改名都记史书。旧档里已经同名的，读档后头一回检查就改正。
@@ -217,10 +217,10 @@ public static partial class RealmNamingSystem
         return total > 0 && held.TryGetValue(empire.CoreKingdom, out int count) && count * 2 >= total;
     }
 
-    // 让出：改用自家王国法理名(都城所在的，其次主法理)，没有就用都城名；与别国重名加方位
+    // 让出：改用自家王国法理名(都城所在的，其次主法理)，没有就用美号(以前用都城名，国号成了城名)；与别国重名加方位
     private static void Yield(Empire empire, string name, bool stamp)
     {
-        string own = OwnName(empire, name);
+        string own = OwnName(empire, name, out string grandPrefix);
         if (string.IsNullOrWhiteSpace(own)) return;
         EmpireData data = empire.data;
         string before = empire.GetEmpireFullName();
@@ -237,6 +237,7 @@ public static partial class RealmNamingSystem
         if (!holy && mine != null && theirs != null)
             data.directPre = RealmNameRules.Direction4(theirs.city_center.x, theirs.city_center.y,
                 mine.city_center.x, mine.city_center.y) ?? RealmNameRules.Later;
+        else if (!holy && grandPrefix != null) data.directPre = grandPrefix;
         empire.SetEmpireName(own, preserveEmpireType: true);
         data.title_claim_own_name = data.core_name ?? "";
         data.title_claim_yielded = true;
@@ -262,18 +263,21 @@ public static partial class RealmNamingSystem
         LogService.LogInfo($"[EmpireCraft][同名相争] {before} {(alone ? "别家已不用" : "据有其半")}，复称 {empire.GetEmpireFullName()}");
     }
 
-    private static string OwnName(Empire empire, string contested)
+    // grandPrefix：用了美号时带回美号前缀，否则 null
+    private static string OwnName(Empire empire, string contested, out string grandPrefix)
     {
+        grandPrefix = null;
         Kingdom core = empire.CoreKingdom;
-        foreach (string candidate in new[]
-                 {
-                     core.capital?.GetTitle()?.data?.name, core.GetMainTitle()?.data?.name,
-                     core.capital?.EnsureCityCoreName(), core.capital?.GetCityName()
-                 })
+        foreach (KingdomTitle title in new[] { core.capital?.GetTitle(), core.GetMainTitle() })
         {
-            string name = EmpireCoreManager.NormalizeCoreName(candidate);
-            if (!string.IsNullOrWhiteSpace(name) && !string.Equals(name, contested, StringComparison.Ordinal)) return name;
+            string name = EmpireCoreManager.NormalizeCoreName(title?.data?.name);
+            if (!string.IsNullOrWhiteSpace(name) && !string.Equals(name, contested, StringComparison.Ordinal) && !PlaceTitle(title))
+                return name;
         }
-        return "";
+        string grand = PickGrandName(CultureService.GetRealmCulture(core), TianxiaSystem.Lead(EmpireCoreManager.Get(empire)),
+            empire.id, out string prefix);
+        if (string.IsNullOrWhiteSpace(grand) || string.Equals(grand, contested, StringComparison.Ordinal)) return "";
+        grandPrefix = prefix;
+        return grand;
     }
 }
