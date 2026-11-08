@@ -179,13 +179,15 @@ public static class NativeDefenseSystem
                            string.Join("、", joined.Select(kin => kin.GetKingdomName())));
     }
 
-    // 应召的同族本土政权，国力大的在前
+    // 应召的同族本土政权，国力大的在前。向入侵者称臣纳贡、做附庸的不应召(以前明清鼎革开局，刚降清的朝鲜头一个月就举兵抗清)
     private static IEnumerable<Kingdom> Candidates(Kingdom native, Kingdom invader, War war)
     {
         Alliance alliance = invader.hasAlliance() ? invader.getAlliance() : null;
+        Empire lord = invader.GetEmpire();
         return World.world.kingdoms.list
             .Where(kin => Alive(kin) && kin.isCiv() && Realm(kin) == kin && kin != native && kin != invader &&
                           !war.hasKingdom(kin) && NativeBorn(kin) && SameKin(kin, native) &&
+                          (lord == null || kin.GetTakenAllianceEmpire() != lord && kin.GetGivenAllianceEmpire() != lord) &&
                           !Compatibility.AncientWarfareCompatibility.Owns(kin) &&
                           (alliance == null || !kin.hasAlliance() || kin.getAlliance() != alliance) &&
                           !FrontSystem.Hostile(kin, native) && !FrontSystem.Hostile(kin, invader) &&

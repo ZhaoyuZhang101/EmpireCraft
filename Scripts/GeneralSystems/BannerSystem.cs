@@ -97,7 +97,8 @@ public static partial class BannerSystem
 
     #region 开局
 
-    // 立政体：开局就是多元帝国的兼用路线；开局手里的城都算旗下旧地
+    // 立政体：开局就是多元帝国的兼用路线；开局手里的城都算旗下旧地(辽东汉民编汉军、包衣)，只有别的游牧文化之城(漠南蒙古)
+    // 不算，照旧作外藩、设省(见 LeagueBound、CompositeEmpireService.IsHomeland)
     public static void Establish(Kingdom core, Empire empire)
     {
         if (core?.data == null || empire?.data == null) return;
@@ -107,7 +108,13 @@ public static partial class BannerSystem
         string ruling = CultureService.GetRealmCulture(core);
         CompositeEmpireService.EstablishCourt(empire, ruling, "Huaxia");
         foreach (City city in core.cities ?? new List<City>())
-            if (city?.data != null && !city.isRekt()) city.GetOrCreate().banner_home = true;
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            string culture = CultureService.GetMainCulture(city, initialize: false);
+            if (CultureService.IsValidCulture(culture) && culture.IsNomadCulture() &&
+                !string.Equals(culture, ruling, global::System.StringComparison.Ordinal)) continue;
+            city.GetOrCreate().banner_home = true;
+        }
         LogService.LogInfo($"[EmpireCraft][八旗] {empire.GetEmpireFullName()} 立八旗多元制，政体 {core.GetRegime()?.type}，{core.cities?.Count ?? 0} 城");
     }
 

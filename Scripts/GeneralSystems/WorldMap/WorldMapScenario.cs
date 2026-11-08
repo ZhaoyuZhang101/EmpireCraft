@@ -1902,6 +1902,8 @@ public static class WorldMapScenario
 
     private static void BuildEmpires()
     {
+        // 建国时的城还没进各国城表：立八旗要数开局手里的城(以前清立八旗时"0 城"，一座旗下旧地都没记上)
+        RefreshCityLists();
         var byId = _polities.Where(polity => polity.data != null).ToDictionary(polity => polity.data.id, polity => polity);
         foreach (PlannedPolity polity in byId.Values.Where(polity => polity.data.empire))
         {
@@ -2381,7 +2383,22 @@ public static class WorldMapScenario
         _afterLoadArmed = false;
         List<(string what, Action action)> actions = _afterLoad.ToList();
         _afterLoad.Clear();
-        foreach ((string what, Action action) in actions) Guard(what, action);
+        foreach ((string what, Action action) in actions)
+        {
+            RefreshCityLists();
+            Guard(what, action);
+        }
+    }
+
+    // 原版各国的城表(kingdom.cities)只打脏标记、下一帧才重建，进世界后的安排却都在同一帧里跑：划行政区、并城以后城表不变，
+    // 后面的步骤看到的还是旧的。以前开局兵力把整个明朝的兵都编进了京师那一国(六万多人，北直隶本该不到五千)，
+    // 罗马、奥斯曼的中央也一样，开战后满编只增不减，一直养着；每步之前照原版的办法重建一次
+    private static void RefreshCityLists()
+    {
+        KingdomManager kingdoms = World.world?.kingdoms;
+        if (kingdoms == null) return;
+        kingdoms.setDirtyCities();
+        kingdoms.beginChecksCities();
     }
 
     private static List<City> CitiesOf(IEnumerable<string> ids)

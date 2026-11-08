@@ -23,13 +23,24 @@ public static partial class BannerSystem
     private const int QueueIntegration = 5, QueueCentralLegitimacy = 10, QueueRulingLegitimacy = 5;
     private const float StopPeasantRelief = 10f, StopLandlordRelief = 5f, StopAnnexationRelief = 10f, RelaxPeasantRelief = 5f;
 
-    // 入关：都城是属地文化一系的城
+    // 入关：都城是属地文化一系的城，又不是旗下旧地。辽东的城多是汉民，以前清开局坐盛京就算入关了，
+    // 头几年在辽东跑马圈地、剃发易服、颁逃人法，自家几座城怨声载道
     private static bool Entered(Empire empire)
     {
         City capital = empire.CoreKingdom?.capital;
-        if (capital?.data == null || capital.isRekt()) return false;
+        if (capital?.data == null || capital.isRekt() || capital.GetOrCreate().banner_home) return false;
         return CultureService.SameKin(CultureService.GetMainCulture(capital, initialize: false),
             CompositeEmpireService.GetInstitutionalCulture(empire));
+    }
+
+    // 入关前的禁旅八旗自备鞍马器械、以旗地为生，出征只领行粮，军饷按 BannerRules.PreEntryUpkeep 折算(见 FormationSystem.UpkeepFactor、
+    // CorpsSystem 量入为出)；入关以后照禁旅八旗的饷。以前清在关外也按禁旅八旗的饷(一般军的 1.4 倍)养兵，辽东几城的税养不起，
+    // 战时军费系数只有两三成，兵额一路缩编
+    public static float PayFactor(Kingdom kingdom)
+    {
+        Kingdom core = CoreOf(kingdom);
+        if (core?.data == null || core.isRekt() || !Organized(core)) return 1f;
+        return core.GetOrCreate().banner_entered_at < 0d ? BannerRules.PreEntryUpkeep : 1f;
     }
 
     private static float YearsSince(double at) => at < 0d ? -1f : (float)Date.getYearsSince(at);

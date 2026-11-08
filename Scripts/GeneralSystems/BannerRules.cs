@@ -24,6 +24,9 @@ public static class BannerRules
     // 旗人皆兵：征兵时城里的旗人多算这么多份进兵源
     public const float ExtraLevy = 1f;
 
+    // 入关前旗兵自备鞍马、以旗地为生，只领行粮：军饷按这一成数算
+    public const float PreEntryUpkeep = 0.3f;
+
     // 一座城旗人该占几成：旗人世代驻防，旧地(开局就在旗下的城)成丁皆兵，满城次之，别的城不编旗
     public static float TargetShare(bool home, bool manchuCity) => home ? HomeShare : manchuCity ? GarrisonShare : 0f;
 

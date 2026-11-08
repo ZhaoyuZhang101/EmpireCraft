@@ -588,17 +588,18 @@ public static class CorpsSystem
         return Mathf.Clamp01((float)(budget / Math.Max(0.01f, perSoldier)) / wanted);
     }
 
-    // 本国各军按兵种的平均饷银倍数(装备越先进越贵，见 CorpsArmSystem.Upkeep)
+    // 本国各军按兵种的平均饷银倍数(装备越先进越贵，见 CorpsArmSystem.Upkeep)；入关前的禁旅八旗只领行粮(见 BannerSystem.PayFactor)
     private static float AverageUpkeep(Kingdom kingdom)
     {
         float men = 0f, weighted = 0f;
+        float banner = BannerSystem.PayFactor(kingdom);
         foreach (CorpsData corps in Of(kingdom))
         {
             if (corps.order_id >= 0 || corps.strength <= 0f) continue;
             men += corps.strength;
-            weighted += corps.strength * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps));
+            weighted += corps.strength * CorpsArmSystem.Upkeep(CorpsArmSystem.Of(corps)) * (FormationSystem.BannerSource(corps) ? banner : 1f);
         }
-        return men > 0f ? weighted / men : 1f;
+        return men > 0f ? weighted / men : banner;
     }
 
     // 各军镇应有几支军、每支多少人；缺的当场征召，多的和平时退伍
@@ -719,8 +720,11 @@ public static class CorpsSystem
                 if (corps.strength + away < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
                     Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * FormationSystem.RaiseFactor(corps) * corps.supply,
                         corps.full - away - corps.strength));
+                // 裁撤按现有兵力的成数：以前按满编的成数，养不起时满编缩到几百，几千欠饷的兵每月只裁几十，
+                // 明的各布政使司开局编了五六千兵，军费系数掉到 0.01 后好几年还养着
                 else if ((!war || limited) && corps.strength + away > corps.full)
-                    Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full, corps.full * DemobilizeShare + 1f));
+                    Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full,
+                        Mathf.Max(corps.full, corps.strength) * DemobilizeShare + 1f));
             }
         }
         // 手动组建的军：只补员，不随兵额增减

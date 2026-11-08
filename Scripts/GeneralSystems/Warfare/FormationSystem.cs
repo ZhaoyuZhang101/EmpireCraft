@@ -371,7 +371,9 @@ public static class FormationSystem
 
     // 禁旅八旗只收旗人(见 BannerSystem.MayRecruit)
     public static bool BannerSource(CorpsData corps) => RulesOf(corps).source == "banner";
-    public static float UpkeepFactor(CorpsData corps) => RulesOf(corps).upkeep;
+    // 禁旅八旗入关前只领行粮(见 BannerSystem.PayFactor)
+    public static float UpkeepFactor(CorpsData corps) =>
+        RulesOf(corps).upkeep * (BannerSource(corps) ? BannerSystem.PayFactor(World.world?.kingdoms?.get(corps.kingdom_id)) : 1f);
 
     public static bool AllowsArm(CorpsData corps, CorpsArmSystem.Arm arm) => !RulesOf(corps).denied_arms.Contains(arm.ToString());
 
