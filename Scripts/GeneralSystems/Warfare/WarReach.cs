@@ -35,6 +35,8 @@ public static class WarReach
     // 直线穿过绕得过去的无人区按地形阻力两倍估，横着三块山脉无人区(每块 8)就够不着
     public const float LandCost = 24f;
     private const int ClearMonths = 12;
+    // 叛军与原主够不着、判和之前多等一年：原主可能正在收复中间的地方
+    private const int RebelClearMonths = 24;
     private const string LogTag = "[EmpireCraft][远战]";
 
     private static object _world;
@@ -293,8 +295,13 @@ public static class WarReach
             alive.Add(id);
             if (ExemptType(war.getAsset()) || Related(attacker, defender))
             {
-                Far.Remove(id);
-                FarMonths.Remove(id);
+                if (war.getAsset() == WarTypeLibrary.rebellion && !Reachable(attacker, defender) && !AnyPairReachable(war))
+                    SweepRebellion(war, attacker, defender);
+                else
+                {
+                    Far.Remove(id);
+                    FarMonths.Remove(id);
+                }
                 continue;
             }
             if (war.GetEmpireWarType() != EmpireWarType.劫掠) PruneDistant(war, cache);
@@ -323,6 +330,23 @@ public static class WarReach
         Far.RemoveWhere(id => !alive.Contains(id));
         foreach (long id in FarMonths.Keys.Where(id => !alive.Contains(id)).ToList()) FarMonths.Remove(id);
         foreach (var key in AllyFarMonths.Keys.Where(key => !alive.Contains(key.war)).ToList()) AllyFarMonths.Remove(key);
+    }
+
+    // 叛乱开战不拦(起事的城本来就在原主境内)，可打着打着两边隔开了：归化的明教军隔着燕国、隔着海跟济南国打了二十多年，
+    // 谁也够不着谁，地图上一条箭头横穿燕国，看着像燕国的仗僵在那里。叛军与原主(连同两边盟友)都够不着的不画箭头，
+    // 连着 RebelClearMonths 个月判和，叛军就此自立
+    private static void SweepRebellion(War war, Kingdom attacker, Kingdom defender)
+    {
+        long id = war.data.id;
+        Far.Add(id);
+        int months = FarMonths.TryGetValue(id, out int count) ? count + 1 : 1;
+        FarMonths[id] = months;
+        if (months < RebelClearMonths) return;
+        FarMonths.Remove(id);
+        Far.Remove(id);
+        LogService.LogInfo($"{LogTag} {war.data.name}：{attacker.GetKingdomName()} 与 {defender.GetKingdomName()} " +
+                           $"连着 {RebelClearMonths} 个月两边够不着，判和，叛军自立");
+        World.world.wars.endWar(war, WarWinner.Peace);
     }
 
     private static bool Near(Kingdom a, Kingdom b, Dictionary<(long, long), bool> cache)
