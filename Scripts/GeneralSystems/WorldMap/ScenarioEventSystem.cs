@@ -53,7 +53,8 @@ public sealed class ScenarioRebelLeader
 // 剧情事件(剧本编辑器第四期，见 Docs/plan-scenario-editor.md；用户 10-30 "剧情事件：要，选项拼搭")：
 //   自定剧本开局时记下事件表与剧本里的国、城、地区各对上了哪个国家、城、王国法理(随存档保存)，之后每年查一次——
 //   开局满 after 年、条件全部满足就触发：照结果一条条做，写进史书、上屏幕；不可重复的只触发一次。
-//   条件：某国据有某城、某国据有某王国法理过半、某国已亡、某国尚在、某国已称帝、两国交战中、某国王朝积弊高于某数；
+//   条件：某国据有某城、某国据有某王国法理过半、某国已亡、某国尚在、某国已称帝、两国交战中、某国王朝积弊高于某数、
+//     开局未满几年(before：只写文字的史事要卡年份，不然条件晚了十几年才凑齐，史书上就错了年份)；
 //   结果：称帝(可定国号)、改国号、迁都、两国之间加一条关系(交战、停战、结盟、和亲、通好、保护、朝贡、附庸、关税同盟、旧谊、宿怨，
 //     走 DiplomacyActions.ApplyScenario 同一套判定)、改文化、采纳华夏制度(入主中原，国号照写的定，见 CompositeEmpireService.ScriptedConquestName)、
 //     起兵割据(剧本点名的人据城另立一国、与帝国开战，见 Rebel；用户 10-30 "唐朝剧本的安史之乱呢")、
@@ -61,7 +62,7 @@ public sealed class ScenarioRebelLeader
 //   国家没了、城没了的条件算不满足；结果做不了的跳过、记一行日志。
 public static class ScenarioEventSystem
 {
-    public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above" };
+    public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above", "before" };
     public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir", "grant_title", "rally",
         "banner_city", "banner_enclosure", "banner_law" };
 
@@ -300,6 +301,8 @@ public static class ScenarioEventSystem
             case "strain_above":
                 Empire empire = a?.GetEmpire();
                 return empire != null && DynasticCycleSystem.GetPressure(empire) > step.value;
+            case "before":
+                return _state != null && _state.started >= 0d && Date.getYearsSince(_state.started) < step.value;
         }
         return false;
     }
@@ -331,6 +334,8 @@ public static class ScenarioEventSystem
         }
         // 一条结果都没做成的(点名的人早死了、城早丢了)不上屏幕，免得史书写了没发生的事
         bool happened = done.Count > 0 || only == null && steps.Count == 0;
+        // 只出文字的史事(济南之陷、开封水灌)：记在条件里头一个还在的国名下，照样进世界日志
+        first ??= (item.when ?? new List<WorldMapEventStep>()).Select(step => Realm(step?.a)).FirstOrDefault(realm => realm != null);
         string text = Text(string.IsNullOrWhiteSpace(item.text) ? item.name : item.text);
         if (happened && !string.IsNullOrWhiteSpace(text))
         {

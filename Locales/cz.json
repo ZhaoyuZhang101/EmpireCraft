@@ -10064,6 +10064,7 @@
   "scenario_event_if_empire": "某国已称帝",
   "scenario_event_if_at_war": "两国交战中",
   "scenario_event_if_strain_above": "某国王朝积弊高于",
+  "scenario_event_if_before": "开局未满几年",
   "scenario_event_do_relation": "两国关系",
   "scenario_event_do_proclaim": "称帝",
   "scenario_event_do_rename": "改国号",

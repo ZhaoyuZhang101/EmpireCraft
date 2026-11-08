@@ -159,6 +159,7 @@
 | `empire` | `a` | a 已称帝 |
 | `at_war` | `a`、`b` | 两国交战中 |
 | `strain_above` | `a`、`value` | a 的王朝积弊高于 value(0~100) |
+| `before` | `value` | 开局未满 value 年。只写文字、没有结果的史事用它卡住年份，免得条件晚了十几年才凑齐 |
 
 **结果 `then`**：
 

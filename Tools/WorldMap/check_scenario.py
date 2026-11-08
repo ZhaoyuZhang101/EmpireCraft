@@ -24,7 +24,7 @@ RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute
 GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}
 CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "alive": ("a",), "empire": ("a",),
-              "at_war": ("a", "b"), "strain_above": ("a", "value")}
+              "at_war": ("a", "b"), "strain_above": ("a", "value"), "before": ("value",)}
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
@@ -253,8 +253,12 @@ def main():
                 err("%s：不认得的键 %s" % (where, key))
         if not isinstance(e.get("after", 0), int) or e.get("after", 0) < 0:
             err("%s：after 要写非负整数(开局后第几年)" % where)
+        # 只出文字的史事可以没有结果，但要有文字、要用 before 卡住年份(不然条件晚了十几年才凑齐，史书上的年份就错了)
         if not e.get("then"):
-            err("%s：没有结果 then" % where)
+            if not e.get("text"):
+                err("%s：没有结果 then，也没有文字" % where)
+            elif not any(c.get("kind") == "before" for c in e.get("when", [])):
+                err("%s：只出文字的事件要有 before 条件卡住年份" % where)
         for part, table in (("when", CONDITIONS), ("then", EFFECTS)):
             for j, s in enumerate(e.get(part, [])):
                 at = "%s %s[%d] %s" % (where, part, j, s.get("kind"))

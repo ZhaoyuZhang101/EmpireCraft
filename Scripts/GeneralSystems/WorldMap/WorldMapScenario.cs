@@ -1935,6 +1935,16 @@ public static class WorldMapScenario
                     polity.empire.data.has_year_name = true;
                     polity.empire.data.year_name = WorldMapData.PickParts(polity.data.eraName);
                     polity.empire.data.newEmperor_timestamp = World.world.getCurWorldTime() - Mathf.Max(0, polity.data.eraYear - 1) * 60d;
+                    // 称帝那一刻就开了这位君主的在位记录，记的是随手起的年号：崇祯帝驾崩后帝王表上写着"建福"，
+                    // 起头几条记事写成"由检 1年"。照剧本年号改过来
+                    EmpireCraftHistory reign = polity.empire.data.currentHistory;
+                    if (reign != null)
+                    {
+                        reign.year_name = polity.empire.data.year_name;
+                        string time = polity.empire.GetYearNameWithTime();
+                        foreach (HistoryDescription line in reign.descriptions ?? new List<HistoryDescription>())
+                            if (line != null) line.time = time;
+                    }
                 }
             }
             catch (Exception exception)

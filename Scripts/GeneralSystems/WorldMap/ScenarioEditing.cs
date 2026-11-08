@@ -1974,6 +1974,7 @@ public static class ScenarioEditing
                 "holds_region" => new List<string> { "a", "region" },
                 "at_war" => new List<string> { "a", "b" },
                 "strain_above" => new List<string> { "a", "value" },
+                "before" => new List<string> { "value" },
                 _ => new List<string> { "a" }
             };
         return step.kind switch

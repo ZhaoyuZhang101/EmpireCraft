@@ -10050,6 +10050,7 @@
   "scenario_event_if_empire": "Realm is an empire",
   "scenario_event_if_at_war": "Realms at war",
   "scenario_event_if_strain_above": "Dynastic strain above",
+  "scenario_event_if_before": "Within years of start",
   "scenario_event_do_relation": "Relation",
   "scenario_event_do_proclaim": "Proclaim empire",
   "scenario_event_do_rename": "Rename realm",
