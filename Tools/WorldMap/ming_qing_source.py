@@ -57,7 +57,7 @@ MING_FAMOUS = [
 
 QING = polity(
     "qing", "清", "Qing", "Manzhou", "shenyang",
-    r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, banner=True, core="manchuria",
+    r=["liaodong", "manchuria", "monan"], cities=["baotou"], emp=True, grand=True, banner=True, hero=True, core="manchuria",
     era_name="崇德|Chongde", era_year=3, dynasty="aisin_gioro",
     ruler=person("爱新觉罗|Aisin Gioro", "皇太极|Hong Taiji", 46, f="ag01"),
     kin=[
@@ -304,7 +304,9 @@ EVENTS = [
     event("清帝驾崩", T("清太宗皇太极暴卒于盛京清宁宫，诸王议立六岁的福临，郑亲王济尔哈朗、睿亲王多尔衮辅政",
                        "Hong Taiji dies suddenly in the Qingning Palace at Mukden; the princes raise six-year-old Fulin, with Jirgalang and Dorgon as regents"), 5,
           [{"kind": "alive", "a": "qing"}],
-          [{"kind": "dies", "a": "qing", "person": "爱新觉罗皇太极", "name": T("暴卒于盛京清宁宫", "died suddenly in the Qingning Palace at Mukden")}]),
+          # 诸王议立福临：先定继承名单，不然按长幼是豪格继位
+          [{"kind": "heir", "a": "qing", "person": "爱新觉罗福临"},
+           {"kind": "dies", "a": "qing", "person": "爱新觉罗皇太极", "name": T("暴卒于盛京清宁宫", "died suddenly in the Qingning Palace at Mukden")}]),
     event("闯军入关中", T("督师孙传庭兵败，战死潼关，闯军长驱入西安", "Supreme Commander Sun Chuanting is defeated and dies at Tong Pass; the rebels march into Xi'an"), 5,
           [{"kind": "alive", "a": "shun"}, {"kind": "holds_city", "a": "ming", "city": "xian"}],
           [{"kind": "cede", "a": "ming", "b": "shun", "city": "xian", "cities": ["baoji", "hanzhong", "tianshui"]},
@@ -318,9 +320,11 @@ EVENTS = [
           [{"kind": "holds_city", "a": "shun", "city": "beijing"}, {"kind": "holds_city", "a": "ming", "city": "shanhaiguan"}],
           [{"kind": "cede", "a": "ming", "b": "qing", "city": "shanhaiguan", "cities": ["ningyuan"], "person": "吴三桂"},
            {"kind": "grant_title", "a": "qing", "person": "吴三桂", "name": T("平西王", "Prince Pingxi")}]),
-    event("清军入关", T("多尔衮率八旗入山海关，与吴三桂合兵，大破李自成于一片石", "Dorgon leads the banners through Shanhai Pass and, with Wu Sangui, routs Li Zicheng at Yipianshi"), 6,
+    # 清军入关打的是"为明复仇、讨伐流寇"的旗号：先与明罢兵，只打顺(史可法等还想"借虏平寇")；次年清军南下再与南明开战
+    event("清军入关", T("多尔衮以为明复仇、讨伐流寇为名，率八旗入山海关，与吴三桂合兵，大破李自成于一片石",
+                       "Proclaiming vengeance for the Ming against the rebels, Dorgon leads the banners through Shanhai Pass and, with Wu Sangui, routs Li Zicheng at Yipianshi"), 6,
           [{"kind": "holds_city", "a": "shun", "city": "beijing"}, {"kind": "alive", "a": "qing"}],
-          [rel_step("qing", "shun", "war", goal="夺城")]),
+          [rel_step("qing", "ming", "truce"), rel_step("qing", "shun", "war", goal="夺城")]),
     event("西军入蜀", T("张献忠入蜀，攻破成都，称帝建国，国号大西", "Zhang Xianzhong enters Sichuan, takes Chengdu and proclaims the state of Great Xi"), 6,
           [{"kind": "alive", "a": "xi"}, {"kind": "holds_city", "a": "ming", "city": "chengdu"}],
           [{"kind": "cede", "a": "ming", "b": "xi", "city": "chengdu", "cities": ["langzhong"]},
@@ -342,7 +346,7 @@ EVENTS = [
     event("再行圈地", T("清廷再度圈地，畿辅民田多入旗下", "The Qing court encloses land again and much of the capital region passes to the banners"), 9,
           [{"kind": "holds_city", "a": "qing", "city": "beijing"}],
           [{"kind": "banner_enclosure", "a": "qing", "city": "beijing", "cities": ["zhuozhou", "dingzhou", "zhending", "handan", "ye"]}]),
-    event("清军南下", T("清军南下，兵锋直指江南", "The Qing army marches south toward the Yangtze"), 7,
+    event("清军南下", T("清廷撕去为明复仇的名义，清军南下，兵锋直指江南", "The Qing drop the pretence of avenging the Ming and march south toward the Yangtze"), 7,
           [{"kind": "holds_city", "a": "qing", "city": "beijing"}, {"kind": "alive", "a": "ming"}],
           [rel_step("qing", "ming", "war", goal="夺城")], repeat=True),
     event("南京失守", T("清军渡江，南京开城出降，弘光帝出奔芜湖被俘；郑芝龙、黄道周等于福州奉唐王即位，改元隆武", "The Qing cross the Yangtze and Nanjing opens its gates; the Hongguang emperor flees to Wuhu and is taken. At Fuzhou Zheng Zhilong and Huang Daozhou raise the Prince of Tang as the Longwu emperor"), 7,

@@ -617,8 +617,12 @@ public static class ScenarioEventSystem
         }
     }
 
+    // 剧本正在为这个朝廷号召归附(甲申之变的 rally)：南明结成就不再另掷一遍(见 SouthernRetreatSystem)
+    internal static bool RallyingFor(Kingdom court) =>
+        _state?.rally != null && court?.data != null && _state.rally.court == court.data.id;
+
     // 压力：同族的城里入侵者(帝国连同成员)占了几成
-    private static float ConquestPressure(Kingdom conqueror, string culture)
+    internal static float ConquestPressure(Kingdom conqueror, string culture)
     {
         int total = 0, held = 0;
         foreach (City city in World.world.cities.list)
@@ -653,6 +657,8 @@ public static class ScenarioEventSystem
         // 反过朝廷的也算：大敌当前，既往不咎
         target.join(kingdom, true, pForce: true, pLegitimacyTransfer: true);
         if (kingdom.GetEmpire() != target) return false;
+        // 撤了原来的国号，在这个帝国里按都城称呼(见 KingdomExtension.GetAutomaticKingdomName)
+        kingdom.GetOrCreate().submitted_empire_id = target.id;
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         string text = string.Format(LM.Get("scenario_rally_history"), kingdom.GetKingdomName(), conqueror.GetKingdomName(), target.GetEmpireName());
         EventRecorder.Record(target, text, kingdom.king, kingdom);

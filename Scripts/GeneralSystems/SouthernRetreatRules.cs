@@ -9,8 +9,6 @@ public static class SouthernRetreatRules
     public const int ShelterYears = 15, MinCities = 6, CooldownYears = 60;
     // 正统保底：结成当年这么多，期满降到正统崩坏线
     public const int Floor = 45;
-    // 结成以后新起的同族义军，每年这个机会来投
-    public const float LateRallyChance = 0.5f;
 
     // 异族占了天下的几分之一就算(三分之一)
     public static bool HoldsThird(int held, int total) => total > 0 && held > 0 && held * 3 >= total;

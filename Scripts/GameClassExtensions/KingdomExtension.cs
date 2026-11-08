@@ -298,6 +298,8 @@ public static class KingdomExtension
         public long left_empire_id = -1L;
         // 剧本定下的朝贡从什么时候起(见 StartToTaken：ScriptedTributeYears 年内不因国力坐大脱离)
         public double scripted_tribute_at = -1d;
+        // 奉表归附进了这个帝国(顺、西归南明，见 ScenarioEventSystem.Submit)：在这个帝国里不再用原来的国号，按都城称呼
+        public long submitted_empire_id = -1L;
         public double left_empire_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;
@@ -3542,6 +3544,14 @@ public static class KingdomExtension
         {
             string place = kingdom.capital.GetCityName();
             if (!string.IsNullOrWhiteSpace(place) && !string.Equals(place, coreName, StringComparison.Ordinal)) return place;
+        }
+        // 奉表归附的(用户 2026-11-08 "这个归顺之后的西和顺是个什么鬼")：在归附的帝国里撤了原来的国号，按都城称呼；
+        // 离了这个帝国自然恢复原名
+        if (!kingdom.isRekt() && !kingdom.IsEmpire() && kingdom.capital != null &&
+            kingdom.GetEmpire() is Empire host && host.id == kingdom.GetOrCreate().submitted_empire_id)
+        {
+            string seat = kingdom.capital.GetCityName();
+            if (!string.IsNullOrWhiteSpace(seat)) return seat;
         }
         return coreName;
     }

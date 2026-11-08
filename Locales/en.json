@@ -1940,6 +1940,7 @@
   "fiscal_debt_years": "Years of regular income",
   "fiscal_debt_hint": "Unpaid interest is added to the principal. Debt above three years of regular income is restructured down to one year and counts as a default. A state that defaulted within the last year cannot borrow; otherwise it borrows only when the treasury falls below a quarter of its safety reserve.",
   "corps_log_desertion": "Unpaid, {0} soldiers desert and go home",
+  "corps_defected_history": "{0} has not paid its troops: {1} ({2} men) goes over to {3}",
   "corps_log_unpaid_peace": "Unable to pay the troops, makes peace with {0}",
   "court_log_outbid": "{0} outspent {1} in influence and gold and submitted \"{2}\" first",
   "goods_title": "Goods Supply & Demand",

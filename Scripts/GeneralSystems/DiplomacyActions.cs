@@ -298,7 +298,8 @@ public static class DiplomacyActions
         string forbidden = ForbiddenReason(a, b);
         if (forbidden != null) return forbidden;
         double ended = World.world.diplomacy?.getRelation(a, b)?.data?.timestamp_last_war_ended ?? -1d;
-        if (ended > 0d && Date.getYearsSince(ended) < SimGlobals.m.minimum_years_between_wars) return "diplomacy_reason_truce";
+        // 剧本按史实定下的宣战不看停战年限(清军入关时与明罢兵，次年南下照样开战)
+        if (!_applyingScenario && ended > 0d && Date.getYearsSince(ended) < SimGlobals.m.minimum_years_between_wars) return "diplomacy_reason_truce";
         return WarReach.MayDeclare(a, b, WarTypeLibrary.normal) ? null : "diplomacy_reason_unreachable";
     }
 

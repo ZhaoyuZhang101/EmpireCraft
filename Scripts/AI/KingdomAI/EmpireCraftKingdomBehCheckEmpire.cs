@@ -267,6 +267,9 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (CultureAbolishedMonarchy(pKingdom)) return false;
         // 周制下一个文化只有一个正统核心：本文化已有周制王朝时，别国不能称帝(只能受封为诸侯，战国称王)
         if (ZhouEraSystem.BlocksRivalEmpire(pKingdom)) return false;
+        // 向别国称臣纳贡的不称帝：先脱离朝贡再说(用户 2026-11-09 明清鼎革：清的朝贡国朝鲜据有本国法理就称了帝，
+        // 朝贡随之作废，应明的号召打清，后来改朝成"大靖"、开国雄主又从背后打满洲)
+        if (pKingdom.HasTakenAlliance()) return false;
         // 万世一系：已有天皇在位，别家不另立天皇
         if (ConstitutionalSuccessionSystem.BlocksRivalThrone(pKingdom)) return false;
         if (repairMainTitle && pKingdom.hasKing() && !pKingdom.HasMainTitle() &&

@@ -61,7 +61,9 @@ public static partial class FrontSystem
     private const float CasualtyRate = 0.16f;
     private const float RetreatOrg = 10f;
     private const float ReadyOrg = 25f;
-    private const int MaxOffensives = 3;
+    // 全线推进(用户 2026-11-09 "为什么不能像钢铁雄心三一样保持战线"，选"全线推进，孤块自动归位")：陆上攻势不再限三路，
+    // 挑段时先补还没人攻的段(见 Score 的 spread)，兵多了再往有人攻的段加，沿整条接壤边界一起往前推
+    private const int MaxOffensives = int.MaxValue;
     private const float LandReachTiles = 80f;
 
     public sealed class BattleView
@@ -541,6 +543,8 @@ public static partial class FrontSystem
         SwapFronts();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, MonthLandingSectors);
+        // 孤块归位：战线后方断了后路的占领区、被围住的残片各归其主，国界保持一条线(见 FrontLineCleanup)
+        using (FrameProfiler.Measure("战线·孤块归位")) FrontLineCleanup.Monthly();
         PruneBattles(now);
         MonthPressure.Clear();
         MonthLandingSectors.Clear();
@@ -678,7 +682,7 @@ public static partial class FrontSystem
             needTotal += need;
             haveTotal += Mathf.Min(have, need);
         }
-        // ② 进攻：集中在少数几段；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
+        // ② 进攻：先铺满各段再加兵(全线推进，见 MaxOffensives)；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
         // 军令：集中攻打——出征的军都投那座城所在的一段；城在敌境深处、还不是战线的，投离它最近的一段
         City strike = CorpsCommandSystem.AttackCity(kingdom);
         Sector focus = null;
@@ -779,12 +783,13 @@ public static partial class FrontSystem
             : sector.Targets.Min(zone => CorpsSystem.ZoneDistance(zone, CorpsSystem.Zone(corps)));
         float odds = (committed + strength) / (defense + 1f);
         float capital = sector.City.isCapitalCity() ? 0.3f : 0f;
-        float concentrate = committed > 0f ? 0.4f : 0f;
+        // 先铺满各段再加兵：还没人攻的段加分(以前是已有人攻的段加分，兵全堆在一两处，打出深入的突出部)
+        float spread = committed > 0f ? 0f : 0.4f;
         float recapture = Friendly(kingdom, sector.City.kingdom) ? 0.6f : 0f;
         // 解救被围的友军、收拾被围的敌军(见 EncirclementSystem)；避开正当严冬、雨季的地形(见 WarWeather)
         float pocket = EncirclementSystem.ScoreBonus(kingdom, sector.City);
         float weather = sector.Targets.Count == 0 ? 0f : WarWeather.Harshness(TerrainSystem.Of(sector.Targets[0])) * SeasonAvoid;
-        return Mathf.Min(odds, 3f) + capital + concentrate + recapture + pocket - weather - distance * 0.03f;
+        return Mathf.Min(odds, 3f) + capital + spread + recapture + pocket - weather - distance * 0.03f;
     }
 
     private const float SeasonAvoid = 0.4f;

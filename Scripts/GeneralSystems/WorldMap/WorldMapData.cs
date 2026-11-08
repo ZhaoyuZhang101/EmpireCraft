@@ -258,6 +258,8 @@ public sealed class WorldMapPolity
     public bool grand;
     // 八旗多元制(明清鼎革的大清，见 BannerSystem)：称帝以后立这个政体
     public bool banner;
+    // 开局的君主是雄主(皇太极)：不是本朝第一位也给开国雄主特质(见 WorldMapScenario.SettleRulers、RulerTraitSystem)
+    public bool hero;
     // 开局就用这个文化的朝廷(金写 Huaxia，国号大金朝，见 CompositeEmpireService.EstablishCourt)
     public string court = "";
     // 神圣之名(神圣罗马)：开局取得所在联合天下的普世之名，再授神圣

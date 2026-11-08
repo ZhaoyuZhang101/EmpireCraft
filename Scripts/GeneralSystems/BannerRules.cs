@@ -5,7 +5,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 八旗多元制的数值规则(见 BannerSystem)，不碰游戏对象，单独测
 public static class BannerRules
 {
-    public const float HomeShare = 0.30f, GarrisonShare = 0.08f, SettleRate = 0.35f, ReleaseRate = 0.10f;
+    // 旗下旧地五成编旗(用户 2026-11-09 "很多汉人都被编入汉八旗了"：辽东汉民编作汉军、包衣，以前三成)
+    public const float HomeShare = 0.50f, GarrisonShare = 0.08f, SettleRate = 0.35f, ReleaseRate = 0.10f;
     public const float EnclosureStep = 0.30f, EnclosureCap = 0.60f, EnclosureFlight = 0.06f, LandTaxLoss = 0.60f;
     public const float StipendPerHead = 0.02f, StipendTreasuryCap = 0.15f;
     public const float VigorFloor = 30f, VigorMax = 100f, VigorEntry = 90f, VigorPeaceDecay = 0.6f, VigorWarGain = 0.4f;
@@ -26,6 +27,13 @@ public static class BannerRules
 
     // 入关前旗兵自备鞍马、以旗地为生，只领行粮：军饷按这一成数算
     public const float PreEntryUpkeep = 0.3f;
+    // 入关后旗兵钱粮逐年定制：EntryPayYears 年里从行粮涨到全饷(用户 2026-11-09 清一入关就按全饷养兵，军费系数一年内从 1 掉到 0.01，
+    // 欠饷到投朝鲜)
+    public const float EntryPayYears = 20f;
+
+    public static float EntryPay(float yearsSinceEntry) =>
+        yearsSinceEntry < 0f ? PreEntryUpkeep
+            : PreEntryUpkeep + (1f - PreEntryUpkeep) * Math.Min(1f, yearsSinceEntry / EntryPayYears);
 
     // 一座城旗人该占几成：旗人世代驻防，旧地(开局就在旗下的城)成丁皆兵，满城次之，别的城不编旗
     public static float TargetShare(bool home, bool manchuCity) => home ? HomeShare : manchuCity ? GarrisonShare : 0f;

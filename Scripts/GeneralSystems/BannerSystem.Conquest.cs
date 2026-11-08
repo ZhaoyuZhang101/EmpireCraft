@@ -36,11 +36,16 @@ public static partial class BannerSystem
     // 入关前的禁旅八旗自备鞍马器械、以旗地为生，出征只领行粮，军饷按 BannerRules.PreEntryUpkeep 折算(见 FormationSystem.UpkeepFactor、
     // CorpsSystem 量入为出)；入关以后照禁旅八旗的饷。以前清在关外也按禁旅八旗的饷(一般军的 1.4 倍)养兵，辽东几城的税养不起，
     // 战时军费系数只有两三成，兵额一路缩编
+    // 外藩(编旗王朝治下别的游牧文化的成员国，见 LeagueBound)随八旗出征，自备鞍马、不领饷：兵额不看国库，也不记欠饷
+    // (用户 2026-11-09 "清军还是应该人数再多点"；以前漠南诸部收入为零，军费系数 0，一兵都征不起)
+    public static bool SelfSupplied(Kingdom kingdom) => LeagueBound(kingdom);
+
     public static float PayFactor(Kingdom kingdom)
     {
         Kingdom core = CoreOf(kingdom);
         if (core?.data == null || core.isRekt() || !Organized(core)) return 1f;
-        return core.GetOrCreate().banner_entered_at < 0d ? BannerRules.PreEntryUpkeep : 1f;
+        double entered = core.GetOrCreate().banner_entered_at;
+        return BannerRules.EntryPay(entered < 0d ? -1f : YearsSince(entered));
     }
 
     private static float YearsSince(double at) => at < 0d ? -1f : (float)Date.getYearsSince(at);

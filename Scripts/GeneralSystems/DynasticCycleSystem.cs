@@ -37,6 +37,13 @@ public static class DynasticCycleSystem
     public static float GetPressure(Empire empire) => Applies(empire)
         ? Math.Max(0f, Math.Min(100f, empire.data.constitutional_economy?.dynastic_strain ?? 0f)) : 0f;
     public static bool InCrisis(Empire empire) => GetPressure(empire) >= DynasticCycleRules.CrisisPressure;
+
+    // 末世克扣军饷的成数(本国所在的王朝，见 DynasticCycleRules.PayArrears)
+    public static float PayArrears(Kingdom kingdom)
+    {
+        Empire empire = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetEmpire();
+        return empire == null ? 0f : DynasticCycleRules.PayArrears(GetPressure(empire));
+    }
     public static bool IsSaturated(Empire empire) => GetPressure(empire) >= DynasticCycleRules.SaturatedPressure;
 
     // 正统崩坏(见 DynasticCycleRules.CollapseLegitimacy)。开国气象里不算；分封制王室本就衰微，春秋战国自有规则，也不算

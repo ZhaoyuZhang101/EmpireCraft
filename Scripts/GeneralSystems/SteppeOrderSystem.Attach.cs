@@ -19,6 +19,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      · 灾年过去(用户 2026-10-27："都悲怆纪元了为什么不解散"——悲怆也是寒冬纪元，压力没降；寒冬过去以后以前也不散)：
 //        附从自己的草原压力回落到 AttachPressure 以下、依附满 ReliefYears 年，每年按 LeaveOnRelief 的机会散去。
 //    散去是和平离开汗国(不开战)；汗位更替之乱里据地自立的照旧(见 NomadCycleSystem)。
+//    合法理、同天下(用户 2026-11-09 "游牧的这个联合机制也太逆天了""完全无视法理和机制""天下")：只投同一个天下的汗国，
+//    自己都城所在的帝国法理又没归别的帝国；以前只看接壤，明清鼎革的清把漠北、外兴安岭一路的汗国都收成了兀鲁思。
 public static partial class SteppeOrderSystem
 {
     private const float AttachPowerShare = 0.35f, OutgrowShare = 0.6f, LeaveOnSuccession = 0.35f, LeaveOnDecline = 0.25f,
@@ -59,7 +61,7 @@ public static partial class SteppeOrderSystem
         foreach (Kingdom neighbour in Neighbours(kingdom))
         {
             Empire empire = neighbour.GetEmpire();
-            if (!IsKhanate(empire) || empire == best) continue;
+            if (!IsKhanate(empire) || empire == best || !AttachFits(kingdom, empire)) continue;
             double power = WarSituation.Power(empire);
             if (power <= bestPower) continue;
             best = empire;
@@ -82,6 +84,17 @@ public static partial class SteppeOrderSystem
         Chronicle(string.Format(LM.Get("steppe_attach_history"), kingdom.GetKingdomName(), best.GetEmpireName()), kingdom, core);
         LogService.LogInfo($"{LogTag} 依附强部：{kingdom.GetKingdomName()}(国力{own:0}，压力{state.pressure:0})投靠" +
                            $"{best.GetEmpireName()}(国力{bestPower:0})为兀鲁思");
+    }
+
+    // 合法理、同天下：都城与汗庭同在一个天下；都城所在的帝国法理没归别的帝国
+    private static bool AttachFits(Kingdom kingdom, Empire khanate)
+    {
+        City seat = kingdom.capital, court = khanate.CoreKingdom?.capital;
+        if (seat?.data == null || court?.data == null) return false;
+        EmpireCore lead = TianxiaSystem.LeadOf(seat);
+        if (lead == null || lead != TianxiaSystem.LeadOf(court)) return false;
+        Empire holder = RealmNamingSystem.HolderOf(seat.GetEmpireCore());
+        return holder == null || holder == khanate;
     }
 
     // 若即若离：大汗换人、汗国衰落时散去

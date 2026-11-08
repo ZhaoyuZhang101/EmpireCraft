@@ -2099,6 +2099,13 @@ public static class WorldMapScenario
             foreach ((Actor actor, WorldMapPerson person) in polity.kin)
                 if (person.heir) RealisticAgeSystem.OnScenarioStart(actor);
             if (polity.empire != null) VirtualGenealogySystem.EnsureYoungRulerHouse(polity.founder);
+            // 剧本点名的雄主(用户 2026-11-08 "清怎么没有开国雄主特质")：中途开局的今上不算开国(见 WorldMapHistory.NotFounder)，
+            // 皇太极这样的照样给开国雄主
+            if (polity.data.hero && polity.empire != null && !polity.founder.hasTrait(RulerTraitSystem.Founder))
+            {
+                polity.founder.addTrait(RulerTraitSystem.Founder);
+                LogService.LogInfo($"[EmpireCraft][世界地图] {polity.name} 的 {polity.founder.getName()} 是剧本点名的雄主，授开国雄主");
+            }
         }
     }
 

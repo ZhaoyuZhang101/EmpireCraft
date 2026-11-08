@@ -1943,6 +1943,7 @@
   "fiscal_debt_years": "相当于几年经常收入",
   "fiscal_debt_hint": "付不起的利息计入本金。债务超过三年经常收入时废债重组，削减到一年收入，并记一次违约。一年内违约过的国家借不到新债。平时国库低于安全储备的四分之一时才会举债。",
   "corps_log_desertion": "欠饷，{0} 人逃散回乡",
+  "corps_defected_history": "{0}欠饷日久，{1}({2}人)整军投了{3}",
   "corps_log_unpaid_peace": "粮饷不继，与{0}议和",
   "court_log_outbid": "{0}以人脉与重金压过{1}，抢先上奏「{2}」",
   "goods_title": "物资产需",

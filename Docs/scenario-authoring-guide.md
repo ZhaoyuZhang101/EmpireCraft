@@ -87,6 +87,7 @@
 | `boundary` | 都城直辖区的 GeoJSON MultiPolygon 坐标数组；`divisions[]` 内可写本行政区的 `boundary`，外圈后的环表示孔洞 |
 | `decline` | 王朝积弊 `{"strain": 65, "graft": 60, "annexation": 70, "bloat": 65, "military": 65, "factionalism": 70, "levies": 60}`(0~100，可省) |
 | `conquest`、`conquest_city` | 入主华夏时的国号与"据有即算入关"的城：后金写 `"清|Qing"`、`"beijing"` |
+| `hero` | `true` 开局的君主是雄主：不是本朝第一位也给开国雄主特质(战力 ×1.3、开国气象、境内十五年不起叛乱，见 RulerTraitSystem) |
 | `banner` | `true` 立八旗多元制(要和 `emp` 一起写)：朝廷走多元帝国兼用路线，国号"朝"，军制八旗、绿营，有旗人阶级和满城 |
 | `court` | 开局就用这个文化的朝廷(要和 `emp` 一起写)，游牧入主的王朝用：金写 `"Huaxia"`，国号大金朝，走多元帝国兼用路线，不分治、不北归 |
 | `shogun` | 幕府将军家(江户德川)；`holy` 神圣罗马之名；`zhou`/`king` 只用于战国 |

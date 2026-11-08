@@ -15,6 +15,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 internal static class DynasticCycleRules
 {
     public const float CrisisPressure = 60f;
+    // 末世克扣军饷(用户 2026-11-09 "因为他们发的起军饷""而明军没军饷")：积弊过危机线后，军饷按 (积弊−危机线)/ArrearsSpan
+    // 被克扣、拖欠，至多 MaxArrears。见 CorpsSystem.PayUpkeep：只压组织度、逼人投敌，不当欠饷卡补员、不逼着求和
+    public const float ArrearsSpan = 80f, MaxArrears = 0.5f;
+
+    public static float PayArrears(float pressure) =>
+        pressure <= CrisisPressure ? 0f : Math.Min(MaxArrears, (pressure - CrisisPressure) / ArrearsSpan);
     // 满额：到 99.5 就算(逐年累加的浮点到不了整 100)
     public const float SaturatedPressure = 99.5f;
     // 年岁分档：百年、两百年、三百年

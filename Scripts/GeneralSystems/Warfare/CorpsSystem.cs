@@ -388,7 +388,7 @@ public static class CorpsSystem
     // 军饷欠发中：不补员、不新编(起义军不算)
     public static bool Unpaid(Kingdom kingdom) =>
         Enabled && kingdom?.data != null && !kingdom.isRekt() && kingdom.GetOrCreate().corps_pay_shortfall >= UnpaidShortfall &&
-        !Insurgent(kingdom);
+        !Insurgent(kingdom) && !BannerSystem.SelfSupplied(kingdom);
 
     // 叛军、民变等起义军(在打叛乱一类的仗、是攻方)：以战养战，边打边掠——欠饷不罚、照样补员，也没有进攻门槛
     // (组织度再低也上阵、不退下去休整，见 FrontSystem.Assign)，只是战斗力打个折(InsurgentPower，见 FrontSystem.Effective)
@@ -471,6 +471,13 @@ public static class CorpsSystem
         }
         if (!TreasurySystem.Enabled(kingdom)) return;
         var data = kingdom.GetOrCreate();
+        // 外藩自备鞍马，不领饷(见 BannerSystem.SelfSupplied)
+        if (BannerSystem.SelfSupplied(kingdom))
+        {
+            data.corps_pay_shortfall = 0f;
+            data.corps_unpaid_months = 0;
+            return;
+        }
         double peace = CityStabilityRules.CorpsAnnual(soldiers, false);
         int baseBill = CityStabilityRules.Invoice(peace, ref data.corps_upkeep_carry);
         int warBill = (IsAtWar(kingdom)
@@ -511,9 +518,12 @@ public static class CorpsSystem
         // 起义军以战养战，欠饷不罚
         bool insurgent = Insurgent(kingdom);
         data.corps_unpaid_months = shortfall >= UnpaidShortfall && !insurgent ? Math.Min(120, data.corps_unpaid_months + 1) : 0;
-        if (shortfall <= 0f || insurgent) return;
+        // 末世克扣(见 DynasticCycleRules.PayArrears)：国库照付，兵拿不到——压组织度、逼人投敌，不算欠饷(补员、求和照旧)
+        float arrears = insurgent ? 0f : DynasticCycleSystem.PayArrears(kingdom);
+        if (shortfall <= 0f && arrears <= 0f || insurgent) return;
+        float grievance = Mathf.Max(shortfall, arrears);
         bool survival = WarGoalSystem.FightingForSurvival(kingdom);
-        float ceiling = 100f - UnpaidOrgCap * shortfall, deserted = 0f;
+        float ceiling = 100f - UnpaidOrgCap * grievance, deserted = 0f;
         foreach (CorpsData corps in list)
         {
             corps.org = Mathf.Min(corps.org, ceiling);
@@ -524,7 +534,50 @@ public static class CorpsSystem
             deserted += deserters;
         }
         if (deserted >= 1f) FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_desertion"), Mathf.RoundToInt(deserted)));
+        Defect(kingdom, list, grievance);
         if (data.corps_unpaid_months >= SuePeaceMonths) SueForPeace(kingdom);
+    }
+
+    // 欠饷投敌(用户 2026-11-09 "历史上很多明朝军人直接就投降清朝了""因为他们发的起军饷""而明军没军饷")：
+    // 欠饷或被克扣到 DefectGrievance 以上的军，在前线打不过、对面又发得起饷(国库有钱、不欠饷、不克扣，自备鞍马的外藩不算)，
+    // 每月有 DefectRate×欠饷成数 的机会整军投过去；一国一月至多一支。投过去的军主将撤职、退回对方都城整编，照对方的兵额养
+    // (养不起就裁)。以前欠两成就投、谁都能投、投过去的军原地留在敌后：一局一百多起，连清入关后欠饷都投了朝鲜，战线乱成一团
+    public const float DefectRate = 0.05f, DefectGrievance = 0.3f, DefectLosing = 0.6f;
+
+    private static void Defect(Kingdom kingdom, List<CorpsData> list, float grievance)
+    {
+        if (grievance < DefectGrievance || World.world == null) return;
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        foreach (CorpsData corps in list.OrderBy(_ => UnityEngine.Random.value).ToList())
+        {
+            if (corps.militia || corps.order_id >= 0 || corps.embarked || corps.parent_id >= 0 || corps.strength < 1f) continue;
+            if (corps.task is not ("attack" or "defend") ||
+                !FrontSystem.Battles.TryGetValue(corps.sector_city_id, out FrontSystem.BattleView battle)) continue;
+            Kingdom attacker = World.world.kingdoms.get(battle.attacker_id), defender = World.world.kingdoms.get(battle.defender_id);
+            bool weAttack = FrontSystem.Realm(attacker) == realm;
+            Kingdom enemy = weAttack ? defender : FrontSystem.Realm(defender) == realm ? attacker : null;
+            if (enemy?.data == null || enemy.isRekt() || FrontSystem.Realm(enemy) == realm || !PaysWell(enemy)) continue;
+            // 打不过才投：这一段对面占优
+            float enemyEdge = weAttack ? 1f - battle.ratio : battle.ratio;
+            if (enemyEdge < DefectLosing) continue;
+            if (UnityEngine.Random.value >= DefectRate * grievance) continue;
+            string name = Name(corps);
+            int men = Mathf.RoundToInt(corps.strength);
+            CaptureCorps(kingdom, corps, enemy);
+            // 退回对方都城整编，照对方的兵额养(不当手动组建的军)，不留在敌后
+            corps.manual = false;
+            if (enemy.capital?.getTile()?.zone is TileZone seat)
+            {
+                corps.zone_id = seat.id;
+                corps.target_zone_id = seat.id;
+            }
+            string text = string.Format(LM.Get("corps_defected_history"), kingdom.GetKingdomName(), name, men, enemy.GetKingdomName());
+            FrontSystem.Log(kingdom, text);
+            FrontSystem.Log(enemy, text);
+            if (men >= 500) EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(text, kingdom);
+            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][欠饷投敌] {kingdom.GetKingdomName()} 的 {name}({men} 人)投 {enemy.GetKingdomName()}，欠饷 {grievance:P0}");
+            return;
+        }
     }
 
     // 粮饷不继，仗打不下去：能和就先和(对方条件过分的照打，见 WarGoalSystem.TrySueForPeace)
@@ -579,6 +632,7 @@ public static class CorpsSystem
     {
         if (wanted < 1f) return 1f;
         if (Insurgent(kingdom)) return InsurgentLevy;
+        if (BannerSystem.SelfSupplied(kingdom)) return 1f;
         if (!TreasurySystem.Enabled(kingdom)) return 1f;
         if (TreasurySystem.Report(kingdom).months < 3) return 1f;
         float share = !war ? PeaceBudgetShare : WarGoalSystem.FightingForSurvival(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
@@ -615,7 +669,9 @@ public static class CorpsSystem
             if (home != null && home.kingdom == kingdom) continue;
             if (FollowsHome(kingdom, corps, home))
             {
-                Transfer(corps, kingdom, home.kingdom, home);
+                // 改驻那一国的都城：驻地若不是那国的军镇，那国征兵时不会清点它，满编不跟着养不养得起缩，一直不裁
+                City station = home.kingdom.capital != null && !home.kingdom.capital.isRekt() ? home.kingdom.capital : home;
+                Transfer(corps, kingdom, home.kingdom, station);
                 continue;
             }
             City fallback = kingdom.capital ?? kingdom.cities?.FirstOrDefault(city => city != null && !city.isRekt());
@@ -746,6 +802,14 @@ public static class CorpsSystem
     }
 
     #region 手动组建(军事页"组建新军"，玩家反馈"在这两个界面里，弄一个添加……"，选"手动组建军团")
+
+    // 发得起饷：国库有钱，不欠饷、不克扣；自备鞍马的外藩、以战养战的起义军不算
+    private static bool PaysWell(Kingdom kingdom)
+    {
+        Kingdom realm = FrontSystem.Realm(kingdom) ?? kingdom;
+        return !Unpaid(kingdom) && !Unpaid(realm) && !BannerSystem.SelfSupplied(kingdom) && !Insurgent(kingdom) &&
+               DynasticCycleSystem.PayArrears(kingdom) < UnpaidShortfall && realm.GetTreasuryBalance() > 0;
+    }
 
     // 驻地划给了同一帝国里的别国(行政区、封国)：正规军随驻地过去；正在攻守的、渡海先遣、手动组建、义军、骑士团的不动
     private static bool FollowsHome(Kingdom kingdom, CorpsData corps, City home)

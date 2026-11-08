@@ -1942,6 +1942,7 @@
   "fiscal_debt_years": "相當於幾年經常收入",
   "fiscal_debt_hint": "付不起的利息計入本金。債務超過三年經常收入時廢債重組，削減到一年收入，並記一次違約。一年內違約過的國家借不到新債。平時國庫低於安全儲備的四分之一時才會舉債。",
   "corps_log_desertion": "欠餉，{0} 人逃散回鄉",
+  "corps_defected_history": "{0}欠餉日久，{1}({2}人)整軍投了{3}",
   "corps_log_unpaid_peace": "糧餉不繼，與{0}議和",
   "court_log_outbid": "{0}以人脈與重金壓過{1}，搶先上奏「{2}」",
   "goods_title": "物資產需",
