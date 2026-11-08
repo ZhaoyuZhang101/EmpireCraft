@@ -582,6 +582,7 @@ public static class WildernessSystem
                 using (FrameProfiler.Measure("无人区·重划")) Build(false, true);
                 return;
             }
+            CityFragmentSystem.Tick();
             if (now >= _nextRefresh)
             {
                 _nextRefresh = now + RefreshSeconds;
@@ -841,6 +842,8 @@ public static class WildernessSystem
         Builds++;
         LogService.LogInfo($"[EmpireCraft][无人区] 划了 {_regions.Count} 片 {_regions.Sum(region => region.Zones.Count)} 块，" +
                            $"从城里划出 {carved} 块，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
+        // 划完看城地碎块：陷在别国地里的小块城地交给四周的城(见 CityFragmentSystem)
+        CityFragmentSystem.AfterBuild();
     }
 
     private sealed class OldRegion
@@ -2035,9 +2038,11 @@ public static class WildernessSystem
     }
 
     // 太小的碎块并进最近的大国(用户 2026-11-06 "特别小的土地就别填补国家了, 直接并进最近的大国不就好了"，又说"一旦城市变更政权
-    // 对应的无人区也要变更, 不然会导致飞地")：按本来的归属(BaseResolve)把无人区地块连成片——八邻相连、同一归属，跨片的无人区也连
+    // 对应的无人区也要变更, 不然会导致飞地")：按本来的归属(BaseResolve)把无人区地块连成片——四邻相连、同一归属，跨片的无人区也连
     // (行政上分给谁跟哪片山脉沙漠无关)；不到 MinZones 块的一片，有归属却不挨着本国的地(城的地块、本国的剧本史实领土)，
     // 或没有归属(永久中立的不算)，改归四周挨得最多的那一国(城的地块、别的无人区、剧本史实领土都算，按挨着的块数；一样多的编号小的先)；
+    // 连成片、挨着本国都只算东西南北四邻(用户 11-08 截图沙州一带还有碎块)：画布按 3×3 块平滑，两块只斜着碰一个角，
+    // 角上四块各占一份、两国打平，画出来是两个分开的小岛；以前按八邻算，斜角碰着本国就当连着、不并，画出来照样是飞地；
     // 四周没有国家的照旧。记成(本来归属 → 并进哪国)：本来归属变了(城换了主)当场不再算，等下一核(RefreshOwners)重算
     private static readonly Dictionary<int, (Kingdom from, Kingdom into)> Merged = new(), FreshMerged = new();
     private static Kingdom[] _baseOwner = new Kingdom[0];
@@ -2073,8 +2078,8 @@ public static class WildernessSystem
                 for (int i = 0; i < FragmentZones.Count; i++)
                 {
                     TileZone zone = _zones[FragmentZones[i]];
-                    if (zone?.neighbours_all == null) continue;
-                    foreach (TileZone next in zone.neighbours_all)
+                    if (zone?.neighbours == null) continue;
+                    foreach (TileZone next in zone.neighbours)
                     {
                         if (next == null || next.id < 0 || next.id >= size) continue;
                         if (Fragmentable(next.id, size) && _baseOwner[next.id] == owner)
