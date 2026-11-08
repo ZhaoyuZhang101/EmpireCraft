@@ -664,6 +664,8 @@ public static class WorldMapScenario
             WarGoal goal = Enum.TryParse(relation.goal ?? "", out WarGoal parsed) ? parsed : WarGoal.夺城;
             string reason = DiplomacyActions.ApplyScenario(relation.kind, a, b, goal, relation.value);
             if (reason == null) done++;
+            // 剧本定下的朝贡：若干年内不因国力坐大脱离(见 KingdomExtension.StartToTaken)
+            if (reason == null && relation.kind == "tribute") a.GetOrCreate().scripted_tribute_at = World.world.getCurWorldTime();
             else LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交 {a.GetKingdomName()}→{b.GetKingdomName()} {relation.kind} 没成：{reason}");
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交：{done}/{relations.Count} 条");
@@ -1048,6 +1050,22 @@ public static class WorldMapScenario
         if (_era?.exact == true) return;
         List<PlannedPolity> fillers = _polities.Where(polity => polity.capital?.random == true && !polity.tribe && polity.kingdom?.data != null).ToList();
         if (fillers.Count == 0) return;
+        // 落在剧本写明某国据有的地区(r)里的补空小国归那一国(用户 2026-11-08 明清鼎革：满洲、漠南补空立了正黄旗、镶白旗、额苏里这些
+        // 小汗国，开局就各自独立、分帐、飞地自立，清只剩几座城)。一个地区有几国都写了的，归离得最近的那国
+        int claimed = 0;
+        foreach (PlannedPolity filler in fillers.ToList())
+        {
+            PlannedPolity owner = ClaimingPolity(filler);
+            if (owner == null) continue;
+            Guard($"补空小国 {filler.name} 归 {owner.name}(剧本写明的地区)", () =>
+            {
+                MergeFiller(filler, owner);
+                claimed++;
+            });
+            fillers.Remove(filler);
+        }
+        if (claimed > 0) LogService.LogInfo($"[EmpireCraft][世界地图] 补空小国落在别国写明的地区里，并入 {claimed} 个");
+        if (fillers.Count == 0) return;
         var byKingdom = new Dictionary<Kingdom, PlannedPolity>();
         foreach (PlannedPolity polity in _polities)
             if (polity.kingdom?.data != null) byKingdom[polity.kingdom] = polity;
@@ -1076,6 +1094,31 @@ public static class WorldMapScenario
             });
         World.world.zone_calculator?.setDrawnZonesDirty();
         LogService.LogInfo($"[EmpireCraft][世界地图] 补空小国并入大国 {merged} 个");
+    }
+
+    // 补空小国的城过半落在哪一国写明据有的地区里：那一国(几国都写了取离得最近的；部落、补空小国不算)
+    private static PlannedPolity ClaimingPolity(PlannedPolity filler)
+    {
+        List<PlannedCity> cities = filler.cities.Where(city => city?.region != null).ToList();
+        if (cities.Count == 0) return null;
+        var votes = new Dictionary<PlannedPolity, int>();
+        foreach (PlannedCity planned in cities)
+        {
+            PlannedPolity best = null;
+            float bestDistance = float.MaxValue;
+            foreach (PlannedPolity polity in _polities)
+            {
+                if (polity == filler || polity.tribe || polity.capital?.random == true || polity.kingdom?.data == null ||
+                    polity.data?.regions == null || !polity.data.regions.Contains(planned.region.id) || polity.cities.Count == 0) continue;
+                float distance = polity.cities.Min(city => (city.tile - planned.tile).sqrMagnitude);
+                if (distance >= bestDistance) continue;
+                best = polity;
+                bestDistance = distance;
+            }
+            if (best != null) votes[best] = votes.TryGetValue(best, out int count) ? count + 1 : 1;
+        }
+        KeyValuePair<PlannedPolity, int> top = votes.OrderByDescending(pair => pair.Value).FirstOrDefault();
+        return top.Key != null && top.Value * 2 > cities.Count ? top.Key : null;
     }
 
     private static void MergeFiller(PlannedPolity filler, PlannedPolity target)
@@ -2262,6 +2305,15 @@ public static class WorldMapScenario
             PlannedPolity p = polity;
             _afterLoad.Add(($"{p.name} 编旗", () => BannerSystem.SettleAll(p.empire)));
         }
+        // 开局就在帝国里的行政区、封国不算新附：新附十年内不起事(见 RebellionRules.LocalGraceYears)，以前明朝各布政使司开局算刚并入，
+        // 整个崇祯末年一场民变都没有(用户 2026-11-08 "农民起义这么少")。记成宽限期刚满
+        _afterLoad.Add(("开局成员不算新附", () =>
+        {
+            double settled = World.world.getCurWorldTime() - (RebellionRules.LocalGraceYears + 1) * 60d;
+            foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
+                if (kingdom?.data != null && !kingdom.isRekt() && kingdom.GetEmpire() is Empire empire && empire.CoreKingdom != kingdom)
+                    kingdom.SetFiedTimestamp(settled);
+        }));
         // 开局兵力：各国照本国军制当场编军、补满(以前要等每月一成成补员，开局各国一兵没有)。人口照史料给了，兵也就照人口、军制有多有少
         _afterLoad.Add(("开局兵力", () =>
         {
@@ -2270,7 +2322,7 @@ public static class WorldMapScenario
             foreach (Kingdom kingdom in World.world.kingdoms.ToList())
             {
                 if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || kingdom.isNeutral()) continue;
-                men += CorpsSystem.Prefill(kingdom);
+                men += CorpsSystem.Prefill(kingdom, reset: true);
                 realms++;
             }
             LogService.LogInfo($"[EmpireCraft][世界地图] 开局兵力：{realms} 国共 {men:0} 人");

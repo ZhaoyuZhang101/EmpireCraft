@@ -40,14 +40,11 @@ public static class DynasticCycleSystem
     public static bool IsSaturated(Empire empire) => GetPressure(empire) >= DynasticCycleRules.SaturatedPressure;
 
     // 正统崩坏(见 DynasticCycleRules.CollapseLegitimacy)。开国气象里不算；分封制王室本就衰微，春秋战国自有规则，也不算
-    // 南渡偏安(见 SouthernRetreatSystem)：积弊满额、正统崩坏都不起民变、不进割据；积弊照涨
-    public static bool Sheltered(Empire empire) => SouthernRetreatSystem.Sheltered(empire);
-
-    public static bool LegitimacyCollapsed(Empire empire) => Applies(empire) && !empire.InFoundingGrace && !Sheltered(empire) &&
+    public static bool LegitimacyCollapsed(Empire empire) => Applies(empire) && !empire.InFoundingGrace &&
         !ZhouEraSystem.Applies(empire) && empire.Legitimacy < DynasticCycleRules.CollapseLegitimacy;
 
     // 民变与倒戈不再看城的忠诚、稳定度(见 DynasticCycleRules.MayRise)
-    public static bool UprisingsUnbound(Empire empire) => IsSaturated(empire) && !Sheltered(empire) || LegitimacyCollapsed(empire);
+    public static bool UprisingsUnbound(Empire empire) => IsSaturated(empire) || LegitimacyCollapsed(empire);
 
     // 积弊入危机线：不能和平转现代(立宪、和平改制、退位)，革命照旧，改朝换代后积弊降下来才能转
     public static bool TooDecayedToReform(Empire empire) => InCrisis(empire);
@@ -62,7 +59,7 @@ public static class DynasticCycleSystem
 
     // 满额后的民变已经起了(群雄割据入口的前提，见 ProvincialCollapseSystem)
     public static bool SaturatedUprisingStarted(Empire empire) =>
-        IsSaturated(empire) && !Sheltered(empire) && (empire.data.constitutional_economy?.saturated_uprising_at ?? -1d) >= 0d;
+        IsSaturated(empire) && (empire.data.constitutional_economy?.saturated_uprising_at ?? -1d) >= 0d;
 
     public static int GetAge(Empire empire)
     {

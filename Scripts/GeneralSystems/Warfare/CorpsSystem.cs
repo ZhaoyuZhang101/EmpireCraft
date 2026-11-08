@@ -606,14 +606,22 @@ public static class CorpsSystem
     private static void Mobilize(Kingdom kingdom, double now)
     {
         List<CorpsData> list = Of(kingdom);
-        // 家乡城市已失：改驻本国首都或别的军镇
-        foreach (CorpsData corps in list)
+        // 家乡城市已失：驻地划给了同一帝国的行政区、封国(划省、设行政区)的，这支军随驻地归那一国；
+        // 别的(丢给了敌国)改驻本国首都或别的军镇。以前一律收回京师：明开局先按全国编了军，划省以后五六万人都挤在北直隶，
+        // 战时满编只增不减，一直养着
+        foreach (CorpsData corps in list.ToList())
         {
             City home = Home(corps);
             if (home != null && home.kingdom == kingdom) continue;
+            if (FollowsHome(kingdom, corps, home))
+            {
+                Transfer(corps, kingdom, home.kingdom, home);
+                continue;
+            }
             City fallback = kingdom.capital ?? kingdom.cities?.FirstOrDefault(city => city != null && !city.isRekt());
             if (fallback != null) corps.home_city_id = fallback.id;
         }
+        list = Of(kingdom);
         foreach (CorpsData empty in list.Where(corps => corps.strength < 1f && corps.task != "attack" && corps.task != "defend").ToList())
             Disband(kingdom, empty);
         bool war = IsAtWar(kingdom);
@@ -739,6 +747,16 @@ public static class CorpsSystem
 
     #region 手动组建(军事页"组建新军"，玩家反馈"在这两个界面里，弄一个添加……"，选"手动组建军团")
 
+    // 驻地划给了同一帝国里的别国(行政区、封国)：正规军随驻地过去；正在攻守的、渡海先遣、手动组建、义军、骑士团的不动
+    private static bool FollowsHome(Kingdom kingdom, CorpsData corps, City home)
+    {
+        if (home?.kingdom?.data == null || home.isRekt() || home.kingdom == kingdom || home.kingdom.isRekt()) return false;
+        if (corps.militia || corps.manual || corps.order_id >= 0 || corps.parent_id >= 0 || corps.embarked) return false;
+        if (corps.task is "attack" or "defend") return false;
+        EmpireCraft.Scripts.Layer.Empire empire = kingdom.GetEmpire();
+        return empire != null && home.kingdom.GetEmpire() == empire;
+    }
+
     // 一支新军的满编：本国现有正规军的平均满编，没有就取驻地背景人口的二十分之一(五十到两千)；
     // 每人一次性花一成国库(折合)；一国手动组建的军至多 1 + 城数/4 支
     private const float ManualShareOfCity = 0.05f, ManualMin = 50f, ManualMax = 2000f, ManualCostPerPerson = 0.1f;
@@ -826,10 +844,13 @@ public static class CorpsSystem
                             FrontSystem.Realm(kingdom) is Kingdom realm && realm != kingdom && realm.hasEnemies());
 
     // 开局即有兵(世界地图剧本，见 WorldMapScenario)：照常按军制定各军镇的兵额、编军，编好的当场补满。返回全国兵力
-    public static float Prefill(Kingdom kingdom)
+    // reset：剧本开局先散掉进世界时月结已经编的军(那时还没划省，京师一国按全国编了军)，再照划好的行政区编
+    public static float Prefill(Kingdom kingdom, bool reset = false)
     {
         if (!Enabled || kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
             Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return 0f;
+        if (reset)
+            foreach (CorpsData corps in Of(kingdom).Where(corps => corps.order_id < 0).ToList()) Disband(kingdom, corps);
         Mobilize(kingdom, World.world.getCurWorldTime());
         foreach (CorpsData corps in Of(kingdom).Where(corps => !corps.militia && corps.order_id < 0 && corps.strength < corps.full).ToList())
             Reinforce(kingdom, corps, corps.full - corps.strength);

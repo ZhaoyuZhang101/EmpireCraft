@@ -642,7 +642,8 @@ public static class ScenarioEventSystem
         return WarSituation.Power(kingdom) < WarSituation.Power(court) && WarReach.Reachable(court, kingdom);
     }
 
-    private static bool Submit(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, float pressure)
+    // 也给南明结成用(见 SouthernRetreatSystem)
+    internal static bool Submit(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, float pressure)
     {
         // 和朝廷打着的先罢兵；称了帝的先去帝号，手下的成员各自散去
         foreach (Kingdom member in target.kingdoms_list.ToList())

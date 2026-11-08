@@ -80,6 +80,25 @@ public static class CapitalLossNamingSystem
             LostYears, empire.GetEmpireFullName()), core);
     }
 
+    // 南明结成(见 SouthernRetreatSystem)：京师已失、朝廷在别处，不等五十年当场冠方位；收复京师照旧去掉(见 Check)
+    public static bool ApplyNow(Empire empire)
+    {
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived()) return false;
+        Kingdom core = empire.CoreKingdom;
+        if (core == null || core.isRekt() || core.capital == null || core.HasCustomCountryNaming()) return false;
+        City oldCapital = EmpireCoreManager.Get(empire)?.GetCoreCapital();
+        if (oldCapital == null || oldCapital.isRekt() || core.capital == oldCapital) return false;
+        if (oldCapital.kingdom != null && oldCapital.kingdom.GetEmpire() == empire) return false;
+        EmpireData data = empire.data;
+        if (data.capital_loss_prefix_applied || OverallHelperFunc.IsHolyPrefix(data) || RealmNamingSystem.KeepsFoundingPrefix(empire))
+            return false;
+        if (data.core_capital_lost_since < 0d) data.core_capital_lost_since = World.world.getCurWorldTime();
+        data.capital_loss_previous_prefix = Array.IndexOf(Directions, data.directPre) >= 0 ? "" : data.directPre ?? "";
+        data.directPre = DirectionFrom(oldCapital.city_center, core.capital.city_center);
+        data.capital_loss_prefix_applied = true;
+        return true;
+    }
+
     // 行在：华夏王朝的核心王国(直隶)在核心首都失陷期间(不必满五十年)，类别改称"行在"
     public static bool IsTemporaryCapital(Kingdom kingdom)
     {

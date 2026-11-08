@@ -98,6 +98,8 @@ public class EmpireData : MetaObjectData
     // 南渡偏安(见 SouthernRetreatSystem)：哪年南渡的(-1 没有)，朝廷眼下坐的都城(京师)
     public double southern_retreat_at = -1d;
     public long southern_retreat_seat = -1L;
+    // 南明结成时的入侵者(核心王国)：期内新起的同族义军按它定方位来投(见 SouthernRetreatSystem)
+    public long southern_ming_invader = -1L;
     public bool capital_loss_prefix_applied;
     public string capital_loss_previous_prefix = "";
     public string core_name = "";

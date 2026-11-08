@@ -296,6 +296,8 @@ public static class KingdomExtension
         public long manual_join_lord_id = -1L;
         public double manual_join_at = -1d;
         public long left_empire_id = -1L;
+        // 剧本定下的朝贡从什么时候起(见 StartToTaken：ScriptedTributeYears 年内不因国力坐大脱离)
+        public double scripted_tribute_at = -1d;
         public double left_empire_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;
@@ -1376,6 +1378,14 @@ public static class KingdomExtension
         return Date.getYearsSince(k.GetOrCreate().last_taken_time) >= (TreasurySystem.Enabled(k) ? 1 : 2) && k.HasTakenAlliance();
     }
 
+    private const int ScriptedTributeYears = 30;
+
+    private static bool ScriptedTribute(Kingdom k)
+    {
+        double at = k.GetOrCreate().scripted_tribute_at;
+        return at >= 0d && World.world != null && World.world.getCurWorldTime() >= at && Date.getYearsSince(at) < ScriptedTributeYears;
+    }
+
     public static void StartToTaken(this Kingdom k)
     {
         Empire empire = k.GetTakenAllianceEmpire();
@@ -1403,7 +1413,10 @@ public static class KingdomExtension
             }
         }
 
-        // 朝贡国坐大：国力过宗主一半后退出倾向每年 +10%；国力压过宗主则立即脱离(不引来讨伐)
+        // 朝贡国坐大：国力过宗主一半后退出倾向每年 +10%；国力压过宗主则立即脱离(不引来讨伐)。
+        // 剧本定下的朝贡 ScriptedTributeYears 年内不算(用户 2026-11-08 明清鼎革：丙子之役后的朝鲜人口比清多，
+        // 开局第一年就脱离清、改向明朝贡，再应明的号召打清)
+        if (ScriptedTribute(k)) return;
         double tributaryPower = k.GetNationalPower();
         double overlordPower = empire.GetNationalPower();
         if (overlordPower > 0d && tributaryPower > overlordPower)

@@ -273,14 +273,12 @@ public static class HarshRuleSystem
         // 王朝积弊满额(用户 2026-10-26)：每年必有民变尝试，不看苛政门槛与机会；一次起事的城数随满额年数增多、民怨鼎沸再加
         // (见 DynasticCycleRules.UprisingWaves)。满额时不再看城的忠诚与稳定度(见 DynasticCycleRules.MayRise)，冷却与京城不起事照旧。
         // 正统崩坏(用户 2026-11-05，见 DynasticCycleRules.CollapseLegitimacy)同样不看这两项，只是每年按正统掷一次机会
-        // 南渡偏安(见 SouthernRetreatSystem)：满额、正统崩坏不算，也不按危局(打着仗照样起、一次几城)算，只按寻常苛政
-        bool sheltered = !modern && empire != null && DynasticCycleSystem.Sheltered(empire);
-        bool saturated = !modern && empire != null && !sheltered && DynasticCycleSystem.IsSaturated(empire);
+        bool saturated = !modern && empire != null && DynasticCycleSystem.IsSaturated(empire);
         bool collapsed = !modern && empire != null && !saturated && DynasticCycleSystem.LegitimacyCollapsed(empire);
         bool unbound = saturated || collapsed;
         if (!unbound && burden < UprisingBurden) return;
         // 王朝积弊入危机，或朝政积弊六条平均七十以上(见 MaladySystem.InCrisis)：打仗时民变照样爆发
-        bool crisis = unbound || !modern && !sheltered && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
+        bool crisis = unbound || !modern && (DynasticCycleSystem.InCrisis(empire) || MaladySystem.InCrisis(empire));
         if (crisis && State(empire) is ConstitutionalEconomyState state)
         {
             double now = World.world.getCurWorldTime();
