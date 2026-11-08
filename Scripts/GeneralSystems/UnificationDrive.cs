@@ -7,8 +7,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 问鼎门槛：久乱之后按倾向放宽(见 UnificationSystem.Bars)；
 //   · 开战挑目标：同样合法的邻国里先打同一天下的(见 EmpireCraftPlotsAddition.GetWarTarget、WarTargetPatch)；
 //   · 朝堂议程：谋求统一更急(见 ClaimAgendaSystem.UnificationUrgency)；
-//   · 共主收拾残局：每年动手的机会更大(见 UnificationSystem.Pacify)。
-// 不给兵、不给地、不多开仗：军饷、停战、姻亲、盟约这些开战闸门照旧，打不过的、打不起的照样不打。
+//   · 共主收拾残局：每年动手的机会更大(见 UnificationSystem.Pacify)；
+//   · 统一战争开打以后(用户 2026-11-08 嫌华夏统一拖太久)：随占地加场数、推进更快、据有过半满三十年不收束、
+//     大势已去的接壤小国不战而归附(见 UnificationSystem.MaxWarsOf、PushFactor、PressesOn、Submissions)。
+// 不给兵：军饷、停战、姻亲、盟约这些开战闸门照旧，打不过的、打不起的照样不打。
 public static class UnificationDrive
 {
     public const float AgendaUrgency = 8f, PacifyBoost = 1f, PacifyChanceCap = 0.7f;

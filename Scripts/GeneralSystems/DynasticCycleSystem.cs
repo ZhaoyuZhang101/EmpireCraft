@@ -271,7 +271,7 @@ public static class DynasticCycleSystem
         if (empire?.data == null || World.world == null) return;
         ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
         double now = World.world.getCurWorldTime();
-        UnificationSystem.OnDynastyChanged(empire);
+        UnificationSystem.OnDynastyChanged(empire, withinCourt: transition != Transition.Clear);
         state.last_dynastic_uprising_attempt = -1d;
         int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);
         if (transition != Transition.Keep)

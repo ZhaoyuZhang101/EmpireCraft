@@ -23,20 +23,26 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 统一战争：一家占到四成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
 //       - 久乱思治(华夏，用户 2026-10-27："华夏几乎没有统一过"，问答选"久乱思治"：汉正统 41 城分在十四五家，最大的一家才一成五，
 //         乱了两百多年没人够得上门槛)：从上一位坐稳了的共主(受天命满 SteadyMandateYears 年)失命算起，乱世满 LongChaosYears 年后，
-//         门槛在 ChaosEaseYears 年里逐年降到占两成、或国力是第二名的 1.3 倍；
+//         门槛在 ChaosEaseYears 年里逐年降到占一成五、或占 8% 以上且国力天下第一(用户 2026-11-08 选"15 年起降，35 年到底"：
+//         华夏两三代人就该重归一统，以前 30 年起降、80 年到底降到两成/1.3 倍，73 城 45 家的天下乱了六十多年才有人问鼎)；
 //       - 前朝(失了这个天下天命的，或宗族的帝国亡了的)失命、亡国后 FormerLockYears 年内
 //         不能马上再问鼎，中兴之主在位除外(用户 2026-10-21 选"乱世最短时长""华夏有真乱世"：以前失命当年残部占三成就
 //         重启统一、统一期间又受开国气象庇护，乱世往往不到十年)；
-//       - 统一者每月挑接壤(或隔海相望)的一家开战(目标吞并)，同时可打四场，不必休战，不受三十年强制停战；
+//       - 统一者每月挑接壤(或隔海相望)的一家开战(目标吞并)，同时至多打两场；有统一倾向的(华夏)随占地加场：
+//         占到三成三场、过半四场(用户 2026-11-08 选"开打场数随占地增加")。不必休战，不受三十年强制停战；
 //         天下里的别家都够不着、手上也没有统一战争，连着三年就算统一了能统一的(要占到五成，不到就算统一受阻)；
+//       - 一时算不进天下(都城刚被攻破、据地又不到四分之一)、帝国换了中央，都不当场作废：统一跟着帝国走(见 CarryOver)，
+//         连着 UntrackedYears 年算不进天下才中辍(玩家 2026-11-08 日志：韩统一第 8 年京师洛阳一度失守，统一被无声清掉、从第 1 年重来)；
+//         朝廷里的易代(权臣篡位、兵变禅让)接着统一，见 OnDynastyChanged；
 //       - 兵败如山倒(用户 2026-10-19："不要整个国家一次性把土地判过去，至少做成战线快速推进")：对方正规军打到剩不到
 //         满编一成半，又丢了都城或三分之一的城，仗打久了国内稳定度很差(各城平均不到 25，久战疲敝逐年压低)，
 //         连着两个月没缓过来——战线崩溃、推进快一倍，城仍一座座打(见 FrontCollapse)；
 //         以前是举国吞并，另有"不到统一者一成就算打光"，小国一仗没打就整国并入；
 //       - 望风归附(用户 2026-10-14："兵力没有达到绝对碾压之前、主力还没打完就望风而降")：只剩一两座城的小国，正与统一者交战、
 //         统一者正规军是它五倍以上、它的主力确已被打垮(正规军剩不到满编三成)，才每年有几率举国归附，统一十年后几率加倍
-//         (以前不交战的也算，"不到统一者十分之一"也算打垮)；
-//       - 战线推进加快一半，十年后加倍(见 FrontSystem.PushFactor)；
+//         (以前不交战的也算，"不到统一者十分之一"也算打垮)；有统一倾向的统一者据有过半以后，接壤的一两城小国
+//         正规军不到它五分之一的，不交战也照这个几率举国归附(用户 2026-11-08 选"大势已去的小国归附")；
+//       - 战线推进加快一半，十年后加倍；有统一倾向的(华夏)快一倍、十年后三倍(用户 2026-11-08 选"推进再快一些"，见 PushFactor)；
 //       - 统一者处在开国气象里(见 InGrace)：积弊不涨、不起事、不分裂；
 //   · 统一完成(占到九成，或天下再没有别的独立势力)：开国气象延续三十年(同一家第二次统一只有十年)；之后积弊按王朝年岁慢慢沉积(见 MaladySystem.Pace)，
 //     末世崩溃，天下重回乱世，再出新的统一者。一个王朝只统一一次(改朝换代才能再来，见 OnDynastyChanged)；
@@ -45,7 +51,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     皇帝本人又多过不了原版开战谋划的门槛(无小人模式)，朝堂扩张要中央一场仗都没有，残余之国一留就是几十年；
 //   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
-//     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。
+//     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。有统一倾向的(华夏)据有过半的满三十年不收束，
+//     接着打到九成或再也够不着别家，至多打满 PressOnYears 年才收束(用户 2026-11-08："华夏核心区还没统一呢"，选"满 30 年不收手")。
 // 游牧难一统(用户 2026-10-20："游牧应该很难大一统"，"只要出现雄主快速统一，只要一死就会开始动荡")：游牧政权
 // (游牧政体、汗国分封，且本国是游牧文化，帝国按核心，见 IsNomad)——
 //   · 只有开国雄主(或中兴雄主，见 RulerTraitSystem.FounderReigns)在位才能发动统一战争；发动时记下这位雄主(EmpireData.nomad_hero_id)，
@@ -55,7 +62,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 统一后的开国气象只到"雄主不在位"与"统一后满 NomadGraceYears 年"两者较早的那时(别的政体照旧 GraceYears 年)；
 //   · 雄主之后第一次汗位更替必乱：不看积弊、正统(见 TakeHeroTurmoil、NomadCycleSystem.OnKhanSucceeded)，之后照常。
 // 问鼎按占城、国力从大到小逐家核对(见 PickContender)：前朝冷却、开国气象只挡它自己，不冻结全天下；对手国力按除它以外的各家算。
-// 文化的统一倾向(见 UnificationDrive)只放宽久乱之后的门槛，开战闸门、军饷都不绕。
+// 文化的统一倾向(见 UnificationDrive)放宽久乱之后的门槛，开打以后加场数、加推进、过半不收束、小国归附；开战闸门、军饷都不绕。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
@@ -64,15 +71,22 @@ public static class UnificationSystem
     // 两家就可以争(南北对峙、分治的两朝也要能统一，以前要三家，两强对峙永远不打统一战)
     // 同时至多两场统一战争(用户 2026-10-27 嫌"统一战争太多了"，以前四场)
     private const int GraceYears = 30, MaxWars = 2, LateYears = 10, MinCities = 8, MinContenders = 2;
+    // 有统一倾向的统一者占到这么多加一场、再占到这么多再加一场(见 MaxWarsOf)
+    private const float ThirdWarShare = 0.3f, FourthWarShare = 0.5f;
     // 统一战争最多打这么多年；到期地盘过半算统一了，不到就中辍
     private const int MaxUnifyYears = 30;
     private const float LateUnifiedShare = 0.5f;
+    // 有统一倾向的据有过半，满 MaxUnifyYears 年不收束、接着打，至多打满这么多年
+    private const int PressOnYears = 50;
+    // 统一者连着这么多年算不进任何天下(都城刚丢、据地不到四分之一……)才中辍
+    private const int UntrackedYears = 2;
     // 同一文化圈的两座城领地接壤，或同在一块陆地上、城心相距不过这么多格，就连成一片
     private const int LinkTiles = 48;
     // 望风归附：只剩一两座城、正在交战、兵力被碾压(正规军不到统一者五分之一)、主力已垮(剩不到满编三成)
     private const float CrushRatio = 0.2f, BrokenShare = 0.3f, SubmitChance = 0.1f, SubmitCap = 0.35f;
     private const int SubmitMaxCities = 2;
-    private const float PushBonus = 1.5f, LatePushBonus = 2f;
+    // 战线推进：统一者打天下里的别家；有统一倾向的按倾向加到 DrivePushBonus/DriveLatePushBonus
+    private const float PushBonus = 1.5f, LatePushBonus = 2f, DrivePushBonus = 2f, DriveLatePushBonus = 3f;
     // 游牧难一统：统一后的开国气象至多这么多年(雄主先不在位就更早散)；"无雄主不能统一"的日志每家这么多年一行
     private const int NomadGraceYears = 10, NoHeroLogYears = 10;
 
@@ -85,13 +99,18 @@ public static class UnificationSystem
     private const float StallUnifiedShare = 0.5f;
     // 同一家第二次统一的开国气象(年)
     private const int RepeatGraceYears = 10;
-    // 久乱思治(华夏)：乱世满这么多年起门槛逐年降，再过这么多年降到底；一时得而复失(受天命不满 SteadyMandateYears 年)的不算坐稳
-    private const float LongChaosYears = 30f, ChaosEaseYears = 50f, EasedContenderShare = 0.2f, EasedPowerLead = 1.3f,
+    // 久乱思治(华夏)：乱世满这么多年起门槛逐年降，再过这么多年降到底；一时得而复失(受天命不满 SteadyMandateYears 年)的不算坐稳。
+    // 降到底时国力倍数是 1：占 PowerLeadMinShare 以上、国力天下第一就够格
+    private const float LongChaosYears = 15f, ChaosEaseYears = 20f, EasedContenderShare = 0.15f, EasedPowerLead = 1f,
         SteadyMandateYears = 10f;
     // 前朝失命、亡国后多少年内不能再问鼎：华夏也用同一冷却，避免旧朝独占优势却额外空等二十年。
     private const int FormerLockYears = 20;
     // 上次年度统计的天下：统一者 → 它天下里的别家(按都城距离排好)
     private static readonly Dictionary<long, List<Kingdom>> Rivals = new();
+    // 上次年度统计时统一者据有天下几成(按占地加场，见 MaxWarsOf)
+    private static readonly Dictionary<long, float> Shares = new();
+    // 统一者连着几年算不进任何天下(见 Yearly 末尾)
+    private static readonly Dictionary<long, int> Untracked = new();
     // 诊断限频：游牧无雄主不能统一(国 → 上回记的时间)；统一满十年开国气象到期(国 → 记过的那次统一时间)
     private static readonly Dictionary<long, double> NoHeroLogged = new();
     private static readonly Dictionary<long, double> GraceEndLogged = new();
@@ -106,6 +125,8 @@ public static class UnificationSystem
         FrontCollapse.ResetWorldState();
         Stalled.Clear();
         Rivals.Clear();
+        Shares.Clear();
+        Untracked.Clear();
         NoHeroLogged.Clear();
         GraceEndLogged.Clear();
         ContestLogged.Clear();
@@ -211,21 +232,42 @@ public static class UnificationSystem
         return line != null && line == LineOf(CultureService.GetRealmCulture(b));
     }
 
-    // 战线推进：统一者打天下里的别家快一半，统一十年后加倍
+    // 战线推进：统一者打天下里的别家快一半，统一十年后加倍；有统一倾向的(华夏)按倾向加到快一倍、十年后三倍
     public static float PushFactor(Kingdom side, Kingdom opponent)
     {
         Kingdom sovereign = Sovereign(side), foe = Sovereign(opponent);
         if (!Alive(sovereign) || !Alive(foe) || sovereign == foe || sovereign.GetOrCreate().unify_since < 0d) return 1f;
-        return UnifyYears(sovereign) >= LateYears ? LatePushBonus : PushBonus;
+        float drive = Mathf.Clamp01(UnificationDrive.Of(sovereign));
+        return UnifyYears(sovereign) >= LateYears
+            ? Mathf.Lerp(LatePushBonus, DriveLatePushBonus, drive)
+            : Mathf.Lerp(PushBonus, DrivePushBonus, drive);
     }
 
+    // 同时可打几场统一战争：两场；有统一倾向的占到三成三场、过半四场
+    private static int MaxWarsOf(Kingdom unifier)
+    {
+        if (UnificationDrive.Of(unifier) <= 0f || !Shares.TryGetValue(unifier.id, out float share)) return MaxWars;
+        return MaxWars + (share >= ThirdWarShare ? 1 : 0) + (share >= FourthWarShare ? 1 : 0);
+    }
+
+    // 有统一倾向、据有过半的统一者满了 MaxUnifyYears 年还接着打(至多 PressOnYears 年)
+    private static bool PressesOn(Kingdom unifier, float share) =>
+        UnificationDrive.Of(unifier) > 0f && share >= LateUnifiedShare && UnifyYears(unifier) < PressOnYears;
+
     // 改朝换代：新王朝可以再统一一次；但本国仍受着天命(篡位、内禅接手的是现成的天下)时不清——
-    // 以前篡了共主的人马上又算统一者、再得三十年开国气象(连保留积弊的权臣篡位也是)
-    public static void OnDynastyChanged(Empire empire)
+    // 以前篡了共主的人马上又算统一者、再得三十年开国气象(连保留积弊的权臣篡位也是)。
+    // withinCourt：朝廷里的易代(权臣篡位、外戚代立、兵变禅让……，见 DynasticCycleSystem.Transition)——
+    // 统一战争打到一半的接着打(北周到隋、后周到宋那样，新朝接过的是现成的大业)，以前一换姓就作废、从头问鼎
+    public static void OnDynastyChanged(Empire empire, bool withinCourt = false)
     {
         Kingdom core = empire?.CoreKingdom;
         if (!Alive(core) || TianxiaSystem.MandateOf(core) != null) return;
         var data = core.GetOrCreate();
+        if (withinCourt && data.unify_since >= 0d)
+        {
+            LogService.LogInfo($"[EmpireCraft][天下大势] {core.GetKingdomName()} 朝中易代，统一战争接着打(第{UnifyYears(core)}年)");
+            return;
+        }
         data.unify_since = -1d;
         data.unified_at = -1d;
         data.unify_repeat = false;
@@ -750,6 +792,9 @@ public static class UnificationSystem
     {
         // 称帝、开战卡在哪一关(诊断，只记日志)；各步分开计时(性能日志里"天下大势"每年那一下峰值一秒多)
         using (FrameProfiler.Measure("天下大势·称帝诊断")) FormationDiagnostics.Yearly();
+        CarryOver();
+        // 去年的对手表留一份：今年一时算不进天下的统一者照旧按它打(见末尾)
+        var lastRivals = new Dictionary<long, List<Kingdom>>(Rivals);
         Rivals.Clear();
         double now = World.world.getCurWorldTime();
         // 天下自动并分(按文化配置的天下标识，见 TianxiaSystem.AutoArrange)
@@ -771,7 +816,9 @@ public static class UnificationSystem
                 // 游牧统一者没了雄主：统一中辍(见文件头游牧难一统)
                 if (HeroLost(unifier)) continue;
                 tracked.Add(unifier);
+                Untracked.Remove(unifier.id);
                 float share = realm.held[unifier] / (float)realm.total;
+                Shares[unifier.id] = share;
                 bool alone = powers.All(holder => holder == unifier || Exempt(holder));
                 var data = unifier.GetOrCreate();
                 if (share >= UnifiedShare || alone)
@@ -784,7 +831,8 @@ public static class UnificationSystem
                 }
                 double strongest = powers.Where(holder => holder != unifier)
                     .Select(holder => WarSituation.Power(holder)).DefaultIfEmpty(0d).Max();
-                if (UnifyYears(unifier) >= MaxUnifyYears && share >= LateUnifiedShare)
+                bool pressOn = PressesOn(unifier, share);
+                if (UnifyYears(unifier) >= MaxUnifyYears && share >= LateUnifiedShare && !pressOn)
                 {
                     data.unify_since = -1d;
                     data.unified_at = now;
@@ -795,7 +843,7 @@ public static class UnificationSystem
                 }
                 bool overtaken = powers.Any(holder => holder != unifier && realm.held[holder] > realm.held[unifier]);
                 if (share < CollapsedShare || share < LostShare && WarSituation.Power(unifier) < strongest || overtaken ||
-                    UnifyYears(unifier) >= MaxUnifyYears)
+                    UnifyYears(unifier) >= MaxUnifyYears && !pressOn)
                 {
                     data.unify_since = -1d;
                     Record(unifier, "unify_lost_history", unifier.GetKingdomName());
@@ -822,7 +870,7 @@ public static class UnificationSystem
                     if (realm.lead != null) TianxiaSystem.Grant(realm.lead, unifier, realm.held[unifier], realm.total, realm.line);
                     continue;
                 }
-                Submissions(unifier);
+                Submissions(unifier, share);
                 continue;
             }
             // 乱世(两家以上)：逐家看有没有天命所归的
@@ -836,6 +884,8 @@ public static class UnificationSystem
             topData.unify_repeat = topData.unified_at >= 0d;
             topData.unify_since = now;
             tracked.Add(top);
+            Untracked.Remove(top.id);
+            Shares[top.id] = topShare;
             if (nomad)
             {
                 RememberHero(top);
@@ -848,12 +898,29 @@ public static class UnificationSystem
         using (FrameProfiler.Measure("天下大势·收拾残局"))
             foreach (Realm realm in realms)
                 Pacify(realm);
-        // 天下散了(都城不在任何一片天下里、天下不到八座城)的统一者：统一中辍，不再算在统一战争里
+        // 天下散了(都城不在任何一片天下里、天下不到八座城)的统一者：连着 UntrackedYears 年算不进天下才中辍，不再算在统一战争里。
+        // 头一年照去年的对手表接着打——都城刚被攻破、据地又不到四分之一时一时算不进天下(玩家 2026-11-08 日志：韩统一第 8 年
+        // 京师洛阳失守，当年就被无声清掉，打着的统一战争改名，次年从第 1 年重来)
         foreach (Kingdom kingdom in World.world.kingdoms.list)
         {
             if (!Alive(kingdom) || tracked.Contains(kingdom)) continue;
             var data = kingdom.GetOrCreate();
-            if (data.unify_since >= 0d) data.unify_since = -1d;
+            if (data.unify_since < 0d) continue;
+            Untracked.TryGetValue(kingdom.id, out int misses);
+            misses++;
+            if (misses < UntrackedYears && Sovereign(kingdom) == kingdom)
+            {
+                Untracked[kingdom.id] = misses;
+                if (lastRivals.TryGetValue(kingdom.id, out List<Kingdom> rivals))
+                    Rivals[kingdom.id] = rivals.Where(Alive).ToList();
+                LogService.LogInfo($"[EmpireCraft][天下大势] {kingdom.GetKingdomName()} 今年算不进天下(都城{(kingdom.capital == null ? "失守" : "在天下之外")})，" +
+                                   $"统一战争第{UnifyYears(kingdom)}年照旧打");
+                continue;
+            }
+            Untracked.Remove(kingdom.id);
+            Shares.Remove(kingdom.id);
+            data.unify_since = -1d;
+            LogService.LogInfo($"[EmpireCraft][天下大势] {kingdom.GetKingdomName()} 连着{misses}年算不进天下，统一中辍");
         }
         RetagStaleWars();
     }
@@ -992,21 +1059,28 @@ public static class UnificationSystem
     }
 
     // 望风归附：只剩一两座城、正与统一者交战、兵力被碾压、主力确已被打垮的，每年有几率举国归附，统一十年后几率加倍
-    // (帝国不归附，要打)
-    private static void Submissions(Kingdom unifier)
+    // (帝国不归附，要打)。有统一倾向的统一者据有过半(大势已去)：接壤的一两城小国，正规军不到它五分之一的，
+    // 不交战也照这个几率归附(用户 2026-11-08 选"大势已去的小国归附")
+    private static void Submissions(Kingdom unifier, float share)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals)) return;
         float ours = Army(unifier).strength;
         if (ours <= 0f) return;
         bool late = UnifyYears(unifier) >= LateYears;
+        bool sweeping = UnificationDrive.Of(unifier) > 0f && share >= LateUnifiedShare;
         foreach (Kingdom rival in rivals.ToList())
         {
-            if (!Alive(rival) || rival.IsEmpire() || (rival.cities?.Count ?? 0) > SubmitMaxCities ||
-                !unifier.isInWarWith(rival)) continue;
+            if (!Alive(rival) || Sovereign(rival) != rival || rival.IsEmpire() || (rival.cities?.Count ?? 0) > SubmitMaxCities) continue;
+            bool atWar = unifier.isInWarWith(rival);
+            if (!atWar && (!sweeping || !Borders(unifier, rival) ||
+                           EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(rival))) continue;
             (float strength, float full) = Army(rival);
-            if (strength > ours * CrushRatio || full <= 0f || strength > full * BrokenShare) continue;
+            if (strength > ours * CrushRatio) continue;
+            if (atWar && (full <= 0f || strength > full * BrokenShare)) continue;
             float chance = Mathf.Min(SubmitCap, SubmitChance * (late ? 2f : 1f));
             if (UnityEngine.Random.value >= chance) continue;
+            if (!atWar)
+                LogService.LogInfo($"[EmpireCraft][天下大势] {rival.GetKingdomName()} 见 {unifier.GetKingdomName()} 据有天下{share:P0}，不战而归附");
             Annex(unifier, rival, null, "unify_submit_history");
         }
     }
@@ -1077,8 +1151,44 @@ public static class UnificationSystem
         return (members.Sum(member => member.countTotalWarriors()), members.Sum(member => member.GetOrCreate().peak_warriors));
     }
 
+    // 帝国换了中央(中央灭亡或丢光城池改立别国、继承人带着封国入继……)：统一战争与统一后的开国气象记在旧中央上，
+    // 跟着挪到新中央。以前留在旧中央，新中央不算统一者，年底被当成"天下散了"无声清掉
+    private static void CarryOver()
+    {
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            if (!Alive(kingdom)) continue;
+            var data = kingdom.GetOrCreate();
+            if (data.unify_since < 0d && data.unified_at < 0d) continue;
+            Kingdom sovereign = Sovereign(kingdom);
+            if (!Alive(sovereign) || sovereign == kingdom) continue;
+            Empire empire = kingdom.GetEmpire();
+            if (empire == null || empire.isRekt() || empire != sovereign.GetEmpire() || empire.CoreKingdom != sovereign) continue;
+            var target = sovereign.GetOrCreate();
+            if (data.unify_since >= 0d && target.unify_since < 0d)
+            {
+                target.unify_since = data.unify_since;
+                target.unify_repeat = data.unify_repeat;
+                if (Rivals.TryGetValue(kingdom.id, out List<Kingdom> rivals)) Rivals[sovereign.id] = rivals;
+                if (Shares.TryGetValue(kingdom.id, out float share)) Shares[sovereign.id] = share;
+                LogService.LogInfo($"[EmpireCraft][天下大势] {empire.GetEmpireName()} 改立中央 {sovereign.GetKingdomName()}，" +
+                                   $"统一战争接着打(第{UnifyYears(sovereign)}年)");
+            }
+            else if (data.unify_since < 0d && data.unified_at >= 0d && target.unify_since < 0d && target.unified_at < 0d)
+            {
+                target.unified_at = data.unified_at;
+                target.unify_repeat = data.unify_repeat;
+            }
+            data.unify_since = -1d;
+            data.unified_at = -1d;
+            Rivals.Remove(kingdom.id);
+            Shares.Remove(kingdom.id);
+        }
+    }
+
     private static void Monthly()
     {
+        CarryOver();
         FrontCollapse.Prune();
         // 游牧雄主还在不在位(见文件头游牧难一统)
         WatchHeroes();
@@ -1099,13 +1209,13 @@ public static class UnificationSystem
         }
     }
 
-    // 开战：手上的统一战争不到两场、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，每月至多一场；不隔着别国远征。
-    // 战争名按目标起(某某灭某国之战)，"统一天下"只作标签(见 WarCatalog)
+    // 开战：手上的统一战争不到两场(有统一倾向的随占地加场，见 MaxWarsOf)、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，
+    // 每月至多一场；不隔着别国远征。战争名按目标起(某某灭某国之战)，"统一天下"只作标签(见 WarCatalog)
     private static void Declare(Kingdom unifier)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals) || rivals.Count == 0) return;
         int wars = unifier.getWars().Count(war => IsUnificationWar(war));
-        if (wars >= MaxWars || CorpsSystem.CannotFundWar(unifier) || WarGoalSystem.FightingForSurvival(unifier)) return;
+        if (wars >= MaxWarsOf(unifier) || CorpsSystem.CannotFundWar(unifier) || WarGoalSystem.FightingForSurvival(unifier)) return;
         // 共事本部落联盟的部落不打(见 TribalFissionService.Bound)
         List<Kingdom> open = rivals.Where(rival => Alive(rival) && Sovereign(rival) == rival && !unifier.isInWarWith(rival) &&
                                                    !TribalFissionService.Bound(unifier, rival)).ToList();
