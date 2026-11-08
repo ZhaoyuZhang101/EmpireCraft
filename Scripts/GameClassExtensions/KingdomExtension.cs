@@ -2401,17 +2401,32 @@ public static class KingdomExtension
 
     // 帝国核心的君主世袭：律令制模板的"科举选任"是给州郡长官的，周制改律令制等重载政体模板时核心也被套上，
     // 皇帝驾崩后就跳过宗室继承、像选官一样从官员里挑人(常常挑到外姓、孩子)，一代换一个姓。君主制政体本身
-    // 规定世袭的，核心的选任方式是科举时改回世袭；选举、举能等别的方式不动
+    // 规定世袭的，核心的选任方式是科举时改回世袭。
+    // 核心所属的国家类别在政体配置里写明世袭的(律令中央、原始封建直辖领……)，选举、举能也改回世袭：
+    // 模板默认选项不是世袭的政体(原始封建制模板是"选举"，又不算君主制)，改制后到国家类别重新同步之间君主一死，
+    // 储君就被跳过、从官员里另选(群友 2026-11-08"太子不即位的bug又出现了")。选帝制、禅让推举照旧不动
     private static readonly HashSet<long> RepairedThrones = new();
     public static void EnsureHereditaryThrone(this Kingdom k)
     {
         Regime regime = k?.GetRegime();
-        if (regime?.options == null || regime.leader_select_method != LeaderSelectMethod.Succession ||
-            !RegimeManager.IsMonarchy(regime.type) || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Exam) return;
+        if (regime?.options == null || regime.leader_select_method != LeaderSelectMethod.Succession) return;
+        LeaderSelectMethod current = regime.GetLeaderSelectMethod();
+        if (current == LeaderSelectMethod.Succession) return;
+        bool examOnMonarchy = current == LeaderSelectMethod.Exam && RegimeManager.IsMonarchy(regime.type);
+        if (!examOnMonarchy && !CategoryDeclaresSuccession(k, regime)) return;
+        Empire empire = k.GetEmpire();
+        if (empire != null && (HolyRomanSystem.IsElective(empire) || ShanrangSystem.Elective(empire))) return;
         regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
         if (RepairedThrones.Add(k.id))
-            NeoModLoader.services.LogService.LogInfo($"[EmpireCraft][继承] {k.name} 的君主选任方式被误设为科举，已改回世袭");
+            NeoModLoader.services.LogService.LogInfo(
+                $"[EmpireCraft][继承] {k.name} 的君主选任方式被误设为{current switch { LeaderSelectMethod.Exam => "科举", LeaderSelectMethod.Vote => "选举", LeaderSelectMethod.Army => "举能", _ => current.ToString() }}，已改回世袭");
     }
+
+    // 本国当前的国家类别在政体配置里写明世袭(没写的按枚举默认值也是世袭；写 Default 的不算)
+    private static bool CategoryDeclaresSuccession(Kingdom k, Regime regime) =>
+        regime.bureau_config?.kingdoms != null &&
+        regime.bureau_config.kingdoms.TryGetValue(k.GetKingdomType(), out BureauSetting setting) &&
+        setting?.leader_select_method == LeaderSelectMethod.Succession;
 
     // 旧存档(没存过政体选项)：读档时政体已按模板重建，州郡、封国被判成了军府。按封号还原：
     // 有自己封号的成员是世袭封国，只有行政区封号的是朝廷任命的州郡；羁縻地另有规则不动
