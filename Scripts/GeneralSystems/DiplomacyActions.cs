@@ -57,8 +57,11 @@ public static class DiplomacyActions
                 {
                     War war = World.world.diplomacy.startWar(a, b, WarTypeLibrary.normal);
                     if (war == null) return "diplomacy_reason_failed";
+                    // 剧本点名的劫掠(清军入塞)：只抢不占，抢够或满一年就退(见 NomadRaidSystem.War)
+                    if (_applyingScenario && goal == WarGoal.劫掠) war.SetEmpireWarType(EmpireWarType.劫掠);
                     WarGoalSystem.Preset(war, goal);
                     if (_applyingScenario) war.GetOrCreate().scripted_war = true;
+                    if (_applyingScenario && _scenarioTarget != null) WarObjective.Aim(war, _scenarioTarget);
                     return null;
                 }),
                 Make("diplomacy_act_peace", (a, b) => a.isInWarWith(b) ? null : "diplomacy_reason_not_at_war", (a, b, _) =>
@@ -263,6 +266,8 @@ public static class DiplomacyActions
     // 结盟、关税同盟要够得着对方，判定同宣战(用户 2026-11-02 "结盟系统在新的外交系统中是不是没有距离限制"，问答选这两项)：
     // 盟友要能驰援、货物要能互通；和亲、通好、保护约、朝贡照旧能远交。已有的远方同盟不解散；剧本按史实定的关系不拦
     private static bool _applyingScenario;
+    // 剧本宣战点名的目标城(见 ApplyScenario、WarObjective.Aim)
+    private static City _scenarioTarget;
 
     private static bool OutOfReach(Kingdom a, Kingdom b) => !_applyingScenario && !WarReach.Reachable(a, b);
 
@@ -375,7 +380,7 @@ public static class DiplomacyActions
     private const int HistoryOpinionDefault = 30, HistoryOpinionMax = 60;
     private const float HistoryFadeYears = 60f;
 
-    public static string ApplyScenario(string kind, Kingdom a, Kingdom b, WarGoal goal = WarGoal.夺城, int value = 0)
+    public static string ApplyScenario(string kind, Kingdom a, Kingdom b, WarGoal goal = WarGoal.夺城, int value = 0, City aim = null)
     {
         if (!Valid(a, b)) return "diplomacy_reason_invalid";
         if (kind is "friend" or "feud")
@@ -396,6 +401,7 @@ public static class DiplomacyActions
         Action action = Groups.SelectMany(group => group.actions).FirstOrDefault(item => item.key == key);
         if (action == null) return "diplomacy_reason_invalid";
         _applyingScenario = true;
+        _scenarioTarget = aim;
         WarReach.ScenarioDeclaring = true;
         try
         {
@@ -404,6 +410,7 @@ public static class DiplomacyActions
         finally
         {
             _applyingScenario = false;
+            _scenarioTarget = null;
             WarReach.ScenarioDeclaring = false;
         }
     }

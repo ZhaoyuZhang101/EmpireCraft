@@ -33,21 +33,25 @@ def polity(id_, zh, en, culture, cap, **extra):
     return item
 
 
-def relation(a, b, kind, goal=None, value=None):
+def relation(a, b, kind, goal=None, value=None, city=None):
     item = {"a": a, "b": b, "kind": kind}
     if goal:
         item["goal"] = goal
     if value is not None:
         item["value"] = value
+    if city:
+        item["city"] = city
     return item
 
 
-def rel_step(a, b, kind, goal=None, value=None):
+def rel_step(a, b, kind, goal=None, value=None, city=None):
     item = {"kind": "relation", "a": a, "b": b, "relation": kind}
     if goal:
         item["goal"] = goal
     if value is not None:
         item["value"] = value
+    if city:
+        item["city"] = city
     return item
 
 

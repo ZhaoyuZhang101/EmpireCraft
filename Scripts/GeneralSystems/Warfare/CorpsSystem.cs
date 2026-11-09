@@ -402,9 +402,11 @@ public static class CorpsSystem
         if (kingdom?.data == null || kingdom.isRekt() || World.world == null) return false;
         double now = World.world.getCurWorldTime();
         if (InsurgentCache.TryGetValue(kingdom.id, out var cached) && now >= cached.at && now - cached.at < 5d) return cached.value;
-        bool value = false;
+        // 剧本点名的流寇(闯军、西军)：打仗就以战养战，攻守都算(见 ScenarioEventSystem.Roving)
+        bool value = WorldMap.ScenarioEventSystem.Roving(kingdom) && kingdom.hasEnemies();
         foreach (War war in kingdom.getWars())
         {
+            if (value) break;
             if (war?.data == null || war.hasEnded() || !war.isAttacker(kingdom)) continue;
             if (war.getAsset() != WarTypeLibrary.rebellion && !UprisingTypes.Contains(war.GetEmpireWarType())) continue;
             value = true;

@@ -207,7 +207,8 @@ PEOPLE = {
 }
 
 RELATIONS = [
-    relation("qing", "ming", "war", goal="夺城"),
+    # 开局清明不在交战(用户 2026-11-09 "开局为什么一定要明清开战"，选"开局不打，按年份走剧情")：入关前清明的仗由事件按年份开——
+    # 1638 戊寅入塞、1642 壬午入塞是只抢不占的劫掠之战，1640 起围锦州(松锦之战)才是攻城；清入关以前不占关内的城
     relation("qing", "ming", "feud", value=60),
     relation("joseon", "qing", "tribute"),
     relation("joseon", "ming", "friend", value=40),
@@ -258,6 +259,8 @@ def jia_shen():
          {"kind": "dies", "a": "ming", "person": "周氏", "name": T("城破，自缢于坤宁宫", "hanged herself in the Kunning Palace as the capital fell")},
          {"kind": "dies", "a": "ming", "person": "朱由检", "name": T("自缢于煤山", "hanged himself on Coal Hill")},
          {"kind": "cede", "a": "ming", "b": "shun", "city": "beijing", "cities": ["zhuozhou", "taiyuan", "datong", "changzhi", "linfen", "anyi"]},
+         # 没在西安建成国的(西安先丢了)，入京就称帝；已称帝的照旧叫大顺
+         {"kind": "proclaim", "a": "shun", "name": T("大顺", "Great Shun")},
          {"kind": "rally", "a": "qing", "b": "ming"}])
 
 
@@ -266,12 +269,17 @@ EVENTS = [
           [{"kind": "holds_city", "a": "persia", "city": "ctesiphon"}, {"kind": "at_war", "a": "ottoman", "b": "persia"}],
           [{"kind": "cede", "a": "persia", "b": "ottoman", "city": "ctesiphon", "cities": ["kufa"]},
            rel_step("ottoman", "persia", "truce")]),
-    event("贾庄之战", T("清军分路破墙子岭、青山口入塞，宣大总督卢象升力战，死于巨鹿贾庄",
-                       "Qing columns break through the Wall at Qiangziling and Qingshankou; Supreme Commander Lu Xiangsheng fights on and falls at Jiazhuang near Julu"), 1,
-          [{"kind": "at_war", "a": "qing", "b": "ming"}],
+    # 戊寅之变：清军入塞劫掠，抢够就退(贾庄、济南两件同一年跟着出，排在它后面)
+    event("戊寅入塞", T("清军分两路破墙子岭、青山口入塞，深入畿辅、山东，掳掠人畜而还",
+                       "Qing columns break through the Wall at Qiangziling and Qingshankou, raid deep into the capital region and Shandong, and carry off people and herds"), 0,
+          [{"kind": "alive", "a": "qing"}, {"kind": "alive", "a": "ming"}, {"kind": "before", "value": 2}],
+          [rel_step("qing", "ming", "war", goal="劫掠")]),
+    event("贾庄之战", T("宣大总督卢象升率孤军迎击入塞清军，力战死于巨鹿贾庄",
+                       "Supreme Commander Lu Xiangsheng meets the raiders with a lone army and falls fighting at Jiazhuang near Julu"), 0,
+          [{"kind": "at_war", "a": "qing", "b": "ming"}, {"kind": "before", "value": 2}],
           [{"kind": "dies", "a": "ming", "person": "卢象升", "name": T("战死于巨鹿贾庄", "fell in battle at Jiazhuang near Julu")}]),
     # 只出文字的史事：用 before 卡住年份，条件晚了凑齐也不再出
-    event("济南之陷", T("清军深入山东，攻破济南，德王朱由枢被掳北去", "The Qing drive deep into Shandong and storm Jinan; the Prince of De is carried off north"), 1,
+    event("济南之陷", T("清军深入山东，攻破济南，德王朱由枢被掳北去", "The Qing drive deep into Shandong and storm Jinan; the Prince of De is carried off north"), 0,
           [{"kind": "at_war", "a": "qing", "b": "ming"}, {"kind": "before", "value": 3}], []),
     event("中原大饥", T("北方连年大旱蝗灾，赤地千里，人相食，饥民蜂起", "Drought and locusts year after year leave the north bare; people eat one another and the starving rise in swarms"), 2,
           [{"kind": "strain_above", "a": "ming", "value": 60}, {"kind": "before", "value": 5}], []),
@@ -286,11 +294,14 @@ EVENTS = [
             "name": T("葡萄牙", "Portugal"), "person": "布拉干萨若昂"}]),
     event("张献忠复起", T("张献忠于谷城复叛，奇袭襄阳，襄王朱翊铭遇害", "Zhang Xianzhong rises again at Gucheng and takes Xiangyang by surprise; the Prince of Xiang is killed"), 3,
           [{"kind": "holds_city", "a": "ming", "city": "xiangyang"}, {"kind": "strain_above", "a": "ming", "value": 40}],
-          [{"kind": "rebel", "a": "ming", "b": "xi", "city": "xiangyang", "name": T("西", "Xi"), "person": "张献忠"},
+          # 闯军、西军是流寇，追赃助饷、以战养战，不靠赋税养兵(roving)
+          [{"kind": "rebel", "a": "ming", "b": "xi", "city": "xiangyang", "name": T("西", "Xi"), "person": "张献忠", "roving": True},
            {"kind": "cede", "a": "ming", "b": "xi", "person": "李定国"}]),
     event("李自成入河南", T("李自成破洛阳，福王朱常洵遇害，开仓散粮，饥民归附者如潮", "Li Zicheng takes Luoyang and kills the Prince of Fu; he opens the granaries and the hungry flock to him"), 3,
           [{"kind": "holds_city", "a": "ming", "city": "luoyang"}, {"kind": "strain_above", "a": "ming", "value": 40}],
-          [{"kind": "rebel", "a": "ming", "b": "shun", "city": "luoyang", "cities": ["nanyang", "xinzheng"], "name": T("顺", "Shun"), "person": "李自成"},
+          # 李自成是雄主(hero)：起兵就带开国雄主特质，建大顺称帝以后生效
+          [{"kind": "rebel", "a": "ming", "b": "shun", "city": "luoyang", "cities": ["nanyang", "xinzheng"], "name": T("顺", "Shun"), "person": "李自成",
+            "roving": True, "hero": True},
            {"kind": "cede", "a": "ming", "b": "shun", "person": "刘宗敏、牛金星"}]),
     event("开封水灌", T("闯军三围开封，黄河决堤，开封城没于洪水，城中数十万人罹难",
                        "Kaifeng, besieged a third time by the rebels, is drowned when the Yellow River dikes are breached; hundreds of thousands perish"), 4,
@@ -298,8 +309,19 @@ EVENTS = [
     event("马六甲易手", T("荷兰人夺取马六甲", "The Dutch seize Malacca"), 3,
           [{"kind": "holds_city", "a": "spain", "city": "malacca"}, {"kind": "alive", "a": "dutch"}],
           [{"kind": "cede", "a": "spain", "b": "dutch", "city": "malacca"}]),
+    # 松锦之战：清军围锦州，这一场才是攻城，目标锦州，打下就议和
+    event("围困锦州", T("清军屯田义州，围困锦州；明遣蓟辽总督洪承畴率八总兵十三万出关来援",
+                       "The Qing settle troops at Yizhou and lay siege to Jinzhou; the Ming send Hong Chengchou beyond the pass with eight commanders and 130,000 men"), 2,
+          [{"kind": "alive", "a": "qing"}, {"kind": "holds_city", "a": "ming", "city": "jinzhou"}, {"kind": "before", "value": 5}],
+          [rel_step("qing", "ming", "war", goal="夺城", city="jinzhou")]),
+    # 壬午之变：清军再度入塞，深入山东，掳掠而还
+    event("壬午入塞", T("清军再度破边入塞，横扫畿南、山东，掳掠人畜而还",
+                       "The Qing break through the Wall again, sweep the south of the capital region and Shandong, and carry off people and herds"), 4,
+          [{"kind": "alive", "a": "qing"}, {"kind": "alive", "a": "ming"}, {"kind": "before", "value": 6}],
+          [rel_step("qing", "ming", "war", goal="劫掠")]),
     event("松锦之战", T("松山城破，蓟辽总督洪承畴被俘降清；锦州守将祖大寿开城出降，关外只剩宁远孤城", "Songshan falls and Supreme Commander Hong Chengchou is taken and goes over to the Qing; Zu Dashou surrenders Jinzhou, leaving Ningyuan alone beyond the pass"), 4,
-          [{"kind": "holds_city", "a": "qing", "city": "shenyang"}, {"kind": "at_war", "a": "qing", "b": "ming"}],
+          # 围困锦州那场仗以锦州为目标，清打下锦州就已议和，松锦之战不再看两国还在不在打
+          [{"kind": "holds_city", "a": "qing", "city": "shenyang"}],
           [{"kind": "cede", "a": "ming", "b": "qing", "city": "jinzhou", "person": "祖大寿、洪承畴"}]),
     event("清帝驾崩", T("清太宗皇太极暴卒于盛京清宁宫，诸王议立六岁的福临，郑亲王济尔哈朗、睿亲王多尔衮辅政",
                        "Hong Taiji dies suddenly in the Qingning Palace at Mukden; the princes raise six-year-old Fulin, with Jirgalang and Dorgon as regents"), 5,
@@ -312,8 +334,9 @@ EVENTS = [
           [{"kind": "cede", "a": "ming", "b": "shun", "city": "xian", "cities": ["baoji", "hanzhong", "tianshui"]},
            {"kind": "move_capital", "a": "shun", "city": "xian"},
            {"kind": "dies", "a": "ming", "person": "孙传庭", "name": T("战死于潼关", "fell at Tong Pass")}]),
-    event("大顺建国", T("李自成于西安建国，国号大顺", "Li Zicheng founds his state at Xi'an and names it Great Shun"), 6,
-          [{"kind": "holds_city", "a": "shun", "city": "xian"}],
+    # 大顺建国卡在 1644 年(before)，免得晚了几年再据西安又出一遍；西安不在手里就到甲申之变入京时再称帝(见 jia_shen)
+    event("大顺建国", T("李自成于西安称王建国，国号大顺，改元永昌", "Li Zicheng founds his state at Xi'an, names it Great Shun and proclaims the Yongchang era"), 6,
+          [{"kind": "holds_city", "a": "shun", "city": "xian"}, {"kind": "before", "value": 7}],
           [{"kind": "proclaim", "a": "shun", "name": T("大顺", "Great Shun")}]),
     jia_shen(),
     event("吴三桂降清", T("山海关总兵吴三桂开关迎清军，受封平西王，关宁之地尽归于清", "Wu Sangui, commander at Shanhai Pass, opens the gate to the Qing and is made Prince Pingxi; the Guanning lands pass to the Qing"), 6,

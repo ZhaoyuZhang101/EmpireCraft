@@ -30,7 +30,7 @@ EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
            "grant_title": ("a", "person", "name"), "rally": ("a", "b"), "submit": ("a", "b"),
            "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",)}
-STEP = {"kind", "a", "b", "c", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person"}
+STEP = {"kind", "a", "b", "c", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person", "roving", "hero"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
 
 errors, notes = [], []
@@ -244,6 +244,10 @@ def main():
             err("%s：kind=%s 不认得" % (where, r.get("kind")))
         if r.get("kind") == "war" and r.get("goal") and r["goal"] not in GOALS:
             err("%s：goal=%s 不认得" % (where, r["goal"]))
+        if r.get("city"):
+            if r.get("kind") != "war":
+                err("%s：只有宣战(war)才写目标城" % where)
+            city(r["city"], where + " city")
 
     realms = set(by_id)
     for i, e in enumerate(era.get("events", [])):
@@ -303,6 +307,9 @@ def main():
                             err("%s：剧本人物里找不到 %s(简体姓+名连写)" % (at, name))
                         elif people[name] != s.get("a"):
                             note("%s：%s 是国 %s 的人，不在 a=%s 里，投奔时找不到他" % (at, name, people[name], s.get("a")))
+                for flag in ("roving", "hero"):
+                    if flag in s and (kind != "rebel" or not isinstance(s[flag], bool)):
+                        err("%s：%s 只用在起兵(rebel)上，写 true/false" % (at, flag))
                 if kind == "rebel":
                     for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
                         if name not in people:

@@ -33,6 +33,8 @@ public sealed class ScenarioEventSave
     public List<ScenarioRebelLeader> rebel_leaders = new();
     // 号召归附(见 Rally)
     public ScenarioRally rally;
+    // 以战养战的流寇：国家编号(见 Roving；领头人死了也照旧，所以不记在 rebel_leaders 上)
+    public List<long> roving = new();
 }
 
 // 号召归附：入侵者、受投奔的朝廷(都是国家编号)
@@ -360,7 +362,9 @@ public static class ScenarioEventSystem
                 Kingdom b = Realm(step.b);
                 if (b == null) return "对方不在";
                 WarGoal goal = Enum.TryParse(step.goal ?? "", out WarGoal parsed) ? parsed : WarGoal.夺城;
-                return DiplomacyActions.ApplyScenario(step.relation, a, b, goal, step.value);
+                // 写了城的宣战：那座城就是目标(见 WarObjective.Aim)
+                return DiplomacyActions.ApplyScenario(step.relation, a, b, goal, step.value,
+                    step.relation == "war" && !string.IsNullOrEmpty(step.city) ? CityOf(step.city) : null);
             }
             case "proclaim":
             {
@@ -580,6 +584,11 @@ public static class ScenarioEventSystem
         }
         if (!string.IsNullOrEmpty(step.b)) _state.realms[step.b] = rebel.data.id;
         _state.rebel_leaders.Add(new ScenarioRebelLeader { actor = leader.getID(), rebel = rebel.data.id, origin = target.data.id });
+        // 流寇以战养战(用户 2026-11-09 "那大顺也应该稍微加强一点"：剧本起兵的顺、西打的是地方独立之战，不算起义军，
+        // 养兵看国库，可新国年入是零，起兵三个月后军费系数掉到 0，五千兵剩三百，西安又被明军收复，大顺没建成国)
+        if (step.roving && !(_state.roving ??= new List<long>()).Contains(rebel.data.id)) _state.roving.Add(rebel.data.id);
+        // 雄主(用户 2026-11-09 "给李自成也加上开国雄主的特质")：起兵就带上，称帝以后生效
+        if (step.hero && !leader.hasTrait(RulerTraitSystem.Founder)) leader.addTrait(RulerTraitSystem.Founder);
         string targetName = empire?.GetEmpireName() ?? target.GetKingdomName();
         string text = string.Format(LM.Get("scenario_rebel_history"), leader.getName(), seat.GetCityName(), rebel.GetKingdomName(), targetName);
         if (empire != null) EventRecorder.Record(empire, text, leader, rebel);
@@ -616,6 +625,11 @@ public static class ScenarioEventSystem
             if (Submit(kingdom, conqueror, court, target, pressure)) joined++;
         }
     }
+
+    // 剧本点名的流寇(闯军、西军，起兵时写了 roving)：打仗时以战养战，照起义军养兵(见 CorpsSystem.Insurgent)；
+    // 归附朝廷以后不算(见 Submit)
+    internal static bool Roving(Kingdom kingdom) =>
+        _state?.roving != null && kingdom?.data != null && _state.roving.Contains(kingdom.data.id);
 
     // 剧本正在为这个朝廷号召归附(甲申之变的 rally)：南明结成就不再另掷一遍(见 SouthernRetreatSystem)
     internal static bool RallyingFor(Kingdom court) =>
@@ -659,6 +673,8 @@ public static class ScenarioEventSystem
         if (kingdom.GetEmpire() != target) return false;
         // 撤了原来的国号，在这个帝国里按都城称呼(见 KingdomExtension.GetAutomaticKingdomName)
         kingdom.GetOrCreate().submitted_empire_id = target.id;
+        // 归了朝廷，不再是以战养战的流寇
+        _state?.roving?.Remove(kingdom.data.id);
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         string text = string.Format(LM.Get("scenario_rally_history"), kingdom.GetKingdomName(), conqueror.GetKingdomName(), target.GetEmpireName());
         EventRecorder.Record(target, text, kingdom.king, kingdom);

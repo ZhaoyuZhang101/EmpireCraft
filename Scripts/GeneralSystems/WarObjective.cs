@@ -106,6 +106,21 @@ public static class WarObjective
         }
     }
 
+    // 剧本点名的目标城(用户 2026-11-09 明清鼎革："可是这局依旧是清和明先打起来了"：开局那场仗的目标是北京，
+    // 清从开局就冲北京去；照史实是关外的松锦之战，目标改成锦州)：夺城，主城池就是它，打下就算赢
+    internal static void Aim(War war, City city)
+    {
+        if (war?.data == null || city?.data == null || city.isRekt()) return;
+        WarExtension.WarExtraData data = war.GetOrCreate();
+        data.war_goal = WarGoal.夺城;
+        data.goal_city_ids ??= new List<long>();
+        data.goal_city_ids.Clear();
+        data.goal_city_ids.Add(city.id);
+        data.goal_main_city_id = city.id;
+        data.goal_achieved = false;
+        WarCatalog.ApplyName(war);
+    }
+
     private static List<City> Cities(WarExtension.WarExtraData data) =>
         (data.goal_city_ids ?? new List<long>()).Select(id => World.world.cities.get(id))
         .Where(city => city?.data != null && !city.isRekt()).ToList();

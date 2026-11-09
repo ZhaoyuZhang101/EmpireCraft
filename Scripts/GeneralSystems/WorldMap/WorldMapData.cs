@@ -180,6 +180,10 @@ public sealed class WorldMapEventStep
     // submit：入侵者(写进史书"迫于某兵势")
     public string c = "";
     public List<string> cities;
+    // rebel：流寇(闯军、西军)——以战养战，打仗时照起义军养兵，不看国库(见 ScenarioEventSystem.Roving)
+    public bool roving;
+    // rebel：领头的人是雄主，起兵就带开国雄主特质(称帝以后生效，见 RulerTraitSystem)
+    public bool hero;
 }
 
 // 长城、边墙：name "简体|英文|繁体"，pts 是 [经度, 纬度] 折线(两点之间铺墙时沿山脊找路)
@@ -204,6 +208,8 @@ public sealed class WorldMapRelation
 {
     public string a = "", b = "", kind = "", goal = "";
     public int value;
+    // 宣战的目标城(剧本的城 id，可空)：夺城之战打下它就算赢，不写就照常取对方都城(见 WarObjective.Aim)
+    public string city = "";
 }
 
 // 名将名臣(见 Tools/WorldMap/famous_source.py)：kind general/minister，rank 0 良才 1 名 2 国柱，

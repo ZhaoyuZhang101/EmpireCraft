@@ -662,7 +662,9 @@ public static class WorldMapScenario
                 continue;
             }
             WarGoal goal = Enum.TryParse(relation.goal ?? "", out WarGoal parsed) ? parsed : WarGoal.夺城;
-            string reason = DiplomacyActions.ApplyScenario(relation.kind, a, b, goal, relation.value);
+            City target = string.IsNullOrEmpty(relation.city) ? null
+                : _cities.FirstOrDefault(city => city.data.id == relation.city && city.city != null && !city.city.isRekt())?.city;
+            string reason = DiplomacyActions.ApplyScenario(relation.kind, a, b, goal, relation.value, target);
             if (reason == null) done++;
             // 剧本定下的朝贡：若干年内不因国力坐大脱离(见 KingdomExtension.StartToTaken)
             if (reason == null && relation.kind == "tribute") a.GetOrCreate().scripted_tribute_at = World.world.getCurWorldTime();
