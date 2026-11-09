@@ -316,9 +316,13 @@ public static class ScenarioEventSystem
 
     #region 结果
 
+    // 这件事里迁了都的帝国：(帝国, 原记的京师, 新都)，整件事做完再定是定都还是行在(见 SettleCapitals)
+    private static readonly List<(long empire, long from, long to)> Moved = new();
+
     // only：只做这几条(重试)，空为全做。返回没做成、下一年再试的是第几条
     private static List<int> Fire(WorldMapEvent item, List<int> only = null)
     {
+        Moved.Clear();
         var done = new List<string>();
         var again = new List<int>();
         Kingdom first = null;
@@ -337,6 +341,7 @@ public static class ScenarioEventSystem
                 if (ScenarioPlotRules.Retriable(step.kind, failed)) again.Add(index);
             }
         }
+        SettleCapitals();
         // 一条结果都没做成的(点名的人早死了、城早丢了)不上屏幕，免得史书写了没发生的事
         bool happened = done.Count > 0 || only == null && steps.Count == 0;
         // 只出文字的史事(济南之陷、开封水灌)：记在条件里头一个还在的国名下，照样进世界日志
@@ -350,6 +355,32 @@ public static class ScenarioEventSystem
         }
         LogService.LogInfo($"[EmpireCraft][剧情事件] 触发 {item.name}：{string.Join("、", done)}");
         return again;
+    }
+
+    // 剧本迁都，整件事做完再看(用户 2026-11-10 "这大请不对""没剃发易服也没有入关""但是明明都打下全境了")：
+    //   · 原记的京师还在本帝国手里 —— 定都(清迁都北京、元都大都、燕都洛阳)：帝国记的京师改成新都。
+    //     以前只挪了都城没改记录，下个月"还于旧都"(CoreCapitalRestorationSystem)又把清迁回盛京，坐盛京就一直算没入关，
+    //     剃发易服、圈地这些入关之政一样没有；
+    //   · 京师已失(甲申之变先迁南京、再献北京；南京、福州、广州相继失守)—— 行在：京师照旧，收复了还于旧都，南明照旧看京师
+    private static void SettleCapitals()
+    {
+        foreach ((long empireId, long fromId, long toId) in Moved)
+        {
+            Empire empire = ModClass.EMPIRE_MANAGER?.get(empireId);
+            Kingdom core = empire?.CoreKingdom;
+            City from = World.world.cities.get(fromId), to = World.world.cities.get(toId);
+            EmpireCore empireCore = EmpireCoreManager.Get(empire);
+            if (empireCore == null || core?.data == null || core.isRekt() || to?.data == null || core.capital != to) continue;
+            if (from?.data == null || from.isRekt() || from.kingdom == null || !EmpireMembershipService.BelongsTo(empire, from.kingdom))
+            {
+                LogService.LogInfo($"[EmpireCraft][剧情事件] {empire.GetEmpireName()} 行在 {to.GetCityName()}，京师仍记 {from?.GetCityName()}");
+                continue;
+            }
+            empireCore.former_capital = from.data.id;
+            empireCore.SetCoreCapital(to);
+            LogService.LogInfo($"[EmpireCraft][剧情事件] {empire.GetEmpireName()} 定都 {to.GetCityName()}(旧京 {from.GetCityName()})");
+        }
+        Moved.Clear();
     }
 
     // 做一条结果；做不了返回原因
@@ -389,6 +420,8 @@ public static class ScenarioEventSystem
                 // 帝国的城多在行政区手里(南京在南直隶)：先收归中央再迁
                 if (city.kingdom != a) city.joinAnotherKingdom(a);
                 if (city.kingdom != a) return "城收不回来";
+                City recorded = a.IsEmpire() ? EmpireCoreManager.Get(a.GetEmpire())?.GetCoreCapital() : null;
+                if (recorded?.data != null && recorded != city) Moved.Add((a.GetEmpire().id, recorded.data.id, city.data.id));
                 a.setCapital(city);
                 return null;
             }

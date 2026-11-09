@@ -742,7 +742,11 @@ public static partial class CompositeEmpireService
         if (delta > 0) delta = Math.Max(0, delta - EthnicRankSystem.IntegrationDrag(empire));
         // 融合完成后统治文化就是制度文化，不再有"保留旧俗的统治族群"压着融合度
         // (以前完成融合的王朝次年又被压回 69、退回"复合帝国")；从俗的王朝统治族群自己在改俗，也不压
-        bool rulingEliteStillExists = !integrated && route != RouteAdopt && (emperorUsesRuling || rulingShare >= 0.08f);
+        // 八旗多元制(见 BannerSystem)：旗人世代在旗，八旗在统治族群就在——首崇满洲、旗民分治，融合度封顶，不会融完成汉人王朝
+        // (用户 2026-11-10 "这族群,判断也有问题""当官也没有满汉分官"：清打下全境后满洲人口不到一成，皇帝本人又算汉俗，
+        // 统治族群被当成没了，融合一路到 100，统治文化改成华夏，一百三十万人全算旗人，满缺汉缺也分不出来)
+        bool rulingEliteStillExists = !integrated && route != RouteAdopt &&
+                                      (emperorUsesRuling || rulingShare >= 0.08f || BannerSystem.Practices(empire));
         int nextIntegration = Math.Max(1, CompositeEmpireRules.CapIntegration(
             empire.data.composite_integration + delta, rulingEliteStillExists, !integrated && route == RouteDual));
         CompositeEmpireIntegrationStage oldStage = empire.data.composite_integration_stage;

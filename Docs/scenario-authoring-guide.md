@@ -170,7 +170,7 @@
 | `relation` | `a`、`b`、`relation`、`goal`(仅 war)、`value`(仅 friend/feud) | 两国关系，种类同第七节 |
 | `proclaim` | `a`、`name`(可省) | a 称帝；`name` 写了就改用这个国号(照写，不自动加"大") |
 | `rename` | `a`、`name` | 改国号 |
-| `move_capital` | `a`、`city` | 迁都(城得在 a 手里) |
+| `move_capital` | `a`、`city` | 迁都(城得在 a 手里)。整件事做完时原来的京师还在本帝国手里算**定都**(清迁都北京、元都大都)，京师改记新都；京师已经丢了算**行在**(甲申先迁南京再献北京)，京师照旧，收复了会还于旧都 |
 | `culture` | `a`、`culture` | 改文化(帝国连同成员) |
 | `adopt_huaxia` | `a`、`name` | 入主中原、采纳华夏制度，国号照 `name` 定(写"清"成"大清") |
 | `rebel` | `a`、`city`、`cities`、`name`、`person`、`b`、`roving`、`hero` | **起兵割据**，见下 |

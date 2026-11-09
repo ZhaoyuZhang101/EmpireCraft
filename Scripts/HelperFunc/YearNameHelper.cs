@@ -15,6 +15,9 @@ public static class YearNameHelper
         string CharacterSet2Path = Path.Combine(ModClass._declare.FolderPath, "Locales", "Cultures", "YearName2.csv");
         List<string> names1 = OnomasticsHelper.getKeysFromPath(CharacterSetPath);
         List<string> names2 = OnomasticsHelper.getKeysFromPath(CharacterSet2Path);
-        return "" + LM.Get(names1.GetRandom()) + LM.Get(names2.GetRandom());
+        // 两个字不重(以前会出"华华"这样的叠字年号)
+        string first = LM.Get(names1.GetRandom()), second = LM.Get(names2.GetRandom());
+        for (int tries = 0; tries < 8 && second == first; tries++) second = LM.Get(names2.GetRandom());
+        return first + second;
     }
 }
