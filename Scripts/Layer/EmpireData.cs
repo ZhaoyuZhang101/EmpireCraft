@@ -213,6 +213,9 @@ public class EmpireData : MetaObjectData
     // 旧档里一部自立的部落帝国(以前的 TribalFissionService.FormTribes，10-26 去掉)：读档后、每月撤去
     // (见 TribalFissionService.DissolveSettledTribes)；有了共事的部落改为 false。只留作旧档迁移，新立的帝国不再记
     public bool formed_as_tribe { get; set; }
+    // 神力立的帝国(称帝、合国称帝，见 EmpireFormButton、CreateEmpireButton)：华夏定周室落选时不撤帝号，只算不服王化
+    // (见 TribalFissionService.SettleRoyalHouse、ZhouEraSystem.GodMadeRival)
+    public bool formed_by_god { get; set; }
     // 部落联盟的战功(部落之战每胜一场、每收一部记一分，见 TribalWarSystem.Concede)：换天命，进宗法分封时按资历定王室用
     // (见 TribalFissionService.SettleRoyalHouse)
     public int tribal_war_merit { get; set; }

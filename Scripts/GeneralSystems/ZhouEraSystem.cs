@@ -143,10 +143,17 @@ public static class ZhouEraSystem
     }
 
     // 不服王化：与周室同文化，却不在周室之内(不是成员、也不是战国离开帝国的诸侯)、也没向别国称臣纳贡的独立之国
+    // 神力立的帝国(定周室时落选保留帝号，见 TribalFissionService.SettleRoyalHouse)的核心也算
     public static bool Unsubmitted(Empire empire, Kingdom kingdom) =>
         Applies(empire) && kingdom?.data != null && !kingdom.isRekt() && kingdom != empire.CoreKingdom &&
-        SphereOf(kingdom) == null && !kingdom.IsInEmpire() && !kingdom.IsEmpire() && !kingdom.HasTakenAlliance() &&
+        (SphereOf(kingdom) == null && !kingdom.IsInEmpire() && !kingdom.IsEmpire() || GodMadeRival(empire, kingdom)) &&
+        !kingdom.HasTakenAlliance() &&
         CultureService.SameKin(CultureService.GetRealmCulture(kingdom), CultureService.GetEmpireDefaultCulture(empire));
+
+    // 别家神力立的帝国的核心(EmpireData.formed_by_god)：不在周室之内、自立帝号，天子照样当不服王化讨伐
+    public static bool GodMadeRival(Empire empire, Kingdom kingdom) =>
+        kingdom?.GetEmpire() is Empire own && own != empire && own.data?.formed_by_god == true && own.CoreKingdom == kingdom &&
+        !own.isRekt() && !own.IsArchived();
 
     // 天子兴师讨伐的不服王化之国：与王畿接壤、兵力不及王师的，先挑最弱的
     public static Kingdom SubdueTarget(Empire empire)

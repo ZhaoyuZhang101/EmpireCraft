@@ -356,7 +356,8 @@ public static class TribalFissionService
         int silent = 0;
         foreach (Empire empire in ModClass.EMPIRE_MANAGER.ToList())
         {
-            if (empire?.data == null || !empire.data.formed_as_tribe || empire.isRekt() || empire.IsArchived()) continue;
+            if (empire?.data == null || !empire.data.formed_as_tribe || empire.data.formed_by_god || empire.isRekt() ||
+                empire.IsArchived()) continue;
             Kingdom core = empire.CoreKingdom;
             if (core == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(core)) continue;
             bool tribal = IsTribal(core);
@@ -695,8 +696,9 @@ public static class TribalFissionService
     }
 
     // 共事的部落都已离去、帝国里也只有自己的部落联盟(按资历定下的周室除外，见 Migrate)
+    // 神力立的帝国不算(见 EmpireData.formed_by_god)：没有共事的部落也留着帝号
     private static bool Deserted(Empire empire) =>
-        IsConfederation(empire) && !(empire.data.zhou?.royal_settled_at >= 0d) && Followers(empire).Count == 0;
+        IsConfederation(empire) && !empire.data.formed_by_god && !(empire.data.zhou?.royal_settled_at >= 0d) && Followers(empire).Count == 0;
 
     // 按资历定唯一王室(用户 2026-10-26 选"按资历定唯一王室""王畿不止一城")：本文化第一次施行宗法分封——推行改革的那一家当场改了周制
     // (见 InstitutionSystem.CompleteReform)，其余部落还没改(见 Migrate)——在同一天下的部落联盟与独立部落里选出唯一的周室
@@ -800,7 +802,10 @@ public static class TribalFissionService
             });
         }
         if (candidates.Count == 0) return;
-        candidates = candidates.OrderByDescending(candidate => candidate.score).ThenByDescending(candidate => candidate.pioneer)
+        // 推行宗法分封的那家已是部落联盟(帝国)的，直接定为周室(用户 2026-11-09 选"推行的那家当周室")：以前它只在同分时优先，
+        // 先改了周制的周朝被分数更高的楚顶掉、整个并进去。推行的只是独立部落时照旧按资历比
+        candidates = candidates.OrderByDescending(candidate => candidate.pioneer && candidate.league != null)
+            .ThenByDescending(candidate => candidate.score).ThenByDescending(candidate => candidate.pioneer)
             .ThenBy(candidate => candidate.since).ThenBy(candidate => candidate.head.id).ToList();
         // 周室：部落联盟用它的帝国，独立部落给它立帝国(立不成的往下挑)
         RoyalCandidate royal = null;
@@ -824,6 +829,14 @@ public static class TribalFissionService
         foreach (RoyalCandidate other in candidates)
         {
             if (other == royal || other.league == null) continue;
+            // 神力立的帝国(用户 2026-11-09 选"不撤，只是不服王化")：落选不撤帝号、不改奉周室，共事它的照旧共事它，
+            // 算不服王化，等周室讨伐(见 ZhouEraSystem.GodMadeRival)。以前窗口期内神力称帝，当月就被撤掉、并进周室
+            if (other.league.data.formed_by_god)
+            {
+                defiant.Add(other.head.GetKingdomName());
+                LogService.LogInfo($"[EmpireCraft][部落分迁] {other.head.GetKingdomName()} 是神力所立的帝国，不奉{seatName}为王室，保留帝号");
+                continue;
+            }
             bool near = Distance(seat, other.head) <= RoyalReach;
             bool strong = other.head.GetNationalPower() >= royalPower * RoyalRivalShare;
             EmpireCore oldCore = EmpireCoreManager.Get(other.league);

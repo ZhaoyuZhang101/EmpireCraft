@@ -89,6 +89,7 @@ internal static class CreateEmpireButton
         bool created = EmpireCraft.Scripts.GeneralSystems.MembershipCooldown.ByGod(() =>
             ModClass.EMPIRE_MANAGER.forceEmpire(first, second));
         bool joined = first.IsInEmpire() && first.GetEmpire() == second.GetEmpire();
+        if (created && first.GetEmpire()?.data != null) first.GetEmpire().data.formed_by_god = true;
         if (created)
         {
             ActionLibrary.showWhisperTip("unity_new_empire");
@@ -129,6 +130,7 @@ internal static class CreateEmpireButton
         {
             return;
         }
+        empire.data.formed_by_god = true;
         empire.join(JoinKingdom, pForce: true);
         
     }

@@ -63,6 +63,9 @@ public static class FeudalConquestService
         bool zhou = empire != null && empire.CoreKingdom == captor && AppliesTo(empire);
         bool western = captor.GetRegime()?.type == RegimeType.Feudalism;
         if (!zhou && !western) return false;
+        // 天子攻下神力所立、不服王化之帝国的都城(见 ZhouEraSystem.GodMadeRival)：先撤它的帝号，再照不服王化之国称臣受封
+        if (zhou && conquered.capital == city && ZhouEraSystem.GodMadeRival(empire, conquered))
+            ModClass.EMPIRE_MANAGER?.dissolveEmpire(conquered.GetEmpire());
         if (conquered.IsEmpire() || (empire != null && conquered.GetEmpire() == empire) || conquered.capital != city)
             return false;
         if (conquered.GetEmpire() != null && !RealmDiplomacySystem.CanChooseOverlord(conquered)) return false;

@@ -56,6 +56,7 @@ public static class EmpireFormButton
             ActionLibrary.showWhisperTip("empire_form_failed");
             return true;
         }
+        empire.data.formed_by_god = true;
         if (modern) MakeNormalGovernment(empire);
         ActionLibrary.showWhisperTip(modern ? "empire_form_modern" : "empire_form");
         Refresh();
