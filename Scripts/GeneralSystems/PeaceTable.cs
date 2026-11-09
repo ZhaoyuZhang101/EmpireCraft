@@ -589,6 +589,8 @@ public static class PeaceTable
         string line = string.Format(LM.Get(source == Source.Forced ? "peace_deal_forced" : "peace_deal_signed"),
             attacker.GetKingdomName(), defender.GetKingdomName(), Describe(war, deal));
         var ceded = new Dictionary<bool, List<City>> { [true] = new List<City>(), [false] = new List<City>() };
+        // 统一战争里割给攻方的城记作统一所得(同 WarGoalSystem.Cede)
+        bool unification = UnificationSystem.IsUnificationWar(war);
         foreach (PeaceTerm term in deal.terms)
         {
             Kingdom giver = term.by_attacker ? attacker : defender, receiver = term.by_attacker ? defender : attacker;
@@ -599,7 +601,7 @@ public static class PeaceTable
                     case PeaceTermKind.City:
                         City city = World.world.cities.get(term.city_id);
                         if (city?.data == null || city.isRekt() || city.kingdom != giver) break;
-                        WarGoalSystem.QueueCession(city, receiver);
+                        WarGoalSystem.QueueCession(city, receiver, unification && !term.by_attacker);
                         ceded[term.by_attacker].Add(city);
                         break;
                     case PeaceTermKind.Indemnity:

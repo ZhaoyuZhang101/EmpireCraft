@@ -32,7 +32,7 @@
   内置剧本由 `administrative_defaults_source.py` 检查首都和行政治所；其他小城(k=3)可能不生成，事件条件别只靠它们。
 - **地区(王国法理)**：`cities.json` 的 `regions[].id`(如 `guanzhong`、`hebei`、`youyan`、`liaodong`、`manchuria`、`monan`)。
 - **国**：剧本自己起的 `polities[].id`，全剧本唯一，只用小写英文、数字、下划线。
-- **文化键**：`Huaxia`(华夏)、`Youmu`(游牧)、`Japan`、`Roma`、`Frankish`、`Germanic`、`Viking`、`Slavonic`、`Arab`、`Persepolis`、`India`、`Egypt`、`Kosher`。
+- **文化键**：`Huaxia`(华夏)、`Youmu`(游牧)、`Japan`、`Roma`、`Frankish`、`Germanic`、`Viking`、`Slavonic`、`Arab`、`Persepolis`、`India`、`Egypt`、`Kosher`、`Manzhou`(女真)、`Xizang`(青藏)、`Swahili`(斯瓦希里)、`Bantu`(班图)、`Zulu`(祖鲁)、`Aztec`、`Ojibwe`。
 - 查城：`python -X utf8 -c "import json;[print(c['id'],c['zh'],c['r'],c.get('k'),c.get('from'),c.get('to')) for c in json.load(open('WorldMaps/cities.json',encoding='utf-8'))['cities']]"`
 
 ## 四、文件顶层

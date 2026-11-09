@@ -12,6 +12,8 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 空城优先接收附近城市的真实平民。每个出资政权一次一座，选源和海路搜索分帧执行。
+// 陆路够不够得着：通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)按人员走过去的成本
+// (resettle_max_cost 以内、不走海路，查两城的近邻表)，翻山、绕无人区远的不算近；没算好时照旧直线 192 格、原版寻路走得到。
 internal static class CityResettlementSystem
 {
     private sealed class Work
@@ -82,6 +84,30 @@ internal static class CityResettlementSystem
         return (float)Math.Floor(Math.Min(people, seed));
     }
 
+    // 陆路成本(见类头)：查不到(通达层没算好、城不在图上)返回 -1；走不到、太远、要走海路返回 +∞
+    private static float LandCost(City source, City target)
+    {
+        if (!ConnectivitySystem.Ready) return -1f;
+        float cost = ConnectivitySystem.NearCost(target, source, out bool sea);
+        if (cost < 0f) return -1f;
+        if (float.IsPositiveInfinity(cost) || sea)
+        {
+            float back = ConnectivitySystem.NearCost(source, target, out bool backSea);
+            if (back >= 0f && !float.IsPositiveInfinity(back) && !backSea) cost = back;
+            else return float.PositiveInfinity;
+        }
+        return cost <= ConnectivitySystem.Config.resettle_max_cost ? cost : float.PositiveInfinity;
+    }
+
+    // 陆路够得着：同一块陆地、通达层的陆路成本够近(没算好时直线 192 格、原版寻路走得到)
+    private static bool LandReach(City source, City target)
+    {
+        if (!source.getTile().isSameIsland(target.getTile())) return false;
+        float cost = LandCost(source, target);
+        if (cost >= 0f) return !float.IsPositiveInfinity(cost);
+        return Distance(source, target) <= 192L * 192L && target.getTile().reachableFrom(source.getTile());
+    }
+
     private static long Distance(City a, City b)
     {
         long dx = (long)a.getTile().x - b.getTile().x, dy = (long)a.getTile().y - b.getTile().y;
@@ -136,7 +162,10 @@ internal static class CityResettlementSystem
             long distance = Distance(source, target);
             if (source.getTile().isSameIsland(target.getTile()))
             {
-                if (distance > 192L * 192L || !target.getTile().reachableFrom(source.getTile())) continue;
+                if (!LandReach(source, target)) continue;
+                // 通达层算好后同等规模按陆路成本比远近(成本放大成整数，同直线距离一样比较)
+                float cost = LandCost(source, target);
+                if (cost >= 0f) distance = (long)(cost * 1000f);
                 // 能安置更多人优先，同等规模选择更近的城市。
                 if (people > work.landPeople || people == work.landPeople && distance < work.landDistance)
                 { work.landSource = source; work.landPeople = people; work.landDistance = distance; }
@@ -217,8 +246,7 @@ internal static class CityResettlementSystem
             if (Date.getMonthsSince(plan.journey.started) < SettlementSeaSearch.TravelMonths(plan.journey.sea_route.Count, source))
             { state.status = "resettlement_sailing"; return; }
         }
-        else if (!source.getTile().isSameIsland(target.getTile()) || !target.getTile().reachableFrom(source.getTile()) ||
-            Distance(source, target) > 192L * 192L)
+        else if (!LandReach(source, target))
         { Cancel(payer, state, "resettlement_unreachable"); return; }
         float people = Migrants(source, target);
         if (people < 1f) { Cancel(payer, state, "resettlement_people"); return; }

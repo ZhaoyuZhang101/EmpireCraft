@@ -96,7 +96,7 @@ public static class DiplomacyActions
                     if (a.isInWarWith(b)) return "diplomacy_reason_at_war";
                     if (ModAllianceService.IsVanillaAllianceBanned()) return "diplomacy_reason_alliance_banned";
                     if (a.IsEmpire() || a.IsInEmpire() || b.IsEmpire() || b.IsInEmpire()) return "diplomacy_reason_empire_alliance";
-                    return OutOfReach(a, b) ? "diplomacy_reason_unreachable" : null;
+                    return OutOfReach(a, b) && !ContactReach(a, b) ? "diplomacy_reason_unreachable" : null;
                 }, (a, b, _) => Ally(a, b)),
                 Make("diplomacy_act_leave_alliance", (a, b) => a.hasAlliance() ? null : "diplomacy_reason_no_alliance", (a, b, _) =>
                 {
@@ -232,7 +232,7 @@ public static class DiplomacyActions
                     if (CommodityMarketSystem.UnionOf(b) == a) return "diplomacy_reason_already";
                     if (a.isInWarWith(b)) return "diplomacy_reason_at_war";
                     if (DiplomacyLedger.SameMarket(a, b)) return "diplomacy_reason_same_market";
-                    return OutOfReach(a, b) ? "diplomacy_reason_unreachable" : null;
+                    return OutOfReach(a, b) && !UnionReach(a, b) ? "diplomacy_reason_unreachable" : null;
                 }, (a, b, _) => CommodityMarketSystem.JoinUnion(b, a)),
                 Make("diplomacy_act_union_out", (a, b) =>
                     CommodityMarketSystem.UnionOf(b) == a || CommodityMarketSystem.UnionOf(a) == b ? null : "diplomacy_reason_no_union",
@@ -280,10 +280,19 @@ public static class DiplomacyActions
     // 剧本宣战点名的目标城(见 ApplyScenario、WarObjective.Aim)
     private static City _scenarioTarget;
 
+    // 通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)另有两条路(够得着宣战的照旧可以)：结盟——焦点国派使节过去的人员往来强度
+    // 不低于 diplomacy_min_strength(0.25，航海档、不要战舰)；关税同盟——两国人员往来强度(取好的一边)不低于 union_min_strength(0.4，
+    // 同 AI 并入关税同盟，见 CommodityMarketSystem)
     private static bool OutOfReach(Kingdom a, Kingdom b) => !_applyingScenario && !WarReach.Reachable(a, b);
 
+    private static bool ContactReach(Kingdom a, Kingdom b) => ConnectivitySystem.CanContact(a, b) == true;
+
+    private static bool UnionReach(Kingdom a, Kingdom b) =>
+        Math.Max(ConnectivitySystem.Strength(a, b, ConnectivityMode.People), ConnectivitySystem.Strength(b, a, ConnectivityMode.People)) >=
+        ConnectivitySystem.Config.union_min_strength;
+
     // 关税同盟能不能并入(外交界面市场页列可并入的市场用)
-    public static bool CanReachUnion(Kingdom kingdom, Kingdom leader) => !OutOfReach(kingdom, leader);
+    public static bool CanReachUnion(Kingdom kingdom, Kingdom leader) => !OutOfReach(kingdom, leader) || UnionReach(kingdom, leader);
 
     // 原版 forceAlliance 只在新建同盟时返回真，并入现有同盟也返回假：以前并入成功了界面却报失败。
     // 两边各有同盟时先退出旧的，不然同时挂在两个同盟的名单里

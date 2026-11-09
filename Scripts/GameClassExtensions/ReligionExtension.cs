@@ -39,6 +39,12 @@ public static class ReligionExtension
         // 本宗教已分出过正教会、什叶派(各一次)
         public bool EasternSplit;
         public bool ShiaSplit;
+        // 伊斯兰诸分裂(对立哈里发、什叶派与伊斯玛仪派、复古运动，见 IslamicSchismSystem)；旧档与别的宗教为空
+        public IslamicSchismState Islamic;
+        // 西方大分裂(对立教宗与各国的服从，见 PapacySystem.Antipope)：没闹过是 null
+        public PapalSchismData PapalSchism;
+        // 分出的缘由与发端(宗教改革的改革者、诸侯，国教会，对立一线分立，见 PapacySystem.Reformation)：旧档、别的教会是 null
+        public SplitOriginData SplitOrigin;
         // 教宗(见 PapalElection；LeaderID 记现任教宗)：怎么选立的(0 未记、1 枢机推举、2 世俗强立)、选立时间
         public int PopeChosenBy;
         public double PopeChosenAt = -1d;
@@ -48,6 +54,27 @@ public static class ReligionExtension
         public List<ReligionEventData> Absorbed = new();
         // 历代教首(见 ReligionHeads)：旧的在前，至多 ReligionHeads.MaxHeads 任
         public List<ReligionHeadRecord> Heads = new();
+        // 教义融合(用户 2026-11-06 选"按类型分槽位"，见 SyncretismSystem)：融合所得的教义；null = 还没查过
+        // (旧档、新立的都是 null；分出的教会头一次查时照抄母宗教的，见 ReligionTenets.Absorbed)。本有教义按类型、天下现算，不存
+        public List<SyncreticTenetData> Syncretic;
+        // 融合接触度：来源宗教 id → 接触度(0~100)、累计接触年数
+        public Dictionary<long, float> Contact = new();
+        public Dictionary<long, int> ContactYears = new();
+        // 上次融到一条的时间(-1 没有)
+        public double LastSyncretismAt = -1d;
+        // 启示宗教(两段式立教的后一段，见 NativeFaithSystem)：立教时间，-1 不是
+        public double RevealedAt = -1d;
+    }
+
+    // 融来的一条教义：教义 id、来源宗教(及其宗系之首，宗教亡了照样认)、来源名、本地圣徒记来源的天下、时间
+    public class SyncreticTenetData
+    {
+        public string tenet = "";
+        public long from_id = -1L;
+        public long from_root = -1L;
+        public string from_name = "";
+        public string sphere = "";
+        public double at;
     }
 
     // 历代教首的一任：人、在位起止(to = -1 在位)、怎么选立(PapalElection.By*，0 = 继位或未记)、怎么结束(文字键)

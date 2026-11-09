@@ -5,11 +5,12 @@
     "setting": {
         "regime": "Origin",
         "institution_line": "Origins",
+        // 法教传统(dharmic)是印度的(不圣战、宗教宽容，阿拉伯线上还不当哈里发)，班图不带；传统信仰本是多神民间，向来宽容
         "political_traits": [
-            "dry_native",
-            "dharmic"
+            "dry_native"
         ],
-        "tianxia": "Umma",
+        // 天下标识：与祖鲁同属"非洲"天下(以前写成乌玛，班图创的教成了伊斯兰类，相邻的班图帝国法理还会并进阿拉伯天下)
+        "tianxia": "Africa",
         "Constitution": {
             "clauses": {
                 "religion": "StateReligion"

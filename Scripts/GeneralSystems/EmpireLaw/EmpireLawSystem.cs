@@ -143,9 +143,46 @@ public class LawEnforcementContext
     public Law Law { get; set; }
     public string CrimeDate { get; set; }
     public List<PunishmentLevel> AppliedPunishments { get; set; } = new();
+
+    // —— 量刑、卷宗与日志(2026-11 起)。立案时(PrepareEnforcement)记下犯人的名号与身份：施刑后罢了官、
+    // 伏了诛，日志里仍写原来的官衔，前科仍记在原来的族谱身份上 ——
+    public PersonalClanIdentity Identity { get; set; }
+    public string ActorName { get; set; }
+    public string ActorLogName { get; set; }
+    public UnityEngine.Color? ActorColorText { get; set; }
+    // 上公屏(官员、君主、有爵位封号的人；当场拿获的要人)
+    public bool Broadcast { get; set; }
+    // 当场拿获、罪证确凿(Prosecute)
+    public bool Explicit { get; set; }
+    // 案由(本地化键)与告发者
+    public string ReasonKey { get; set; }
+    public Actor Accuser { get; set; }
+    // 十恶：不减等、不许赎、不在大赦之列
+    public bool Grave { get; set; }
+    // 本国宽严(-1 宽仁 ~ +1 严苛)
+    public float Severity { get; set; }
+    // 律文本来的刑罚、量刑后要施的刑罚
+    public List<PunishmentLevel> BasePunishments { get; set; } = new();
+    public List<PunishmentLevel> Sentence { get; set; } = new();
+    public bool Reduced { get; set; }
+    public bool Escalated { get; set; }
+    // 从重而刑等已到顶(加不至死)：监禁的刑期加五成
+    public bool PrisonBoost { get; set; }
+    // 赎金、罚金(实收)
+    public int RansomPaid { get; set; }
+    public int FinePaid { get; set; }
+    // 监禁的刑期(年)；LifeTerm：现代废死改判的长期监禁
+    public int PrisonYears { get; set; }
+    public bool LifeTerm { get; set; }
+    // 量刑说明(本地化键，可带一个参数："键|参数")
+    public List<string> Notes { get; set; } = new();
+    public LawCaseOutcome Outcome { get; set; }
+    public bool CaseRecorded { get; set; }
+
+    public string LawName => EmpireLawSystem.GetLawName(LawType);
 }
 
-public static class EmpireLawSystem
+public static partial class EmpireLawSystem
 {
     private const string AUTO_SCAN_KEY = "empire_law_auto_scan";
     private const string MERCENARY_OVERMIGHTY_KEY = "law_mercenary_overmighty";
@@ -153,8 +190,12 @@ public static class EmpireLawSystem
     // 自动犯罪(官员、城主、有爵者每年一查)的概率倍数。原设计每人每年约四成犯一条、两三成被查出，
     // 几年内朝堂几乎人人罢官抄家；压到五分之一，一个官员一生大约被查办一两次(用户 2026-11-05 选"修 bug 并调低频率")
     private const float AutoCrimeScale = 0.2f;
+    // 不在帝国里、不到这么多城的小国：寻常案子、大赦不上公屏(卷宗照记)
+    private const int SmallRealmCities = 3;
 
     public static Dictionary<LawType, Law> Laws { get; set; } = new Dictionary<LawType, Law>();
+    // 时代、政体、宽严、十恶、赎金、刑期(EmpireLawEras.json；读不到用默认值)
+    public static EmpireLawEraConfig Eras { get; set; } = EmpireLawEraConfig.Defaults();
 
     // 世界法则「执行律法」(默认开)：关了不再自动定罪量刑，揭发罪行也定不了罪
     public static bool Enabled => EmpireCraftWorldLawLibrary.empirecraft_law_enforce_laws?.isEnabled() == true;
@@ -173,6 +214,7 @@ public static class EmpireLawSystem
             }
             LoadFromJson(path);
             LogService.LogInfo($"[律法] 读入 {Laws.Count} 条律法");
+            Eras = EmpireLawEraConfig.Load(Path.Combine(Path.GetDirectoryName(path) ?? "", EmpireLawEraConfig.FileName));
         }
         catch (Exception exception)
         {
@@ -226,16 +268,22 @@ public static class EmpireLawSystem
         return kingdom != null && kingdom.GetRegime().HasLaw(type);
     }
 
+    // 管辖权(名字沿用旧名，独立王国也走这里)：
+    //   · 帝国之内按帝国：成员国的人归本帝国论处；成员资格不等于管辖权——地方不得控告、处置天子，
+    //     中央(核心国)照旧可以(含现代宪政的审判)；
+    //   · 不在帝国里的国家(2026-11 起)：本国只管本国的人；本国君主不受本国审判，现代政体走宪政程序可以审。
     public static bool CanEnforceLawInEmpireScope(Actor actor, Kingdom kingdom)
     {
         if (actor == null || actor.isRekt() || kingdom == null || kingdom.isRekt())
         {
             return false;
         }
+        if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
 
         if (!kingdom.IsInEmpire())
         {
-            return false;
+            if (actor.kingdom != kingdom) return false;
+            return actor != kingdom.king || ModernStability.IsModern(kingdom);
         }
 
         Empire empire = kingdom.GetEmpire();
@@ -256,6 +304,20 @@ public static class EmpireLawSystem
         return actor.kingdom.GetEmpireID() == kingdom.GetEmpireID();
     }
 
+    public static bool CanEnforceLaw(Actor actor, Kingdom kingdom) => CanEnforceLawInEmpireScope(actor, kingdom);
+
+    // 这桩未发的罪归不归 kingdom 管：帝国之内按帝国(独立时犯下的按国)，不在帝国里的按本国
+    private static bool InJurisdiction(CrimeRecord record, Kingdom kingdom)
+    {
+        if (record == null || kingdom == null) return false;
+        if (kingdom.IsInEmpire())
+        {
+            long empireId = kingdom.GetEmpireID();
+            return record.empire_id >= 0 ? record.empire_id == empireId : record.kingdom_id == kingdom.getID();
+        }
+        return record.kingdom_id == kingdom.getID();
+    }
+
     public static LawEnforcementContext TryEnforceLaw(this Actor actor, LawType type, Kingdom kingdom)
     {
         return TryEnforceLaw(actor, type, kingdom, null, null);
@@ -267,11 +329,12 @@ public static class EmpireLawSystem
         return TryEnforceLaw(actor, type, kingdom, extraPunishment, null);
     }
 
-    // 能按这条律法论处时给出案情，不施刑(揭发罪行的计谋自己定罪还是开释，见 EmpireCraftPlotsAddition)
+    // 能按这条律法论处时给出案情，不施刑(揭发罪行的计谋自己定罪还是开释，见 EmpireCraftPlotsAddition)。
+    // 立案时记下犯人的名号、身份与上不上公屏(施刑后罢了官、伏了诛也照原样记)
     public static LawEnforcementContext PrepareEnforcement(Actor actor, LawType type, Kingdom kingdom, string crimeDate = null)
     {
         if (!Enabled) return null;
-        if (actor == null || actor.isRekt()) return null;
+        if (actor == null || actor.isRekt() || !actor.isAlive()) return null;
         if (kingdom == null)
         {
             kingdom = actor.kingdom;
@@ -291,15 +354,48 @@ public static class EmpireLawSystem
             return null;
         }
 
-        return new LawEnforcementContext
+        var context = new LawEnforcementContext
         {
             Actor = actor,
             Kingdom = kingdom,
             Regime = regime,
             LawType = type,
             Law = law,
-            CrimeDate = crimeDate
+            CrimeDate = crimeDate,
+            Grave = IsGraveCrime(type),
+            Identity = actor.GetPersonalIdentity(),
+            ActorName = actor.getName()
         };
+        try
+        {
+            context.ActorLogName = TranslateHelper.GetActorFullLogName(actor);
+            context.ActorColorText = actor.getColor()?._color_text;
+        }
+        catch (Exception)
+        {
+            context.ActorLogName = actor.getName();
+        }
+        // 年审查出的寻常案子：独立的小国(不到 SmallRealmCities 城)不上公屏，免得刷屏
+        context.Broadcast = TranslateHelper.ShouldBroadcastLawActor(actor) &&
+                            (kingdom.IsInEmpire() || kingdom.countCities() >= SmallRealmCities);
+        return context;
+    }
+
+    // 当场拿获、罪证确凿：不掷发现骰，直接按律论处(走完整的量刑：时代与政体、宽严、八议减等、赎刑)，记卷宗与日志。
+    // reasonKey 为可选的本地化键，写进卷宗备注和日志(如 "law_reason_failed_rebellion")；accuser 可空。
+    // 律法关闭、本政体无此律、无管辖权、本人已死等返回 null。同一罪名尚未发觉的旧案一并了结
+    public static LawEnforcementContext Prosecute(Actor actor, LawType type, Kingdom kingdom, string reasonKey = null, Actor accuser = null)
+    {
+        LawEnforcementContext context = PrepareEnforcement(actor, type, kingdom);
+        if (context == null) return null;
+        context.Explicit = true;
+        context.ReasonKey = reasonKey;
+        context.Accuser = accuser != null && !accuser.isRekt() && accuser != actor ? accuser : null;
+        // 当场拿获的是实事，不论国大国小都上公屏；有名望、爵位的要人也上，不只官员
+        context.Broadcast = TranslateHelper.ShouldBroadcastLawActor(actor) || actor.renown >= 30 ||
+                            actor.GetPeeragesLevel() != PeeragesLevel.peerages_6 || actor.HasTitle();
+        ResolvePendingRecords(context.Identity, type, context.Kingdom);
+        return Execute(context, null);
     }
 
     // 致死的刑罚放最后(人死了后面的刑罚施不上)；有夷三族就不另施死刑(夷三族连本人一起)
@@ -313,19 +409,39 @@ public static class EmpireLawSystem
         return result;
     }
 
+    // 发觉旧案(年审、朝堂诉求)也走完整的量刑
     public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
         Action<LawEnforcementContext> extraPunishment, string crimeDate)
     {
         LawEnforcementContext context = PrepareEnforcement(actor, type, kingdom, crimeDate);
         if (context == null) return null;
-        kingdom = context.Kingdom;
-        Law law = context.Law;
+        return Execute(context, extraPunishment);
+    }
+
+    // 定罪量刑、施刑、记卷宗与前科、写日志。顺序：量刑(时代政体 → 宽严 → 八议 → 赎刑) → 收赎金 → 记生平 →
+    // 施刑(致死的放最后) → 附加处分 → 追赃整吏治 → 处决的后果 → 卷宗 → 日志
+    private static LawEnforcementContext Execute(LawEnforcementContext context, Action<LawEnforcementContext> extraPunishment)
+    {
+        Actor actor = context.Actor;
+        Kingdom kingdom = context.Kingdom;
+        LawType type = context.LawType;
+
+        if (context.Identity == null)
+        {
+            actor.CheckSpecificClan(false);
+            context.Identity = actor.GetPersonalIdentity();
+        }
 
         City corruptionCity = actor.GetOffice()?.meta_object as City;
         if (corruptionCity == null && actor.isCityLeader()) corruptionCity = actor.city;
         bool corruptionAdministration = kingdom.king == actor || actor.GetOffice()?.meta_object == kingdom;
+
+        BuildSentence(context);
+        PayRansom(context);
+        RecordSentenceHistory(context);
+
         int moneyBefore = actor.money;
-        foreach (PunishmentLevel punishment in OrderedPunishments(law.Punishments))
+        foreach (PunishmentLevel punishment in OrderedPunishments(context.Sentence))
         {
             if (ApplyPunishment(context, punishment))
             {
@@ -341,9 +457,12 @@ public static class EmpireLawSystem
         CorruptionSystem.OnLawEnforced(kingdom, corruptionCity, corruptionAdministration, type,
             context.AppliedPunishments, moneyBefore, actor.money);
 
-        if (context.AppliedPunishments.Count > 0)
+        FinishCase(context);
+
+        if (context.AppliedPunishments.Count > 0 || context.RansomPaid > 0)
         {
-            LogService.LogInfo("Law enforced: " + type + " -> " + actor.getName() + " | " + string.Join(", ", context.AppliedPunishments));
+            LogService.LogInfo("Law enforced: " + type + " -> " + context.ActorLogName + " | " +
+                               string.Join(", ", context.AppliedPunishments) + " | " + context.Outcome);
         }
 
         TranslateHelper.LogLawEnforcement(context);
@@ -382,7 +501,10 @@ public static class EmpireLawSystem
         if (city == null || city.isRekt() || !city.hasKingdom()) return false;
 
         Kingdom kingdom = city.kingdom;
-        if (kingdom == null || kingdom.isRekt() || !kingdom.IsInEmpire()) return false;
+        // 2026-11 起不在帝国里的国家也按本国律法查本国的人(以前只查帝国)
+        if (kingdom == null || kingdom.isRekt() ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
+        if (city.isCapitalCity()) TickRealm(kingdom);
 
         HashSet<long> checkedActors = new HashSet<long>();
 
@@ -409,9 +531,11 @@ public static class EmpireLawSystem
         return false;
     }
 
+    // 每国每年由国家 AI 调一次(EmpireCraftKingdomBehCheckEmpireLaw)：先办狱政(刑满释放、宽仁之国恩赦)，再查拥兵自重
     public static void CheckMercenaryOvermightyLaw(Kingdom kingdom)
     {
         if (!Enabled) return;
+        TickRealm(kingdom);
         if (kingdom == null || kingdom.isRekt() || !kingdom.IsInEmpire()) return;
 
         Empire empire = kingdom.GetEmpire();
@@ -491,10 +615,12 @@ public static class EmpireLawSystem
         return TryAutoCrime(actor, LawType.散布恐慌谣言, 0.02f + deceitModifier + disorderModifier * 0.5f, null);
     }
 
-    // 每年自动查的犯罪按 AutoCrimeScale 压低；计谋里点名的(概率 1)不压
+    // 每年自动查的犯罪按 AutoCrimeScale 压低；计谋里点名的(概率 1)不压。
+    // 宽严(见 GetLawStance)：严苛之国人畏法而少犯(最少七成)，宽仁之国多犯(最多一成三)
     private static bool TryAutoCrime(Actor actor, LawType lawType, float chance, Action<LawEnforcementContext> extraPunishment)
     {
-        return TryTriggerProbabilisticLaw(actor, lawType, chance * AutoCrimeScale, extraPunishment);
+        float deterrence = actor?.kingdom != null ? GetLawStance(actor.kingdom).CrimeRateFactor : 1f;
+        return TryTriggerProbabilisticLaw(actor, lawType, chance * AutoCrimeScale * deterrence, extraPunishment);
     }
 
     public static bool TryTriggerProbabilisticLaw(this Actor actor, LawType lawType, float chance,
@@ -541,7 +667,7 @@ public static class EmpireLawSystem
             CrimeRecord existing = records[i];
             if (existing == null || existing.resolved) continue;
             if (existing.law_type != (int)lawType) continue;
-            if (existing.empire_id != kingdom.GetEmpireID()) continue;
+            if (!InJurisdiction(existing, kingdom)) continue;
             if (existing.crime_timestamp > 0 && Date.getYearsSince(existing.crime_timestamp) < 20f)
             {
                 return false;
@@ -553,7 +679,8 @@ public static class EmpireLawSystem
         {
             law_type = (int)lawType,
             kingdom_id = kingdom.getID(),
-            empire_id = kingdom.GetEmpireID(),
+            // 不在帝国里的国家记 -1(按国论处，见 InJurisdiction)
+            empire_id = kingdom.IsInEmpire() ? kingdom.GetEmpireID() : -1L,
             crime_timestamp = now,
             crime_date = Date.getDate(now)
         };
@@ -584,7 +711,7 @@ public static class EmpireLawSystem
         {
             CrimeRecord record = identity.crime_records[i];
             if (record == null || record.resolved) continue;
-            if (record.empire_id != kingdom.GetEmpireID()) continue;
+            if (!InJurisdiction(record, kingdom)) continue;
             if (!CanResolveCrimeRecord(actor, kingdom, record)) continue;
             return record;
         }
@@ -605,9 +732,7 @@ public static class EmpireLawSystem
             return null;
         }
 
-        LawType lawType = (LawType)record.law_type;
-        Law law = lawType.GetConfig();
-        return law != null && !string.IsNullOrEmpty(law.Name) ? law.Name : lawType.ToString();
+        return GetLawName((LawType)record.law_type);
     }
 
     public static LawEnforcementContext TryEnforceCrimeForClaim(Actor actor, Kingdom kingdom)
@@ -628,19 +753,18 @@ public static class EmpireLawSystem
         record.discovered_date = Date.getDate(record.discovered_timestamp);
 
         LawType lawType = (LawType)record.law_type;
-        Law law = lawType.GetConfig();
-        string lawName = law != null && !string.IsNullOrEmpty(law.Name) ? law.Name : lawType.ToString();
+        string lawName = GetLawName(lawType);
 
-          LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
-          if (context != null)
-          {
-              if (context.AppliedPunishments != null && context.AppliedPunishments.Any(p =>
-                      p == PunishmentLevel.剥夺官职 || p == PunishmentLevel.剥夺爵位))
-              {
-                  TranslateHelper.LogTemporaryFactionOfficialFall(kingdom.GetEmpire(), actor, lawName);
-              }
-              record.resolved = true;
-          }
+        LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
+        if (context != null)
+        {
+            if (context.AppliedPunishments != null && context.AppliedPunishments.Any(p =>
+                    p == PunishmentLevel.剥夺官职 || p == PunishmentLevel.剥夺爵位))
+            {
+                TranslateHelper.LogTemporaryFactionOfficialFall(kingdom.GetEmpire(), actor, lawName);
+            }
+            record.resolved = true;
+        }
 
         return context;
     }
@@ -662,9 +786,9 @@ public static class EmpireLawSystem
         {
             CrimeRecord record = identity.crime_records[i];
             if (record == null || record.resolved) continue;
-            if (record.empire_id != kingdom.GetEmpireID()) continue;
+            if (!InJurisdiction(record, kingdom)) continue;
             if (!CanResolveCrimeRecord(actor, kingdom, record)) continue;
-            if (UnityEngine.Random.value > GetCrimeDiscoveryChance(actor)) continue;
+            if (UnityEngine.Random.value > GetCrimeDiscoveryChance(actor, kingdom)) continue;
 
             record.discovered = true;
             record.discovered_timestamp = World.world.getCurWorldTime();
@@ -711,26 +835,14 @@ public static class EmpireLawSystem
             return;
         }
 
+        // 结了的、二十年没发觉的、大赦以前犯下的寻常罪(十恶除外)都不再追究
         identity.crime_records.RemoveAll(delegate(CrimeRecord record)
         {
             if (record == null) return true;
             if (record.resolved) return true;
-            return record.crime_timestamp > 0 && Date.getYearsSince(record.crime_timestamp) >= 20f;
+            if (record.crime_timestamp > 0 && Date.getYearsSince(record.crime_timestamp) >= 20f) return true;
+            return PardonedByAmnesty(record);
         });
-    }
-
-    private static float GetCrimeDiscoveryChance(Actor actor)
-    {
-        if (actor == null) return 0.1f;
-
-        int intelligence = actor.intelligence;
-        if (intelligence < 0) intelligence = 0;
-        if (intelligence > 40) intelligence = 40;
-
-        float discoverProb = 0.45f - (intelligence / 40f) * 0.30f;
-        if (discoverProb < 0.05f) discoverProb = 0.05f;
-        if (discoverProb > 0.45f) discoverProb = 0.45f;
-        return discoverProb;
     }
 
     private static bool CanResolveCrimeRecord(Actor actor, Kingdom kingdom, CrimeRecord record)
@@ -901,7 +1013,7 @@ public static class EmpireLawSystem
             case PunishmentLevel.无罪:
                 return false;
             case PunishmentLevel.罚金:
-                return ApplyFine(context.Actor);
+                return ApplyFine(context);
             case PunishmentLevel.笞刑:
                 return ApplyCaning(context.Actor, 60);
             case PunishmentLevel.杖刑:
@@ -925,11 +1037,27 @@ public static class EmpireLawSystem
         }
     }
 
-    private static bool ApplyFine(Actor actor)
+    // 罚金按家资(2026-11 起，以前一律 50)：家资的两成，宽严增减，至少 FineFloor(家资不够就罚光)
+    public const int FineFloor = 30;
+    private const float FineShare = 0.2f;
+
+    private static bool ApplyFine(LawEnforcementContext context)
     {
+        Actor actor = context?.Actor;
         if (actor == null || actor.isRekt()) return false;
-        actor.addMoney(-50);
+        int amount = FineAmount(actor, context.Kingdom);
+        if (amount > 0) actor.addMoney(-amount);
+        context.FinePaid += amount;
         return true;
+    }
+
+    public static int FineAmount(Actor actor, Kingdom kingdom)
+    {
+        if (actor == null) return 0;
+        int money = Math.Max(0, actor.money);
+        float factor = kingdom != null ? GetLawStance(kingdom).FineFactor : 1f;
+        int amount = Math.Max(FineFloor, Mathf.RoundToInt(money * FineShare * factor));
+        return Math.Min(amount, money);
     }
 
     private static bool ApplyCaning(Actor actor, int remainingHealth)
@@ -943,17 +1071,20 @@ public static class EmpireLawSystem
         return true;
     }
 
-    // 下狱：去官(不禁子孙出仕)。以前挂 death_mark、加死亡率，死亡率没有地方读，等于只挂个标记
+    // 下狱：去官(不禁子孙出仕)，按刑期收押(见 Imprison)：在押期间不得出任官职，刑满或大赦释放。
+    // 以前挂 death_mark、加死亡率，死亡率没有地方读，等于只挂个标记
     private static bool ApplyImprisonment(LawEnforcementContext context)
     {
         Actor actor = context?.Actor;
         if (actor == null || actor.isRekt()) return false;
-        return ApplyStripOffice(new LawEnforcementContext
+        ApplyStripOffice(new LawEnforcementContext
         {
             Actor = actor,
             Kingdom = context.Kingdom,
             Law = new Law()
         });
+        Imprison(context);
+        return true;
     }
 
     private static bool ApplyExile(LawEnforcementContext context)
@@ -1036,7 +1167,9 @@ public static class EmpireLawSystem
 
         if (context != null && context.Law != null && context.Law.AffectDescendants && kingdom != null)
         {
-            actor.BanFromOffice(kingdom.GetEmpireID());
+            // 帝国之内禁锢于本帝国；不在帝国里的国家禁锢于本国(见 IsBarredFromOffice)
+            if (kingdom.IsInEmpire()) actor.BanFromOffice(kingdom.GetEmpireID());
+            else BanFromKingdomOffice(actor, kingdom);
             changed = true;
         }
 
@@ -1044,15 +1177,17 @@ public static class EmpireLawSystem
     }
 
     // 死刑只杀本人；夷三族连子女、配偶一起(以前死刑也连坐子女和配偶，和夷三族一样)。
-    // 以前只挂 death_mark、加死亡率，死亡率没有地方读；现在登记死因后当场处死(写进生平，见 BiographySystem.Kill)
+    // 以前只挂 death_mark、加死亡率，死亡率没有地方读；现在登记死因后当场处死(写进生平，见 BiographySystem.Kill)。
+    // 监斩的是本朝君主(帝国之内是天子)；没杀成(穿越者的护体之类)不算施刑
     private static bool ApplyDeathPenalty(LawEnforcementContext context, bool kin)
     {
         Actor actor = context?.Actor;
         if (actor == null || actor.isRekt() || !actor.isAlive()) return false;
         Kingdom kingdom = context.Kingdom;
-        Actor judge = kingdom?.GetEmpire()?.Emperor ?? kingdom?.king;
+        Actor judge = RealmRuler(kingdom);
         if (judge == actor) judge = null;
-        string lawName = context.Law != null && !string.IsNullOrEmpty(context.Law.Name) ? context.Law.Name : context.LawType.ToString();
+        string lawName = GetLawName(context.LawType);
+        int killed = 0;
         if (kin)
         {
             string kinCause = string.Format(LM.Get("death_cause_law_kin"), actor.getName());
@@ -1061,9 +1196,15 @@ public static class EmpireLawSystem
                 if (child != null && !child.isRekt() && child.isAlive()) kinfolk.Add(child);
             if (actor.lover != null && !actor.lover.isRekt() && actor.lover.isAlive()) kinfolk.Add(actor.lover);
             foreach (Actor relative in kinfolk)
+            {
                 BiographySystem.Kill(relative, kinCause, judge, executed: true);
+                if (relative.isRekt() || !relative.isAlive()) killed++;
+            }
         }
         BiographySystem.Kill(actor, string.Format(LM.Get("death_cause_law_execution"), lawName), judge, executed: true);
-        return true;
+        bool died = actor.isRekt() || !actor.isAlive();
+        if (died) killed++;
+        if (killed > 0) OnExecutions(context, killed, kin);
+        return died;
     }
 }

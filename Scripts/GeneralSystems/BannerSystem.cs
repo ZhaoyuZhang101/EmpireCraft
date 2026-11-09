@@ -17,7 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 政体：朝廷照华夏制度走多元帝国的兼用路线(CompositeEmpireService)，年号、官职、后宫都用律令那套，汉地各省律令、草原各部游牧，
 //     本族旧制记在军事传统里；政体记在 KingdomExtraData.banner_regime，只在显示、官名、军制上和律令分开。国号"大清朝"。
 //     路线固定兼用，不改分治、不北归，不算离草(见 CompositeEmpireService.EstablishCourt)；
-//   · 八旗：军制见 Formations.json 的 Banner 槽位——中央禁旅八旗只收旗人，地方绿营不收旗人；老兵值封顶随八旗战力，承平日久渐渐下滑；
+//   · 八旗：军制见 Formations.json 的 Banner 槽位——中央禁旅八旗只收旗人(连同统治族群与蒙古百姓，见 MayRecruit)，地方绿营不收旗人；
+//     老兵值封顶随八旗战力，承平日久渐渐下滑；
 //   · 旗人：SocialClass.Banner，只在背景人口里。世代在旗，不随阶层流动(见 CityPopulationSystem.DriftClasses)；
 //     开局在旗下的城三成编旗，满城八分；不纳粮，每年从国库领旗饷，发不出就有怨气；城丢了每年一成出旗为民；
 //   · 满城：驻防重镇。每几年挑一座治下人口最多的外族大城建一座，也可以由事件点名；城不因鞭长莫及失稳，城里多出旗人，
@@ -207,12 +208,15 @@ public static partial class BannerSystem
     // 旗地占城中土地的百分比(见 LandEconomySystem)
     public static float LandShare(City city) => city?.data == null ? 0f : city.GetOrCreate().banner_land * 100f;
 
-    // 征兵：禁旅八旗只收旗人(旗下还没编满时也收本族百姓)，别的军不收旗人
+    // 蒙古(游牧文化)：八旗有蒙古八旗，清改女真文化以后蒙古人不再算统治族群，禁旅八旗照样收(用户 2026-11-06)
+    public const string MongolCulture = "Youmu";
+
+    // 征兵：禁旅八旗只收旗人(旗下还没编满时也收本族百姓与蒙古百姓)，别的军不收旗人
     public static bool MayRecruit(bool bannerCorps, string rulingCulture, PopGroup group)
     {
         if (group == null) return false;
         if (!bannerCorps) return group.social_class != SocialClass.Banner;
-        return group.social_class == SocialClass.Banner || group.culture == rulingCulture;
+        return group.social_class == SocialClass.Banner || group.culture == rulingCulture || group.culture == MongolCulture;
     }
 
     public static string RulingCulture(Kingdom kingdom) => RulingCultureOf(kingdom);

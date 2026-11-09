@@ -17,6 +17,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   只与同一片海上的港口配对(码头旁的海面属于同一水域；以前按直线距离，隔着陆地的内湖、两洋也配上)；
 //   锁国的(制度特性 closed_country，如日本锁国令)不与外国通商；
 //   被迫开港(和约，见 WarGoalSystem 通商)的二十年里锁国也开，港口优先与胜者的港口配对，两边都得利。
+// 通达层开着时(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：最远配多远看本国航海档
+//   (没有近海引航 24 格、近海引航 64、远洋航海 192、工业化 576、电力或摩托化不限；以前一律直线 160 格)；
+//   利得扣掉运费：直线海程按这一档的上船与航程算成本，运费占比 = 成本 × route_freight × 运输科技系数(至多九成)。
 public static class TradeRouteSystem
 {
     private const float MaxRouteDistance = 160f;
@@ -26,12 +29,22 @@ public static class TradeRouteSystem
     private static double _lastPairing = -1d;
     // 城市 id → 贸易伙伴城市 id(每年重算)
     private static readonly Dictionary<long, long> Routes = new();
+    // 城市 id → 这条商路的海程成本、运费占比(配对时算，见 Pair)
+    private static readonly Dictionary<long, (float cost, float freight)> RouteFreight = new();
     private static readonly HashSet<(long, long)> SettledTreaties = new();
     private static readonly List<long> StaleRoutes = new();
     private static MapBox _world;
 
     public static long PartnerOf(City city) =>
         city?.data != null && Routes.TryGetValue(city.data.id, out long partner) ? partner : -1L;
+
+    // 这座港口那条商路的海程成本(商品市场按它算运费，见 CommodityMarketSystem)；没有按最远算
+    public static float RouteCost(City city) =>
+        city?.data != null && RouteFreight.TryGetValue(city.data.id, out var route) ? route.cost : ConnectivitySystem.Config.goods_max_cost;
+
+    // 扣掉运费后留下几成利得
+    private static float Keep(City city) =>
+        city?.data != null && RouteFreight.TryGetValue(city.data.id, out var route) ? 1f - route.freight : 1f;
 
     private static float TradeValue(City a, City b) =>
         BaseTrade + WealthTrade * (CityConstructionSystem.Wealth(a) + CityConstructionSystem.Wealth(b)) * 0.5f;
@@ -45,13 +58,13 @@ public static class TradeRouteSystem
             return string.Format(LM.Get("trade_route_embargo"), partner.GetCityName());
         if (NavySystem.IsBlockaded(city) || NavySystem.IsBlockaded(partner))
             return string.Format(LM.Get("trade_route_blockaded"), partner.GetCityName());
-        return string.Format(LM.Get("trade_route_status"), partner.GetCityName(), (long)TradeValue(city, partner));
+        return string.Format(LM.Get("trade_route_status"), partner.GetCityName(), (long)(TradeValue(city, partner) * Keep(city)));
     }
 
     public static void TryMonthlyScan()
     {
         if (World.world?.cities == null || ModClass.IS_CLEAR || !CityPopulationSystem.AbstractPopulationEnabled) return;
-        if (!ReferenceEquals(_world, World.world)) { Routes.Clear(); _lastPairing = -1d; _world = World.world; }
+        if (!ReferenceEquals(_world, World.world)) { Routes.Clear(); RouteFreight.Clear(); _lastPairing = -1d; _world = World.world; }
         double now = World.world.getCurWorldTime();
         if (_lastSettle >= 0d && now >= _lastSettle && Date.getMonthsSince(_lastSettle) < 1) return;
         _lastSettle = now;
@@ -79,6 +92,10 @@ public static class TradeRouteSystem
     private static void Pair()
     {
         Routes.Clear();
+        RouteFreight.Clear();
+        bool reach = ConnectivitySystem.Config.enabled;
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        var bands = new Dictionary<long, int>();
         var ports = new List<City>();
         var seas = new Dictionary<City, object>();
         foreach (City city in World.world.cities)
@@ -91,6 +108,14 @@ public static class TradeRouteSystem
         {
             City best = null;
             float bestDistance = MaxRouteDistance * MaxRouteDistance;
+            int band = 0;
+            if (reach)
+            {
+                long realm = ConnectivitySystem.RealmOf(city.kingdom)?.id ?? city.kingdom.id;
+                if (!bands.TryGetValue(realm, out band)) bands[realm] = band = ConnectivitySystem.Band(city);
+                float range = ConnectivityRules.RouteRange(band, config);
+                bestDistance = range > 0f ? range * range : float.MaxValue;
+            }
             Vector2 from = city.city_center;
             object sea = seas[city];
             // 被迫开港的先与胜者的港口配对
@@ -108,7 +133,12 @@ public static class TradeRouteSystem
                 bestDistance = distance;
                 best = other;
             }
-            if (best != null) Routes[city.data.id] = best.data.id;
+            if (best == null) continue;
+            Routes[city.data.id] = best.data.id;
+            if (!reach) continue;
+            float cost = ConnectivityRules.SeaLegCost(Mathf.Sqrt(bestDistance), band, config);
+            float freight = Mathf.Clamp(cost * config.route_freight * ConnectivitySystem.FreightFactor(city.kingdom), 0f, 0.9f);
+            RouteFreight[city.data.id] = (cost, freight);
         }
     }
 
@@ -195,14 +225,16 @@ public static class TradeRouteSystem
                 // 交战禁运；任一港口被敌方舰队封锁也断航(见 NavySystem)
                 if (city.kingdom.isInWarWith(partner.kingdom) || NavySystem.IsBlockaded(city) ||
                     NavySystem.IsBlockaded(partner)) continue;
+                // 利得扣掉运费(见类头)；和约商路两边按发起港口的运费算
+                float keep = Keep(city);
                 if (!treaty)
                 {
-                    Earn(city, TradeValue(city, partner));
+                    Earn(city, TradeValue(city, partner) * keep);
                     continue;
                 }
                 if (!SettledTreaties.Add(route.Key < route.Value ? (route.Key, route.Value) : (route.Value, route.Key))) continue;
-                Earn(city, TradeValue(city, partner));
-                Earn(partner, TradeValue(partner, city));
+                Earn(city, TradeValue(city, partner) * keep);
+                Earn(partner, TradeValue(partner, city) * keep);
             }
             catch (Exception exception)
             {

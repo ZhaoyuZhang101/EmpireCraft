@@ -1,0 +1,55 @@
+<?xml version='1.0'?>
+<!--
+  帝国盒子 发布版 DLL 保守混淆配置（Obfuscar）。用户 2026-11-08「编译成 dll 再加上加密」「保守混淆」。
+  工具：Obfuscar（开源）。安装：dotnet tool install --global Obfuscar.GlobalTool
+  由 build/pack-release.ps1 调用：先把编译好的 EmpireCraft.dll 放进 build/_in/，混淆结果出到 build/_out/。
+
+  —— 这个模组为什么只能“保守”混淆 ——
+  全模组靠 Harmony 补丁 + 反射 + 存档序列化。下面几类名字一旦被改，模组会坏、旧存档可能读不出来：
+    · 被 Newtonsoft/游戏存档序列化的数据类（Scripts/Data/*、各处 GetOrCreate 的自定义数据）——字段名、类名进了存档；
+    · 被 nameof()/字符串反射用到的成员（本模组 1000+ 处 nameof、400+ 处 AccessTools/GetMethod("...")）；
+    · 公开 API（NML 按接口反射找入口类 ModClass，其它模组/编辑器也可能按名字引用）。
+  所以这里：保留全部公开成员名（KeepPublicApi）、不改字段名、不改属性/事件名、不改类型名；
+  只打乱“私有方法”的名字 + 加密字符串常量 + 精简 IL。想更狠时，见文件末尾“想加大力度”。
+
+  —— 每次发布只需要动这个文件的地方 ——
+  若某次测试发现“开了混淆就报错/读不出旧档”，在 <Module> 里加 SkipNamespace / SkipType / SkipMethod 把对应部分排除，
+  重新打包即可（见 Docs/release-build.md 的“排错”）。
+-->
+<Obfuscator>
+  <!-- 路径由 pack-release.ps1 负责把 DLL 放进 _in/、取走 _out/；这里用相对仓库根目录的固定路径 -->
+  <Var name="InPath" value="build\_in" />
+  <Var name="OutPath" value="build\_out" />
+
+  <!-- 保守档位：保公开、保字段/属性/事件/类型名，只混私有方法名 + 加密字符串 -->
+  <Var name="KeepPublicApi" value="true" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="RenameFields" value="false" />
+  <Var name="RenameProperties" value="false" />
+  <Var name="RenameEvents" value="false" />
+  <Var name="HideStrings" value="true" />
+  <Var name="OptimizeMethods" value="true" />
+  <Var name="ReuseNames" value="true" />
+  <Var name="UseUnicodeNames" value="false" />
+  <!-- 抬一道门槛：标记程序集拒绝 ildasm（对 dnSpy/ILSpy 无效，只是顺手） -->
+  <Var name="SuppressIldasm" value="true" />
+
+  <Module file="$(InPath)\EmpireCraft.dll">
+    <!-- 存档数据类：类名/字段名会写进存档与 JSON，整段不改名（字符串仍会被加密，不影响） -->
+    <SkipNamespace name="EmpireCraft.Scripts.Data" />
+    <!-- 兜底：凡是名字以 Data 结尾的类型，一律不改名（GetOrCreate 的自定义存档数据多半在这类里） -->
+    <SkipType name="*Data" />
+    <SkipType name="*State" />
+    <!-- 若发现别处也被序列化/反射用到，在这里继续加，例如：
+         <SkipNamespace name="EmpireCraft.Scripts.Enums" />
+         <SkipType name="EmpireCraft.Scripts.GodPowers.*" skipFields="true" skipMethods="true" />
+    -->
+  </Module>
+</Obfuscator>
+
+<!--
+  想加大力度（都需要你本机充分测试，尤其“读一个旧存档”）：
+    1. 打开字段改名：RenameFields=true，并给仍需保名的类加 <SkipType ... skipFields="true" />；
+    2. 打开类型改名的更多范围：去掉上面的 SkipType 兜底（风险最高，最易坏档）；
+    3. 需要控制流混淆/加壳：Obfuscar 不做，可在本步之后再叠一层 ConfuserEx2（note：它更易与 Harmony/反射冲突，务必逐项测）。
+-->

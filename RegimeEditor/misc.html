@@ -51,6 +51,46 @@
     .grid.five{grid-template-columns:repeat(5,minmax(0,1fr))}
     .head-path{margin:-4px 0 10px}
     h3 button{margin-left:auto}
+    /* 律法：三种语言的名称与条文、现行刑罚 */
+    .lawloc{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .lawloc .col{display:grid;gap:4px;align-content:start}
+    .lawloc .col > span{font-size:12px;color:var(--muted)}
+    .fallback{font-size:12px;color:var(--muted)}
+    .fallback .diff{color:var(--c-gold,#8d6836)}
+    .badge.grave{color:var(--danger);border-color:var(--danger)}
+    .item .sub.grave{color:var(--danger)}
+    table.sheet.eff{table-layout:auto;width:auto;min-width:60%}
+    table.sheet.eff td,table.sheet.eff th{padding:3px 8px;white-space:normal}
+    table.sheet.eff td.same{color:var(--muted)}
+    /* 律法时代与宽严 */
+    .erf{border:1px solid var(--line);padding:8px 10px;display:grid;gap:6px;align-content:start;min-width:0}
+    .erf.changed{border-color:var(--c-gold,#8d6836)}
+    .erf.wide{grid-column:1/-1}
+    .erf-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+    .erf-head .def{font-size:12px;color:var(--muted)}
+    .erf-head .def b{color:var(--c-gold,#8d6836)}
+    .erf-head button{margin-left:auto}
+    .erf input[type=number]{max-width:170px}
+    .erf select.solo{max-width:280px}
+    .kv{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .kv .pair{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);padding:2px 4px 2px 8px;font-size:12px}
+    .kv .pair.bad{border-color:var(--danger);color:var(--danger)}
+    .kv select,.kv input{width:auto;padding:2px 6px;font-size:12px}
+    .rule{border:1px dashed var(--line);padding:6px 8px;display:grid;gap:6px}
+    .rule .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .rule .row select,.rule .row input{width:auto;min-width:150px}
+    .checkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 8px}
+    .checkgrid label{display:flex;align-items:center;gap:6px;font-size:13px;padding:2px 4px}
+    .checkgrid label.on{color:var(--danger)}
+    .checkgrid .grp-title{grid-column:1/-1;color:var(--muted);font-size:12px;margin-top:4px}
+    table.sheet.mapt{table-layout:auto;width:auto;min-width:340px}
+    table.sheet.mapt td,table.sheet.mapt th{padding:2px 8px}
+    table.sheet.mapt td input{width:120px;border:1px solid var(--line) !important}
+    table.sheet.mapt td.dv{color:var(--muted);font-size:12px}
+    .maps{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+    .erf > table,.erf > .maps{justify-self:start}
+    table.sheet.mapt th,table.sheet.eff th{position:static}
+    .rule .row input[data-rule-note]{min-width:230px}
   </style>
   <link rel="stylesheet" href="pixel-theme.css" />
 </head>
@@ -75,7 +115,8 @@
         <ol>
           <li>每个文件单独保存；改过还没保存的文件左边标 ●。Ctrl+S 保存当前文件。</li>
           <li>保存时只重写改动过的值或行：注释、空行、缩进、键的顺序、编辑器不认识的字段都原样保留。</li>
-          <li>称谓表填简体会自动补上繁体；英文留空的，保存时用简体代替。</li>
+          <li>称谓表、律法名称填简体会自动补上繁体；英文留空的，保存时用简体代替。</li>
+          <li>律法的名称、条文存在语言文件(Locales/cz、ch、en.json)，保存「帝国律法」时一起写。</li>
           <li>改完要重启游戏才生效。</li>
           <li>文武官阶称谓表(OfficialRanks.csv)在「军制与官阶」页。</li>
         </ol>
@@ -90,7 +131,8 @@
     // 杂项配置：模组后来加的几份配置与称谓表，每份一个分页。
     // 读写原则：JSON 只重写改动过的值(注释、空行、缩进、键顺序、不认识的字段原样保留)；CSV 只重写改动过的行。
     const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
-    const has = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+    const isCont = v => !!v && typeof v === "object";
+    const has = (o, k) =>!!o && Object.prototype.hasOwnProperty.call(o, k);
     const zhOK = () => typeof zhToTrad === "function" && typeof zhToSimp === "function";
 
     function deepEqual(a, b) {
@@ -206,12 +248,19 @@
           const m = /^([ \t]+)["{\[\d\-tfn]/.exec(line);
           if (m && (!unit || m[1].length < unit.length)) unit = m[1];
         }
-        let colon = null, inline = null, sep = null;
+        let colon = null, inline = null, sep = null, objInline = null;
         const walk = node => {
           if (node.kind === "scalar") return;
           if (node.kind === "object" && node.items.length && colon === null) {
             const c = text.slice(node.items[0].keyEnd, node.items[0].value.start);
             colon = /^[ \t]*:[ \t]*$/.test(c) ? c : ": ";
+          }
+          // 写在一行里的 { } 对象(如 { "MinEraTier": 7, "Replace": { … } })：新加的同类对象照它的空格写成一行
+          if (node.kind === "object" && node.items.length && !objInline && !/\n/.test(text.slice(node.start, node.end))) {
+            const first = node.items[0], last = node.items[node.items.length - 1];
+            const a = text.slice(node.start + 1, first.start), b = text.slice(last.end, node.closeAt);
+            const s = node.items.length > 1 ? text.slice(first.end, node.items[1].start) : "";
+            objInline = { padL: /\S/.test(a) ? " " : a, padR: /[^\s,]/.test(b) ? " " : b.replace(",", ""), sep: /^\s*,\s*$/.test(s) ? s : ", " };
           }
           if (node.kind === "array" && node.items.length && node.items.every(it => it.value.kind === "scalar") &&
             !/\n/.test(text.slice(node.start, node.end))) {
@@ -227,7 +276,7 @@
         };
         walk(root);
         if (inline && sep) inline.sep = sep;
-        return { eol, unit: unit || "  ", colon: colon || ": ", inline };
+        return { eol, unit: unit || "  ", colon: colon || ": ", inline, objInline: objInline || { padL: " ", padR: " ", sep: ", " } };
       }
 
       function serialize(doc, data) {
@@ -252,6 +301,21 @@
           }
           return v === undefined ? "null" : JSON.stringify(v);
         };
+        // 写成一行：嵌在单行对象里的新成员、同一列表里原有对象都写成一行时新加的对象
+        const compact = v => {
+          if (Array.isArray(v)) {
+            if (!v.length) return "[]";
+            const p = style.inline || { padL: "", padR: "", sep: ", " };
+            return "[" + p.padL + v.map(compact).join(p.sep) + p.padR + "]";
+          }
+          if (isObj(v)) {
+            const ks = Object.keys(v);
+            if (!ks.length) return "{}";
+            const p = style.objInline;
+            return "{" + p.padL + ks.map(k => JSON.stringify(k) + style.colon + compact(v[k])).join(p.sep) + p.padR + "}";
+          }
+          return v === undefined ? "null" : JSON.stringify(v);
+        };
         const emit = (node, v) => {
           if (deepEqual(node.json, v)) return sl(node.start, node.end);
           if (node.kind === "object" && isObj(v)) return assemble(node, objectPieces(node, v));
@@ -269,22 +333,33 @@
           });
           const mi = memberIndent(node);
           for (const k of Object.keys(obj))
-            if (!lastIdx.has(k)) pieces.push({ orig: null, v: obj[k], body: JSON.stringify(k) + style.colon + fresh(obj[k], mi) });
+            if (!lastIdx.has(k)) pieces.push({ orig: null, k, v: obj[k], body: JSON.stringify(k) + style.colon + fresh(obj[k], mi) });
           return pieces;
         };
         const arrayPieces = (node, arr) => {
           const used = new Set();
+          // 列表里仍在的原成员认领着自己的原文；新成员只能顶替没人认领的原条目
+          const claimed = new Set(arr.map(x => isCont(x) ? origin.get(x) : null).filter(Boolean));
+          const free = t => !!t && !used.has(t) && !claimed.has(t.value);
+          const conts = node.items.filter(t => t.value.kind !== "scalar");
+          const oneLine = conts.length > 0 && conts.every(t => !/\n/.test(sl(t.value.start, t.value.end)));
           return arr.map((x, j) => {
             let it = null;
             if (isCont(x)) {
               const on = origin.get(x);
               if (on) it = node.items.find(t => t.value === on && !used.has(t)) || null;
+              else {
+                // 新对象(如恢复默认换上的副本)：和某条原文内容一样就照抄原文；否则顶替同一位置上没人认领的同类条目，按键逐个改
+                it = node.items.find(t => free(t) && deepEqual(t.value.json, x)) || null;
+                const t = node.items[j];
+                if (!it && free(t) && t.value.kind === (Array.isArray(x) ? "array" : "object")) it = t;
+              }
             } else {
               const ok = t => t && !used.has(t) && t.value.kind === "scalar" && t.value.json === x;
               it = ok(node.items[j]) ? node.items[j] : (node.items.find(ok) || null);
             }
             if (it) used.add(it);
-            return { orig: it, v: x, body: it ? emit(it.value, x) : fresh(x, memberIndent(node)) };
+            return { orig: it, v: x, body: it ? emit(it.value, x) : isCont(x) && oneLine ? compact(x) : fresh(x, memberIndent(node)) };
           });
         };
         const assemble = (node, pieces) => {
@@ -300,16 +375,23 @@
           const wasEmpty = !items.length;
           let inline = !wasEmpty && !/\n/.test(sl(node.start, node.end));
           if (wasEmpty && node.kind === "array" && style.inline && pieces.every(p => !isCont(p.v))) inline = true;
+          // 空的 { } / [ ] 嵌在单行里(同一行后面还有别的内容，如 { "Replace": {} })：加进去的也写在这一行
+          if (wasEmpty && !inline) {
+            const le = text.indexOf("\n", node.end);
+            const rest = sl(node.end, le < 0 ? text.length : le).replace(/\/\/.*$/, "").trim();
+            if (rest !== "" && rest !== ",") inline = true;
+          }
           if (inline) {
-            let padL = style.inline ? style.inline.padL : "", padR = style.inline ? style.inline.padR : "";
-            let sep = style.inline ? style.inline.sep : ", ";
+            const base = node.kind === "object" ? style.objInline : (style.inline || { padL: "", padR: "", sep: ", " });
+            let padL = base.padL, padR = base.padR, sep = base.sep;
             if (!wasEmpty) {
               const a = sl(node.start + 1, items[0].start), b = sl(items[items.length - 1].end, node.closeAt);
               if (!/\S/.test(a)) padL = a;
               if (!/[^\s,]/.test(b)) padR = b.replace(",", "");
               if (items.length > 1) { const s = sl(items[0].end, items[1].start); if (/^\s*,\s*$/.test(s)) sep = s; }
             }
-            return open + padL + pieces.map(p => p.body).join(sep) + padR + close;
+            const body = p => p.orig || !isCont(p.v) ? p.body : (p.k !== undefined ? JSON.stringify(p.k) + style.colon : "") + compact(p.v);
+            return open + padL + pieces.map(body).join(sep) + padR + close;
           }
           const ind = indentAt(node.start);
           let defLead, tail;
@@ -388,6 +470,7 @@
       { id: "senators", label: "元老名册", icon: "iconClan", path: "Scripts/Regimes/Configs/Transmigrant/Senators.csv", kind: "csv", quoting: false,
         empty: "seat,name,sex,group,landing_post,early_post,post,cabinet_post\n", render: renderSenators },
       { id: "laws", label: "帝国律法", icon: "iconBooksWritten", path: "Scripts/GeneralSystems/EmpireLaw/EmpireLawConfig.json", kind: "json", bom: true, empty: "[]\n", render: renderLaws },
+      { id: "lawEras", label: "律法时代与宽严", icon: "iconBooks", path: "Scripts/GeneralSystems/EmpireLaw/EmpireLawEras.json", kind: "json", empty: "{}\n", render: renderLawEras },
       { id: "performance", label: "官员考绩事件", icon: "iconHistory", path: "Scripts/Data/PerformanceData.json", kind: "json", empty: "{}\n", render: renderPerformance },
       { id: "peerages", label: "爵位名称", icon: "iconTitleLayer", path: "Locales/PeeragesLevelNames.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
         about: "人物爵位的显示名。键 = 文化_peerages_档位：0 最高(皇帝、天子)，6 为无爵；本文化没配的档位退回 default_peerages_档位。default_peerages_2(王)还用作封王的后缀。" },
@@ -398,7 +481,8 @@
     ];
     const BY_ID = Object.fromEntries(FILES.map(f => [f.id, f]));
     const S = { cur: FILES[0].id, files: {}, ui: {}, loc: {}, clauses: [], ideologies: [], natDefaults: {}, seatCount: 521, coreRoster: 13,
-      lawTypes: [], lawCats: [], punish: [], perfTypes: [], lawLoaded: null };
+      lawTypes: [], lawCats: [], punish: [], perfTypes: [], lawLoaded: null,
+      ideoEnum: [], eraDefaults: null, eraFromCode: false, eraReadKeys: null, eraTiers: [], noteKeys: [] };
 
     // ================= 读 C# 代码里的枚举、默认值 =================
     function parseEnum(text, name) {
@@ -524,16 +608,18 @@
     }
 
     async function loadLookups() {
-      const [sys, data, party, nat, trans, law, actor, mod] = await Promise.all([
+      const [sys, data, party, nat, trans, law, actor, mod, eraCs, techTree, czText] = await Promise.all([
         "Scripts/GeneralSystems/ConstitutionSystem.cs", "Scripts/Data/ConstitutionData.cs", "Scripts/GeneralSystems/PartySystem.cs",
         "Scripts/GeneralSystems/NaturalizationSystem.cs", "Scripts/GeneralSystems/TransmigrantSystem.cs",
-        "Scripts/GeneralSystems/EmpireLaw/EmpireLawSystem.cs", "Scripts/GameClassExtensions/ActorExtension.cs", "Scripts/ModClass.cs"
+        "Scripts/GeneralSystems/EmpireLaw/EmpireLawSystem.cs", "Scripts/GameClassExtensions/ActorExtension.cs", "Scripts/ModClass.cs",
+        "Scripts/GeneralSystems/EmpireLaw/EmpireLawEraConfig.cs", "Technology/TechTree.json", "Locales/cz.json"
       ].map(readText));
       S.clauses = parseClauses(sys, data) || FALLBACK_CLAUSES.map(([key, en, v]) => en === "int"
         ? { key, type: "int", min: v[0], max: v[1], builtin: String(v[2]) }
         : { key, type: "enum", enumName: en, values: v, builtin: v[0] });
-      S.ideologies = parseEnum(party, "PartyIdeology").map(m => m.name);
-      if (!S.ideologies.length) S.ideologies = Object.keys(IDEO_ZH);
+      S.ideoEnum = parseEnum(party, "PartyIdeology");
+      if (!S.ideoEnum.length) S.ideoEnum = [...Object.keys(IDEO_ZH), ...ANCIENT_IDEOS].map((name, value) => ({ name, value }));
+      S.ideologies = S.ideoEnum.map(m => m.name);
       S.natDefaults = parseNatDefaults(nat) || { ...NAT_FALLBACK };
       const tt = stripCsComments(trans);
       S.seatCount = +(/const\s+int\s+SeatCount\s*=\s*(\d+)/.exec(tt)?.[1] || 521);
@@ -543,8 +629,21 @@
       S.punish = parseEnum(law, "PunishmentLevel");
       if (!S.punish.length) S.punish = ["无罪", "罚金", "笞刑", "杖刑", "监禁", "流放", "没收财产", "剥夺爵位", "剥夺官职", "死刑", "夷三族"].map((name, value) => ({ name, value }));
       S.perfTypes = parseEnum(actor, "PerformanceEventType");
-      // 律法文件只有调用了 EmpireLawSystem.init() 才会读
+      // 律法文件只有调用了 EmpireLawSystem.init() 才会读(ModClass 里写的是带命名空间的全名，也认得)
       S.lawLoaded = mod == null ? null : /EmpireLawSystem\s*\.\s*init\s*\(/.test(stripCsComments(mod));
+      // 律法时代与宽严：代码默认值、代码读哪些键、科技时代档次、语言文件里现有的卷宗说明
+      let eraDef = null;
+      try { eraDef = parseEraDefaults(eraCs); } catch { eraDef = null; }
+      S.eraFromCode = !!eraDef;
+      S.eraDefaults = { ...structuredClone(ERA_FALLBACK), ...(eraDef || {}) };
+      S.eraReadKeys = parseEraReadKeys(eraCs);
+      try {
+        const eras = techTree ? parseJsonLoose(techTree).eras : null;
+        S.eraTiers = (Array.isArray(eras) ? eras : []).filter(e => e && Number.isFinite(e.tier))
+          .map(e => ({ tier: e.tier, key: String(e.key || "") })).sort((a, b) => a.tier - b.tier);
+      } catch { S.eraTiers = []; }
+      if (!S.eraTiers.length) S.eraTiers = ERA_TIER_FALLBACK.map(([tier, key]) => ({ tier, key }));
+      S.noteKeys = uniq([...String(czText || "").matchAll(/"(law_note_[^"\\]+)"\s*:/g)].map(m => m[1]));
 
       const keys = [];
       for (const c of S.clauses) {
@@ -552,6 +651,11 @@
         if (c.type === "enum") for (const v of c.values) keys.push(`constitution_${c.key}_${v}`);
       }
       for (const x of S.ideologies) keys.push(`party_ideology_${x}`);
+      for (const p of S.punish) keys.push(`punishment_${p.name}`);
+      for (const t of S.lawTypes) keys.push(`law_name_${t.name}`);
+      for (const e of S.eraTiers) if (e.key) keys.push(e.key);
+      keys.push(...S.noteKeys, ...ERA_FIELDS.filter(x => x[1] === "note").map(x => S.eraDefaults[x[0]]));
+      for (const r of S.eraDefaults.EraRules || []) if (r && r.NoteKey) keys.push(r.NoteKey);
       try { S.loc = await api.readLocales(uniq(keys)); } catch { S.loc = {}; }
     }
     const cz = k => (S.loc[k] && S.loc[k].cz) || "";
@@ -569,7 +673,19 @@
         if (text.startsWith("﻿")) { text = text.slice(1); st.bom = true; }
         parseInto(f, st, st.exists ? text : f.empty);
       } catch (e) { st.error = e.message; }
+      if (!st.error && f.id === "laws") await loadLawLocales(st);
+      if (!st.error && f.id === "lawEras") await loadEraNoteLocales(st);
       return st;
+    }
+    // 文件里用到、语言文件里还没读的卷宗说明键
+    async function loadEraNoteLocales(st) {
+      const d = st.data;
+      if (!isObj(d) || typeof api.readLocales !== "function") return;
+      const rules = Array.isArray(d.EraRules) ? d.EraRules : [];
+      const ks = uniq([d.ModernNoteKey, d.ModernDeathNoteKey, ...rules.map(r => isObj(r) ? r.NoteKey : null)]
+        .filter(k => typeof k === "string" && !has(S.loc, k)));
+      if (!ks.length) return;
+      try { Object.assign(S.loc, await api.readLocales(ks)); } catch { /* 读不到就显示键名 */ }
     }
     function parseInto(f, st, text) {
       st.text = text;
@@ -613,8 +729,14 @@
       if (!st || st.error) throw new Error(`${f.label}：读取失败，不能保存`);
       if (!st.exists && !st.dirty) return { notes: [`${f.label}文件不存在、也没有改动，没有新建`], same: true, skipped: true };
       const notes = beforeSave(f, st);
+      // 帝国律法：改过的罪名、条文写进语言文件(先核对、再写、写完读回来核对)，律法表里的后备名称同步成简体
+      const loc = f.id === "laws" ? prepareLawLocales(st, notes) : {};
       const text = buildText(f, st);
-      const same = st.exists && text === st.text;
+      const same = st.exists && text === st.text && !Object.keys(loc).length;
+      if (Object.keys(loc).length) {
+        await writeLocalesChecked(loc);
+        for (const k of Object.keys(st.locCur)) st.locOrig[k] = { ...st.locCur[k] };
+      }
       await api.writeText(f.path, (st.bom ? "﻿" : "") + text);
       st.exists = true;
       st.dirty = false;
@@ -1171,6 +1293,9 @@
     }
 
     // ================= 4. 帝国律法 =================
+    // 罪名、条文在游戏里取自语言文件(law_name_罪名、law_desc_罪名，cz 简体、ch 繁体、en 英文)；
+    // 律法表里的 Name、Description 只在语言文件缺键时顶用(EmpireLawSystem.GetLawName / GetLawDescription)
+    const LANGS = [["cz", "简体中文"], ["ch", "繁体中文"], ["en", "English"]];
     function lawsList(data) {
       if (Array.isArray(data)) return data;
       if (isObj(data) && Array.isArray(data.Laws)) return data.Laws;
@@ -1178,57 +1303,231 @@
     }
     // Newtonsoft 读枚举：名字或数字都行
     const enumName = (list, v) => typeof v === "number" ? (list.find(m => m.value === v)?.name ?? null) : (list.some(m => m.name === v) ? v : null);
+    const lawTypeOf = l => !isObj(l) ? null : S.lawTypes.length ? enumName(S.lawTypes, l.Type) : (typeof l.Type === "string" && l.Type ? l.Type : null);
+    const lawKey = (kind, t) => `law_${kind}_${t}`;
+    const shortText = (s, n = 24) => { s = String(s ?? ""); return s.length > n ? s.slice(0, n) + "…" : s; };
+    // 罪名的显示名：语言文件(含本页还没保存的修改)；没有返回空串
+    function lawLocName(t) {
+      if (!t) return "";
+      const k = lawKey("name", t);
+      return S.files.laws?.locCur?.[k]?.cz || cz(k) || "";
+    }
+    const lawDisplayName = t => lawLocName(t) || t;
+    const pName = p => cz(`punishment_${p}`) || String(p);
+
+    async function loadLawLocales(st) {
+      st.locOrig = {}; st.locCur = {}; st.locAuto = {}; st.locError = "";
+      if (typeof api.readLocales !== "function") { st.locError = "这个版本的编辑器不能读语言文件"; return; }
+      const types = uniq([...S.lawTypes.map(t => t.name), ...(lawsList(st.data) || []).map(lawTypeOf)]);
+      const keys = types.flatMap(t => [lawKey("name", t), lawKey("desc", t)]);
+      if (!keys.length) return;
+      try {
+        const r = await api.readLocales(keys);
+        for (const k of keys) {
+          const v = { cz: String(r?.[k]?.cz ?? ""), ch: String(r?.[k]?.ch ?? ""), en: String(r?.[k]?.en ?? "") };
+          st.locOrig[k] = v;
+          st.locCur[k] = { ...v };
+        }
+      } catch (e) { st.locError = e?.message || String(e); }
+    }
+    function locEntry(st, k) {
+      if (!st.locCur[k]) { st.locCur[k] = { cz: "", ch: "", en: "" }; st.locOrig[k] = { cz: "", ch: "", en: "" }; }
+      return st.locCur[k];
+    }
+    const locEdited = (st, k) => !!st.locCur?.[k] && LANGS.some(([l]) => (st.locCur[k][l] ?? "") !== (st.locOrig[k]?.[l] ?? ""));
+
+    // 改一种语言；简繁互相自动补(同称谓表)：繁体为空、仍是上次自动补的、或正好是旧简体转出来的(且没手改过)就跟着简体改
+    function locInput(st, k, lang, v) {
+      const cur = locEntry(st, k);
+      const before = cur[lang];
+      cur[lang] = v;
+      const a = st.locAuto[k] || (st.locAuto[k] = {});
+      const filled = {};
+      if (!zhOK()) return filled;
+      if (lang === "cz") {
+        if (!a.manualCh && (cur.ch === "" || cur.ch === a.ch || cur.ch === zhToTrad(before))) {
+          const t = v ? zhToTrad(v) : "";
+          cur.ch = t; a.ch = t; filled.ch = t;
+        }
+        a.manualCz = v !== "" && v !== a.cz;
+      } else if (lang === "ch") {
+        a.manualCh = v !== "";
+        if (!a.manualCz && (cur.cz === "" || cur.cz === a.cz)) {
+          const t = v ? zhToSimp(v) : "";
+          cur.cz = t; a.cz = t; filled.cz = t;
+        }
+      }
+      return filled;
+    }
+
+    // 保存「帝国律法」前：改过的名称、条文补齐(繁体留空按简体转换，英文留空用简体)，律法表里对应的 Name / Description 跟着改成简体。
+    // 返回要写进语言文件的 { 键: { 语言: 值 } }(只含真改了的语言)
+    function prepareLawLocales(st, notes) {
+      const entries = {};
+      if (!st.locCur) return entries;
+      const changed = Object.keys(st.locCur).filter(k => locEdited(st, k));
+      let enN = 0, chN = 0;
+      for (const k of changed) {
+        const v = st.locCur[k];
+        if (k.startsWith("law_name_") && !v.cz.trim()) throw new Error(`${k} 的简体名称是空的，游戏里会显示成空白，请先填上`);
+        if (v.cz.trim()) {
+          if (!v.ch.trim()) { v.ch = zhOK() ? zhToTrad(v.cz) : v.cz; chN++; }
+          if (!v.en.trim()) { v.en = v.cz; enN++; }
+        }
+        const e = {};
+        for (const [l] of LANGS) if ((v[l] ?? "") !== (st.locOrig[k]?.[l] ?? "")) e[l] = v[l];
+        if (Object.keys(e).length) entries[k] = e;
+      }
+      for (const law of lawsList(st.data) || []) {
+        const t = lawTypeOf(law);
+        if (!t) continue;
+        for (const [kind, field] of [["name", "Name"], ["desc", "Description"]]) {
+          const k = lawKey(kind, t);
+          if (changed.includes(k) && law[field] !== st.locCur[k].cz) law[field] = st.locCur[k].cz;
+        }
+      }
+      const n = Object.keys(entries).length;
+      if (n) notes.push(`语言文件写入 ${n} 条名称、条文`);
+      if (chN) notes.push(`${chN} 处繁体留空，已按简体自动转换`);
+      if (enN) notes.push(`${enN} 处英文留空，已先用简体代替`);
+      return entries;
+    }
+
+    const escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // 写语言文件：先照 writeLocales 的办法核对三份文件(标准 JSON、要改的键各只出现一次，免得改了一处游戏读的却是另一处)，写完再读回来核对
+    async function writeLocalesChecked(entries) {
+      const keys = Object.keys(entries);
+      if (!keys.length) return;
+      if (typeof api.writeLocales !== "function") throw new Error("这个版本的编辑器不能写语言文件");
+      for (const [lang] of LANGS) {
+        const r = await api.readText(`Locales/${lang}.json`);
+        if (!r || !r.exists) throw new Error(`找不到 Locales/${lang}.json，没有写语言文件`);
+        const text = String(r.text ?? "").replace(/^﻿/, "");
+        try { JSON.parse(text); } catch (e) { throw new Error(`Locales/${lang}.json 不是标准 JSON(${e.message})，为免写坏没有写语言文件`); }
+        for (const k of keys) {
+          if (entries[k][lang] === undefined) continue;
+          const n = (text.match(new RegExp(`"${escRe(k)}"\\s*:\\s*"(?:[^"\\\\]|\\\\.)*"`, "g")) || []).length;
+          if (n > 1) throw new Error(`Locales/${lang}.json 里 ${k} 出现了 ${n} 次，请先手动删掉多余的`);
+        }
+      }
+      await api.writeLocales(entries);
+      const back = await api.readLocales(keys);
+      const bad = keys.filter(k => LANGS.some(([l]) => entries[k][l] !== undefined && String(back?.[k]?.[l] ?? "") !== entries[k][l]));
+      if (bad.length) throw new Error(`语言文件写入后核对不上：${bad.join("、")}`);
+    }
+
     function lawProblems(list, law, idx) {
       const out = [];
-      if (!isObj(law)) return ["这一条不是 { } 对象"];
+      if (!isObj(law)) return ["这一条不是 { } 对象，游戏读到这一条会跳过"];
       if (S.lawTypes.length && enumName(S.lawTypes, law.Type) === null)
-        out.push(`罪名 ${JSON.stringify(law.Type)} 在代码(LawType)里没有，游戏读这个文件会出错`);
+        out.push(`罪名 ${JSON.stringify(law.Type)} 在代码(LawType)里没有，游戏会跳过这一条`);
       else if (S.lawTypes.length) {
         const first = list.findIndex(o => isObj(o) && enumName(S.lawTypes, o.Type) === enumName(S.lawTypes, law.Type) && o.Type !== undefined);
         if (first >= 0 && first < idx) out.push("同一罪名前面已经有一条，游戏只认第一条");
       }
-      if (law.Category !== undefined && S.lawCats.length && enumName(S.lawCats, law.Category) === null) out.push(`类别 ${JSON.stringify(law.Category)} 在代码里没有，游戏读这个文件会出错`);
+      if (law.Category !== undefined && S.lawCats.length && enumName(S.lawCats, law.Category) === null) out.push(`类别 ${JSON.stringify(law.Category)} 在代码里没有，游戏会跳过这一条`);
       const pun = Array.isArray(law.Punishments) ? law.Punishments : [];
       const badPun = pun.filter(p => enumName(S.punish, p) === null);
-      if (badPun.length) out.push(`刑罚 ${badPun.map(p => JSON.stringify(p)).join("、")} 在代码里没有，游戏读这个文件会出错`);
+      if (badPun.length) out.push(`刑罚 ${badPun.map(p => JSON.stringify(p)).join("、")} 在代码里没有，游戏会跳过这一条`);
+      if (law.AffectDescendants === true && !pun.some(p => enumName(S.punish, p) === "剥夺官职")) out.push("勾了「株连子孙」，但刑罚里没有「剥夺官职」，这一项不起作用");
       const extra = Object.keys(law).filter(k => !["Type", "Category", "Name", "Description", "IsForbidden", "AffectDescendants", "Punishments", "Note"].includes(k));
       if (extra.length) out.push(`编辑器不认识的字段(保存时原样保留)：${extra.join("、")}`);
       return out;
     }
+
+    // 现行刑罚：与 EmpireLawSystem 的 OrderedPunishments / Adapt / AdaptPunishments 一致
+    const LETHAL = new Set(["死刑", "夷三族"]);
+    function orderedPun(list) {
+      const out = uniq(list.filter(p => !LETHAL.has(p)));
+      if (list.includes("夷三族")) out.push("夷三族");
+      else if (list.includes("死刑")) out.push("死刑");
+      return out;
+    }
+    // rg：{ era 科技时代档次, modern 现代政体, abolish 现代政体且废死 }
+    function adaptOne(p, rg, cfg, notes) {
+      const note = k => { if (notes && k && !notes.includes(k)) notes.push(k); };
+      let cur = p;
+      for (const rule of cfg.EraRules || []) {
+        if (rg.era < rule.MinEraTier) continue;
+        const r = rule.Replace?.[cur];
+        if (r !== undefined && r !== cur) { cur = r; note(rule.NoteKey); }
+      }
+      if (rg.modern) { const m = cfg.ModernReplace?.[cur]; if (m !== undefined && m !== cur) { cur = m; note(cfg.ModernNoteKey); } }
+      if (rg.abolish && LETHAL.has(cur)) { cur = cfg.ModernDeathReplacement; note(cfg.ModernDeathNoteKey); }
+      return cur;
+    }
+    function adaptPun(base, rg, cfg) {
+      const notes = [], out = [];
+      let life = false;
+      for (const p of base) {
+        const a = adaptOne(p, rg, cfg, notes);
+        if (LETHAL.has(p) && !LETHAL.has(a)) life = true;
+        if (!out.includes(a)) out.push(a);
+      }
+      return { list: orderedPun(out), notes, life };
+    }
+    // 几种典型情形：最早的时代规则生效前、各时代规则生效起、现代政体(保留死刑)、现代政体废死
+    function penalScenarios(cfg) {
+      const tiers = [...new Set((cfg.EraRules || []).map(r => r.MinEraTier))].filter(x => Number.isFinite(x) && x < 99).sort((a, b) => a - b);
+      const top = tiers.length ? tiers[tiers.length - 1] : 0;
+      const rows = [{ label: tiers.length ? `${eraLabel(tiers[0], true)}以前` : "古代", rg: { era: -Infinity } }];
+      for (const t of tiers) rows.push({ label: `${eraLabel(t, true)}起`, rg: { era: t } });
+      rows.push({ label: "现代政体", title: "现代、穿越政体与改制共和的帝国，保留死刑的(按已进入上面各时代算)", rg: { era: top, modern: true } });
+      rows.push({ label: "现代政体·废死", title: "民主共和国(按已进入上面各时代算)", rg: { era: top, modern: true, abolish: true } });
+      return rows;
+    }
+    const basePrisonYears = (base, cfg) => Math.max(0, ...base.map(p => cfg.PrisonYears?.[p] ?? 0)) || 4;
 
     function renderLaws(panel, st, f) {
       const list = lawsList(st.data);
       if (!list) return badRoot(panel, f, st, "最外层应该是 [ ] 列表，或带 Laws 列表的 { } 对象");
       const ui = S.ui.law || (S.ui.law = { sel: 0, q: "", cat: "" });
       ui.sel = Math.max(0, Math.min(ui.sel, list.length - 1));
+      const locOK = !!st.locCur && !st.locError;
+      const eras = lawErasConfig();
       const catOf = l => isObj(l) ? (enumName(S.lawCats, l.Category) ?? (l.Category === undefined ? "" : String(l.Category))) : "";
-      const titleOf = l => isObj(l) ? (l.Name || enumName(S.lawTypes, l.Type) || String(l.Type ?? "(无罪名)")) : "(格式不对)";
+      const titleOf = l => { if (!isObj(l)) return "(格式不对)"; const t = lawTypeOf(l); return (t && lawLocName(t)) || l.Name || t || String(l.Type ?? "(无罪名)"); };
       const cats = uniq([...S.lawCats.map(c => c.name), ...list.map(catOf)]);
+      const have = new Set(list.map(lawTypeOf).filter(Boolean));
+      const missing = S.lawTypes.map(t => t.name).filter(t => !have.has(t));
       panel.innerHTML = fileHead(f, st) +
-        `<p class="hint">每条律法对应代码里的一个罪名(LawType)：犯了这个罪按「刑罚」依次处置，勾了「株连子孙」的连带子孙。律法名称显示在判决和史书里。</p>` +
-        (S.lawLoaded === false ? `<p class="hint warn">注意：当前代码里没有调用 EmpireLawSystem.init()，游戏不会读这个文件，这里的改动暂时不生效。</p>` : "") +
+        `<p class="hint">每条律法对应代码里的一个罪名(LawType)：犯了这个罪按「刑罚」论处，再按本国所处的科技时代、政体改判，按一国宽严加减一等(见「律法时代与宽严」页)。` +
+        `判决、卷宗、史书里显示的罪名和条文取自语言文件(键 law_name_罪名、law_desc_罪名，简体、繁体、英文各一份)；律法表里的 Name、Description 只在语言文件缺这个键时顶用，改了名称、条文保存时跟着改成简体。</p>` +
+        (S.lawLoaded === false ? `<p class="hint warn">注意：当前代码里没有调用 EmpireLawSystem.init()，游戏不会读律法文件，这里的改动暂时不生效。</p>` : "") +
+        (st.locError ? `<p class="hint warn">读不到语言文件(${esc(st.locError)})：这里只能改律法表里的后备名称，游戏里一般看不到。</p>` : "") +
+        (missing.length ? `<p class="hint">代码里这些罪名还没有律法，不会定罪：${esc(missing.join("、"))}</p>` : "") +
         `<div class="toolbar" style="margin-bottom:8px"><input id="lawQ" placeholder="搜索名称、罪名、条文…" style="max-width:220px" value="${esc(ui.q)}">` +
         `<select id="lawCat" style="max-width:180px">${optionHtml("", "全部类别", !ui.cat)}${cats.map(c => optionHtml(c, c, ui.cat === c)).join("")}</select>` +
         `<button class="primary small" id="lawAdd">${ico("iconShovelPlus", "sm")}新增律法</button>` +
+        (locOK ? `<button class="small" id="lawSync" title="把每条律法的 Name、Description 改成语言文件里的简体(语言文件缺键时游戏用它们)">后备名称按简体同步</button>` : "") +
         `<span class="hint">共 ${list.length} 条${S.lawTypes.length ? `，代码里有 ${S.lawTypes.length} 个罪名` : ""}</span></div>` +
         `<div class="sub-layout"><div class="sub-list" id="lawList"></div><div id="lawEditor"></div></div>`;
       const drawList = () => {
         const q = ui.q.trim();
+        const texts = l => { const t = lawTypeOf(l); return [titleOf(l), l?.Type, l?.Name, l?.Description, l?.Note, ...(t && st.locCur ? LANGS.flatMap(([lg]) => [st.locCur[lawKey("name", t)]?.[lg], st.locCur[lawKey("desc", t)]?.[lg]]) : [])]; };
         const shown = list.map((l, i) => ({ l, i })).filter(({ l }) => (!ui.cat || catOf(l) === ui.cat) &&
-          (!q || [titleOf(l), l?.Type, l?.Description, l?.Note].some(t => String(t ?? "").includes(q))));
+          (!q || texts(l).some(t => String(t ?? "").includes(q))));
         let html = "", lastCat = null;
         for (const { l, i } of shown) {
           const c = catOf(l);
           if (c !== lastCat && !ui.cat) { html += `<div class="grp-title">${esc(c || "(无类别)")}</div>`; lastCat = c; }
           const bad = lawProblems(list, l, i).some(p => !p.startsWith("编辑器不认识"));
-          html += `<div class="item ${i === ui.sel ? "active" : ""} ${bad ? "bad" : ""}" data-i="${i}">${esc(titleOf(l))}</div>`;
+          const grave = eras.GraveCrimes.includes(lawTypeOf(l));
+          html += `<div class="item ${i === ui.sel ? "active" : ""} ${bad ? "bad" : ""}" data-i="${i}">${esc(titleOf(l))}${grave ? `<span class="sub grave" title="十恶之罪">十恶</span>` : ""}</div>`;
         }
         const el = panel.querySelector("#lawList");
         el.innerHTML = html || `<p class="muted">没有符合条件的律法</p>`;
         el.querySelectorAll(".item").forEach(it => it.addEventListener("click", () => { ui.sel = +it.dataset.i; drawList(); drawEditor(); }));
       };
-      const usedTypes = () => new Set(list.map(l => isObj(l) ? enumName(S.lawTypes, l.Type) : null).filter(Boolean));
+      const usedTypes = () => new Set(list.map(lawTypeOf).filter(Boolean));
       const freeType = () => S.lawTypes.find(t => !usedTypes().has(t.name))?.name;
+      // 新律法、换了罪名的律法：后备名称取语言文件里这个罪名的简体
+      const fillFallback = (law, t) => {
+        if (!t || !locOK) return;
+        const n = st.locCur[lawKey("name", t)]?.cz, d = st.locCur[lawKey("desc", t)]?.cz;
+        if (n) law.Name = n;
+        if (d) law.Description = d;
+      };
       const drawEditor = () => {
         const box = panel.querySelector("#lawEditor");
         const law = list[ui.sel];
@@ -1237,27 +1536,73 @@
           return;
         }
         const tName = enumName(S.lawTypes, law.Type), cName = enumName(S.lawCats, law.Category);
+        const t = lawTypeOf(law);
         const used = usedTypes();
         const typeOpts = (tName === null ? optionHtml("\u0000keep", `${law.Type ?? "(没写)"}(代码里没有)`, true) : "") +
-          S.lawTypes.map(t => optionHtml(t.name, t.name + (used.has(t.name) && t.name !== tName ? "(已有律法)" : ""), t.name === tName)).join("");
+          S.lawTypes.map(x => optionHtml(x.name, lawDisplayName(x.name) + (lawLocName(x.name) && lawLocName(x.name) !== x.name ? `(${x.name})` : "") +
+            (used.has(x.name) && x.name !== tName ? "(已有律法)" : ""), x.name === tName)).join("");
         const catOpts = (cName === null ? optionHtml("\u0000keep", law.Category === undefined ? "(没写，按第一类)" : `${law.Category}(代码里没有)`, true) : "") +
           S.lawCats.map(c => optionHtml(c.name, c.name, c.name === cName)).join("");
         const pun = Array.isArray(law.Punishments) ? law.Punishments : [];
         const punNames = pun.map(p => enumName(S.punish, p) ?? String(p));
         const problems = lawProblems(list, law, ui.sel);
+        const fallbackHtml = () => `律法表里的后备(语言文件缺键时用)：` + [["Name", "name"], ["Description", "desc"]].map(([field, kind]) => {
+          const k = lawKey(kind, t), czv = st.locCur[k]?.cz ?? "", jv = law[field] ?? "";
+          return `${field}「${esc(shortText(jv))}」` + (jv !== czv ? `<span class="diff">${locEdited(st, k) ? "(保存时改成简体)" : "(与简体不同)"}</span>` : "");
+        }).join("　");
+        const locHtml = () => {
+          if (!t) return `<p class="hint warn">罪名不对，没法对应语言文件里的名称和条文。</p>`;
+          const nk = lawKey("name", t), dk = lawKey("desc", t);
+          const nv = locEntry(st, nk), dv = locEntry(st, dk);
+          const ph = (l, kind) => l === "cz" ? (kind === "name" ? (law.Name || `${t}罪`) : (law.Description || "条文")) : l === "ch" ? "留空按简体自动转换" : "留空保存时用简体代替";
+          return `<div class="field"><span>${lab("罪名与条文(游戏里显示的)", `${nk}、${dk}`)}</span><div class="grid lawloc">` +
+            LANGS.map(([l, label]) => `<div class="col"><span>${label}</span>` +
+              `<input data-loc="${esc(nk)}" data-lang="${l}" value="${esc(nv[l])}" placeholder="${esc(ph(l, "name"))}">` +
+              `<textarea class="short" data-loc="${esc(dk)}" data-lang="${l}" placeholder="${esc(ph(l, "desc"))}">${esc(dv[l])}</textarea></div>`).join("") +
+            `</div><span class="fallback" id="lawFallback">${fallbackHtml()}</span></div>`;
+        };
+        const oldNameHtml = () =>
+          `<label class="field">${lab("律法名称(后备)", "Name")}<input data-f="Name" value="${esc(law.Name ?? "")}" placeholder="${esc(tName ? tName + "罪" : "")}"><span class="hint">语言文件缺 law_name_罪名 时才显示这个</span></label>` +
+          `<label class="field">${lab("条文(后备)", "Description")}<textarea data-f="Description" class="short">${esc(law.Description ?? "")}</textarea></label>`;
+        const effHtml = () => {
+          if (!t) return "";
+          const grave = eras.GraveCrimes.includes(t);
+          const base = orderedPun(punNames.filter(p => S.punish.some(x => x.name === p)));
+          let prev = null;
+          const rows = penalScenarios(eras).map(sc => {
+            const r = adaptPun(base, sc.rg, eras);
+            const txt = r.list.map(pName).join("、") || "(不处刑)";
+            const notes = r.notes.map(k => cz(k) || k);
+            if (r.life && r.list.includes("监禁")) notes.push(`刑期 ${eras.LifeImprisonmentYears} 年`);
+            const same = prev !== null && txt === prev;
+            prev = txt;
+            return `<tr><th title="${esc(sc.title || "")}">${esc(sc.label)}</th><td class="${same ? "same" : ""}">${esc(txt)}</td><td class="${same ? "same" : ""}">${esc(notes.join("；"))}</td></tr>`;
+          }).join("");
+          const anyPrison = penalScenarios(eras).some(sc => { const r = adaptPun(base, sc.rg, eras); return r.list.includes("监禁") && !r.life; });
+          const ransomable = base.filter(p => eras.RansomCost?.[p] !== undefined);
+          const ransom = grave ? "十恶不许赎。"
+            : base.some(p => LETHAL.has(p)) || base.includes("没收财产") ? "判死、抄家的不赎。"
+            : ransomable.length ? `家资够的可纳赎金约 ${ransomable.reduce((s, p) => s + eras.RansomCost[p], 0)} 赎免${ransomable.map(pName).join("、")}(宽严增减三成；现代政体不赎)。` : "";
+          return `<div class="field"><div class="toolbar" style="gap:8px">${lab("现行刑罚", "按 EmpireLawEras.json 改判")}` +
+            (grave ? `<span class="badge grave" title="宽仁之政、八议都不减等，不许赎，不在大赦之列">十恶</span>` : `<span class="badge" title="不在 GraveCrimes 里">非十恶</span>`) +
+            `<button type="button" class="small" id="lawToEras">到「律法时代与宽严」修改</button></div>` +
+            `<table class="sheet eff"><tbody>${rows}</tbody></table>` +
+            `<span class="hint">${anyPrison ? `判监禁的刑期从 ${basePrisonYears(base, eras)} 年起算(按律文最重的刑罚；宽严增减至多四成，从重加五成，不超过 ${eras.LifeImprisonmentYears} 年)。` : ""}${ransom}</span></div>`;
+        };
         box.innerHTML = `<div class="card grid">` +
           (problems.length ? `<div class="warn-box">${problems.map(p => `<div class="hint warn">${esc(p)}</div>`).join("")}</div>` : "") +
           `<div class="grid two"><label class="field">${lab("罪名", "Type")}<select data-f="Type">${typeOpts}</select>` +
           `<span class="hint">判罪时按罪名找律法；同一罪名只认第一条</span></label>` +
-          `<label class="field">${lab("类别", "Category")}<select data-f="Category">${catOpts}</select><span class="hint">只用于分组显示</span></label></div>` +
-          `<label class="field">${lab("律法名称", "Name")}<input data-f="Name" value="${esc(law.Name ?? "")}" placeholder="${esc(tName ? tName + "罪" : "")}"><span class="hint">判决、史书里显示的名字；空则显示罪名</span></label>` +
-          `<label class="field">${lab("条文", "Description")}<textarea data-f="Description" class="short">${esc(law.Description ?? "")}</textarea></label>` +
-          `<div class="field"><label class="field">${lab("刑罚(按先后执行)", "Punishments")}</label>` +
+          `<label class="field">${lab("类别", "Category")}<select data-f="Category">${catOpts}</select><span class="hint">分组显示用</span></label></div>` +
+          (locOK ? locHtml() : oldNameHtml()) +
+          `<div class="field"><label class="field">${lab("刑罚", "Punishments")}</label>` +
           `<div class="pun">${punNames.length ? punNames.map((p, i) => `<span class="chip ${enumName(S.punish, pun[i]) === null ? "missing" : ""}">${esc(p)}<button data-pun-del="${i}" title="去掉">×</button></span>`).join("") : `<span class="hint">没有刑罚(只定罪)</span>`}</div>` +
-          `<div class="pun"><span class="hint">加上：</span>${S.punish.filter(p => !punNames.includes(p.name)).map(p => `<button class="small" data-pun-add="${esc(p.name)}">${esc(p.name)}</button>`).join("")}</div></div>` +
-          `<div class="toolbar toggles"><label><input type="checkbox" data-f="AffectDescendants" ${law.AffectDescendants === true ? "checked" : ""}>株连子孙<span class="fname">AffectDescendants</span></label>` +
+          `<div class="pun"><span class="hint">加上：</span>${S.punish.filter(p => !punNames.includes(p.name)).map(p => `<button class="small" data-pun-add="${esc(p.name)}">${esc(pName(p.name))}</button>`).join("")}</div>` +
+          `<span class="hint">致死的刑罚(死刑、夷三族)最后执行；有夷三族就不另施死刑</span></div>` +
+          effHtml() +
+          `<div class="toolbar toggles"><label title="判了剥夺官职时，本人与子孙不得在本帝国(不在帝国里的在本国)出仕"><input type="checkbox" data-f="AffectDescendants" ${law.AffectDescendants === true ? "checked" : ""}>株连子孙<span class="fname">AffectDescendants</span></label>` +
           `<label title="代码里目前没有用到"><input type="checkbox" data-f="IsForbidden" ${law.IsForbidden === true ? "checked" : ""}>禁令<span class="fname">IsForbidden(代码暂未使用)</span></label></div>` +
-          `<label class="field">${lab("备注", "Note")}<textarea data-f="Note" class="short">${esc(law.Note ?? "")}</textarea></label></div>` +
+          `<label class="field">${lab("备注(游戏里不显示)", "Note")}<textarea data-f="Note" class="short">${esc(law.Note ?? "")}</textarea></label></div>` +
           `<div class="toolbar section" style="margin-top:10px"><button class="small" id="lawCopy">复制这条</button>` +
           `<button class="danger small" id="lawDel">删除这条</button></div>`;
         const orig = JsonDoc.originalOf(st.doc, law) || {};
@@ -1266,9 +1611,24 @@
           markDirty("laws");
           if (el.dataset.f === "Name") drawList();
         }));
+        box.querySelectorAll("[data-loc]").forEach(el => el.addEventListener("input", () => {
+          const k = el.dataset.loc, l = el.dataset.lang;
+          let v = el.value;
+          if (k.startsWith("law_name_") && /[\r\n]/.test(v)) { v = v.replace(/[\r\n]/g, ""); el.value = v; }
+          const filled = locInput(st, k, l, v);
+          for (const [fl, fv] of Object.entries(filled)) {
+            const other = [...box.querySelectorAll("[data-loc]")].find(o => o.dataset.loc === k && o.dataset.lang === fl);
+            if (other) other.value = fv;
+          }
+          markDirty("laws");
+          const fb = box.querySelector("#lawFallback");
+          if (fb) fb.innerHTML = fallbackHtml();
+          if (k.startsWith("law_name_")) drawList();
+        }));
         box.querySelectorAll("select[data-f]").forEach(el => el.addEventListener("change", () => {
           if (el.value === "\u0000keep") return;
           law[el.dataset.f] = el.value;
+          if (el.dataset.f === "Type") fillFallback(law, el.value);
           markDirty("laws");
           drawList(); drawEditor();
         }));
@@ -1279,18 +1639,20 @@
           else if (has(orig, k)) law[k] = false;
           else delete law[k];
           markDirty("laws");
+          drawList(); drawEditor();
         }));
-        const setPun = names => { law.Punishments = names; markDirty("laws"); drawEditor(); };
+        const setPun = names => { law.Punishments = names; markDirty("laws"); drawList(); drawEditor(); };
         box.querySelectorAll("[data-pun-del]").forEach(b => b.addEventListener("click", () => setPun(punNames.filter((_, i) => i !== +b.dataset.punDel))));
         box.querySelectorAll("[data-pun-add]").forEach(b => b.addEventListener("click", () => setPun([...punNames, b.dataset.punAdd])));
+        box.querySelector("#lawToEras")?.addEventListener("click", () => gotoFile("lawEras", "grave"));
         box.querySelector("#lawCopy").addEventListener("click", () => {
           const copy = structuredClone(law);
-          const t = freeType();
-          if (t) { copy.Type = t; copy.Name = `${t}罪`; }
+          const nt = freeType();
+          if (nt) { copy.Type = nt; copy.Name = `${nt}罪`; fillFallback(copy, nt); }
           list.splice(ui.sel + 1, 0, copy);
           ui.sel++;
           markDirty("laws");
-          toast(t ? `已复制，罪名换成还没有律法的「${t}」` : "已复制；所有罪名都有律法了，记得改罪名，否则这条不起作用");
+          toast(nt ? `已复制，罪名换成还没有律法的「${lawDisplayName(nt)}」` : "已复制；所有罪名都有律法了，记得改罪名，否则这条不起作用");
           drawList(); drawEditor();
         });
         box.querySelector("#lawDel").addEventListener("click", () => {
@@ -1303,6 +1665,20 @@
       };
       panel.querySelector("#lawQ").addEventListener("input", e => { ui.q = e.target.value; drawList(); });
       panel.querySelector("#lawCat").addEventListener("change", e => { ui.cat = e.target.value; drawList(); });
+      panel.querySelector("#lawSync")?.addEventListener("click", () => {
+        let n = 0;
+        for (const law of list) {
+          const t = lawTypeOf(law);
+          if (!t) continue;
+          for (const [kind, field] of [["name", "Name"], ["desc", "Description"]]) {
+            const v = st.locCur[lawKey(kind, t)]?.cz;
+            if (v && law[field] !== v) { law[field] = v; n++; }
+          }
+        }
+        if (n) markDirty("laws");
+        toast(n ? `已把 ${n} 处 Name / Description 改成语言文件里的简体，保存后生效` : "后备名称已经和简体一致");
+        drawList(); drawEditor();
+      });
       panel.querySelector("#lawAdd").addEventListener("click", () => {
         const t = freeType();
         const near = isObj(list[ui.sel]) ? list[ui.sel] : null;
@@ -1314,15 +1690,692 @@
           Punishments: near && Array.isArray(near.Punishments) ? near.Punishments.map(p => enumName(S.punish, p) ?? p) : ["罚金"],
           Note: ""
         };
+        fillFallback(law, t);
         list.splice(list.length ? ui.sel + 1 : 0, 0, law);
         ui.sel = list.indexOf(law);
         ui.q = "";
         markDirty("laws");
-        toast(t ? `已新增「${t}」，刑罚照抄了相邻那条` : "所有罪名都已有律法，新增的这条需要改罪名", !t);
+        toast(t ? `已新增「${lawDisplayName(t)}」，刑罚照抄了相邻那条` : "所有罪名都已有律法，新增的这条需要改罪名", !t);
         renderCurrent();
       });
       drawList();
       drawEditor();
+    }
+
+    // ================= 4b. 律法时代与宽严(EmpireLawEras.json) =================
+    // 代码默认值读 EmpireLawEraConfig.cs(字段初值 + Defaults() 里的初始化)；读不出来用这一份(与 2026-11 的代码相同)
+    const ERA_FALLBACK = {
+      EraRules: [
+        { MinEraTier: 7, NoteKey: "law_note_era_corporal", Replace: { 笞刑: "罚金", 杖刑: "监禁" } },
+        { MinEraTier: 7, NoteKey: "law_note_era_collective", Replace: { 夷三族: "死刑" } }
+      ],
+      ModernReplace: { 笞刑: "罚金", 杖刑: "监禁", 流放: "监禁", 夷三族: "死刑" },
+      ModernNoteKey: "law_note_modern_penal",
+      ModernDeathPenaltyIdeologies: ["Communism", "Socialism", "Fascism", "Authoritarianism"],
+      ModernDeathPenaltyOneParty: true,
+      ModernDeathPenaltyAutocracy: 60,
+      ModernDeathReplacement: "监禁",
+      ModernDeathNoteKey: "law_note_death_abolished",
+      LifeImprisonmentYears: 25,
+      GraveCrimes: ["谋反", "篡位", "叛国", "私通敌国", "伪造诏令", "煽动叛乱", "杀人", "投毒", "亵渎神庙", "虐待亲属"],
+      IdeologySeverity: {
+        Legalism: 0.8, Strategists: 0.3, ImperialPower: 0.3, MilitaryMerit: 0.2, Eunuchs: 0.2, Fascism: 0.8, Authoritarianism: 0.5,
+        Communism: 0.5, Socialism: 0.2, Conservatism: 0.2, ReligiousDemocracy: 0.2, Confucianism: -0.4, HuangLao: -0.5, Mohism: -0.2,
+        Agrarianism: -0.2, GreatClans: -0.2, Anarchism: -0.6, SocialDemocracy: -0.4, SocialLiberalism: -0.5, Libertarianism: -0.4,
+        ConservativeLiberalism: -0.1, Capitalism: -0.1
+      },
+      OfficialSchoolWeight: 0.4,
+      TraitSeverity: { evil: 0.25, bloodlust: 0.2, psychopath: 0.25, madness: 0.15, paranoid: 0.15, savage: 0.15, pacifist: -0.2, content: -0.1 },
+      TyrantRulerSeverity: 0.4,
+      WiseRulerSeverity: -0.1,
+      RansomCost: { 笞刑: 30, 杖刑: 60, 监禁: 100, 流放: 160 },
+      PrisonYears: { 罚金: 2, 笞刑: 2, 杖刑: 3, 监禁: 4, 流放: 6, 死刑: 12, 夷三族: 15 }
+    };
+    const eraDefs = () => S.eraDefaults || (S.eraDefaults = structuredClone(ERA_FALLBACK));
+    // 科技时代(Technology/TechTree.json 的 eras)读不到时用
+    const ERA_TIER_FALLBACK = [[1, "tech_era_stone", "石器时代"], [2, "tech_era_copper", "铜石并用时代"], [3, "tech_era_bronze", "青铜时代"],
+      [4, "tech_era_iron", "铁器时代"], [5, "tech_era_medieval", "中古时代"], [6, "tech_era_gunpowder", "火药时代"], [7, "tech_era_industrial", "工业时代"],
+      [8, "tech_era_electric", "电气时代"], [9, "tech_era_modern", "现代"], [10, "tech_era_atomic", "原子时代"], [11, "tech_era_future", "未来时代"]];
+    // 原版人物特性 id 的中文(只作提示，以游戏里的特性 id 为准)
+    const TRAIT_ZH = {
+      evil: "邪恶", bloodlust: "嗜血", psychopath: "精神变态", madness: "疯狂", paranoid: "多疑", savage: "野蛮", pacifist: "和平主义",
+      content: "知足", ambitious: "野心勃勃", greedy: "贪婪", peaceful: "温和", honest: "诚实", deceitful: "狡诈", genius: "天才", stupid: "愚笨", lazy: "懒惰"
+    };
+    const ANCIENT_IDEOS = ["Confucianism", "Legalism", "HuangLao", "Mohism", "Agrarianism", "Strategists", "Diplomatists", "YinYang",
+      "ImperialPower", "GreatClans", "ConsortKin", "Eunuchs", "Animism", "RoyalKin", "MilitaryMerit"];
+
+    function eraLabel(tier, short = false) {
+      const e = S.eraTiers.find(x => x.tier === tier);
+      const name = e ? (cz(e.key) || ERA_TIER_FALLBACK.find(x => x[0] === tier)?.[2] || "") : "";
+      if (short) return name || `时代 ${tier}`;
+      return name ? `${tier} ${name}` : `时代 ${tier}`;
+    }
+    const noteText = k => k ? cz(k) : "";
+    const noteShow = k => !k ? "不记说明" : noteText(k) ? `显示为「${noteText(k)}」` : "语言文件里没有这个键，卷宗里会直接显示键名";
+    const traitLabel = a => TRAIT_ZH[a] ? `${TRAIT_ZH[a]}` : a;
+    const signed = x => typeof x === "number" ? (x > 0 ? "+" : "") + x : String(x);
+    const replaceText = m => Object.entries(m || {}).map(([a, b]) => `${pName(a)}→${pName(b)}`).join("、");
+
+    // 各项设置：[JSON 键, 类型, 中文名, 说明, 选项]。说明对照 EmpireLawEraConfig.Load 与 EmpireLawSystem.Justice.cs
+    const ERA_SECTIONS = [
+      { id: "era", title: "时代废刑", about: "本国文化(帝国之内看核心国)进入某个科技时代后，把一种刑罚改成另一种。各条按先后套用：前一条改出来的刑罚，后面的规则还会接着改。卷宗里记下所用规则的说明。",
+        fields: [["EraRules", "rules", "时代规则", "写了这一项就整个替换代码默认；没有有效替换的规则游戏会忽略", { wide: true }]] },
+      { id: "modern", title: "现代政体", about: "现代、穿越政体，以及改制共和的帝国：时代规则之后再按这张表改判；现代政体不议(八议)、不许赎。",
+        fields: [
+          ["ModernReplace", "replace", "现代刑罚替换", "写了这一项就整张替换代码默认", { wide: true }],
+          ["ModernNoteKey", "note", "卷宗说明", "按上表改判时卷宗里记的说明(语言文件的键)"]] },
+      { id: "death", title: "现代政体的死刑", about: "现代政体里，下面任一条成立的保留死刑；其余(民主共和国)把死刑、夷三族改判成「废死后改判」的刑罚，改判监禁的为长期监禁。",
+        fields: [
+          ["ModernDeathPenaltyIdeologies", "ideoList", "保留死刑的执政理念", "执政理念在这里面的保留死刑；写了这一项就整个替换代码默认", { wide: true }],
+          ["ModernDeathPenaltyOneParty", "bool", "一党专政保留死刑", "只看帝国：帝国是一党制的保留死刑"],
+          ["ModernDeathPenaltyAutocracy", "num", "独裁度门槛", "只看帝国：帝国独裁度(0~100)不低于这个数的保留死刑"],
+          ["ModernDeathReplacement", "punish", "废死后改判", "死刑、夷三族改判成这种刑罚"],
+          ["ModernDeathNoteKey", "note", "卷宗说明", "废死改判时卷宗里记的说明(语言文件的键)"],
+          ["LifeImprisonmentYears", "int", "长期监禁年数", "废死改判监禁的刑期，也是一切刑期的上限；最少 1", { min: 1 }]] },
+      { id: "grave", title: "十恶", about: "十恶之罪：宽仁之政、八议都不减等，不许赎，不在大赦之列。勾选的罪名即十恶。",
+        fields: [["GraveCrimes", "lawSet", "十恶之罪", "写了这一项就整个替换代码默认", { wide: true }]] },
+      { id: "stance", title: "宽严", about: "一国宽严 = 执政理念 ×(1 − 官学占比) + 本朝官学 × 官学占比 + 暴君或明君 + 君主特性(几项合计限在 −0.5~+0.5)，再限在 −1~+1。" +
+          "不低于 +0.3 为严苛：人畏法少犯(最少七成)，每案至多五成机会加一等，罚金、刑期加重；不高于 −0.3 为宽仁：反之，且距上次大赦满十年后每年有机会恩赦。",
+        fields: [
+          ["IdeologySeverity", "ideoMap", "各理念的宽严", "正数严、负数宽；表里没有的理念算 0。写了这一项就整张替换代码默认", { wide: true }],
+          ["OfficialSchoolWeight", "num", "官学占比", "本朝定了官学(定于一尊的学说)时官学占这么多，余下按执政理念；0~1", { min: 0, max: 1 }],
+          ["TyrantRulerSeverity", "num", "暴君", "君主是暴君时加上"],
+          ["WiseRulerSeverity", "num", "明君", "君主是明君时加上"],
+          ["TraitSeverity", "traitMap", "君主特性", "君主有这个特性就加上，几项合计限在 −0.5~+0.5。写了这一项就整张替换代码默认", { wide: true }]] },
+      { id: "money", title: "赎金与刑期", about: "赎刑：判了笞、杖、徒(监禁)、流而不判死、不抄家的，家资不少于 100、赎金不过家资六成的纳金赎免(宽严增减三成)；十恶、现代政体不许赎。" +
+          "刑期：判监禁的按律文里最重的一种原定刑罚定年数(都没写按 4 年)，宽严增减至多四成，不超过长期监禁年数。",
+        fields: [
+          ["RansomCost", "punishIntMap", "赎金", "表里没有的刑罚不能赎；最少 0。写了这一项就整张替换代码默认", { min: 0, empty: "不能赎" }],
+          ["PrisonYears", "punishIntMap", "监禁刑期(年)", "最少 1。写了这一项就整张替换代码默认", { min: 1, empty: "不计" }]] }
+    ];
+    const ERA_FIELDS = ERA_SECTIONS.flatMap(s => s.fields);
+    const ERA_KIND = Object.fromEntries(ERA_FIELDS.map(x => [x[0], x[1]]));
+    const ERA_ARRAY_KINDS = new Set(["rules", "ideoList", "lawSet"]);
+
+    // 与 EmpireLawEraConfig.TryParseEnum 一致：去空格后按名字，或按数字(须是定义过的值)
+    function enumOf(list, v) {
+      if (v === null || v === undefined || isCont(v)) return null;
+      const t = String(v).trim();
+      if (!t) return null;
+      if (!list.length) return t;
+      if (list.some(m => m.name === t)) return t;
+      if (/^[+-]?\d+$/.test(t)) return list.find(m => m.value === parseInt(t, 10))?.name ?? null;
+      return null;
+    }
+
+    // 解析 C# 的一小部分表达式：new 集合/对象初始化({ [键] = 值 }、{ 成员 = 值 }、{ 值, … })、字面量、枚举成员
+    function csExpr(src, from) {
+      let i = from;
+      const n = src.length;
+      const ws = () => { while (i < n && /\s/.test(src[i])) i++; };
+      const fail = () => { throw new Error("看不懂的 C# 表达式：" + src.slice(i, i + 40)); };
+      const expect = c => { ws(); if (src[i] !== c) fail(); i++; };
+      const value = () => {
+        ws();
+        if (/^new(?![\p{L}\p{N}_])/u.test(src.slice(i, i + 4))) {
+          i += 3; ws();
+          const ts = i;
+          let depth = 0;
+          while (i < n) {
+            const c = src[i];
+            if (c === "<") depth++;
+            else if (c === ">") depth--;
+            else if (depth === 0 && "{(;,}".includes(c)) break;
+            i++;
+          }
+          const type = src.slice(ts, i).trim();
+          if (src[i] === "(") {
+            let d2 = 0;
+            for (; i < n; i++) { if (src[i] === "(") d2++; else if (src[i] === ")" && --d2 === 0) { i++; break; } }
+            ws();
+          }
+          if (src[i] !== "{") return { type, items: null };
+          i++;
+          const items = [];
+          for (;;) {
+            ws();
+            if (src[i] === "}") { i++; break; }
+            if (src[i] === "[") { i++; const k = value(); expect("]"); expect("="); items.push({ k, v: value() }); }
+            else {
+              const m = /^([\p{L}_][\p{L}\p{N}_]*)\s*=(?!=)/u.exec(src.slice(i, i + 200));
+              if (m) { i += m[0].length; items.push({ m: m[1], v: value() }); }
+              else items.push({ v: value() });
+            }
+            ws();
+            if (src[i] === ",") { i++; continue; }
+            if (src[i] === "}") { i++; break; }
+            fail();
+          }
+          return { type, items };
+        }
+        if (src[i] === '"') {
+          const s = i++;
+          while (i < n && src[i] !== '"') i += src[i] === "\\" ? 2 : 1;
+          i++;
+          return JSON.parse(src.slice(s, i));
+        }
+        const num = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?[fFdDmM]?/.exec(src.slice(i, i + 40));
+        if (num) { i += num[0].length; return parseFloat(num[0]); }
+        const id = /^[\p{L}_][\p{L}\p{N}_]*(?:\s*\.\s*[\p{L}_][\p{L}\p{N}_]*)*/u.exec(src.slice(i, i + 200));
+        if (id) {
+          i += id[0].length;
+          const parts = id[0].split(".").map(s => s.trim());
+          if (parts.length === 1 && (parts[0] === "true" || parts[0] === "false")) return parts[0] === "true";
+          if (parts.length === 1 && parts[0] === "null") return null;
+          return { enumMember: parts[parts.length - 1] };
+        }
+        return fail();
+      };
+      return value();
+    }
+    // 转成 json 的样子；declType：字段声明的类型(target-typed new() 用)
+    function csToJson(node, declType = "") {
+      if (node === null || typeof node !== "object") return node;
+      if (node.enumMember !== undefined) return node.enumMember;
+      const type = node.type || declType;
+      const isArr = /^(?:List|HashSet|IList|ISet|ICollection|IEnumerable)\s*</.test(type) || /\[\]\s*$/.test(type);
+      if (!node.items || !node.items.length) return isArr ? [] : {};
+      if (node.items.every(it => it.k === undefined && it.m === undefined)) return node.items.map(it => csToJson(it.v));
+      const o = {};
+      for (const it of node.items) {
+        const k = it.k !== undefined ? csToJson(it.k) : it.m;
+        if (k === undefined || isCont(k)) throw new Error("看不懂的初始化");
+        o[String(k)] = csToJson(it.v);
+      }
+      return o;
+    }
+    function parseEraDefaults(text) {
+      if (!text) return null;
+      const t = stripCsComments(text);
+      const cls = t.search(/class\s+EmpireLawEraConfig\b/);
+      if (cls < 0) return null;
+      const defAt = t.indexOf("Defaults()", cls);
+      const loadAt = t.search(/static\s+EmpireLawEraConfig\s+Load\s*\(/);
+      const fieldsText = t.slice(cls, defAt < 0 ? (loadAt < 0 ? t.length : loadAt) : defAt);
+      const out = {}, types = {};
+      for (const m of fieldsText.matchAll(/public\s+(?!const\b|static\b)([\w<>,\s\[\]]+?)\s+(\w+)\s*=(?!=)\s*/g)) {
+        types[m[2]] = m[1].trim();
+        out[m[2]] = csToJson(csExpr(fieldsText, m.index + m[0].length), types[m[2]]);
+      }
+      if (defAt >= 0) {
+        const body = t.slice(defAt, loadAt > defAt ? loadAt : t.length);
+        const at = body.search(/new\s+EmpireLawEraConfig\b/);
+        if (at >= 0) {
+          const node = csExpr(body, at);
+          for (const it of node.items || []) {
+            if (it.m === undefined) return null;
+            out[it.m] = csToJson(it.v, types[it.m] || "");
+          }
+        }
+        for (const m of body.matchAll(/\bconfig\s*\.\s*(\w+)\s*=(?!=)\s*/g)) out[m[1]] = csToJson(csExpr(body, m.index + m[0].length), types[m[1]] || "");
+      }
+      return Object.keys(out).length ? out : null;
+    }
+    // EmpireLawEraConfig.Load 读了哪些键(root["…"]、root.Value<…>("…"))
+    function parseEraReadKeys(text) {
+      if (!text) return null;
+      const t = stripCsComments(text);
+      const at = t.search(/static\s+EmpireLawEraConfig\s+Load\s*\(/);
+      if (at < 0) return null;
+      const keys = new Set();
+      for (const m of t.slice(at).matchAll(/\broot\s*\[\s*"(\w+)"\s*\]|\broot\s*\.\s*Value\s*<[^>]*>\s*\(\s*"(\w+)"\s*\)/g)) keys.add(m[1] || m[2]);
+      return keys.size ? keys : null;
+    }
+
+    // 照 EmpireLawEraConfig.Load 读一遍：写了的项整项替换默认，认不出的条目跳过。
+    // 返回 cfg(各项生效的值)、probs(各项的问题)、fatal(有游戏读不了的值：整份按代码默认)
+    function erasEffective(d) {
+      const def = eraDefs();
+      const cfg = structuredClone(def), probs = {};
+      let fatal = false;
+      if (!isObj(d)) return { cfg, probs, fatal };
+      const warn = (k, msg, isFatal) => { (probs[k] || (probs[k] = [])).push(msg); if (isFatal) fatal = true; };
+      const FATAL = "，游戏读这个文件会出错、整份按代码默认";
+      const num = v => typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(+v) ? +v : null;
+      const pun = v => enumOf(S.punish, v);
+      const replace = (obj, w) => {
+        const r = {};
+        for (const [a, b] of Object.entries(obj)) {
+          const from = pun(a), to = pun(b);
+          if (from && to) r[from] = to;
+          else w(`${a} → ${JSON.stringify(b)} 不是刑罚名，游戏跳过这一条`);
+        }
+        return r;
+      };
+      for (const [k, kind, , , opts = {}] of ERA_FIELDS) {
+        if (!has(d, k)) continue;
+        const v = d[k];
+        const notObj = () => warn(k, `${v === null ? "是 null" : "不是 { } 对象"}，游戏按代码默认`);
+        const notArr = () => warn(k, `${v === null ? "是 null" : "不是 [ ] 列表"}，游戏按代码默认`);
+        switch (kind) {
+          case "num": case "int": {
+            if (v === null) break;
+            const x = num(v);
+            if (x === null) { warn(k, `值 ${JSON.stringify(v)} 不是数字${FATAL}`, true); break; }
+            if (typeof v !== "number") warn(k, `值写成了文字 ${JSON.stringify(v)}，游戏会转成数字，最好去掉引号`);
+            let y = kind === "int" ? Math.round(x) : x;
+            if (kind === "int" && y !== x) warn(k, `应当是整数，游戏按 ${y} 算`);
+            if (opts.min !== undefined && y < opts.min) { warn(k, `小于 ${opts.min}，游戏按 ${opts.min} 算`); y = opts.min; }
+            if (opts.max !== undefined && y > opts.max) { warn(k, `大于 ${opts.max}，游戏按 ${opts.max} 算`); y = opts.max; }
+            cfg[k] = y;
+            break;
+          }
+          case "bool":
+            if (v === null) break;
+            if (typeof v !== "boolean") { warn(k, `值 ${JSON.stringify(v)} 应当是 true 或 false${FATAL}`, true); break; }
+            cfg[k] = v;
+            break;
+          case "note":
+            if (v === null) break;
+            if (isCont(v)) { warn(k, `应当是文字${FATAL}`, true); break; }
+            cfg[k] = String(v);
+            break;
+          case "punish": {
+            if (v === null) break;
+            if (isCont(v)) { warn(k, `应当是刑罚名${FATAL}`, true); break; }
+            const p = pun(v);
+            if (!p) { warn(k, `${JSON.stringify(v)} 不是刑罚名，游戏按代码默认`); break; }
+            cfg[k] = p;
+            break;
+          }
+          case "replace":
+            if (!isObj(v)) { notObj(); break; }
+            cfg[k] = replace(v, m => warn(k, m));
+            break;
+          case "rules": {
+            if (!Array.isArray(v)) { notArr(); break; }
+            const rules = [];
+            v.forEach((rule, i) => {
+              const w = (m, f) => warn(k, `第 ${i + 1} 条：${m}`, f);
+              if (!isObj(rule)) { w("不是 { } 对象，游戏跳过"); return; }
+              let tier = 99;
+              if (has(rule, "MinEraTier") && rule.MinEraTier !== null) {
+                const x = num(rule.MinEraTier);
+                if (x === null) { w(`MinEraTier ${JSON.stringify(rule.MinEraTier)} 不是数字${FATAL}`, true); return; }
+                tier = Math.round(x);
+              } else w("没写 MinEraTier，按 99 算(永不生效)");
+              let note = "";
+              if (has(rule, "NoteKey") && rule.NoteKey !== null) {
+                if (isCont(rule.NoteKey)) { w(`NoteKey 应当是文字${FATAL}`, true); return; }
+                note = String(rule.NoteKey);
+              }
+              const rep = isObj(rule.Replace) ? replace(rule.Replace, m => w(m)) : {};
+              if (!Object.keys(rep).length) { w("没有有效的替换，游戏会忽略这一条"); return; }
+              rules.push({ MinEraTier: tier, NoteKey: note, Replace: rep });
+            });
+            cfg[k] = rules;
+            break;
+          }
+          case "ideoList": case "lawSet": {
+            if (!Array.isArray(v)) { notArr(); break; }
+            const list = kind === "ideoList" ? S.ideoEnum : S.lawTypes;
+            const out = [];
+            for (const x of v) {
+              const e = enumOf(list, x);
+              if (!e) warn(k, `${JSON.stringify(x)} 认不出，游戏跳过`);
+              else if (!out.includes(e)) out.push(e);
+            }
+            cfg[k] = out;
+            break;
+          }
+          case "ideoMap": case "punishIntMap": case "traitMap": {
+            if (!isObj(v)) { notObj(); break; }
+            const out = {};
+            for (const [a, b] of Object.entries(v)) {
+              const key = kind === "traitMap" ? (a.trim() ? a : null) : enumOf(kind === "ideoMap" ? S.ideoEnum : S.punish, a);
+              if (!key) { warn(k, `${JSON.stringify(a)} 认不出，游戏跳过`); continue; }
+              const x = num(b);
+              if (x === null) { warn(k, `${a} 的值 ${JSON.stringify(b)} 不是数字，游戏跳过`); continue; }
+              let y = x;
+              if (kind === "punishIntMap") {
+                y = Math.round(x);
+                if (y !== x) warn(k, `${a} 应当是整数，游戏按 ${y} 算`);
+                if (y < opts.min) { warn(k, `${a} 小于 ${opts.min}，游戏按 ${opts.min} 算`); y = opts.min; }
+              }
+              out[key] = y;
+            }
+            cfg[k] = out;
+            break;
+          }
+        }
+      }
+      return { cfg, probs, fatal };
+    }
+    // 律法页用：游戏实际用的设置(读不了就是整份默认)
+    function lawErasConfig() {
+      const st = S.files.lawEras;
+      if (!st || st.error || !isObj(st.data)) return eraDefs();
+      const e = erasEffective(st.data);
+      return e.fatal ? eraDefs() : e.cfg;
+    }
+
+    function eraValText(kind, v) {
+      switch (kind) {
+        case "num": case "int": return String(v);
+        case "bool": return v ? "是" : "否";
+        case "note": return v ? v + (noteText(v) ? `(${noteText(v)})` : "") : "(空)";
+        case "punish": return pName(v);
+        case "replace": return replaceText(v) || "无";
+        case "rules": return (v || []).map(r => `${eraLabel(r.MinEraTier, true)}起 ${replaceText(r.Replace)}`).join("；") || "无";
+        case "ideoList": return (v || []).map(ideoName).join("、") || "无";
+        case "lawSet": return `${(v || []).length} 条`;
+        case "ideoMap": return `${Object.keys(v || {}).length} 个理念(见表)`;
+        case "traitMap": return Object.entries(v || {}).map(([a, b]) => `${traitLabel(a)} ${signed(b)}`).join("、") || "无";
+        case "punishIntMap": return Object.entries(v || {}).map(([a, b]) => `${pName(a)} ${b}`).join("、") || "无";
+      }
+      return JSON.stringify(v);
+    }
+    // 要改的那一项：文件里没写(或格式不对)时先换成代码默认的副本，免得只写一条把整项默认丢掉
+    function eraEnsure(d, k) {
+      const ok = ERA_ARRAY_KINDS.has(ERA_KIND[k]) ? Array.isArray(d[k]) : isObj(d[k]);
+      if (!ok) d[k] = structuredClone(eraDefs()[k]);
+      return d[k];
+    }
+    // "ModernReplace" 或 "EraRules/序号"(那条规则的 Replace)
+    function eraMap(d, path) {
+      const [k, i] = path.split("/");
+      if (k !== "EraRules") return eraEnsure(d, k);
+      const rule = eraEnsure(d, "EraRules")[+i];
+      if (!isObj(rule)) return null;
+      if (!isObj(rule.Replace)) rule.Replace = {};
+      return rule.Replace;
+    }
+    // 别名(数字、带空格)也算同一个枚举值
+    const enumKeys = (map, list, name) => Object.keys(map).filter(a => enumOf(list, a) === name);
+
+    function replaceHtml(path, m) {
+      const used = new Set(Object.keys(m).map(a => enumOf(S.punish, a)).filter(Boolean));
+      return `<div class="kv">` + Object.keys(m).map(a => {
+        const from = enumOf(S.punish, a), to = enumOf(S.punish, m[a]);
+        const toOpts = (to ? "" : optionHtml("\u0000keep", `${JSON.stringify(m[a])}(认不出)`, true)) + S.punish.map(x => optionHtml(x.name, pName(x.name), x.name === to)).join("");
+        return `<span class="pair ${from && to ? "" : "bad"}" title="${from ? "" : "游戏认不出这个刑罚名，跳过"}">${esc(from ? pName(from) : a)} →` +
+          `<select data-rep-to="${esc(a)}" data-map="${esc(path)}">${toOpts}</select>` +
+          `<button type="button" class="small" data-rep-del="${esc(a)}" data-map="${esc(path)}" title="去掉">×</button></span>`;
+      }).join("") +
+        `<span class="pair">加：<select data-rep-new-from="${esc(path)}">${optionHtml("", "选刑罚…", true)}${S.punish.filter(x => !used.has(x.name)).map(x => optionHtml(x.name, pName(x.name), false)).join("")}</select>` +
+        ` → <select data-rep-new-to="${esc(path)}">${S.punish.map(x => optionHtml(x.name, pName(x.name), x.name === "监禁")).join("")}</select>` +
+        `<button type="button" class="small" data-rep-add="${esc(path)}">加上</button></span></div>`;
+    }
+    function eraTierOptions(v) {
+      const n = typeof v === "number" ? v : typeof v === "string" && /^\s*-?\d+\s*$/.test(v) ? parseInt(v, 10) : undefined;
+      let html = "";
+      if (v === undefined || v === null) html += optionHtml("\u0000keep", "没写(按 99，永不生效)", true);
+      else if (n === undefined) html += optionHtml("\u0000keep", `${JSON.stringify(v)}(不是数字)`, true);
+      else if (n !== 99 && !S.eraTiers.some(e => e.tier === n)) html += optionHtml("\u0000keep", `时代 ${n}`, true);
+      return html + S.eraTiers.map(e => optionHtml(String(e.tier), eraLabel(e.tier), n === e.tier)).join("") + optionHtml("99", "99(永不生效)", n === 99);
+    }
+    // 一张「枚举值 → 数字」的表(理念宽严、赎金、刑期)
+    function enumNumTable(k, m, def, names, label, { int = false, empty = "0", titleOf = x => x } = {}) {
+      const rawOf = name => { const ks = enumKeys(m, label.list, name); return ks.length ? m[ks[ks.length - 1]] : undefined; };
+      return `<table class="sheet mapt"><thead><tr><th>${esc(label.head)}</th><th>值</th><th>代码默认</th></tr></thead><tbody>` +
+        names.map(x => {
+          const v = rawOf(x);
+          const bad = v !== undefined && typeof v !== "number";
+          return `<tr><td class="txt">${esc(titleOf(x))}${titleOf(x) !== x ? `<span class="fname">${esc(x)}</span>` : ""}</td>` +
+            `<td><input type="number" step="${int ? 1 : "any"}" data-mapnum="${esc(k)}" data-key="${esc(x)}" value="${typeof v === "number" ? v : ""}" placeholder="${esc(empty)}" class="${bad ? "bad" : ""}" title="${bad ? `文件里是 ${esc(JSON.stringify(v))}` : ""}"></td>` +
+            `<td class="dv">${def[x] !== undefined ? esc(int ? def[x] : signed(def[x])) : esc(empty)}</td></tr>`;
+        }).join("") + `</tbody></table>`;
+    }
+
+    function eraBody(d, k, kind, opts) {
+      const def = eraDefs();
+      const raw = has(d, k) ? d[k] : undefined;
+      switch (kind) {
+        case "num": case "int":
+          return `<input type="number" step="${kind === "int" ? 1 : "any"}" data-num="${esc(k)}" value="${typeof raw === "number" ? raw : ""}" placeholder="${esc(def[k])}">`;
+        case "bool":
+          return `<select class="solo" data-bool="${esc(k)}">${optionHtml("", `不写(按代码默认：${def[k] ? "是" : "否"})`, raw === undefined)}` +
+            (raw !== undefined && typeof raw !== "boolean" ? optionHtml("\u0000keep", `${JSON.stringify(raw)}(不对)`, true) : "") +
+            optionHtml("true", "是", raw === true) + optionHtml("false", "否", raw === false) + `</select>`;
+        case "punish": {
+          const p = raw === undefined ? null : enumOf(S.punish, raw);
+          return `<select class="solo" data-punish="${esc(k)}">${optionHtml("", `不写(按代码默认：${pName(def[k])})`, raw === undefined)}` +
+            (raw !== undefined && !p ? optionHtml("\u0000keep", `${JSON.stringify(raw)}(认不出)`, true) : "") +
+            S.punish.map(x => optionHtml(x.name, pName(x.name), p === x.name)).join("") + `</select>`;
+        }
+        case "note":
+          return `<input data-note="${esc(k)}" list="dlLawNotes" value="${esc(typeof raw === "string" ? raw : "")}" placeholder="${esc(def[k])}"><span class="hint" data-note-text></span>`;
+        case "replace":
+          return replaceHtml(k, isObj(raw) ? raw : def[k]);
+        case "rules": {
+          const arr = Array.isArray(raw) ? raw : def[k];
+          return `<div class="grid">` + arr.map((rule, i) => {
+            if (!isObj(rule)) return `<div class="rule"><div class="row"><span class="hint warn">第 ${i + 1} 条不是 { } 对象：${esc(JSON.stringify(rule))}</span>` +
+              `<button type="button" class="small danger" data-rule-del="${i}">删除这条</button></div></div>`;
+            return `<div class="rule"><div class="row"><b>第 ${i + 1} 条</b>` +
+              `<span class="kv">科技时代达到<select data-rule-tier="${i}">${eraTierOptions(has(rule, "MinEraTier") ? rule.MinEraTier : undefined)}</select>起</span>` +
+              `<span class="kv">卷宗说明<input data-rule-note="${i}" list="dlLawNotes" value="${esc(typeof rule.NoteKey === "string" ? rule.NoteKey : "")}" placeholder="不记说明"></span>` +
+              `<span class="hint" data-rule-note-text="${i}">${esc(noteShow(typeof rule.NoteKey === "string" ? rule.NoteKey : ""))}</span>` +
+              `<button type="button" class="small danger" data-rule-del="${i}" style="margin-left:auto">删除这条</button></div>` +
+              replaceHtml(`EraRules/${i}`, isObj(rule.Replace) ? rule.Replace : {}) + `</div>`;
+          }).join("") + `<div><button type="button" class="small" data-rule-add>${ico("iconShovelPlus", "sm")}加一条时代规则</button></div></div>`;
+        }
+        case "ideoList": {
+          const arr = Array.isArray(raw) ? raw : def[k];
+          const inList = new Set(arr.map(x => enumOf(S.ideoEnum, x)).filter(Boolean));
+          return `<div class="kv">` + arr.map((x, i) => {
+            const e = enumOf(S.ideoEnum, x);
+            return `<span class="pair ${e ? "" : "bad"}" title="${e ? "" : "认不出，游戏跳过"}">${esc(e ? ideoName(e) : JSON.stringify(x))}${e ? `<span class="fname">${esc(e)}</span>` : ""}` +
+              `<button type="button" class="small" data-list-del="${esc(k)}" data-idx="${i}" title="去掉">×</button></span>`;
+          }).join("") +
+            `<select data-list-add="${esc(k)}">${optionHtml("", "加上理念…", true)}${S.ideoEnum.filter(x => !inList.has(x.name)).map(x => optionHtml(x.name, `${ideoName(x.name)}(${x.name})`, false)).join("")}</select></div>`;
+        }
+        case "lawSet": {
+          const arr = Array.isArray(raw) ? raw : def[k];
+          const on = new Set(arr.map(x => enumOf(S.lawTypes, x)).filter(Boolean));
+          const catOfType = {};
+          for (const l of lawsList(S.files.laws?.data) || []) { const t = lawTypeOf(l); if (t && catOfType[t] === undefined) catOfType[t] = enumName(S.lawCats, l.Category) || ""; }
+          const groups = {};
+          for (const t of S.lawTypes) (groups[catOfType[t.name] ?? ""] || (groups[catOfType[t.name] ?? ""] = [])).push(t.name);
+          const order = uniq([...S.lawCats.map(c => c.name), ...Object.keys(groups)]).concat(groups[""] ? [""] : []);
+          const bad = arr.map((x, i) => [x, i]).filter(([x]) => !enumOf(S.lawTypes, x));
+          return `<div class="checkgrid">` + order.filter(c => groups[c]).map(c => `<div class="grp-title">${esc(c || "律法表里没有的罪名")}</div>` +
+            groups[c].map(t => `<label class="${on.has(t) ? "on" : ""}" title="${esc(t)}"><input type="checkbox" data-law="${esc(t)}" ${on.has(t) ? "checked" : ""}>${esc(lawDisplayName(t))}</label>`).join("")).join("") + `</div>` +
+            (bad.length ? `<div class="kv">${bad.map(([x, i]) => `<span class="pair bad">${esc(JSON.stringify(x))}(认不出)<button type="button" class="small" data-list-del="${esc(k)}" data-idx="${i}">×</button></span>`).join("")}</div>` : "");
+        }
+        case "ideoMap": {
+          const m = isObj(raw) ? raw : def[k];
+          const names = S.ideoEnum.map(x => x.name);
+          const anc = names.filter(x => ANCIENT_IDEOS.includes(x)), mod = names.filter(x => !ANCIENT_IDEOS.includes(x));
+          const extra = Object.keys(m).filter(a => !enumOf(S.ideoEnum, a));
+          const L = { list: S.ideoEnum, head: "理念" };
+          return `<div class="maps">${enumNumTable(k, m, def[k], mod, L, { titleOf: ideoName })}${enumNumTable(k, m, def[k], anc, L, { titleOf: ideoName })}</div>` +
+            (extra.length ? `<div class="kv">${extra.map(a => `<span class="pair bad">${esc(a)}(认不出)<button type="button" class="small" data-mapdel="${esc(k)}" data-key="${esc(a)}">×</button></span>`).join("")}</div>` : "");
+        }
+        case "punishIntMap": {
+          const m = isObj(raw) ? raw : def[k];
+          const names = S.punish.map(x => x.name).filter(x => x !== "无罪" || enumKeys(m, S.punish, x).length);
+          const extra = Object.keys(m).filter(a => !enumOf(S.punish, a));
+          return enumNumTable(k, m, def[k], names, { list: S.punish, head: "刑罚" }, { int: true, empty: opts.empty || "", titleOf: pName }) +
+            (extra.length ? `<div class="kv">${extra.map(a => `<span class="pair bad">${esc(a)}(认不出)<button type="button" class="small" data-mapdel="${esc(k)}" data-key="${esc(a)}">×</button></span>`).join("")}</div>` : "");
+        }
+        case "traitMap": {
+          const m = isObj(raw) ? raw : def[k];
+          return `<table class="sheet mapt"><thead><tr><th>特性</th><th>值</th><th>代码默认</th><th></th></tr></thead><tbody>` +
+            Object.keys(m).map(a => `<tr><td class="txt">${esc(traitLabel(a))}<span class="fname">${esc(a)}</span></td>` +
+              `<td><input type="number" step="any" data-mapnum="${esc(k)}" data-key="${esc(a)}" value="${typeof m[a] === "number" ? m[a] : ""}" class="${typeof m[a] === "number" ? "" : "bad"}"></td>` +
+              `<td class="dv">${def[k][a] !== undefined ? esc(signed(def[k][a])) : "—"}</td>` +
+              `<td class="act"><button type="button" class="small danger" data-mapdel="${esc(k)}" data-key="${esc(a)}" title="去掉">×</button></td></tr>`).join("") +
+            `<tr><td><input data-trait-new-id list="dlTraits" placeholder="特性 id"></td><td><input type="number" step="any" data-trait-new-val placeholder="如 0.2"></td>` +
+            `<td colspan="2"><button type="button" class="small" data-trait-add="${esc(k)}">加上</button></td></tr></tbody></table>`;
+        }
+      }
+      return "";
+    }
+
+    // 各刑罚在几种典型情形下改判成什么
+    function eraPreviewHtml(cfg) {
+      const grades = ["罚金", "笞刑", "杖刑", "监禁", "流放", "死刑", "夷三族"].filter(g => S.punish.some(p => p.name === g));
+      const sc = penalScenarios(cfg);
+      return `<details class="help" open><summary>按当前设置，各刑罚的改判(预览)</summary><div class="table-wrap free"><table class="sheet eff"><thead><tr><th>原定</th>` +
+        sc.map(s => `<th title="${esc(s.title || "")}">${esc(s.label)}</th>`).join("") + `</tr></thead><tbody>` +
+        grades.map(g => `<tr><th>${esc(pName(g))}</th>${sc.map(s => { const a = adaptOne(g, s.rg, cfg, null); return `<td class="${a === g ? "same" : ""}">${esc(pName(a))}</td>`; }).join("")}</tr>`).join("") +
+        `</tbody></table></div></details>`;
+    }
+
+    function renderLawEras(panel, st, f) {
+      const d = st.data;
+      if (!isObj(d)) return badRoot(panel, f, st, "最外层应该是 { } 对象");
+      const def = eraDefs();
+      const known = new Set(ERA_FIELDS.map(x => x[0]));
+      const comment = ["说明", "_comment"].find(k => typeof d[k] === "string");
+      const extra = Object.keys(d).filter(k => !known.has(k) && k !== comment);
+      const codeOnly = S.eraReadKeys ? [...S.eraReadKeys].filter(k => !known.has(k)) : [];
+      const notRead = S.eraReadKeys ? [...known].filter(k => !S.eraReadKeys.has(k)) : [];
+      const eff = erasEffective(d);
+      panel.innerHTML = fileHead(f, st) + `<div id="eraRoot">` +
+        `<p class="hint">律随时变、法因政异：量刑时律文的刑罚先按本国所处的科技时代、政体改判，再按一国宽严加减一等，再议八议、赎刑。` +
+        `每一项写了就覆盖代码默认，没写的沿用默认；列表、表格类的项写了就整项替换，不是逐条合并(所以这里改其中一条时，会把整项连同其余默认值一起写进文件)。读取出错时游戏日志记 [律法]。</p>` +
+        (comment ? `<details class="help"><summary>文件自带说明(${esc(comment)}，保存时原样保留)</summary><p class="hint">${esc(d[comment])}</p></details>` : "") +
+        (S.eraFromCode ? "" : `<p class="hint warn">没读出 EmpireLawEraConfig.cs 里的默认值，下面的「代码默认」是编辑器自带的一份，可能已经过时。</p>`) +
+        `<p class="hint warn" id="eraFatal" ${eff.fatal ? "" : "hidden"}>文件里有游戏读不了的值(下面标红的项)，游戏会整份按代码默认。</p>` +
+        (extra.length ? `<p class="hint warn">编辑器不认识的字段(保存时原样保留)：${esc(extra.join("、"))}</p>` : "") +
+        (codeOnly.length ? `<p class="hint warn">代码会读、编辑器还不认识的设置：${esc(codeOnly.join("、"))}(请直接改 json)</p>` : "") +
+        (notRead.length ? `<p class="hint warn">代码已经不读这些设置，改了不起作用：${esc(notRead.join("、"))}</p>` : "") +
+        `<div class="toolbar" style="margin-bottom:6px"><button type="button" class="small" data-reset-all>全部恢复默认</button></div>` +
+        `<datalist id="dlLawNotes">${uniq([...S.noteKeys, ...ERA_FIELDS.filter(x => x[1] === "note").map(x => def[x[0]])]).map(k => `<option value="${esc(k)}">${esc(noteText(k))}</option>`).join("")}</datalist>` +
+        `<datalist id="dlTraits">${Object.keys(TRAIT_ZH).map(k => `<option value="${esc(k)}">${esc(TRAIT_ZH[k])}</option>`).join("")}</datalist>` +
+        ERA_SECTIONS.map(sec => `<h3 data-sec="${sec.id}">${esc(sec.title)}<button type="button" class="small" data-reset-sec="${sec.id}">本组恢复默认</button></h3>` +
+          `<p class="hint">${esc(sec.about)}</p><div class="grid two">` +
+          sec.fields.map(([k, kind, label, hint, opts = {}]) => `<div class="erf ${opts.wide ? "wide" : ""}" data-k="${esc(k)}">` +
+            `<div class="erf-head">${lab(label, k)}<span class="def"></span><button type="button" class="small" data-reset="${esc(k)}">恢复默认</button></div>` +
+            eraBody(d, k, kind, opts) + (hint ? `<span class="hint">${esc(hint)}</span>` : "") + `<div class="probs"></div></div>`).join("") +
+          `</div>` + (sec.id === "death" ? eraPreviewHtml(eff.fatal ? def : eff.cfg) : "")).join("") + `</div>`;
+      const root = panel.querySelector("#eraRoot");
+
+      // 各项的状态(代码默认、改没改、问题)就地刷新，不重绘(免得输入时丢焦点)
+      const refresh = () => {
+        const e = erasEffective(d);
+        root.querySelector("#eraFatal").hidden = !e.fatal;
+        root.querySelectorAll(".erf").forEach(box => {
+          const k = box.dataset.k, kind = ERA_KIND[k];
+          const absent = !has(d, k);
+          const changed = !deepEqual(e.cfg[k], def[k]);
+          box.classList.toggle("changed", changed);
+          box.querySelector(".def").innerHTML = `代码默认 <b>${esc(eraValText(kind, def[k]))}</b>` + (absent ? "，文件里没写，按默认" : changed ? "，已改" : "");
+          box.querySelector("[data-reset]").disabled = absent || deepEqual(d[k], def[k]);
+          box.querySelector(".probs").innerHTML = (e.probs[k] || []).map(m => `<div class="hint warn">${esc(m)}</div>`).join("");
+          const nt = box.querySelector("[data-note-text]");
+          if (nt) nt.textContent = noteShow(e.cfg[k]);
+        });
+      };
+      const rerender = () => { const ed = document.getElementById("editor"); const top = ed.scrollTop; renderCurrent(); ed.scrollTop = top; };
+      const done = (redraw = true) => { markDirty("lawEras"); if (redraw) rerender(); else refresh(); };
+      const resetKeys = keys => {
+        let n = 0;
+        for (const k of keys) if (has(d, k) && !deepEqual(d[k], def[k])) { d[k] = structuredClone(def[k]); n++; }
+        if (n) done();
+        toast(n ? `已恢复 ${n} 项默认值` : "这些设置本来就是默认值");
+      };
+
+      root.addEventListener("click", e => {
+        const b = e.target.closest("button");
+        if (!b || !root.contains(b)) return;
+        const ds = b.dataset;
+        if (ds.reset !== undefined) resetKeys([ds.reset]);
+        else if (ds.resetSec !== undefined) resetKeys(ERA_SECTIONS.find(s => s.id === ds.resetSec).fields.map(x => x[0]));
+        else if (ds.resetAll !== undefined) resetKeys([...known]);
+        else if (ds.repDel !== undefined) { const m = eraMap(d, ds.map); if (m) { delete m[ds.repDel]; done(); } }
+        else if (ds.repAdd !== undefined) {
+          const box = b.closest(".pair");
+          const from = box.querySelector("[data-rep-new-from]").value, to = box.querySelector("[data-rep-new-to]").value;
+          if (!from) return toast("先选要改掉的刑罚", true);
+          const m = eraMap(d, ds.repAdd);
+          if (!m) return;
+          for (const a of enumKeys(m, S.punish, from)) if (a !== from) delete m[a];
+          m[from] = to;
+          done();
+        } else if (ds.ruleDel !== undefined) {
+          const rules = eraEnsure(d, "EraRules");
+          if (!confirm(`删除第 ${+ds.ruleDel + 1} 条时代规则？`)) return;
+          rules.splice(+ds.ruleDel, 1);
+          done();
+        } else if (ds.ruleAdd !== undefined) {
+          const rules = eraEnsure(d, "EraRules");
+          const last = [...rules].reverse().find(r => isObj(r) && typeof r.MinEraTier === "number");
+          rules.push({ MinEraTier: last ? last.MinEraTier : 7, NoteKey: "", Replace: {} });
+          done();
+          toast("已加一条规则，再给它加上替换才会生效");
+        } else if (ds.listDel !== undefined) { eraEnsure(d, ds.listDel).splice(+ds.idx, 1); done(); }
+        else if (ds.mapdel !== undefined) { delete eraEnsure(d, ds.mapdel)[ds.key]; done(); }
+        else if (ds.traitAdd !== undefined) {
+          const row = b.closest("tr");
+          const id = row.querySelector("[data-trait-new-id]").value.trim(), val = row.querySelector("[data-trait-new-val]").value.trim();
+          if (!id) return toast("先填特性 id", true);
+          if (val === "" || !Number.isFinite(Number(val))) return toast("值要填数字，如 0.2 或 -0.1", true);
+          eraEnsure(d, ds.traitAdd)[id] = Number(val);
+          done();
+        }
+      });
+      root.addEventListener("change", e => {
+        const el = e.target, ds = el.dataset;
+        if (el.value === "\u0000keep") return;
+        if (ds.bool !== undefined) { if (el.value === "") delete d[ds.bool]; else d[ds.bool] = el.value === "true"; done(); }
+        else if (ds.punish !== undefined) { if (el.value === "") delete d[ds.punish]; else d[ds.punish] = el.value; done(); }
+        else if (ds.repTo !== undefined) { const m = eraMap(d, ds.map); if (m) { m[ds.repTo] = el.value; done(); } }
+        else if (ds.ruleTier !== undefined) { const r = eraEnsure(d, "EraRules")[+ds.ruleTier]; if (isObj(r)) { r.MinEraTier = parseInt(el.value, 10); done(); } }
+        else if (ds.listAdd !== undefined) { if (el.value) { eraEnsure(d, ds.listAdd).push(el.value); done(); } }
+        else if (ds.law !== undefined) {
+          const arr = eraEnsure(d, "GraveCrimes");
+          if (el.checked) { if (!arr.some(x => enumOf(S.lawTypes, x) === ds.law)) arr.push(ds.law); }
+          else for (let i = arr.length - 1; i >= 0; i--) if (enumOf(S.lawTypes, arr[i]) === ds.law) arr.splice(i, 1);
+          done();
+        }
+      });
+      root.addEventListener("input", e => {
+        const el = e.target, ds = el.dataset;
+        if (ds.num !== undefined) {
+          const t = el.value.trim(), int = ERA_KIND[ds.num] === "int";
+          if (t === "") delete d[ds.num];
+          else {
+            const n = Number(t);
+            if (!Number.isFinite(n) || (int && !Number.isInteger(n))) { el.classList.add("bad"); return; }
+            d[ds.num] = n;
+          }
+          el.classList.remove("bad");
+          done(false);
+        } else if (ds.note !== undefined) {
+          if (el.value.trim() === "") delete d[ds.note]; else d[ds.note] = el.value.trim();
+          done(false);
+        } else if (ds.ruleNote !== undefined) {
+          const r = eraEnsure(d, "EraRules")[+ds.ruleNote];
+          if (!isObj(r)) return;
+          r.NoteKey = el.value.trim();
+          const span = root.querySelector(`[data-rule-note-text="${ds.ruleNote}"]`);
+          if (span) span.textContent = noteShow(r.NoteKey);
+          done(false);
+        } else if (ds.mapnum !== undefined) {
+          const k = ds.mapnum, kind = ERA_KIND[k], t = el.value.trim();
+          const n = Number(t);
+          if (t !== "" && (!Number.isFinite(n) || (kind === "punishIntMap" && !Number.isInteger(n)))) { el.classList.add("bad"); return; }
+          if (t === "" && kind === "traitMap") { el.classList.add("bad"); return; }
+          el.classList.remove("bad");
+          const m = eraEnsure(d, k);
+          if (kind === "traitMap") m[ds.key] = n;
+          else {
+            const list = kind === "ideoMap" ? S.ideoEnum : S.punish;
+            const ks = enumKeys(m, list, ds.key);
+            if (t === "") ks.forEach(a => delete m[a]);
+            else {
+              const keep = ks.includes(ds.key) ? ds.key : (ks[ks.length - 1] ?? ds.key);
+              ks.filter(a => a !== keep).forEach(a => delete m[a]);
+              m[keep] = n;
+            }
+          }
+          done(false);
+        }
+      });
+      refresh();
+    }
+
+    function gotoFile(id, sec) {
+      S.cur = id;
+      try { localStorage.setItem("misc.tab", id); } catch { /* 无痕模式等 */ }
+      renderNav();
+      renderCurrent();
+      const ed = document.getElementById("editor");
+      const h = sec ? ed.querySelector(`[data-sec="${sec}"]`) : null;
+      if (h) h.scrollIntoView({ block: "start" }); else ed.scrollTop = 0;
     }
 
     // ================= 5. 官员考绩事件 =================

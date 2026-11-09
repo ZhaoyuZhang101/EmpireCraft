@@ -108,6 +108,9 @@ public static class TerrainResistance
 
     public static bool HasWall(TileZone zone) => WallState(zone) > 0;
 
+    // 城墙情况(通达层取快照用，见 ConnectivitySystem)：-1 没有、1 有城墙、2 有城墙且有关门
+    public static int WallLevel(TileZone zone) => WallState(zone);
+
     // -1 没有城墙、1 有城墙、2 有城墙且有关门(缓存里 0 是还没查过)
     private static sbyte WallState(TileZone zone)
     {

@@ -201,7 +201,9 @@ public static partial class GentrySystem
         if (CultureService.IsValidCulture(culture) && InstitutionSystem.IsEnacted(culture, EqualFieldNode)) target *= 0.5f;
         float held = SeatLand(clan, seat);
         if (target - held < 0.05f) return;
-        LandEconomySystem.AnnexForClan(seat, clan, Mathf.Min(target - held, Mathf.Max(0.5f, target * AnnexStep)));
+        float taken = LandEconomySystem.AnnexForClan(seat, clan, Mathf.Min(target - held, Mathf.Max(0.5f, target * AnnexStep)));
+        // 仗势占田：在任官员、城主的族人可能暗中记一笔非法侵占土地(日后查办，见 LawEvents.ClanAnnexed)
+        if (taken > 0f) LawEvents.ClanAnnexed(clan, seat);
     }
 
     // 一家在郡望之城荫庇的份额：田产(份额 × 2 × 门第/100)与族众(每人三口佃客 × 门第/100 ÷ 城里人口)取大

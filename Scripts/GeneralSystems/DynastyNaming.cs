@@ -66,9 +66,10 @@ public static class DynastyNaming
         };
     }
 
-    // 文化专属称谓(用户 2026-10-19 选"加文化特性与节点过滤")：同一条制度线里个别文化另有叫法——印度走阿拉伯一线，不称哈里发、
-    // 苏丹；阿兹特克、林地部族走游牧一线，不称大可汗、斡里朵。有 "<键>_<文化小写>" 译文的先用(见各政体 OfficialType.csv、
-    // 制度节点名)；与制度线同名的文化(华夏、罗马、游牧、日本)用的就是线本身的称谓，不另找
+    // 文化专属称谓(用户 2026-10-19 选"加文化特性与节点过滤")：同一条制度线里个别文化另有叫法——印度走原始封建一线(以前走阿拉伯线)，
+    // 不称至高王国、至高王，称帝国、大君(OriginFeudalism/OfficialType.csv 的 _india)；阿兹特克、林地部族不称大可汗、斡里朵。
+    // 有 "<键>_<文化小写>" 译文的先用(见各政体 OfficialType.csv、制度节点名)；与制度线同名的文化(华夏、罗马、游牧、日本)用的就是
+    // 线本身的称谓，不另找
     private static readonly Dictionary<string, string> CultureSuffixes = new();
 
     public static string CultureVariant(string key, string culture)

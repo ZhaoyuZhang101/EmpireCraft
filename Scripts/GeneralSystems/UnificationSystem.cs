@@ -48,7 +48,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     末世崩溃，天下重回乱世，再出新的统一者。一个王朝只统一一次(改朝换代才能再来，见 OnDynastyChanged)；
 //   · 收拾残局(用户 2026-10-27 问"为什么迟迟不打燕国"，选"共主平定残余")：统一完成后天下里还剩的接壤独立之国，
 //     受了天命的共主每年有机会先索称臣纳贡、不从就兴师平定(见 Pacify)——以前统一一完就不再起统一战争，
-//     皇帝本人又多过不了原版开战谋划的门槛(无小人模式)，朝堂扩张要中央一场仗都没有，残余之国一留就是几十年；
+//     皇帝本人又多过不了原版开战谋划的门槛(无小人模式)，朝堂扩张要中央一场仗都没有，残余之国一留就是几十年。
+//     2026-11-07 用户再定(群友"帝国不会主动出击统一天下")：天下里自己的朝贡国也打(A)；平定之战算统一战争(B)；
+//     动荡期(据有五成到七成五)有统一倾向的共主按月挑一家(C)。详见 Pacify；
 //   · 天命已失、统一中辍：地盘跌到 6% 以下，或不到两成、而且已不是天下国力最强的一家；天下里有别家的地盘比统一者还大；
 //     或打满三十年还没统一(玩家日志 2026-10-16：有的统一战争打了一百七十多年，一直处在开国气象里，不起事、不分裂)——
 //     打满三十年时地盘过半算统一了(能统一的都统一了)，不到一半就中辍。有统一倾向的(华夏)据有过半的满三十年不收束，
@@ -63,6 +65,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 雄主之后第一次汗位更替必乱：不看积弊、正统(见 TakeHeroTurmoil、NomadCycleSystem.OnKhanSucceeded)，之后照常。
 // 问鼎按占城、国力从大到小逐家核对(见 PickContender)：前朝冷却、开国气象只挡它自己，不冻结全天下；对手国力按除它以外的各家算。
 // 文化的统一倾向(见 UnificationDrive)放宽久乱之后的门槛，开打以后加场数、加推进、过半不收束、小国归附；开战闸门、军饷都不绕。
+// 上面说的"接壤"(问鼎够不够得着别家、统一者挑谁开战、连着三年够不着、共主收拾残局)都按法理相连且走得通算，只隔着走得通的
+// 无人区也算(2026-11-07 群友"然后还是老问题，帝国不会主动出击统一天下"，见 Borders；以前只认原版邻城，隔着无人区的各家
+// 统一者不打、共主不平定，三年后统一草草收束)。共主收拾残局掷中了却一家也动不了时记"[天下诊断] ... 收拾残局无从下手"(见 DiagnosePacify)。
 // 周室分封(ZhouEraSystem)的天下另有一套春秋战国，不在这里管。
 public static class UnificationSystem
 {
@@ -127,6 +132,7 @@ public static class UnificationSystem
         Rivals.Clear();
         Shares.Clear();
         Untracked.Clear();
+        Pacifying.Clear();
         NoHeroLogged.Clear();
         GraceEndLogged.Clear();
         ContestLogged.Clear();
@@ -185,12 +191,25 @@ public static class UnificationSystem
     }
 
     // 统一者与天下里别家的仗，不论谁先动手(不受三十年强制停战、攻方议和；把对方正规军打光就举国吞并)。
+    // 共主兴师平定天下里别家的仗也算(用户 2026-11-07 选「平定之战算统一战争」：Pacify 开的、记作统一的仗，见 Pacifies)。
     // 统一者跟天下以外的国家(别的文化、别处)打的是寻常战争
     public static bool IsUnificationWar(War war)
     {
         if (war?.data == null || war.hasEnded()) return false;
         Kingdom attacker = war.getMainAttacker(), defender = war.getMainDefender();
-        return Contends(attacker, defender) || Contends(defender, attacker);
+        return Contends(attacker, defender) || Contends(defender, attacker) ||
+               war.GetEmpireWarType() == EmpireWarType.统一 && Pacifies(attacker, defender);
+    }
+
+    // holder 是天下共主，它收拾残局的天下里有 rival 这一家(年度结算记下，见 Pacify；失了天命、天下散了就不算，
+    // 年底照统一中辍的规矩改名，见 RetagStaleWars)
+    private static bool Pacifies(Kingdom holder, Kingdom rival)
+    {
+        Kingdom sovereign = Sovereign(holder), foe = Sovereign(rival);
+        if (!Alive(sovereign) || !Alive(foe) || sovereign == foe) return false;
+        foreach (Realm realm in Pacifying.Values)
+            if (realm.lead.mandate_kingdom_id == sovereign.id && realm.members.Contains(foe)) return true;
+        return false;
     }
 
     // unifier 正在统一的天下里有 rival 这一家
@@ -720,8 +739,13 @@ public static class UnificationSystem
     // 这一家是这个天下的人(都城在这片里)：只有它们能做统一者、是统一的对象
     private static bool Belongs(Kingdom sovereign, Realm realm) => Alive(sovereign) && realm.members.Contains(sovereign);
 
-    // 两家接壤(领地相邻，或隔海相望，见 StraitReach)。各家的接壤表每帧建一次(以前每问一次就把全世界的城扫一遍，
-    // 统一者对每个对手各问一次)
+    // 两家接壤：法理相连且走得通(邻城地块相接、或只隔着无人区，两边军队走得到一起，见 WarReach.WalkableNeighbours)，或隔海相望(见 StraitReach)。
+    // 各家的接壤表每帧建一次(以前每问一次就把全世界的城扫一遍，统一者对每个对手各问一次)。
+    // 2026-11-07 群友"然后还是老问题，帝国不会主动出击统一天下"：以前只认原版邻城(地块真正相接)。10-29 起连片的山脉沙漠划成无人区、
+    // 不归任何城，隔着它的两座城不再是原版邻城(三国剧本 90 年存档：法理相邻却不接壤的城 429 对)；11-04 开战闸与 AI 挑目标已改成
+    // "法理相连且走得通才算邻国"(见 WarReach)，这里漏了——隔着无人区的天下各家：问鼎时算"够不着别家"、统一者不对它们宣战、
+    // 连着三年"够不着"就把统一草草收束(过半的还受天命、得三十年开国气象)、共主收拾残局也不去平定。
+    // 真接壤却走不通的(隔着过不去的高山)同样不算，同 11-04 的定案；没开无人区时与原版邻城一样
     private static readonly Dictionary<Kingdom, HashSet<Kingdom>> Adjacency = new();
     private static int _adjacencyFrame = -1;
 
@@ -733,10 +757,10 @@ public static class UnificationSystem
             Adjacency.Clear();
             foreach (City city in World.world.cities.list)
             {
-                if (city?.data == null || city.isRekt() || city.neighbours_cities == null || city.kingdom == null) continue;
+                if (city?.data == null || city.isRekt() || city.kingdom == null) continue;
                 Kingdom own = Sovereign(city.kingdom);
                 if (own == null) continue;
-                foreach (City next in city.neighbours_cities)
+                foreach (City next in WarReach.WalkableNeighbours(city))
                 {
                     if (next?.kingdom == null || next.isRekt()) continue;
                     Kingdom other = Sovereign(next.kingdom);
@@ -796,6 +820,7 @@ public static class UnificationSystem
         // 去年的对手表留一份：今年一时算不进天下的统一者照旧按它打(见末尾)
         var lastRivals = new Dictionary<long, List<Kingdom>>(Rivals);
         Rivals.Clear();
+        Pacifying.Clear();
         double now = World.world.getCurWorldTime();
         // 天下自动并分(按文化配置的天下标识，见 TianxiaSystem.AutoArrange)
         using (FrameProfiler.Measure("天下大势·自动并分")) TianxiaSystem.AutoArrange();
@@ -1086,24 +1111,72 @@ public static class UnificationSystem
     }
 
     // 收拾残局：受了这个天下天命的共主(帝国，不在统一战争里，不是周室一系)，每年 PacifyChance 的机会对天下里剩下的一家动手——
-    // 接壤(或隔海相望)、都城在这片天下里、不是它的朝贡国、岁币之国、附庸，过得了开战闸门(停战、联姻、扶立……见 WarGate)、
+    // 接壤(法理相连且走得通，隔着走得通的无人区也算，见 Borders；或隔海相望)、都城在这片天下里、不是它的岁币之国、附庸，过得了开战闸门(停战、联姻、扶立……见 WarGate)、
     // 够得着(见 WarReach)的，离共主都城近的先：
-    //   · 先索称臣纳贡：对方不是帝国、国力不到共主的 PacifyYieldShare，按国力悬殊有机会称臣(至多 PacifyYieldChance，
+    //   · 先索称臣纳贡：对方不是帝国、不是已在向它朝贡的、国力不到共主的 PacifyYieldShare，按国力悬殊有机会称臣(至多 PacifyYieldChance，
     //     见 TributaryRelations.Submit；共主没有朝贡制度的收不成，照样开战)；
-    //   · 不从就兴师平定(帝国扩张)：养得起兵、不在死战、手上不到两场仗(见 WarSituation.TooBusyForWar)；
-    //     目标照常由 WarGoalSystem 按强弱定(小国吞并，都城鞭长莫及、隔着天堑的改为迫其称臣，见 AdministrativeControlSystem.BeyondReach)。
-    // 每年至多动一家
+    //   · 不从就兴师平定：养得起兵、不在死战、手上不到两场仗(见 WarSituation.TooBusyForWar，不论什么仗，比统一战争的 MaxWars 场还严)；
+    //     目标照常由 WarGoalSystem 按强弱定(小国吞并，都城鞭长莫及、隔着天堑的改为迫其称臣，见 AdministrativeControlSystem.OutOfReach)。
+    // 每年至多动一家。
+    // 2026-11-07 群友"然后还是老问题，帝国不会主动出击统一天下"，用户定(以前共主打一两仗就不再出击：天下里的小国多半先称臣、
+    // 朝贡国又"两头都不打"，平定之战还受代际侵占上限与过度扩张所限，打下来也只得迫其称臣)：
+    //   · A「共主可以打朝贡国」：天下里自己的朝贡国可以兴师平定(只这一对不受"朝贡两头都不打"，别家、原版谋划、朝堂照旧不打，
+    //     见 WarGate.Forbidden)，不再先索称臣；开战即罢朝贡，不留半截(见 TributaryRelations.Renounce)。
+    //     称臣未满停战年限(3 年)的先不打——称臣如同停战，免得这个月索得称臣、下个月就兴师；都城鞭长莫及的也不打——
+    //     打下来仍只是迫其称臣，年年白打(见 TributaryBlock)。统一战争中的统一者每月宣战本来就不看朝贡(见 Declare)，同样开战即罢朝贡；
+    //   · B「平定之战算统一战争」：兴师平定记作统一战争(EmpireWarType.统一，见 IsUnificationWar)——不受代际侵占上限、
+    //     不因过度扩张改迫其称臣(只有路程鞭长莫及的照旧改，见 WarGoalSystem.Ensure)，打下、和约割得的城记作统一所得，
+    //     打到底(不受战争年限强制停战、欠饷不罢兵，见 RulerTraitSystem.IsFounderUnificationWar)；共主失了天命，年底改名帝国扩张(见 RetagStaleWars)；
+    //   · C「动荡期按月挑」：共主据有天下五成到七成五(怀玺者六成，同天命动摇的占比口径)、本国文化有统一倾向的，不再每年掷骰，
+    //     照统一战争的规矩每月挑一家(见 PacifyMonthly、Monthly)；其余照旧每年掷。
     private const float PacifyChance = 0.35f, PacifyYieldShare = 0.35f, PacifyYieldChance = 0.5f;
+    // 称臣如同停战：自己的朝贡国称臣未满这么多年不打(同开战闸的停战年限，本模组把原版 minimum_years_between_wars 定为 3，
+    // 见 EmpireCraftPlotsAddition)
+    private const int TributaryTruceYears = 3;
+    // 共主这一年收拾残局的天下：主核心 → 年度结算清点的那一片(B 认平定之战、C 每月挑目标都看它)
+    private static readonly Dictionary<long, Realm> Pacifying = new();
 
     private static void Pacify(Realm realm)
     {
         if (realm.lead == null) return;
         Kingdom holder = realm.members.FirstOrDefault(member => TianxiaSystem.MandateOf(member) == realm.lead);
-        if (!Alive(holder) || Sovereign(holder) != holder || holder.GetOrCreate().unify_since >= 0d || Exempt(holder) ||
-            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(holder)) return;
-        Empire empire = holder.GetEmpire();
-        if (empire == null || empire.isRekt() || empire.IsArchived()) return;
+        Empire empire = Pacifier(realm, holder);
+        if (empire == null) return;
+        // 不论这一年掷不掷中都记下：打着的平定之战才认得出是统一战争(B)
+        Pacifying[realm.lead.id] = realm;
+        // 动荡期按月挑(C)：这一年交给每月结算
+        if (PacifyMonthly(holder, realm.lead)) return;
         if (UnityEngine.Random.value >= UnificationDrive.PacifyChance(holder, PacifyChance)) return;
+        PacifyOne(realm, holder, empire, monthly: false);
+    }
+
+    // 收拾残局的共主所在的帝国：受着这个天下的天命、自成一家的帝国，不在统一战争里，不是周室一系、不归古战争模组管；不够格为空
+    private static Empire Pacifier(Realm realm, Kingdom holder)
+    {
+        if (!Alive(holder) || realm.lead.mandate_kingdom_id != holder.id || Sovereign(holder) != holder ||
+            holder.GetOrCreate().unify_since >= 0d || Exempt(holder) ||
+            EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(holder)) return null;
+        Empire empire = holder.GetEmpire();
+        return empire == null || empire.isRekt() || empire.IsArchived() ? null : empire;
+    }
+
+    // 动荡期按月挑(C)：共主据有天下五成(守得住天命)到受命的占比(七成五，怀玺者六成，同 TianxiaSystem 天命动摇的占比口径)，
+    // 本国文化有统一倾向(见 UnificationDrive)。占比按天下窗口的口径现算(TianxiaSystem.Holdings)，年中打下几城就跟着变
+    private static bool PacifyMonthly(Kingdom holder, EmpireCore lead)
+    {
+        if (UnificationDrive.Of(holder) <= 0f) return false;
+        (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
+        if (total <= 0 || !held.TryGetValue(holder, out int ours)) return false;
+        float share = ours / (float)total;
+        float claim = ImperialSealSystem.Holds(holder) ? TianxiaSystem.SealClaimShare : TianxiaSystem.ClaimShare;
+        return share >= TianxiaSystem.KeepShare && share < claim;
+    }
+
+    // 动一家(每年掷中一次；动荡期每月一次)：挑得出的离都城最近的一家，先索称臣、不从就兴师；这一家开不了仗(开战那一下
+    // 被别的规矩挡回来)不挡下一家；一家也没动成记诊断
+    private static void PacifyOne(Realm realm, Kingdom holder, Empire empire, bool monthly)
+    {
+        // 手上已有两场仗(不论什么仗，统一、平定之战至多 MaxWars 场自然在内)、正在死战、打不起：这一回作罢
         if (WarSituation.TooBusyForWar(holder) || CorpsSystem.CannotFundWar(holder)) return;
         WorldTile home = holder.capital?.getTile();
         string dynasty = empire.GetEmpireName();
@@ -1112,31 +1185,84 @@ public static class UnificationSystem
             .Where(member => member != holder && Alive(member) && Sovereign(member) == member && !Exempt(member) &&
                              !holder.isInWarWith(member) && Borders(holder, member) &&
                              !EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(member) &&
-                             WarGate.CanDeclare(holder, member) && WarReach.Reachable(holder, member))
+                             WarGate.CanDeclare(holder, member, ownTributary: true) && WarReach.Reachable(holder, member) &&
+                             TributaryBlock(holder, member, empire) == null)
             .OrderBy(member => home == null || member.capital?.getTile() == null ? float.MaxValue
                 : Toolbox.SquaredDistTile(home, member.capital.getTile()))
             .ToList();
-        // 这一家开不了仗(开战那一下被别的规矩挡回来)不挡下一家
+        string mode = monthly ? "，动荡期按月" : "";
         foreach (Kingdom target in targets)
         {
             string name = target.GetKingdomName();
             double theirs = WarSituation.Power(target);
             float ratio = ours > 0d ? (float)(theirs / ours) : 1f;
-            if (!target.IsEmpire() && ratio < PacifyYieldShare &&
+            // 已在向共主朝贡的不再索称臣，直接兴师(A)
+            bool tributary = target.GetTakenAllianceEmpire() == empire;
+            if (!tributary && !target.IsEmpire() && ratio < PacifyYieldShare &&
                 UnityEngine.Random.value < PacifyYieldChance * (1f - ratio / PacifyYieldShare) &&
                 TributaryRelations.Submit(holder, target))
             {
-                LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{name} 慑于共主 {dynasty}(国力 {ratio:P0})，称臣纳贡");
+                LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：{name} 慑于共主 {dynasty}(国力 {ratio:P0}{mode})，称臣纳贡");
                 Record(holder, "unify_pacify_tribute_history", name, dynasty);
                 return;
             }
             War war = World.world.diplomacy.startWar(holder, target, WarTypeLibrary.normal);
             if (war?.data == null) continue;
-            war.SetEmpireWarType(EmpireWarType.帝国扩张);
-            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 兴师平定 {name}(国力 {ratio:P0})");
+            // 平定之战算统一战争(B)：不受代际侵占上限、不因过度扩张改称臣，打下的城记作统一所得
+            war.SetEmpireWarType(EmpireWarType.统一);
+            if (tributary)
+            {
+                TributaryRelations.Renounce(target, empire);
+                LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 罢朝贡国 {name} 的朝贡，兴师平定(国力 {ratio:P0}{mode})");
+                Record(holder, "unify_pacify_tributary_history", dynasty, name);
+                return;
+            }
+            LogService.LogInfo($"[EmpireCraft][天下大势] {realm.line}：共主 {dynasty} 兴师平定 {name}(国力 {ratio:P0}{mode})");
             Record(holder, "unify_pacify_war_history", dynasty, name);
             return;
         }
+        DiagnosePacify(realm, holder, empire, dynasty);
+    }
+
+    // 共主自己的朝贡国暂且不打的缘由(A)：称臣未满停战年限(称臣如同停战)；都城鞭长莫及(打下来仍只是迫其称臣)。
+    // 不是它的朝贡国、或可以打的为空
+    private static string TributaryBlock(Kingdom holder, Kingdom member, Empire empire)
+    {
+        if (member.GetTakenAllianceEmpire() != empire) return null;
+        double since = member.GetOrCreate().last_taken_alliance_timestamp;
+        if (since >= 0d && World.world.getCurWorldTime() >= since && Date.getYearsSince(since) < TributaryTruceYears)
+            return $"朝贡国(称臣未满{TributaryTruceYears}年)";
+        return AdministrativeControlSystem.OutOfReach(holder, member.capital) ? "朝贡国(都城鞭长莫及，打下也只称臣)" : null;
+    }
+
+    // 诊断(2026-11-07 群友"帝国不会主动出击统一天下")：共主这一回该收拾残局(每年掷中，或动荡期每月)，天下里却一家也没动成(也没在打)——各家卡在哪。
+    // 自己的朝贡国不再一律算"开战闸不打"(A)，只记称臣未满三年、都城鞭长莫及的。卡点变了才记，没变的 ContestLogYears 年一行(同问鼎诊断)；只记日志
+    private static void DiagnosePacify(Realm realm, Kingdom holder, Empire empire, string dynasty)
+    {
+        var parts = new List<string>();
+        int rest = 0;
+        foreach (Kingdom member in realm.members)
+        {
+            if (member == holder || !Alive(member) || Sovereign(member) != member || Exempt(member)) continue;
+            // 正与天下里的一家交战(平定之战还在打)：不算无从下手
+            if (holder.isInWarWith(member)) return;
+            string why = !Borders(holder, member) ? "不接壤或走不通"
+                : TributaryBlock(holder, member, empire) is string tributary ? tributary
+                : !WarGate.CanDeclare(holder, member, ownTributary: true) ? "开战闸(停战、姻亲、盟约、国力不足两倍……)"
+                : !WarReach.Reachable(holder, member) ? "够不着"
+                : "宣战被拦";
+            if (parts.Count < ContestLogTop) parts.Add($"{member.GetKingdomName()} {why}");
+            else rest++;
+        }
+        if (parts.Count == 0) return;
+        string key = $"{realm.line}#pacify";
+        string sign = string.Join(",", parts);
+        double now = World.world.getCurWorldTime();
+        if (ContestLogged.TryGetValue(key, out var last) && last.sign == sign && now >= last.at && Date.getYearsSince(last.at) < ContestLogYears)
+            return;
+        ContestLogged[key] = (sign, now);
+        LogService.LogInfo($"[EmpireCraft][天下诊断] {realm.line} 共主 {dynasty} 收拾残局无从下手：{string.Join("；", parts)}" +
+                           (rest > 0 ? $"(另 {rest} 家)" : ""));
     }
 
     // 一家的正规军(帝国连同各成员国)：现有兵力与满编；没有军团制时按士兵与历来最多的士兵
@@ -1207,10 +1333,18 @@ public static class UnificationSystem
             }
             Declare(unifier);
         }
+        // 动荡期有统一倾向的共主按月收拾残局(用户 2026-11-07 选 C「动荡期按月挑」，见 PacifyMonthly)：天下按年度结算记下的那一片
+        foreach (Realm realm in Pacifying.Values.ToList())
+        {
+            Kingdom holder = TianxiaSystem.Holder(realm.lead);
+            Empire empire = Pacifier(realm, holder);
+            if (empire != null && PacifyMonthly(holder, realm.lead)) PacifyOne(realm, holder, empire, monthly: true);
+        }
     }
 
     // 开战：手上的统一战争不到两场(有统一倾向的随占地加场，见 MaxWarsOf)、养得起兵，就挑接壤(或隔海相望)的一家开战(目标吞并)，
-    // 每月至多一场；不隔着别国远征。战争名按目标起(某某灭某国之战)，"统一天下"只作标签(见 WarCatalog)
+    // 每月至多一场；不隔着别国远征。战争名按目标起(某某灭某国之战)，"统一天下"只作标签(见 WarCatalog)。
+    // 不看停战、朝贡：天下里自己的朝贡国本来就打(用户 2026-11-07 选「共主可以打朝贡国」时核对过，同共主平定)，开战即罢朝贡、不留半截
     private static void Declare(Kingdom unifier)
     {
         if (!Rivals.TryGetValue(unifier.id, out List<Kingdom> rivals) || rivals.Count == 0) return;
@@ -1220,12 +1354,15 @@ public static class UnificationSystem
         List<Kingdom> open = rivals.Where(rival => Alive(rival) && Sovereign(rival) == rival && !unifier.isInWarWith(rival) &&
                                                    !TribalFissionService.Bound(unifier, rival)).ToList();
         // 一家开不了仗(开战那一下被别的规矩挡回来)就试下一家，不每月卡在同一家上
+        Empire own = unifier.GetEmpire();
         foreach (Kingdom target in open.Where(rival => Borders(unifier, rival)))
         {
+            bool tributary = own != null && target.GetTakenAllianceEmpire() == own;
             War war = World.world.diplomacy.startWar(unifier, target, WarTypeLibrary.normal);
             if (war?.data == null) continue;
             war.SetEmpireWarType(EmpireWarType.统一);
             WarGoalSystem.Preset(war, WarGoal.吞并);
+            if (tributary) TributaryRelations.Renounce(target, own);
             return;
         }
     }

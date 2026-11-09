@@ -11,6 +11,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 理念传播。本文化第一次有帝国以某理念改制共和，这个理念就成为本文化的主导理念；
 // 之后每年，主导理念随书籍向接壤的异文化流传(本文化要有这个理念的奠基名著才传得出去)；
+// 通达层算好后(用户 2026-11-06 选"标准"，见 ConnectivitySystem)：每段边境的流传量乘对方从本国学得到的通达强度(不算电讯，
+// 电讯另算远程一路)，隔着雪山大漠的接壤传得慢；不接壤、通达够 ideology_remote_min 的(隔着窄海、沿着商路)也传，按一段边境算；
 // 达到阈值时，书的抄本传进对方一座能藏书的城、被当地读到，再影响当地居民。
 // 文化制度节点仍须由本国执政党推进，政党能否成立则取决于本国人口支持。
 public static class IdeologySpreadSystem
@@ -95,6 +97,8 @@ public static class IdeologySpreadSystem
             if (media <= 0f) continue;
             var reached = new HashSet<Empire>();
             var borders = new HashSet<(long, long)>();
+            bool weighted = ConnectivitySystem.Ready;
+            var bordered = new HashSet<long>();
             foreach (Kingdom kingdom in empire.kingdoms_hashset.Where(kingdom => kingdom != null && !kingdom.isRekt()))
             foreach (City city in kingdom.cities.Where(city => city != null && !city.isRekt()))
             foreach (City neighbour in (IEnumerable<City>)city.neighbours_cities ?? Array.Empty<City>())
@@ -105,8 +109,23 @@ public static class IdeologySpreadSystem
                 if (!CultureService.IsValidCulture(target) || target == source) continue;
                 if (other.GetEmpire() is Empire otherEmpire) reached.Add(otherEmpire);
                 if (!borders.Add((kingdom.id, other.id))) continue;
-                Add(gains, target, ideology, ExposurePerBorder * media, MaxExposurePerYear);
+                float reach = weighted ? Reach(other, empire.CoreKingdom) : 1f;
+                if (weighted) bordered.Add(ConnectivitySystem.RealmOf(other)?.id ?? other.id);
+                Add(gains, target, ideology, ExposurePerBorder * media * reach, MaxExposurePerYear);
             }
+            // 不接壤、通达够的(隔着窄海、沿着商路)：按一段边境算，乘通达强度
+            if (weighted)
+                foreach (Kingdom other in World.world.kingdoms.list)
+                {
+                    if (other == null || other.isRekt() || !other.isCiv() || ConnectivitySystem.RealmOf(other) != other ||
+                        other == empire.CoreKingdom || other.GetEmpire() == empire || bordered.Contains(other.id)) continue;
+                    string target = CultureService.GetRealmCulture(other);
+                    if (!CultureService.IsValidCulture(target) || target == source) continue;
+                    float reach = ConnectivitySystem.LearnStrength(other, empire.CoreKingdom, telecom: false);
+                    if (reach < ConnectivitySystem.Config.ideology_remote_min) continue;
+                    if (other.GetEmpire() is Empire otherEmpire) reached.Add(otherEmpire);
+                    Add(gains, target, ideology, ExposurePerBorder * media * reach, MaxExposurePerYear);
+                }
             // 电报、广播、互联网：不接壤的开放国家也能收到这个理念
             if (MediaSystem.CommLevel(empire.CoreKingdom) <= 0) continue;
             foreach (Empire other in empires)
@@ -135,6 +154,13 @@ public static class IdeologySpreadSystem
                 map[culture] = perIdeology = new Dictionary<PartyIdeology, float>();
             perIdeology[ideology] = Math.Min(cap, (perIdeology.TryGetValue(ideology, out float value) ? value : 0f) + amount);
         }
+    }
+
+    // 对方从本国学得到的通达强度(不算电讯；还没算的按 1)
+    private static float Reach(Kingdom learner, Kingdom source)
+    {
+        float strength = ConnectivitySystem.LearnStrength(learner, source, telecom: false);
+        return strength < 0f ? 1f : strength;
     }
 
     private static void ApplyExposure(string culture, PartyIdeology ideology, float gain)

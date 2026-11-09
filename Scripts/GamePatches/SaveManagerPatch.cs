@@ -216,6 +216,8 @@ public class SaveManagerPatch : GamePatch
         // 商品市场同理(市场图层、外交界面的市场页按国家编号取市场)
         EmpireCraft.Scripts.GeneralSystems.CommodityMarketSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CultureRadiation.ResetWorldState();
+        // 通达层不存档：读档后从头算(算好之前各机制照旧)
+        EmpireCraft.Scripts.GeneralSystems.ConnectivitySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.TerrainResistance.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WarReach.ResetWorldState();

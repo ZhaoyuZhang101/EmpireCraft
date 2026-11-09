@@ -369,7 +369,7 @@ for p, n, f in [
 ]:
     P(sg, p, n, f)
 
-jj = D("jurchen_jin", "金|Jin", "Youmu", ["youyan", "manchuria"], "完颜|Wanyan")
+jj = D("jurchen_jin", "金|Jin", "Manzhou", ["youyan", "manchuria"], "完颜|Wanyan")
 P(jj, "jj_helibo", "完颜劾里钵|Wanyan Helibo")
 for n, a, b, shi, miao, era, p, f in [
     ("完颜阿骨打|Wanyan Aguda", 1115, 1123, "应乾兴运昭德定功仁明庄孝大圣武元", "太祖", "收国", "jj01", "jj_helibo"),
@@ -539,7 +539,7 @@ west(hre, [("奥托一世|Otto I", 962, 973, {"dyn": "奥托|Ottonian"}), ("奥�
            ("洛泰尔三世|Lothair III", 1125, 1137, {"dyn": "苏普林堡|Supplinburg"}),
            ("康拉德三世|Conrad III", 1138, 1152, {"dyn": "霍亨施陶芬|Hohenstaufen"}),
            ("腓特烈一世|Frederick I", 1152, 1190, {"dyn": "霍亨施陶芬|Hohenstaufen"})])
-tib = D("tibet", "吐蕃|Tibet", "Youmu", ["tibet"], "悉补野|Pugyal")
+tib = D("tibet", "吐蕃|Tibet", "Xizang", ["tibet"], "悉补野|Pugyal")
 west(tib, [("松赞干布|Songtsen Gampo", 618, 650), ("芒松芒赞|Mangsong Mangtsen", 650, 676), ("赤都松赞|Tridu Songtsen", 676, 704),
            ("赤德祖赞|Tride Tsuktsen", 704, 754), ("赤松德赞|Trisong Detsen", 755, 797), ("牟尼赞普|Muné Tsenpo", 797, 799),
            ("赤德松赞|Tride Songtsen", 799, 815), ("赤祖德赞|Ralpacan", 815, 838), ("朗达玛|Langdarma", 838, 842)])

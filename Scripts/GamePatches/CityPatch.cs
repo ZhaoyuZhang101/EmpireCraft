@@ -530,9 +530,18 @@ public class CityPatch : GamePatch
             if (religionWar != null)
             {
                 LogService.LogInfo("宗教圣战");
-                __instance.setReligion(joinAfterCapture.religion);
-                __instance.units.ForEach(a=>a.setReligion(joinAfterCapture.religion));
-                TranslateHelper.LogReligionWarTransfer(__instance, joinAfterCapture.religion);
+                // 圣战攻下的城：只当场改与攻方之教同天下的(或无教的)，外天下的城留给国教推行；奉犹太教这类有"会堂"教义的城不改
+                // (用户 2026-11-06 "古典时代全世界都信基督"，见 ReligionTenets)
+                Religion conqueror = joinAfterCapture.religion;
+                Religion held = __instance.hasReligion() ? __instance.religion : null;
+                if (conqueror != null && held != conqueror &&
+                    (held == null || ReligionTenets.AtHome(conqueror, ReligionSphere.SphereOfCity(__instance)) && !ReligionTenets.CaptureImmune(held)))
+                {
+                    BackgroundReligionSystem.Convert(__instance, conqueror, held);
+                    ReligionDiagnostics.Add(ReligionDiagnostics.HolyWar);
+                    TranslateHelper.LogReligionWarTransfer(__instance, conqueror);
+                }
+                else if (conqueror != null && held != conqueror) ReligionDiagnostics.Add(ReligionDiagnostics.HolyWarSpared);
             }
             if (empireRoyalAcquireEmpireWar != null)
             {

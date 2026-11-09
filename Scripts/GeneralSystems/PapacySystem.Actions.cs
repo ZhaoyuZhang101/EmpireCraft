@@ -27,6 +27,12 @@ public static partial class PapacySystem
     {
         if (CrownBlocker(empire) != null) return false;
         Religion religion = ReligionOf(empire);
+        // 大分裂中奉对立教宗的，由对立教宗加冕(见 PapacySystem.Antipope)
+        if (!BrokeWithRome(empire) && FollowsAntipope(empire) && AntipopeSee(religion) is Kingdom see)
+        {
+            Crown(empire, State(empire), empire.Emperor, self: false, see, antipope: true);
+            return true;
+        }
         Kingdom papacy = Papacy(religion);
         bool self = BrokeWithRome(empire) || papacy == null;
         Crown(empire, State(empire), empire.Emperor, self, papacy);
@@ -42,7 +48,7 @@ public static partial class PapacySystem
         if (papacy == null) return false;
         PapalRelationState state = State(empire);
         if (IsExcommunicated(empire)) Lift(empire, state, LM.Get("realm_coerce_ban_lifted_history"));
-        if (!IsCrowned(empire) || state.self_crowned) Crown(empire, state, empire.Emperor, self: false, papacy);
+        if (!IsCrowned(empire) || state.self_crowned || state.crowned_by_rival) Crown(empire, state, empire.Emperor, self: false, papacy);
         return true;
     }
 
@@ -208,7 +214,7 @@ public static partial class PapacySystem
         PapalRelationState state = State(empire);
         if (IsExcommunicated(empire))
         {
-            Penance(empire, state, ReligionOf(empire), Papacy(ReligionOf(empire)));
+            Penance(empire, state, ReligionOf(empire), ObeyedSee(empire, ReligionOf(empire)));
             return true;
         }
         Excommunicate(empire, state, "papal_ban_reason_decree");

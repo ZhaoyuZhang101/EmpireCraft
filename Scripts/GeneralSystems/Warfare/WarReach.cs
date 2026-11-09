@@ -17,6 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   游牧过沙漠冻土、阿拉伯过沙漠的不算隔着)，沿直线的地形阻力也不过 LandCost(见 TerrainResistance.LineCost；
 //   用户 2026-10-26："印度打不到西藏"，以前量山地、冻土、沙漠的天堑深浅，已改成无人区)，或隔海在水师辐射内(StraitReach)；
 //   内乱不拦：叛乱、煽动、挑拨(神力)、全面战争，同一帝国内，封建上下级，开国不满一年的新政权宣战(刚分出来的叛军、割据打原主)。
+//   "同一块陆地上相距不远"的地形阻力：通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)不再沿直线取样，
+//   查两城近邻表里不走海的那条路的成本(真实绕路、走路、过关都算进去)，门槛照旧 LandCost(24)；查不准时照旧沿直线估。
 // 接壤改成"法理相连且走得通"(用户 2026-11-04 转群友"邻国宣战机制把无人区法理算上""不至于打了整整 10 年的静坐战"，问答定
 // "法理相连且走得通才算")：三国剧本 90 年存档，真接壤的 201 对国家里 59 对一处都走不通，20 场仗 6 场两边走不到一起，最长打了 15 年。
 //   · 隔着无人区相邻(见 WildernessNeighbours)、走得通的算邻国，不限 LandTiles(走廊常比它长)；
@@ -167,6 +169,41 @@ public static class WarReach
         return false;
     }
 
+    // 走得通的邻城：地块相接、或只隔着无人区，且两边城心军队走得到一起(任一方的走法，同 Borders)。
+    // 天下大势量两家接壤用(见 UnificationSystem.Borders；2026-11-07 群友"帝国不会主动出击统一天下"：那边以前只认地块相接的原版邻城，
+    // 隔着无人区的天下各家既不算统一的对手、共主也不去平定)；没开无人区时就是原版邻城
+    public static IEnumerable<City> WalkableNeighbours(City city)
+    {
+        if (city?.data == null) yield break;
+        TileZone from = city.getTile()?.zone;
+        if (city.neighbours_cities != null)
+            foreach (City other in city.neighbours_cities)
+            {
+                if (other?.kingdom == null || other.isRekt()) continue;
+                TileZone to = other.getTile()?.zone;
+                if (WildernessPassage.Walks(from, to, city.kingdom) || WildernessPassage.Walks(from, to, other.kingdom)) yield return other;
+            }
+        foreach (City other in WalkableWildNeighbours(city)) yield return other;
+    }
+
+    // 发起国(连同所在帝国)法理相连且走得通的各国，一次算好(同 WarNear 的陆上一条；朝堂挑目标要逐国问一遍，见 TempFac_扩张地盘)
+    public static HashSet<Kingdom> WalkableNeighbourKingdoms(Kingdom initiator)
+    {
+        var result = new HashSet<Kingdom>();
+        if (initiator?.data == null || initiator.isRekt()) return result;
+        foreach (Kingdom x in Members(initiator))
+        {
+            if (x.cities == null) continue;
+            foreach (City city in x.cities)
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                foreach (City other in WalkableNeighbours(city))
+                    if (other.kingdom != null) result.Add(other.kingdom);
+            }
+        }
+        return result;
+    }
+
     // 只隔着无人区、又走得通的邻城(AcrossWild 不看走不走得通；隔着过不去的雪山大漠的不算，见 WildernessPassage)
     public static IEnumerable<City> WalkableWildNeighbours(City city)
     {
@@ -213,10 +250,25 @@ public static class WarReach
                 if ((x.city_center - y.city_center).sqrMagnitude > limit) continue;
                 WorldTile tile = y.getTile();
                 if (tile != null && at.isSameIsland(tile) && WildernessPassage.Reachable(at.zone, tile.zone, x.kingdom) &&
-                    TerrainResistance.LineCost(at.zone, tile.zone, x.kingdom) <= LandCost) return true;
+                    LandCostWithin(x, y, at, tile)) return true;
             }
         }
         return false;
+    }
+
+    // 两城之间陆路的地形阻力不过 LandCost(见类头)
+    private static bool LandCostWithin(City x, City y, WorldTile at, WorldTile tile)
+    {
+        float cost = ConnectivitySystem.NearLandCost(x, y, LandCost);
+        if (cost >= 0f) return cost <= LandCost;
+        return TerrainResistance.LineCost(at.zone, tile.zone, x.kingdom) <= LandCost;
+    }
+
+    // 两边(帝国连同成员)同一块陆地上有两座城相距不远、走得过去(同 Reachable 的陆上一条；定战争目标分陆战、跨海用，见 WarGoalSystem)
+    public static bool LandNearby(Kingdom a, Kingdom b)
+    {
+        if (a?.data == null || b?.data == null || a.isRekt() || b.isRekt()) return false;
+        return LandNear(Members(a), Members(b));
     }
 
     private static List<City> Cities(List<Kingdom> realm) =>

@@ -45,7 +45,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     不算直辖，也不因路远失稳；青铜时代及以前，或周制天下，管不到的新征服之地封为诸侯(帝国成员)；
 //   · 软限：直辖容量 = 4 + 4×时代 + 制度科技(官僚文书、驿传、考选取士、电报、计算机)，按政体、君主折算；
 //     羁縻地区、分封诸侯不算直辖。直辖城数超过容量即过度扩张：远方城市稳定度再降，硬限门槛提高，
-//     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure)。
+//     开战不再谋割地吞并、只迫其称臣(见 WarGoalSystem.Ensure；统一战争、共主平定天下的仗除外，只看路程，用户 2026-11-07 选 B)。
 //
 // 游牧低控制(用户 2026-10-20 定的游牧基调"高扩张，低控制"：能打下来、直辖不了多少)：游牧政体与汗国分封，且国家文化是游牧
 // (真游牧，见 KingdomExtension.IsTrueNomad；用户 2026-10-21 选"阿兹特克、奥吉布瓦不再吃游牧的亏"——它们挂在游牧制度线上、
@@ -214,6 +214,7 @@ public static class AdministrativeControlSystem
     // 横跨欧洲、北非、西亚 98 城，维京本族只有 9 城，古典、现代制度都维持不了)：GenerationYears 年内打下(含割让)、眼下仍在本国的城，
     // 涉及的王国法理满 KingdomCoresPerGeneration 个，或因此据有了别人的一个帝国法理(三分之二)，再开战不谋土地，
     // 改为迫其称臣(帝国则求赔款)，同过度扩张(见 WarGoalSystem.Ensure)。统一战争里打下的不算，统一战争也不受限
+    // (共主兴师平定天下里别家的仗也算统一战争，用户 2026-11-07 选「平定之战算统一战争」，见 UnificationSystem.IsUnificationWar)
     public const float GenerationYears = 30f;
     public const int KingdomCoresPerGeneration = 3, EmpireCoresPerGeneration = 1;
 

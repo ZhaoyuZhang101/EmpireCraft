@@ -86,8 +86,9 @@ public static class ReligionSphere
 
     // 一个天下一处圣地(用户 2026-11-08 看路德宗也有圣地马格德堡、自己的教宗："号召力还是在罗马""不能说我分一个宗教就重新创建一个圣地"
     // "圣地应该一个天下只能有一个""能冠以天下名的教宗就只能有一个")：
-    //   · 教派：从普世教会、伊斯兰分出去的(母宗教还在、类型相同)——东正教会、新教各宗、国教会、什叶派。不另立圣地，没有教宗、哈里发座，
-    //     不号召圣战；圣地随本宗，自己记的那座城(Religion.CityID)只是本宗的中心；
+    //   · 教派：从普世教会、伊斯兰分出去的(母宗教还在、类型相同)——东正教会、新教各宗、国教会、什叶派。不另立圣地，没有教宗，
+    //     不号召圣战；圣地随本宗，自己记的那座城(Religion.CityID)只是本宗的中心。伊斯兰的分支例外，自有伊玛目、哈里发座
+    //     (见 PapacySystem.HasSee、IslamicSchismSystem)，圣地照样随本宗；
     //   · 地方教会(同天下的本土小教)没有圣地，那座城也只是中心；
     //   · 别的类型(法教、腾格里等)照旧各有圣地，分出的也一样(佛教、萨满本是另一教，只是记了所出)。
     // 母宗教绝了，教派才自立，自己那座城成圣地。
@@ -156,12 +157,23 @@ public static class ReligionSphere
         return Alive(religion) ? religion : null;
     }
 
-    // 地方教会：同天下的本土宗教，但不是正教
+    // 地方教会：同天下的本土宗教，但不是正教。
+    // 两段式立教的启示宗教(用户 2026-11-06 选"两段式"，见 NativeFaithSystem)与古神正教类型不同，立教 grace_years(150)年内不算地方教会：
+    // 不被并入古神、有自己的教阶，靠传教在本天下追上古神后接任正教(现任被超过两成五才换)
     public static bool IsLocalChurch(Religion religion)
     {
         if (!Alive(religion) || !IsNative(religion)) return false;
         Religion orthodox = OrthodoxOf(SphereOf(religion));
-        return orthodox != null && orthodox != religion;
+        if (orthodox == null || orthodox == religion) return false;
+        return !InRevelationGrace(religion, orthodox);
+    }
+
+    public static bool InRevelationGrace(Religion religion, Religion orthodox)
+    {
+        double revealed = religion.GetOrCreate().RevealedAt;
+        if (revealed < 0d || ReligionFaith.Of(religion) == ReligionFaith.Of(orthodox)) return false;
+        double now = World.world.getCurWorldTime();
+        return now < revealed || Date.getYearsSince(revealed) < ReligionTenets.Revelation.grace_years;
     }
 
     // 有城奉着本土宗教的天下(这些天下的城不再创教)

@@ -956,9 +956,11 @@ public static class TribalFissionService
             else if (current == RegimeType.Origin && InstitutionSystem.GetCultureLine(culture) == "Huaxia")
                 target = RegimeType.HuaxiaOrigin;
             // 别的文化线没有自己的原始节点：照旧用共用的原始政体，不因为解析不出来就改(游牧、阿拉伯从部落起步，
-            // 本文化成了汗国、哈里发国，帝国之外的部落一并改过去)
+            // 本文化成了汗国、哈里发国，帝国之外的部落一并改过去)。
+            // 原始封建线(Origins：印度、班图、祖鲁、阿兹特克、奥吉布瓦)也从部落起步：本文化施行城邦后改古典共和，
+            // 施行王权(取代城邦)后改原始封建制(见 InstitutionTrees/Origins.json)；以前漏了这条线，这些文化的部落永远停在原始政体
             if (target == current || !RegimeManager.IsPrimitive(target) && current == RegimeType.Origin &&
-                InstitutionSystem.GetCultureLine(culture) is not ("Huaxia" or "Youmu" or "Arabic" or "Japan")) continue;
+                InstitutionSystem.GetCultureLine(culture) is not ("Huaxia" or "Youmu" or "Arabic" or "Japan" or "Origins")) continue;
             try
             {
                 if (empire != null && !RegimeManager.IsPrimitive(target) && Deserted(empire))

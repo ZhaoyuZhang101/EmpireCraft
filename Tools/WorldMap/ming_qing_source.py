@@ -449,6 +449,7 @@ def main():
     # 清有了红夷大炮(1631 仿造)：科技按文化算，游牧诸部一起带上
     era["techExtra"] = dict(era["techExtra"])
     era["techExtra"]["Youmu"] = ["gunpowder", "matchlock", "hongyi_cannon"]
+    era["techExtra"]["Manzhou"] = ["gunpowder", "matchlock", "hongyi_cannon"]
     ranks = dict(era["ranks"])
     for cid in ("lingao", "chaghan", "shenyang"):
         ranks.pop(cid, None)

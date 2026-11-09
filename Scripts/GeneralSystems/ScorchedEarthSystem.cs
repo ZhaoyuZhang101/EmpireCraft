@@ -13,6 +13,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 或者仇外而这座城是异族(主流文化或物种不同)，军队纵兵烧杀——每月按敌占区块的比例：
 //   杀伤背景人口 KillRatePerMonth × 敌占比例；烧掉敌占区块里的庄稼；抢走城中存粮 PlunderRate × 敌占比例。
 // 死难人数记入屠城之恨(见 MassacreSystem)：日后由屠城者统治时城市忠诚下降。
+// 城破纵兵烧杀的，攻城统领犯抢掠平民(见 LawEvents.Sacked)。
 // 庄稼被烧、存粮被抢、敌占区块又不能耕种(见 FarmlandSystem)，城市随之缺粮闹饥荒。
 public static class ScorchedEarthSystem
 {
@@ -71,6 +72,8 @@ public static class ScorchedEarthSystem
                            city.getSpecies() != conqueror.king.asset.id;
             int killed = Kill(city, SackDeathRate + (scorch ? SackScorchDeathRate : 0f));
             if (scorch && killed > 0) MassacreSystem.RecordBackgroundMassacre(city, conqueror, killed);
+            // 纵兵烧杀：攻城统领犯抢掠平民(本帝国的城当场追究，外国的城暗中记一笔，见 LawEvents)
+            if (scorch) LawEvents.Sacked(city, oldKingdom, conqueror);
             Plunder(city, scorch ? 0.6f : 0.3f);
             // 施行奴隶制的一方俘其民为奴(见 SlaverySystem)
             SlaverySystem.OnCityCaptured(city, conqueror);
@@ -78,7 +81,15 @@ public static class ScorchedEarthSystem
             float refugees = RefugeeRate + (foreign ? ForeignRefugeeRate : 0f) + (scorch ? ScorchRefugeeRate : 0f);
             City refuge = null;
             float best = float.MaxValue;
-            if (oldKingdom.cities != null)
+            // 通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：逃往原主手里人员走过去成本最低、
+            // 走得到的城——不再隔海、隔着过不去的无人区"飞"过去；一座也走不到就地逃散(不迁)
+            bool reach = false;
+            if (ConnectivitySystem.Ready && oldKingdom.cities != null)
+            {
+                refuge = ConnectivitySystem.ClosestOf(city, oldKingdom.cities, ConnectivityMode.People, out float cost);
+                reach = cost >= 0f;
+            }
+            if (!reach && oldKingdom.cities != null)
                 foreach (City other in oldKingdom.cities)
                 {
                     if (other == null || other == city || other.isRekt()) continue;

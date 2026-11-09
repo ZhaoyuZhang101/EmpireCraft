@@ -23,6 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     (核心王国与它的行政区，不含封国、附庸、别的朝贡国)够得着(InReach：接壤、只隔着走得通的无人区、或隔海在一方水师辐射内；
 //     用户 2026-11-05 选"收紧到接壤"，隔着第三国不算，以前同一块陆地上相距不过 80 格也算)；已经在朝贡的够不着满 DriftYears 年就断了(道远不通，朝贡遂绝)。
 //     剧本、神力定下的朝贡照样立(不过闸)，够不着的同样过些年断了。
+//     几年断：通达层算好后(用户 2026-11-06 同意，见 ConnectivitySystem)按两边人员往来强度(取好的一边)S，DriftYears × (0.5 + S)——
+//     隔着雪山大漠的五年就断，隔着窄海往来方便的十五年；"够得着"本身照旧只认接壤(用户 11-05 选定)。
 public static class TributaryRelations
 {
     public const float ReturnGiftShare = 0.3f;
@@ -33,6 +35,16 @@ public static class TributaryRelations
     private static readonly Dictionary<long, (double at, long empire, bool reach, double farSince)> Reach = new();
 
     public static void ResetWorldState() => Reach.Clear();
+
+    // 够不着几年断朝贡(见类头)
+    private static float DriftLimit(Kingdom tributary, Empire empire)
+    {
+        Kingdom core = empire?.CoreKingdom;
+        float a = ConnectivitySystem.Strength(tributary, core, ConnectivityMode.People);
+        float b = ConnectivitySystem.Strength(core, tributary, ConnectivityMode.People);
+        if (a < 0f || b < 0f) return DriftYears;
+        return DriftYears * (0.5f + (a > b ? a : b));
+    }
 
     // 宗主的直辖之地：核心王国与它的行政区(律令制的道、都护府，行省、总督区……见 IsAdministrativeKingdomType)
     public static List<Kingdom> Direct(Empire empire)
@@ -66,7 +78,7 @@ public static class TributaryRelations
             state = (now, empire.id, reach, farSince);
             Reach[tributary.id] = state;
         }
-        if (state.reach || state.farSince < 0d || Date.getYearsSince(state.farSince) < DriftYears) return false;
+        if (state.reach || state.farSince < 0d || Date.getYearsSince(state.farSince) < DriftLimit(tributary, empire)) return false;
         Reach.Remove(tributary.id);
         LogService.LogInfo($"[EmpireCraft][朝贡] {tributary.GetKingdomName()} 与{empire.GetEmpireName()}道远不通已满 {DriftYears} 年，不再朝贡");
         return true;
@@ -122,6 +134,17 @@ public static class TributaryRelations
         if (FeudalVassalService.UsesFeudalVassals(core)) return true;
         return CultureService.GetRealmCulture(core).GetInstitutionLine() == "Roma" ||
                CultureService.GetInstitutionCulture(core).GetInstitutionLine() == "Roma";
+    }
+
+    // 宗主兴师讨伐自己的朝贡国(天下共主平定天下里的朝贡国，用户 2026-11-07 选「共主可以打朝贡国」，见 UnificationSystem.Pacify)：
+    // 开战即罢朝贡。开战那一下 WarPatch.DetachHostileTributaries 已把朝贡关系断了(史书记"脱离朝贡体系")，这里补断没断的，
+    // 再清掉天下来朝的标记(以前要等年度结算才清，其间仍算来朝之国)与道远不通的计时，不留半截
+    public static void Renounce(Kingdom tributary, Empire empire)
+    {
+        if (tributary?.data == null || empire == null) return;
+        if (tributary.GetTakenAllianceEmpire() == empire) tributary.RemoveTakenAlliance();
+        tributary.GetOrCreate().tianxia_tributary_lead = -1L;
+        Reach.Remove(tributary.id);
     }
 
     // 称臣纳贡和约：胜者所在帝国收得了朝贡就让对方称臣；返回是否成了

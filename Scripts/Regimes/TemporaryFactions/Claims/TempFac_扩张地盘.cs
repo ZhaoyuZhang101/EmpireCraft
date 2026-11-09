@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
@@ -48,14 +49,17 @@ public class TempFac_扩张地盘 : TemporaryFaction
         // 大帝国几乎总在打点什么，邻国一直没人去打(用户 2026-10-27 问"为什么迟迟不打燕国"，选"朝堂扩张放宽")
         if (WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
         Kingdom target = null;
+        HashSet<Kingdom> near = WarReach.WalkableNeighbourKingdoms(empire.CoreKingdom);
         foreach (var kingdom in World.world.kingdoms)
         {
             if (kingdom.IsInSameEmpire(empire.CoreKingdom)) continue;
             if (empire.given_Kingdoms.Contains(kingdom)) continue;
             if (empire.taken_Kingdoms.Contains(kingdom)) continue;
             // 接壤或隔海相望(见 StraitReach，同对外扩张、谋求统一)：以前只认陆地接壤，岛国(日本)的派系提不出扩张。
-            // 用户 2026-10-21 选"日本能出岛"；隔海的目标要在本国水师辐射内，真打起来照跨海登陆的规矩
-            if (empire.IsNeighbourWith(kingdom) || StraitReach.Across(empire.CoreKingdom, kingdom))
+            // 用户 2026-10-21 选"日本能出岛"；隔海的目标要在本国水师辐射内，真打起来照跨海登陆的规矩。
+            // 陆上按法理相连且走得通(同 WarReach.WarNear、开战谋划挑目标，按国一次算好)：2026-11-07 群友"帝国不会主动出击统一天下"——
+            // 以前只认原版邻城(地块相接)，隔着无人区占着本朝法理城的邻国派系提不出收回
+            if (near.Contains(kingdom) || StraitReach.Across(empire.CoreKingdom, kingdom))
             {
                 if (kingdom.isInWarWith(empire.CoreKingdom)) continue;
                 if (empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom)) continue;

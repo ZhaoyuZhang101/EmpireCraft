@@ -53,7 +53,13 @@ public static class ReligiousTension
                regime.GetReligionLevel() <= ReligionLevel.Low;
     }
 
-    public static void ResetWorldState() => _lastScan = -1d;
+    public static void ResetWorldState()
+    {
+        _lastScan = -1d;
+        // 教义合计、改宗渠道计数(见 ReligionTenets、ReligionDiagnostics)
+        ReligionTenets.ResetWorldState();
+        ReligionDiagnostics.Reset();
+    }
 
     public static bool IsHeterodox(City city)
     {
@@ -146,6 +152,8 @@ public static class ReligiousTension
         {
             LogService.LogWarning($"[EmpireCraft][宗教] 地方教会并入正教失败: {exception.Message}");
         }
+        // 教义融合(见 SyncretismSystem，用户 2026-11-06)：在统治者皈依之前，本年融到的教义当年就护着本教
+        TryStep("教义融合", SyncretismSystem.YearlyPass);
         // 哈里发国只奉伊斯兰的补查(见 CaliphateFaith)；统治者皈依、迫害与驱逐、大分裂、民间教门(见各系统)
         TryStep("哈里发国定教", CaliphateFaith.YearlyPass);
         TryStep("统治者皈依", ReligionConversionSystem.YearlyPass);
@@ -153,6 +161,8 @@ public static class ReligiousTension
         TryStep("宗教分裂", ReligionSchismSystem.YearlyPass);
         TryStep("民间教门", SectUprisingSystem.YearlyPass);
         TryStep("历代教首", ReligionHeads.YearlyPass);
+        // [宗教诊断] 本年各渠道改宗计数(见 ReligionDiagnostics)
+        TryStep("宗教诊断", ReligionDiagnostics.Flush);
     }
 
     private static void TryStep(string name, Action step)

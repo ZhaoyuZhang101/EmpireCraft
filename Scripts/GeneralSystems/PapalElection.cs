@@ -17,6 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 世俗强立：教宗国是某帝国的成员或附庸、或教廷之囚落在帝国手里(RealmNamingSystem.ControlsPapacy)时，那位皇帝有
 //     ImposeChance 机会从帝都派自己的人选(同族优先)；
 //   · 记下选立方式与时间(教宗正统的一项，见 PopeLegitimacy)，写进宗教大事记、世界日志与本人生平。
+//   · 西方大分裂期间，奉对立教宗的主教领不参加推举；对立一线另由对立一边的枢机推举(见 PapacySystem.Antipope，人选同样按 PickCandidate)。
 //   圣座帝国(教宗国自己做了帝国中央)不在此列，照帝国继承。
 public static class PapalElection
 {
@@ -84,8 +85,12 @@ public static class PapalElection
         yield return papacy.capital;
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
             if (kingdom?.data != null && !kingdom.isRekt() && kingdom != papacy && kingdom.religion == religion &&
-                kingdom.capital != null && HolyRomanSystem.IsChurchEstate(kingdom)) yield return kingdom.capital;
+                kingdom.capital != null && HolyRomanSystem.IsChurchEstate(kingdom) && !PapacySystem.FollowsAntipope(kingdom))
+                yield return kingdom.capital;
     }
+
+    // 对立一线推举也用(见 PapacySystem.Antipope)
+    internal static Actor PickCandidate(IEnumerable<City> cities, Actor patron) => Pick(cities, patron);
 
     private static Actor Pick(IEnumerable<City> cities, Actor patron) =>
         cities.SelectMany(Candidates).Distinct()

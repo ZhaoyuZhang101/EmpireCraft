@@ -111,6 +111,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.WildernessSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.LayerDiagnostics.Tick();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
+        // 科技回退神力：超出科技的建筑逐城分帧降级、补盖(见 TechRollbackSystem)
+        EmpireCraft.Scripts.GeneralSystems.TechRollbackSystem.Tick();
         using (FrameProfiler.Measure("后台·官职清理")) EmpireCraft.Scripts.Regimes.OfficeManager.Tick();
         using (FrameProfiler.Measure("后台·和约割城")) EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Tick();
         using (FrameProfiler.Measure("后台·民族统一")) EmpireCraft.Scripts.GeneralSystems.NationalUnificationSystem.Tick();

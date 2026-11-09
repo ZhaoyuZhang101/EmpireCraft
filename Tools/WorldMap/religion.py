@@ -38,7 +38,9 @@ RELIGIONS = [
     R("arab_pagan", [(EARLY, "阿拉伯诸神|Arabian Polytheism")], "Folk", "Umma", [[EARLY, "mecca"]]),
     R("egyptian", [(EARLY, "埃及诸神|Egyptian Religion")], "Folk", "Umma", [[EARLY, "thebes"]]),
     R("punic", [(EARLY, "迦太基诸神|Punic Religion")], "Folk", "Umma", [[EARLY, "carthage"]]),
-    R("african", [(EARLY, "非洲传统信仰|African Traditional Religion")], "Folk", "Umma", [[EARLY, "djenne"]]),
+    # 非洲传统信仰归"非洲"天下(班图、祖鲁的天下标识，2026-11-06)：以前记在乌玛，是乌玛的地方小教，丢了圣地或只剩几城就整体改奉
+    # 乌玛的正教(见 ReligionSphere)；班图、祖鲁的天下里也没有本土宗教，还会另创新教
+    R("african", [(EARLY, "非洲传统信仰|African Traditional Religion")], "Folk", "Africa", [[EARLY, "djenne"]]),
     R("islam", [(EARLY, "伊斯兰教|Islam")], "Islam", "Umma", [[EARLY, "mecca"]]),
     R("shia", [(EARLY, "什叶派|Shia Islam")], "Islam", "Umma", [[EARLY, "kufa"]], parent="islam", split="shia"),
     R("judaism", [(EARLY, "犹太教|Judaism")], "Judaism", "Kosher", [[EARLY, "jerusalem"]]),
@@ -111,6 +113,13 @@ REGIONS = {
     "mauretania": ["punic", "hellenic", "hellenic"] + ["islam"] * 4,
     "sahel": ["african"] * 6 + ["islam"],
     "swahili": ["african"] * 5 + ["islam", "islam"],
+    # 豪萨诸城的君主 14 世纪才奉伊斯兰；加涅姆的赛法瓦王朝 1085 年起奉伊斯兰；刚果王国 1491 年起奉天主教
+    "hausa": ["african"] * 6 + ["islam"],
+    "kanem": ["african"] * 5 + ["islam", "islam"],
+    "yoruba": ["african"] * 7, "benin": ["african"] * 7,
+    "kongo": ["african"] * 6 + ["catholic"],
+    "ndongo": ["african"] * 7, "lunda": ["african"] * 7, "luba": ["african"] * 7, "great_lakes": ["african"] * 7,
+    "zimbabwe": ["african"] * 7, "nguni": ["african"] * 7,
     "italy_n": ["hellenic"] * 3 + ["catholic"] * 4,
     "italy_c": ["hellenic"] * 3 + ["catholic"] * 4,
     "italy_s": ["hellenic"] * 3 + ["catholic"] * 4,
@@ -188,6 +197,7 @@ CITIES = {
     "bijapur": {1628: "islam"}, "golconda": {1628: "islam"}, "ahmednagar": {1628: "islam"}, "devagiri": {1628: "islam"},
     "srinagar": {1628: "islam"},
     "champa": {1628: "hindu"},
+    "luanda": {1628: "catholic"}, "sofala": {1628: "catholic"},
 }
 
 

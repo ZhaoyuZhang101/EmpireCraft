@@ -23,7 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     登基三年仍未加冕正统 −5；脱离罗马或世俗化之后自行加冕 +3；帝国自己握有圣地的直接加冕
 //     (封建制帝国圣地不在皇帝自家领内的，要先远征，见 HolyRomanSystem.Romzug)；
 //   · 叙任权：教会叙任 / 政教协约 / 君主叙任，按施行的制度定(叙任权之争打赢也会改为君主叙任)；
-//   · 什一税：每年把年度经常收入的 6% 按叙任权档位(全额 / 一半 / 不缴)上缴教廷。
+//   · 什一税：每年把年度经常收入的 6% 按叙任权档位(全额 / 一半 / 不缴)上缴教廷；
+//   · 西方大分裂期间各帝国按服从(见 PapacySystem.Antipope)：奉对立教宗的在对立教廷受冕(正统 +4)、什一税交对立教廷。
 public static partial class PapacySystem
 {
     public const string Line = "Roma";
@@ -75,9 +76,12 @@ public static partial class PapacySystem
     }
 
     // 有教廷(教宗、哈里发座)：普世教会、伊斯兰的本宗(见 ReligionFaith)。同天下的地方教会、分出去的教派都没有——
-    // 一个天下一处圣地、一位教宗，号召力在本宗(见 ReligionSphere"教派与圣地")
+    // 一个天下一处圣地、一位教宗，号召力在本宗(见 ReligionSphere"教派与圣地")。
+    // 伊斯兰分出的分支(什叶派、伊斯玛仪派)例外：自有伊玛目、哈里发座(史上法蒂玛王朝就是什叶派哈里发)，对立哈里发、
+    // 伊玛目断绝与复立都靠它(见 IslamicSchismSystem)；圣地仍随本宗，不另立
     public static bool HasSee(Religion religion) =>
-        ReligionFaith.HasHierarchy(religion) && !ReligionSphere.IsLocalChurch(religion) && !ReligionSphere.IsBranch(religion);
+        ReligionFaith.HasHierarchy(religion) && !ReligionSphere.IsLocalChurch(religion) &&
+        (!ReligionSphere.IsBranch(religion) || ReligionFaith.IsCaliphal(religion));
 
     // 能号召圣战：普世教会、伊斯兰，地方教会和教派不号召
     public static bool CallsHolyWar(Religion religion) =>
@@ -130,11 +134,21 @@ public static partial class PapacySystem
         data.PapalAuthority = Mathf.Clamp(data.PapalAuthority + delta, 0f, 100f);
     }
 
-    // 脱离罗马(宗教改革)或世俗化。选帝制帝国的皇帝不随宗教改革脱离罗马(由诸侯改宗，见 HolyRomanSystem.KeepsOldFaith)
+    // 脱离罗马(宗教改革)或世俗化：施行了世俗化；另立过国教会或君主率国改奉了新教会(national_church_id)；所奉就是宗教改革分出的新教会；
+    // 本文化施行了宗教改革而所奉已不是有教廷的本土普世教会(剧本里的路德宗、正教会等)。
+    // 以前本文化一施行宗教改革就算脱离——君主还奉着罗马也不交什一税、自行加冕；现在君主没改宗前照旧(见 PapacySystem.Reformation)。
+    // 选帝制帝国的皇帝不随宗教改革脱离罗马(由诸侯改宗，见 HolyRomanSystem.KeepsOldFaith)
     public static bool BrokeWithRome(Empire empire) =>
         InstitutionSystem.IsEnacted(empire, NodeSecularization) ||
-        InstitutionSystem.IsEnacted(empire, NodeReformation) && !HolyRomanSystem.KeepsOldFaith(empire) ||
-        (State(empire)?.national_church_id ?? -1L) >= 0;
+        (State(empire)?.national_church_id ?? -1L) >= 0 || IsReformedChurch(ReligionOf(empire)) ||
+        InstitutionSystem.IsEnacted(empire, NodeReformation) && !HolyRomanSystem.KeepsOldFaith(empire) && !FollowsRomanSee(empire);
+
+    // 仍奉有教廷的本土普世教会
+    private static bool FollowsRomanSee(Empire empire)
+    {
+        Religion religion = ReligionOf(empire);
+        return religion != null && ReligionFaith.IsPapal(religion) && ReligionSphere.IsNative(religion) && Papacy(religion) != null;
+    }
 
     public static int Investiture(Empire empire)
     {
@@ -186,7 +200,9 @@ public static partial class PapacySystem
         {
             yield return state.self_crowned
                 ? ("mandate_self_coronation", SelfCrownedLegitimacy)
-                : ("mandate_papal_coronation", CrownedLegitimacy);
+                : state.crowned_by_rival
+                    ? ("mandate_antipope_coronation", AntipopeCrownedLegitimacy)
+                    : ("mandate_papal_coronation", CrownedLegitimacy);
             yield break;
         }
         double since = empire.data.newEmperor_timestamp;
@@ -313,16 +329,22 @@ public static partial class PapacySystem
         UpdateOrders(religion);
     }
 
-    // 加冕：教宗加冕(献礼)、帝国自己握有圣地直接加冕、脱离罗马后自行加冕
+    // 加冕：教宗加冕(献礼)、帝国自己握有圣地直接加冕、脱离罗马后自行加冕；大分裂中奉对立教宗的由对立教宗加冕(见 PapacySystem.Antipope)
     private static void Coronation(Empire empire, PapalRelationState state, Religion religion)
     {
         Actor emperor = empire.Emperor;
         if (emperor == null || !emperor.isAlive() || IsCrowned(empire) || IsExcommunicated(empire)) return;
         Kingdom core = empire.CoreKingdom;
         Kingdom papacy = Papacy(religion);
-        if (BrokeWithRome(empire) || papacy == null)
+        bool antipope = FollowsAntipope(empire);
+        if (BrokeWithRome(empire) || papacy == null && !antipope)
         {
             Crown(empire, state, emperor, self: true, null);
+            return;
+        }
+        if (antipope)
+        {
+            AntipopeCoronation(empire, state, religion, emperor);
             return;
         }
         // 封建制帝国：教廷不是皇帝自家领国就要远征受冕，圣地在本帝国诸侯手里(教宗受挟)也一样——原型罗马远征，
@@ -357,18 +379,21 @@ public static partial class PapacySystem
             RealmNamingSystem.CoronationVia(empire, papacy, romzug == HolyRomanSystem.RomzugArrived));
     }
 
-    private static void Crown(Empire empire, PapalRelationState state, Actor emperor, bool self, Kingdom papacy)
+    // antipope：由对立教宗在对立教廷加冕(见 PapacySystem.Antipope)
+    private static void Crown(Empire empire, PapalRelationState state, Actor emperor, bool self, Kingdom papacy, bool antipope = false)
     {
         state.crowned_emperor_id = emperor.id;
         state.self_crowned = self;
+        state.crowned_by_rival = antipope && !self;
         state.crowned_at = World.world.getCurWorldTime();
         Religion religion = ReligionOf(empire);
         if (!self) AddAuthority(religion, 2f);
-        City holy = HolyCity(religion);
-        Actor pope = Pope(religion);
+        City holy = state.crowned_by_rival ? AntipopeSeeCity(religion) : HolyCity(religion);
+        Actor pope = state.crowned_by_rival ? Antipope(religion) : Pope(religion);
         string text = self
             ? string.Format(LM.Get("papal_self_coronation_history"), emperor.getName(), empire.GetEmpireFullName())
-            : string.Format(LM.Get(IsCaliphal(empire) ? "caliphal_investiture_history" : "papal_coronation_history"),
+            : string.Format(LM.Get(IsCaliphal(empire) ? "caliphal_investiture_history"
+                    : state.crowned_by_rival ? "papal_coronation_rival_history" : "papal_coronation_history"),
                 emperor.getName(), holy?.GetCityName() ?? "", pope?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName());
         empire.RecordHistory(directContent: text, actorId: emperor.id, kingdomId: empire.CoreKingdom.id);
         TranslateHelper.LogEventMessage(text, empire.CoreKingdom);
@@ -379,14 +404,14 @@ public static partial class PapacySystem
         MonarchyLegitimacy.Invalidate(empire);
     }
 
-    // 什一税：年度经常收入的 6%，按叙任权档位上缴教廷(教廷就是本帝国的不缴)
+    // 什一税：年度经常收入的 6%，按叙任权档位上缴教廷(教廷就是本帝国的不缴；大分裂中交给自己服从的那边，见 PapacySystem.Antipope)
     private static void Tithe(Empire empire, PapalRelationState state, Religion religion)
     {
         double now = World.world.getCurWorldTime();
         if (state.last_tithe_at >= 0d && now >= state.last_tithe_at && Date.getYearsSince(state.last_tithe_at) < 1) return;
         state.last_tithe_at = now;
         state.tithe_paid = 0;
-        Kingdom core = empire.CoreKingdom, papacy = Papacy(religion);
+        Kingdom core = empire.CoreKingdom, papacy = ObeyedSee(empire, religion);
         if (papacy == null || papacy == core || papacy.GetEmpire() == empire || papacy.isInWarWith(core)) return;
         float share = Investiture(empire) switch
         {

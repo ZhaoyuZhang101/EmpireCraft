@@ -113,6 +113,16 @@ public static class ReligionMap
             Line(tooltip, "religion_tip_faith", label, ReligionDisplay.TextHex(faith));
             if (holy && PapacySystem.Pope(faith) is Actor head)
                 Line(tooltip, "religion_tip_head", $"{ReligionDisplay.HeadTitle(faith)} {head.getName()}", "#F3C34A");
+            // 本土还是外来(用户 2026-11-06，见 ReligionTenets、BackgroundReligionSystem)：本土惰性倍数；外来的跨天下势能折扣与改信几率折扣
+            string sphere = ReligionSphere.SphereOfCity(city);
+            if (sphere.Length > 0)
+            {
+                if (ReligionTenets.AtHome(faith, sphere))
+                    Line(tooltip, "religion_tip_native", string.Format(LM.Get("religion_tip_native_value"), ReligionTenets.HomeFactor(faith, sphere)), Good);
+                else
+                    Line(tooltip, "religion_tip_native", string.Format(LM.Get("religion_tip_foreign_value"), ReligionSphere.CrossFactor(faith, sphere),
+                        BackgroundReligionSystem.ForeignChance(faith, sphere)), "#E9A85B");
+            }
         }
         // 别教的圣战目标(耶路撒冷之于天主教会)
         foreach (Religion religion in World.world.religions)
@@ -127,6 +137,14 @@ public static class ReligionMap
             string policyHex = policy == ReligiousTension.Policy.Tolerant ? Good : policy == ReligiousTension.Policy.PollTax ? "#E9A85B" : Bad;
             Line(tooltip, "religion_tip_state", string.Format(LM.Get("religion_tip_state_value"),
                 kingdom.hasReligion() ? kingdom.religion.name : LM.Get("label_none"), LM.Get("religion_policy_" + policy)), policyHex);
+            // 国教在这城的推行：跨天下折扣 × 政令控制力(山后、隔无人区的边地不随朝廷改宗)
+            if (kingdom.hasReligion() && kingdom.religion != faith)
+            {
+                float cross = ReligionSphere.CrossFactor(kingdom.religion, ReligionSphere.SphereOfCity(city));
+                float control = BackgroundReligionSystem.ControlFactor(city);
+                Line(tooltip, "religion_tip_push", string.Format(LM.Get("religion_tip_push_value"), cross * control, cross, control),
+                    cross * control >= 0.5f ? Plain : "#E9A85B");
+            }
             if (ReligiousTension.IsHeterodox(city))
             {
                 Line(tooltip, "religion_tip_heterodox", string.Format(LM.Get("religion_tip_stability"), ReligiousTension.StabilityLoss(city)), Bad);

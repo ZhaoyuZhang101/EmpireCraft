@@ -1,0 +1,32 @@
+{
+  "说明": "律随时变、法因政异(读法见 EmpireLawEraConfig.cs)。写了哪一项就覆盖哪一项，没写的沿用代码默认值。刑罚名见 PunishmentLevel(无罪 罚金 笞刑 杖刑 监禁 流放 没收财产 剥夺爵位 剥夺官职 死刑 夷三族)，罪名见 LawType，理念见 PartyIdeology。科技时代档次：6 火药、7 工业、8 电气、9 现代、10 原子、11 未来",
+  "EraRules": [
+    { "MinEraTier": 7, "NoteKey": "law_note_era_corporal", "Replace": { "笞刑": "罚金", "杖刑": "监禁" } },
+    { "MinEraTier": 7, "NoteKey": "law_note_era_collective", "Replace": { "夷三族": "死刑" } }
+  ],
+  "ModernReplace": { "笞刑": "罚金", "杖刑": "监禁", "流放": "监禁", "夷三族": "死刑" },
+  "ModernNoteKey": "law_note_modern_penal",
+  "ModernDeathPenaltyIdeologies": [ "Communism", "Socialism", "Fascism", "Authoritarianism" ],
+  "ModernDeathPenaltyOneParty": true,
+  "ModernDeathPenaltyAutocracy": 60,
+  "ModernDeathReplacement": "监禁",
+  "ModernDeathNoteKey": "law_note_death_abolished",
+  "LifeImprisonmentYears": 25,
+  "GraveCrimes": [ "谋反", "篡位", "叛国", "私通敌国", "伪造诏令", "煽动叛乱", "杀人", "投毒", "亵渎神庙", "虐待亲属" ],
+  "IdeologySeverity": {
+    "Legalism": 0.8, "Strategists": 0.3, "ImperialPower": 0.3, "MilitaryMerit": 0.2, "Eunuchs": 0.2,
+    "Fascism": 0.8, "Authoritarianism": 0.5, "Communism": 0.5, "Socialism": 0.2, "Conservatism": 0.2, "ReligiousDemocracy": 0.2,
+    "Confucianism": -0.4, "HuangLao": -0.5, "Mohism": -0.2, "Agrarianism": -0.2, "GreatClans": -0.2,
+    "Anarchism": -0.6, "SocialDemocracy": -0.4, "SocialLiberalism": -0.5, "Libertarianism": -0.4,
+    "ConservativeLiberalism": -0.1, "Capitalism": -0.1
+  },
+  "OfficialSchoolWeight": 0.4,
+  "TraitSeverity": {
+    "evil": 0.25, "bloodlust": 0.2, "psychopath": 0.25, "madness": 0.15, "paranoid": 0.15, "savage": 0.15,
+    "pacifist": -0.2, "content": -0.1
+  },
+  "TyrantRulerSeverity": 0.4,
+  "WiseRulerSeverity": -0.1,
+  "RansomCost": { "笞刑": 30, "杖刑": 60, "监禁": 100, "流放": 160 },
+  "PrisonYears": { "罚金": 2, "笞刑": 2, "杖刑": 3, "监禁": 4, "流放": 6, "死刑": 12, "夷三族": 15 }
+}

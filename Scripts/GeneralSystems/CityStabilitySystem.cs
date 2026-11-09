@@ -277,6 +277,13 @@ public static class CityStabilitySystem
             natural = CityStabilityRules.Clamp(natural - tusi);
             Note(ref detail, LM.Get("tusi_reform_stability_detail"));
         }
+        // 与国教同教的本天下宗教之城、节庆等教义(见 ReligionTenets.ConcordBonus，用户 2026-11-06)
+        float concord = ReligionTenets.ConcordBonus(city);
+        if (concord > 0f)
+        {
+            natural = CityStabilityRules.Clamp(natural + concord);
+            Note(ref detail, ReligionTenets.DescribeConcord(city));
+        }
         // 遭迫害的城(见 ReligiousPersecution)
         float persecuted = ReligiousPersecution.StabilityLoss(city);
         if (persecuted > 0f)

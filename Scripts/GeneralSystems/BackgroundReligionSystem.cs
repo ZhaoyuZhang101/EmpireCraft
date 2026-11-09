@@ -31,6 +31,17 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     改信时城主等本城实体一并改信(原版城主会把城的宗教改回自己的)，没有国教的国家都城改信即立为国教；
 //   · 宗教点数(教皇国发动圣战用，原版每有一个小人改信本教 +1，见 ActorPatch.UpdateReligion)：
 //     按信众户数每年加 PointsPerHousehold，加上本年改信之城的户数。
+// 2026-11-06(用户"还有本土宗教……不改的话就会出现在古典时代全世界都信基督"，问答全按推荐；"传播要考虑距离、地形的隔离程度""和通信技术、科技挂钩")：
+//   · 本土加成：城奉的是本天下的宗教，本城惯性再 ×(1 + 0.5 + 祖灵护土等)，有本地圣徒的天下另加(ReligionTenets.HomeFactor)；
+//   · 本天下正教收复：被外来宗教占着的城，本天下正教的势能也 ×OrthodoxMissionFactor(以前只给无教之城、地方教会，
+//     与 Docs/plan-religion-spread.md 第四条"本土大教的正教势能加倍照算、长期拉锯"不符)；
+//   · 跨天下改信、改宗的几率一律 ×CrossChanceFactor(0.5)，本天下已有本土大教再 ×ForeignChanceFactor(0.5)；
+//   · 通达(ConnectivitySystem，消息口径，按传教一方的本事)：邻城势能 × min(1, 强度/0.6)，跨天下的民族宗教强度再按衰减长度 ×0.6 折；
+//     圣地加成只给强度 ≥0.3 的邻城；通达层算好后，只隔无人区的邻城也算邻城(以前隔着就断)；没算好时照旧(原版邻城、不打折)；
+//     通达层算好后邻城改取本城在城际图上直接相连的城(ConnectivitySystem.Links：陆路连同隔海的港口，海路按传教一方的航海档，
+//     没有航海渡不过的海不算)，强度直接用图上那条边的，不再逐对查；
+//   · 国教势能 ×(0.4 + 0.6 × 政令控制力)：山后、隔无人区的边地不随朝廷改宗(AdministrativeControlSystem)；
+//   · 以融合御同化：城奉的宗教从某教一系融过教义的，那一系对这城的势能 ×0.85ⁿ(至多 ×0.55，见 ReligionTenets.Pull)。
 public static class BackgroundReligionSystem
 {
     // 传教：无教之城改信几率的上限、本城的惯性；有教之城改宗几率的上限
@@ -45,6 +56,12 @@ public static class BackgroundReligionSystem
     public const float PointsPerHousehold = 0.05f;
     // 本天下已有本土大教时，外来宗教改信、改宗的几率倍数
     public const float ForeignChanceFactor = 0.5f;
+    // 跨天下改信、改宗(不管本天下有没有本土大教)的几率倍数
+    public const float CrossChanceFactor = 0.5f;
+    // 国教势能按政令控制力：0.4 + 0.6 × 控制力
+    public const float ControlFloor = 0.4f;
+    // 通达：强度到这个数算"紧密"不打折；圣地加成要的强度；跨天下的民族宗教衰减长度的倍数
+    public const float HolyReachMin = 0.3f, EthnicLengthFactor = 0.6f;
 
     public static bool Active => CityPopulationSystem.AbstractPopulationEnabled;
 
@@ -93,8 +110,7 @@ public static class BackgroundReligionSystem
             {
                 float outside = pressure.Values.Sum();
                 target = Pick(pressure);
-                float chance = AdoptChance * outside / (outside + FolkInertia * own);
-                if (ReligionSphere.IsForeignToNativeLand(target, sphere)) chance *= ForeignChanceFactor;
+                float chance = AdoptChance * outside / (outside + FolkInertia * own) * ForeignChance(target, sphere);
                 if (UnityEngine.Random.value >= chance) continue;
                 adopted++;
             }
@@ -102,13 +118,12 @@ public static class BackgroundReligionSystem
             {
                 if (Anchored(city, current)) continue;
                 pressure.TryGetValue(current, out float support);
-                // 本城惯性乘宗教的惰性：多神、萨满易改，犹太教最难(见 ReligionFaith)
-                float hold = own * ReligionFaith.Inertia(current) + support;
+                // 本城惯性乘宗教的惰性：多神、萨满易改，犹太教最难(见 ReligionFaith)；本天下的宗教再乘本土加成(见 ReligionTenets)
+                float hold = own * ReligionFaith.Inertia(current) * ReligionTenets.HomeFactor(current, sphere) + support;
                 KeyValuePair<Religion, float> rival = pressure.Where(pair => pair.Key != current)
                     .OrderByDescending(pair => pair.Value).FirstOrDefault();
                 if (rival.Key == null || rival.Value <= hold) continue;
-                float chance = ConvertChance * (rival.Value - hold) / (rival.Value + hold);
-                if (ReligionSphere.IsForeignToNativeLand(rival.Key, sphere)) chance *= ForeignChanceFactor;
+                float chance = ConvertChance * (rival.Value - hold) / (rival.Value + hold) * ForeignChance(rival.Key, sphere);
                 if (UnityEngine.Random.value >= chance) continue;
                 target = rival.Key;
                 converted++;
@@ -121,8 +136,63 @@ public static class BackgroundReligionSystem
         }
 
         AccruePoints(cities, gained);
+        ReligionDiagnostics.Add(ReligionDiagnostics.Adopted, adopted);
+        ReligionDiagnostics.Add(ReligionDiagnostics.Converted, converted);
         LogDiagnostics(cities, people, adopted, converted, crossed);
     }
+
+    // 跨天下改信、改宗的几率倍数：跨了天下 ×0.5，本天下已有本土大教再 ×0.5
+    public static float ForeignChance(Religion religion, string citySphere)
+    {
+        if (religion?.data == null || string.IsNullOrEmpty(citySphere) || ReligionSphere.SphereOf(religion) == citySphere) return 1f;
+        return ReligionSphere.IsForeignToNativeLand(religion, citySphere) ? CrossChanceFactor * ForeignChanceFactor : CrossChanceFactor;
+    }
+
+    // 传教够得着的邻城：原版邻城；通达层算好后改为城际图上直接相连的城(陆路、海路，见类头)，这座城不在图上时
+    // 照旧原版邻城加只隔无人区的邻城
+    internal static IEnumerable<City> Contacts(City city)
+    {
+        List<ConnectivityLink> links = ConnectivitySystem.Links(city, ConnectivityMode.Ideas, inbound: true);
+        if (links != null)
+        {
+            foreach (ConnectivityLink link in links)
+                if (link.Strength > 0f) yield return link.City;
+            yield break;
+        }
+        if (city?.neighbours_cities != null)
+            foreach (City neighbour in city.neighbours_cities)
+                if (neighbour != null) yield return neighbour;
+        if (!ConnectivitySystem.Ready) yield break;
+        foreach (City other in WildernessNeighbours.Of(city))
+            if (other != null && (city.neighbours_cities == null || !city.neighbours_cities.Contains(other))) yield return other;
+    }
+
+    // 从 from 城传到 to 城的通达(0~1，按传教一方的本事、消息口径)：强度到"紧密"(0.6)以上不打折；
+    // 跨天下的民族宗教走不远(衰减长度 ×0.6，即强度 ^(1/0.6))；通达层没算好时为 1(照旧)
+    internal static float Reach(City from, City to, Religion religion, string targetSphere) =>
+        Scale(ConnectivitySystem.NeighbourStrength(from, to, ConnectivityMode.Ideas), religion, targetSphere);
+
+    // 强度折成传教的通达(见 Reach；strength 为 -1 时照旧为 1)
+    private static float Scale(float strength, Religion religion, string targetSphere)
+    {
+        if (strength < 0f) return 1f;
+        if (strength <= 0f) return 0f;
+        if (religion?.data != null && !ReligionFaith.IsUniversal(religion) && !string.IsNullOrEmpty(targetSphere) &&
+            ReligionSphere.SphereOf(religion) != targetSphere)
+            strength = Mathf.Pow(strength, 1f / EthnicLengthFactor);
+        return Mathf.Clamp01(strength / Mathf.Max(0.05f, ConnectivitySystem.Config.close_strength));
+    }
+
+    // 圣地加成只给通达到 HolyReachMin 的邻城(通达层没算好、这两城没算进去时照旧给)
+    private static bool HolyReach(City holy, City city)
+    {
+        float strength = ConnectivitySystem.NeighbourStrength(holy, city, ConnectivityMode.Ideas);
+        return strength < 0f || strength >= HolyReachMin;
+    }
+
+    // 国教势能按政令控制力打折(还没算过控制力的城不打折)
+    public static float ControlFactor(City city) =>
+        AdministrativeControlSystem.Known(city) ? ControlFloor + (1f - ControlFloor) * Mathf.Clamp01(AdministrativeControlSystem.Get(city)) : 1f;
 
     // 国教势能按宗教政策放大：不宽容的国家改化异教城最力，收人头税的次之，宽容的最慢(以前国教势能恰好等于本城惯性，
     // 没有同教邻城时异教城永远改不过来)；君主皈依后 ConversionPushYears 年内再加倍(见 ReligionConversionSystem)
@@ -147,24 +217,37 @@ public static class BackgroundReligionSystem
         Religion state = city.kingdom.hasReligion() ? city.kingdom.religion : null;
         if (state != null)
             Add(pressure, state, StateWeight * StateFactor(city.kingdom) * ReligionFaith.Mission(state) *
-                                 ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]));
-        foreach (City neighbour in city.neighbours_cities)
+                                 ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]) * ControlFactor(city));
+        // 邻城连同图上那条边传过来的强度(通达层没算好、这座城不在图上时强度为 -1，照旧逐对查)
+        List<ConnectivityLink> links = ConnectivitySystem.Links(city, ConnectivityMode.Ideas, inbound: true);
+        IEnumerable<(City neighbour, float strength)> contacts = links != null
+            ? links.Select(link => (link.City, link.Strength))
+            : Contacts(city).Select(other => (other, -1f));
+        foreach ((City neighbour, float strength) in contacts)
         {
-            if (neighbour == null || !faith.TryGetValue(neighbour, out Religion religion) || religion == null) continue;
+            if (!faith.TryGetValue(neighbour, out Religion religion) || religion == null) continue;
+            float reach = strength >= 0f ? Scale(strength, religion, sphere) : Reach(neighbour, city, religion, sphere);
+            if (reach <= 0f) continue;
             float weight = NeighbourWeight * ReligionFaith.Mission(religion) * ReligionSphere.CrossFactor(religion, sphere) *
-                           Mathf.Sqrt(people[neighbour]);
-            if (religion.GetCity() == neighbour) weight *= HolyCityFactor;
+                           Mathf.Sqrt(people[neighbour]) * reach;
+            if (religion.GetCity() == neighbour && (strength >= 0f ? strength >= HolyReachMin : HolyReach(neighbour, city)))
+                weight *= HolyCityFactor * ReligionTenets.HolyCityFactor(religion);
             Add(pressure, religion, weight);
         }
-        // 本天下的正教：无教之城、奉地方教会的城势能加倍；无教之城不挨着也有一份(分出去的教会、外天下的宗教不加)
+        // 本天下的正教：无教之城、奉地方教会的城、被外来宗教占着的城势能加倍；无教之城不挨着也有一份(分出去的教会不加)
         faith.TryGetValue(city, out Religion current);
         Religion orthodox = ReligionSphere.OrthodoxOf(sphere);
-        if (orthodox != null && orthodox != current && (current == null || ReligionSphere.IsLocalChurch(current)))
+        if (orthodox != null && orthodox != current &&
+            (current == null || ReligionSphere.IsLocalChurch(current) || ReligionSphere.SphereOf(current) != sphere))
         {
             if (pressure.TryGetValue(orthodox, out float mission))
                 pressure[orthodox] = mission * ReligionSphere.OrthodoxMissionFactor;
             if (current == null) Add(pressure, orthodox, ReligionSphere.SphereMissionWeight * Mathf.Sqrt(people[city]));
         }
+        // 以融合御同化：本城之教从哪一系融过教义，那一系的势能打折(见 ReligionTenets.Pull)
+        if (current != null)
+            foreach (Religion rival in pressure.Keys.ToList())
+                if (rival != current) pressure[rival] *= ReligionTenets.Pull(current, rival);
         return pressure;
     }
 

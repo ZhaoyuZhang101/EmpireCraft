@@ -471,9 +471,9 @@ public static partial class HolyRomanSystem
         Kingdom core = empire.CoreKingdom;
         if (!core.hasReligion()) return "中央没有国教";
         bool reformation = InstitutionSystem.IsEnacted(empire, PapacySystem.NodeReformation);
-        if (ChurchesOf(core.religion).Count == 0)
+        if (PapacySystem.Reformations(core.religion).Count == 0)
             return !reformation ? "本文化未施行宗教改革，也没有从皇帝所奉宗教分出的新教会"
-                : KeepsOldFaith(empire) ? "待诸侯另立新教会(每年一成五)" : "非选帝制，宗教改革由皇帝主导、整个帝国改宗";
+                : KeepsOldFaith(empire) ? "待改革者发端或诸侯另立新教会(每年一成五)" : "非选帝制，待改革者发端或皇帝率国改宗";
         List<Kingdom> reformed = Members(empire).Where(member => member.hasReligion() && Schismatic(member.religion, core.religion)).ToList();
         int total = Math.Max(1, empire.countCities());
         return $"改奉新教会{reformed.Count}家、占{reformed.Sum(member => member.cities.Count) / (float)total:P0}城(要两家、两成)";

@@ -1,5 +1,5 @@
 {
-  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 文化要有其中一个政治特性(raider 劫掠传统、nomad 游牧，见各文化 CultureRule.jsonc 的 political_traits；复合帝国也看统治族群)；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革(push 都施行了就不再提出；削藩这类本身是做事的决议同时写 any，施行之后照样能提)；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 文化要有其中一个政治特性(raider 劫掠传统、nomad 游牧，见各文化 CultureRule.jsonc 的 political_traits；复合帝国也看统治族群)；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan/Origins)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革(push 都施行了就不再提出；削藩这类本身是做事的决议同时写 any，施行之后照样能提)；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
   "开科取士": {
     "lines": {
       "Huaxia": {}
@@ -98,6 +98,14 @@
         "any": [
           "japan_sankin_kotai"
         ]
+      },
+      "Origins": {
+        "push": [
+          "origins_tax_reform"
+        ],
+        "any": [
+          "origins_tax_reform"
+        ]
       }
     }
   },
@@ -111,6 +119,11 @@
       "Japan": {
         "any": [
           "japan_bakufu"
+        ]
+      },
+      "Origins": {
+        "any": [
+          "origins_caste_system"
         ]
       }
     }
@@ -212,6 +225,11 @@
           "japan_shoen_estates",
           "japan_bakufu"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_feudalization"
+        ]
       }
     }
   },
@@ -250,6 +268,14 @@
         "none": [
           "japan_sankin_kotai"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_feudalization"
+        ],
+        "none": [
+          "origins_caste_system"
+        ]
       }
     }
   },
@@ -274,6 +300,11 @@
         "any": [
           "japan_samurai_bands"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_imperial_guard_officer"
+        ]
       }
     }
   },
@@ -297,6 +328,11 @@
       "Japan": {
         "any": [
           "japan_samurai_bands"
+        ]
+      },
+      "Origins": {
+        "any": [
+          "origins_imperial_guard_officer"
         ]
       }
     }
@@ -326,6 +362,11 @@
       "Japan": {
         "any": [
           "japan_ritsuryo_state"
+        ]
+      },
+      "Origins": {
+        "any": [
+          "origins_tax_reform"
         ]
       }
     }
@@ -358,6 +399,11 @@
           "japan_shoen_estates",
           "japan_bakufu"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_feudalization"
+        ]
       }
     }
   },
@@ -372,6 +418,11 @@
         "any": [
           "youmu_khuriltai_election"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_tribal_meeting"
+        ]
       }
     }
   },
@@ -385,7 +436,12 @@
       "Roma": {},
       "Arabic": {},
       "Youmu": {},
-      "Japan": {}
+      "Japan": {},
+      "Origins": {
+        "any": [
+          "origins_hereditary"
+        ]
+      }
     }
   },
   "颁布金玺诏书": {
@@ -503,6 +559,11 @@
         "any": [
           "arabic_caliphal_theocracy"
         ]
+      },
+      "Origins": {
+        "any": [
+          "origins_theocracy"
+        ]
       }
     }
   },
@@ -521,6 +582,11 @@
       "Arabic": {
         "any": [
           "arabic_jizya_tax"
+        ]
+      },
+      "Origins": {
+        "any": [
+          "origins_royal_power"
         ]
       }
     }
@@ -658,7 +724,8 @@
           "youmu_religious_tolerance"
         ]
       },
-      "Japan": {}
+      "Japan": {},
+      "Origins": {}
     }
   },
   "开放移民": {

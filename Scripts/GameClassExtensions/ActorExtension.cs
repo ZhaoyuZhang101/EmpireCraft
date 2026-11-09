@@ -429,6 +429,9 @@ public static class ActorExtension
         public int escape_count { get; set; } = 0;
         public float death_rate = 0.0f;
         public List<long> banned_office_empire_ids = new List<long>();
+        // 不在帝国里的国家株连子孙、禁锢出仕(见 EmpireLawSystem.IsBarredFromOffice)
+        public List<long> banned_office_kingdom_ids;
+        public bool ShouldSerializebanned_office_kingdom_ids() => banned_office_kingdom_ids != null && banned_office_kingdom_ids.Count > 0;
         public Dictionary<string, double> law_check_timestamps = new Dictionary<string, double>();
         public double target_tile_timestamp = -1;
         [JsonIgnore]
@@ -843,6 +846,8 @@ public static class ActorExtension
     public static bool CanServeOffice(this Actor a, Kingdom kingdom)
     {
         if (a == null || a.isRekt() || !a.isAlive() || a.IsWarMachine()) return false;
+        // 在押的不得出任官职；不在帝国里的国家按本国的株连禁锢(见 EmpireLawSystem.IsBarredFromOffice)
+        if (EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.IsBarredFromOffice(a, kingdom)) return false;
         if (kingdom == null || !kingdom.IsInEmpire())
         {
             return true;

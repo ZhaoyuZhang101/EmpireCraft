@@ -848,7 +848,11 @@ public static class CityPopulationSystem
 
     // ---- 城市间迁徙(无小人模式) ----
     // 原版迁徙只搬实体单位。背景人口每月从"推力"大的城(过挤、缺粮、失业)流向本国"拉力"大的城
-    // (空房多、不缺粮、就业好)，每月最多迁出 MaxMigrationRate × 推力。颁布逃人法的国家禁止流动
+    // (空房多、不缺粮、就业好)，每月最多迁出 MaxMigrationRate × 推力。颁布逃人法的国家禁止流动。
+    // 通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)：候选不再只是地块相接的本国邻城，
+    // 而是本城近邻表里(人员口径)成本不过 migration_range × 衰减长度的本国城(至多 migration_candidates 座)——
+    // 修了路的能穿过无人区，走海路的要本城有码头、本国有近海引航；得分 = 拉力 × 通达强度(e^−(成本−4)/衰减长度，邻城约 0.9)，
+    // 翻山越岭的少去。衰减长度按本国科技(石器 6 → 驿传约 10 → 工业 15 → 摩托化 21)，游牧马背上走得远
     private const float MaxMigrationRate = 0.02f;
 
     private static float Push(City city, CityPopulationData data)
@@ -886,6 +890,11 @@ public static class CityPopulationSystem
         if (push <= 0.05f) return;
         City destination = null;
         float best = 0.1f;
+        if (ConnectivitySystem.Ready && MigrateByReach(city, ref destination, ref best))
+        {
+            if (destination != null) TransferBackground(city, destination, MaxMigrationRate * push);
+            return;
+        }
         // 只往相邻的本国城迁(用户 2026-10-27 反馈文化跨距离传播)：以前挑全国拉力最大的城，百姓一迁就跨过半个国家，
         // 人口里的文化跟着跳到远方。远处的城要靠一城传一城
         foreach (City other in city.neighbours_cities_kingdom)
@@ -901,6 +910,31 @@ public static class CityPopulationSystem
             destination = other;
         }
         if (destination != null) TransferBackground(city, destination, MaxMigrationRate * push);
+    }
+
+    private static readonly List<ConnectivityNeighbour> MigrationNear = new();
+
+    // 按近邻表挑迁徙去处(见上)；这座城不在本轮通达层里返回 false(照旧只看邻城)
+    private static bool MigrateByReach(City city, ref City destination, ref float best)
+    {
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        float length = ConnectivitySystem.PeopleLength(city);
+        if (ConnectivitySystem.NearCities(city, MigrationNear, config.migration_range * length) < 0) return false;
+        bool seaGoing = NavySystem.Port(city) != null && ConnectivitySystem.Band(city) >= 1;
+        int considered = 0;
+        foreach (ConnectivityNeighbour near in MigrationNear)
+        {
+            City other = near.City;
+            if (other == city || other.kingdom != city.kingdom || near.BySea && !seaGoing) continue;
+            CityPopulationData otherData = Get(other);
+            if (otherData == null) continue;
+            if (++considered > config.migration_candidates) break;
+            float score = Pull(other, otherData) * ConnectivityRules.Strength(near.Cost, length, config);
+            if (score <= best) continue;
+            best = score;
+            destination = other;
+        }
+        return true;
     }
 
     // ---- 读书(无小人模式) ----

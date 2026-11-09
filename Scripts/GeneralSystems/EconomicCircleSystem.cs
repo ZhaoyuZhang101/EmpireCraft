@@ -9,6 +9,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 经济圈：富庶的城市成为一方经济中心(主城)，周边同一国家(或同一帝国)的城市成为它的卫星城。
 //   · 谁是主城：按富庶度(人均产出、人口为主，乘地利，见 CityConstructionSystem.Wealth)从高到低排，首都另加三成；
 //     全图排名前四成(殷实、富庶两档)、半径 Radius 格内还没有更富的主城的，成为主城。
+//     通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)不量直线，量人员走过去的成本：
+//     circle_max_cost(10) × 世界地图比例尺(见 WorldMapScale.ReachFactor)以内——沿路、沿河谷的城圈得进来，翻山的县不入圈；
 //     古代多半是首都或临河临海的城，现代是工商业大城；
 //   · 卫星城不会长出自己的主城格局，除非富庶度超过了它的主城(现任主城有一成的在位优势，免得来回换)；
 //   · 虹吸：卫星城每月有一部分人口迁往主城(主城还有空房时，颁布逃人法的国家不流动)；
@@ -24,6 +26,7 @@ public static class EconomicCircleSystem
     private static readonly Dictionary<long, long> CoreOfCity = new();
     private static readonly Dictionary<long, int> MemberCount = new();
     private static readonly HashSet<long> Cores = new();
+    private static readonly List<ConnectivityNeighbour> CircleNear = new();
     private static float _at = -100f;
     private static object _world;
 
@@ -110,21 +113,37 @@ public static class EconomicCircleSystem
             .OrderByDescending(pair => pair.weight)
             .ToList();
         var cores = new List<City>();
+        var coreSet = new HashSet<City>();
         CoreOfCity.Clear();
         MemberCount.Clear();
+        bool reach = ConnectivitySystem.Ready;
+        float limit = ConnectivitySystem.Config.circle_max_cost * WorldMap.WorldMapScale.ReachFactor;
         foreach ((City city, _) in cities)
         {
             WorldTile tile = city.getTile();
             City nearest = null;
-            float best = Radius * Radius;
-            foreach (City core in cores)
+            if (reach && ConnectivitySystem.NearCities(city, CircleNear, limit) >= 0)
             {
-                if (!SameRealm(city, core)) continue;
-                WorldTile there = core.getTile();
-                float dx = there.x - tile.x, dy = there.y - tile.y, d = dx * dx + dy * dy;
-                if (d >= best) continue;
-                best = d;
-                nearest = core;
+                // 近邻表按成本由近到远：第一座同属一国的主城
+                foreach (ConnectivityNeighbour near in CircleNear)
+                {
+                    if (!coreSet.Contains(near.City) || !SameRealm(city, near.City)) continue;
+                    nearest = near.City;
+                    break;
+                }
+            }
+            else
+            {
+                float best = Radius * Radius;
+                foreach (City core in cores)
+                {
+                    if (!SameRealm(city, core)) continue;
+                    WorldTile there = core.getTile();
+                    float dx = there.x - tile.x, dy = there.y - tile.y, d = dx * dx + dy * dy;
+                    if (d >= best) continue;
+                    best = d;
+                    nearest = core;
+                }
             }
             if (nearest != null)
             {
@@ -134,6 +153,7 @@ public static class EconomicCircleSystem
             }
             if (WealthMap.Bucket(WealthMap.Score(city)) < 3) continue;
             cores.Add(city);
+            coreSet.Add(city);
             CoreOfCity[city.data.id] = city.data.id;
         }
         Cores.Clear();

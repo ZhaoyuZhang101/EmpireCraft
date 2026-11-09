@@ -19,6 +19,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 城市文化比例的目标三成看辐射、七成看本城人口(见 CultureService.ApplyPopulationPressure)；
 //       - 背景人口同化、同化政令的速度乘 0.4 + 1.2 × 官方文化在本城的辐射比例(山高皇帝远的地方同化慢)；
 //       - 科技接触：辐射到本城一成五以上的文化也算接触过(见 TechnologySystem.RebuildContacts)。
+//   · 通达层算好后(用户 2026-11-06 选"标准""视距可渡"，见 ConnectivitySystem)改走它的城际图，不再自己逐对寻路：
+//     阻力按施教一方(本国文化)的科技——路分等级(土路 0.75 → 柏油 0.4，工业化、摩托化更低)，有驿传的路再 ×0.6；
+//     沙漠、冻土无人区对教化放行、阻力 ×2(商队、游牧转述)，山脉丛林沼泽熔岩无人区照旧过不去；
+//     海路不再看战舰，按航海档：没有近海引航只能渡 12 格(列岛文化 48 格)的海峡，近海引航 64 格，远洋航海起跨洋。
+//     衰减长度同上(数值移到 TechTree.json 的 connectivity.info_length_techs)。通达层还没算好时照旧自己寻路(海路照旧看水师)。
 //   · 每年重算一次，分帧做(每帧至多 2 毫秒)；读档后第一次算完之前，各处都当没有辐射数据(照旧)。
 //   · 游戏里叫"教化"(贴合模组的帝国主题，用户 2026-10-16："要贴合现在系统和模组名称的主题")，地图上见教化图层(Layer/RadianceMap.cs)。
 public static class CultureRadiation
@@ -26,9 +31,6 @@ public static class CultureRadiation
     private const float RealmCapitalFactor = 2f, CapitalFactor = 1.5f;
     private const float TempleBonus = 0.15f, LibraryBonus = 0.25f, UniversityBonus = 0.35f;
     private const int BuildingCap = 3;
-    private const float BaseLength = 8f;
-    private static readonly (string tech, float length)[] LengthTechs =
-        { ("writing", 2f), ("printing", 4f), ("scientific_method", 3f), ("electricity", 5f), ("computing", 8f) };
     private const float CutoffLengths = 3f;
     private const int LinkTiles = 64;
     private const int MaxExpand = 2500;
@@ -61,6 +63,12 @@ public static class CultureRadiation
     private static readonly HashSet<TileZone> ZoneDone = new();
     private static readonly MinHeap<long> CityHeap = new();
     private static readonly Dictionary<long, float> CityDone = new();
+    // 本轮用的通达层城际图(为空时自己寻路)；各文化走各条边的成本；最短路的工作数组
+    private static ConnectivityResult _layer;
+    private static readonly Dictionary<string, float[]> LayerCosts = new(StringComparer.Ordinal);
+    private static readonly ConnectivityHeap LayerHeap = new();
+    private static int[] _layerDone = Array.Empty<int>();
+    private static int _layerStamp;
 
     // 结果每更新一次加一(图层据此重画)
     public static int Version { get; private set; }
@@ -81,6 +89,8 @@ public static class CultureRadiation
         _shares = new Dictionary<long, Dictionary<string, float>>();
         _intensity = new Dictionary<long, float>();
         _dominant = new Dictionary<long, (string culture, float share)>();
+        _layer = null;
+        LayerCosts.Clear();
         Version++;
     }
 
@@ -171,6 +181,21 @@ public static class CultureRadiation
             Cities.Add(city);
             ById[city.id] = city;
         }
+        // 通达层算好了：用它的城际图(见类头)，不再逐对寻路
+        _layer = ConnectivitySystem.Graph;
+        LayerCosts.Clear();
+        if (_layer != null)
+        {
+            if (_layerDone.Length != _layer.Nodes.Length)
+            {
+                _layerDone = new int[_layer.Nodes.Length];
+                _layerStamp = 0;
+            }
+            BuildSources();
+            _cursor = 0;
+            _phase = Phase.Sources;
+            return;
+        }
         // 连线：接壤的城；同一块陆地上相距不过 LinkTiles 格的城(按 LinkTiles 见方的格子找)
         var seen = new HashSet<(long, long)>();
         void Link(City a, City b)
@@ -234,7 +259,9 @@ public static class CultureRadiation
             return;
         }
         var source = Sources[_cursor++];
-        if (Valid(source.city)) Radiate(source.city.id, source.culture, source.strength, source.length);
+        if (!Valid(source.city)) return;
+        if (_layer != null) RadiateLayer(source.city, source.culture, source.strength, source.length);
+        else Radiate(source.city.id, source.culture, source.strength, source.length);
     }
 
     private static void AddEdge(long from, long to, float cost)
@@ -316,14 +343,11 @@ public static class CultureRadiation
             strength *= 1f + TempleBonus * Mathf.Min(BuildingCap, city.countBuildingsType("type_temple")) +
                         LibraryBonus * Mathf.Min(BuildingCap, city.countBuildingsType("type_library")) +
                         UniversityBonus * Mathf.Min(BuildingCap, city.countBuildingsType("type_university"));
-            // 衰减距离看本国(施教的一方)的科技
+            // 衰减距离看本国(施教的一方)的科技(见 ConnectivitySystem.InfoLength)
             string techCulture = TechnologySystem.GetCultureOf(city);
             if (!lengths.TryGetValue(techCulture ?? "", out float length))
             {
-                length = BaseLength;
-                if (!string.IsNullOrEmpty(techCulture))
-                    foreach ((string tech, float add) in LengthTechs)
-                        if (TechnologySystem.HasTech(techCulture, tech)) length += add;
+                length = ConnectivitySystem.InfoLength(techCulture);
                 lengths[techCulture ?? ""] = length;
             }
             Sources.Add((city, culture, strength, length));
@@ -361,6 +385,57 @@ public static class CultureRadiation
         }
     }
 
+    // 走通达层的城际图从一座城向外辐射(有界的最短路)：边的成本按施教一方的科技(见类头)，跨入别国照旧 +1
+    private static void RadiateLayer(City source, string culture, float strength, float length)
+    {
+        ConnectivityResult layer = _layer;
+        float cutoff = length * CutoffLengths;
+        if (!layer.NodeOfCity.TryGetValue(source.id, out int start))
+        {
+            // 通达层这一轮之后新立的城：只辐射本城
+            AddField(source.id, culture, strength);
+            return;
+        }
+        string techCulture = TechnologySystem.GetCultureOf(source) ?? "";
+        if (!LayerCosts.TryGetValue(techCulture, out float[] costs))
+            LayerCosts[techCulture] = costs = ConnectivitySystem.EdgeCostsFor(layer, techCulture);
+        float border = layer.Config.border_cost;
+        if (++_layerStamp == int.MaxValue)
+        {
+            Array.Clear(_layerDone, 0, _layerDone.Length);
+            _layerStamp = 1;
+        }
+        LayerHeap.Clear();
+        LayerHeap.Push(0f, start);
+        while (LayerHeap.Count > 0)
+        {
+            LayerHeap.Pop(out float distance, out int node);
+            if (_layerDone[node] == _layerStamp) continue;
+            _layerDone[node] = _layerStamp;
+            long id = layer.Nodes[node].City;
+            if (!ById.TryGetValue(id, out City city) || !Valid(city)) continue;
+            AddField(id, culture, strength * Mathf.Exp(-distance / length));
+            Kingdom realm = Realm(city.kingdom);
+            for (int i = layer.AdjStart[node]; i < layer.AdjStart[node + 1]; i++)
+            {
+                int edge = layer.Adj[i];
+                float cost = costs[edge];
+                if (float.IsPositiveInfinity(cost)) continue;
+                int next = layer.EdgeA[edge] == node ? layer.EdgeB[edge] : layer.EdgeA[edge];
+                if (_layerDone[next] == _layerStamp || !ById.TryGetValue(layer.Nodes[next].City, out City other) || !Valid(other)) continue;
+                float total = distance + cost + (Realm(other.kingdom) != realm ? border : 0f);
+                if (total <= cutoff) LayerHeap.Push(total, next);
+            }
+        }
+    }
+
+    private static void AddField(long id, string culture, float value)
+    {
+        if (!Fields.TryGetValue(id, out Dictionary<string, float> field)) Fields[id] = field = new Dictionary<string, float>(StringComparer.Ordinal);
+        field.TryGetValue(culture, out float old);
+        field[culture] = old + value;
+    }
+
     private static void Commit()
     {
         var shares = new Dictionary<long, Dictionary<string, float>>();
@@ -393,11 +468,15 @@ public static class CultureRadiation
         _dominant = dominant;
         Version++;
         int mixed = shares.Values.Count(value => value.Values.Max() < 0.8f);
-        LogService.LogInfo($"[EmpireCraft][文化辐射] {Cities.Count} 城、连线 {NewEdges.Values.Sum(edges => edges.Count) / 2}、" +
-                           $"海路 {Sea.Values.Sum(list => list.Count)}、文化混杂(主文化不到八成)的城 {mixed}");
+        string graph = _layer != null
+            ? $"通达层城际图(陆路 {_layer.LandEdges}、海路 {_layer.SeaEdges})"
+            : $"连线 {NewEdges.Values.Sum(edges => edges.Count) / 2}、海路 {Sea.Values.Sum(list => list.Count)}";
+        LogService.LogInfo($"[EmpireCraft][文化辐射] {Cities.Count} 城、{graph}、文化混杂(主文化不到八成)的城 {mixed}");
         Fields.Clear();
         Sources.Clear();
         Links.Clear();
+        _layer = null;
+        LayerCosts.Clear();
         _phase = Phase.Idle;
     }
 

@@ -74,6 +74,8 @@ public static class MonarchyLegitimacy
         if (foreign.value != 0) items.Add(foreign);
         // 西方：教宗加冕、未加冕、绝罚(见 PapacySystem)
         items.AddRange(PapacySystem.LegitimacyItems(empire));
+        // 奉本天下正教、教义(礼教纲常、长生天命、敬天法祖)(见 ReligionTenets，用户 2026-11-06)
+        items.AddRange(ReligionTenets.LegitimacyItems(empire));
         // 神圣罗马式选帝制：家族领地的厚薄(见 HolyRomanSystem)
         items.AddRange(HolyRomanSystem.LegitimacyItems(empire));
         // 天下共主 / 失了天命(见 TianxiaSystem)

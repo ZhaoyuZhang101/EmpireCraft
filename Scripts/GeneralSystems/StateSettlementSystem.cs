@@ -14,12 +14,19 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 无小人模式的国家移民：月度决策、局部搜索分帧续跑、提交只在主线程执行。
+// 选址搜索：通达层开着时(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)不再按地块层数(8 层)，
+//   按走过去的地形阻力(TerrainResistance.Step：平原 1、山 4、过河 +2、有路减半，政令过不去的无人区不走)做最短路，
+//   预算 settle_budget(16)以内；离原城至少 settle_min_cost(官办 5、自发 2)；评分里的远近按成本扣。没开时照旧按层数。
 public static class StateSettlementSystem
 {
     private sealed class Search
     {
         public readonly Queue<(TileZone zone, int depth)> queue = new();
         public readonly HashSet<int> seen = new();
+        // 按成本的最短路(见类头)：待走的地块与已知最低成本；weighted 为假时照旧按层数
+        public readonly MinHeap<TileZone> open = new();
+        public readonly Dictionary<int, float> best = new();
+        public bool weighted;
         public readonly List<(TileZone zone, int score)> candidates = new();
         public readonly Dictionary<int, int> terrainScores = new();
         public SettlementSeaSearch sea;
@@ -293,8 +300,18 @@ public static class StateSettlementSystem
         if (Searches.ContainsKey(payer.id)) return;
         var search = new Search(unchecked((int)(payer.id * 397L ^ source.id ^
             BitConverter.DoubleToInt64Bits(World.world.getCurWorldTime()))));
+        search.weighted = ConnectivitySystem.Config.enabled;
         foreach (TileZone zone in source.border_zones)
-            if (zone != null && search.seen.Add(zone.id)) search.queue.Enqueue((zone, 0));
+        {
+            if (zone == null) continue;
+            if (search.weighted)
+            {
+                if (search.best.ContainsKey(zone.id)) continue;
+                search.best[zone.id] = 0f;
+                search.open.Push(0f, zone);
+            }
+            else if (search.seen.Add(zone.id)) search.queue.Enqueue((zone, 0));
+        }
         Searches[payer.id] = search;
         StateSettlementProject project = Data(payer).project;
         Data(payer).status = project?.spontaneous == true ? "spontaneous_searching" : "searching";
@@ -333,18 +350,20 @@ public static class StateSettlementSystem
         { state.status = "unsafe"; PendingSearches.Enqueue(id); return; }
         // 人物只提供原版物种/文化初始化上下文，不派人寻路，也不检查人物所在位置。
         state.status = search.sea != null ? "sea_searching" : project.spontaneous ? "spontaneous_searching" : "searching";
-        for (int steps = 0; steps < 8 && search.queue.Count > 0 && SimulationFrameBudget.HasTime; steps++)
-        {
-            (TileZone zone, int depth) = search.queue.Dequeue();
-            if (depth >= (project.spontaneous ? 2 : 5) && GoodSite(zone, source, actor, project.spontaneous))
-                search.candidates.Add((zone, SiteScore(zone, depth, source, actor, search)));
-            if (depth >= 8) continue;
-            foreach (TileZone neighbour in zone.neighbours)
-                if (neighbour?.centerTile != null && (neighbour.city == null || neighbour.city == source) &&
-                    neighbour.centerTile.isSameIsland(source.getTile()) && search.seen.Add(neighbour.id))
-                    search.queue.Enqueue((neighbour, depth + 1));
-        }
-        if (search.queue.Count > 0 || !SimulationFrameBudget.HasTime)
+        if (search.weighted) WeightedSteps(search, source, actor, project, payer);
+        else
+            for (int steps = 0; steps < 8 && search.queue.Count > 0 && SimulationFrameBudget.HasTime; steps++)
+            {
+                (TileZone zone, int depth) = search.queue.Dequeue();
+                if (depth >= (project.spontaneous ? 2 : 5) && GoodSite(zone, source, actor, project.spontaneous))
+                    search.candidates.Add((zone, SiteScore(zone, depth, source, actor, search)));
+                if (depth >= 8) continue;
+                foreach (TileZone neighbour in zone.neighbours)
+                    if (neighbour?.centerTile != null && (neighbour.city == null || neighbour.city == source) &&
+                        neighbour.centerTile.isSameIsland(source.getTile()) && search.seen.Add(neighbour.id))
+                        search.queue.Enqueue((neighbour, depth + 1));
+            }
+        if (search.queue.Count > 0 || search.open.Count > 0 || !SimulationFrameBudget.HasTime)
         { PendingSearches.Enqueue(id); return; }
         // 搜完附近八层区域再比较；在最高分 95% 以上的地点中等概率随机选择。
         // 每帧只复核一个最终候选，搜索期间被占用的地点不会拖出整帧的大扫描。
@@ -397,6 +416,33 @@ public static class StateSettlementSystem
         Searches.Remove(id);
         // 自发迁民留到下一帧提交(逃荒、避战的不筹备，当即成行)，仍服从统一帧预算。
         if (project.spontaneous) PendingSearches.Enqueue(id);
+    }
+
+    // 按成本的选址搜索(见类头)：每帧至多 8 块
+    private static void WeightedSteps(Search search, City source, Actor actor, StateSettlementProject project, Kingdom payer)
+    {
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        float near = project.spontaneous ? config.settle_min_cost_spontaneous : config.settle_min_cost;
+        for (int steps = 0; steps < 8 && search.open.Count > 0 && SimulationFrameBudget.HasTime; steps++)
+        {
+            (float cost, TileZone zone) = search.open.Pop();
+            if (!search.seen.Add(zone.id)) continue;
+            if (search.best.TryGetValue(zone.id, out float known) && cost > known) continue;
+            if (cost >= near && GoodSite(zone, source, actor, project.spontaneous))
+                search.candidates.Add((zone, SiteScore(zone, (int)Math.Round(cost), source, actor, search)));
+            if (cost >= config.settle_budget) continue;
+            foreach (TileZone neighbour in zone.neighbours ?? Array.Empty<TileZone>())
+            {
+                if (neighbour?.centerTile == null || neighbour.city != null && neighbour.city != source ||
+                    search.seen.Contains(neighbour.id) || !neighbour.centerTile.isSameIsland(source.getTile())) continue;
+                float step = TerrainResistance.Step(neighbour, payer);
+                if (step < 0f) continue;
+                float total = cost + step;
+                if (search.best.TryGetValue(neighbour.id, out float old) && old <= total) continue;
+                search.best[neighbour.id] = total;
+                search.open.Push(total, neighbour);
+            }
+        }
     }
 
     private static int SiteScore(TileZone zone, int depth, City source, Actor actor, Search search, WorldTile landOrigin = null)

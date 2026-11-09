@@ -21,7 +21,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     解除：君主换人、教权跌破 30 自动失效，或悔罪——绝罚满一年、正统不到 45 或已有成员国倒戈时，
 //     每年有一半可能赴教廷悔罪(献上年度经常收入的一半，教权 +10，放弃叙任权之争)；
 //   · 教皇党与皇帝党：成员国按离帝都远近(远的亲教廷)、本身是不是教皇国、统治者有没有宗教特质与一点随机偏好划分，
-//     每年重算，有滞后(不轻易换边)。
+//     每年重算，有滞后(不轻易换边)；
+//   · 西方大分裂期间(见 PapacySystem.Antipope)，叙任权之争、绝罚、悔罪都对着本帝国服从的那位教宗：奉对立教宗的与扶立者交战才遭绝罚，
+//     原教宗的教廷之囚绝罚管不到它；绝罚记下出自哪一边(banned_by_rival)。
 public static partial class PapacySystem
 {
     public const int PartyNone = 0, PartyPope = 1, PartyEmperor = 2;
@@ -41,7 +43,7 @@ public static partial class PapacySystem
 
     private static void Conflict(Empire empire, PapalRelationState state, Religion religion)
     {
-        Kingdom core = empire.CoreKingdom, papacy = Papacy(religion);
+        Kingdom core = empire.CoreKingdom, papacy = ObeyedSee(empire, religion);
         Actor emperor = empire.Emperor;
         float authority = Authority(religion);
         // 绝罚自然失效：换了君主、教权跌破 30
@@ -57,8 +59,8 @@ public static partial class PapacySystem
             TryPenance(empire, state, religion, papacy);
             return;
         }
-        // 教宗受挟：与挟持者交战的遭绝罚
-        if (CaptorBan(empire, state, religion)) return;
+        // 教宗受挟：与挟持者交战的遭绝罚(奉对立教宗的不算)
+        if (!FollowsAntipope(empire) && CaptorBan(empire, state, religion)) return;
         // 与教廷交战
         if (papacy.isInWarWith(core) && UnityEngine.Random.value < authority / 100f)
         {
@@ -75,7 +77,7 @@ public static partial class PapacySystem
                 state.investiture_contest_at = World.world.getCurWorldTime();
                 NoteClash(state);
                 Record(empire, string.Format(LM.Get("papal_contest_started_history"), empire.GetEmpireFullName(),
-                    Pope(religion)?.getName() ?? LM.Get("label_none")));
+                    ObeyedPope(empire, religion)?.getName() ?? LM.Get("label_none")));
             }
             return;
         }
@@ -115,7 +117,8 @@ public static partial class PapacySystem
         NoteClash(state);
         state.excommunicated_ruler_id = emperor.id;
         state.excommunication_reason = reasonKey;
-        string text = string.Format(LM.Get("papal_ban_history"), Pope(religion)?.getName() ?? LM.Get("label_none"),
+        state.banned_by_rival = FollowsAntipope(empire);
+        string text = string.Format(LM.Get("papal_ban_history"), ObeyedPope(empire, religion)?.getName() ?? LM.Get("label_none"),
             emperor.getName(), empire.GetEmpireFullName(), LM.Get(reasonKey));
         Record(empire, text);
         ReligionChronicle.Record(religion, ReligionChronicle.KindPapacy, text);
@@ -128,6 +131,7 @@ public static partial class PapacySystem
         state.excommunicated_at = -1d;
         state.excommunicated_ruler_id = -1L;
         state.excommunication_reason = "";
+        state.banned_by_rival = false;
         string line = text.Contains("{0}") ? string.Format(text, empire.GetEmpireFullName()) : text;
         Record(empire, line);
         ReligionChronicle.Record(ReligionOf(empire), ReligionChronicle.KindPapacy, line);
@@ -158,7 +162,7 @@ public static partial class PapacySystem
         state.investiture_won = false;
         state.defections = 0;
         Lift(empire, state, string.Format(LM.Get("papal_penance_history"), empire.Emperor?.getName() ?? "",
-            HolyCity(religion)?.GetCityName() ?? "", empire.GetEmpireFullName()));
+            ObeyedSeeCity(empire, religion)?.GetCityName() ?? "", empire.GetEmpireFullName()));
     }
 
     // 绝罚期间教皇党成员国倒戈：离开帝国另立(地方独立)

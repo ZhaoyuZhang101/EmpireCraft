@@ -17,6 +17,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   每年结算(只看在世的实体要人，一人一年至多一件事)：
 //     · 构陷：同朝为官的宿敌，名望不低于对方的一边有一成机会使对方去职；
 //     · 复仇：有杀亲之仇的，有五分机会遣刺客，三成五得手(刺君主减半)；
+//       构陷得逞、遣刺客得手都暗中记罪(陷害、杀人，刺本国君主是谋反)，日后由查案发现(见 LawEvents)；
 //     · 投敌：与本国君主有仇的统领、官员，本国正与人交战时有五分机会投奔敌国；
 //   朝堂：恩主被弹劾，在朝为官的门生每人使弹劾难成一成(至多两成)；弹劾宿敌易成一成五(见 CourtSystem.TryImpeach)。
 //   恩怨写进双方生平(大事)，列传里列出(见 BiographySystem.Compose)。
@@ -159,6 +160,8 @@ public static class PersonalTieSystem
         BiographySystem.Note(actor, string.Format(LM.Get("bio_tie_framed_other"), rival.getName()), rival);
         BiographySystem.Note(rival, string.Format(LM.Get("bio_tie_framed_by"), actor.getName()), actor);
         Record(actor.kingdom, string.Format(LM.Get("tie_frame_history"), actor.getName(), rival.getName()), actor);
+        // 构陷得逞：暗中记一笔陷害(日后查办，见 LawEvents)
+        LawEvents.Framed(actor);
         return true;
     }
 
@@ -168,6 +171,8 @@ public static class PersonalTieSystem
         float chance = RevengeSuccess * (rival.isKing() ? 0.5f : 1f);
         if (UnityEngine.Random.value < chance)
         {
+            // 遣刺客杀人：同国(同一帝国)的记杀人，刺杀本国君主记谋反(暗中，日后查办，见 LawEvents)；死前判定
+            LawEvents.Assassinated(actor, rival.kingdom, rival.isKing() && rival.kingdom == actor.kingdom);
             string text = string.Format(LM.Get("tie_revenge_history"), actor.getName(), rival.getName());
             BiographySystem.Note(actor, string.Format(LM.Get("bio_tie_revenge"), rival.getName()), rival);
             Record(rival.kingdom, text, rival);

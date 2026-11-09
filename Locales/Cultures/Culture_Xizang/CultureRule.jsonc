@@ -3,7 +3,8 @@
     "color": "#00995E",
     "translate_cz": "青藏",
     "setting": {
-        "regime": "HuaxiaOrigin",
+        // 兜底政体(游牧线读不到时、复辟找不到君主制时才看)：各文化共用的原始政体；以前写成华夏原始政体(华夏上古的禅让部落联盟)，与青藏不合
+        "regime": "Origin",
         "institution_line": "Youmu",
         "tianxia": "Steppe",
         "Party": {

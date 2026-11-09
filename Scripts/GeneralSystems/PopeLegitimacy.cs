@@ -9,8 +9,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   基数 Base + 资质(同帝国正统的君主一项：贤明 +14、中主 +10、庸弱 +3、昏聩荒淫 −5、暴虐 −8)
 //   + 选立(枢机推举 +Conclave、世俗强立 Imposed，旧档未记 0) + 在位(每 TenureYearsPerPoint 年 +1，至多 TenureCap)
 //   + 圣战胜负(每胜 +CrusadePoint、每败 −CrusadePoint，至多 ±CrusadeCap) + 教廷之囚 Captivity + 对立教宗 Antipope；
-//   效果：教权目标加 (正统 − 50)/5(见 PapacySystem.UpdateReligion)；正统低于 AntipopeBelow 每年 AntipopeChance 出对立教宗，
-//   教廷脱困、不计对立教宗那一项回到 HealedAt 以上才弥合(见 PapacySystem.UpdateCaptivity)；低于 CoronationBelow 各帝国不赴其加冕；
+//   效果：教权目标加 (正统 − 50)/5(见 PapacySystem.UpdateReligion)；正统低于 AntipopeBelow 每年 AntipopeChance 出对立教宗
+//   (要有扶立者，见 PapacySystem.Antipope)，教廷脱困、不计对立教宗那一项回到 HealedAt 以上是公会议弥合的条件之一；
+//   低于 CoronationBelow 各帝国不赴其加冕；对立教宗本人不另算正统(奉他加冕的帝国正统 +4，见 PapacySystem.LegitimacyItems)；
 //   号召圣战的响应机会 ±(正统 − 50)×RallyPerPoint(见 PapacySystem.Rally)。哈里发是帝国君主，看帝国正统，不另设。
 public static class PopeLegitimacy
 {

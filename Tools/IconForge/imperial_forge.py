@@ -378,6 +378,7 @@ def b_cross(img): of.badge_cross(img, BX, BY, 42)
 def b_arrow(img): of.badge_arrow(img, BX, BY, 42, deg=0, palette=BONE)
 def b_back(img): of.badge_arrow(img, BX, BY, 42, deg=180, palette=BONE)
 def b_up(img): of.badge_arrow(img, BX, BY, 42, deg=90, palette=BRASS)
+def b_down(img): of.badge_arrow(img, BX, BY, 42, deg=-90, palette=BLOOD)
 
 
 def b_minus(img):
@@ -418,7 +419,7 @@ def b_war(img):
         over(img, shade(ellipse([x - 9, BY + 21, x + 9, BY + 39]), BRASS, bevel=4))
 
 
-BADGES = {"plus": b_plus, "cross": b_cross, "arrow": b_arrow, "back": b_back, "up": b_up, "minus": b_minus,
+BADGES = {"plus": b_plus, "cross": b_cross, "arrow": b_arrow, "back": b_back, "up": b_up, "down": b_down, "minus": b_minus,
           "swap": b_swap, "check": b_check, "star": b_star, "alert": b_alert, "seal": b_seal, "war": b_war}
 
 
@@ -1893,6 +1894,11 @@ GODPOWERS.update({
 GODPOWERS.update({
     "institution_browse_culture": (obj_book, "lens"),
     "institution_convert_culture": (obj_flag, "swap"),
+})
+# 科技回退(见 TechRollbackPowers)：点城退一个时代(刻本 + 血红下行箭头)、举世退回原始(图腾 + 血红下行箭头)
+GODPOWERS.update({
+    "tech_rollback": (obj_open_book, "down"),
+    "tech_rollback_world": (obj_totem, "down"),
 })
 
 

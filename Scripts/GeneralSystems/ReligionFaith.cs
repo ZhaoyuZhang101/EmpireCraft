@@ -104,7 +104,13 @@ public static class ReligionFaith
     // 一神普世教(教会、伊斯兰)：史上出现得晚，本土立教要再研究冶铁(见 NativeFaithSystem)
     public static bool IsLateFaith(FaithType type) => type is FaithType.Church or FaithType.Islam;
 
-    public static float Mission(Religion religion) => Of(religion) switch
+    // 传教力、惰性：类型底色 × 教义(本有足额、融来的六成，见 ReligionTenets；用户 2026-11-06 选加成"中")。
+    // 本天下的惰性另乘本土加成(×1.5)、本地圣徒，在城的层面算(见 BackgroundReligionSystem)
+    public static float Mission(Religion religion) => BaseMission(religion) * ReligionTenets.MissionFactor(religion);
+
+    public static float Inertia(Religion religion) => BaseInertia(religion) * ReligionTenets.InertiaFactor(religion);
+
+    private static float BaseMission(Religion religion) => Of(religion) switch
     {
         FaithType.Church or FaithType.Islam => 1f,
         FaithType.Judaism => 0.2f,
@@ -114,7 +120,7 @@ public static class ReligionFaith
         _ => 0.4f
     };
 
-    public static float Inertia(Religion religion) => Of(religion) switch
+    private static float BaseInertia(Religion religion) => Of(religion) switch
     {
         FaithType.Church or FaithType.Dharmic or FaithType.Shinto => 1f,
         FaithType.Islam => 1.2f,

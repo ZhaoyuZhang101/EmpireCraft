@@ -14,7 +14,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 机制不变：仍是 PartyIdeology 的古代理念(阶层基础、光谱坐标、诉求、派系类型照旧)，只是名字、说明按文化线换。
 //     如儒家那一格(官僚、地主，守秩序、开科取士)在西方是经院正统、阿拉伯是教法派、草原是祖训派；
 //   · 谱系：华夏线是诸子百家(原来的键)；罗马线(西方各族)、阿拉伯线(阿拉伯、埃及、波斯)、日本线各一套，
-//     阿拉伯线里的印度、游牧线里的阿兹特克与林地部族(奥吉布瓦)另有一套，游牧线其余的(草原)用游牧那套；
+//     印度、阿兹特克与林地部族(奥吉布瓦)另有一套(都走原始封建线)，游牧线其余的(草原)用游牧那套；
+//     原始封建线其余的(班图、祖鲁)借阿兹特克那套(古训、律令、安民、匠作、田社、武士、远商、祭司，王国、贵胄、祭司并立的格局相近)，
+//     说法太像中美洲的几条另按文化写(institution_ideology_*_desc_bantu/_zulu)；以前漏了这条线，班图、祖鲁被当成西方(经院、骑士、教权)；
 //   · 某谱系没有的学说就不出现(西方、草原、日本没有宦官，林地部族没有法令、匠作与宗亲外戚)：选理念只列本谱系有的，
 //     旧档里派系记着本谱系没有的就近换成本谱系有的(只换派系记的理念，成员、占比、诉求不动)；
 //   · 文字键：<键>_<文化小写>(个别文化，如维京、波斯) → <键>_<谱系> → <键>_other(非华夏通用格式) → <键>(华夏原名)；
@@ -42,7 +44,7 @@ public static class CultureDoctrines
     // 谱系的显示顺序(理念图鉴里"别的文化怎么叫")
     public static readonly string[] Sets = { "roma", "arabic", "india", "youmu", "aztec", "ojibwe", "japan" };
 
-    // 同一条制度线里另有一套的文化(印度走阿拉伯线，阿兹特克、奥吉布瓦走游牧线)
+    // 同一条制度线里另有一套的文化(印度、阿兹特克、奥吉布瓦都走原始封建线)
     private static readonly HashSet<string> CultureSets = new(StringComparer.Ordinal) { "india", "aztec", "ojibwe" };
 
     private static readonly Dictionary<string, string> SetCache = new(StringComparer.Ordinal);
@@ -73,6 +75,7 @@ public static class CultureDoctrines
                 "Arabic" => "arabic",
                 "Youmu" => "youmu",
                 "Japan" => "japan",
+                "Origins" => "aztec",
                 _ => "roma"
             };
         }

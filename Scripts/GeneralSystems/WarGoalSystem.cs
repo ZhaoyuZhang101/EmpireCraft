@@ -68,11 +68,15 @@ public static class WarGoalSystem
 
     private static readonly List<(long city, long to)> PendingCessions = new();
     private static readonly List<(long lord, long subject)> PendingVassals = new();
+    // 统一战争(含共主平定之战)议和割让、吞并的城：易主时记作统一所得(不计代际侵占，见 AdministrativeControlSystem.GenerationConquests)。
+    // 和约结算时仗还没结束，城却排在之后几帧才易主，那时已认不出是统一战争——以前只有战时攻下的城算统一所得(2026-11-07 用户选 B)
+    private static readonly HashSet<long> UnificationCessions = new();
 
     public static void ResetWorldState()
     {
         PendingCessions.Clear();
         PendingVassals.Clear();
+        UnificationCessions.Clear();
         WarObjective.ResetWorldState();
         PeaceTable.ResetWorldState();
     }
@@ -109,8 +113,10 @@ public static class WarGoalSystem
     {
         WarGoal goal;
         int theirs = WarSituation.SideCities(defender), ours = WarSituation.SideCities(attacker);
-        // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套
-        bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender);
+        // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套；
+        // 同一块陆地上相距不远、陆路走得过去的(宣战闸的陆上一条，通达层算好后按陆路成本，见 WarReach.LandNearby)也按陆战定目标
+        bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender) ||
+                       WarReach.LandNearby(attacker, defender);
         RegimeType? regime = attacker.GetRegime()?.type;
         bool feudal = regime == RegimeType.Feudalism || regime == RegimeType.ZhouFeudalism;
         bool small = theirs <= AnnexSmallCities || theirs * 2 <= ours;
@@ -131,11 +137,15 @@ public static class WarGoalSystem
             : strength >= ConquestStrength ? WarGoal.割地
             : WarGoal.赔款;
         // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，或这一代人侵占的法理已满(统一战争不限，
-        // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)
+        // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)。
+        // 统一战争(含共主平定天下的仗，用户 2026-11-07 选「平定之战算统一战争」，见 UnificationSystem.IsUnificationWar)
+        // 不因过度扩张改称臣，只有路程太远、鞭长莫及的照旧改
         if (goal is WarGoal.吞并 or WarGoal.割地)
         {
             string generation = null;
-            if (AdministrativeControlSystem.BeyondReach(attacker, defender.capital) ||
+            if ((UnificationSystem.IsUnificationWar(war)
+                    ? AdministrativeControlSystem.OutOfReach(attacker, defender.capital)
+                    : AdministrativeControlSystem.BeyondReach(attacker, defender.capital)) ||
                 AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))
             {
                 // 行封建附庸的，对方远在控制范围之外也收不成附庸(见 FeudalVassalService.TooFar)，只求赔款
@@ -282,18 +292,32 @@ public static class WarGoalSystem
         attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion &&
         CaliphateFaith.MayAdopt(defender, attacker.religion);
 
-    // 改宗：对方连同各城、城里的人改奉攻方的宗教
+    // 改宗：对方国教、君主、都城改奉攻方的宗教；其余的城只当场改与该教同天下的(或无教的)，外天下的城改走国教推行
+    // (此后四十年国教势能加倍，见 ReligionConversionSystem.RecentlyConverted；用户 2026-11-06 "古典时代全世界都信基督"，
+    // 以前一场圣战整国连城改宗，不看天下)
     internal static bool Convert(Kingdom defender, Kingdom attacker)
     {
         if (!Convertible(attacker, defender)) return false;
         Religion faith = attacker.religion;
+        Religion old = defender.religion;
         defender.setReligion(faith);
+        if (defender.king?.data != null && defender.king.isAlive()) defender.king.setReligion(faith);
+        if ((defender.GetEmpire()?.CoreKingdom ?? defender) == defender) defender.GetOrCreate().religion_converted_at = World.world.getCurWorldTime();
+        int converted = 0, spared = 0;
         foreach (City city in defender.cities.ToList())
         {
-            if (city?.data == null || city.isRekt()) continue;
-            city.setReligion(faith);
-            city.units?.ForEach(actor => actor?.setReligion(faith));
+            if (city?.data == null || city.isRekt() || city.religion == faith) continue;
+            if (city != defender.capital && city.hasReligion() && !ReligionTenets.AtHome(faith, ReligionSphere.SphereOfCity(city)))
+            {
+                spared++;
+                continue;
+            }
+            BackgroundReligionSystem.Convert(city, faith, city.religion);
+            converted++;
         }
+        ReligionDiagnostics.Add(ReligionDiagnostics.HolyWar, converted);
+        ReligionDiagnostics.Add(ReligionDiagnostics.HolyWarSpared, spared);
+        if (old != null) SyncretismSystem.NoteConversion(old, faith);
         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_converted"), defender.GetKingdomName(),
             attacker.GetKingdomName(), faith.name), attacker);
         return true;
@@ -686,6 +710,14 @@ public static class WarGoalSystem
     // 割让攻方占了一半以上的城；吞并且对方丢了一半城或都城时，主守方余下的城一并归主攻方(帝国核心不整体吞并，只割城)
     private static void Cede(War war, Kingdom attacker, Kingdom defender, bool annex)
     {
+        int pending = PendingCessions.Count;
+        CedeCities(war, attacker, defender, annex);
+        if (!UnificationSystem.IsUnificationWar(war)) return;
+        for (int i = pending; i < PendingCessions.Count; i++) UnificationCessions.Add(PendingCessions[i].city);
+    }
+
+    private static void CedeCities(War war, Kingdom attacker, Kingdom defender, bool annex)
+    {
         List<(City city, Kingdom holder)> held = Contiguous(HeldCities(war, war._list_defenders, war._list_attackers), out int dropped);
         // 连不上的城退还原主，改求赔款(见 Contiguous)
         if (dropped > 0)
@@ -824,10 +856,12 @@ public static class WarGoalSystem
     }
 
     // 一座城排进移交队列(诸侯私战收场割城、退城，见 HolyRomanSystem.Feuds)，逐帧易主
-    public static void QueueCession(City city, Kingdom to)
+    // unification：统一战争里割得的城，记作统一所得(同 Cede)
+    public static void QueueCession(City city, Kingdom to, bool unification = false)
     {
         if (city?.data == null || city.isRekt() || to?.data == null || to.isRekt() || city.kingdom == to) return;
         PendingCessions.Add((city.id, to.id));
+        if (unification) UnificationCessions.Add(city.id);
     }
 
     // 整国并入(见 UnificationSystem)：把一国所有的城排进移交队列，逐帧易主；返回排了几座
@@ -886,6 +920,7 @@ public static class WarGoalSystem
         {
             (long cityId, long toId) = PendingCessions[0];
             PendingCessions.RemoveAt(0);
+            bool unification = UnificationCessions.Remove(cityId);
             City city = World.world.cities.get(cityId);
             Kingdom to = World.world.kingdoms.get(toId);
             if (city?.data == null || city.isRekt() || to?.data == null || to.isRekt() || city.kingdom == to) continue;
@@ -894,6 +929,7 @@ public static class WarGoalSystem
                 Kingdom from = city.kingdom;
                 bool capital = from?.data != null && from.capital == city;
                 AdministrativeControlSystem.MarkConquered(city, to);
+                if (unification) city.GetOrCreate().conquered_unification = true;
                 city.joinAnotherKingdom(to);
                 done++;
                 // 周室诸侯的都城在和约中割走，与攻破都城一样灭其国；割走王畿则攻者取而代之

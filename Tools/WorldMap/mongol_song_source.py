@@ -24,7 +24,9 @@ NEW_CITIES = [
 ]
 
 DROP = {"jin", "xixia", "dali", "keraites", "khamag", "tatars", "naimans", "leon", "tripoli", "abbasid", "seljuk", "khwarazm", "ghurid",
-        "qara_khitai", "west_karakhanid", "east_karakhanid", "chahamana", "gahadavala", "sena", "volga_bulgaria", "cumania"}
+        "qara_khitai", "west_karakhanid", "east_karakhanid", "chahamana", "gahadavala", "sena", "volga_bulgaria", "cumania",
+        # 马蓬古布韦约 1220 年废弃，津巴布韦(大津巴布韦)代之
+        "mapungubwe"}
 
 SONG_CITIES = ["hangzhou", "suzhou", "shaoxing", "nanjing", "nanchang", "ganzhou", "yangzhou", "shouchun", "xiangyang", "jiangling", "wuchang",
                "changsha", "fuzhou", "quanzhou", "guangzhou", "guilin", "qiongzhou", "danzhou", "yazhou", "lingao", "chongqing", "diaoyu", "langzhong", "guiyang"]
@@ -90,7 +92,7 @@ NEW_POLITIES = {
                        famous("", "怯的不花|Kitbuqa", 55, "general", 2, "general"),
                        famous("郭|Guo", "侃|Kan", 40, "general", 1, "general"),
                        famous("", "伯颜|Bayan", 22, "general", 1, "general")]),
-        polity("sakya", "萨迦", "Sakya", "Youmu", "shigatse", r=["tibet"], ruler=person("", "八思巴|Phagpa", 23)),
+        polity("sakya", "萨迦", "Sakya", "Xizang", "shigatse", r=["tibet"], ruler=person("", "八思巴|Phagpa", 23)),
     ],
     "almohad": [
         polity("marinid", "马林", "Marinid", "Arab", "fez", cities=["fez", "sijilmasa", "tingis"], ruler=person("", "阿布·优素福|Abu Yusuf", 45)),
@@ -118,6 +120,13 @@ NEW_POLITIES = {
     ],
     "khmer": [
         polity("champa_kingdom", "占城", "Champa", "India", "champa", r=["champa"], ruler=person("", "因陀罗跋摩|Indravarman", 30)),
+    ],
+    # 加奥的桑海(祖瓦王朝)到 13 世纪末才臣服马里
+    "ghana": [
+        polity("gao", "加奥", "Gao", "Swahili", "gao", cities=["gao"]),
+    ],
+    "mapungubwe": [
+        polity("zimbabwe", "津巴布韦", "Zimbabwe", "Bantu", "great_zimbabwe", r=["zimbabwe"]),
     ],
 }
 
@@ -195,7 +204,8 @@ PEOPLE = {
     "pagan": dict(ruler=person("", "那罗梯诃波帝|Narathihapate", 20)),
     "khmer": dict(r=["khmer", "dvaravati"], ruler=person("", "阇耶跋摩|Jayavarman", 50)),
     "kediri": dict(zh="新柯沙里", en="Singhasari", ruler=person("", "毗湿奴跋达那|Vishnuvardhana", 40)),
-    "ghana": dict(zh="马里", en="Mali", cap="timbuktu", cities=["timbuktu", "djenne"], ruler=person("", "瓦利|Wali", 30)),
+    # 马里：松迪亚塔(1255 卒)之子曼萨乌利，都尼亚尼；廷巴克图 1324 年才入马里，这里随萨赫勒的地区法理一起算
+    "ghana": dict(zh="马里", en="Mali", cap="niani", cities=["niani"], r=["sahel"], ruler=person("", "瓦利|Wali", 30)),
 }
 
 RELATIONS = [
@@ -395,6 +405,8 @@ def main():
             "Zhang Shijie and Jia Sidao at court. The Mongol Empire itself is about to split as Kublai and Ariq Boke fight for the throne.")
     era["techExtra"] = dict(era["techExtra"])
     era["techExtra"]["Youmu"] = list(era["techExtra"].get("Youmu", [])) + ["gunpowder"]
+    # 女真：金末已用火器(震天雷)
+    era["techExtra"]["Manzhou"] = list(era["techExtra"].get("Manzhou", [])) + ["gunpowder"]
     ranks = {cid: rank for cid, rank in era["ranks"].items() if cid in active}
     ranks.update(timbuktu=2, tabriz=2, langzhong=2, quanzhou=2, almaliq=2, shigatse=2, diaoyu=2, tuul=2, onon=2, kerulen=2, khovd=2, edessa=2, tripoli_lb=2, cirta=2, crete=2)
     era["ranks"] = ranks

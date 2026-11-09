@@ -2,7 +2,7 @@
   "version": 1,
   "civilizations": {
     "cultures": { "Slavonic": "slavic", "Aztec": "aztec", "Ojibwe": "woodland" },
-    "lines": { "Huaxia": "huaxia", "Japan": "japan", "Roma": "western", "Arabic": "arabic", "Youmu": "nomad", "Aosong": "aosong" }
+    "lines": { "Huaxia": "huaxia", "Japan": "japan", "Roma": "western", "Arabic": "arabic", "Youmu": "nomad", "Aosong": "aosong", "Origins": "origins" }
   },
   "fallback": { "civil": "grades_general", "military": "army_general" },
   "forms": {
@@ -115,7 +115,19 @@
       }
     },
     "ClassicalRepublic": {
-      "civilizations": { "default": { "civil": "court_roman", "military": "army_roman" } }
+      "civilizations": {
+        "aztec": { "civil": "court_aztec", "military": "army_aztec" },
+        "woodland": { "civil": "", "military": "" },
+        "origins": { "civil": "court_origins", "military": "army_origins" },
+        "default": { "civil": "court_roman", "military": "army_roman" }
+      }
+    },
+    "OriginFeudalism": {
+      "civilizations": {
+        "aztec": { "civil": "court_aztec", "military": "army_aztec" },
+        "woodland": { "civil": "", "military": "" },
+        "default": { "civil": "court_origins", "military": "army_origins" }
+      }
     },
     "Bakufu": {
       "civilizations": { "default": { "civil": "ikai_japan", "military": "army_bakufu" } }
@@ -135,7 +147,8 @@
     "YouMu": { "1": 0, "2": 0, "4": 3, "5": 5, "6": 2 },
     "NomadFeudalism": { "1": 0, "2": 0, "5": 5 },
     "ClassicalRepublic": { "0": 0, "1": 2, "2": 3, "3": 2 },
-    "Bakufu": { "1": 1, "2": 2, "3": 4, "7": 6, "8": 5 }
+    "Bakufu": { "1": 1, "2": 2, "3": 4, "7": 6, "8": 5 },
+    "OriginFeudalism": { "1": 0, "3": 5, "4": 0, "5": 0 }
   },
   "unranked": {
     "LvLing": [5],
@@ -144,13 +157,15 @@
     "Arabic": [4, 6],
     "YouMu": [3],
     "NomadFeudalism": [3],
-    "Bakufu": [5]
+    "Bakufu": [5],
+    "OriginFeudalism": [2]
   },
   "military_offices": {
     "LvLing": [9, 10, 11, 12],
     "Arabic": [3],
     "YouMu": [2],
-    "NomadFeudalism": [2]
+    "NomadFeudalism": [2],
+    "OriginFeudalism": [5]
   },
   "general_floors": [
     { "below": 3000, "tier": 3 },

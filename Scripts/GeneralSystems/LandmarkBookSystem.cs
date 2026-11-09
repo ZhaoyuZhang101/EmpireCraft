@@ -567,7 +567,8 @@ public static class LandmarkBookSystem
     {
         if (city == null || city.isRekt() || city.units == null || city.units.Count == 0) return;
         Dictionary<PartyIdeology, float> influences = GetCityBookInfluences(city);
-        // 手抄本出不了城，雕版印刷开始外溢到邻城，机械印刷外溢更广(见 MediaSystem)
+        // 手抄本出不了城，雕版印刷开始外溢到邻城，机械印刷外溢更广(见 MediaSystem)；
+        // 通达层算好后(用户 2026-11-06，见 ConnectivitySystem)外溢到每座邻城再乘两城之间的通达强度：隔山隔江的邻城读到得少
         float neighbourMedia = influences.Count == 0 ? 0f : MediaSystem.NeighbourFactor(city.kingdom);
         foreach (KeyValuePair<PartyIdeology, float> pair in influences)
         {
@@ -578,7 +579,10 @@ public static class LandmarkBookSystem
             foreach (City neighbour in city.neighbours_cities ?? Enumerable.Empty<City>())
             {
                 if (neighbour == null || neighbour.isRekt() || neighbour.units == null) continue;
-                IdeologyPopulationSystem.InfluenceCity(neighbour, pair.Key, Damped(neighbour, pair.Key, radiance));
+                float reach = ConnectivitySystem.NeighbourStrength(city, neighbour);
+                float amount = radiance * (reach < 0f ? 1f : reach);
+                if (amount <= 0f) continue;
+                IdeologyPopulationSystem.InfluenceCity(neighbour, pair.Key, Damped(neighbour, pair.Key, amount));
             }
         }
     }

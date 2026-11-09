@@ -37,6 +37,10 @@ public class TechWindow : AbstractWideWindow<TechWindow>
     private SimpleText _detailText;
     private string _culture = "";
     private string _selectedId = "";
+    // 「重置科技」的二次确认：第一下记下文化与时刻(见 AddOverview 里的 tech_reset_culture 按钮)
+    private const float ResetConfirmSeconds = 5f;
+    private string _resetArmedCulture;
+    private float _resetArmedAt = -100f;
 
     public static void Open(string culture)
     {
@@ -265,7 +269,26 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         buttons.AddButtonIntoHoriLayout("tech_reset_culture", LM.Get("tech_reset_culture"),
             () =>
             {
-                TechnologySystem.ResetCulture(_culture);
+                // 二次确认(用户 2026-11-07 "重置科技按钮也加上二次确认")：会撤制度、拆改建筑，第一下只提示，
+                // ResetConfirmSeconds 秒内对同一文化再点一下才执行
+                float now = Time.unscaledTime;
+                if (_resetArmedCulture != _culture || now - _resetArmedAt > ResetConfirmSeconds)
+                {
+                    _resetArmedCulture = _culture;
+                    _resetArmedAt = now;
+                    WorldTip.showNow(string.Format(LM.Get("tech_reset_culture_confirm"), _culture.GetCultureTranslate(), ResetConfirmSeconds),
+                        false, "top", ResetConfirmSeconds);
+                    return;
+                }
+                _resetArmedCulture = null;
+                _resetArmedAt = -100f;
+                // 同科技回退神力退回原始(用户 2026-11-07 "重置科技按钮也改成同一套")：制度、建筑一并处理，读档不反弹
+                TechRollbackResult result = TechnologySystem.ResetCulture(_culture, _kingdom);
+                string name = _culture.GetCultureTranslate();
+                WorldTip.showNow(result.techs > 0
+                    ? string.Format(LM.Get("tech_rollback_done"), name, TechnologySystem.EraName(result.to_era),
+                        TechnologySystem.EraName(result.from_era), result.techs, result.institutions, result.cities)
+                    : string.Format(LM.Get("tech_rollback_already"), name, result.institutions, result.cities), false, "top", 4f);
                 _selectedId = "";
                 Rebuild();
             }, size: new Vector2(60, 11));

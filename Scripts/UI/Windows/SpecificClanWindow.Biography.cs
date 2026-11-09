@@ -4,6 +4,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.System;
@@ -18,8 +19,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 
 // 生平列传与相关记事：
 //   · 生平列传：人物名牌(头像、姓名、名将名臣称号、生卒 · 籍贯 · 官职 · 爵位) → 列传(BiographySystem.Compose) |
-//     恩怨与志向(恩主、门生、宿敌各一行，点人换成他；志向及成败；名将名臣的类别等第与称号) → 编年(按年分组，
-//     涉及别人的那条点了换成他，帝国大事那条点了打开帝国史书)；
+//     恩怨与志向(恩主、门生、宿敌各一行，点人换成他；志向及成败；名将名臣的类别等第与称号) → 刑狱(在押与前科，见 LawPanel)
+//     → 编年(按年分组，涉及别人的那条点了换成他，帝国大事那条点了打开帝国史书)；
 //   · 相关记事：别人生平里提到此人的记录，新的在上，点了换成记录的主人。
 public partial class SpecificClanWindow
 {
@@ -44,6 +45,9 @@ public partial class SpecificClanWindow
                 DrawTies(columns.BeginColumnCard(width, LM.Get("clan_card_ties"), WideKit.Gold, null, "ui/icons/iconFamily"), width,
                     person);
         }
+
+        // 刑狱：在押(余下刑期)与前科(时间、国、罪名、刑罚)，没有就不画(见 LawPanel.RenderPerson)
+        LawPanel.RenderPerson(page, person, PageWidth);
 
         List<PersonalHistoryRecord> records = (person.personal_history ?? new List<PersonalHistoryRecord>())
             .Where(record => record != null).OrderBy(record => record.timestamp).ToList();
@@ -88,6 +92,9 @@ public partial class SpecificClanWindow
         if (talent != null)
             title += "  " + (FamousTalentSystem.KindName(talent.kind) + " · " + FamousTalentSystem.RankName(talent.rank))
                 .ColorString(FamousTalentSystem.KindHex(talent.kind));
+        // 在押的人名后标"在押"(详见下面的刑狱一栏)
+        if (person.is_alive && EmpireLawSystem.IsImprisoned(person))
+            title += "  " + LM.Get("law_person_imprisoned_tag").ColorString(WideKit.Orange);
         var name = lines.AddTextIntoVertLayout(title, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 15f));
         name.UseFixedFontSize(11, HorizontalWrapMode.Overflow);
         HoverMarqueeText.Attach(name);

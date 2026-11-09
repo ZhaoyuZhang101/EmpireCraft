@@ -43,7 +43,8 @@ public sealed class TechResearchConfig
     // 文化规模：每多一座城科技费用增加多少，封顶多少
     public float cost_per_extra_city = 0.02f;
     public float cost_city_scaling_max = 1f;
-    // 技术扩散：每有一个接触中的文化(接壤/交战/同一帝国)已掌握，费用降低多少，封顶多少
+    // 技术扩散：每有一个接触中的文化(接壤/交战/同一帝国)已掌握，费用降低多少，封顶多少；
+    // 通达层算好后每个文化按通达强度折算(隔山隔海的打折，见 RebuildContacts、ConnectivitySystem)
     public float diffusion_per_contact = 0.2f;
     public float diffusion_max = 0.5f;
     // 加速事件一次给多少比例的研究进度
@@ -215,6 +216,8 @@ public sealed class TechTreeConfig
     public List<TechEraConfig> eras = new();
     public List<TechMaterialConfig> materials = new();
     public List<TechNodeConfig> techs = new();
+    // 通达层(距离、地形、交通通信科技定各国各文化之间往来的远近，见 ConnectivityRules、ConnectivitySystem)
+    public ConnectivityConfig connectivity = new();
 }
 
 #endregion
@@ -342,6 +345,8 @@ public static class TechnologySystem
         _config.industry.employment_cap_bonus ??= new Dictionary<string, float>();
         _config.industry.capitalist_budding_techs ??= new List<string>();
         _config.building_swap_guards ??= new List<TechSwapGuardConfig>();
+        _config.connectivity ??= new ConnectivityConfig();
+        _config.connectivity.Normalize();
         _techs = new Dictionary<string, TechNodeConfig>(StringComparer.Ordinal);
         foreach (TechNodeConfig tech in _config.techs.Where(tech => !string.IsNullOrWhiteSpace(tech?.id)))
         {
@@ -414,8 +419,11 @@ public static class TechnologySystem
         ResearchedCache.Clear();
         Contacts.Clear();
         WarContacts.Clear();
+        ContactWeights.Clear();
+        _weightedContacts = false;
         StraitNeighbours.Clear();
         _lastScan = -1d;
+        TechRollbackSystem.ResetWorldState();
     }
 
     // 这个世界是读档读进来的(不是新开的)：读档后各文化按现行政体补记一次制度与科技(见 BackfillRegimes)
@@ -750,6 +758,14 @@ public static class TechnologySystem
     public static float GetDiffusionDiscount(string culture, string techId)
     {
         TechResearchConfig research = Config.research;
+        // 通达层算好后：每个已掌握的接触文化按通达强度折算(见 RebuildContacts)
+        if (_weightedContacts && ContactWeights.TryGetValue(culture ?? "", out Dictionary<string, float> weights))
+        {
+            float sum = 0f;
+            foreach (KeyValuePair<string, float> pair in weights)
+                if (_states.TryGetValue(pair.Key, out CultureTechState state) && state.researched_techs.Contains(techId)) sum += pair.Value;
+            return Math.Min(research.diffusion_max, sum * research.diffusion_per_contact);
+        }
         return Math.Min(research.diffusion_max, CountContactsKnowing(culture, techId) * research.diffusion_per_contact);
     }
 
@@ -1346,6 +1362,9 @@ public static class TechnologySystem
             InstitutionNodeConfig node = EmpireFormationService.ImperialNode(culture);
             if (node == null || !InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => InstitutionSystem.IsPrerequisiteHeld(culture, id)))
                 continue;
+            // 用神力退回过科技的文化(见 TechRollbackSystem)：先得有这套帝制要的科技，不能凭前代帝国把撤下的帝制直接承袭回来
+            if (_states.TryGetValue(culture, out CultureTechState rolled) && rolled.rolled_back && !AreInstitutionTechsMet(culture, node, out _))
+                continue;
             if (InstitutionSystem.ForceEnactNode(culture, node.id) > 0)
                 LogService.LogInfo($"[EmpireCraft][制度] {culture} 前代有过帝国，「{InstitutionSystem.GetNodeName(node)}」承袭前代，直接施行");
         }
@@ -1379,8 +1398,9 @@ public static class TechnologySystem
                 Bootstrap(culture, pair.Value);
                 LandmarkBookSystem.MarkExisting(culture, state);
             }
-            // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)
-            else if (!addResearch) BackfillBuildings(culture, pair.Value);
+            // 读档后第一次：城里已有的建筑说明对应技术早就有了(后来新加的门槛，如住房科技，不把旧档打回原形)；
+            // 用神力退回过科技的文化不补(见 TechRollbackSystem：降级没赶上的、打下来的别国建筑不该把科技又补回去)
+            else if (!addResearch && !state.rolled_back) BackfillBuildings(culture, pair.Value);
             // 读进来的旧档：各国现行政体说明对应的制度、科技早就有了(新开的世界只记一下，照常从头研究)
             if (!state.regime_line)
             {
@@ -1429,12 +1449,25 @@ public static class TechnologySystem
         }
     }
 
-    // 文化之间的接触：城市接壤、正在交战、同属一个帝国(含朝贡国)。技术只沿着接触扩散
+    // 文化之间的接触：城市接壤、正在交战、同属一个帝国(含朝贡国)。技术只沿着接触扩散。
+    // 通达层算好后(用户 2026-11-06 选"标准"，见 ConnectivitySystem)不再只分有无，按强度给权重——
+    //   · 地理：学的一方从教的一方学得到的通达强度(两边谁走得过去都算，列岛视距渡海只算列岛那一边，同 D2"日本能出岛")，
+    //     隔着雪山大漠、没有航海隔着海的低，电报以后远处也连得上；以前接壤就算、翻不过的山脊也算，隔着无人区的邻城反倒不算；
+    //   · 政治：同一帝国至少 0.8、朝贡国与宗主至少 0.6，正在交战的至少 0.5(战场上见识过)；
+    //   · 折扣 = 每个已掌握的接触文化 diffusion_per_contact × 权重，封顶 diffusion_max；
+    //     权重不低于 tech_contact_min(0.3)的才算"接触中"(加速事件、年代限制、缺材料靠贸易兜底、科技窗口的计数)。
+    //   通达层还没算好(读档后几秒)时照旧：接壤、教化一成五、列岛隔海、同帝国，二值。
+    private static readonly Dictionary<string, Dictionary<string, float>> ContactWeights = new(StringComparer.Ordinal);
+    private static bool _weightedContacts;
+
     private static void RebuildContacts(Dictionary<string, List<City>> citiesByCulture)
     {
         Contacts.Clear();
         WarContacts.Clear();
+        ContactWeights.Clear();
+        _weightedContacts = ConnectivitySystem.Ready;
         var empireCultures = new Dictionary<long, HashSet<string>>();
+        var tributaryCultures = new Dictionary<long, HashSet<string>>();
         foreach (KeyValuePair<string, List<City>> pair in citiesByCulture)
         foreach (City city in pair.Value)
         {
@@ -1451,8 +1484,8 @@ public static class TechnologySystem
                     Link(WarContacts, other, pair.Key);
                 }
             }
-            // 教化：四方文化教化到本城一成五以上，也算接触过(见 CultureRadiation)
-            IReadOnlyDictionary<string, float> radiance = CultureRadiation.SharesOf(city);
+            // 教化：四方文化教化到本城一成五以上，也算接触过(见 CultureRadiation)；通达层算好后由它统一按强度给
+            IReadOnlyDictionary<string, float> radiance = _weightedContacts ? null : CultureRadiation.SharesOf(city);
             if (radiance != null)
                 foreach (KeyValuePair<string, float> influence in radiance)
                 {
@@ -1461,7 +1494,7 @@ public static class TechnologySystem
                     Link(Contacts, influence.Key, pair.Key);
                 }
             // 列岛文化：隔海相望的外国也算接触(见 CitiesAcrossStrait)。只记列岛这一边，对岸的文化不因此多出接触
-            if (TianxiaSystem.IsArchipelago(pair.Key))
+            if (!_weightedContacts && TianxiaSystem.IsArchipelago(pair.Key))
                 foreach (City across in CitiesAcrossStrait(city))
                 {
                     if (across.isRekt() || across.kingdom == city.kingdom) continue;
@@ -1470,16 +1503,83 @@ public static class TechnologySystem
                 }
             long empireId = city.kingdom?.GetEmpireID() ?? -1L;
             // 朝贡国与宗主也算一家(以前注释说含朝贡国，代码只看帝国成员；见 TributaryRelations)
-            if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain) empireId = suzerain.id;
+            bool tributary = false;
+            if (empireId < 0 && city.kingdom?.GetTakenAllianceEmpire() is { } suzerain)
+            {
+                empireId = suzerain.id;
+                tributary = true;
+            }
             if (empireId < 0) continue;
             if (!empireCultures.TryGetValue(empireId, out HashSet<string> cultures))
                 empireCultures[empireId] = cultures = new HashSet<string>(StringComparer.Ordinal);
             cultures.Add(pair.Key);
+            if (!tributary) continue;
+            if (!tributaryCultures.TryGetValue(empireId, out HashSet<string> tributaries))
+                tributaryCultures[empireId] = tributaries = new HashSet<string>(StringComparer.Ordinal);
+            tributaries.Add(pair.Key);
         }
         foreach (HashSet<string> cultures in empireCultures.Values)
         foreach (string a in cultures)
         foreach (string b in cultures)
             Link(Contacts, a, b);
+        if (_weightedContacts) WeighContacts(citiesByCulture, empireCultures, tributaryCultures);
+    }
+
+    // 按通达强度给接触权重(见 RebuildContacts)，再按权重重排"接触中"的文化
+    private static void WeighContacts(Dictionary<string, List<City>> citiesByCulture, Dictionary<long, HashSet<string>> empireCultures,
+        Dictionary<long, HashSet<string>> tributaryCultures)
+    {
+        ConnectivityConfig config = ConnectivitySystem.Config;
+        var political = new Dictionary<(string, string), float>();
+        foreach (KeyValuePair<long, HashSet<string>> empire in empireCultures)
+        {
+            tributaryCultures.TryGetValue(empire.Key, out HashSet<string> tributaries);
+            foreach (string a in empire.Value)
+            foreach (string b in empire.Value)
+            {
+                if (a == b) continue;
+                bool members = tributaries == null || !tributaries.Contains(a) && !tributaries.Contains(b);
+                float floor = members ? config.tech_empire_floor : config.tech_tributary_floor;
+                if (!political.TryGetValue((a, b), out float old) || floor > old) political[(a, b)] = floor;
+            }
+        }
+        var cultures = new List<string>();
+        foreach (string culture in citiesByCulture.Keys)
+            if (CultureService.IsValidCulture(culture)) cultures.Add(culture);
+        var contacts = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (string learner in cultures)
+        {
+            Contacts.TryGetValue(learner, out HashSet<string> binary);
+            WarContacts.TryGetValue(learner, out HashSet<string> enemies);
+            var weights = new Dictionary<string, float>(StringComparer.Ordinal);
+            var touching = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string source in cultures)
+            {
+                if (source == learner) continue;
+                float weight = ConnectivitySystem.CultureLearn(learner, source);
+                // 这一轮通达层里还没有这个文化(新起的)：照旧按有无接触
+                if (weight < 0f) weight = binary != null && binary.Contains(source) ? 1f : 0f;
+                bool strong = weight >= config.tech_contact_min;
+                if (enemies != null && enemies.Contains(source))
+                {
+                    weight = Math.Max(weight, config.tech_war_floor);
+                    strong = true;
+                }
+                if (political.TryGetValue((learner, source), out float floor))
+                {
+                    weight = Math.Max(weight, floor);
+                    strong = true;
+                }
+                if (weight <= 0f) continue;
+                weights[source] = Math.Min(1f, weight);
+                if (strong) touching.Add(source);
+            }
+            ContactWeights[learner] = weights;
+            contacts[learner] = touching;
+        }
+        Contacts.Clear();
+        foreach (KeyValuePair<string, HashSet<string>> pair in contacts)
+            if (pair.Value.Count > 0) Contacts[pair.Key] = pair.Value;
     }
 
     // 列岛文化(CultureRule 标了 archipelago 的，见 TianxiaSystem.IsArchipelago)隔海相望的近邻(用户 2026-10-21 选文明平衡 D2"日本能出岛")：
@@ -1713,9 +1813,11 @@ public static class TechnologySystem
             // 文化城池自带藏书阁和庙宇(合并民居后原版的图书馆、神庙都建不起来了)，每级按一座图书馆加一座神庙算
             int cityLevels = city.buildings.Where(b => b?.asset != null && b.asset.id.StartsWith("city_", StringComparison.Ordinal))
                 .Sum(b => b.asset.upgrade_level);
+            // 庙宇科研按本城之教的教义(僧团寺院 +50%，见 ReligionTenets.TempleResearchFactor，用户 2026-11-06)
+            float perTemple = research.per_temple * ReligionTenets.TempleResearchFactor(city.hasReligion() ? city.religion : null);
             float citySchools = city.countBuildingsType("type_library") * research.per_library +
-                                cityLevels * (research.per_library + research.per_temple) +
-                                city.countBuildingsType("type_temple") * research.per_temple +
+                                cityLevels * (research.per_library + perTemple) +
+                                city.countBuildingsType("type_temple") * perTemple +
                                 city.countBuildingsType("type_university") * research.per_university +
                                 city.buildings.Count(b => b != null && IsFactory(b.asset)) * research.per_factory;
             if (city.kingdom != null && city.kingdom.hasEnemies())
@@ -2134,10 +2236,113 @@ public static class TechnologySystem
         return revoked.Count;
     }
 
-    public static void ResetCulture(string culture)
+    // 重置本文化的科技：退回原始时代，同科技回退神力(见 TechRollbackSystem.ToPrimitive；缺科技的制度撤下、超出科技的建筑降级、
+    // 读档不按建筑与制度补回)。用户 2026-11-07 "重置科技按钮也改成同一套"——以前是把科技存档整个删掉，下一年开局补齐又全补回来
+    public static TechRollbackResult ResetCulture(string culture, Kingdom kingdom = null) =>
+        TechRollbackSystem.ToPrimitive(culture, kingdom);
+
+    #endregion
+
+    #region 科技回退(上帝之力，见 TechRollbackSystem)
+
+    // 某一时代档的名字(档次以下没有时代的是原始时代，同 GetEraName)
+    public static string EraName(int tier)
     {
-        if (!_states.Remove(culture ?? "")) return;
+        TechEraConfig era = Config.eras.Where(e => e.tier <= tier).OrderByDescending(e => e.tier).FirstOrDefault();
+        return era == null ? LM.Get("tech_era_primitive") : LM.Get(era.key);
+    }
+
+    // 本文化退回 keepTier 档(含)：档次高于 keepTier 的已研究科技连同以它为前置的(直接或间接)一并删掉；keepTier < 1 时什么都不留
+    // (时代按"研究过任一科技为石器时代"算，原始时代就是一项不剩)。绑在科技上的材料(requires_techs，见 DiscoverMaterials)
+    // 前置不全了就遗忘，要这些材料的科技也删掉；只靠资源发现的木、石、铜等不动(明年照样从城里的资源再发现)。
+    // 删掉的科技视同从未研究：已投入的进度、在研、玩家目标、加速事件记录、获得时间都清掉；退回时代以上的在研进度也清掉；
+    // 科技点储备清零(否则下一年一口气又买回来)；士兵换装停下。各国(在帝国里按帝国)的采纳记录同样去掉。
+    // 开局补齐(Bootstrap)和读档补记(政体、典章、海军、传播媒介)一律标成已做过，再记下 rolled_back(读档不按建筑补科技、
+    // 承袭帝制要先有科技)——以前在科技窗口逐项回退、或"重置科技"，读档或下一年就按城里的建筑、已推行的制度、各国政体全补回来了
+    public static TechRollbackResult RollBack(string culture, int keepTier)
+    {
+        var result = new TechRollbackResult { culture = culture ?? "" };
+        if (!CultureService.IsValidCulture(culture)) return result;
+        EnsureLoaded();
+        CultureTechState state = GetState(culture);
+        result.from_era = GetEraTier(culture);
+        var kept = new HashSet<string>(state.researched_techs.Select(TechnologyStateRules.Canonical), StringComparer.Ordinal);
+        var removed = new HashSet<string>(StringComparer.Ordinal);
+        var dropped = new HashSet<string>(StringComparer.Ordinal);
+        bool Above(string id) => _techs.TryGetValue(id ?? "", out TechNodeConfig tech) ? tech.tier > keepTier : keepTier < 1;
+        // 前置 → 以它为前置的科技(按本文化的制度线，见 Requires)
+        var dependents = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (TechNodeConfig tech in Config.techs)
+        foreach (string required in Requires(tech, culture))
+        {
+            string key = TechnologyStateRules.Canonical(required) ?? "";
+            if (!dependents.TryGetValue(key, out List<string> list)) dependents[key] = list = new List<string>();
+            list.Add(tech.id);
+        }
+        var queue = new Queue<string>(kept.Where(Above));
+        for (int guard = 0; guard < 64; guard++)
+        {
+            while (queue.Count > 0)
+            {
+                string id = queue.Dequeue();
+                if (!kept.Remove(id)) continue;
+                removed.Add(id);
+                if (dependents.TryGetValue(id, out List<string> next))
+                    foreach (string other in next)
+                        if (kept.Contains(other)) queue.Enqueue(other);
+            }
+            foreach (TechMaterialConfig material in Config.materials)
+            {
+                if (dropped.Contains(material.id) || !state.discovered_materials.Contains(material.id) ||
+                    material.requires_techs.All(id => kept.Contains(TechnologyStateRules.Canonical(id)))) continue;
+                dropped.Add(material.id);
+                foreach (TechNodeConfig other in Config.techs)
+                    if (kept.Contains(other.id) && other.requires_materials.Contains(material.id)) queue.Enqueue(other.id);
+            }
+            if (queue.Count == 0) break;
+        }
+        state.researched_techs.RemoveAll(id => removed.Contains(TechnologyStateRules.Canonical(id)));
+        foreach (string id in removed) state.timestamps.Remove("tech:" + id);
+        state.discovered_materials.RemoveAll(dropped.Contains);
+        foreach (string id in dropped) state.timestamps.Remove("mat:" + id);
+        bool Forget(string id) => removed.Contains(TechnologyStateRules.Canonical(id)) || Above(TechnologyStateRules.Canonical(id));
+        foreach (string id in state.tech_progress.Keys.Where(Forget).ToList()) state.tech_progress.Remove(id);
+        state.current_techs.RemoveAll(Forget);
+        state.player_targets.RemoveAll(Forget);
+        state.boosted.RemoveAll(Forget);
+        state.progress = 0f;
+        state.research_bank = 0f;
+        state.last_unfunded = 0f;
+        state.modernize_years = 0;
+        state.bootstrapped = state.regime_line = state.naval_line = state.civics_line = state.media_line = true;
+        state.rolled_back = true;
+        TechnologyStateRules.SyncLegacy(state);
         ResearchedCache.Remove(culture);
+        EraCache.Remove(culture);
+        result.to_era = GetEraTier(culture);
+        state.last_era_tier = result.to_era;
+        result.techs = removed.Count;
+        result.materials = dropped.Count;
+        ForgetRealmAdoption(culture, removed);
+        return result;
+    }
+
+    // 退掉的科技从各国的采纳记录里去掉：独立国家看本国文化，帝国(成员共用一份)看核心国的文化
+    private static void ForgetRealmAdoption(string culture, HashSet<string> removed)
+    {
+        if (removed.Count == 0 || World.world?.kingdoms == null) return;
+        var seen = new HashSet<RealmTechState>();
+        foreach (Kingdom kingdom in World.world.kingdoms.list)
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv()) continue;
+            Layer.Empire empire = kingdom.IsInEmpire() ? kingdom.GetEmpire() : null;
+            Kingdom owner = empire?.CoreKingdom ?? kingdom;
+            if (!string.Equals(GetCultureOf(owner), culture, StringComparison.Ordinal)) continue;
+            RealmTechState realm = GetRealmState(kingdom);
+            if (realm == null || !seen.Add(realm)) continue;
+            realm.adopted.RemoveAll(id => removed.Contains(TechnologyStateRules.Canonical(id)));
+            foreach (string id in removed) realm.progress.Remove(id);
+        }
     }
 
     #endregion
