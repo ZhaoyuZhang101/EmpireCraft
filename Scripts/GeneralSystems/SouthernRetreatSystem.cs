@@ -155,6 +155,8 @@ public static class SouthernRetreatSystem
             if (!kingdom.HasRebelledAgainst(court) && kingdom.GetOrCreate().left_empire_id != court.id) continue;
             if (!SouthernRetreatRules.South(kingdom.capital.city_center.y, invaderY)) continue;
             if (WarSituation.Power(kingdom) >= courtPower || !WarReach.Reachable(courtCore, kingdom)) continue;
+            // 走投无路才来投(见 ScenarioEventSystem.Desperate)
+            if (!ScenarioEventSystem.Desperate(kingdom, invader, pressure)) continue;
             float chance = ScenarioPlotRules.RallyChance(pressure, WarReach.Reachable(invader, kingdom), kingdom.isInWarWith(invader));
             if (UnityEngine.Random.value >= chance) continue;
             if (ScenarioEventSystem.Submit(kingdom, invader, courtCore, court, pressure)) joined.Add(kingdom);

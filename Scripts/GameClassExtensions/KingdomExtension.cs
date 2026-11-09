@@ -296,6 +296,8 @@ public static class KingdomExtension
         public long manual_join_lord_id = -1L;
         public double manual_join_at = -1d;
         public long left_empire_id = -1L;
+        // 本国(帝国连同成员)见过的最多城数：丢了一半算被逼得没退路(见 ScenarioEventSystem.Desperate)
+        public int peak_realm_cities;
         // 剧本定下的朝贡从什么时候起(见 StartToTaken：ScriptedTributeYears 年内不因国力坐大脱离)
         public double scripted_tribute_at = -1d;
         // 奉表归附进了这个帝国(顺、西归南明，见 ScenarioEventSystem.Submit)：在这个帝国里不再用原来的国号，按都城称呼

@@ -182,6 +182,7 @@ public static class ScenarioEventSystem
         double now = World.world.getCurWorldTime();
         if (_state.last_check >= 0d && now >= _state.last_check && Date.getYearsSince(_state.last_check) < 1) return;
         _state.last_check = now;
+        NotePeaks();
         int years = _state.started < 0d ? 0 : Math.Max(0, Date.getYearsSince(_state.started));
         for (int i = 0; i < _state.events.Count; i++)
         {
@@ -486,6 +487,9 @@ public static class ScenarioEventSystem
                 if (target == null || target.isRekt() || target.IsArchived() || target.CoreKingdom != court) return "朝廷不是帝国";
                 if (a.GetEmpire() == target) return null;
                 Kingdom enemy = string.IsNullOrEmpty(step.c) ? null : Realm(step.c);
+                // 走投无路才来投；没到这步每年再试(见 ScenarioPlotRules.Desperate)
+                if (enemy != null && !Desperate(a, enemy, ConquestPressure(FrontSystem.Realm(enemy) ?? enemy, CultureService.GetRealmCulture(court))))
+                    return ScenarioPlotRules.NotDesperate;
                 Empire own = a.GetEmpire();
                 List<Kingdom> members = own == null || own.CoreKingdom != a ? new List<Kingdom>()
                     : own.kingdoms_list.Where(member => member?.data != null && !member.isRekt() && member != a).ToList();
@@ -655,7 +659,7 @@ public static class ScenarioEventSystem
         foreach (Kingdom kingdom in World.world.kingdoms.ToList())
         {
             if (joined >= RallyMaxPerYear) break;
-            if (!RallyCandidate(kingdom, conqueror, court, target, culture)) continue;
+            if (!RallyCandidate(kingdom, conqueror, court, target, culture, pressure)) continue;
             float chance = ScenarioPlotRules.RallyChance(pressure, WarReach.Reachable(conqueror, kingdom), kingdom.isInWarWith(conqueror));
             if (UnityEngine.Random.value >= chance) continue;
             if (Submit(kingdom, conqueror, court, target, pressure)) joined++;
@@ -685,8 +689,9 @@ public static class ScenarioEventSystem
     }
 
     // 独立势力：同族、自己做主(不是帝国的成员、附庸、殖民地)、够得着朝廷、国力比朝廷小；称了帝的也算(大顺、大西去帝号来投)；
-    // 起兵的领头人还在世的不来(见 LedByRebelFounder)
-    private static bool RallyCandidate(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, string culture)
+    // 起兵的领头人还在世的不来(见 LedByRebelFounder)；要是从本朝出去的(反过本朝、或从本朝分出去)，又走投无路(见 Desperate)。
+    // 以前朝鲜这样的外藩也"迫于清兵势"并进了明
+    private static bool RallyCandidate(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, string culture, float pressure)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv() || !kingdom.hasKing() || (kingdom.cities?.Count ?? 0) == 0 ||
             kingdom == court || kingdom == conqueror || LedByRebelFounder(kingdom)) return false;
@@ -694,7 +699,40 @@ public static class ScenarioEventSystem
         if (own != null && (own.CoreKingdom != kingdom || own == target || own == conqueror.GetEmpire())) return false;
         if (FeudalVassalService.GetOverlord(kingdom) != null || ColonySystem.IsColony(kingdom) || TransmigrantSystem.IsTransmigrant(kingdom)) return false;
         if (!CultureService.SameKin(CultureService.GetRealmCulture(kingdom), culture) || MembershipCooldown.BlocksJoin(kingdom, target)) return false;
-        return WarSituation.Power(kingdom) < WarSituation.Power(court) && WarReach.Reachable(court, kingdom);
+        if (!kingdom.HasRebelledAgainst(target) && kingdom.GetOrCreate().left_empire_id != target.id) return false;
+        return WarSituation.Power(kingdom) < WarSituation.Power(court) && WarReach.Reachable(court, kingdom) &&
+               Desperate(kingdom, conqueror, pressure);
+    }
+
+    // 一国(帝国连同成员)现有几城，顺手记下见过的最多城数
+    private static int RealmCities(Kingdom kingdom)
+    {
+        Empire empire = kingdom.GetEmpire();
+        int cities = empire != null && empire.CoreKingdom == kingdom ? empire.countCities() : kingdom.cities?.Count ?? 0;
+        KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
+        if (cities > data.peak_realm_cities) data.peak_realm_cities = cities;
+        return cities;
+    }
+
+    // 走投无路(见 ScenarioPlotRules.Desperate)：正和入侵者交战、兵力差两倍以上，入侵者已打到南方(占同族之城一半)或自己丢了一半的城。
+    // 也给南明来投用(见 SouthernRetreatSystem)
+    internal static bool Desperate(Kingdom kingdom, Kingdom invader, float pressure)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || invader?.data == null || invader.isRekt()) return false;
+        Kingdom realm = FrontSystem.Realm(invader) ?? invader;
+        int cities = RealmCities(kingdom);
+        return ScenarioPlotRules.Desperate(FrontSystem.Hostile(kingdom, realm), WarSituation.Power(realm), WarSituation.Power(kingdom),
+            pressure, cities, kingdom.GetOrCreate().peak_realm_cities);
+    }
+
+    // 每年记下剧本各国见过的最多城数(顺、西打下北方以后再丢一半，才算被逼得没退路)
+    private static void NotePeaks()
+    {
+        foreach (long id in _state.realms.Values.Distinct().ToList())
+        {
+            Kingdom kingdom = World.world.kingdoms.get(id);
+            if (kingdom?.data != null && !kingdom.isRekt()) RealmCities(kingdom);
+        }
     }
 
     // 起兵的领头人还在世、还领着这个国(李自成、张献忠)：不会奉表归附。大顺余部、大西军都是领头人死后才联明抗清

@@ -63,7 +63,19 @@ public static class ScenarioPlotRules
     // 以前没做成也记成触发过，一件事只有一次机会(清军入关没开成，后面入关的事全断了)。已经在打的不算失败
     public static bool Retriable(string stepKind, string failed) =>
         stepKind == "relation" && failed != null && failed != AlreadyAtWar &&
-        failed.StartsWith("diplomacy_reason_", StringComparison.Ordinal);
+        failed.StartsWith("diplomacy_reason_", StringComparison.Ordinal) ||
+        stepKind == "submit" && failed == NotDesperate;
+
+    // 走投无路才来投(用户 2026-11-10 "难道不应该是大家走投无路才会主动加入南明吗""大清连整个山东都没拿下呢"
+    // "至少也得达到中国南方或者把其他起义军逼到没退路才会触发"；以前李自成一死，占着整个北方、清还没打过来的顺就整个并进了明)：
+    // 正和入侵者交战、入侵者兵力是自己的 DesperateOdds 倍以上，并且入侵者已占同族之城的 SouthReachedPressure(兵锋到了南方)，
+    // 或自己的城丢了一半以上(被逼得没退路)。号召归附、南明来投、剧本的奉表归附都看它；剧本的没到这步每年再试
+    public const float DesperateOdds = 2f, SouthReachedPressure = 0.5f;
+    public const string NotDesperate = "还没走投无路";
+
+    public static bool Desperate(bool hostile, double invaderPower, double ownPower, float pressure, int cities, int peakCities) =>
+        hostile && invaderPower >= ownPower * DesperateOdds &&
+        (pressure >= SouthReachedPressure || peakCities > 0 && cities * 2 <= peakCities);
 
     // 继承名单：没写城的立为储君，排最前；写了城的是候补，排最后；同一人只留一处
     public static void AddHeir(List<long> heirs, long id, bool reserve)
