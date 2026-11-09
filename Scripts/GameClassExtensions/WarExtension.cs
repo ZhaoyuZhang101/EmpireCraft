@@ -25,6 +25,9 @@ public static class WarExtension
         public bool scripted_war;
         // 开战目标与开战时守方的都城(见 WarGoalSystem)
         public WarGoal war_goal = WarGoal.None;
+        // 战争目标上次重算的时间，与「只升不降」(见 WarGoalSystem.Review)；locked = 玩家在外交面板点名的目标，不自动改
+        public double war_goal_reviewed_at = -1d;
+        public bool war_goal_locked;
         public long war_goal_capital_id = -1L;
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;

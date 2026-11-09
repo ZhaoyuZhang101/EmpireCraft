@@ -2425,11 +2425,16 @@ namespace EmpireCraft.Scripts.AI
 				    return true;
 			    }
 		    }); 
-            // 开战更频繁：两场战争之间、同一对国家再战的间隔 5 年 -> 3 年(新建国 5 年保护期不变)
+            // 停战保护期(用户 2026-11-09 选"最短战期 3 年·停战保护期 5 年")：同一对国家议和后五年内不得再战。
+            // 以前这里把原版的 5 年压到 3 年求"开战更频繁"，和"一开打就收岁币白和"叠在一起就成了几年一轮的空转
+            // (华章 11-09："天下统一战争一开打就收岁币强制和平，然后代码限制接着开打，又接着白和了")。
+            // 全仓的停战判定都读这一个值——WarGate.CanDeclare、WarlordUnificationSystem.InTruce(开国雄主的统一战争)、
+            // WarTargetPatch、SteppeOrderSystem.Feuds、DiplomacyActions 与 DiplomacyLedger 的提示——改这一处即可覆盖。
+            // 上帝视角不受此限：外交面板的宣战只提醒、不拦(见 DiplomacyActions.DeclareWarning)
             if (SimGlobals.m != null)
             {
                 SimGlobals.m.diplomacy_years_war_timeout = 3;
-                SimGlobals.m.minimum_years_between_wars = 3;
+                SimGlobals.m.minimum_years_between_wars = 5;
             }
             // 原版"攻方议和"不适用于同一法统内部的统一战争(内战打到底，见 WarlordEraSystem 统一进程)
             PlotAsset stopWar = AssetManager.plots_library.get("attacker_stop_war");

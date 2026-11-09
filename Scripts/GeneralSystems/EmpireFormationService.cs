@@ -233,6 +233,43 @@ public static class EmpireFormationService
             KingdomExtension.IsStrongerEmpireCandidate(member, kingdom));
     }
 
+    // 称帝不服的"外人"怎么挑(用户 2026-11-08 选"真不服 + 同一天下 + 数量上限")。以前是：全世界同文化的独立国里，
+    // 凡好感不为正(<= 0)的一律记恨二十年——而 0 正是"从没打过交道"的默认好感，于是隔着半个地球、素昧平生的
+    // 同文化小国也成了不服者，一称帝当场全图翻脸，玩家看着就是"到处都是叛乱"
+    // (玩家 2026-11-07"每次有人称帝就会有个别国家叛乱和直接吞并别国领土"、2026-11-08"我这图没发展到处都是叛乱")。
+    // 现在三道闸：
+    //   · 真不服：好感要真的为负(< 0)，陌生人不算；
+    //   · 够得着：与开国者接壤，或同属一个天下(算不出天下的——游牧、无主之地——退回同一块陆地)；
+    //   · 数量上限：按国力从强到弱取前几家，不是人人有份。
+    // 开国同盟里当场离心的那几家(ResolveAllianceMembers 加进来的)是自家人，不受这三条限制，照旧全算。
+    // 反帝同盟本来就按陆地接壤聚类(见 FormAntiEmpireAlliances)，不受影响。
+    private const int MaxOutsideDissenters = 5, MinOutsideDissenters = 3, OutsideDissenterShare = 4;
+
+    private static List<Kingdom> PickOutsideDissenters(Kingdom founder, string culture, List<Kingdom> already)
+    {
+        List<Kingdom> pool = GetSameCultureIndependents(founder, culture);
+        if (pool.Count == 0) return new List<Kingdom>();
+        EmpireCore realm = founder.capital == null ? null : TianxiaSystem.LeadOf(founder.capital);
+        HashSet<Kingdom> neighbours = GetLandNeighbours(founder).ToHashSet();
+        List<Kingdom> picked = pool
+            .Where(other => !other.HasTakenAlliance() && !already.Contains(other) &&
+                            GetOpinion(other, founder) < 0 &&
+                            WithinProclamationReach(other, founder, realm, neighbours))
+            .OrderByDescending(GetBlocPower).ToList();
+        int cap = Math.Min(MaxOutsideDissenters, Math.Max(MinOutsideDissenters, pool.Count / OutsideDissenterShare));
+        return picked.Count > cap ? picked.Take(cap).ToList() : picked;
+    }
+
+    // 够得着：与开国者接壤，或同属一个天下；天下算不出来时退回"都城在同一块陆地"
+    private static bool WithinProclamationReach(Kingdom other, Kingdom founder, EmpireCore realm,
+        HashSet<Kingdom> neighbours)
+    {
+        if (neighbours.Contains(other)) return true;
+        if (realm != null) return other.capital != null && TianxiaSystem.LeadOf(other.capital) == realm;
+        return founder.capital?.getTile() is WorldTile seat && other.capital?.getTile() is WorldTile theirs &&
+               theirs.isSameIsland(seat);
+    }
+
     private static List<Kingdom> GetSameCultureIndependents(Kingdom kingdom, string culture)
     {
         HashSet<Kingdom> bloc = GetBlocMembers(kingdom).ToHashSet();
@@ -525,11 +562,7 @@ public static class EmpireFormationService
             World.world.alliances.dissolveAlliance(foundingAlliance);
 
         string culture = CultureService.GetRealmCulture(founder);
-        foreach (Kingdom other in GetSameCultureIndependents(founder, culture))
-        {
-            if (other.HasTakenAlliance() || dissenters.Contains(other)) continue;
-            if (GetOpinion(other, founder) <= 0) dissenters.Add(other);
-        }
+        dissenters.AddRange(PickOutsideDissenters(founder, culture, dissenters));
         int strength = route == EmpireFormationRoute.Hegemony ? HegemonyGrudgeStrength : GrudgeStrength;
         foreach (Kingdom dissenter in dissenters)
         {
@@ -538,6 +571,9 @@ public static class EmpireFormationService
             grudge.proclamation_grudge_timestamp = World.world.getCurWorldTime();
             grudge.proclamation_grudge_strength = strength;
         }
+        if (dissenters.Count > 0)
+            LogService.LogInfo($"[EmpireCraft][称帝不服] {empire.GetEmpireName()} 称帝，{dissenters.Count} 家不服(怨恨 {strength}，{GrudgeYears} 年)：" +
+                               string.Join("、", dissenters.Select(kingdom => kingdom.GetKingdomName())));
         FormAntiEmpireAlliances(empire, dissenters.Where(kingdom =>
             string.Equals(CultureService.GetRealmCulture(kingdom), culture, StringComparison.Ordinal)).ToList());
     }

@@ -22,8 +22,12 @@ public static class DiplomacyActions
     public sealed class Action
     {
         public string key;
+        // 硬条件：真做不到的，按钮灰掉
         public Func<Kingdom, Kingdom, string> check;
         public Func<Kingdom, Kingdom, WarGoal, string> run;
+        // 软条件：只提醒、不拦。AI 受它约束，上帝视角照样能做
+        // (用户 2026-11-09"给予玩家充分的打仗裁定权"；玩家 11-08"手动开战开不了")
+        public Func<Kingdom, Kingdom, string> warn;
     }
 
     public sealed class Group
@@ -43,8 +47,9 @@ public static class DiplomacyActions
 
     public static string GoalName(WarGoal goal) => WarGoalSystem.Name(goal);
 
-    private static Action Make(string key, Func<Kingdom, Kingdom, string> check, Func<Kingdom, Kingdom, WarGoal, string> run) =>
-        new() { key = key, check = check, run = run };
+    private static Action Make(string key, Func<Kingdom, Kingdom, string> check, Func<Kingdom, Kingdom, WarGoal, string> run,
+        Func<Kingdom, Kingdom, string> warn = null) =>
+        new() { key = key, check = check, run = run, warn = warn };
 
     public static readonly List<Group> Groups = new()
     {
@@ -60,10 +65,12 @@ public static class DiplomacyActions
                     // 剧本点名的劫掠(清军入塞)：只抢不占，抢够或满一年就退(见 NomadRaidSystem.War)
                     if (_applyingScenario && goal == WarGoal.劫掠) war.SetEmpireWarType(EmpireWarType.劫掠);
                     WarGoalSystem.Preset(war, goal);
+                    // 上帝视角点名的目标不被每年的重算改掉(见 WarGoalSystem.Review)
+                    war.GetOrCreate().war_goal_locked = true;
                     if (_applyingScenario) war.GetOrCreate().scripted_war = true;
                     if (_applyingScenario && _scenarioTarget != null) WarObjective.Aim(war, _scenarioTarget);
                     return null;
-                }),
+                }, DeclareWarning),
                 Make("diplomacy_act_peace", (a, b) => a.isInWarWith(b) ? null : "diplomacy_reason_not_at_war", (a, b, _) =>
                 {
                     EndWars(a, b);
@@ -255,6 +262,10 @@ public static class DiplomacyActions
 
     public static string Check(Action action, Kingdom a, Kingdom b) => !Valid(a, b) ? "diplomacy_reason_invalid" : action.check(a, b);
 
+    // 能做，但有话要说：界面用橙字提醒，按钮照常能点
+    public static string Warn(Action action, Kingdom a, Kingdom b) =>
+        action?.warn == null || !Valid(a, b) ? null : action.warn(a, b);
+
     public static string Do(Action action, Kingdom a, Kingdom b, WarGoal goal)
     {
         string reason = Check(action, a, b);
@@ -297,9 +308,20 @@ public static class DiplomacyActions
     }
 
     // ───────── 宣战 ─────────
+    // 宣战的硬条件：只有真做不到的才灰掉按钮。以前停战年限、够不着、同盟姻亲这些 AI 的约束
+    // 一样把上帝视角挡死，玩家反馈"手动开战开不了"(11-08)；用户 11-09 定"给予玩家充分的打仗裁定权"，
+    // 这些一律改成只提醒(见 DeclareWarning)
     private static string CanDeclare(Kingdom a, Kingdom b)
     {
         if (a.isInWarWith(b)) return "diplomacy_reason_at_war";
+        // 同一帝国内部不是外交，是内政(要打得先让它独立)
+        if (a.IsInSameEmpire(b)) return "diplomacy_reason_same_empire";
+        return null;
+    }
+
+    // 宣战的软条件：AI 受它约束，上帝视角只提醒。按 WarGate.Forbidden 的顺序逐条给原因
+    private static string DeclareWarning(Kingdom a, Kingdom b)
+    {
         string forbidden = ForbiddenReason(a, b);
         if (forbidden != null) return forbidden;
         double ended = World.world.diplomacy?.getRelation(a, b)?.data?.timestamp_last_war_ended ?? -1d;

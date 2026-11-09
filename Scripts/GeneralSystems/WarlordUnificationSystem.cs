@@ -203,6 +203,22 @@ public static partial class WarlordEraSystem
         }
     }
 
+    // 开国雄主的望风归附、兴兵讨伐本是"每年一次"，这个"每年"只靠 WarlordEraSystem.UpdateWorld 的年度闸把着。
+    // 神力加冕(GodPowers.EmpireFormButton.Refresh)调的是 UpdateWorld(force: true)，会绕开那道闸、把全世界的
+    // 帝国法理立刻重跑一遍：玩家连点几次手动称帝，全图的开国雄主就一次次对接壤的割据政权宣战(目标吞并)、
+    // 周边小国一次次望风归附，看着就是"一称帝就到处叛乱、到处被吞"(玩家 2026-11-08 反馈"现在不能手动称帝，
+    // 会导致其他地方叛乱的")。这里按法理各记一次时间，强制扫描也不会把这一年的份额重复用掉。
+    private static readonly Dictionary<long, double> FounderPassAt = new();
+
+    private static bool FounderPassDue(EmpireCore core, double now)
+    {
+        if (core == null) return false;
+        if (FounderPassAt.TryGetValue(core.id, out double last) && last >= 0d && now >= last &&
+            Date.getYearsSince(last) < 1) return false;
+        FounderPassAt[core.id] = now;
+        return true;
+    }
+
     // 开国雄主的望风归附(古代王朝，不限军阀时期)：开国雄主在位的帝国控制本核心四成以上城市时，
     // 接壤、尚未入帝国、没有宗主的本核心割据政权每年按控制比例有一定概率归附(与"大势所趋"同一套概率与归附方式)。
     // 只剩一两座城的小国才不战而降(用户 2026-10-19 选"一并改成战线崩溃"：以前多大的割据政权都整国倒过来)

@@ -393,6 +393,8 @@ public static class DataManager
             empireAllianceOption.boolVal = saveData.switch_empire_show_alliance;
         }
         ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH = saveData.switch_empire_show_alliance;
+        // 世界法则跟着存档走：存档里没记的法则回到各自的默认值
+        EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.Apply(saveData.empirecraft_world_laws);
         foreach (var worldKingdom in World.world.kingdoms)
         {
             if (worldKingdom == null || worldKingdom.isRekt()) continue;
@@ -623,6 +625,7 @@ public static class DataManager
         saveData.world_map_walls = EmpireCraft.Scripts.GeneralSystems.WorldMap.FrontierWalls.Save();
         saveData.switch_simple_nameplate = ModClass.SIMPLE_NAMEPLATE_SWITCH;
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
+        saveData.empirecraft_world_laws = EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.Capture();
         double collectMs = saveTimer.Elapsed.TotalMilliseconds;
         // 流式序列化直接写盘：不再先攒出一个几 MB 的 JSON 大字符串(大对象堆分配 + 复制各一次)
         using (var writer = new StreamWriter(savePath, false, new global::System.Text.UTF8Encoding(false)))

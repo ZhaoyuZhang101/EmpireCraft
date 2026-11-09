@@ -40,7 +40,9 @@
             "groups": {
                 "group_1": "CityNames1"
             },
-            "rule": [],
+            "rule": [
+                "group_1"
+            ],
             "name_pos": 0
         },
         "Clan": {
@@ -89,7 +91,9 @@
                 "group_2": "UnitFemaleNames"
             },
             "rule": [
+                "group_1",
                 "sex_male",
+                "group_2",
                 "sex_female",
                 "space"
             ],
@@ -100,7 +104,9 @@
             "groups": {
                 "group_1": "KingdomNames"
             },
-            "rule": [],
+            "rule": [
+                "group_1"
+            ],
             "name_pos": 0
         }
     },

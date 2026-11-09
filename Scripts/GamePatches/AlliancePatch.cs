@@ -25,6 +25,12 @@ public class AlliancePatch : GamePatch
     public static bool can_join(Alliance __instance, Kingdom pKingdom, ref bool __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pKingdom)) return true;
+        // 世界法则「禁止AI结盟」(见 DiplomacyLaws)：玩家强制结盟在 ByGod 作用域里，不受此限
+        if (DiplomacyLaws.AllianceBlocked)
+        {
+            __result = false;
+            return false;
+        }
         if (!FeudalVassalService.CanJoinAlliance(pKingdom, __instance))
         {
             __result = false;

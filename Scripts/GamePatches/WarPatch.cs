@@ -118,6 +118,8 @@ public class WarPatch: GamePatch
         try
         {
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
+            // 战争目标每年按当前战况重算一次，只升不降(见 WarGoalSystem.Review)
+            EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Review(__instance);
             // 没有开战目标的仗(叛乱、独立、争位……)：开打头一回按类型起名、记宣战(有目标的在 Ensure 里做了)，记下守方京城
             // (叛乱攻下它即胜，见 WarObjective.RebelTarget)；读档前就在打的旧仗不补
             var extra = __instance.GetOrCreate();
@@ -247,6 +249,8 @@ public class WarPatch: GamePatch
     public static bool end_war(WarManager __instance, War pWar, WarWinner pWinner = WarWinner.Nobody)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pWar)) return true;
+        // 最短战期：开战不满三年不得议和(见 WarPeaceRules)。只拦议和，分胜负、一方亡国照旧；玩家强制停战不受此限
+        if (pWinner == WarWinner.Peace && !EmpireCraft.Scripts.GeneralSystems.WarPeaceRules.MayNegotiate(pWar)) return false;
         SmoothBorders.RefreshWar(pWar);
         if (pWinner == WarWinner.Attackers && pWar.GetEmpireWarType() == EmpireWarType.索取法理 &&
             !pWar.IsMainDefenderEliminated() &&

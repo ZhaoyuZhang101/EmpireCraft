@@ -1730,6 +1730,8 @@ public static class KingdomExtension
     public static void StartFactionRebelling(this Kingdom k, FixedFaction faction)
     {
         if (k?.data == null) return;
+        // 世界法则「禁止叛乱」：兜底，没走 RebellionSystem.CanAttempt 的调用方也挡住
+        if (EmpireCraft.Scripts.GeneralSystems.RebellionSystem.RebellionsBanned()) return;
         k.RememberRebellionOrigin(k.GetEmpire());
         var extra = k.GetOrCreate();
         if (string.IsNullOrWhiteSpace(extra.faction_rebel_original_name))
@@ -1782,6 +1784,8 @@ public static class KingdomExtension
     public static bool StartLocalRebelling(this Kingdom kingdom, EmpireWarType warType, string pre = "")
     {
         if (kingdom?.data == null) return false;
+        // 世界法则「禁止叛乱」：兜底，没走 RebellionSystem.CanAttempt 的调用方也挡住
+        if (EmpireCraft.Scripts.GeneralSystems.RebellionSystem.RebellionsBanned()) return false;
         // 开国雄主登基头 15 年：帝国境内不发生叛乱
         if (RulerTraitSystem.FounderShield(kingdom)) return false;
         kingdom.RememberRebellionOrigin(kingdom.GetEmpire());

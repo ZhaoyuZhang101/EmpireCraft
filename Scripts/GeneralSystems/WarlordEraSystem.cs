@@ -364,6 +364,7 @@ public static partial class WarlordEraSystem
             _lastScan = -1d;
             Roles.Clear();
             PendingCores.Clear();
+            FounderPassAt.Clear();
         }
         bool due = force || _lastScan < 0d || now < _lastScan || Date.getYearsSince(_lastScan) >= 1;
         if (due)
@@ -426,7 +427,7 @@ public static partial class WarlordEraSystem
         EmpireCoreControl.Invalidate(core);
         (Dictionary<Kingdom, int> coreHeld, int coreTotal) = EmpireCoreControl.GetHolders(core);
         // 开国雄主统一天下(古代王朝，仍按帝国核心)：控制核心过半后接壤的割据政权望风归附；每年主动兴兵讨伐接壤的割据政权
-        if (coreTotal > 0 && coreHeld.Count > 0)
+        if (coreTotal > 0 && coreHeld.Count > 0 && FounderPassDue(core, now))
         {
             FounderBandwagon(core, coreHeld, coreTotal);
             FounderDrive(core, coreHeld);

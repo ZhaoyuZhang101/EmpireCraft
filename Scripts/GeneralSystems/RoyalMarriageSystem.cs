@@ -40,6 +40,8 @@ public static class RoyalMarriageSystem
     public static void Monthly()
     {
         if (World.world?.kingdoms == null) return;
+        // 世界法则「禁止AI和亲」(见 DiplomacyLaws)
+        if (DiplomacyLaws.MarriageBlocked) return;
         int slot = _month++ % 12;
         using var timing = FrameProfiler.Measure("联姻·议婚");
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())

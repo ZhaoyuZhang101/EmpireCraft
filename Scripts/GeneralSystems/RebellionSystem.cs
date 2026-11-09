@@ -20,10 +20,25 @@ public static class RebellionSystem
             joinedAt >= 0d && now >= joinedAt ? Date.getYearsSince(joinedAt) : 0);
     }
 
+    // 世界法则「禁止叛乱」(见 EmpireCraftWorldLawLibrary.empirecraft_law_ban_rebellion)：
+    // 开着时一切自动起事都不发动。调用方多在每年扫描里，法则对象取不到(世界还没建好)时按没开算
+    public static bool RebellionsBanned()
+    {
+        try
+        {
+            return EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.empirecraft_law_ban_rebellion?.isEnabled() == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // 只在自动起事入口、改动归属之前调用。已拆出的叛军没有原帝国信息，不能据它重新判断。
     // 统一战争期间、统一天下后三十年(开国气象)不起事(见 UnificationSystem.InGrace)；
-    // 神力拉入的成员十五年内不起事、不自立(见 MembershipCooldown.ManualJoinActive)
-    public static bool CanAttempt(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
+    // 神力拉入的成员十五年内不起事、不自立(见 MembershipCooldown.ManualJoinActive)；
+    // 世界法则「禁止叛乱」开着时一律不起事
+    public static bool CanAttempt(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() && !RebellionsBanned() &&
         GraceYearsRemaining(kingdom) == 0 && !RulerTraitSystem.FounderShield(kingdom) && !UnificationSystem.InGrace(kingdom) &&
         !MembershipCooldown.ManualJoinActive(kingdom);
 

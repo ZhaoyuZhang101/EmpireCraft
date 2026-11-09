@@ -64,6 +64,9 @@ public class SaveData
     public RoadTreatyData road_treaties = new RoadTreatyData();
     // 借道：主国许借道国借道，单向，有起止(见 MilitaryAccessSystem)。旧档没有，从无约起
     public MilitaryAccessData military_access = new MilitaryAccessData();
+    // 本模组的世界法则(法则 id → 开关)：法则本身是跨存档的玩家选项，这里随存档记一份，读档时还原
+    // (见 EmpireCraftWorldLawLibrary.Capture/Apply)。旧档没有，各法则按 default_state
+    public Dictionary<string, bool> empirecraft_world_laws = new Dictionary<string, bool>();
     public bool switch_real_num = false;
     public bool switch_simple_nameplate = false;
     public bool switch_empire_show_alliance = false;

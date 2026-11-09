@@ -53,6 +53,8 @@ public class DBManagerPatch:GamePatch
         // 手动文明等级"会整份带进新世界。
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
+        // 世界法则是跨存档的玩家选项：新建世界时回到默认，不把上一局开的开关带进来(见 EmpireCraftWorldLawLibrary)
+        EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.ResetToDefaults();
         ExtensionBase.Clear<Actor, ActorExtraData>();
         ExtensionBase.Clear<Family, FamilyExtraData>();
         ExtensionBase.Clear<War, WarExtraData>();

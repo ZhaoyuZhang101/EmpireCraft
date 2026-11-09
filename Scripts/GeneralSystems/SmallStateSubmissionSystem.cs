@@ -26,6 +26,8 @@ public static class SmallStateSubmissionSystem
     {
         MapBox world = World.world;
         if (world?.kingdoms == null || ModClass.IS_CLEAR) return;
+        // 世界法则「禁止AI归附」(见 DiplomacyLaws)
+        if (DiplomacyLaws.VassalBlocked) return;
         if (!ReferenceEquals(_world, world))
         {
             _world = world;

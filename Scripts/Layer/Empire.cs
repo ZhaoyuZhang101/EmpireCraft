@@ -1421,22 +1421,15 @@ public class Empire : MetaObject<EmpireData>
         return true;
     }
 
+    // 本朝都城相对 v(祖上帝国所在地)的方位，冠在国号前。
+    // 以前 |dx| == |dy| 一律冠"后"，而两者都是 0 也算相等——祖上帝国的记录没记位置、或帝国刚 new 出来
+    // _capitalCenter 还是默认值(0,0,0)时就是 0 对 0，于是剧本建国、宗室复辟成片冠"后"，
+    // 冒出"后罗马帝国""后清朝"(玩家 2026-11-07"能不能把这个后字去掉，改成东西也行")。
+    // 改为与 RealmNameRules.Direction4 同一套算法：算得出方位就用方位，两点重合(含位置未知)不冠前缀，不再退回"后"。
+    // 真正该冠"后"的同号同都由 RealmNamingSystem 自己判(见 ReusePrefix、RestorationPrefix)
     private string GetDir(Vector2 v)
     {
-        float ax = Math.Abs(v.x- _capitalCenter.x);
-        float ay = Math.Abs(v.y- _capitalCenter.y);
-        if (ax > ay)
-        {
-            return _capitalCenter.x > v.x ? "Eastern" : "Western";
-        }
-        else if (ay > ax)
-        {
-            return _capitalCenter.y > v.y ? "Northern" : "Southern";
-        }
-        else
-        {
-            return "Later";
-        }
+        return RealmNameRules.Direction4(v.x, v.y, _capitalCenter.x, _capitalCenter.y) ?? "";
     }
 
     public bool IsRoyalBeenChanged()

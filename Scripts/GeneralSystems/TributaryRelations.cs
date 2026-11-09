@@ -127,6 +127,8 @@ public static class TributaryRelations
     // 称臣纳贡和约：胜者所在帝国收得了朝贡就让对方称臣；返回是否成了
     public static bool Submit(Kingdom lord, Kingdom subject)
     {
+        // 世界法则「禁止AI朝贡」(见 DiplomacyLaws)：玩家在外交面板让其称臣不经这里
+        if (DiplomacyLaws.TributeBlocked) return false;
         Empire empire = lord?.GetEmpire();
         if (empire == null || subject?.data == null || subject.isRekt() || subject.IsEmpire() ||
             !FeudalConquestService.HasTributeInstitution(empire)) return false;

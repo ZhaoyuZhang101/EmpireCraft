@@ -65,6 +65,8 @@ public static class GreatPowerDiplomacy
     public static void TryYearlyScan()
     {
         if (World.world == null || ModClass.EMPIRE_MANAGER == null || ModClass.IS_CLEAR) return;
+        // 世界法则「禁止AI通好」(见 DiplomacyLaws)
+        if (DiplomacyLaws.PactBlocked) return;
         double now = World.world.getCurWorldTime();
         if (_lastScan >= 0d && now >= _lastScan && Date.getYearsSince(_lastScan) < 1) return;
         _lastScan = now;

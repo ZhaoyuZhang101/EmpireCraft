@@ -97,20 +97,10 @@ public static class WarGoalSystem
         WarChronicle.Declared(war);
     }
 
-    // 开打时定目标(WarPatch.update 每场仗第一次结算时调用)；读档后已定的不变
-    public static void Ensure(War war)
+    // 判定战争目标(从 Ensure 抽出来，Review 每年重算时复用同一套算式)
+    private static WarGoal Decide(War war, Kingdom attacker, Kingdom defender, float strength)
     {
-        if (war?.data == null || war.hasEnded()) return;
-        var data = war.GetOrCreate();
-        if (data.war_goal != WarGoal.None || !Applies(war)) return;
-        Kingdom attacker = war.main_attacker, defender = war.main_defender;
-        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
-        if (war.GetEmpireWarType() == EmpireWarType.劫掠)
-        {
-            data.war_goal = WarGoal.劫掠;
-            return;
-        }
-        float strength = WarSituation.StrengthRatio(defender, attacker);
+        WarGoal goal;
         int theirs = WarSituation.SideCities(defender), ours = WarSituation.SideCities(attacker);
         // 只隔着无人区的也算接壤(走得通才开得了这一仗，见 WarReach)，不走跨海那套
         bool borders = attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender);
@@ -125,9 +115,9 @@ public static class WarGoalSystem
         float vassalAt = zhou ? ZhouVassalStrength : VassalStrength;
         // 战国诸侯互伐：兵力够就以兼并(对方小)或割地为务，不再只求赔款
         if (borders && ZhouEraSystem.WarringRivals(attacker, defender) && Claimed(attacker, defender.cities).Count == 0)
-            data.war_goal = strength >= ConquestStrength ? small ? WarGoal.吞并 : WarGoal.割地 : WarGoal.赔款;
+            goal = strength >= ConquestStrength ? small ? WarGoal.吞并 : WarGoal.割地 : WarGoal.赔款;
         // 迫使附庸与吞并的兵力门槛现在都是两倍(以前行分封的一倍半就迫使附庸；周制照旧一倍半)：吞不下的、不是帝国的，迫其为附庸
-        else data.war_goal = !borders ? OverseasGoal(attacker, defender, strength, small)
+        else goal = !borders ? OverseasGoal(attacker, defender, strength, small)
             : Claimed(attacker, defender.cities).Count > 0 ? WarGoal.收复
             : strength >= AnnexStrength && annexable ? WarGoal.吞并
             : strength >= vassalAt && !defender.IsEmpire() ? WarGoal.迫使附庸
@@ -135,25 +125,85 @@ public static class WarGoalSystem
             : WarGoal.赔款;
         // 扩张上限：已经过度扩张，或对方都城远在本国控制范围之外，或这一代人侵占的法理已满(统一战争不限，
         // 见 AdministrativeControlSystem.GenerationExhausted)，不谋土地，改为迫其称臣(帝国则求赔款)
-        if (data.war_goal is WarGoal.吞并 or WarGoal.割地)
+        if (goal is WarGoal.吞并 or WarGoal.割地)
         {
             string generation = null;
             if (AdministrativeControlSystem.BeyondReach(attacker, defender.capital) ||
                 AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))
             {
                 // 行封建附庸的，对方远在控制范围之外也收不成附庸(见 FeudalVassalService.TooFar)，只求赔款
-                data.war_goal = defender.IsEmpire() || FeudalVassalService.TooFar(attacker, defender) ? WarGoal.赔款 : WarGoal.迫使附庸;
+                goal = defender.IsEmpire() || FeudalVassalService.TooFar(attacker, defender) ? WarGoal.赔款 : WarGoal.迫使附庸;
                 if (generation != null)
                     LogService.LogInfo($"[EmpireCraft][扩张上限] {attacker.GetKingdomName()} 伐 {defender.GetKingdomName()}：{generation}，不谋土地");
             }
         }
         // 圣战且两边宗教不同：要对方改宗
-        if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) data.war_goal = WarGoal.改宗;
+        if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) goal = WarGoal.改宗;
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
-        else if (data.war_goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() &&
+        else if (goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() &&
                  (RoyalMarriageSystem.HasClaim(attacker, defender) || defender.king?.isAdult() == false) &&
                  InstallCandidate(defender) != null)
-            data.war_goal = WarGoal.扶立;
+            goal = WarGoal.扶立;
+        return goal;
+    }
+
+    // 这些目标不随战况改：劫掠(抢够就退)、收复(有法理宣称)、改宗(圣战)、扶立(选定了人)
+    private static bool Reviewable(WarGoal goal) =>
+        goal is not (WarGoal.None or WarGoal.劫掠 or WarGoal.收复 or WarGoal.改宗 or WarGoal.扶立);
+
+    // 由轻到重：赔款 < 通商 < 迫使附庸 < 割地 < 吞并。重算只升不降
+    private static int Weight(WarGoal goal) => Coarse(goal) switch
+    {
+        WarGoal.吞并 => 4,
+        WarGoal.割地 => 3,
+        WarGoal.迫使附庸 => 2,
+        WarGoal.通商 => 1,
+        _ => 0
+    };
+
+    // 战争目标每年重算一次(用户 2026-11-09 选"每年重算")。以前目标在开打那一刻定死再不更改：
+    // 开战时兵力一点三倍，目标就是赔款；之后打了十年把对方打剩两座城，结算还是赔款——玩家反馈
+    // "我这边显示战争胜利""但没有吞并敌国""割地都没有""就是赔款"，统一战争更是一开打就收岁币白和。
+    // 现在按当前兵力比、占领、接壤重算，**只升不降**(打弱了不会反过来降级，省得越打越亏)。
+    // 玩家在外交面板点名的目标(war_goal_locked)与剧本设定的仗不动。
+    public static void Review(War war)
+    {
+        if (war?.data == null || war.hasEnded() || World.world == null) return;
+        var data = war.GetOrCreate();
+        if (data.war_goal_locked || !Reviewable(data.war_goal) || !Applies(war)) return;
+        double now = World.world.getCurWorldTime();
+        if (data.war_goal_reviewed_at >= 0d && now >= data.war_goal_reviewed_at &&
+            Date.getYearsSince(data.war_goal_reviewed_at) < 1) return;
+        data.war_goal_reviewed_at = now;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
+        float strength = WarSituation.StrengthRatio(defender, attacker);
+        WarGoal before = data.war_goal;
+        WarGoal now_goal = Decide(war, attacker, defender, strength);
+        if (!Reviewable(now_goal) || Weight(now_goal) <= Weight(before)) return;
+        data.war_goal = now_goal;
+        // 照 Refocus 的做法落到具体的城与法理、改战争名，但不再记一次"宣战"(那是开打时的事)
+        WarObjective.Refine(war, attacker, defender, strength, substitute: false);
+        if (data.goal_named) WarCatalog.ApplyName(war, force: true);
+        LogService.LogInfo($"[EmpireCraft][战争目标] {attacker.GetKingdomName()} 伐 {defender.GetKingdomName()}：" +
+                           $"战况有变，目标由 {before} 改为 {now_goal}(兵力比 {strength:F2})");
+    }
+
+    // 开打时定目标(WarPatch.update 每场仗第一次结算时调用)；读档后已定的不变
+    public static void Ensure(War war)
+    {
+        if (war?.data == null || war.hasEnded()) return;
+        var data = war.GetOrCreate();
+        if (data.war_goal != WarGoal.None || !Applies(war)) return;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return;
+        if (war.GetEmpireWarType() == EmpireWarType.劫掠)
+        {
+            data.war_goal = WarGoal.劫掠;
+            return;
+        }
+        float strength = WarSituation.StrengthRatio(defender, attacker);
+        data.war_goal = Decide(war, attacker, defender, strength);
         data.war_goal_capital_id = defender.capital?.data != null ? defender.capital.id : -1L;
         // 落到具体的城、法理上(夺城、侵略、争法理、争夺资源、继承、羁縻……见 WarObjective)，按目标起战争名
         WarObjective.Refine(war, attacker, defender, strength);

@@ -3,7 +3,9 @@ using EmpireCraft.Scripts;
 using EmpireCraft.Scripts.GamePatches;
 using EmpireCraft.Scripts.GeneralSystems;
 using NCMS.Extensions;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace EmpireCraft.Scripts.GameLibrary;
 
@@ -34,6 +36,14 @@ public static class EmpireCraftWorldLawLibrary
     public static WorldLawAsset empirecraft_law_surname_dynasty;
     public static WorldLawAsset empirecraft_law_dejure_first;
     public static WorldLawAsset empirecraft_law_enforce_laws;
+    public static WorldLawAsset empirecraft_law_ban_rebellion;
+    public static WorldLawAsset empirecraft_law_ban_diplomacy;
+    public static WorldLawAsset empirecraft_law_ban_ai_war;
+    public static WorldLawAsset empirecraft_law_ban_ai_alliance;
+    public static WorldLawAsset empirecraft_law_ban_ai_vassal;
+    public static WorldLawAsset empirecraft_law_ban_ai_tribute;
+    public static WorldLawAsset empirecraft_law_ban_ai_marriage;
+    public static WorldLawAsset empirecraft_law_ban_ai_pact;
     public static void init()
     {
         LogService.LogInfo("加载帝国世界规则");
@@ -257,7 +267,74 @@ public static class EmpireCraftWorldLawLibrary
             icon_path = "ui/icons/plots/plot_kingdom_expose_crime",
             default_state = true
         });
-        
+        // 禁止叛乱(默认关)：开了以后一场叛乱都不起——苛政民变、民族独立、土崩瓦解、革命滚雪球、朝局逼反、宗教叛乱、
+        // 军阀自立、拥兵自立、藩王索位全停(闸在 RebellionSystem.RebellionsBanned；两个起事入口
+        // KingdomExtension.StartLocalRebelling / StartFactionRebelling 另各有一道兜底)。
+        // 给剧本作者用：地图还没铺开时先冻住内乱，铺完再关掉。已经打起来的叛乱不会因此收场
+        AssetManager.world_laws_library.add(empirecraft_law_ban_rebellion = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_rebellion),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            default_state = false
+        });
+        // 禁止AI外交(总开关，默认关)：开着时下面六项一律停。只拦 AI 自己发起的，上帝视角的外交面板与神力照常(见 DiplomacyLaws)
+        AssetManager.world_laws_library.add(empirecraft_law_ban_diplomacy = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_diplomacy),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = false
+        });
+        // 禁止AI宣战(默认关)：AI 不再主动宣战(模组经 WarGate.CanDeclare，原版经 WarTargetPatch)；正在打的仗照打完
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_war = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_war),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconWar",
+            default_state = false
+        });
+        // 禁止AI结盟(默认关)：AI 不再建盟、入盟(原版 Alliance.canJoin，见 AlliancePatch)；已结的盟不解散
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_alliance = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_alliance),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "plots/icons/plot_alliance_create",
+            default_state = false
+        });
+        // 禁止AI归附(默认关)：小国不再望风归附大国(见 SmallStateSubmissionSystem)；已有的附庸关系不动
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_vassal = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_vassal),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = false
+        });
+        // 禁止AI朝贡(默认关)：不再有新的称臣纳贡(见 TributaryRelations.Submit)；已有的朝贡国不动
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_tribute = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_tribute),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = false
+        });
+        // 禁止AI和亲(默认关)：各国不再议婚(见 RoyalMarriageSystem.Monthly)；已结的姻亲不动
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_marriage = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_marriage),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconClan",
+            default_state = false
+        });
+        // 禁止AI通好(默认关)：跨文明大国不再结通好(见 GreatPowerDiplomacy)；已有的通好不动
+        AssetManager.world_laws_library.add(empirecraft_law_ban_ai_pact = new WorldLawAsset()
+        {
+            id = nameof(empirecraft_law_ban_ai_pact),
+            group_id = "EmpireCraftCommonSetting",
+            icon_path = "ui/icons/iconKingdom",
+            default_state = false
+        });
+
     }
 
     private static void BanVanillaAllianceChange(PlayerOptionData pOption)
@@ -326,6 +403,59 @@ public static class EmpireCraftWorldLawLibrary
         world_law_civ_limit_population_50.toggle(false);
         RefreshLaws();
     }
+
+    // ───────── 世界法则跟着存档走 ─────────
+    // 世界法则本身是 PlayerConfig 里的玩家选项(各回调的参数就是 PlayerOptionData)，跨存档共享：
+    // 在一局里开了「禁止叛乱」，换一局、开新世界也还开着(用户 2026-11-08"这些设置应该只能跟随存档，而不是模组")。
+    // 这里照模组原有的做法(switch_real_num 等三个开关，见 DataManager)把本模组的法则一并存进存档：
+    //   · 存档时记下每条法则的开关；
+    //   · 读档时按存档里的开关还原；存档里没有的(旧档、后来新加的法则)用各自的 default_state；
+    //   · 新建世界时(DBManagerPatch.AllClear)一律回到 default_state，不把上一局的设置带过来。
+    // 按反射取本类所有法则字段，以后再加法则不用改这里。
+    private static List<WorldLawAsset> OwnLaws() =>
+        typeof(EmpireCraftWorldLawLibrary)
+            .GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.FieldType == typeof(WorldLawAsset))
+            .Select(field => field.GetValue(null) as WorldLawAsset)
+            .Where(law => law != null && !string.IsNullOrEmpty(law.id))
+            .ToList();
+
+    // 直接写选项值，不走 toggle：toggle 会触发 on_state_change(解散同盟、重扫文化……)，读档时不该跑
+    private static void Set(WorldLawAsset law, bool on)
+    {
+        if (law == null || string.IsNullOrEmpty(law.id) || PlayerConfig.dict == null) return;
+        if (PlayerConfig.dict.TryGetValue(law.id, out PlayerOptionData option)) option.boolVal = on;
+    }
+
+    public static Dictionary<string, bool> Capture()
+    {
+        var result = new Dictionary<string, bool>();
+        try
+        {
+            foreach (WorldLawAsset law in OwnLaws()) result[law.id] = law.isEnabled();
+        }
+        catch (global::System.Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界法则] 记入存档失败: {exception.Message}");
+        }
+        return result;
+    }
+
+    // saved 为 null(新建世界)时整份回到默认
+    public static void Apply(Dictionary<string, bool> saved)
+    {
+        try
+        {
+            foreach (WorldLawAsset law in OwnLaws())
+                Set(law, saved != null && saved.TryGetValue(law.id, out bool on) ? on : law.default_state);
+        }
+        catch (global::System.Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界法则] 按存档还原失败: {exception.Message}");
+        }
+    }
+
+    public static void ResetToDefaults() => Apply(null);
 
     public static void RefreshLaws()
     {        

@@ -385,9 +385,14 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
             {
                 string reason = DiplomacyActions.Check(action, _focus, _other);
                 bool can = reason == null;
+                // 能做、但有顾虑的(停战年限未满、够不着、与对方有约)：橙字写明，按钮照常能点——
+                // AI 的约束不该把上帝视角挡死(用户 2026-11-09"给予玩家充分的打仗裁定权")
+                string warning = can ? DiplomacyActions.Warn(action, _focus, _other) : null;
                 DiplomacyActions.Action chosen = action;
-                card.AddListRow(PageWidth, index++, null, LM.Get(action.key),
-                    can ? LM.Get(action.key + "_desc").ColorString(WideKit.Soft) : LM.Get(reason).ColorString(WideKit.Muted),
+                string detail = !can ? LM.Get(reason).ColorString(WideKit.Muted)
+                    : warning != null ? LM.Get(warning).ColorString(WideKit.Orange)
+                    : LM.Get(action.key + "_desc").ColorString(WideKit.Soft);
+                card.AddListRow(PageWidth, index++, null, LM.Get(action.key), detail,
                     can ? () => Act(chosen) : null, can ? WideKit.Gold : WideKit.Muted, 96f);
             }
         }

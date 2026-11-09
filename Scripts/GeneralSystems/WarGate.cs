@@ -17,6 +17,8 @@ public static class WarGate
     {
         if (attacker?.data == null || target?.data == null || attacker == target || attacker.isRekt() || !target.isAlive())
             return false;
+        // 世界法则「禁止AI宣战」(见 DiplomacyLaws)：玩家强制的不经这里，不受此限
+        if (DiplomacyLaws.WarBlocked) return false;
         if (Forbidden(attacker, target)) return false;
         double lastWarEnded = World.world?.diplomacy?.getRelation(attacker, target)?.data?.timestamp_last_war_ended ?? -1d;
         if (lastWarEnded >= 0d && Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars) return false;

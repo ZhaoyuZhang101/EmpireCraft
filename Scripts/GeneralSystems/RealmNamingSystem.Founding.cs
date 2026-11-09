@@ -291,7 +291,8 @@ public static partial class RealmNamingSystem
         return result;
     }
 
-    // ⑤ 查重：前朝用过的国号再用加"后"；世界法则「姓氏国号」开着时加开国之君的姓，与前朝同姓用方位，方位也算不出加"后"。
+    // ⑤ 查重：前朝用过的国号再用冠方位(新都相对前朝都城)，同都、方位算不出才加"后"；
+    // 世界法则「姓氏国号」开着时先冠开国之君的姓，与前朝同姓再按上面的方位、"后"走。
     // 已带前缀(复国的方位等)的不加
     private static void MarkReuse(Empire empire, Kingdom kingdom, string name, EmpireCore lead)
     {
@@ -303,14 +304,19 @@ public static partial class RealmNamingSystem
         LogService.LogInfo($"[EmpireCraft][选定国号] {kingdom.GetKingdomName()} 用 {name}，前朝用过，冠 {prefix}");
     }
 
-    // 前朝用过的国号再用冠什么：加"后"；世界法则「姓氏国号」开着时冠开国之君的姓(姓与名之间同方位前缀一样不空格)，
-    // 与前朝同姓用方位(新都相对前朝都城，四方位)，同姓又同都(方位算不出)才加"后"
+    // 前朝用过的国号再用冠什么：
+    //   · 世界法则「姓氏国号」开着、且与前朝不同姓：冠开国之君的姓(姓与名之间同方位前缀一样不空格)；
+    //   · 其余一律先算方位(新都相对前朝都城，四方位)；同都、或方位算不出，才加"后"。
+    // 以前法则没开(默认就没开)时直接返回"后"，方位压根不算，于是前朝用过的国号一律变成"后某"
+    // (玩家 2026-11-07"能不能把这个后字去掉，改成东西也行")
     private static string ReusePrefix(Kingdom kingdom, (string surname, City capital) former)
     {
-        if (EmpireCraftWorldLawLibrary.empirecraft_law_surname_dynasty?.isEnabled() != true) return RealmNameRules.Later;
-        string surname = kingdom.king?.GetSpecificClan()?.name?.Trim() ?? "";
-        if (!string.IsNullOrWhiteSpace(surname) && !string.Equals(surname, former.surname?.Trim(), StringComparison.Ordinal))
-            return surname;
+        if (EmpireCraftWorldLawLibrary.empirecraft_law_surname_dynasty?.isEnabled() == true)
+        {
+            string surname = kingdom.king?.GetSpecificClan()?.name?.Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(surname) && !string.Equals(surname, former.surname?.Trim(), StringComparison.Ordinal))
+                return surname;
+        }
         City mine = kingdom.capital;
         if (mine == null || former.capital == null || former.capital == mine) return RealmNameRules.Later;
         return RealmNameRules.Direction4(former.capital.city_center.x, former.capital.city_center.y,
