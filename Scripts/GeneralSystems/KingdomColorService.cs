@@ -15,12 +15,16 @@ public static class KingdomColorService
     {
         var empire = member?.GetEmpire();
         Kingdom core = empire?.CoreKingdom;
-        return core != null && core != member && core.GetRegime()?.type == Regimes.RegimeType.ZhouFeudalism;
+        if (core == null || core == member) return false;
+        // 南明诸镇各用各的颜色(同一色系，见 SouthernGarrisonSystem)
+        return core.GetRegime()?.type == Regimes.RegimeType.ZhouFeudalism || SouthernGarrisonSystem.IsGarrison(member);
     }
 
     public static void EnsureDistinctInZhou(Kingdom member)
     {
         if (!KeepsOwnColor(member) || AncientWarfareCompatibility.Owns(member)) return;
+        // 南明诸镇的色系每年由 SouthernGarrisonSystem 配(ApplyGarrisonFamily)，这里不另换
+        if (SouthernGarrisonSystem.IsGarrison(member)) return;
         // 周室：整个周室同一色系(见 ApplySphereFamily)；不是周室的分封帝国才走下面的"各不相同"
         if (ZhouEraSystem.Applies(member.GetEmpire()))
         {
@@ -87,6 +91,9 @@ public static class KingdomColorService
         if (!ZhouEraSystem.Applies(sphere)) return;
         ApplyFamily(sphere, ZhouEraSystem.Vassals(sphere));
     }
+
+    // 南明诸镇(见 SouthernGarrisonSystem)：以朝廷的颜色为基准取同一色系，国家图层看得出诸镇林立
+    public static void ApplyGarrisonFamily(Empire empire, IEnumerable<Kingdom> garrisons) => ApplyFamily(empire, garrisons);
 
     // 每月(TribalFissionService.EnforceOneCity)：各有共事部落的部落联盟。换了色返回 true，由调用方重画
     // (每月整理的整图重画并到末尾一次，见 TribalFissionService.Redraw；以前每换一家就整图重画一遍)

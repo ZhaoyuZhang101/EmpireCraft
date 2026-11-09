@@ -305,6 +305,9 @@ public static class ScenarioEventSystem
                 return empire != null && DynasticCycleSystem.GetPressure(empire) > step.value;
             case "before":
                 return _state != null && _state.started >= 0d && Date.getYearsSince(_state.started) < step.value;
+            case "dead":
+                // 点名的人都不在世了(大顺余部要等李自成死了才归明)
+                return !string.IsNullOrWhiteSpace(step.person) && People(step.person).Count == 0;
         }
         return false;
     }
@@ -648,16 +651,31 @@ public static class ScenarioEventSystem
         return total == 0 ? 0f : (float)held / total;
     }
 
-    // 独立势力：同族、自己做主(不是帝国的成员、附庸、殖民地)、够得着朝廷、国力比朝廷小；称了帝的也算(大顺、大西去帝号来投)
+    // 独立势力：同族、自己做主(不是帝国的成员、附庸、殖民地)、够得着朝廷、国力比朝廷小；称了帝的也算(大顺、大西去帝号来投)；
+    // 起兵的领头人还在世的不来(见 LedByRebelFounder)
     private static bool RallyCandidate(Kingdom kingdom, Kingdom conqueror, Kingdom court, Empire target, string culture)
     {
         if (kingdom?.data == null || kingdom.isRekt() || !kingdom.isCiv() || !kingdom.hasKing() || (kingdom.cities?.Count ?? 0) == 0 ||
-            kingdom == court || kingdom == conqueror) return false;
+            kingdom == court || kingdom == conqueror || LedByRebelFounder(kingdom)) return false;
         Empire own = kingdom.GetEmpire();
         if (own != null && (own.CoreKingdom != kingdom || own == target || own == conqueror.GetEmpire())) return false;
         if (FeudalVassalService.GetOverlord(kingdom) != null || ColonySystem.IsColony(kingdom) || TransmigrantSystem.IsTransmigrant(kingdom)) return false;
         if (!CultureService.SameKin(CultureService.GetRealmCulture(kingdom), culture) || MembershipCooldown.BlocksJoin(kingdom, target)) return false;
         return WarSituation.Power(kingdom) < WarSituation.Power(court) && WarReach.Reachable(court, kingdom);
+    }
+
+    // 起兵的领头人还在世、还领着这个国(李自成、张献忠)：不会奉表归附。大顺余部、大西军都是领头人死后才联明抗清
+    // (用户 2026-11-10 "清军才拿下北京而已, 顺就投了?")；号召归附、南明来投都看它
+    internal static bool LedByRebelFounder(Kingdom kingdom)
+    {
+        if (_state?.rebel_leaders == null || kingdom?.data == null) return false;
+        foreach (ScenarioRebelLeader entry in _state.rebel_leaders)
+        {
+            if (entry.rebel != kingdom.data.id) continue;
+            Actor leader = World.world.units.get(entry.actor);
+            if (leader?.data != null && !leader.isRekt() && leader.isAlive() && leader.kingdom == kingdom) return true;
+        }
+        return false;
     }
 
     // 也给南明结成用(见 SouthernRetreatSystem)

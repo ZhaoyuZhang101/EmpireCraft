@@ -158,7 +158,7 @@ public static class MemberWarAid
         Empire empire = Context(member);
         Kingdom core = empire?.CoreKingdom;
         if (core == null || war?.data == null || !war.isAlive() || war.hasEnded() || !war.hasKingdom(core) ||
-            war.GetEmpireWarType() == EmpireWarType.劫掠 || ZhouEraSystem.IsInternalWar(war) ||
+            war.GetEmpireWarType() == EmpireWarType.劫掠 || ZhouEraSystem.IsInternalWar(war) || SouthernGarrisonSystem.IsInternalWar(war) ||
             WarScopeSystem.DispatchedFor(member, war)) return false;
         bool attacking = war.isAttacker(core);
         var opponents = attacking ? war._list_defenders : war._list_attackers;
@@ -225,7 +225,8 @@ public static class MemberWarAid
     private static bool Aidable(War war, Kingdom defender, Empire empire)
     {
         if (war?.data == null || !war.isAlive() || war.hasEnded() || !war.isDefender(defender) ||
-            war.GetEmpireWarType() == EmpireWarType.劫掠 || ZhouEraSystem.IsInternalWar(war)) return false;
+            war.GetEmpireWarType() == EmpireWarType.劫掠 || ZhouEraSystem.IsInternalWar(war) ||
+            SouthernGarrisonSystem.IsInternalWar(war)) return false;
         return !war._list_attackers.Any(kingdom => kingdom != null && !kingdom.isRekt() &&
                                                    kingdom.GetEmpire() == empire &&
                                                    !kingdom.IsFactionRebelling() && !kingdom.IsLocalRebelling());

@@ -24,7 +24,7 @@ RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute
 GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}
 CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "alive": ("a",), "empire": ("a",),
-              "at_war": ("a", "b"), "strain_above": ("a", "value"), "before": ("value",)}
+              "at_war": ("a", "b"), "strain_above": ("a", "value"), "before": ("value",), "dead": ("person",)}
 EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a", "name"), "move_capital": ("a", "city"),
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
@@ -297,7 +297,7 @@ def main():
                     err("%s：culture=%s 不是文化键" % (at, s.get("culture")))
                 if kind == "cede" and not s.get("city") and not s.get("cities") and not s.get("person"):
                     err("%s：城和人至少写一样" % at)
-                if kind in ("dies", "heir", "grant_title"):
+                if kind in ("dies", "heir", "grant_title", "dead"):
                     for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
                         if name not in people:
                             err("%s：剧本人物里找不到 %s(简体姓+名连写)" % (at, name))

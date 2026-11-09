@@ -70,6 +70,8 @@ public static class SouthernRetreatSystem
         if (!DynasticCycleSystem.Applies(empire) || InstitutionSystem.GetCultureLine(culture) != "Huaxia") return;
         EmpireData data = empire.data;
         int since = data.southern_retreat_at < 0d ? -1 : YearsSince(data.southern_retreat_at);
+        // 南明诸镇：改藩镇、火并、降敌(一年一次，见 SouthernGarrisonSystem)
+        SouthernGarrisonSystem.Update(empire);
         // 已结成：期内同族义军按入侵者的压力陆续来投(一年看一次)
         if (SouthernRetreatRules.Sheltered(since))
         {
@@ -110,6 +112,8 @@ public static class SouthernRetreatSystem
         if (!SouthernRetreatRules.Triggers(holdsCapital, holdsThird, successor, cities, since)) return;
         data.southern_retreat_at = now;
         data.southern_ming_invader = invader.id;
+        // 朝廷只剩名义：各省当场改为世袭藩镇
+        SouthernGarrisonSystem.Enfeoff(empire);
         MonarchyLegitimacy.Invalidate(empire);
         CapitalLossNamingSystem.ApplyNow(empire);
         string text = holdsCapital
@@ -141,6 +145,8 @@ public static class SouthernRetreatSystem
         foreach (Kingdom kingdom in World.world.kingdoms.list.ToList())
         {
             if (!Alive(kingdom) || !kingdom.isCiv() || kingdom == courtCore || kingdom == invader || kingdom.capital == null) continue;
+            // 起兵的领头人还在世的不来(见 ScenarioEventSystem.LedByRebelFounder)
+            if (ScenarioEventSystem.LedByRebelFounder(kingdom)) continue;
             if (FrontSystem.Realm(kingdom) != kingdom || kingdom.GetEmpire() == court) continue;
             if (invaderEmpire != null && (kingdom.GetEmpire() == invaderEmpire || kingdom.GetTakenAllianceEmpire() == invaderEmpire ||
                                           kingdom.GetGivenAllianceEmpire() == invaderEmpire)) continue;

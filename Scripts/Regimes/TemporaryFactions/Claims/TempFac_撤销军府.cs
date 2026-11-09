@@ -55,6 +55,8 @@ public class TempFac_撤销军府 : TemporaryFaction
     {
         Empire empire = GetEmpire();
         if (empire == null) return false;
+        // 南明诸镇割据期间朝廷只是名义上的天子，削不了藩(见 SouthernGarrisonSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.SouthernGarrisonSystem.Active(empire)) return false;
         // 先挑朝廷任命的，再挑世袭的
         foreach (var kingdom in empire.kingdoms_list.ToList().OrderBy(kingdom => Hereditary(kingdom) ? 1 : 0))
         {

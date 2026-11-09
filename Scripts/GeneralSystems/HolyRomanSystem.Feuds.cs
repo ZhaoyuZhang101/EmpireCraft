@@ -42,6 +42,7 @@ public static partial class HolyRomanSystem
     // 游牧争草场(开战那一刻起)；劫掠之战也不拉姻亲、不扩封建、不升级世界大战(联盟各部由 NomadRaidSystem 自己拉进来)
     public static bool ContainedWar(War war) =>
         DeclaringFeud || DeclaringContest || SchismSystem.Declaring || NomadRaidSystem.Declaring || SteppeOrderSystem.Declaring ||
+        SouthernGarrisonSystem.Declaring ||
         war?.data != null && war.GetEmpireWarType() is EmpireWarType.私战 or EmpireWarType.对立国王 or EmpireWarType.劫掠 or
             EmpireWarType.草场之争;
 
