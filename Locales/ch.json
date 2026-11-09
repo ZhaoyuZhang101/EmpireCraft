@@ -4768,6 +4768,7 @@
   "realm_name_source_scenario": "國號：劇本所定",
   "realm_name_source_banner": "國號：打前朝旗號，承「{0}」",
   "realm_name_source_usurper": "國號：篡位者的封國「{0}」",
+  "realm_name_source_enfeoffed": "國號：受封之國「{0}」(自家的王國法理是地名，就近受封為王)",
   "empirecraft_law_surname_dynasty_title": "姓氏國號",
   "empirecraft_law_surname_dynasty_description": "開啟後，新朝沿用本天下前朝的國號時，在國號前冠以開國之君的姓氏，而不是加「後」字。若與前朝同姓，則按新都相對前朝都城的方位冠以東、西、南、北。同姓且同都時，才加「後」字。復國、中興與兩朝分立不受影響，已有國號保持不變。",
   "empirecraft_law_dejure_first_title": "先收法理",

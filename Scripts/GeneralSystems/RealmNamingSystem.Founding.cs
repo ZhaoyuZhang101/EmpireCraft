@@ -18,6 +18,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   ② 帝国法理：据有它三分之二、占着它的首府(旧都)、它眼下无主且这个名字没人在用 → 用帝国法理名；几个都够格取主法理所在的那个；
 //      名字已有人用、或它还归现存帝国 → 算挑战、僭越(建伪法理)，转③；挑战、去帝号战争、绝嗣裂土等非称帝剧情的不走这一步；
 //   ③ 自家王国法理名：主法理，其次都城所在的王国法理(据点)；起义军打了前朝旗号的用前朝号；
+//   ③' 先封王再受禅(用户 2026-11-10 "每次莫名其妙篡位的用的都是美号, 美号尽量留给游牧吧, 华夏有自己的规则"，问答选"先封王再受禅")：
+//      自家的法理都是地名，或篡位的权臣手里没有封国，以籍贯(宗族郡望)、驻地为本，就近取一块不是地名的王国法理封为某王，
+//      以封国为国号(曹魏、司马晋、刘宋、杨隋)。地名照旧不当国号(见 PlaceTitle)，找不到才用美号(见 EnfeoffedName)；
 //   ④ 美号："大"加一个吉字，取本文化美号词库(没有就用华夏的)，本天下用过的跳过；有效国号是那一个字，"大"是前缀
 //      (directPre "great"，用户 2026-10-27："国号不是大什么什么的，大应该为前缀""有效国号就应该是一个字")；
 //   ⑤ 查重：本天下前朝(已亡帝国)用过的国号再用加"后"(世界法则「姓氏国号」开着时改加开国之君的姓，同姓用方位，方位也算不出加"后")；
@@ -26,7 +29,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 现代政体、原始部落不在此列(另有命名)。
 public static partial class RealmNamingSystem
 {
-    public const int SourceGrandName = 5, SourceRebelBanner = 6, SourceUsurper = 7;
+    public const int SourceGrandName = 5, SourceRebelBanner = 6, SourceUsurper = 7, SourceEnfeoffed = 9;
 
     // 起义军打前朝旗号的机会
     private const float RebelBannerChance = 0.3f;
@@ -85,6 +88,15 @@ public static partial class RealmNamingSystem
             empire.data.name_source = SourceKingdomTitle;
             MarkReuse(empire, kingdom, own, lead);
             return new EmpireFoundingNameChoice(own, EmpireFoundingNameSource.MainTitle);
+        }
+        // ③' 先封王再受禅：自家法理都是地名的，就近封一块古国式的王国法理
+        string enfeoffed = EnfeoffedName(empire, BaseCities(kingdom.king, kingdom), kingdom.cities);
+        if (!string.IsNullOrWhiteSpace(enfeoffed))
+        {
+            empire.data.name_source = SourceEnfeoffed;
+            MarkReuse(empire, kingdom, enfeoffed, lead);
+            LogService.LogInfo($"[EmpireCraft][选定国号] {kingdom.GetKingdomName()} 自家法理是地名，就近封于 {enfeoffed}");
+            return new EmpireFoundingNameChoice(enfeoffed, EmpireFoundingNameSource.MainTitle);
         }
         // ④ 美号
         string grand = PickGrandName(CultureService.GetRealmCulture(kingdom), lead, kingdom.id, out string grandPrefix);
@@ -420,6 +432,10 @@ public static partial class RealmNamingSystem
         empire.data.name_place_title = "";
         EmpireCore lead = TianxiaSystem.Lead(EmpireCoreManager.Get(empire));
         empire.data.founding_prefix = "";
+        // 先封王再受禅：手里没有能当国号的封国，以籍贯、驻地为本就近封一块(见 EnfeoffedName)
+        if (string.IsNullOrWhiteSpace(fief) || string.Equals(fief, empire.GetEmpireName(), StringComparison.Ordinal))
+            fief = EnfeoffedName(empire, BaseCities(usurper, empire.CoreKingdom), EmpireMembershipService.EnumerateCities(empire),
+                empire.GetEmpireName());
         if (!string.IsNullOrWhiteSpace(fief) && !string.Equals(fief, empire.GetEmpireName(), StringComparison.Ordinal))
         {
             MarkReuse(empire, empire.CoreKingdom, fief, lead);
@@ -437,6 +453,46 @@ public static partial class RealmNamingSystem
             empire.GetEmpireFullName()));
         LogService.LogInfo($"[EmpireCraft][选定国号] {before} 改朝，{usurper?.getName()} 定号 {empire.GetEmpireFullName()}");
         return true;
+    }
+
+    // 先封王再受禅：以 bases(籍贯郡望、驻地)为本，先看它们自己的王国法理，再在 pool 的城里由近到远找；
+    // 取不是地名、不是 avoid、眼下没有别国用作国号的第一块。找不到返回空(调用方再用美号)
+    internal static string EnfeoffedName(Empire empire, List<City> bases, IEnumerable<City> pool, params string[] avoid)
+    {
+        List<City> origins = bases.Where(city => city?.data != null && !city.isRekt()).ToList();
+        if (origins.Count == 0) return "";
+        City anchor = origins[0];
+        IEnumerable<City> nearby = (pool ?? Enumerable.Empty<City>()).Where(city => city?.data != null && !city.isRekt())
+            .OrderBy(city => UnityEngine.Vector2.Distance(city.city_center, anchor.city_center));
+        var seen = new HashSet<long>();
+        foreach (City city in origins.Concat(nearby))
+        {
+            KingdomTitle title = city.GetTitle();
+            if (title?.data == null || !seen.Add(title.id) || PlaceTitle(title)) continue;
+            string name = EmpireCoreManager.NormalizeCoreName(title.data.name);
+            if (string.IsNullOrWhiteSpace(name) || avoid.Any(other => string.Equals(other, name, StringComparison.Ordinal)) ||
+                NameInUse(name, empire)) continue;
+            return name;
+        }
+        return "";
+    }
+
+    // 籍贯与驻地：宗族郡望(世家的郡望之城，否则族人最早定居的城)、本人所在的城、本国都城
+    private static List<City> BaseCities(Actor actor, Kingdom kingdom)
+    {
+        var result = new List<City>();
+        SpecificClan clan = actor?.data == null ? null : actor.GetSpecificClan();
+        if (clan != null)
+        {
+            long seat = clan.gentry_seat_city_id;
+            if (seat < 0 && clan.city_settle_since != null && clan.city_settle_since.Count > 0)
+                seat = clan.city_settle_since.OrderBy(pair => pair.Value).First().Key;
+            if (seat >= 0 && World.world.cities.get(seat) is City home) result.Add(home);
+        }
+        if (actor?.city != null) result.Add(actor.city);
+        if (actor?.kingdom?.capital != null) result.Add(actor.kingdom.capital);
+        if (kingdom?.capital != null) result.Add(kingdom.capital);
+        return result;
     }
 
     // 外族入主采纳中原制度(兼用、从俗，见 CompositeEmpireService.TryAdoptInstitutionalCultureName)：改用美号

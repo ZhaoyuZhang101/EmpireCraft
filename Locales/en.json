@@ -4752,6 +4752,7 @@
   "realm_name_source_scenario": "Name: set by the scenario",
   "realm_name_source_banner": "Name: raised the banner of {0}",
   "realm_name_source_usurper": "Name: the usurper's fief, {0}",
+  "realm_name_source_enfeoffed": "Name: the fief granted nearby, {0} (its own kingdom titles are place names)",
   "empirecraft_law_surname_dynasty_title": "Surname Dynasty Names",
   "empirecraft_law_surname_dynasty_description": "When on, a new dynasty that reuses a name borne by an earlier dynasty of the same realm is prefixed with its founder's surname instead of \"Later\". If the surname is the same, it takes a direction from the old capital instead, and only uses \"Later\" when the capital is the same too. Restorations, revivals and divided dynasties are unaffected, and existing names do not change.",
   "empirecraft_law_dejure_first_title": "De Jure First",

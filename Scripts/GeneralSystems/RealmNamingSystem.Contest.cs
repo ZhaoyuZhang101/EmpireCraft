@@ -274,6 +274,13 @@ public static partial class RealmNamingSystem
             if (!string.IsNullOrWhiteSpace(name) && !string.Equals(name, contested, StringComparison.Ordinal) && !PlaceTitle(title))
                 return name;
         }
+        // 华夏先就近封一块古国式的王国法理(见 EnfeoffedName)，找不到才用美号
+        if (IsHuaxia(empire))
+        {
+            string enfeoffed = EnfeoffedName(empire, new List<City> { core.capital }, EmpireMembershipService.EnumerateCities(empire),
+                contested, empire.GetEmpireName());
+            if (!string.IsNullOrWhiteSpace(enfeoffed)) return enfeoffed;
+        }
         string grand = PickGrandName(CultureService.GetRealmCulture(core), TianxiaSystem.Lead(EmpireCoreManager.Get(empire)),
             empire.id, out string prefix);
         if (string.IsNullOrWhiteSpace(grand) || string.Equals(grand, contested, StringComparison.Ordinal)) return "";

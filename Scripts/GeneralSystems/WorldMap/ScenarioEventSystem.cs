@@ -113,8 +113,11 @@ public static class ScenarioEventSystem
 
     public static ScenarioEventSave Save() => Active ? _state : null;
 
+    private static bool _namesRepaired;
+
     public static void ResetWorldState()
     {
+        _namesRepaired = false;
         _state = null;
         _scripted.Clear();
         _plot = new Dictionary<long, int>();
@@ -183,6 +186,11 @@ public static class ScenarioEventSystem
         if (_state.last_check >= 0d && now >= _state.last_check && Date.getYearsSince(_state.last_check) < 1) return;
         _state.last_check = now;
         NotePeaks();
+        if (!_namesRepaired)
+        {
+            _namesRepaired = true;
+            RepairProclaimedNames();
+        }
         int years = _state.started < 0d ? 0 : Math.Max(0, Date.getYearsSince(_state.started));
         for (int i = 0; i < _state.events.Count; i++)
         {
@@ -927,9 +935,38 @@ public static class ScenarioEventSystem
         empire.data.name_place_title = "";
         empire.data.name_blocked_core = "";
         string name = Text(plain);
+        // 起兵时剧本给的国号是自定名(新国没有法理，不定的话按都城叫)，自定名不走模组起名，称帝后只显示光秃秃的"顺""西"
+        // (用户 2026-11-10 "为什么顺和西不走模组的命名方式""不是大顺朝和大西朝吗")：称帝改由帝国起名(美号大 + 顺 + 朝)
+        ClearScriptedCustomName(kingdom, name);
         empire.SetEmpireName(name);
         kingdom.SetKingdomName(name);
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+    }
+
+    // 剧本起兵定的自定名就是这个国号时撤掉(玩家另起的名字不动)
+    private static void ClearScriptedCustomName(Kingdom kingdom, string name)
+    {
+        if (kingdom?.data == null || string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(kingdom.GetCustomCountrySuffix())) return;
+        if (string.Equals(kingdom.GetCustomCountryName(), name, StringComparison.Ordinal)) kingdom.SetCustomCountryName("");
+    }
+
+    // 旧档：已经称帝的顺、西还挂着起兵时的自定名，读档后第一次结算时撤掉
+    private static void RepairProclaimedNames()
+    {
+        // 只看剧本起兵立的国(rebel 步骤的 b)
+        foreach (string key in _state.events.Where(item => item?.then != null).SelectMany(item => item.then)
+                     .Where(step => step?.kind == "rebel" && !string.IsNullOrEmpty(step.b)).Select(step => step.b).Distinct().ToList())
+        {
+            if (!_state.realms.TryGetValue(key, out long id)) continue;
+            Kingdom kingdom = World.world.kingdoms.get(id);
+            Empire empire = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetEmpire();
+            if (empire?.data == null || empire.CoreKingdom != kingdom) continue;
+            if (empire.data.name_source != RealmNamingSystem.SourceGrandName && empire.data.name_source != RealmNamingSystem.SourceScenario) continue;
+            string custom = kingdom.GetCustomCountryName();
+            if (string.IsNullOrWhiteSpace(custom)) continue;
+            ClearScriptedCustomName(kingdom, custom);
+            LogService.LogInfo($"[EmpireCraft][剧情事件] {empire.GetEmpireFullName()} 撤去起兵时的自定国号 {custom}");
+        }
     }
 
     // 改国号：帝国改帝号，王国改主法理名(国名照主法理定)

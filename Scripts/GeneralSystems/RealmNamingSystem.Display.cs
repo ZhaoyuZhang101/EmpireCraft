@@ -39,6 +39,8 @@ public static partial class RealmNamingSystem
                 return string.Format(LM.Get("realm_name_source_banner"), empire.GetEmpireName());
             case SourceUsurper:
                 return string.Format(LM.Get("realm_name_source_usurper"), empire.GetEmpireName());
+            case SourceEnfeoffed:
+                return string.Format(LM.Get("realm_name_source_enfeoffed"), empire.GetEmpireName());
             case SourceTianxia:
             {
                 EmpireCore lead = NamedTianxia(empire);
