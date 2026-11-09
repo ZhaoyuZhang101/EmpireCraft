@@ -245,8 +245,17 @@ public static class WildernessSystem
         owner != null && Merged.Count > 0 && zone != null && Merged.TryGetValue(zone.id, out (Kingdom from, Kingdom into) merge) &&
         merge.into == owner;
 
-    // 不算碎块合并的归属(见 OwnerOf)
+    // 不算碎块合并的归属(见 OwnerOf)；离那国的城太远的不算(见 RefreshReach)
     private static Kingdom BaseResolve(TileZone zone, out bool byTitle)
+    {
+        Kingdom owner = Candidate(zone, out byTitle);
+        if (owner == null || zone.id < 0 || zone.id >= _far.Length || !_far[zone.id]) return owner;
+        byTitle = false;
+        return null;
+    }
+
+    // 不看远近时这块无人区归谁
+    private static Kingdom Candidate(TileZone zone, out bool byTitle)
     {
         byTitle = false;
         int index = Index(zone);
@@ -474,6 +483,7 @@ public static class WildernessSystem
         _regionOf = new int[0];
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
+        _far = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
         Owners.Clear();
@@ -492,6 +502,7 @@ public static class WildernessSystem
         _kind = new byte[0];
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
+        _far = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
         _zones = new TileZone[0];
@@ -814,6 +825,7 @@ public static class WildernessSystem
             _regionOf = new int[0];
             _titles = new KingdomTitle[0];
             _painted = new bool[0];
+            _far = new bool[0];
             _neutralZones = new bool[0];
             _parents = new City[0];
             reclassifyAll = force = true;
@@ -2008,8 +2020,78 @@ public static class WildernessSystem
         }
         foreach (KingdomTitle stale in Owners.Keys.Where(title => !seen.Contains(title)).ToList()) Owners.Remove(stale);
         if (RefreshSurround()) changed = true;
+        if (RefreshReach()) changed = true;
         if (RefreshFragments()) changed = true;
         return changed;
+    }
+
+    // 远处的无人区不算版图(用户 2026-11-10 转群友截图：图上只放了一个部落，整片大陆的无人区都挂到它唯一的城上、全归了它，
+    // "放个部落全归属了"；问答定"法理照挂，版图只算附近""按时代放宽")：法理照旧不限远近挂最近的城(地形都进法理图层)，
+    // 可离本来该归的那国的城(城心连同城的大小)超过 ReachOf 块的地块不算它的版图，显示为无主无人区，城多了、近了自然归入。
+    // 石器时代 ReachStone 块，之后每进一个时代多 ReachPerEra 块；科技树关着按 ReachDefault 块。世界地图预设剧本照史实不变。
+    // 每次核归属时算好记在 _far，OwnerOf 只看这个
+    private const int ReachStone = 6, ReachPerEra = 3, ReachDefault = 10;
+    private static bool[] _far = new bool[0];
+
+    public static int ReachOf(Kingdom kingdom)
+    {
+        string culture = CultureService.GetRealmCulture(kingdom);
+        if (!TechnologySystem.IsActiveFor(culture)) return ReachDefault;
+        return ReachStone + ReachPerEra * (Math.Max(1, TechnologySystem.GetEraTier(culture)) - 1);
+    }
+
+    private static bool RefreshReach()
+    {
+        int length = _titles.Length;
+        if (_far.Length != length) _far = new bool[length];
+        bool exempt = WorldMap.WorldMapWilderness.FixedLayout;
+        var reach = new Dictionary<Kingdom, (int reach, List<(int x, int y, float radius)> cities)>();
+        bool changed = false;
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                if (id < 0 || id >= length || id >= _zones.Length || _zones[id] == null) continue;
+                bool far = false;
+                if (!exempt)
+                {
+                    Kingdom owner = Candidate(_zones[id], out _);
+                    far = owner != null && TooFar(_zones[id], owner, reach);
+                }
+                if (_far[id] == far) continue;
+                _far[id] = far;
+                changed = true;
+            }
+        return changed;
+    }
+
+    private static bool TooFar(TileZone zone, Kingdom owner,
+        Dictionary<Kingdom, (int reach, List<(int x, int y, float radius)> cities)> cache)
+    {
+        if (!cache.TryGetValue(owner, out var entry))
+        {
+            var cities = new List<(int x, int y, float radius)>();
+            foreach (City city in owner.cities ?? new List<City>())
+            {
+                TileZone center = city?.data == null || city.isRekt() ? null : city.getTile()?.zone;
+                if (center == null) continue;
+                float radius = 0f;
+                foreach (TileZone part in city.zones ?? new List<TileZone>())
+                    if (part != null)
+                        radius = Math.Max(radius, (part.x - center.x) * (part.x - center.x) + (part.y - center.y) * (part.y - center.y));
+                cities.Add((center.x, center.y, (float)Math.Sqrt(radius)));
+            }
+            entry = (ReachOf(owner), cities);
+            cache[owner] = entry;
+        }
+        // 没有城的国(还在筹备建城)不领无人区
+        if (entry.cities.Count == 0) return true;
+        foreach ((int x, int y, float radius) in entry.cities)
+        {
+            float limit = entry.reach + radius;
+            int dx = x - zone.x, dy = y - zone.y;
+            if (dx * dx + dy * dy <= limit * limit) return false;
+        }
+        return true;
     }
 
     // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。
