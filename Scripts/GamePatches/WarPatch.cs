@@ -120,6 +120,9 @@ public class WarPatch: GamePatch
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Ensure(__instance);
             // 战争目标每年按当前战况重算一次，只升不降(见 WarGoalSystem.Review)
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Review(__instance);
+            // 满最短战期后每年两国自己议一次和(见 PeaceTable)；谈成了这场仗就此结束
+            EmpireCraft.Scripts.GeneralSystems.PeaceTable.Talks(__instance);
+            if (__instance.hasEnded()) return;
             // 没有开战目标的仗(叛乱、独立、争位……)：开打头一回按类型起名、记宣战(有目标的在 Ensure 里做了)，记下守方京城
             // (叛乱攻下它即胜，见 WarObjective.RebelTarget)；读档前就在打的旧仗不补
             var extra = __instance.GetOrCreate();

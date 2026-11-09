@@ -28,6 +28,10 @@ public static class WarExtension
         // 战争目标上次重算的时间，与「只升不降」(见 WarGoalSystem.Review)；locked = 玩家在外交面板点名的目标，不自动改
         public double war_goal_reviewed_at = -1d;
         public bool war_goal_locked;
+        // 议和台(见 PeaceTable)：上次两国自己议和的时间；那时双方打下来的本钱(得城 + 占城)，算"势头"用
+        public double peace_talks_at = -1d;
+        public int peace_momentum_attacker;
+        public int peace_momentum_defender;
         public long war_goal_capital_id = -1L;
         public MetaType metaType = MetaType.None;
         public long metaID = -1L;

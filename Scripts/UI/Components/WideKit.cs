@@ -445,7 +445,8 @@ public static class WideKit
         return row;
     }
 
-    public static void AddChip(this AutoHoriLayoutGroup row, string label, bool on, UnityAction action)
+    // 返回这一块，调用方可以再挂提示框(UIHelper.AttachTextTooltip)
+    public static AutoHoriLayoutGroup AddChip(this AutoHoriLayoutGroup row, string label, bool on, UnityAction action)
     {
         float width = Mathf.Max(26f, UIHelper.EstimateTextWidth(label, 7) + 12f);
         var chip = row.BeginHoriGroup(new Vector2(width, 14f), TextAnchor.MiddleCenter, 0, new RectOffset(0, 0, 0, 0));
@@ -453,6 +454,130 @@ public static class WideKit
         chip.AddTextIntoHoriLayout((label ?? "").ColorString(on ? Gold : Soft), true, TextAnchor.MiddleCenter,
             new Vector2(width, 13f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         UIHelper.MakeClickable(chip.gameObject, action);
+        return chip;
+    }
+
+    // 一排动作按钮(议和台的照目标开价、撮合、签约……)：按字数分宽、铺满一行；深色底，字色即按钮色，enabled 为假的灰字、点不动
+    public static AutoHoriLayoutGroup AddActionRow(this AutoVertLayoutGroup parent, float width,
+        params (string label, string hex, bool enabled, UnityAction action)[] buttons)
+    {
+        var row = parent.BeginHoriGroup(new Vector2(width, 17f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+        if (buttons.Length == 0) return row;
+        float[] natural = new float[buttons.Length];
+        float total = 0f;
+        for (int i = 0; i < buttons.Length; i++) total += natural[i] = UIHelper.EstimateTextWidth(buttons[i].label ?? "", 7) + 10f;
+        float room = width - 3f * (buttons.Length - 1);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            (string label, string hex, bool enabled, UnityAction action) = buttons[i];
+            float w = total > 0f ? natural[i] / total * room : room / buttons.Length;
+            var box = row.BeginHoriGroup(new Vector2(w, 16f), TextAnchor.MiddleCenter, 0, new RectOffset(0, 0, 0, 0));
+            UIHelper.AddInsetBackground(box, new Vector2(w, 16f));
+            box.AddTextIntoHoriLayout((label ?? "").ColorString(enabled ? hex ?? Value : Muted), true, TextAnchor.MiddleCenter,
+                new Vector2(w, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            if (enabled && action != null)
+            {
+                UIHelper.MakeClickable(box.gameObject, action);
+                AddHoverTint(box.gameObject);
+            }
+        }
+        return row;
+    }
+
+    // 条款一行(议和台)：图标 + 条款名 + 彩色小标 + 右侧折价 + 撤销"×"，隔行垫底
+    public static AutoHoriLayoutGroup AddTermRow(this AutoVertLayoutGroup card, float cardWidth, int index, Sprite icon,
+        string label, string tag, string tagHex, string value, UnityAction remove, string valueHex = Soft)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 2, new RectOffset(3, 2, 0, 0));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 14f));
+        UIHelper.AddLayoutIcon(row.transform, icon, 9f);
+        const float valueWidth = 28f;
+        float removeWidth = remove != null ? 9f : 0f;
+        float textWidth = Mathf.Max(10f, inner - 5f - (icon != null ? 11f : 0f) - valueWidth - removeWidth - 2f * 3);
+        string text = (label ?? "").ColorString(Value) + (string.IsNullOrEmpty(tag) ? "" : " " + tag.ColorString(tagHex ?? Muted));
+        var name = row.AddTextIntoHoriLayout(text, true, TextAnchor.MiddleLeft, new Vector2(textWidth, 12f));
+        name.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(name);
+        row.AddTextIntoHoriLayout((value ?? "").ColorString(valueHex), true, TextAnchor.MiddleRight, new Vector2(valueWidth, 12f))
+            .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        if (remove != null)
+        {
+            var x = row.AddTextIntoHoriLayout("×".ColorString(Red), true, TextAnchor.MiddleCenter, new Vector2(removeWidth, 12f));
+            x.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+            UIHelper.MakeClickable(x.gameObject, remove);
+        }
+        return row;
+    }
+
+    // 意愿条(议和台)：左边名字，中间以 0 为中线的条(正绿负红)，右边数值；scale = 半条对应的数
+    public static AutoHoriLayoutGroup AddMeterRow(this AutoVertLayoutGroup card, float cardWidth, int index, string name,
+        string nameHex, float value, float scale, string text, string textHex)
+    {
+        float inner = cardWidth - CardPadding;
+        var row = card.BeginHoriGroup(new Vector2(inner, 14f), TextAnchor.MiddleLeft, 4, new RectOffset(3, 3, 0, 0));
+        if (index % 2 == 0) UIHelper.AddInsetBackground(row, new Vector2(inner, 14f));
+        const float nameWidth = 52f, textWidth = 78f;
+        var label = row.AddTextIntoHoriLayout((name ?? "").ColorString(nameHex ?? Gold), true, TextAnchor.MiddleLeft,
+            new Vector2(nameWidth, 12f));
+        label.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        HoverMarqueeText.Attach(label);
+        float barWidth = Mathf.Max(20f, inner - 6f - nameWidth - textWidth - 8f);
+        var box = new GameObject("Meter", typeof(RectTransform), typeof(LayoutElement));
+        var rect = box.GetComponent<RectTransform>();
+        rect.SetParent(row.transform, false);
+        rect.sizeDelta = new Vector2(barWidth, 7f);
+        LayoutElement layout = box.GetComponent<LayoutElement>();
+        layout.minWidth = layout.preferredWidth = barWidth;
+        layout.minHeight = layout.preferredHeight = 7f;
+        Plain(rect, Vector2.zero, new Vector2(barWidth, 7f), new Color(0.106f, 0.118f, 0.09f, 1f));
+        float half = barWidth / 2f;
+        float fill = scale > 0f ? Mathf.Clamp01(Mathf.Abs(value) / scale) * half : 0f;
+        ColorUtility.TryParseHtmlString(value >= 0f ? Green : Red, out Color color);
+        if (fill >= 1f) Plain(rect, new Vector2(value >= 0f ? half : half - fill, 0f), new Vector2(fill, 7f), color);
+        Plain(rect, new Vector2(half - 0.5f, -1f), new Vector2(1f, 9f), new Color(0.56f, 0.63f, 0.66f, 1f));
+        row.AddTextIntoHoriLayout((text ?? "").ColorString(textHex ?? Value), true, TextAnchor.MiddleRight, new Vector2(textWidth, 12f))
+            .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+        return row;
+    }
+
+    // 门槛格(战争目标为什么是它)：一排几格，每格上行灰标签 + 右侧规则(达到绿、没到橙、null 灰)、中行数值、下行进度条
+    public static AutoHoriLayoutGroup AddGateRow(this AutoVertLayoutGroup card, float cardWidth,
+        params (string label, string rule, bool? ok, string value, string hex, float share)[] cells)
+    {
+        float inner = cardWidth - CardPadding;
+        const float gap = 3f, height = 30f;
+        var row = card.BeginHoriGroup(new Vector2(inner, height), TextAnchor.UpperLeft, (int)gap, new RectOffset(0, 0, 0, 0));
+        if (cells.Length == 0) return row;
+        float width = (inner - gap * (cells.Length - 1)) / cells.Length;
+        foreach ((string label, string rule, bool? ok, string value, string hex, float share) in cells)
+        {
+            var cell = row.BeginVertGroup(new Vector2(width, height), pSpacing: 0, pAlignment: TextAnchor.UpperLeft,
+                pPadding: new RectOffset(3, 3, 2, 2));
+            UIHelper.AddInsetBackground(cell, new Vector2(width, height));
+            float content = width - 6f;
+            string ruleHex = ok == null ? Muted : ok.Value ? Green : Orange;
+            string head = (label ?? "").ColorString(Muted) + (string.IsNullOrEmpty(rule) ? "" : " " + rule.ColorString(ruleHex));
+            var top = cell.AddTextIntoVertLayout(head, true, TextAnchor.MiddleLeft, new Vector2(content, 9f));
+            top.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(top);
+            var mid = cell.AddTextIntoVertLayout((value ?? "").ColorString(hex ?? Value), true, TextAnchor.MiddleLeft,
+                new Vector2(content, 12f));
+            mid.UseFixedFontSize(8, HorizontalWrapMode.Overflow);
+            HoverMarqueeText.Attach(mid);
+            var box = new GameObject("Gate", typeof(RectTransform), typeof(LayoutElement));
+            var rect = box.GetComponent<RectTransform>();
+            rect.SetParent(cell.transform, false);
+            rect.sizeDelta = new Vector2(content, 3f);
+            LayoutElement layout = box.GetComponent<LayoutElement>();
+            layout.minWidth = layout.preferredWidth = content;
+            layout.minHeight = layout.preferredHeight = 3f;
+            Plain(rect, Vector2.zero, new Vector2(content, 3f), new Color(0.106f, 0.118f, 0.09f, 1f));
+            ColorUtility.TryParseHtmlString(hex ?? Value, out Color fill);
+            float filled = Mathf.Clamp01(share) * content;
+            if (filled >= 1f) Plain(rect, Vector2.zero, new Vector2(filled, 3f), fill);
+        }
+        return row;
     }
 
     // 翻页：‹ 第 2 / 5 页 ›，只有一页时不画

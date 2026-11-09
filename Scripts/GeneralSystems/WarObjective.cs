@@ -34,7 +34,7 @@ public static class WarObjective
     // 每场仗隔多久查一次主城池(世界时间秒，约一个月)
     private const double CheckSeconds = 5d;
     // 牧场：一座城至少这么多处牧村才算"马场"
-    private const int PastureSettlements = 2;
+    internal const int PastureSettlements = 2;
     public const string PastureResource = "pasture";
     private static readonly Dictionary<long, double> LastCheck = new();
     // 和约里改归属、入羁縻、兼领王位不在原版结束战争的同一帧做(见 Tick)
@@ -289,13 +289,13 @@ public static class WarObjective
         return (best, bestId);
     }
 
-    private static int Value(string id) => id switch
+    internal static int Value(string id) => id switch
     {
         "uranium" => 10, "oil" => 9, "rare_earth" => 8, "gold" => 7, "silver" => 6, "saltpeter" => 5, "aluminium" => 5,
         "coal" => 4, "sulfur" => 4, "copper" => 3, _ => 2
     };
 
-    private static int Pastures(City city) =>
+    internal static int Pastures(City city) =>
         RuralSettlementSystem.InCity(city).Count(settlement => settlement.trade == LivelihoodSystem.Pasture);
 
     private static IEnumerable<City> RealmCities(Kingdom realm)

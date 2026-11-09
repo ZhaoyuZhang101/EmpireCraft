@@ -33,10 +33,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class WarGoalSystem
 {
     // 吞并：攻方兵力至少是对方几倍、对方城数不超过多少(或不超过攻方一半)
-    private const float AnnexStrength = 2f;
-    private const int AnnexSmallCities = 3;
+    internal const float AnnexStrength = 2f;
+    internal const int AnnexSmallCities = 3;
     // 割地：攻方兵力至少是对方几成
-    private const float ConquestStrength = 0.8f;
+    internal const float ConquestStrength = 0.8f;
     // 迫使附庸：攻方兵力至少是对方几倍。一倍半 → 两倍(用户 2026-10-21 选"封建能吞小国")：迫使附庸是死战目标(见 Excessive)，
     // 以前行分封的攻方兵力一倍半就定迫使附庸，本该只求割地的仗反把对方逼得困兽犹斗；一倍半到两倍之间改求割地
     private const float VassalStrength = 2f;
@@ -47,6 +47,9 @@ public static class WarGoalSystem
     // 战争窗口里轮换的顺序(劫掠不参与)
     private static readonly WarGoal[] Cycle =
         { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.扶立, WarGoal.改宗, WarGoal.通商, WarGoal.赔款 };
+
+    // 战争窗口上可供玩家点名的目标(同 Cycle，界面只读)
+    public static IReadOnlyList<WarGoal> PlayerGoals => Cycle;
     // 扶立君主之后两国互不开战的年数
     private const int InstalledYears = 20;
     // 占了一座城一半以上的地块才算到手
@@ -71,7 +74,11 @@ public static class WarGoalSystem
         PendingCessions.Clear();
         PendingVassals.Clear();
         WarObjective.ResetWorldState();
+        PeaceTable.ResetWorldState();
     }
+
+    // 议和台管不管这场仗：有开战目标的国战(劫掠、叛乱、各有结局的仗不在此列，见 PeaceTable)
+    internal static bool UsesPeaceTable(War war) => Applies(war) && war.GetEmpireWarType() != EmpireWarType.劫掠;
 
     private static bool Applies(War war) =>
         war?.data != null && war.getAsset() != WarTypeLibrary.rebellion && !OwnEnding.Contains(war.GetEmpireWarType());
@@ -145,6 +152,43 @@ public static class WarGoalSystem
                  InstallCandidate(defender) != null)
             goal = WarGoal.扶立;
         return goal;
+    }
+
+    // 概况页的门槛格：为什么是这个目标、还差什么才能升到割地或吞并(用户 2026-11-09"外交需要透明，玩家需要清晰的外交过程以及合理性"；
+    // 玩家 11-08"现在帝盒的战争系统对玩家而言已经完全变成混沌系统了""我这边显示战争胜利""但没有吞并敌国")。
+    // 与 Decide 同一套算式：兵力比、接壤、双方城数
+    public readonly struct GoalFacts
+    {
+        public readonly float strength;
+        public readonly bool borders;
+        public readonly int ours, theirs;
+        // 目标怎么变：yearly 每年重算、locked 神力点名的不改、fixed 这类目标不随战况改
+        public readonly string rule;
+
+        public GoalFacts(float strength, bool borders, int ours, int theirs, string rule)
+        {
+            this.strength = strength;
+            this.borders = borders;
+            this.ours = ours;
+            this.theirs = theirs;
+            this.rule = rule;
+        }
+
+        public bool CanCede => borders && strength >= ConquestStrength;
+        public bool CanAnnex => strength >= AnnexStrength;
+        public bool SmallEnough => theirs <= AnnexSmallCities || theirs * 2 <= ours;
+    }
+
+    public static GoalFacts? Facts(War war)
+    {
+        if (war?.data == null) return null;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return null;
+        var data = war.GetOrCreate();
+        string rule = data.war_goal_locked ? "locked" : !Reviewable(Get(war)) ? "fixed" : "yearly";
+        return new GoalFacts(WarSituation.StrengthRatio(defender, attacker),
+            attacker.IsNeighbourWith(defender) || WarReach.AcrossWild(attacker, defender),
+            WarSituation.SideCities(attacker), WarSituation.SideCities(defender), rule);
     }
 
     // 这些目标不随战况改：劫掠(抢够就退)、收复(有法理宣称)、改宗(圣战)、扶立(选定了人)
@@ -234,12 +278,12 @@ public static class WarGoalSystem
             ? WarGoal.通商
             : WarGoal.赔款;
 
-    private static bool Convertible(Kingdom attacker, Kingdom defender) =>
+    internal static bool Convertible(Kingdom attacker, Kingdom defender) =>
         attacker?.religion != null && defender?.data != null && !defender.isRekt() && defender.religion != attacker.religion &&
         CaliphateFaith.MayAdopt(defender, attacker.religion);
 
     // 改宗：对方连同各城、城里的人改奉攻方的宗教
-    private static bool Convert(Kingdom defender, Kingdom attacker)
+    internal static bool Convert(Kingdom defender, Kingdom attacker)
     {
         if (!Convertible(attacker, defender)) return false;
         Religion faith = attacker.religion;
@@ -256,7 +300,7 @@ public static class WarGoalSystem
     }
 
     // 扶立：对方宗室里另一位成年人(不是现任君主)，威望最高的
-    private static Actor InstallCandidate(Kingdom defender)
+    internal static Actor InstallCandidate(Kingdom defender)
     {
         SpecificClan clan = defender?.king?.GetSpecificClan();
         return clan?.AllAliveMembers?
@@ -325,6 +369,31 @@ public static class WarGoalSystem
         data.war_goal = Coarse(data.war_goal);
         WarObjective.Refine(war, attacker, defender, WarSituation.StrengthRatio(defender, attacker), substitute: false);
         if (data.goal_named) WarCatalog.ApplyName(war, force: true);
+    }
+
+    // 玩家在战争窗口点名战争目标(用户 2026-11-09"我希望现在这个界面玩家也能够修改战争目标议和条件之类的")。
+    // 与 Next 同一套落地方式，只是目标由玩家指定，并打上 war_goal_locked——此后每年的重算(见 Review)不再改它。
+    // 不要任何代价(用户 11-09 选"完全免费，只记一条史册")，也不受兵力、城数门槛限制：上帝视角有充分的裁定权，
+    // 门槛只用来说明"AI 原本会怎么判"(见 Facts 与战争窗口概况页的门槛格)。
+    public static bool SetByPlayer(War war, WarGoal goal)
+    {
+        if (!Switchable(war) || goal == WarGoal.None) return false;
+        var data = war.GetOrCreate();
+        WarGoal before = data.war_goal;
+        if (Coarse(before) == goal) return false;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        if (attacker?.data == null || defender?.data == null || attacker.isRekt() || defender.isRekt()) return false;
+        data.war_goal = goal;
+        data.war_goal_locked = true;
+        if (data.war_goal_capital_id < 0 && defender.capital?.data != null)
+            data.war_goal_capital_id = defender.capital.id;
+        WarObjective.Refine(war, attacker, defender, WarSituation.StrengthRatio(defender, attacker), substitute: false);
+        if (data.goal_named) WarCatalog.ApplyName(war, force: true);
+        WarChronicle.Record(war, WarChronicle.Goal, string.Format(LM.Get("war_chronicle_arbitrate"),
+            attacker.GetKingdomName(), defender.GetKingdomName(), Name(goal, attacker)));
+        LogService.LogInfo($"[EmpireCraft][战争目标] 神力裁定：{attacker.GetKingdomName()} 伐 {defender.GetKingdomName()} 的目标" +
+                           $"由 {before} 改为 {goal}");
+        return true;
     }
 
     public static void Next(War war)
@@ -478,6 +547,15 @@ public static class WarGoalSystem
             (int attackerGain, int defenderGain) = Gains(war);
             bool attackersWon = winner == WarWinner.Attackers || winner == WarWinner.Peace && attackerGain >= defenderGain + 1;
             bool defendersWon = winner == WarWinner.Defenders || winner == WarWinner.Peace && defenderGain >= attackerGain + 1;
+            // 议和(不分胜负)走议和台：神签的、两国自己谈成的照台上的条款；强制停战、罢兵、外交面板停战照目标开价后撮合出折中
+            // (见 PeaceTable)。以前按"谁多得一城"套战争目标，多一城就全按目标拿，差一城就白和
+            if (winner == WarWinner.Peace && UsesPeaceTable(war) && !attacker.isRekt() && !defender.isRekt())
+            {
+                PeaceTable.Conclude(war, attacker, defender);
+                if (attackersWon) Modernize(war, defender, attacker, war._list_defenders, war._list_attackers);
+                else if (defendersWon) Modernize(war, attacker, defender, war._list_attackers, war._list_defenders);
+                return;
+            }
             if (attackersWon)
             {
                 if (defender.isRekt()) return;

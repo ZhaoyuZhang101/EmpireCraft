@@ -22,17 +22,27 @@ public static class WarReparationsSystem
     private static double _lastScan = -1d;
 
     // 败方(loser)向胜方(victor)赔款
-    public static void Impose(Kingdom loser, Kingdom victor)
+    public static void Impose(Kingdom loser, Kingdom victor) => Impose(loser, victor, ImmediateShare, true);
+
+    // 议和台上的赔款档(见 PeaceTermRules.IndemnityTiers)：当场付国库的 immediateShare，installments 另按月分付三年
+    public static void Impose(Kingdom loser, Kingdom victor, double immediateShare, bool installments)
     {
         try
         {
             if (loser?.data == null || loser.isRekt() || victor?.data == null || victor.isRekt() || loser == victor) return;
             if (!TreasurySystem.Enabled(loser) || !TreasurySystem.Enabled(victor)) return;
-            // 立即赔付：败方国库现款的四分之一
-            long immediate = (long)(Math.Max(0L, loser.GetTreasuryBalance()) * ImmediateShare);
+            // 立即赔付：败方国库现款的几成(默认四分之一)
+            long immediate = (long)(Math.Max(0L, loser.GetTreasuryBalance()) * immediateShare);
             MoveMoney(loser, victor, immediate);
+            if (!installments)
+            {
+                FiscalDiagnostics.Count("战争赔款");
+                TranslateHelper.LogEventMessage(string.Format(LM.Get("war_reparations_signed_once"),
+                    loser.GetKingdomName(), victor.GetKingdomName(), MoneyDisplay.Format(immediate)), victor);
+                return;
+            }
             // 月付：败方月经常收入的两成，36 个月
-            long monthly = Math.Max(1L, (long)(StateDebtSystem.AnnualStableIncome(loser) / 12d * MonthlyIncomeShare));
+            long monthly = Monthly(loser);
             var reparations = loser.GetOrCreate().war_reparations ??= new List<WarReparation>();
             reparations.Add(new WarReparation
             {
@@ -110,6 +120,13 @@ public static class WarReparationsSystem
             }
         return (monthly, months);
     }
+
+    private static long Monthly(Kingdom loser) =>
+        Math.Max(1L, (long)(StateDebtSystem.AnnualStableIncome(loser) / 12d * MonthlyIncomeShare));
+
+    // 三年分付合计多少(议和台给赔款折价用)
+    public static long InstallmentTotal(Kingdom loser) =>
+        loser?.data == null || loser.isRekt() ? 0L : Monthly(loser) * Months;
 
     private static void MoveMoney(Kingdom from, Kingdom to, long amount)
     {
