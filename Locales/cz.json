@@ -10018,7 +10018,7 @@
   "peace_offer_count": "{0} 项条件",
   "peace_gives": "{1}停战的代价",
   "peace_items": "{0} 项",
-  "peace_gives_none": "（空）{1}不付代价，只求停战",
+  "peace_gives_none": "（空）{1}不付代价",
   "peace_add": "＋ 添加{1}的停战代价",
   "peace_sum": "合计折价",
   "peace_pick_title": "{1}能付的停战代价",
@@ -11649,5 +11649,8 @@
   "kov_puppet_years": "年数",
   "kov_puppet_row": "{0} 城 · 已 {1} 年",
   "peace_card_goal": "{0}的战争目标",
-  "peace_goal_hint": "「照目标开价」照它出价"
+  "peace_goal_hint": "「照目标开价」照它出价",
+  "peace_gives_none_attacker": "（空）{1}是开战的一方，随时可以罢兵，但算没打成、要赔款",
+  "peace_btn_withdraw": "{0}罢兵",
+  "peace_withdraw_history": "{0}罢兵，伐{1}的目标没打成，照败方赔款"
 }

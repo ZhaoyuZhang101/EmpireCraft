@@ -10004,7 +10004,7 @@
   "peace_offer_count": "{0} terms",
   "peace_gives": "{1}'s price for peace",
   "peace_items": "{0} items",
-  "peace_gives_none": "(empty) {1} pays nothing and only asks for peace",
+  "peace_gives_none": "(empty) {1} pays nothing",
   "peace_add": "+ Add to {1}'s price for peace",
   "peace_sum": "Total value",
   "peace_pick_title": "What {1} can pay for peace",
@@ -11635,5 +11635,8 @@
   "kov_puppet_years": "Years",
   "kov_puppet_row": "{0} cities · {1} years",
   "peace_card_goal": "{0}'s war goal",
-  "peace_goal_hint": "\"Goal terms\" prices from this"
+  "peace_goal_hint": "\"Goal terms\" prices from this",
+  "peace_gives_none_attacker": "(empty) {1} started this war and may withdraw at any time, but that counts as a defeat and costs reparations",
+  "peace_btn_withdraw": "{0} withdraws",
+  "peace_withdraw_history": "{0} withdraws: its war on {1} failed and it pays reparations as the loser"
 }

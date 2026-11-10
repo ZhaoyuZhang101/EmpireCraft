@@ -171,6 +171,31 @@ public static class PeaceTable
         return true;
     }
 
+    // 罢兵(用户 2026-11-10"谁开启的战争谁就可以自主停战""但是停战需要赔付钱""相当于战争目标没完成打输了")：
+    // 开战的一方随时可以自己收兵，不看对方肯不肯；算作目标没打成、打输了——守方胜，攻方照败方赔款、占地交还(见 WarGoalSystem.Settle)
+    public static bool Withdraw(War war, bool byGod)
+    {
+        if (!Usable(war)) return false;
+        Kingdom attacker = war.main_attacker, defender = war.main_defender;
+        string text = string.Format(LM.Get("peace_withdraw_history"), attacker.GetKingdomName(), defender.GetKingdomName());
+        if (byGod) MembershipCooldown.ByGod(() => World.world.wars.endWar(war, WarWinner.Defenders));
+        else World.world.wars.endWar(war, WarWinner.Defenders);
+        if (!war.hasEnded()) return false;
+        Drafts.Remove(Id(war));
+        TranslateHelper.LogEventMessage(text, attacker);
+        return true;
+    }
+
+    // 两国谈不拢时攻方肯不肯罢兵：照标准一档赔款算它的意愿(打不动、疲敝重的宁可赔钱收兵)
+    private static bool WouldWithdraw(War war, PeaceBasis basis)
+    {
+        var deal = new PeaceDeal();
+        var pay = new PeaceTerm { kind = PeaceTermKind.Indemnity, by_attacker = true, tier = PeaceTermRules.StandardIndemnity };
+        if (Unavailable(war, pay) == null) deal.terms.Add(pay);
+        (PeaceOpinion attacker, PeaceOpinion _) = Evaluate(war, deal, basis);
+        return attacker.Accepts;
+    }
+
     // 去掉已经不成立的(城换了主、条件不再可行)
     private static void Prune(War war, PeaceDeal deal) => deal.terms.RemoveAll(term => Unavailable(war, term) != null);
 
@@ -638,6 +663,8 @@ public static class PeaceTable
                 if (war.hasEnded()) return;
                 Concluded.Remove(id);
             }
+            // 谈不拢：开战的一方宁可赔款收兵就罢兵(算打输了)
+            else if (WouldWithdraw(war, Basis(war)) && Withdraw(war, false)) return;
         }
         data.peace_talks_at = now;
         data.peace_momentum_attacker = attacker.Cities;

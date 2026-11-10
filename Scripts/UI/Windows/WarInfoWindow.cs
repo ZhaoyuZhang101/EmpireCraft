@@ -305,7 +305,18 @@ namespace EmpireCraft.Scripts.UI.Windows
                     Refresh();
                 }),
                 (LM.Get("peace_btn_sign"), WideKit.Green, both, () => Sign(false)),
-                (LM.Get("peace_btn_force"), WideKit.Gold, true, () => Sign(true)));
+                (LM.Get("peace_btn_force"), WideKit.Gold, true, () => Sign(true)),
+                // 开战的一方自己收兵：算打输了、照败方赔款(见 PeaceTable.Withdraw)
+                (string.Format(LM.Get("peace_btn_withdraw"), war.main_attacker.GetKingdomName()), WideKit.Orange, true, () =>
+                {
+                    if (!PeaceTable.Withdraw(_war, true))
+                    {
+                        Refresh();
+                        return;
+                    }
+                    _peaceAdding = -1;
+                    Go(Page.Chronicle);
+                }));
         }
 
         private void Sign(bool forced)
@@ -355,7 +366,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 string.Format(LM.Get("peace_items"), terms.Count));
             int row = 0;
             if (terms.Count == 0)
-                card.AddParagraph(ColumnWidth, string.Format(LM.Get("peace_gives_none"), taker.GetKingdomName(), giver.GetKingdomName()), 7, WideKit.Muted);
+                card.AddParagraph(ColumnWidth, string.Format(LM.Get(byAttacker ? "peace_gives_none_attacker" : "peace_gives_none"),
+                    taker.GetKingdomName(), giver.GetKingdomName()), 7, WideKit.Muted);
             foreach (PeaceTerm term in terms)
             {
                 (string label, string tag, string tagHex) = PeaceTable.Label(war, term);
