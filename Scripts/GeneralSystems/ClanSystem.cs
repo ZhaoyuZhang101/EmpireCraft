@@ -1457,6 +1457,16 @@ public class PersonalClanIdentity
     public LawImprisonment law_imprisonment;
     public bool ShouldSerializelaw_convictions() => law_convictions != null && law_convictions.Count > 0;
     public bool ShouldSerializelaw_imprisonment() => law_imprisonment != null;
+    // 起兵叛乱、拥兵自立的次数(量刑天平的叛逆砝码，见 SentencingScale；LawEvents.TrackRebelLeader 记)
+    public int law_rebellions;
+    public int law_secessions;
+    public bool ShouldSerializelaw_rebellions() => law_rebellions > 0;
+    public bool ShouldSerializelaw_secessions() => law_secessions > 0;
+    // 宗人府议处(见 EmpireLawSystem.ApplyRoyalCourt)：废储(不再入继承人之列)；废为庶人(不再算宗室)
+    public bool disinherited;
+    public bool stripped_royal;
+    public bool ShouldSerializedisinherited() => disinherited;
+    public bool ShouldSerializestripped_royal() => stripped_royal;
     public List<PersonalHistoryRecord> personal_history = new List<PersonalHistoryRecord>();
     // 个人恩怨(恩主、门生、宿敌，至多三条，见 PersonalTieSystem)
     public List<PersonalTie> ties { get; set; }
@@ -1636,7 +1646,7 @@ public class PersonalClanIdentity
 
     public bool CanHeir(PersonalClanIdentity identity=null)
     {
-        return is_main&&IsHeirPriority()&&is_alive&&identity?.id!=id;
+        return is_main&&IsHeirPriority()&&is_alive&&identity?.id!=id&&!disinherited;
     }
 
     public void setLover(Actor actor, bool isCus = false, bool recordHistory = true)
@@ -1969,4 +1979,7 @@ public class CrimeRecord
     public bool discovered { get; set; } = false;
     public double discovered_timestamp { get; set; } = -1L;
     public string discovered_date { get; set; } = "";
+    // 赃额：这桩未发之罪累计贪墨了多少(量刑天平的赃额砝码，见 EmpireLawSystem.RecordCrime)
+    public int amount { get; set; }
+    public bool ShouldSerializeamount() => amount > 0;
 }

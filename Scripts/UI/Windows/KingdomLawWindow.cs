@@ -16,6 +16,8 @@ public class KingdomLawWindow : WideScrollWindow<KingdomLawWindow>
 {
     private static long _pending = -1L;
     private Kingdom _kingdom;
+    // 右栏看律法还是量刑天平(用户 2026-11-10 选"律法页加天平分页")
+    private bool _scalePage;
 
     public static void Open(Kingdom kingdom)
     {
@@ -36,6 +38,13 @@ public class KingdomLawWindow : WideScrollWindow<KingdomLawWindow>
     }
 
     private static bool Alive(Kingdom kingdom) => kingdom?.data != null && !kingdom.isRekt();
+
+    private void ShowPage(bool scale)
+    {
+        if (_scalePage == scale) return;
+        _scalePage = scale;
+        Refresh(resetScroll: true);
+    }
 
     // ───────── 左栏 ─────────
     protected override void DrawRail(AutoVertLayoutGroup rail)
@@ -64,6 +73,12 @@ public class KingdomLawWindow : WideScrollWindow<KingdomLawWindow>
         stats.AddRailRow(width, LM.Get("law_kpi_prisoners"), string.Format(LM.Get("law_people_count"), prisoners),
             prisoners > 0 ? WideKit.Orange : WideKit.Muted, row);
 
+        var pages = rail.BeginRailMenu(LM.Get("law_pages"));
+        pages.AddRailOption(SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"), LM.Get("empire_law"), null, !_scalePage,
+            () => ShowPage(false), 0);
+        pages.AddRailOption(SpriteTextureLoader.getSprite("TabSentencing"), LM.Get("empire_law_scale"), null, _scalePage,
+            () => ShowPage(true), 1);
+
         var links = rail.BeginRailMenu(LM.Get("kov_links"));
         links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKingdom"), LM.Get("KingdomOverviewWindow Title"),
             () => KingdomOverviewWindow.Open(kingdom));
@@ -82,10 +97,11 @@ public class KingdomLawWindow : WideScrollWindow<KingdomLawWindow>
             page.AddEmptyCard(PageWidth, "kov_gone");
             return;
         }
-        page.AddPageHeader(PageWidth, "empire_law", LawPanel.Chips(_kingdom));
+        page.AddPageHeader(PageWidth, _scalePage ? "empire_law_scale" : "empire_law", LawPanel.Chips(_kingdom));
         try
         {
-            LawPanel.Render(page, _kingdom, PageWidth);
+            if (_scalePage) LawPanel.RenderScaleBoard(page, _kingdom, PageWidth);
+            else LawPanel.Render(page, _kingdom, PageWidth);
         }
         catch (global::System.Exception exception)
         {

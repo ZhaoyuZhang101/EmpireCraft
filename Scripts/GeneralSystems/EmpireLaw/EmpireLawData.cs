@@ -73,6 +73,13 @@ public class LawCaseRecord
     public string accuser_name = "";
     // 大赦：释放的在押者人数
     public int count;
+    // 量刑天平(见 SentencingScale)：两边的砝码("键|倍数|参数")、两边的分量、加减了几等
+    public List<string> scale_guilt;
+    public List<string> scale_mercy;
+    public float scale_guilt_weight = 1f;
+    public float scale_mercy_weight = 1f;
+    public int scale_shift;
+    public bool scale_mercy_ignored;
 
     public bool ShouldSerializepunishments() => punishments != null && punishments.Count > 0;
     public bool ShouldSerializenotes() => notes != null && notes.Count > 0;
@@ -81,6 +88,12 @@ public class LawCaseRecord
     public bool ShouldSerializeaccuser_name() => !string.IsNullOrEmpty(accuser_name);
     public bool ShouldSerializecount() => count != 0;
     public bool ShouldSerializeidentity_id() => identity_id >= 0L;
+    public bool ShouldSerializescale_guilt() => scale_guilt != null && scale_guilt.Count > 0;
+    public bool ShouldSerializescale_mercy() => scale_mercy != null && scale_mercy.Count > 0;
+    public bool ShouldSerializescale_guilt_weight() => ShouldSerializescale_guilt() || ShouldSerializescale_mercy();
+    public bool ShouldSerializescale_mercy_weight() => ShouldSerializescale_guilt_weight();
+    public bool ShouldSerializescale_shift() => scale_shift != 0;
+    public bool ShouldSerializescale_mercy_ignored() => scale_mercy_ignored;
 
     [JsonIgnore] public LawType? Crime => law_type >= 0 ? (LawType)law_type : null;
 }
@@ -149,8 +162,6 @@ public class LawStanceInfo
     public LawStanceTier Tier = LawStanceTier.适中;
     // 犯罪几率倍数(严则慑、宽则纵)
     public float CrimeRateFactor = 1f;
-    // 严苛：每案加一等的机会；宽仁：每案(十恶除外)减一等的机会
-    public float SentenceShiftChance;
     // 罚金、刑期的倍数
     public float FineFactor = 1f;
     public float PrisonFactor = 1f;
@@ -176,6 +187,26 @@ public class JudicialStrengthInfo
     public int Total;
     public List<JudicialOfficeInfo> Offices = new();
     public List<LawFactor> Breakdown = new();
+}
+
+// 量刑天平的读数(见 SentencingScale、EmpireLawSystem.GetScale)：罪责一边、情面一边的砝码与分量，天平 = 罪责 ÷ 情面
+public class SentencingScaleInfo
+{
+    public List<LawFactor> Guilt = new();
+    public List<LawFactor> Mercy = new();
+    public float GuiltWeight = 1f;
+    public float MercyWeight = 1f;
+    public float Balance = 1f;
+    // 加减几等(正加负减)
+    public int Shift;
+    // 十恶、暴君：情面不上秤
+    public bool Grave;
+    public bool Tyrant;
+    public bool MercyIgnored => Grave || Tyrant;
+    // 皇室身份的砝码键(law_scale_heir / law_scale_royal_close / law_scale_royal_kin)，不是皇室为空
+    public string RoyalKey = "";
+    public bool Royal => !string.IsNullOrEmpty(RoyalKey);
+    public bool Heir => RoyalKey == "law_scale_heir";
 }
 
 // 某人某年罪行被查出的机会与构成

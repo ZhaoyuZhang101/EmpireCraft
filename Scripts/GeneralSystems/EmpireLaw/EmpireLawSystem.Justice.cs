@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using EmpireCraft.Scripts.System;
+using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -17,7 +19,8 @@ namespace EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
 //   · 宽严：一国奉行的理念(执政理念、本朝官学：法家严、儒家黄老宽……)与君主(暴君、残忍好杀严，明君、好和平宽)
 //     定宽严(-1 ~ +1)：严则人畏法少犯、量刑加一等、处决激起民怨并添暴君之名；宽则多犯、量刑减一等、多行恩赦；
 //   · 量刑：律文 → 时代与政体(工业时代废笞杖、废连坐；现代政体以监禁为主，民主国家废死) → 宽严 →
-//     八议(宗室、贵族、功臣减一等) → 赎刑(富者纳金赎笞杖徒流)。十恶不减等、不许赎、不在大赦之列。
+//     量刑天平(罪责：前科、叛逆、严苛、宿怨；情面：皇室、议贵、议功、政绩、影响力、宠信、宽仁，见 SentencingScale)加减等 →
+//     赎刑(富者纳金赎笞杖徒流)。十恶只看罪责、不许赎、不在大赦之列。
 public static partial class EmpireLawSystem
 {
     // 刑等(轻 → 重)：罚金、笞、杖、徒(监禁)、流、死、族。没收财产、削爵、罢官是附加的处分，不在刑等之内
@@ -73,6 +76,8 @@ public static partial class EmpireLawSystem
     {
         Actor ruler = RealmRuler(kingdom);
         if (actor == null || ruler == null || ruler == actor) return false;
+        // 宗人府废为庶人的不再算宗室(见 ApplyRoyalCourt)
+        if (actor.GetPersonalIdentity()?.stripped_royal == true) return false;
         SpecificClan own = actor.GetSpecificClan();
         SpecificClan royal = ruler.GetSpecificClan();
         return own != null && royal != null && SpecificClanManager.SameLineage(own, royal);
@@ -167,8 +172,6 @@ public static partial class EmpireLawSystem
         info.CrimeRateFactor = 1f - 0.3f * severity;
         info.FineFactor = 1f + 0.3f * severity;
         info.PrisonFactor = 1f + 0.4f * severity;
-        // 严苛、宽仁之国每案至多五成机会加/减一等
-        info.SentenceShiftChance = info.Tier == LawStanceTier.适中 ? 0f : 0.5f * Mathf.Abs(severity);
         // 宽仁之国距上次大赦满十年后，每年至多一成五机会恩赦
         info.AmnestyChance = info.Tier == LawStanceTier.宽仁 ? 0.15f * -severity : 0f;
         return info;
@@ -494,7 +497,7 @@ public static partial class EmpireLawSystem
 
     #region 量刑
 
-    // 量刑：律文 → 时代与政体 → 宽严(严加一等、宽减一等) → 八议减一等 → 赎刑。十恶不减、不赎；现代政体不议、不赎
+    // 量刑：律文 → 时代与政体 → 量刑天平(宽严、八议都在天平上) → 赎刑。十恶不论情面、不赎；现代政体只论宽仁、不赎
     private static void BuildSentence(LawEnforcementContext context)
     {
         Kingdom kingdom = context.Kingdom;
@@ -506,33 +509,8 @@ public static partial class EmpireLawSystem
 
         LawStanceInfo stance = GetLawStance(kingdom);
         context.Severity = stance.Severity;
-        if (stance.Tier == LawStanceTier.严苛 && UnityEngine.Random.value < stance.SentenceShiftChance)
-        {
-            if (Escalate(sentence, grades, context))
-            {
-                context.Escalated = true;
-                AddNote(context.Notes, "law_note_harsh");
-            }
-        }
-        else if (stance.Tier == LawStanceTier.宽仁 && !context.Grave && UnityEngine.Random.value < stance.SentenceShiftChance)
-        {
-            if (Reduce(sentence, grades, context))
-            {
-                context.Reduced = true;
-                AddNote(context.Notes, "law_note_lenient");
-            }
-        }
-
-        // 八议：宗室(议亲)、公以上的贵族(议贵)、勋级护军以上的功臣(议功)减一等
-        if (!context.Grave && !regime.Modern)
-        {
-            string privilege = PrivilegeOf(context.Actor, kingdom);
-            if (privilege != null && Reduce(sentence, grades, context))
-            {
-                context.Reduced = true;
-                AddNote(context.Notes, privilege);
-            }
-        }
+        // 宽严、八议都化成量刑天平上的砝码(以前严苛、宽仁按机会加减一等，八议一律减一等)
+        ApplyScale(context, sentence, grades, regime, stance);
 
         PlanRansom(context, sentence, regime);
         context.Sentence = OrderedPunishments(sentence);
@@ -591,16 +569,305 @@ public static partial class EmpireLawSystem
         return true;
     }
 
-    // 八议(议亲、议贵、议功)：返回量刑说明的本地化键，不在八议之列为 null
-    public static string PrivilegeOf(Actor actor, Kingdom kingdom)
+    #region 量刑天平
+
+    private enum RoyalRank { None, Kin, Close, Heir }
+
+    // 皇室：本朝储君；君主的子女、兄弟、父母(按族谱父母，死了的也认)；同宗(含支系)。废为庶人的不算(见 ApplyRoyalCourt)
+    private static RoyalRank RoyalRankOf(Actor actor, Kingdom kingdom)
     {
-        if (actor == null || actor.isRekt()) return null;
-        if (IsRoyalKin(actor, kingdom)) return "law_note_privilege_kin";
-        if ((int)actor.GetPeeragesLevel() >= (int)PeeragesLevel.peerages_3) return "law_note_privilege_noble";
-        OfficeIdentity identity = actor.GetOrCreate().officeIdentity;
-        if (identity != null && identity.meritLevel <= GreatMeritLevel) return "law_note_privilege_merit";
-        return null;
+        if (actor?.data == null || actor.isRekt()) return RoyalRank.None;
+        PersonalClanIdentity own = actor.GetPersonalIdentity();
+        if (own?.stripped_royal == true) return RoyalRank.None;
+        Kingdom realm = RealmKingdom(kingdom);
+        if (realm != null && realm.HasHeir() && realm.GetHeir() == actor) return RoyalRank.Heir;
+        if (!IsRoyalKin(actor, kingdom)) return RoyalRank.None;
+        PersonalClanIdentity ruler = RealmRuler(kingdom)?.GetPersonalIdentity();
+        if (own != null && ruler != null &&
+            (own.father == ruler.id || own.mother == ruler.id || ruler.father == own.id || ruler.mother == own.id ||
+             own.father >= 0 && own.father == ruler.father || own.mother >= 0 && own.mother == ruler.mother))
+            return RoyalRank.Close;
+        return RoyalRank.Kin;
     }
+
+    // 叛逆：起兵叛乱、拥兵自立的次数(见 NoteDefiance)与犯过的十恶。这一案就是那场兵败的叛乱的，那一回不重算
+    private static int DefianceCount(PersonalClanIdentity identity, string reasonKey)
+    {
+        if (identity == null) return 0;
+        int tally = identity.law_rebellions + identity.law_secessions;
+        if (tally > 0 && reasonKey is "law_reason_failed_rebellion" or "law_reason_failed_secession"
+                or "law_reason_failed_claim" or "law_reason_failed_sect_uprising") tally--;
+        int grave = identity.law_convictions?.Count(record => record?.Crime is LawType type && IsGraveCrime(type)) ?? 0;
+        return tally + grave;
+    }
+
+    // 未发之罪累计的赃额(人物页预览用；论罪时用那一桩的，见 CrimeRecord.amount)
+    private static int PendingLoot(PersonalClanIdentity identity) =>
+        identity?.crime_records?.Where(record => record != null && !record.resolved).Sum(record => record.amount) ?? 0;
+
+    // 量刑天平的读数(见 SentencingScale)。context 为空是人物页的预览：按寻常罪名(不是十恶)、未发之罪的赃额、没有告发者算
+    //   罪责：前科、叛逆、赃额、告发者、严苛之政、与君主有宿怨、暴君从重；
+    //   情面：皇室、议贵、议功、政绩、影响力、宠信(昏君偏袒)、宽仁之政。十恶、暴君情面不上秤；现代政体只论宽仁
+    public static SentencingScaleInfo GetScale(Actor actor, Kingdom kingdom, LawEnforcementContext context = null)
+    {
+        var info = new SentencingScaleInfo();
+        if (actor?.data == null || actor.isRekt() || kingdom?.data == null || kingdom.isRekt()) return info;
+        PenalRegime regime = GetPenalRegime(kingdom);
+        LawStanceInfo stance = GetLawStance(kingdom);
+        PersonalClanIdentity identity = context?.Identity ?? actor.GetPersonalIdentity();
+        Actor ruler = RealmRuler(kingdom);
+        RulerQualitySystem.Grade temper = ruler != null ? RulerQualitySystem.Of(ruler) : RulerQualitySystem.Grade.Average;
+        info.Grave = context?.Grave == true;
+        info.Tyrant = temper == RulerQualitySystem.Grade.Tyrant && ruler != actor;
+        void Weigh(List<LawFactor> side, string key, float value, string arg = null)
+        {
+            if (Mathf.Abs(value - 1f) > 0.001f) side.Add(new LawFactor(key, value, arg));
+        }
+
+        Weigh(info.Guilt, "law_scale_priors", SentencingScale.PriorFactor(identity?.law_convictions?.Count ?? 0));
+        Weigh(info.Guilt, "law_scale_defiance", SentencingScale.DefianceFactor(DefianceCount(identity, context?.ReasonKey)));
+        int loot = context != null ? context.Loot : PendingLoot(identity);
+        Weigh(info.Guilt, "law_scale_loot", SentencingScale.LootFactor(loot), loot.ToString());
+        Actor accuser = context?.Accuser;
+        if (accuser?.data != null && !accuser.isRekt())
+            Weigh(info.Guilt, "law_scale_accuser", SentencingScale.AccuserFactor(accuser.renown, actor.renown), accuser.getName());
+        Weigh(info.Guilt, "law_scale_harsh", SentencingScale.HarshFactor(stance.Severity));
+        if (ruler != null && ruler != actor && PersonalTieSystem.AreRivals(ruler, actor))
+            Weigh(info.Guilt, "law_scale_rival", SentencingScale.RulerRival, ruler.getName());
+        if (info.Tyrant) Weigh(info.Guilt, "law_scale_tyrant", SentencingScale.TyrantGuilt, ruler.getName());
+
+        RoyalRank royal = RoyalRankOf(actor, kingdom);
+        info.RoyalKey = royal switch
+        {
+            RoyalRank.Heir => "law_scale_heir",
+            RoyalRank.Close => "law_scale_royal_close",
+            RoyalRank.Kin => "law_scale_royal_kin",
+            _ => ""
+        };
+        if (!regime.Modern)
+        {
+            if (info.Royal)
+                Weigh(info.Mercy, info.RoyalKey, royal switch
+                {
+                    RoyalRank.Heir => SentencingScale.RoyalHeir,
+                    RoyalRank.Close => SentencingScale.RoyalClose,
+                    _ => SentencingScale.RoyalKin
+                });
+            int peerage = (int)actor.GetPeeragesLevel();
+            Weigh(info.Mercy, "law_scale_noble", peerage >= (int)PeeragesLevel.peerages_3 ? SentencingScale.PeerHigh
+                : peerage > (int)PeeragesLevel.peerages_6 || actor.HasTitle() ? SentencingScale.PeerLow : 1f);
+            OfficeIdentity office = actor.GetOrCreate().officeIdentity;
+            if (office != null && office.meritLevel <= GreatMeritLevel) Weigh(info.Mercy, "law_scale_merit", SentencingScale.GreatMerit);
+            if (office != null) Weigh(info.Mercy, "law_scale_performance", SentencingScale.PerformanceFactor(office.TotalPerformance));
+            Weigh(info.Mercy, "law_scale_influence", SentencingScale.InfluenceFactor(actor.renown, ruler?.renown ?? 0, ruler != null));
+            Empire empire = RealmEmpire(kingdom);
+            if (empire != null && FavouriteSystem.Of(empire) == actor)
+            {
+                bool indulgent = temper is RulerQualitySystem.Grade.Fatuous or RulerQualitySystem.Grade.Dissolute;
+                Weigh(info.Mercy, indulgent ? "law_scale_favourite_indulged" : "law_scale_favourite",
+                    indulgent ? SentencingScale.FatuousFavourite : SentencingScale.Favourite, ruler?.getName());
+            }
+        }
+        if (!info.Grave) Weigh(info.Mercy, "law_scale_lenient", SentencingScale.LenientFactor(stance.Severity));
+
+        info.GuiltWeight = info.Guilt.Aggregate(1f, (product, factor) => product * factor.Value);
+        info.MercyWeight = info.Mercy.Aggregate(1f, (product, factor) => product * factor.Value);
+        info.Balance = SentencingScale.Balance(info.GuiltWeight, info.MercyWeight, info.MercyIgnored);
+        info.Shift = SentencingScale.Shift(info.Balance);
+        return info;
+    }
+
+    // 加减几等的说法：加一等、减三等、按律
+    public static string ShiftText(int shift) =>
+        shift > 0 ? LM.Get("law_scale_heavier") : shift < 0 ? string.Format(LM.Get("law_scale_lighter"), -shift) : LM.Get("law_scale_even");
+
+    // 一边砝码的说法："前科×1.40、赃额 120×1.30"
+    public static string WeightsText(IEnumerable<LawFactor> factors)
+    {
+        string sep = LM.Has("law_scale_sep") ? LM.Get("law_scale_sep") : ", ";
+        return string.Join(sep, (factors ?? Enumerable.Empty<LawFactor>()).Select(factor => $"{factor.Label}×{factor.Value:0.00}"));
+    }
+
+    // 量刑：天平定加减几等。减两等以上免抄家(改罚金)、减三等免削爵；皇室交宗人府议处(见 RoyalCourtSentence)，
+    // 罢官不禁锢子孙(子孙是皇位所系)
+    private static void ApplyScale(LawEnforcementContext context, List<PunishmentLevel> sentence, List<PunishmentLevel> grades,
+        PenalRegime regime, LawStanceInfo stance)
+    {
+        SentencingScaleInfo info = GetScale(context.Actor, context.Kingdom, context);
+        context.Scale = info;
+        context.RoyalKin = info.Royal;
+        context.Faction = context.Actor?.GetFaction();
+        int shift = info.Shift;
+        int applied = 0;
+        if (shift > 0 && Escalate(sentence, grades, context)) applied = 1;
+        for (int step = 0; step < -shift && Reduce(sentence, grades, context); step++) applied--;
+        context.Escalated = applied > 0;
+        context.Reduced = applied < 0;
+        context.ScaleShift = shift;
+
+        if (-shift >= SentencingScale.SpareEstateAt && sentence.Remove(PunishmentLevel.没收财产))
+        {
+            if (grades.Contains(PunishmentLevel.罚金) && !sentence.Contains(PunishmentLevel.罚金)) sentence.Add(PunishmentLevel.罚金);
+            AddNote(context.Notes, "law_note_spare_estate");
+        }
+        if (-shift >= SentencingScale.SparePeerageAt)
+        {
+            context.SparePeerage = true;
+            if (sentence.Remove(PunishmentLevel.剥夺爵位)) AddNote(context.Notes, "law_note_spare_peerage");
+        }
+        if (info.Royal && !regime.Modern) RoyalCourtSentence(context, sentence, grades, info);
+        if (info.Royal && context.Law?.AffectDescendants == true && sentence.Contains(PunishmentLevel.剥夺官职))
+        {
+            context.NoDescendantBan = true;
+            AddNote(context.Notes, "law_note_royal_no_ban");
+        }
+
+        if (info.Guilt.Count == 0 && info.Mercy.Count == 0) return;
+        context.Notes.Add("law_note_scale|" + (info.MercyIgnored && info.Mercy.Count > 0
+            ? LM.Get(info.Grave ? "law_scale_grave" : "law_scale_tyrant_ignores") + " · " + ShiftText(shift)
+            : ShiftText(shift)));
+        LogService.LogInfo($"[律法][量刑] {context.ActorName} {context.LawType}：罪责 " +
+                           (info.Guilt.Count == 0 ? "—" : string.Join(" ", info.Guilt.Select(f => $"{f.Label}×{f.Value:0.00}"))) +
+                           $" → {info.GuiltWeight:0.00}｜情面 " +
+                           (info.Mercy.Count == 0 ? "—" : string.Join(" ", info.Mercy.Select(f => $"{f.Label}×{f.Value:0.00}"))) +
+                           $" → {info.MercyWeight:0.00}{(info.Grave ? "(十恶不议)" : info.Tyrant ? "(暴君不论情面)" : "")}｜" +
+                           $"天平 {info.Balance:0.00} → {shift:+0;-0;0} 等，实施 {applied:+0;-0;0}" +
+                           (info.Royal ? "｜宗人府 " + string.Join(" ", context.Notes.Where(n => n.StartsWith("law_note_royal") || n.StartsWith("law_note_heir"))) : ""));
+    }
+
+    // 宗人府议处(用户 2026-11-10 选"宗室重罪交宗人府")：
+    //   · 寻常罪名：皇室不受笞杖(折罚俸)、徒流改圈禁、免抄家、削爵改降一等；储君判到圈禁的废储；
+    //   · 十恶：储君废为庶人、终身圈禁(唐太子承乾谋反故事；暴君照律处死)，宗室照律论死，夷三族改赐死(三族即皇族)
+    private static void RoyalCourtSentence(LawEnforcementContext context, List<PunishmentLevel> sentence, List<PunishmentLevel> grades,
+        SentencingScaleInfo info)
+    {
+        if (!context.Grave)
+        {
+            bool changed = false;
+            if (sentence.RemoveAll(p => p == PunishmentLevel.笞刑 || p == PunishmentLevel.杖刑) > 0)
+            {
+                if (grades.Contains(PunishmentLevel.罚金) && !sentence.Contains(PunishmentLevel.罚金)) sentence.Add(PunishmentLevel.罚金);
+                changed = true;
+            }
+            if (sentence.Remove(PunishmentLevel.流放))
+            {
+                if (!sentence.Contains(PunishmentLevel.监禁)) sentence.Add(PunishmentLevel.监禁);
+                changed = true;
+            }
+            if (sentence.Remove(PunishmentLevel.没收财产))
+            {
+                if (grades.Contains(PunishmentLevel.罚金) && !sentence.Contains(PunishmentLevel.罚金)) sentence.Add(PunishmentLevel.罚金);
+                changed = true;
+            }
+            context.DemotePeerage = true;
+            if (sentence.Contains(PunishmentLevel.剥夺爵位)) changed = true;
+            if (changed) AddNote(context.Notes, "law_note_royal_court");
+            if (info.Heir && sentence.Contains(PunishmentLevel.监禁))
+            {
+                context.DeposeHeir = true;
+                AddNote(context.Notes, "law_note_heir_deposed");
+            }
+            return;
+        }
+        if (info.Heir && !info.Tyrant)
+        {
+            sentence.Remove(PunishmentLevel.死刑);
+            sentence.Remove(PunishmentLevel.夷三族);
+            if (!sentence.Contains(PunishmentLevel.监禁)) sentence.Add(PunishmentLevel.监禁);
+            context.LifeTerm = true;
+            context.DeposeHeir = true;
+            context.StripRoyal = true;
+            AddNote(context.Notes, "law_note_heir_commoner");
+            return;
+        }
+        if (sentence.Remove(PunishmentLevel.夷三族))
+        {
+            if (!sentence.Contains(PunishmentLevel.死刑)) sentence.Add(PunishmentLevel.死刑);
+            AddNote(context.Notes, "law_note_royal_no_clan");
+        }
+        if (info.Heir) context.DeposeHeir = true;
+    }
+
+    // 宗人府议处的后事(施刑以后)：废储——储君之位另立，此人不再入继承人之列；废为庶人——不再算宗室，去爵
+    private static void ApplyRoyalCourt(LawEnforcementContext context)
+    {
+        Actor actor = context?.Actor;
+        if (actor?.data == null || !context.DeposeHeir && !context.StripRoyal) return;
+        PersonalClanIdentity identity = context.Identity ?? actor.GetPersonalIdentity();
+        Kingdom realm = RealmKingdom(context.Kingdom);
+        Actor ruler = RealmRuler(context.Kingdom);
+        if (context.DeposeHeir && realm != null)
+        {
+            if (identity != null) identity.disinherited = true;
+            var data = realm.GetOrCreate();
+            if (data.designated_heir_id == actor.id) data.designated_heir_id = -1L;
+            if (realm.GetHeir() == actor)
+            {
+                realm.RemoveHeir();
+                realm.StartToChooseHeir();
+            }
+            string text = string.Format(LM.Get(context.StripRoyal ? "law_heir_commoner_history" : "law_heir_deposed_history"),
+                context.ActorName, context.LawName);
+            Empire empire = RealmEmpire(context.Kingdom);
+            if (empire != null) EventRecorder.Record(empire, text, actor, realm);
+            else EventRecorder.Record(realm, text, actor);
+            BiographySystem.Note(actor, BiographySystem.Format("bio_heir_deposed_law", context.LawName), ruler);
+        }
+        if (context.StripRoyal && identity != null)
+        {
+            identity.stripped_royal = true;
+            ApplyStripPeerage(actor);
+        }
+    }
+
+    // 量刑天平的代价(用户 2026-11-10 选"硬判、放过都有代价")：
+    //   · 硬判：单看情面本该减两等以上，却因罪责、暴君、十恶少减了两等以上，又判了徒以上——他那一派怨望 +HardlineGrievance；
+    //     皇室再损正统 2；暴君不念亲贵添暴虐 3；
+    //   · 放过：罪责到了 ×1.6 却因情面减了等——吏治败坏积弊 +2，本朝腐败 +0.5%
+    private const float HardlineGrievance = 5f;
+
+    private static void ApplyScaleCosts(LawEnforcementContext context)
+    {
+        SentencingScaleInfo info = context?.Scale;
+        if (info == null) return;
+        Empire empire = RealmEmpire(context.Kingdom);
+        Kingdom realm = RealmKingdom(context.Kingdom);
+        int mercyShift = SentencingScale.MercyShift(info.MercyWeight);
+        bool severe = context.AppliedPunishments.Any(p => p is PunishmentLevel.监禁 or PunishmentLevel.流放 or PunishmentLevel.死刑
+            or PunishmentLevel.夷三族);
+        if (-mercyShift >= SentencingScale.HardlineMercyGrades && info.Shift - mercyShift >= SentencingScale.HardlineMercyGrades && severe)
+        {
+            if (empire != null && context.Faction != null)
+            {
+                CourtFactionState state = CourtSystem.FactionState(empire, context.Faction);
+                if (state != null) state.grievance = Mathf.Min(100f, state.grievance + HardlineGrievance);
+            }
+            if (info.Royal) empire?.AddMandate(-2);
+            if (info.Tyrant) RealmRuler(context.Kingdom)?.AddTyrantValue(3);
+            AddNote(context.Notes, "law_note_cost_hardline");
+            LogService.LogInfo($"[律法][量刑] 硬判 {context.ActorName}：情面本可减 {-mercyShift} 等，实判 {info.Shift:+0;-0;0}，" +
+                               $"派系怨望 +{HardlineGrievance}{(info.Royal ? "，正统 -2" : "")}");
+            return;
+        }
+        if (info.GuiltWeight >= SentencingScale.LenientGuiltWeight && info.Shift < 0)
+        {
+            if (empire != null) MaladySystem.Aggravate(empire, MaladySystem.Graft, 2f);
+            realm?.AddCorruptionRate(0.005d);
+            AddNote(context.Notes, "law_note_cost_lenient");
+            LogService.LogInfo($"[律法][量刑] 放过 {context.ActorName}：罪责 ×{info.GuiltWeight:0.00} 仍减 {-info.Shift} 等，吏治败坏 +2");
+        }
+    }
+
+    // 起兵叛乱、拥兵自立记在首领的族谱身份上(叛逆砝码)：每场仗每位首领记一次(见 LawEvents.TrackRebelLeader)
+    public static void NoteDefiance(Actor leader, bool secession)
+    {
+        PersonalClanIdentity identity = leader?.GetPersonalIdentity();
+        if (identity == null) return;
+        if (secession) identity.law_secessions++;
+        else identity.law_rebellions++;
+    }
+
+    #endregion
 
     // 赎刑：判了笞、杖、徒、流而不判死的，家资不少于 100、赎金不过家资六成的纳金赎免(严则赎重)。
     // 十恶、现代政体不许赎；判了抄家的赎了也是白赎，不赎

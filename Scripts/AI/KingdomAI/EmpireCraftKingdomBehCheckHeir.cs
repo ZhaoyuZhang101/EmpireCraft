@@ -247,8 +247,10 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor)).Distinct().ToList();
     }
 
+    // 宗人府废了储的(见 EmpireLawSystem.ApplyRoyalCourt)不再入继承人之列
     private static bool IsFitCandidate(Actor actor, PersonalClanIdentity parent) =>
-        actor != null && actor != parent?._actor && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule();
+        actor != null && actor != parent?._actor && !actor.isRekt() && actor.isAlive() && actor.isUnitFitToRule() &&
+        actor.GetPersonalIdentity()?.disinherited != true;
 
     // 已经是别国君主的人不按继承法入继(用户 2026-10-16："明明南北朝了，两边的皇帝有时候还会通过继承法同时继承给一个人，
     // 这是华夏又不是西方")：

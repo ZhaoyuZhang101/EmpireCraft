@@ -106,7 +106,14 @@ public static partial class EmpireLawSystem
             reason_key = context.ReasonKey ?? "",
             notes = notes,
             accuser_id = context.Accuser?.data != null ? context.Accuser.id : -1L,
-            accuser_name = context.Accuser?.getName() ?? ""
+            accuser_name = context.Accuser?.getName() ?? "",
+            // 量刑天平两边的砝码(卷宗悬停分两栏列，见 LawPanel.DrawCases)
+            scale_guilt = ScaleEntries(context.Scale?.Guilt),
+            scale_mercy = ScaleEntries(context.Scale?.Mercy),
+            scale_guilt_weight = context.Scale?.GuiltWeight ?? 1f,
+            scale_mercy_weight = context.Scale?.MercyWeight ?? 1f,
+            scale_shift = context.ScaleShift,
+            scale_mercy_ignored = context.Scale?.MercyIgnored == true
         });
 
         if (identity == null || context.Outcome == LawCaseOutcome.开释) return;
@@ -123,6 +130,25 @@ public static partial class EmpireLawSystem
         });
         if (identity.law_convictions.Count > MaxConvictions)
             identity.law_convictions.RemoveRange(0, identity.law_convictions.Count - MaxConvictions);
+    }
+
+    // 天平砝码存成"键|倍数|参数"(参数是人名、赃额，存下时的文字)
+    private static List<string> ScaleEntries(List<LawFactor> factors) =>
+        factors == null || factors.Count == 0 ? null
+            : factors.Select(factor => $"{factor.Key}|{factor.Value.ToString("0.00", global::System.Globalization.CultureInfo.InvariantCulture)}|{factor.Arg ?? ""}").ToList();
+
+    // 卷宗里存下的砝码还原成 LawFactor(界面用)
+    public static List<LawFactor> ScaleFactors(List<string> entries)
+    {
+        var factors = new List<LawFactor>();
+        foreach (string entry in entries ?? new List<string>())
+        {
+            string[] parts = (entry ?? "").Split(new[] { '|' }, 3);
+            if (parts.Length < 2 || !float.TryParse(parts[1], global::System.Globalization.NumberStyles.Float,
+                    global::System.Globalization.CultureInfo.InvariantCulture, out float value)) continue;
+            factors.Add(new LawFactor(parts[0], value, parts.Length > 2 && parts[2].Length > 0 ? parts[2] : null));
+        }
+        return factors;
     }
 
     // 当场拿获的同一罪名、本国尚未发觉的旧案一并了结

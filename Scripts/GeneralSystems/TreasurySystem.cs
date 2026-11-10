@@ -251,13 +251,15 @@ public static class TreasurySystem
         ? LM.Get("fiscal_tax_withheld") : TaxSharingText(city.kingdom);
 
     // 原法律系统对国王每次记罪都会增加暴虐值。即时缴税不能把一次年度贪污变成数千次治理惩罚。
-    private static void RecordTaxCorruption(Actor actor)
+    // stolen：这回贪墨的数目，记进未发的贪污案的赃额(量刑天平的赃额砝码，见 SentencingScale)；新立案仍一年至多一次
+    private static void RecordTaxCorruption(Actor actor, int stolen)
     {
+        if (EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.AddCrimeAmount(actor, LawType.贪污, stolen)) return;
         var data = actor.GetOrCreate();
         double now = World.world.getCurWorldTime();
         if (data.last_fiscal_corruption_crime_timestamp >= 0d && now >= data.last_fiscal_corruption_crime_timestamp &&
             Date.getYearsSince(data.last_fiscal_corruption_crime_timestamp) < 1) return;
-        if (actor.RecordCrime(LawType.贪污)) data.last_fiscal_corruption_crime_timestamp = now;
+        if (actor.RecordCrime(LawType.贪污, stolen)) data.last_fiscal_corruption_crime_timestamp = now;
     }
 
     // 劫掠只转移现有现金；债务不能作为负数战利品转嫁给胜方。
@@ -321,7 +323,7 @@ public static class TreasurySystem
         {
             city.SubMoney(stolen, TreasuryCategory.Corruption);
             city.leader.addMoney(stolen);
-            RecordTaxCorruption(city.leader);
+            RecordTaxCorruption(city.leader, stolen);
             if (taxed) TaxErosionSystem.RecordStolen(realm, stolen);
         }
         // 保留原城市征税 AI 的政治拒缴规则；恢复忠诚后只分配新税款，不追抽留存余额。
@@ -362,6 +364,6 @@ public static class TreasurySystem
         if (stolen <= 0) return;
         kingdom.SubMoney(stolen, TreasuryCategory.Corruption);
         kingdom.king.addMoney(stolen);
-        RecordTaxCorruption(kingdom.king);
+        RecordTaxCorruption(kingdom.king, stolen);
     }
 }

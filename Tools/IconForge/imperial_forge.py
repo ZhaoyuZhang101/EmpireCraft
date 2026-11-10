@@ -573,6 +573,23 @@ def obj_gentry(img):
     over(img, shade(rrect([106, 126, 150, 144], 3), RED, bevel=2, flat=True))
 
 
+def obj_sentencing(img):
+    """量刑天平(律法页的天平分页)：乌木底座、铁立柱、旧铜横梁向左倾，两只铜盘以链悬挂；
+    左盘压一枚朱红官印(罪责)，右盘搁一卷骨白文书(情面)。揭发罪行的计谋用的是端平的 obj_scales"""
+    over(img, shade(rrect([70, 214, 186, 236], 6), WOOD, bevel=6, grain=0.3))
+    over(img, shade(rrect([96, 198, 160, 218], 5), IRON, bevel=5))
+    over(img, shade(rrect([120, 56, 136, 204], 4), IRON, bevel=5, gloss=0.6))
+    over(img, shade(lines([[(40, 88), (216, 72)]], 12), BRASS, bevel=5, gloss=0.9))
+    over(img, shade(ellipse([114, 40, 142, 68]), BRASS, bevel=6, gloss=1.0))
+    over(img, shade(lines([[(44, 90), (24, 152)], [(44, 90), (64, 152)], [(212, 74), (192, 138)], [(212, 74), (232, 138)]], 4),
+                    STEEL, bevel=2))
+    over(img, shade(poly([(10, 152), (78, 152), (70, 172), (18, 172)]), BRASS, bevel=6, gloss=0.8))
+    over(img, shade(poly([(178, 138), (246, 138), (238, 158), (186, 158)]), BRASS, bevel=6, gloss=0.8))
+    over(img, shade(rrect([26, 122, 62, 154], 4), RED, bevel=5))
+    over(img, shade(rrect([34, 112, 54, 126], 3), BLOOD, bevel=3))
+    over(img, shade(rrect([188, 120, 236, 140], 6), BONE, bevel=4, grain=0.2))
+
+
 TABS = {
     "TabMilitary": obj_military,
     "TabGentry": obj_gentry,
@@ -584,6 +601,7 @@ TABS = {
     "TabConstitution": obj_book,
     "TabInstitutions": obj_bamboo,
     "TabDiet": obj_diet,
+    "TabSentencing": obj_sentencing,
 }
 
 

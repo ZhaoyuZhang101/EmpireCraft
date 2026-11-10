@@ -160,6 +160,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 lawTab.Setup("empire_law", this.TabsWindow, action: ShowLaw,
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"));
             }
+            // 量刑天平：本朝要人若论罪的天平读数(见 EmpireWindow.Law、LawPanel.RenderScaleBoard)
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_law_scale"))
+            {
+                var scaleTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                scaleTab.Setup("empire_law_scale", this.TabsWindow, action: ShowLawScale,
+                    sprite: SpriteTextureLoader.getSprite("TabSentencing"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_institutions"))
             {
                 var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

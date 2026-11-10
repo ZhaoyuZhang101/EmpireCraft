@@ -178,6 +178,20 @@ public class LawEnforcementContext
     public List<string> Notes { get; set; } = new();
     public LawCaseOutcome Outcome { get; set; }
     public bool CaseRecorded { get; set; }
+    // 量刑天平(见 SentencingScale)：加减了几等(正加负减)；犯人是皇室；减到免削爵；皇室罢官不禁锢子孙
+    public int ScaleShift { get; set; }
+    public bool RoyalKin { get; set; }
+    public bool SparePeerage { get; set; }
+    public bool NoDescendantBan { get; set; }
+    // 赃额(这桩未发之罪累计贪墨的数目，见 CrimeRecord.amount)与这一案的天平读数
+    public int Loot { get; set; }
+    public SentencingScaleInfo Scale { get; set; }
+    // 宗人府议处：削爵改降一等；废储；废为庶人(见 EmpireLawSystem.ApplyRoyalCourt)
+    public bool DemotePeerage { get; set; }
+    public bool DeposeHeir { get; set; }
+    // 犯人所在的派系(硬判的怨望记在这一派，见 ApplyScaleCosts；施刑前记下，伏诛后也找得到)
+    public Regimes.FixedFaction Faction { get; set; }
+    public bool StripRoyal { get; set; }
 
     public string LawName => EmpireLawSystem.GetLawName(LawType);
 }
@@ -409,12 +423,13 @@ public static partial class EmpireLawSystem
         return result;
     }
 
-    // 发觉旧案(年审、朝堂诉求)也走完整的量刑
+    // 发觉旧案(年审、朝堂诉求)也走完整的量刑；loot 是那桩案子累计的赃额
     public static LawEnforcementContext TryEnforceLaw(Actor actor, LawType type, Kingdom kingdom,
-        Action<LawEnforcementContext> extraPunishment, string crimeDate)
+        Action<LawEnforcementContext> extraPunishment, string crimeDate, int loot = 0)
     {
         LawEnforcementContext context = PrepareEnforcement(actor, type, kingdom, crimeDate);
         if (context == null) return null;
+        context.Loot = Math.Max(0, loot);
         return Execute(context, extraPunishment);
     }
 
@@ -453,6 +468,10 @@ public static partial class EmpireLawSystem
         {
             extraPunishment(context);
         }
+
+        // 宗人府议处(废储、废为庶人)与量刑天平的代价(硬判、放过)
+        ApplyRoyalCourt(context);
+        ApplyScaleCosts(context);
 
         CorruptionSystem.OnLawEnforced(kingdom, corruptionCity, corruptionAdministration, type,
             context.AppliedPunishments, moneyBefore, actor.money);
@@ -637,7 +656,8 @@ public static partial class EmpireLawSystem
         return RecordCrime(actor, lawType);
     }
 
-    public static bool RecordCrime(this Actor actor, LawType lawType)
+    // amount：这回贪墨的数目，记进这桩罪的赃额(同一罪名二十年内未发的旧案只累计赃额，不另立案)
+    public static bool RecordCrime(this Actor actor, LawType lawType, int amount = 0)
     {
         if (actor == null || actor.isRekt()) return false;
         var kingdom = actor.kingdom;
@@ -670,6 +690,7 @@ public static partial class EmpireLawSystem
             if (!InJurisdiction(existing, kingdom)) continue;
             if (existing.crime_timestamp > 0 && Date.getYearsSince(existing.crime_timestamp) < 20f)
             {
+                if (amount > 0) existing.amount += amount;
                 return false;
             }
         }
@@ -682,10 +703,27 @@ public static partial class EmpireLawSystem
             // 不在帝国里的国家记 -1(按国论处，见 InJurisdiction)
             empire_id = kingdom.IsInEmpire() ? kingdom.GetEmpireID() : -1L,
             crime_timestamp = now,
-            crime_date = Date.getDate(now)
+            crime_date = Date.getDate(now),
+            amount = Math.Max(0, amount)
         };
         records.Add(record);
         return true;
+    }
+
+    // 赃款记到这人本国尚未发觉的同一罪名的旧案上(没有旧案返回 false，由调用方另行立案)
+    public static bool AddCrimeAmount(Actor actor, LawType lawType, int amount)
+    {
+        if (amount <= 0 || actor == null || actor.isRekt() || actor.isKing()) return false;
+        PersonalClanIdentity identity = actor.GetPersonalIdentity();
+        Kingdom kingdom = actor.kingdom;
+        if (identity?.crime_records == null || kingdom == null) return false;
+        foreach (CrimeRecord record in identity.crime_records)
+        {
+            if (record == null || record.resolved || record.law_type != (int)lawType || !InJurisdiction(record, kingdom)) continue;
+            record.amount += amount;
+            return true;
+        }
+        return false;
     }
 
     public static CrimeRecord GetResolvableCrimeRecord(Actor actor, Kingdom kingdom)
@@ -755,7 +793,8 @@ public static partial class EmpireLawSystem
         LawType lawType = (LawType)record.law_type;
         string lawName = GetLawName(lawType);
 
-        LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
+        LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date,
+            record.amount);
         if (context != null)
         {
             if (context.AppliedPunishments != null && context.AppliedPunishments.Any(p =>
@@ -795,7 +834,8 @@ public static partial class EmpireLawSystem
             record.discovered_date = Date.getDate(record.discovered_timestamp);
 
             LawType lawType = (LawType)record.law_type;
-            LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date);
+            LawEnforcementContext context = TryEnforceLaw(actor, lawType, kingdom, ApplyRecordedOptionalPunishments, record.crime_date,
+                record.amount);
             if (context != null)
             {
                 record.resolved = true;
@@ -892,6 +932,12 @@ public static partial class EmpireLawSystem
         if (actor == null) return;
         if (actor.HasTitle() || actor.GetPeeragesLevel() != PeeragesLevel.peerages_6)
         {
+            // 量刑天平减到三等：免削爵(见 EmpireLawSystem.ApplyScale)
+            if (context.SparePeerage)
+            {
+                if (!context.Notes.Contains("law_note_spare_peerage")) context.Notes.Add("law_note_spare_peerage");
+                return;
+            }
             TryApplyOptionalPunishment(context, PunishmentLevel.剥夺爵位);
         }
     }
@@ -1025,7 +1071,8 @@ public static partial class EmpireLawSystem
             case PunishmentLevel.没收财产:
                 return ApplyConfiscateProperty(context.Actor);
             case PunishmentLevel.剥夺爵位:
-                return ApplyStripPeerage(context.Actor);
+                // 宗人府议处：皇室削爵改降一等(见 ApplyScale)
+                return context.DemotePeerage ? ApplyDemotePeerage(context.Actor) : ApplyStripPeerage(context.Actor);
             case PunishmentLevel.剥夺官职:
                 return ApplyStripOffice(context);
             case PunishmentLevel.死刑:
@@ -1138,6 +1185,16 @@ public static partial class EmpireLawSystem
         return changed;
     }
 
+    // 降爵：爵位降一等(无爵的不动)
+    private static bool ApplyDemotePeerage(Actor actor)
+    {
+        if (actor == null || actor.isRekt()) return false;
+        PeeragesLevel level = actor.GetPeeragesLevel();
+        if (level == PeeragesLevel.peerages_6) return false;
+        actor.SetPeeragesLevel((PeeragesLevel)Math.Max((int)PeeragesLevel.peerages_6, (int)level - 1));
+        return true;
+    }
+
     private static bool ApplyStripOffice(LawEnforcementContext context)
     {
         Actor actor = context != null ? context.Actor : null;
@@ -1165,7 +1222,8 @@ public static partial class EmpireLawSystem
             changed = true;
         }
 
-        if (context != null && context.Law != null && context.Law.AffectDescendants && kingdom != null)
+        // 皇室罢官不禁锢子孙(子孙是皇位所系，见 ApplyScale)
+        if (context != null && context.Law != null && context.Law.AffectDescendants && kingdom != null && !context.NoDescendantBan)
         {
             // 帝国之内禁锢于本帝国；不在帝国里的国家禁锢于本国(见 IsBarredFromOffice)
             if (kingdom.IsInEmpire()) actor.BanFromOffice(kingdom.GetEmpireID());

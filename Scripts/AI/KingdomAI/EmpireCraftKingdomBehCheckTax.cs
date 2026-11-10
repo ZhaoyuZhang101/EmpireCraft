@@ -53,7 +53,7 @@ public class EmpireCraftKingdomBehCheckTax : GameAIKingdomBase
         if (corruptedMoney > 0 && pKingdom.hasKing())
         {
             pKingdom.king.addMoney(corruptedMoney);
-            pKingdom.king.RecordCrime(LawType.贪污);
+            pKingdom.king.RecordCrime(LawType.贪污, corruptedMoney);
         }
         pKingdom.SubMoney(collected);
         if (pEmpireKingdom != null)

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GeneralSystems.EmpireLaw;
@@ -146,9 +147,11 @@ public static class LawPanel
         if (lines.Count == 0) lines.Add(LM.Get("law_tip_stance_none"));
         lines.Add("");
         lines.Add(string.Format(LM.Get("law_tip_crime_rate"), stance.CrimeRateFactor.ToString("0.00")));
-        if (stance.SentenceShiftChance > 0f)
-            lines.Add(string.Format(LM.Get(stance.Tier == LawStanceTier.严苛 ? "law_tip_shift_harsh" : "law_tip_shift_lenient"),
-                $"{stance.SentenceShiftChance:P0}"));
+        // 宽严在量刑天平上的砝码：严苛压罪责、宽仁压情面(见 SentencingScale)
+        if (stance.Severity > 0.001f)
+            lines.Add(string.Format(LM.Get("law_tip_shift_harsh"), SentencingScale.HarshFactor(stance.Severity).ToString("0.00")));
+        else if (stance.Severity < -0.001f)
+            lines.Add(string.Format(LM.Get("law_tip_shift_lenient"), SentencingScale.LenientFactor(stance.Severity).ToString("0.00")));
         lines.Add(string.Format(LM.Get("law_tip_fine_prison"), stance.FineFactor.ToString("0.00"), stance.PrisonFactor.ToString("0.00")));
         if (stance.AmnestyChance > 0f) lines.Add(string.Format(LM.Get("law_tip_amnesty_chance"), $"{stance.AmnestyChance:P0}"));
         if (stance.Tier == LawStanceTier.严苛) lines.Add(LM.Get("law_tip_harsh_note"));
@@ -311,6 +314,9 @@ public static class LawPanel
             tip.Add(string.Format(LM.Get("empire_law_outcome_detail"), EmpireLawSystem.GetOutcomeName(record.outcome), sentence));
             string notes = EmpireLawSystem.GetCaseNoteText(record);
             if (!string.IsNullOrEmpty(notes)) tip.Add(notes);
+            // 量刑天平分两段：罪责、情面各列砝码(用户 2026-11-10 选"卷宗悬停分两栏")
+            string scale = CaseScaleText(record);
+            if (!string.IsNullOrEmpty(scale)) tip.Add(scale);
             Tip(row.gameObject, $"law_case_{realm.id}_{i}", amnesty ? LM.Get("law_outcome_大赦") : $"{record.actor_name} · {crime}",
                 string.Join("\n", tip.Where(line => !string.IsNullOrEmpty(line))));
         }
@@ -432,6 +438,179 @@ public static class LawPanel
                 FullDate(record.timestamp, record.date) + "\n" +
                 string.Format(LM.Get("empire_law_outcome_detail"), EmpireLawSystem.GetOutcomeName(record.outcome), sentence));
         }
+    }
+
+    #endregion
+
+    #region 量刑天平
+
+    private const int MaxScaleRows = 24;
+
+    // 人物生平的「量刑天平」卡(用户 2026-11-10 选"人物页加天平卡")：在世、受律法管的人才画。
+    // 页头写"若论罪：减三等"；指标行罪责 · 情面 · 天平；两栏表列两边的砝码；末尾写十恶、暴君、宗人府的规矩。
+    // 预览按寻常罪名(不是十恶)、未发之罪的赃额、没有告发者算(见 EmpireLawSystem.GetScale)
+    public static void RenderScale(AutoVertLayoutGroup page, PersonalClanIdentity person, float width)
+    {
+        Actor actor = person?._actor;
+        if (page == null || actor?.data == null || actor.isRekt() || !actor.isAlive() || !EmpireLawSystem.Enabled) return;
+        Kingdom kingdom = actor.kingdom;
+        if (kingdom?.data == null || kingdom.isRekt() || EmpireLawSystem.RealmKingdom(kingdom) == null) return;
+        if (EmpireLawSystem.RealmRuler(kingdom) == actor)
+        {
+            page.BeginCard(width, "law_scale_card", WideKit.Gold, LM.Get("law_scale_ruler_exempt"), "ui/icons/iconWorldLaws")
+                .AddParagraph(width, LM.Get("law_scale_ruler_note"), 7, WideKit.Muted);
+            return;
+        }
+        SentencingScaleInfo info = EmpireLawSystem.GetScale(actor, kingdom);
+        var card = page.BeginCard(width, "law_scale_card", WideKit.Gold,
+            string.Format(LM.Get("law_scale_if_tried"), EmpireLawSystem.ShiftText(info.Shift)), "ui/icons/iconWorldLaws");
+        DrawScaleBody(card, width, info.Guilt, info.Mercy, info.GuiltWeight, info.MercyWeight, info.Shift, info.MercyIgnored);
+        var rules = new List<string>();
+        if (info.Tyrant) rules.Add(LM.Get("law_scale_rule_tyrant"));
+        if (info.Royal) rules.Add(LM.Get(info.Heir ? "law_scale_rule_heir" : "law_scale_rule_royal"));
+        rules.Add(LM.Get("law_scale_rule_general"));
+        card.AddParagraph(width, string.Join("\n", rules), 6, WideKit.Muted);
+    }
+
+    // 指标行(罪责 · 情面 · 天平) + 两栏表(左罪责、右情面，一行一个砝码)
+    private static void DrawScaleBody(AutoVertLayoutGroup card, float width, List<LawFactor> guilt, List<LawFactor> mercy,
+        float guiltWeight, float mercyWeight, int shift, bool mercyIgnored)
+    {
+        AutoHoriLayoutGroup metrics = BeginMetricRow(card, width);
+        float cell = (width - CardPadding) / 3f;
+        MetricCell(metrics, cell, LM.Get("law_scale_guilt"), $"×{guiltWeight:0.00}", guiltWeight > 1.001f ? WideKit.Red : WideKit.Value);
+        MetricCell(metrics, cell, LM.Get("law_scale_mercy"),
+            mercyIgnored && mercy.Count > 0 ? $"×{mercyWeight:0.00} {LM.Get("law_scale_tip_ignored")}" : $"×{mercyWeight:0.00}",
+            mercyIgnored ? WideKit.Muted : mercyWeight > 1.001f ? WideKit.Green : WideKit.Value);
+        MetricCell(metrics, cell, LM.Get("law_scale_verdict"), EmpireLawSystem.ShiftText(shift),
+            shift > 0 ? WideKit.Red : shift < 0 ? WideKit.Green : WideKit.Value);
+        int rows = Mathf.Max(guilt.Count, mercy.Count);
+        if (rows == 0)
+        {
+            card.AddParagraph(width, LM.Get("law_scale_no_weights"), 7, WideKit.Muted);
+            return;
+        }
+        float half = (width - CardPadding - 6f) / 2f;
+        const float ValueWidth = 30f;
+        AddColumnsRow(card, width, -1, (LM.Get("law_scale_guilt"), null, half - ValueWidth, TextAnchor.MiddleLeft),
+            ("", null, ValueWidth, TextAnchor.MiddleRight), (LM.Get("law_scale_mercy"), null, half - ValueWidth, TextAnchor.MiddleLeft),
+            ("", null, 0f, TextAnchor.MiddleRight));
+        for (int i = 0; i < rows; i++)
+        {
+            LawFactor left = i < guilt.Count ? guilt[i] : null;
+            LawFactor right = i < mercy.Count ? mercy[i] : null;
+            AddColumnsRow(card, width, i,
+                (left?.Label ?? "", WideKit.Soft, half - ValueWidth, TextAnchor.MiddleLeft),
+                (left != null ? $"×{left.Value:0.00}" : "", left != null && left.Value > 1f ? WideKit.Red : WideKit.Green, ValueWidth,
+                    TextAnchor.MiddleRight),
+                (right?.Label ?? "", mercyIgnored ? WideKit.Muted : WideKit.Soft, half - ValueWidth, TextAnchor.MiddleLeft),
+                (right != null ? $"×{right.Value:0.00}" : "", mercyIgnored ? WideKit.Muted : right != null && right.Value < 1f ? WideKit.Red : WideKit.Green,
+                    0f, TextAnchor.MiddleRight));
+        }
+    }
+
+    // 律法的「量刑天平」页(用户 2026-11-10 选"律法页加天平分页")：本朝要人——储君、宗室、藩王、在朝的官、宠臣、有爵封的——
+    // 各自若论寻常罪名的天平读数，情面最重(最动不得)的在前；点人打开，悬停看两边的砝码
+    public static void RenderScaleBoard(AutoVertLayoutGroup page, Kingdom kingdom, float width)
+    {
+        Kingdom realm = EmpireLawSystem.RealmKingdom(kingdom);
+        if (page == null) return;
+        if (realm == null)
+        {
+            page.AddEmptyCard(width, "kov_gone");
+            return;
+        }
+        var intro = page.BeginCard(width, "law_scale_board", WideKit.Gold, null, "ui/icons/iconWorldLaws");
+        intro.AddParagraph(width, LM.Get("law_scale_board_intro"), 7, WideKit.Soft);
+        intro.AddParagraph(width, LM.Get("law_scale_rule_general") + "\n" + LM.Get("law_scale_rule_royal") + "\n" +
+                                  LM.Get("law_scale_rule_heir"), 6, WideKit.Muted);
+
+        List<(Actor actor, string role, SentencingScaleInfo info)> people = ScaleBoardPeople(realm);
+        var card = page.BeginCard(width, "law_scale_board_people", WideKit.Gold,
+            string.Format(LM.Get("law_people_count"), people.Count), "ui/icons/iconPopulation");
+        if (people.Count == 0)
+        {
+            card.AddParagraph(width, LM.Get("law_scale_board_none"), 7, WideKit.Muted);
+            return;
+        }
+        const float RoleWidth = 46f, WeightWidth = 38f, VerdictWidth = 40f;
+        AddColumnsRow(card, width, -1, (LM.Get("law_col_person"), null, 0f, TextAnchor.MiddleLeft),
+            (LM.Get("law_scale_role"), null, RoleWidth, TextAnchor.MiddleLeft),
+            (LM.Get("law_scale_guilt"), null, WeightWidth, TextAnchor.MiddleRight),
+            (LM.Get("law_scale_mercy"), null, WeightWidth, TextAnchor.MiddleRight),
+            (LM.Get("law_scale_verdict"), null, VerdictWidth, TextAnchor.MiddleRight));
+        for (int i = 0; i < people.Count; i++)
+        {
+            (Actor actor, string role, SentencingScaleInfo info) = people[i];
+            var row = AddColumnsRow(card, width, i, (actor.getName(), WideKit.Gold, 0f, TextAnchor.MiddleLeft),
+                (role, WideKit.Soft, RoleWidth, TextAnchor.MiddleLeft),
+                ($"×{info.GuiltWeight:0.00}", info.GuiltWeight > 1.001f ? WideKit.Red : WideKit.Value, WeightWidth, TextAnchor.MiddleRight),
+                ($"×{info.MercyWeight:0.00}", info.MercyIgnored ? WideKit.Muted : info.MercyWeight > 1.001f ? WideKit.Green : WideKit.Value,
+                    WeightWidth, TextAnchor.MiddleRight),
+                (EmpireLawSystem.ShiftText(info.Shift), info.Shift > 0 ? WideKit.Red : info.Shift < 0 ? WideKit.Green : WideKit.Value,
+                    VerdictWidth, TextAnchor.MiddleRight));
+            Actor captured = actor;
+            UIHelper.MakeClickable(row.gameObject, () => OpenActor(captured));
+            Tip(row.gameObject, $"law_scale_row_{realm.id}_{i}", $"{actor.getName()} · {role}",
+                ScaleTipText(info.Guilt, info.Mercy, info.GuiltWeight, info.MercyWeight, info.Shift, info.MercyIgnored));
+        }
+    }
+
+    // 要人：本朝(帝国连同成员国)在世的成年人里，储君、宗室、藩王与成员国君主、在任官员、城主、宠臣、有爵封的；君主本人不论
+    private static List<(Actor actor, string role, SentencingScaleInfo info)> ScaleBoardPeople(Kingdom realm)
+    {
+        var result = new List<(Actor actor, string role, SentencingScaleInfo info)>();
+        if (World.world?.units == null) return result;
+        Empire empire = EmpireLawSystem.RealmEmpire(realm);
+        var kingdoms = new HashSet<Kingdom> { realm };
+        if (empire?.kingdoms_list != null)
+            foreach (Kingdom member in empire.kingdoms_list)
+                if (member?.data != null && !member.isRekt()) kingdoms.Add(member);
+        Actor ruler = EmpireLawSystem.RealmRuler(realm);
+        Actor heir = realm.HasHeir() ? realm.GetHeir() : null;
+        Actor favourite = empire != null ? FavouriteSystem.Of(empire) : null;
+        foreach (Actor actor in World.world.units)
+        {
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() || !actor.isAdult() || actor == ruler || actor.IsWarMachine()) continue;
+            if (actor.kingdom == null || !kingdoms.Contains(actor.kingdom)) continue;
+            bool royal = actor == heir || EmpireLawSystem.IsRoyalKin(actor, realm);
+            string role = actor == heir ? LM.Get("law_scale_heir")
+                : actor == favourite ? LM.Get("law_scale_role_favourite")
+                : actor.isKing() ? LM.Get("law_scale_role_king")
+                : royal ? LM.Get("law_scale_royal_kin")
+                : actor.IsOnOffice() ? LM.Get("law_scale_role_official")
+                : actor.isCityLeader() ? LM.Get("law_scale_role_city")
+                : actor.HasTitle() || actor.GetPeeragesLevel() != PeeragesLevel.peerages_6 ? LM.Get("law_scale_role_noble")
+                : null;
+            if (role == null) continue;
+            result.Add((actor, role, EmpireLawSystem.GetScale(actor, actor.kingdom)));
+        }
+        return result.OrderByDescending(item => item.info.MercyWeight / Mathf.Max(0.01f, item.info.GuiltWeight))
+            .ThenByDescending(item => item.actor.renown).Take(MaxScaleRows).ToList();
+    }
+
+    // 悬停：两边的砝码各一段，末行天平
+    private static string ScaleTipText(List<LawFactor> guilt, List<LawFactor> mercy, float guiltWeight, float mercyWeight, int shift,
+        bool mercyIgnored)
+    {
+        var lines = new List<string>
+        {
+            string.Format(LM.Get("law_scale_tip_guilt"), guiltWeight.ToString("0.00"),
+                guilt.Count == 0 ? "—" : EmpireLawSystem.WeightsText(guilt)),
+            string.Format(LM.Get("law_scale_tip_mercy"), mercyWeight.ToString("0.00"),
+                mercy.Count == 0 ? "—" : EmpireLawSystem.WeightsText(mercy)) + (mercyIgnored && mercy.Count > 0 ? " " + LM.Get("law_scale_tip_ignored") : ""),
+            string.Format(LM.Get("law_scale_tip_verdict"), EmpireLawSystem.ShiftText(shift))
+        };
+        return string.Join("\n", lines);
+    }
+
+    // 卷宗悬停里的天平(存在卷宗上的砝码，见 EmpireLawSystem.FinishCase)；没过天平的旧卷宗为空
+    private static string CaseScaleText(LawCaseRecord record)
+    {
+        if (record == null || (record.scale_guilt == null || record.scale_guilt.Count == 0) &&
+            (record.scale_mercy == null || record.scale_mercy.Count == 0)) return null;
+        return ScaleTipText(EmpireLawSystem.ScaleFactors(record.scale_guilt), EmpireLawSystem.ScaleFactors(record.scale_mercy),
+            record.scale_guilt_weight, record.scale_mercy_weight, record.scale_shift, record.scale_mercy_ignored);
     }
 
     #endregion

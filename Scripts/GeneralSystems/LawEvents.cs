@@ -135,6 +135,9 @@ public static class LawEvents
             WarExtension.WarExtraData data = war.GetOrCreate();
             if (data == null || data.rebel_leader_id == leader.id || RebelLaw(war, data.empireWarType) == null) return;
             data.rebel_leader_id = leader.id;
+            // 起兵、自立记在首领身上(量刑天平的叛逆砝码)
+            LawType? law = RebelLaw(war, data.empireWarType);
+            EmpireLawSystem.NoteDefiance(leader, law == LawType.叛国);
         }
         catch (Exception)
         {
