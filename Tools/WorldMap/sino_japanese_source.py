@@ -7,7 +7,7 @@
   · 中华民国国民政府(蒋中正，国民党训政、一党)，地方实力派晋绥(阎锡山)、冀察(宋哲元)、山东(韩复榘)、四川(刘湘)、
     云南(龙云)、广西(李宗仁)、宁夏(马鸿逵)、青海(马步芳)、新疆(盛世才)是民国的成员，留兵留财政、随中央出征(autonomy)；
   · 陕甘宁边区(毛泽东，共产党执政)是另一个政府，与国民政府停战，日军压境时由统一战线机制共同抗日；
-  · 大日本帝国(昭和天皇、近卫文麿内阁，君主立宪)，朝鲜总督府、台湾总督府是它的殖民地，关东州的大连归日本；
+  · 大日本帝国(昭和天皇、近卫文麿内阁，君主立宪)，1910 年已吞并朝鲜(朝鲜是日本领土)，台湾总督府是它的殖民地，关东州的大连归日本；
     满洲国(溥仪，康德四年)、蒙古军政府(德王)、冀东防共自治政府是它的傀儡；
   · 大韩民国临时政府开局流亡中华民国(exile)，埃塞俄比亚皇帝流亡英国；
   · 苏联、蒙古人民共和国，英法荷葡比的亚非殖民地(自成一国，colony_of 宗主国)，欧洲各国，西班牙内战正酣。
@@ -325,7 +325,8 @@ TIBET = polity("tibet", "西藏", "Tibet", "Xizang", "lhasa", r=["tibet"],
 
 JAPAN = polity(
     "japan", "日本", "Japan", "Japan", "edo",
-    r=["japan_kyushu", "japan_kinai", "japan_kanto", "japan_tohoku", "ryukyu"], emp=True, grand=True,
+    # 朝鲜：1910 年日韩合并，是日本的领土(朝鲜总督府治理)，不是另立的殖民地国
+    r=["japan_kyushu", "japan_kinai", "japan_kanto", "japan_tohoku", "ryukyu", "korea_n", "korea_s"], emp=True, grand=True,
     old_capital="kyoto", era_name="昭和|Showa", era_year=12,
     modern=M("constitutional", "Authoritarianism", ("立宪政友会", "Rikken Seiyukai"),
              parties=[("ConservativeLiberalism", "立宪民政党", "Rikken Minseito", ""),
@@ -353,8 +354,6 @@ JAPAN = polity(
         famous("土肥原|Doihara", "贤二|Kenji", 54, "general", 0, "general"),
     ],
 )
-KOREA_COLONY = polity("chosen", "日属朝鲜", "Japanese Korea", "Japan", "hanseong", r=["korea_n", "korea_s"],
-                      colony_of="japan", place="朝鲜|Korea", ruler=person("南|Minami", "次郎|Jiro", 62))
 TAIWAN_COLONY = polity("taiwan_gg", "日属台湾", "Japanese Taiwan", "Japan", "keelung", r=["taiwan"],
                        colony_of="japan", place="台湾|Taiwan", ruler=person("小林|Kobayashi", "跻造|Seizo", 60))
 # 关东州：日本向民国租借的旅大(1898 俄租、1905 转日，1915 延到 1997)
@@ -849,7 +848,7 @@ WILDERNESS = {
     "dzungarian_alatau": "xinjiang", "altai": "xinjiang", "kumtag": "xinjiang",
     "khangai": "mpr", "khentii": "mpr", "gobi_altai": "mpr",
     "hunshandake": "mengjiang", "horqin": "manchukuo", "greater_khingan": "manchukuo", "lesser_khingan": "manchukuo",
-    "changbai": "manchukuo", "kaema": "chosen", "taebaek": "chosen",
+    "changbai": "manchukuo", "kaema": "japan", "taebaek": "japan",
     "qinling": "roc", "daba": "roc", "dabie": "roc", "wuyi": "roc", "nanling": "roc", "liupan": "roc",
     "taihang": "jinsui", "luliang": "jinsui", "yanshan": "jicha", "min_shan": "sichuan", "qionglai": "sichuan",
     "ailao": "yunnan", "wuliang": "yunnan", "gaoligong": "yunnan", "helan": "ningxia", "mu_us": "ningxia", "ulan_buh": "ningxia",
@@ -907,7 +906,7 @@ def main():
         data = update_cities(root, renamed, {})
     active = {c["id"] for c in data["cities"] if c.get("from", -99999) <= YEAR <= c.get("to", 99999)}
 
-    polities = ([ROC] + WARLORDS + [CCP, TIBET, JAPAN, KOREA_COLONY, TAIWAN_COLONY, KWANTUNG, MANCHUKUO, MENGJIANG, JIDONG, KOREA_EXILE,
+    polities = ([ROC] + WARLORDS + [CCP, TIBET, JAPAN, TAIWAN_COLONY, KWANTUNG, MANCHUKUO, MENGJIANG, JIDONG, KOREA_EXILE,
                                    USSR, MPR, SIAM, PHILIPPINES, AFGHANISTAN, IRAN] + COLONIES + [ETHIOPIA_EXILE] + MIDEAST + EUROPE)
     ids = set()
     for item in polities:
@@ -924,13 +923,13 @@ def main():
         "zh": "日军侵华", "en": "Japanese Invasion of China",
         "dzh": "1937年，民国二十六年、昭和十二年。七月七日卢沟桥枪响，日本全面侵华。国民政府训政未久，晋绥、冀察、山东、四川、"
                "云南、广西、西北马家各据一方；陕甘宁边区新与国民政府停战，共御外侮。日本以满洲国、蒙古军政府、冀东为傀儡，"
-               "朝鲜、台湾为殖民地，大韩民国临时政府寄居中国。从淞沪、南京、武汉一路打到太平洋战争、苏联出兵、日本投降，"
+               "吞并朝鲜，以台湾为殖民地，大韩民国临时政府寄居中国。从淞沪、南京、武汉一路打到太平洋战争、苏联出兵、日本投降，"
                "再到国共内战。欧洲西班牙内战正酣，德国将吞并奥地利、捷克，进攻波兰与苏联。",
         "den": "AD 1937, the twenty-sixth year of the Republic and the twelfth of Showa. Shots at the Marco Polo Bridge on 7 July open "
                "Japan's all-out war on China. The Nationalists rule under party tutelage while Shanxi, Hebei-Chahar, Shandong, "
                "Sichuan, Yunnan, Guangxi and the Ma clan hold their own; the Communist border region has just made peace with "
-               "Nanjing to face the invader together. Japan keeps Manchukuo, Prince De's Mongols and East Hebei as puppets, Korea and "
-               "Taiwan as colonies, and the Korean Provisional Government lives in exile in China. From Shanghai, Nanjing and Wuhan "
+               "Nanjing to face the invader together. Japan keeps Manchukuo, Prince De's Mongols and East Hebei as puppets, has annexed Korea, "
+               "holds Taiwan as a colony, and the Korean Provisional Government lives in exile in China. From Shanghai, Nanjing and Wuhan "
                "to the Pacific War, the Soviet invasion of Manchuria, Japan's surrender and the Chinese Civil War. In Europe the "
                "Spanish Civil War rages and Germany prepares to swallow Austria and Czechoslovakia and to strike Poland and Russia.",
         "tech": TECH, "techExtra": TECH_EXTRA, "techSkip": TECH_SKIP, "inst": INST, "culture": CULTURE, "ranks": RANKS,

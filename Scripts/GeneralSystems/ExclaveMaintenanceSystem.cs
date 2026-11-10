@@ -221,6 +221,20 @@ public static class ExclaveMaintenanceSystem
         return ExclaveMaintenanceRules.AnnualCost(part.Count, households, distance, overseas);
     }
 
+    // 中央正在与外族(不同族的国家)打仗：外敌当前
+    private static bool AtWarWithForeigners(Kingdom core)
+    {
+        string own = CultureService.GetRealmCulture(core);
+        foreach (War war in core.getWars())
+        {
+            if (war?.data == null || war.hasEnded()) continue;
+            Kingdom enemy = war.main_attacker == core || war.isAttacker(core) ? war.main_defender : war.main_attacker;
+            string theirs = CultureService.GetRealmCulture(enemy);
+            if (CultureService.IsValidCulture(own) && CultureService.IsValidCulture(theirs) && !CultureService.SameKin(own, theirs)) return true;
+        }
+        return false;
+    }
+
     // 正统崩坏：都城在本帝国法理之外、或远在中央控制范围之外的成员国一律自立(正在与中央交战、神力拉入保护期内的不算)
     private static void ReleaseDistantMembers(Layer.Empire empire, Kingdom core)
     {
@@ -230,6 +244,8 @@ public static class ExclaveMaintenanceSystem
         {
             if (member?.data == null || member.isRekt() || member == core || member.capital == null || member.isInWarWith(core) ||
                 MembershipCooldown.ManualJoinActive(member) || AncientWarfareCompatibility.Owns(member)) continue;
+            // 剧本的地方实力派(川军、马家军……)：中央正与外族交战时不自立(1937 剧本开局两年民国正统跌破，十四个地方实力派全散了)
+            if (member.GetOrCreate().scenario_autonomy && AtWarWithForeigners(core)) continue;
             bool outside = own != null && member.capital.GetEmpireCore() != own;
             if (!outside && !AdministrativeControlSystem.OutOfReach(core, member.capital)) continue;
             member.FinishedSelfPlot();
