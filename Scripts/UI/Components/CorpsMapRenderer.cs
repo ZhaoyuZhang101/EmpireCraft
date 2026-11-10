@@ -79,14 +79,23 @@ public static class CorpsMapRenderer
     private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows) =>
         CounterTarget(corps, zone, out follows, out _);
 
+    // 跟随统领的军牌：≤2 格才开始跟随，拉开到 >3 格才松开(滞回)。群友 2026-11-10「军牌为啥会前后抽搐」：
+    // 以前判定是「离统领 ≤2 格」一刀切，统领正好在 2 格边界上来回，follows 就逐帧翻 true/false，军牌在统领位置和军团位置间来回弹
+    private const float FollowEngageZones = 2f, FollowReleaseZones = 3f;
+    private static readonly HashSet<long> _followingCorps = new();
+
     // marching：正在行军，位置已按节拍逐帧插值(见 CorpsSystem.DrawPosition)
     private static Vector3 CounterTarget(CorpsData corps, TileZone zone, out bool follows, out bool marching)
     {
         marching = false;
         Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
-        follows = general?.data != null && !general.isRekt() && general.isAlive() &&
-                  general.current_tile?.zone != null && CorpsSystem.ZoneDistance(general.current_tile.zone, zone) <= 2f;
-        return follows ? (Vector3)general.current_position + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps, out marching);
+        bool alive = general?.data != null && !general.isRekt() && general.isAlive() && general.current_tile?.zone != null;
+        follows = alive && CorpsSystem.ZoneDistance(general.current_tile.zone, zone)
+                  <= (_followingCorps.Contains(corps.id) ? FollowReleaseZones : FollowEngageZones);
+        if (follows) _followingCorps.Add(corps.id); else _followingCorps.Remove(corps.id);
+        // 跟随时画在统领所在格子的中心(不取统领每帧的动画实时坐标 current_position——统领在格子里走动、待机小晃都会让军牌
+        // 前后抽搐，群友 2026-11-10 反馈)，再经 Glide 平滑(见调用处)；不跟随时按军团自己的行军插值位置走
+        return follows ? general.current_tile.posV3 + new Vector3(0f, 3f) : CorpsSystem.DrawPosition(corps, out marching);
     }
 
     private sealed class Counter
@@ -231,6 +240,7 @@ public static class CorpsMapRenderer
             _glideWorld = World.world;
             _corpsGliders.Clear();
             _fleetGliders.Clear();
+            _followingCorps.Clear();
             _lastWorldTime = -1d;
         }
         double now = World.world.getCurWorldTime();
@@ -706,9 +716,10 @@ public static class CorpsMapRenderer
                 // 有统领实体时跟在统领头顶
                 // 行军途中按进度画在两块地之间，进度逐帧插值，匀速往前走(见 CorpsSystem.DrawPosition)
                 Vector3 target = CounterTarget(corps, zone, out bool follows, out bool marching);
-                // 统领实体自己在走、行军中已逐帧插值的，兵牌直接画在那里；别的(改派、调防换位)才滑过去。
-                // 以前行军也靠滑：每拍滑到位后被当成"已到"并进所在地块那块兵牌，下一拍又弹出来，一顿一顿
-                Glider glider = follows || marching
+                // 行军中已按节拍逐帧插值的，兵牌直接画在那里；别的(跟随统领、改派、调防换位)都经 Glide 平滑。
+                // 以前行军也靠滑：每拍滑到位后被当成"已到"并进所在地块那块兵牌，下一拍又弹出来，一顿一顿。
+                // 跟随统领以前也直接贴(follows 不滑)，统领一动军牌就抽搐，改为同样走 Glide(群友 2026-11-10)
+                Glider glider = marching
                     ? new Glider { At = target, Target = target }
                     : Glide(_corpsGliders, corps.id, target, glideDelta);
                 _nextCorpsGliders[corps.id] = glider;
