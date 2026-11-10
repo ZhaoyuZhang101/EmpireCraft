@@ -83,7 +83,7 @@
       ]
     },
     {
-      "id": "lift_party_ban", "requires_techs": ["estates_assembly"],
+      "id": "lift_party_ban", "requires_techs": ["secular_philosophy"],
       "name_key": "institution_lift_party_ban",
       "description_key": "institution_lift_party_ban_desc",
       "research": {

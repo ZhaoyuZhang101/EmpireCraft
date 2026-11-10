@@ -297,6 +297,10 @@
           "type": "modify_faction_power",
           "int_value": 1,
           "faction": "尊王"
+        },
+        {
+          "type": "enable_claim",
+          "value": "分封"
         }
       ],
       "requires_cities": 5
@@ -396,13 +400,13 @@
       "requires_cities": 10,
       "effects_on_complete": [
         {
-          "type": "set_succession_law",
-          "value": "分割继承法"
-        },
-        {
           "type": "modify_faction_power",
           "faction": "自治",
           "int_value": 2
+        },
+        {
+          "type": "set_succession_law",
+          "value": "分割继承法"
         }
       ],
       "politics": {
@@ -541,6 +545,81 @@
       ],
       "exclude_cultures": [
         "India"
+      ]
+    },
+    {
+      "id": "origins_provincial_system",
+      "name_key": "institution_origins_provincial_system",
+      "description_key": "institution_origins_provincial_system_desc",
+      "requires_techs": [
+        "bureaucracy",
+        "postal_roads"
+      ],
+      "branch": "administration",
+      "research": {
+        "mandate_required": 68
+      },
+      "reform": {
+        "base_progress_per_year": 6.5,
+        "minimum_years": 12,
+        "force_radicalism": 26
+      },
+      "resistance": {
+        "base_radicalism": 13,
+        "vested_interest_radicalism": 20,
+        "rebellion_threshold": 68,
+        "opposition_faction_growth": 2
+      },
+      "politics": {
+        "support_classes": {
+          "Officer": 1.3,
+          "Merchant": 0.5
+        },
+        "oppose_classes": {
+          "Noble": 1.1,
+          "Army": 0.5
+        },
+        "support_factions": {
+          "融入": 1.4
+        },
+        "oppose_factions": {
+          "同化": 1.2
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "enable_claim",
+          "value": "设置行政区"
+        },
+        {
+          "type": "set_regime_option",
+          "option": "toggle_support_army_to_center",
+          "int_value": 1
+        },
+        {
+          "type": "add_mandate",
+          "int_value": -5
+        },
+        {
+          "type": "relieve_malady",
+          "value": "annexation",
+          "int_value": 20
+        },
+        {
+          "type": "relieve_malady",
+          "value": "bloat",
+          "int_value": 10
+        }
+      ],
+      "features": {
+        "state_granary": 1,
+        "vassal_authority": 100,
+        "provincial_administration": 1
+      },
+      "advancement": 4,
+      "requires": [
+        "origins_royal_power",
+        "origins_tax_reform"
       ]
     }
   ]
