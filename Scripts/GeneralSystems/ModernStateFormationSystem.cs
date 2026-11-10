@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
@@ -24,8 +24,8 @@ public static class ModernStateFormationSystem
         if (kingdom == null || kingdom.isRekt() || !kingdom.hasCities() || kingdom.GetRegime()?.type != RegimeType.Modern ||
             kingdom.GetAdministrativeTitle() != null)
             return false;
-        // 傀儡(汪伪、蒙疆)不自行建政、不认领法理，国号照扶植时定的(见 PuppetStateSystem)
-        if (PuppetStateSystem.IsPuppet(kingdom)) return false;
+        // 傀儡(汪伪、蒙疆)、殖民地、宗主国不在图上的剧本属地不自行建政、不认领法理，国号照定下的(见 WarlordEraSystem.Dependent)
+        if (WarlordEraSystem.Dependent(kingdom)) return false;
         if (TryGetSameCoreOverlord(kingdom, out Kingdom overlord) &&
             overlord.GetRegime()?.type == RegimeType.Modern)
         {

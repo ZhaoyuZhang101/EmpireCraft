@@ -33,6 +33,25 @@ public static class PuppetStateSystem
         return master?.data == null || master.isRekt() || master == kingdom ? null : master;
     }
 
+    // 界面上的身份(帝国窗口左栏、国家概况、提示)："日本扶植的傀儡政权"；不是傀儡返回 null
+    public static string StandingLine(Kingdom kingdom)
+    {
+        Kingdom master = Master(kingdom);
+        return master == null ? null : string.Format(LM.Get("puppet_standing"), master.GetKingdomName());
+    }
+
+    public static string StandingTooltip(Kingdom kingdom)
+    {
+        Kingdom master = Master(kingdom);
+        return master == null ? "" : string.Format(LM.Get("puppet_standing_tip"), master.GetKingdomName(), Years(kingdom));
+    }
+
+    public static int Years(Kingdom puppet)
+    {
+        double since = puppet?.data == null ? -1d : puppet.GetOrCreate().puppet_since;
+        return since < 0d ? 0 : Math.Max(0, (int)Date.getYearsSince(since));
+    }
+
     public static IEnumerable<Kingdom> PuppetsOf(Kingdom master) =>
         master == null || World.world?.kingdoms == null ? Enumerable.Empty<Kingdom>()
             : World.world.kingdoms.list.Where(kingdom => kingdom?.data != null && kingdom.GetOrCreate().puppet_master_id == master.data.id &&

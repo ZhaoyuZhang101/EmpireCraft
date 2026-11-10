@@ -2263,6 +2263,8 @@ public static class KingdomExtension
     // 尚未组建政府的现代势力(某系军阀、工农革命军……)显示为"地方武装"。只影响显示，不改动实际类别与国名后缀
     public static string GetKingdomTypeDisplayKey(this Kingdom kingdom)
     {
+        // 傀儡(伪满这样的帝国也是)显示"傀儡政权"，不显示"帝国"(见 PuppetStateSystem)
+        if (EmpireCraft.Scripts.GeneralSystems.PuppetStateSystem.IsPuppet(kingdom)) return "kingdom_type_puppet";
         if (EmpireCraft.Scripts.GeneralSystems.WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out _))
             return "kingdom_type_armed_force";
         return EmpireCraft.Scripts.GeneralSystems.DynastyNaming.KingdomTypeKey(kingdom, kingdom.GetKingdomType());

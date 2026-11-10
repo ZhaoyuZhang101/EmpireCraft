@@ -41,6 +41,10 @@ public static class PartyBanSystem
     private const float CoreSupportComfort = 0.5f;
     private const float CoreSupportCrisis = 0.35f;
     private const float CoreLossCrisis = 0.3f;
+    // 一党政权重开党禁要到危局(用户 2026-11-10"近代党政没那么自由"：剧本的边区两年就被民间理念逼开党禁、大选下台)：
+    // 重开压力满格之外，正统跌破 OnePartyCrisisLegitimacy 或核心丢了 CoreLossCrisis 以上；党禁关上不满 OnePartyMinYears 年的两样都要占
+    private const int OnePartyCrisisLegitimacy = 30;
+    private const float OnePartyMinYears = 20f;
 
     private static ConstitutionalEconomyState State(Empire empire)
     {
@@ -178,6 +182,17 @@ public static class PartyBanSystem
             : State(empire)?.democratic_centralism == true);
 
     public static float GetReopenPressure(Empire empire) => State(empire)?.party_ban_reopen_pressure ?? 0f;
+
+    // 党禁关着的国家到了危局没有：人民推动重开党禁(TempFac_开放党禁)只在危局里立得起来，见上面 OnePartyCrisisLegitimacy
+    public static bool OnePartyCrisis(Empire empire)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || state.party_ban_reopen_pressure < 100f) return false;
+        bool legitimacy = empire.Legitimacy < OnePartyCrisisLegitimacy;
+        bool core = GetCoreSupport(empire).lost >= CoreLossCrisis;
+        float years = state.party_ban_since >= 0d ? Date.getYearsSince(state.party_ban_since) : OnePartyMinYears;
+        return years >= OnePartyMinYears ? legitimacy || core : legitimacy && core;
+    }
 
     // 独裁度(0~100)：
     //   执政党议席(无议会看中央占比) 40 + 执政理念的威权程度 25 + 元首兼执政党领袖 15 + 连续执政年数(每年 1，最多 20)

@@ -258,8 +258,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (pKingdom.GetRegime()?.type == RegimeType.Modern) return false;
         // 穿越政体没有君主：元老院国家不称帝(见 TransmigrantSystem)
         if (pKingdom.GetRegime()?.type == RegimeType.Transmigrant) return false;
-        // 殖民地(总督府、特许公司)不称帝(见 ColonySystem)
-        if (ColonySystem.IsColony(pKingdom)) return false;
+        // 殖民地(总督府、特许公司)、傀儡、宗主国不在图上的剧本属地(东亚半幅的英属印度)不称帝(见 WarlordEraSystem.Dependent)
+        if (WarlordEraSystem.Dependent(pKingdom)) return false;
         // 原始政体的部落不称帝，只能打赢收部结成部落联盟(用户 2026-10-26 选"部落不再是帝国"，见 TribalFissionService)；
         // 先挡在这里，免得每回 AI 检查都去补立法理(RepairFoundingTitle)
         if (TribalFissionService.IsTribal(pKingdom)) return false;

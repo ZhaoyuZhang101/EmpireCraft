@@ -98,6 +98,7 @@ public static class RepublicSystem
     {
         // 复辟帝制期间元首改称皇帝(见 RestorationSystem)
         if (RestorationSystem.IsProclaimed(empire)) return LM.Get("emperor");
+        if (CustomHeadTitle(empire) is string custom) return custom;
         PartyIdeology ideology = IdeologyFamilies.StateIdeology(empire);
         // 元首称号照风俗文化(见 InstitutionSystem.GetCustomsCulture)
         string culture = InstitutionSystem.GetCustomsCulture(empire);
@@ -108,6 +109,17 @@ public static class RepublicSystem
             if (!string.IsNullOrWhiteSpace(text) && text != key) return text;
         }
         return "";
+    }
+
+    // 剧本定下的元首职位(委员长、总书记、元首、国王……用户 2026-11-10"不能按照历史职位来?")：
+    // 政体没改(共和或君主与定下时一样)、没复辟才用，否则 null，照理念与文化的通称
+    public static string CustomHeadTitle(Empire empire)
+    {
+        EmpireData data = empire?.data;
+        if (data == null || string.IsNullOrWhiteSpace(data.head_title) || IsRepublic(empire) != data.head_title_republic ||
+            RestorationSystem.IsProclaimed(empire)) return null;
+        string text = WorldMap.WorldMapData.PickParts(data.head_title);
+        return string.IsNullOrWhiteSpace(text) ? null : text;
     }
 
     public static bool IsTransitioning(Empire empire) => IsRepublic(empire) &&

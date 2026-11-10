@@ -83,7 +83,14 @@ public static class PartySystem
     public const string FeatureUniversalSuffrage = "universal_suffrage";
 
     private const int MaxParties = 7;
-    private const float FoundChance = 0.65f;
+    // 立新党的门槛(用户 2026-11-10"成立新党也得有门槛")：理念的民间份额 ≥ 10% + 每个已有的党 3%(五个党时要 25%)；
+    // 自发立党每年机会 FoundChance，一国每 FoundCooldownYears 年至多立一个(神力立党不看冷却)
+    private const float FoundChance = 0.35f;
+    internal const float FoundSharePerParty = 0.03f;
+    private const float FoundCooldownYears = 5f;
+
+    internal static float FoundingShare(int parties) =>
+        IdeologyPopulationSystem.PartyFoundingShare + FoundSharePerParty * Mathf.Max(0, parties);
     private const int FoundRecruits = 6;
     private const float SwitchMargin = 25f;
     private const int MaxSwitchesPerYear = 5;
@@ -569,29 +576,33 @@ public static class PartySystem
     {
         List<FixedFaction> parties = GetParties(empire);
         if (parties.Count >= MaxParties || Random.value > FoundChance) return;
+        ConstitutionalEconomyState state = empire.data?.constitutional_economy;
+        if (state != null && state.party_founded_at >= 0d && Date.getYearsSince(state.party_founded_at) < FoundCooldownYears) return;
         var represented = new HashSet<PartyIdeology>(parties.Select(party => party.Ideology));
         Dictionary<PartyIdeology, int> counts = IdeologyPopulationSystem.GetEmpireCounts(empire);
         int population = counts.Values.Sum();
         if (population == 0) return;
+        float share = FoundingShare(parties.Count);
         Actor founder = citizens
             .Where(actor => actor.GetFaction()?.GetLeader() != actor)
             .Where(actor => !represented.Contains(IdeologyPopulationSystem.Get(actor)) &&
                             IsIdeologyUnlocked(empire, IdeologyPopulationSystem.Get(actor)) &&
                             counts.TryGetValue(IdeologyPopulationSystem.Get(actor), out int supporters) &&
-                            supporters >= population * IdeologyPopulationSystem.PartyFoundingShare)
+                            supporters >= population * share)
             .OrderByDescending(actor => actor.renown).FirstOrDefault();
         if (founder == null && CityPopulationSystem.AbstractPopulationEnabled)
         {
             // 无小人模式：取支持率达到组党门槛、还没有政党代表的理念里支持者最多的一个，从京师推举发起人
             PartyIdeology? candidate = counts
                 .Where(pair => !represented.Contains(pair.Key) && IsIdeologyUnlocked(empire, pair.Key) &&
-                               pair.Value >= population * IdeologyPopulationSystem.PartyFoundingShare)
+                               pair.Value >= population * share)
                 .OrderByDescending(pair => pair.Value).Select(pair => (PartyIdeology?)pair.Key).FirstOrDefault();
             if (candidate.HasValue) founder = SpawnFounder(empire, candidate.Value);
         }
         if (founder == null) return;
         PartyIdeology ideology = IdeologyPopulationSystem.Get(founder);
         FixedFaction party = CreateParty(empire, regime, ideology, founder);
+        if (state != null) state.party_founded_at = World.world.getCurWorldTime();
         Recruit(party, citizens, FoundRecruits +
             (InstitutionSystem.GetFeature(InstitutionSystem.GetPrimaryCulture(empire),
                 IdeologyInstitutionPaths.StageFeature(ideology, 2)) > 0f ? 2 : 0));
@@ -804,7 +815,7 @@ public static class PartySystem
         if (!IsActive(empire)) { reason = "party_found_inactive"; return false; }
         if (RepublicSystem.IsOneParty(empire)) { reason = "party_found_one_party"; return false; }
         if (!IsIdeologyUnlocked(empire, ideology)) { reason = "party_found_locked"; return false; }
-        if (IdeologyPopulationSystem.GetEmpireShare(empire, ideology) < IdeologyPopulationSystem.PartyFoundingShare)
+        if (IdeologyPopulationSystem.GetEmpireShare(empire, ideology) < FoundingShare(GetParties(empire).Count))
         { reason = "party_found_insufficient_support"; return false; }
         if (GetParties(empire).Count >= PlayerMaxParties) { reason = "party_found_too_many"; return false; }
         if (FindFounder(empire, ideology) == null && !CityPopulationSystem.AbstractPopulationEnabled)

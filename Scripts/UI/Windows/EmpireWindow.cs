@@ -284,6 +284,15 @@ namespace EmpireCraft.Scripts.UI.Windows
                 true, TextAnchor.MiddleLeft, new Vector2(inner, 9f));
             regimeLine.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
             HoverMarqueeText.Attach(regimeLine);
+            // 傀儡政权(伪满)：标明扶植者，悬停看傀儡的约束(见 PuppetStateSystem)
+            if (PuppetStateSystem.StandingLine(_empire.CoreKingdom) is string puppetLine)
+            {
+                var line = identity.AddTextIntoVertLayout(puppetLine.ColorString("#F08A4B"), true, TextAnchor.MiddleLeft,
+                    new Vector2(inner, 9f));
+                line.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+                UIHelper.AttachTextTooltip(line.gameObject, $"puppet_standing_{_empire.CoreKingdom.id}",
+                    LM.Get("puppet_standing_tip_title"), PuppetStateSystem.StandingTooltip(_empire.CoreKingdom));
+            }
             // 旧制犹存：核心改从了文明更落后的文化，帝国的制度仍照旧制所属的文化(见 LegacyInstitutionSystem)
             if (LegacyInstitutionSystem.TryGet(_empire.CoreKingdom, out string legacy))
             {
@@ -475,6 +484,8 @@ namespace EmpireCraft.Scripts.UI.Windows
             RegimeType regimeType = _empire.CoreKingdom.GetRegime()?.type ?? RegimeType.Feudalism;
             string rulerRole = republic
                 ? RepublicSystem.GetHeadOfStateTitle(_empire)
+                // 剧本定下的君主职位(英国国王、伊朗沙阿)
+                : RepublicSystem.CustomHeadTitle(_empire) is string customRole ? customRole
                 : regimeType is RegimeType.ClassicalRepublic or RegimeType.Transmigrant
                     ? LM.Get(DynastyNaming.RankKey(regimeType, 0, _empire.CoreKingdom))
                     // 日本一系的君主称天皇
@@ -1276,11 +1287,44 @@ namespace EmpireCraft.Scripts.UI.Windows
             List<Kingdom> zhou = ZhouEraSystem.Era(_empire) >= ZhouEraSystem.Spring
                 ? ZhouEraSystem.Vassals(_empire).OrderByDescending(ZhouEraSystem.Power).ToList()
                 : new List<Kingdom>();
+            // 近代的傀儡与属地(伪满、日属朝鲜)；本国自己是傀儡、属地的，最上面写宗主
+            bool coreAlive = core != null && !core.isRekt();
+            List<Kingdom> puppets = coreAlive
+                ? PuppetStateSystem.PuppetsOf(core).Where(k => !k.isRekt()).OrderByDescending(k => k.countCities()).ToList()
+                : new List<Kingdom>();
+            List<Kingdom> colonies = coreAlive
+                ? ColonySystem.ColoniesOf(core).Where(k => k != null && !k.isRekt()).OrderByDescending(k => k.countCities()).ToList()
+                : new List<Kingdom>();
+            Kingdom overlord = coreAlive ? PuppetStateSystem.Master(core) ?? ColonySystem.MetropoleOf(core) : null;
             var parent = BeginPage("empire_dependencies",
+                puppets.Count + colonies.Count > 0 ? string.Format(LM.Get("dependency_chip_puppets"), puppets.Count + colonies.Count) : null,
                 zhou.Count > 0 ? string.Format(LM.Get("dependency_chip_zhou"), zhou.Count) : null,
                 string.Format(LM.Get("dependency_chip_tributaries"), tributaries.Count),
                 string.Format(LM.Get("dependency_chip_vassals"), vassals.Count),
                 string.Format(LM.Get("dependency_chip_total"), MoneyDisplay.Format(totalTribute)));
+            EmpireCraftStatsRow overlordRows = null, puppetRows = null;
+            if (overlord != null && !overlord.isRekt())
+            {
+                var overlordCard = parent.BeginCard(MainWidth, "empire_overlord", "#F08A4B", null, "ui/icons/iconKingdom");
+                overlordRows = overlordCard.AddComponent<EmpireCraftStatsRow>();
+                overlordRows.WideLayout = true;
+                string value = PuppetStateSystem.IsPuppet(core)
+                    ? string.Format(LM.Get("dependency_overlord_puppet"), PuppetStateSystem.Years(core))
+                    : LM.Get("kov_colony_kind_" + (ColonySystem.Of(core)?.kind ?? ColonyState.Governorate));
+                AddDependencyRow(overlordRows, overlord, value);
+            }
+            if (puppets.Count + colonies.Count > 0)
+            {
+                var puppetCard = parent.BeginCard(MainWidth, "empire_puppets", "#F08A4B", LM.Get("dependency_sort_puppet"),
+                    "ui/icons/iconKingdom");
+                puppetRows = puppetCard.AddComponent<EmpireCraftStatsRow>();
+                puppetRows.WideLayout = true;
+                foreach (Kingdom puppet in puppets)
+                    AddDependencyRow(puppetRows, puppet, string.Format(LM.Get("dependency_puppet_value"), puppet.countCities()));
+                foreach (Kingdom colony in colonies)
+                    AddDependencyRow(puppetRows, colony, string.Format(LM.Get("dependency_colony_value"),
+                        LM.Get("kov_colony_kind_" + (ColonySystem.Of(colony)?.kind ?? ColonyState.Governorate)), colony.countCities()));
+            }
             EmpireCraftStatsRow zhouRows = null;
             if (zhou.Count > 0)
             {
@@ -1315,7 +1359,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             int shown = 0;
             foreach (Kingdom vassal in vassals) shown += AddVassalRows(vassalRows, vassal, 0);
             if (shown == 0) AddCardEmptyNote(vassalCard, HalfWidth);
-            StartCoroutine(ShowCardRows(zhouRows, tributaryRows, vassalRows));
+            StartCoroutine(ShowCardRows(overlordRows, puppetRows, zhouRows, tributaryRows, vassalRows));
         }
 
         private static void AddCardEmptyNote(AutoVertLayoutGroup card, float width)

@@ -48,9 +48,18 @@ public static class DynastyNaming
         empire?.CoreKingdom?.GetRegime()?.type == RegimeType.HuaxiaOrigin;
 
     // 穿越政权(元老院选主席)：在位主席、历任主席(见 TransmigrantSystem.Governs)
-    public static string Term(Empire empire, string key) =>
-        TransmigrantSystem.Governs(empire) && LM.Has(key + "_transmigrant") ? key + "_transmigrant"
-        : HuaxiaOriginEmpire(empire) && LM.Has(key + "_huaxia_origin") ? key + "_huaxia_origin" : key;
+    public static string Term(Empire empire, string key)
+    {
+        // 剧本定下的元首职位(满洲国皇帝照旧，英国国王、伊朗沙阿)：调用处都按文本键取，这里登记一个本帝国的键(见 RepublicSystem.CustomHeadTitle)
+        if (key == "emperor" && RepublicSystem.CustomHeadTitle(empire) is string custom)
+        {
+            string customKey = "head_title_custom_" + empire.id;
+            if (!LM.Has(customKey) || LM.Get(customKey) != custom) LM.AddToCurrentLocale(customKey, custom);
+            return customKey;
+        }
+        return TransmigrantSystem.Governs(empire) && LM.Has(key + "_transmigrant") ? key + "_transmigrant"
+            : HuaxiaOriginEmpire(empire) && LM.Has(key + "_huaxia_origin") ? key + "_huaxia_origin" : key;
+    }
 
     // 制度线专属称谓：日本线的国家类别、官名在文本键后加 "_japan"(天皇、国司、大名、国……见各政体 OfficialType.csv)
     public static string LineSuffix(Kingdom kingdom)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using EmpireCraft.Scripts.Compatibility;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.Layer;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -39,16 +40,24 @@ public static class VassalColorService
         bool full = subject.HasTakenAlliance() && subject.GetTakenAllianceEmpire()?.CoreKingdom == lord ||
                     ColonySystem.MetropoleOf(subject) == lord || PuppetStateSystem.Master(subject) == lord;
         ColorAsset composite = Composite(colors[own], lordColor, full ? 1f : LordBlend);
-        if (subject._cached_color == composite) return;
+        // 本身是帝国的傀儡(伪满)：帝国图层、帝国铭牌、帝国列表读的是帝国自己的颜色，一并换上(Empire 不改存档里的 color_id)
+        Empire empire = subject.IsEmpire() ? subject.GetEmpire() : null;
+        bool empireStale = empire != null && empire.CoreKingdom == subject && empire._cached_color != composite;
+        if (subject._cached_color == composite && !empireStale) return;
         subject._cached_color = composite;
+        if (empireStale) empire._cached_color = composite;
         World.world?.zone_calculator?.dirtyAndClear();
     }
 
     // 不再从属：去掉合成颜色，回到自己存档里的颜色
     public static void Clear(Kingdom subject)
     {
-        if (subject?.data == null || subject._cached_color == null || !IsComposite(subject._cached_color)) return;
-        subject._cached_color = null;
+        if (subject?.data == null) return;
+        Empire empire = subject.IsEmpire() ? subject.GetEmpire() : null;
+        bool empireComposite = empire != null && IsComposite(empire._cached_color);
+        if ((subject._cached_color == null || !IsComposite(subject._cached_color)) && !empireComposite) return;
+        if (IsComposite(subject._cached_color)) subject._cached_color = null;
+        if (empireComposite) empire._cached_color = null;
         World.world?.zone_calculator?.dirtyAndClear();
     }
 

@@ -347,6 +347,9 @@ public sealed class WorldMapPolity
     // 租借地：出租国(本剧本的国 id)与开局时租期还剩几年(不写 99)
     public string lessor = "";
     [JsonProperty("lease_years")] public int leaseYears;
+    // 元首的实际职位("简体|英文|繁体"，如 委员长、总书记、元首、国王)：开局政府的元首称号照它，不再按理念一律叫总统、主席，
+    // 君主国也不一律叫皇帝；政体改了(共和改君主或反过来)就不再用(见 EmpireData.head_title)
+    public string title = "";
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }
@@ -399,6 +402,11 @@ public sealed class WorldMapEra
     public bool own_cities;
     // 点名独立的城：所在地区被哪国认领也不归它(见 WorldMapScenario.Plan、ScenarioEditing.MakeIndependent)
     public List<string> independent;
+    // 全图分给剧本国(钢三式开局，用户 2026-11-10"补的小国太碎了，现代剧本可以看看钢铁雄心三是怎么排的")：补空的城一座一座
+    // 并进认领那块地区的国，没人认领的归走得到的最近剧本城的主人，不留独立小国(见 WorldMapScenario.PartitionFillers)。
+    // 不写时 1800 年以后的剧本照这样(FullPartition)
+    public bool partition;
+    public bool FullPartition() => partition || year >= 1800;
     // 剧本编辑器的笔刷(见 ScenarioCells)：刷的地块归属(0.2° 一格，key 为 "p:国家编号" 或 "r:地区编号"，开局先归那国或那块法理最近的城；
     // 刷在无人区上的定这片地挂哪个法理——p: 那国都城的王国法理、r: 那块王国法理，见 WorldMapWilderness.BeginPaint；
     // key 为 "n" 的是永久中立区，盖到的那一片无人区开局即永久中立)

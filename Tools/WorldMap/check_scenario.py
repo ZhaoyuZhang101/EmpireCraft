@@ -15,7 +15,7 @@ TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "a
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "hero", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
           "conquest_city", "decline", "modern", "autonomy", "exile", "colony_of", "company", "dependency", "place", "lessor",
-          "lease_years"}
+          "lease_years", "title"}
 DEPENDENCIES = {"governorate", "company", "protectorate", "dominion", "mandate", "lease"}
 MODERN = {"regime", "ideology", "party", "one_party", "parties"}
 REGIMES = {"republic", "constitutional", "monarchy"}

@@ -104,6 +104,9 @@ public class EmpireData : MetaObjectData
     public string capital_loss_previous_prefix = "";
     public string core_name = "";
     public string empire_type_key = "";
+    // 剧本定下的元首职位("简体|英文|繁体"，见 WorldMapPolity.title)与定下时是不是共和国：政体改了就不用(见 RepublicSystem.CustomHeadTitle)
+    public string head_title = "";
+    public bool head_title_republic;
     // 天下之名(见 RealmNamingSystem)：国号来源(RealmNamingSystem.Source*)、以之为号的帝国法理、复国定下的方位前缀、
     // 与旧朝同名时加的方位前缀、改用天下之名(普世之名、唯一合法政府)前的本名
     public int name_source;

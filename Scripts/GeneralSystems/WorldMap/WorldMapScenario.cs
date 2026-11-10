@@ -51,8 +51,10 @@ public static class WorldMapScenario
         public City city;
         // 补空立的随机小国：没有史料，城名国名按本地文化随机起
         public bool random;
-        // 补空城落在哪个剧本地区：走得到的最近剧本城所在的地区(region 是补空自己起的，不在任何一国的 r 里，见 ClaimingPolity)
+        // 补空城落在哪个剧本地区：走得到的最近剧本城所在的地区(region 是补空自己起的，不在任何一国的 r 里，见 ClaimingPolity)；
+        // homeOwner 是那座剧本城的主人(全图分给剧本国时，没人认领的地区归它，见 PartitionFillers)
         public WorldMapRegion home;
+        public PlannedPolity homeOwner;
         // 城心那块地；建城时原版顺手领的一圈退过了没有(见 ReleaseFoundingRings)
         public TileZone seat;
         public bool ringReleased;
@@ -1091,6 +1093,11 @@ public static class WorldMapScenario
         if (_era?.exact == true) return;
         List<PlannedPolity> fillers = _polities.Where(polity => polity.capital?.random == true && !polity.tribe && polity.kingdom?.data != null).ToList();
         if (fillers.Count == 0) return;
+        if (_era.FullPartition())
+        {
+            PartitionFillers(fillers);
+            return;
+        }
         // 落在剧本写明某国据有的地区(r)里的补空小国归那一国(用户 2026-11-08 明清鼎革：满洲、漠南补空立了正黄旗、镶白旗、额苏里这些
         // 小汗国，开局就各自独立、分帐、飞地自立，清只剩几座城)。一个地区有几国都写了的，归离得最近的那国
         int claimed = 0;
@@ -1137,6 +1144,39 @@ public static class WorldMapScenario
         LogService.LogInfo($"[EmpireCraft][世界地图] 补空小国并入大国 {merged} 个");
     }
 
+    // 全图分给剧本国(钢三式，见 WorldMapEra.FullPartition)：补空的城不成国，一座一座并：认领它所在地区的国(几国都认领的取剧本城离它最近的)，
+    // 没人认领的归走得到的最近剧本城的主人，再没有就归剧本城离它直线最近的那国。距离只按剧本写明的城算，免得并进来的补空城一路连过去
+    private static void PartitionFillers(List<PlannedPolity> fillers)
+    {
+        var seats = _polities.Where(polity => polity.capital?.random != true && !polity.tribe && polity.kingdom?.data != null)
+            .Select(polity => (polity, tiles: polity.cities.Where(city => !city.random).Select(city => city.tile).ToList()))
+            .Where(entry => entry.tiles.Count > 0)
+            .ToDictionary(entry => entry.polity, entry => entry.tiles);
+        if (seats.Count == 0) return;
+        float Distance(PlannedPolity polity, Vector2Int tile) => seats[polity].Min(seat => (seat - tile).sqrMagnitude);
+        int moved = 0, byRegion = 0;
+        foreach (PlannedPolity filler in fillers)
+        {
+            foreach (PlannedCity planned in filler.cities.ToList())
+            {
+                string region = (planned.home ?? planned.region)?.id;
+                PlannedPolity target = seats.Keys.Where(polity => region != null && polity.data?.regions?.Contains(region) == true)
+                    .OrderBy(polity => Distance(polity, planned.tile)).FirstOrDefault();
+                if (target != null) byRegion++;
+                else if (planned.homeOwner != null && seats.ContainsKey(planned.homeOwner)) target = planned.homeOwner;
+                else target = seats.Keys.OrderBy(polity => Distance(polity, planned.tile)).First();
+                PlannedPolity owner = target;
+                Guard($"补空城 {planned.name} 归 {owner.name}", () =>
+                {
+                    if (MoveFillerCity(planned, owner)) moved++;
+                });
+            }
+            RemoveFiller(filler);
+        }
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        LogService.LogInfo($"[EmpireCraft][世界地图] 全图分给剧本国：补空 {fillers.Count} 国 {moved} 城一城一城并入(按地区认领 {byRegion} 城)");
+    }
+
     // 补空小国的城过半落在哪一国写明据有的地区里：那一国(几国都写了取离得最近的；部落、补空小国不算)
     private static PlannedPolity ClaimingPolity(PlannedPolity filler)
     {
@@ -1166,19 +1206,29 @@ public static class WorldMapScenario
 
     private static void MergeFiller(PlannedPolity filler, PlannedPolity target)
     {
+        foreach (PlannedCity planned in filler.cities.ToList()) MoveFillerCity(planned, target);
+        RemoveFiller(filler);
+    }
+
+    // 补空城并进 target：地区算那国离它最近的剧本城所在的地区(立法理时不留只属于小国的一块)
+    private static bool MoveFillerCity(PlannedCity planned, PlannedPolity target)
+    {
+        if (planned.city == null || planned.city.isRekt()) return false;
+        PlannedCity near = target.cities.Where(city => !city.random).OrderBy(city => (city.tile - planned.tile).sqrMagnitude).FirstOrDefault() ??
+                           target.cities.OrderBy(city => (city.tile - planned.tile).sqrMagnitude).FirstOrDefault();
+        if (near == null) return false;
+        planned.region = near.region;
+        planned.data.region = near.region.id;
+        planned.owner = target;
+        planned.random = false;
+        planned.city.joinAnotherKingdom(target.kingdom);
+        target.cities.Add(planned);
+        return true;
+    }
+
+    private static void RemoveFiller(PlannedPolity filler)
+    {
         Kingdom gone = filler.kingdom;
-        foreach (PlannedCity planned in filler.cities.ToList())
-        {
-            if (planned.city == null || planned.city.isRekt()) continue;
-            PlannedCity near = target.cities.OrderBy(city => (city.tile - planned.tile).sqrMagnitude).FirstOrDefault();
-            if (near == null) continue;
-            planned.region = near.region;
-            planned.data.region = near.region.id;
-            planned.owner = target;
-            planned.random = false;
-            planned.city.joinAnotherKingdom(target.kingdom);
-            target.cities.Add(planned);
-        }
         filler.cities.Clear();
         _polities.Remove(filler);
         // 国家没有城、没有人就由原版移除
@@ -1259,6 +1309,7 @@ public static class WorldMapScenario
             var nearest = centers.OrderBy(center => (center.x - tile.x) * (center.x - tile.x) + (center.y - tile.y) * (center.y - tile.y)).First();
             string culture = from >= 0 ? anchors[from].culture : nearest.culture;
             WorldMapRegion home = from >= 0 ? anchors[from].region : nearest.region;
+            PlannedPolity homeOwner = from >= 0 ? anchors[from].owner : null;
             PlannedPolity polity = fillers.Where(other => other.culture == culture && other.cities.Count < CitiesPerFiller &&
                                                           (other.capital.tile - tile).sqrMagnitude <= FillerJoinTiles * FillerJoinTiles)
                 .OrderBy(other => (other.capital.tile - tile).sqrMagnitude).FirstOrDefault();
@@ -1267,7 +1318,7 @@ public static class WorldMapScenario
             {
                 data = new WorldMapCity { id = id, region = polity?.capital.region.id ?? id, rank = 3 }, rank = 3,
                 region = polity?.capital.region ?? new WorldMapRegion { id = id, culture = culture },
-                tile = tile, culture = culture, random = true, home = home
+                tile = tile, culture = culture, random = true, home = home, homeOwner = homeOwner
             };
             if (polity == null)
             {
@@ -2057,6 +2108,14 @@ public static class WorldMapScenario
                     CompositeEmpireService.EstablishCourt(polity.empire, CultureService.GetRealmCulture(polity.kingdom), polity.data.court);
                 // 共和国开局即已制宪、立宪国立宪、国号锁定
                 ScenarioModernPolitics.AfterEmpire(polity.kingdom, polity.empire, polity.data, polity.name);
+                // 元首的实际职位(委员长、总书记、元首、国王……)，记下定下时是不是共和国(见 RepublicSystem.CustomHeadTitle)
+                if (!string.IsNullOrWhiteSpace(polity.data.title) && polity.empire?.data != null)
+                {
+                    polity.empire.data.head_title = polity.data.title;
+                    polity.empire.data.head_title_republic = RepublicSystem.IsRepublic(polity.empire);
+                    if (polity.empire.data.currentHistory is { is_republic: true } term)
+                        term.office_title = RepublicSystem.GetHeadOfStateTitle(polity.empire);
+                }
                 AnchorCapital(polity);
                 // 华夏年号：开局即是年号的第几年(一年 60 秒)
                 if (!string.IsNullOrEmpty(polity.data.eraName))

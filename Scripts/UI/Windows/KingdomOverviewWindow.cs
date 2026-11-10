@@ -151,6 +151,8 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
     // 以前不看帝国：律令制的封国、藩王(国名同样带"国")在帝国里也显示"独立之国"(用户 2026-10-27 问"为什么迟迟不打燕国""他是独立国")
     private static string Standing(Kingdom kingdom)
     {
+        // 傀儡排最前：伪满本身是帝国，以前只写"满洲国之主"，看不出是日本扶植的
+        if (PuppetStateSystem.StandingLine(kingdom) is string puppet) return puppet;
         Empire sphere = ZhouEraSystem.SphereOf(kingdom);
         if (sphere != null) return string.Format(LM.Get("kov_standing_zhou"), sphere.GetEmpireName());
         Empire empire = kingdom.GetEmpire();
@@ -201,6 +203,7 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         GoodsCard.Draw(page, PageWidth, kingdom.cities, GranarySystem.Stock(kingdom));
         MarketCard.Draw(page, PageWidth, kingdom, new[] { kingdom });
         DrawColonies(page, kingdom);
+        DrawPuppets(page, kingdom);
         DrawTech(page, kingdom);
         DrawWars(page, kingdom);
     }
@@ -233,6 +236,29 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
             string detail = string.Format(LM.Get("kov_colony_row"), LM.Get("kov_colony_kind_" + (state?.kind ?? ColonyState.Governorate)),
                 colony.countCities(), state?.autonomy ?? 0f);
             card.AddListRow(PageWidth, i, null, colony.GetKingdomName(), detail, () => Open(colony), WideKit.Cyan, 160f);
+        }
+    }
+
+    // 傀儡关系：傀儡写扶植者、扶植年数；扶植者列出各傀儡。点一行打开那一国(同殖民关系)
+    private static void DrawPuppets(AutoVertLayoutGroup page, Kingdom kingdom)
+    {
+        Kingdom master = PuppetStateSystem.Master(kingdom);
+        List<Kingdom> puppets = PuppetStateSystem.PuppetsOf(kingdom).Where(Alive).ToList();
+        if (!Alive(master) && puppets.Count == 0) return;
+        var card = page.BeginCard(PageWidth, "kov_puppets", WideKit.Orange,
+            Alive(master) ? master.GetKingdomName() : puppets.Count.ToString(), "ui/icons/iconKingdom");
+        if (Alive(master))
+        {
+            Kingdom lord = master;
+            card.AddListRow(PageWidth, 0, null, LM.Get("kov_puppet_master"), master.GetKingdomFullName(), () => Open(lord), WideKit.Orange, 90f);
+            card.AddMetricRow(PageWidth, (LM.Get("kov_puppet_years"), PuppetStateSystem.Years(kingdom).ToString(), WideKit.Value));
+            return;
+        }
+        for (int i = 0; i < puppets.Count; i++)
+        {
+            Kingdom puppet = puppets[i];
+            card.AddListRow(PageWidth, i, null, puppet.GetKingdomName(),
+                string.Format(LM.Get("kov_puppet_row"), puppet.countCities(), PuppetStateSystem.Years(puppet)), () => Open(puppet), WideKit.Orange, 160f);
         }
     }
 

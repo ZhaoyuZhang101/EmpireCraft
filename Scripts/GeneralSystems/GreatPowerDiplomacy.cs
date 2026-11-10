@@ -125,6 +125,10 @@ public static class GreatPowerDiplomacy
     private static string Title(Kingdom core)
     {
         Regimes.RegimeType? regime = core.GetRegime()?.type;
+        // 共和国元首照元首称号(以前陕甘宁边区"互认总统、皇帝之号")；剧本定下的职位优先
+        Empire empire = core.GetEmpire();
+        if (empire != null && empire.CoreKingdom == core && RepublicSystem.IsRepublic(empire)) return RepublicSystem.GetHeadOfStateTitle(empire);
+        if (empire != null && empire.CoreKingdom == core && RepublicSystem.CustomHeadTitle(empire) is string custom) return custom;
         return regime == null ? LM.Get("actor_emperor_B") : LM.Get(DynastyNaming.RankKey(regime.Value, 0, core));
     }
 

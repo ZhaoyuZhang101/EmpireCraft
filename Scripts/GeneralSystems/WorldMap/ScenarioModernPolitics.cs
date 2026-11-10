@@ -81,6 +81,12 @@ public static class ScenarioModernPolitics
                     state.republic_first_election_pending = false;
                     state.republic_since = World.world.getCurWorldTime() - 10 * 60d;
                 }
+                // 组建政府时已记了一笔"某某皇帝在位"，紧接着才改共和：这一任改记成共和国元首的任期(世系里以前写"陕甘宁边区皇帝")
+                if (empire.data.currentHistory is { } term)
+                {
+                    term.is_republic = true;
+                    term.office_title = RepublicSystem.GetHeadOfStateTitle(empire);
+                }
             }
             else if (regime == "constitutional")
                 ConstitutionalEconomySystem.EstablishScenarioConstitution(empire);

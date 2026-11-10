@@ -164,6 +164,8 @@ public sealed class ConstitutionalEconomyState
     public float party_ban_reopen_pressure;
     public double party_ban_since = -1d;
     public double last_party_ban_check = -1d;
+    // 上回自发立新党的时间：每 PartySystem.FoundCooldownYears 年至多立一个(见 PartySystem.TryFoundParty)
+    public double party_founded_at = -1d;
     // 独裁度计算用：当前执政党连续执政的起点
     public string ruling_streak_party_id = "";
     public double ruling_streak_since = -1d;
