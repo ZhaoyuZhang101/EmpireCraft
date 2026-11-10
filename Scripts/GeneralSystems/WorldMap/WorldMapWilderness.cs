@@ -93,6 +93,8 @@ public class WorldMapWildSave
     public HashSet<int> bounded_anchors;
     public bool ShouldSerializebounded_anchors() => bounded_anchors is { Count: > 0 };
     public int boundary_revision;
+    // 隔山不领(见 WildernessSystem.Passable)：旧档挂好的辖境照存档留着，读旧档后把翻山挂上的改挂一次；新开的局一开始就照这个走
+    public int mountain_revision;
     // 剧本设好的行政成员关系；实际改隶、法理变更、帝国变更后自动让位于新安排。
     public Dictionary<long, ScenarioAdministrativeOrigin> administration;
     public int administration_revision;
@@ -177,6 +179,8 @@ public static class WorldMapWilderness
         (_cityClaims?.ContainsKey(zone.id) == true || _state?.bounded_anchors?.Contains(zone.id) == true);
     internal static bool NeedsBoundaryRepair => Active && _state.boundary_revision < 1;
     internal static void MarkBoundaryRepaired() { if (_state != null) _state.boundary_revision = 1; }
+    internal static bool NeedsMountainRepair => Active && _state.mountain_revision < 1;
+    internal static void MarkMountainRepaired() { if (_state != null) _state.mountain_revision = 1; }
 
     // 连通修补同时更新推算锚点，防止 OriginOf 下一次查询又把修好的省界改回远处旧省。
     internal static void FollowAnchor(TileZone zone, City city)
@@ -313,7 +317,10 @@ public static class WorldMapWilderness
     public static void Begin(WorldMapFrame frame, Vector2Int size, WorldMapEra era, Dictionary<string, City> capitals,
         Dictionary<string, KingdomTitle> titles = null)
     {
-        _state = new WorldMapWildSave { frame = frame?.id ?? "", w = size.x, h = size.y, era = era?.id ?? "", year = era?.year ?? 0 };
+        _state = new WorldMapWildSave
+        {
+            frame = frame?.id ?? "", w = size.x, h = size.y, era = era?.id ?? "", year = era?.year ?? 0, mountain_revision = 1
+        };
         _capitals = new Dictionary<string, City>();
         if (era?.wilderness != null && capitals != null)
             foreach (KeyValuePair<string, string> pair in era.wilderness)

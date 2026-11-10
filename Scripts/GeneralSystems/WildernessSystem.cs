@@ -493,6 +493,7 @@ public static class WildernessSystem
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
         _far = new bool[0];
+        _cutOff = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
         Owners.Clear();
@@ -512,6 +513,7 @@ public static class WildernessSystem
         _titles = new KingdomTitle[0];
         _painted = new bool[0];
         _far = new bool[0];
+        _cutOff = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
         _zones = new TileZone[0];
@@ -852,6 +854,7 @@ public static class WildernessSystem
             _titles = new KingdomTitle[0];
             _painted = new bool[0];
             _far = new bool[0];
+        _cutOff = new bool[0];
             _neutralZones = new bool[0];
             _parents = new City[0];
             reclassifyAll = force = true;
@@ -1555,9 +1558,15 @@ public static class WildernessSystem
                 if (id < _parents.Length) _parents[id] = null;
             }
         bool scenario = WorldMap.WorldMapWilderness.OnEarth;
+        if (scenario && WorldMap.WorldMapWilderness.NeedsMountainRepair)
+        {
+            int repaired = RepairOverMountains();
+            WorldMap.WorldMapWilderness.MarkMountainRepaired();
+            if (repaired > 0) LogService.LogInfo($"[EmpireCraft][无人区] 旧档里隔着山挂上的 {repaired} 块无人区改挂不翻山走得到的城");
+        }
         // 剧本里新增一城、别处换法理，不会推翻仍有效的辖境。只修补新地块或已经消失的法理。
         if (scenario && !WorldMap.WorldMapWilderness.NeedsBoundaryRepair && !_regions.Any(region => region.Zones.Any(id =>
-                (_titles[id] == null || _titles[id].isRekt()) && !UntitledOrigin(id))))
+                (_titles[id] == null || _titles[id].isRekt()) && !UntitledOrigin(id) && !CutOff(id))))
         {
             foreach (WildRegion region in _regions)
                 foreach (int id in region.Zones) OriginOf(_zones[id]);
@@ -1574,6 +1583,7 @@ public static class WildernessSystem
             nomadFrom = Spread(titleOf, city => Nomad(city, nomads), MaxAttachSteps, out nomadReached, out _);
         }
         var realms = new Dictionary<Kingdom, KingdomTitle[]>();
+        var walk = new Nearest(titleOf, from, reached, fromCity);
         if (_parents.Length != _titles.Length) _parents = new City[_titles.Length];
         // 走得到的最近的城与它的法理(隔海走不到的按直线)：连不上所挂法理的地块改挂这个(见 Connect)
         var nearestCity = new City[_titles.Length];
@@ -1587,14 +1597,14 @@ public static class WildernessSystem
                 bool valid = old != null && !old.isRekt();
                 // 权能笔刷划的不动(见 Paint)
                 if (valid && (id < _painted.Length && _painted[id] || !full || scenario) || scenario && UntitledOrigin(id)) continue;
-                City parent = reached[id] ? fromCity[id] : NearestCity(World.world.cities.list, _zones[id]);
-                KingdomTitle nearest = reached[id] ? from[id] : TitleOfCity(parent, titleOf);
+                City parent = walk.Of(id, out KingdomTitle nearest);
                 nearestCity[id] = parent;
                 nearestTitle[id] = nearest;
                 // 剧本：先照州府锚点定的城(行政区)，再照时代文件的史实归属，再照游牧、最近的城
                 _titles[id] = AnchorTitle(_zones[id]) ?? HistoricalTitle(_zones[id], titleOf, from, fromCity, realms) ??
                               (nomadKind && nomadReached[id] ? nomadFrom[id] : nearest);
                 _parents[id] = _titles[id] == null ? parent : null;
+                MarkCutOff(id, _titles[id] == null && parent == null);
             }
         }
         Connect(titleOf, nearestCity, nearestTitle);
@@ -1656,9 +1666,7 @@ public static class WildernessSystem
             }
         }
         int moved = Absorb(linked, titleOf);
-        KingdomTitle[] from = null;
-        City[] fromCity = null;
-        bool[] reached = null;
+        Nearest walk = null;
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
             {
@@ -1678,15 +1686,11 @@ public static class WildernessSystem
                 }
                 City parent = nearestCity[id];
                 KingdomTitle title = nearestTitle[id];
-                if (parent == null)
-                {
-                    if (from == null) from = Spread(titleOf, null, float.PositiveInfinity, out reached, out fromCity);
-                    parent = reached[id] ? fromCity[id] : NearestCity(World.world.cities.list, _zones[id]);
-                    title = reached[id] ? from[id] : TitleOfCity(parent, titleOf);
-                }
+                if (parent == null) parent = (walk ??= new Nearest(titleOf)).Of(id, out title);
                 if (title != _titles[id]) moved++;
                 _titles[id] = title;
                 _parents[id] = parent;
+                MarkCutOff(id, parent == null);
             }
         if (moved > 0) LogService.LogInfo($"[EmpireCraft][无人区] {moved} 块连不上所挂法理的城(飞地)，并给四周或最近的城");
     }
@@ -1944,15 +1948,16 @@ public static class WildernessSystem
     // 从城的地块往外走(starts 为空时所有的城都起步，不为空时只从这些城起步；block 时也不穿过别的城的地)：
     // 每块地记最先走到它的那座城(cities)与它的法理；reached 记走到了没有。八方向走，每块地的代价各自不同(见 TerritoryGrain)
     // (用户 10-30 "你至少让版图平滑点"：以前四方向一步一格，两座城之间的分界是横平竖直、45 度的长直线，并进国土后一块块方的)，
-    // 至多走 limit
+    // 至多走 limit。隔山不领(见 Step)：按"在山里连走了几块"分开记，山里走得深的那条路不挡山外绕过来的路；overMountains 时不管山
     private static KingdomTitle[] Spread(Dictionary<City, KingdomTitle> titleOf, Func<City, bool> starts, float limit, out bool[] reached,
-        out City[] cities, bool block = true)
+        out City[] cities, bool block = true, bool overMountains = false)
     {
         int size = _zones.Length;
-        var from = new KingdomTitle[size];
-        cities = new City[size];
-        var cost = new float[size];
-        for (int i = 0; i < size; i++) cost[i] = float.PositiveInfinity;
+        int layers = overMountains ? 1 : MountainDepth + 1;
+        var stateFrom = new KingdomTitle[size * layers];
+        var stateCity = new City[size * layers];
+        var cost = new float[size * layers];
+        for (int i = 0; i < cost.Length; i++) cost[i] = float.PositiveInfinity;
         var heap = new WorldMap.WorldMapZones.MinHeap();
         for (int id = 0; id < size; id++)
         {
@@ -1966,15 +1971,17 @@ public static class WildernessSystem
             }
             // 没有法理的城也从这里起步：离它最近的无人区不挂(由周边的城定归属)，不让远处有法理的城越过它挂过来——
             // 以前只从有法理的城起步，紧挨着祭部落(没有法理)的雨林挂到了北边远处的顾法理上(用户 2026-10-29 截图)
-            from[id] = title;
-            cities[id] = city;
-            cost[id] = 0f;
-            heap.Push(0f, id);
+            int s0 = id * layers;
+            stateFrom[s0] = title;
+            stateCity[s0] = city;
+            cost[s0] = 0f;
+            heap.Push(0f, s0);
         }
         while (heap.Count > 0)
         {
-            heap.Pop(out float at, out int id);
-            if (at > cost[id]) continue;
+            heap.Pop(out float at, out int state);
+            if (at > cost[state]) continue;
+            int id = state / layers, depth = state % layers;
             // 长城上不归城的地块到此为止：长城那边的无人区不从这边挂过去
             if (id < _walled.Length && _walled[id] && _zones[id].city == null) continue;
             TileZone zone = _zones[id];
@@ -1983,25 +1990,173 @@ public static class WildernessSystem
             foreach (TileZone next in neighbours)
             {
                 if (next == null || next.id < 0 || next.id >= size || !Land(next)) continue;
-                // 高原无人区隔着外缘山脊走不进去，只从山口进(见 PlateauShaper；用户 2026-11-10 定按走得到的最近的城挂)
-                if (next.id < _kind.Length && _kind[next.id] == (byte)WildKind.Plateau &&
-                    (id >= _kind.Length || _kind[id] != (byte)WildKind.Plateau) && !TerrainSystem.Crossable(zone, next)) continue;
                 // 只从部分城起步时(游牧)不穿过别的城的地：农耕国腹地里的沙漠走不到，照旧挂最近的城
                 if (block && starts != null && next.city?.data != null && !next.city.isRekt() && !starts(next.city)) continue;
                 float total = at + (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * Roughness(next);
-                if (total > limit || total >= cost[next.id]) continue;
-                cost[next.id] = total;
-                from[next.id] = from[id];
-                cities[next.id] = cities[id];
-                heap.Push(total, next.id);
+                if (total > limit) continue;
+                int nextDepth = overMountains ? 0 : Step(zone, depth, next);
+                if (nextDepth < 0) continue;
+                int target = next.id * layers + nextDepth;
+                if (total >= cost[target]) continue;
+                cost[target] = total;
+                stateFrom[target] = stateFrom[state];
+                stateCity[target] = stateCity[state];
+                heap.Push(total, target);
             }
         }
+        var from = new KingdomTitle[size];
+        cities = new City[size];
         reached = new bool[size];
-        for (int i = 0; i < size; i++) reached[i] = !float.IsPositiveInfinity(cost[i]);
+        for (int id = 0; id < size; id++)
+        {
+            float best = float.PositiveInfinity;
+            for (int d = 0; d < layers; d++)
+            {
+                int state = id * layers + d;
+                if (cost[state] >= best) continue;
+                best = cost[state];
+                from[id] = stateFrom[state];
+                cities[id] = stateCity[state];
+            }
+            reached[id] = !float.IsPositiveInfinity(best);
+        }
         return from;
     }
 
     private static bool OnWall(int id) => id < _walled.Length && _walled[id];
+
+    // 隔山不领(用户 2026-11-10 截图犍陀罗、迦湿弥罗挂走了兴都库什、喀喇昆仑山里山梁那边的无人区："山地对面的无人区也不准自动领取"；
+    // 问答定"至多 2 块""法理也不挂，留作无主")：挂法理往外走时，成片的山(地块里走不通，见 TerrainSystem.ImpassableGround)
+    // 至多连着走进 MountainDepth 块(约 16 格的山脚)，从山里下不到别处走得通的地；走得通的地块之间，交界上也要走得通
+    // (见 TerrainSystem.Crossable，城心、修了路的照通)。所以山那边的地只能经山口、河谷走过去领，大山深处谁都不领；高原外缘同理
+    private const int MountainDepth = 2;
+
+    // 从 zone(已在山里连走了 depth 块)走到 next 之后，在山里连走了几块；走不过去为 -1
+    private static int Step(TileZone zone, int depth, TileZone next)
+    {
+        if (TerrainSystem.ImpassableGround(next)) return depth < MountainDepth ? depth + 1 : -1;
+        if (TerrainSystem.ImpassableGround(zone) || !TerrainSystem.Crossable(zone, next)) return -1;
+        return 0;
+    }
+
+    // 不翻山走得到的最近的城与它的法理(见 Spread)。走不到的：翻山走得到(大山深处、四面是山的谷地)的谁都不挂，留作无主；
+    // 翻山也走不到的(隔海、没有城的岛)照旧挂直线最近的城
+    private sealed class Nearest
+    {
+        private readonly Dictionary<City, KingdomTitle> _titleOf;
+        private KingdomTitle[] _from;
+        private bool[] _reached, _overReached;
+        private City[] _city;
+
+        public Nearest(Dictionary<City, KingdomTitle> titleOf, KingdomTitle[] from = null, bool[] reached = null, City[] city = null)
+        {
+            _titleOf = titleOf;
+            _from = from;
+            _reached = reached;
+            _city = city;
+        }
+
+        // 隔着山谁都不领的
+        public bool CutOff(int id)
+        {
+            _from ??= Spread(_titleOf, null, float.PositiveInfinity, out _reached, out _city);
+            if (id < 0 || id >= _reached.Length || _reached[id]) return false;
+            if (_overReached == null) Spread(_titleOf, null, float.PositiveInfinity, out _overReached, out _, overMountains: true);
+            return _overReached[id];
+        }
+
+        public City Of(int id, out KingdomTitle title)
+        {
+            title = null;
+            if (CutOff(id)) return null;
+            if (id >= 0 && id < _reached.Length && _reached[id])
+            {
+                title = _from[id];
+                return _city[id];
+            }
+            City near = NearestCity(World.world.cities.list, _zones[id]);
+            title = TitleOfCity(near, _titleOf);
+            return near;
+        }
+    }
+
+    // 隔着山谁都不领、空着的(见 Nearest)：剧本存档不为它们每回都整个重挂(见 Attach)
+    private static bool[] _cutOff = new bool[0];
+
+    private static bool CutOff(int id) => id >= 0 && id < _cutOff.Length && _cutOff[id];
+
+    private static void MarkCutOff(int id, bool cut)
+    {
+        if (id < 0) return;
+        if (_cutOff.Length < _titles.Length) Array.Resize(ref _cutOff, _titles.Length);
+        if (id < _cutOff.Length) _cutOff[id] = cut;
+    }
+
+    // 旧档里翻山挂上的无人区改挂(剧本存档的辖境照存档留着，不会自己重挂，见 Attach)：从各城沿同一法理的无人区按隔山的走法走
+    // (见 Step)，走不到的、又不是剧本定的(州府锚点、史实归属、剧本或权能刷的)改挂不翻山走得到的最近的城，谁都走不到的空出来。
+    // 读旧档后做一次(见 WorldMap.WorldMapWilderness.NeedsMountainRepair)，返回改了几块
+    private static int RepairOverMountains()
+    {
+        int size = _titles.Length;
+        if (size == 0) return 0;
+        var titleOf = new Dictionary<City, KingdomTitle>();
+        _walled = WallZones();
+        int layers = MountainDepth + 1;
+        var seen = new bool[size * layers];
+        var legit = new bool[size];
+        var queue = new Queue<int>();
+        void Reach(int id, int depth)
+        {
+            int state = id * layers + depth;
+            if (seen[state]) return;
+            seen[state] = true;
+            legit[id] = true;
+            queue.Enqueue(state);
+        }
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                KingdomTitle title = _titles[id];
+                TileZone zone = _zones[id];
+                if (title == null || title.isRekt() || zone?.neighbours_all == null) continue;
+                foreach (TileZone next in zone.neighbours_all)
+                {
+                    City city = next?.city;
+                    if (city?.data == null || city.isRekt() || TitleOfCity(city, titleOf) != title) continue;
+                    int depth = Step(next, 0, zone);
+                    if (depth >= 0) Reach(id, depth);
+                }
+            }
+        while (queue.Count > 0)
+        {
+            int state = queue.Dequeue(), id = state / layers, depth = state % layers;
+            if (OnWall(id)) continue;
+            foreach (TileZone next in _zones[id].neighbours_all)
+            {
+                if (next == null || next.id < 0 || next.id >= size || _titles[next.id] != _titles[id] ||
+                    next.id >= _regionOf.Length || _regionOf[next.id] < 0) continue;
+                int nextDepth = Step(_zones[id], depth, next);
+                if (nextDepth >= 0) Reach(next.id, nextDepth);
+            }
+        }
+        var walk = new Nearest(titleOf);
+        int moved = 0;
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+            {
+                KingdomTitle title = _titles[id];
+                TileZone zone = _zones[id];
+                if (legit[id] || title == null || title.isRekt() || zone == null || IsPainted(zone) ||
+                    AnchorTitle(zone) != null || WorldMap.WorldMapWilderness.TitleFor(zone) != null) continue;
+                City city = walk.Of(id, out KingdomTitle nearest);
+                if (nearest == title) continue;
+                _titles[id] = nearest;
+                _parents[id] = city;
+                MarkCutOff(id, city == null);
+                moved++;
+            }
+        return moved;
+    }
 
     // 走进这块地的代价(每块地各自不同，同一块地每次一样，见 TerritoryGrain)
     private static float Roughness(TileZone zone) =>

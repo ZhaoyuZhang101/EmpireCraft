@@ -51,6 +51,8 @@ public static class ScenarioWilderness
     private const float BarrenShare = 0.85f, SwampShare = 0.75f, JungleShare = 0.85f;
     // 高原无人区：高寒高原格至少占陆地这么多(同 WildernessSystem)
     private const float PlateauCore = 0.35f;
+    // 山占一半以上的地块走进去的代价(×10)；挂法理时当成片的山(见 Attach)
+    private const int MassifCost = 60;
     private const float EdgeShare = 0.5f, MountainEdgeShare = 0.6f, LavaEdgeShare = 0.15f;
     // 时代开发度：陆地不到几格的不改、这一类格子(连草木)占陆地几成才改、离城多远(度)开发度翻倍的衰减(同 WorldMapDevelopment)
     private const float WetShare = 0.5f;
@@ -731,7 +733,7 @@ public static class ScenarioWilderness
         {
             int land = layout.Land[z];
             layout.Cost[z] = land < TerritoryLand ? 0
-                : rock[z] >= land * 0.5f ? 60
+                : rock[z] >= land * 0.5f ? MassifCost
                 : frozen[z] + sand[z] >= land * BarrenShare ? 30
                 : plateau[z] + frozen[z] >= land * BarrenShare ? 30
                 : jungle[z] + swamp[z] >= land * 0.5f ? 25
@@ -807,31 +809,45 @@ public static class ScenarioWilderness
     }
 
     // 挂法理的走法(同 WildernessSystem.Attach)：从各城(连补空小国)的辖地按地块往外走(四邻、不过海、不限远近，青藏腹地也挂得上)，
-    // 无人区的地块记最先走到它的那座城
+    // 无人区的地块记最先走到它的那座城。隔山不领(同 WildernessSystem.Step，这里按山占一半以上的地块粗算)：成片的山至多连着走进
+    // 2 块，从山里下不到别处的平地；走不到的空着(大山深处、四面是山的谷地谁都不领)
     private static void Attach(Layout layout)
     {
         int n = layout.W * layout.H;
+        const int depthLimit = 2;
         var step = new int[n];
-        var queue = new Queue<int>();
+        var depthAt = new int[n];
+        var queue = new Queue<(int z, int depth)>();
+        bool Massif(int z) => layout.Cost != null && layout.Cost[z] == MassifCost;
         for (int z = 0; z < n; z++)
         {
             step[z] = -1;
+            depthAt[z] = int.MaxValue;
             layout.Label[z] = -1;
             if (layout.Terr[z] == -1) continue;
             layout.Label[z] = layout.Terr[z];
             step[z] = 0;
-            queue.Enqueue(z);
+            depthAt[z] = 0;
+            queue.Enqueue((z, 0));
         }
         while (queue.Count > 0)
         {
-            int z = queue.Dequeue();
+            (int z, int depth) = queue.Dequeue();
+            if (depth > depthAt[z]) continue;
             for (int d = 0; d < 4; d++)
             {
                 int next = Neighbour(z, d, layout.W, layout.H);
-                if (next < 0 || step[next] >= 0 || layout.Land[next] <= SeaGround) continue;
-                step[next] = step[z] + 1;
-                layout.Label[next] = layout.Label[z];
-                queue.Enqueue(next);
+                if (next < 0 || layout.Land[next] <= SeaGround) continue;
+                int nextDepth = Massif(next) ? depth + 1 : Massif(z) ? -1 : 0;
+                if (nextDepth < 0 || nextDepth > depthLimit || nextDepth >= depthAt[next]) continue;
+                // 头一回走到的定归属；之后在山里走得浅一些的路只为接着往前走
+                if (step[next] < 0)
+                {
+                    step[next] = step[z] + 1;
+                    layout.Label[next] = layout.Label[z];
+                }
+                depthAt[next] = nextDepth;
+                queue.Enqueue((next, nextDepth));
             }
         }
     }
