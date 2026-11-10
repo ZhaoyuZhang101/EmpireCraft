@@ -156,6 +156,8 @@ public static partial class NomadRaidSystem
                 if (member.IsFactionRebelling() || member.IsLocalRebelling() || !RebellionSystem.CanAttempt(member)) continue;
                 own.leave(member, true, true);
                 if (member.GetEmpire() == own) continue;
+                // 劫掠失利、离盟而去记在各国之主身上(量刑天平的叛逆砝码)
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
                 Chronicle(string.Format(LM.Get("nomad_raid_rift_leave_history"), member.GetKingdomName(), own.GetEmpireName()),
                     new[] { member, leader });
                 continue;

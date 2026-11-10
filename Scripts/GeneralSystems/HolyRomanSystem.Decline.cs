@@ -184,6 +184,8 @@ public static partial class HolyRomanSystem
         foreach (Kingdom member in departing)
         {
             empire.leave(member, true, isLeave: true);
+            // 投靠外国保护者记在诸侯身上(量刑天平的叛逆砝码)
+            if (member.GetEmpire() != empire) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
             Regime regime = member.GetRegime();
             regime?.SetAllowDiplomacy(true);
             regime?.SetAllowSupportCenterArmy(false);

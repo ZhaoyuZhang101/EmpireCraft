@@ -232,6 +232,8 @@ public static class EmirateSystem
                 kingdom.FinishedSelfPlot();
                 empire.leave(kingdom, true, false);
                 if (kingdom.IsInEmpire()) return false;
+                // 据地自专记在埃米尔身上(量刑天平的叛逆砝码)
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(kingdom);
                 kingdom.GetOrCreate().emirate_hereditary_at = -1d;
                 EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
                 if (!empire.isRekt() && !empire.IsArchived()) kingdom.JoinTakenAlliance(empire, pForce: true);

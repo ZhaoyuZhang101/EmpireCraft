@@ -235,6 +235,8 @@ public static class ExclaveMaintenanceSystem
             member.FinishedSelfPlot();
             empire.leave(member, true, false);
             if (member.IsInEmpire()) continue;
+            // 鞭长莫及、各自独立记在各国之主身上(量刑天平的叛逆砝码)
+            EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
             EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
             gone.Add(member);
         }

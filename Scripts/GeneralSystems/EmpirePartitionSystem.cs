@@ -478,6 +478,8 @@ public static class EmpirePartitionSystem
         Empire twin = Split(empire, ruler, seat, plan, rival ? KindMinister : KindWill, PrinceStruggleSystem.NotePartition,
             renamed ? ownName : empire.data.core_name, renameSource: !rival, ownKingdom);
         if (twin == null) return false;
+        // 另立哈里发记在自立的埃米尔身上(量刑天平的叛逆砝码)；汗国东西分立是兄弟之国，不记
+        if (rival && ownKingdom != null) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteDefiance(ruler, true);
         if (renamed)
         {
             twin.data.directPre = "";
@@ -714,6 +716,8 @@ public static class EmpirePartitionSystem
         Empire rival = Split(empire, royal, seat, plan, KindMinister, PrinceStruggleSystem.NoteRaised,
             empire.data.core_name, renameSource: true);
         if (rival == null) return;
+        // 强藩拥立另立朝廷记在强藩之主身上(量刑天平的叛逆砝码)；迎皇帝出奔的不记
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteDefiance(strongman, true);
         AfterMinisterSplit(empire, rival, strongman, royal, ControlledProgress);
         Publish(empire, rival, string.Format(LM.Get("partition_raise_history"), strongman.getName(), seat.GetCityName(),
             royal.getName(), minister.getName(), empire.GetEmpireFullName(), rival.GetEmpireFullName()), royal);

@@ -306,6 +306,8 @@ public static class NomadCycleSystem
                 member.FinishedSelfPlot();
                 empire.leave(member, true, false);
                 if (member.IsInEmpire()) continue;
+                // 各自为汗记在各国之主身上(量刑天平的叛逆砝码)
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
                 EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
                 gone.Add(member);
             }
@@ -396,6 +398,8 @@ public static class NomadCycleSystem
         leaver.FinishedSelfPlot();
         empire.leave(leaver, true, false);
         if (leaver.IsInEmpire()) return;
+        // 自立为汗记在兀鲁思之主身上(量刑天平的叛逆砝码)
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(leaver);
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(leaver);
         string content = string.Format(LM.Get("ulus_drift_history"), name, khan, realm);
         empire.RecordHistory(directContent: content, kingdomId: leaver.id);

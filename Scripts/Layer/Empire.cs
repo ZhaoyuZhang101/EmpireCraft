@@ -832,6 +832,8 @@ public class Empire : MetaObject<EmpireData>
                     if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20&&MembershipCooldown.Settled(k))
                     {
                         this.leave(k);
+                        // 不服新朝、离心而去记在各国之主身上(量刑天平的叛逆砝码)
+                        if (k.GetEmpire() != this) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(k);
                     }
                 }
             } 

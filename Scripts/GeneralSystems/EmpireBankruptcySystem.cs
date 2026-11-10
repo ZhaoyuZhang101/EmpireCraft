@@ -157,6 +157,7 @@ public static class EmpireBankruptcySystem
     private static bool Defect(Empire empire, Kingdom member, Kingdom rebel)
     {
         string name = member.GetKingdomFullName();
+        Actor defector = member.king;
         City capital = member.capital;
         int moved = 0;
         foreach (City city in member.cities.ToList().OrderBy(city => city == capital ? 1 : 0))
@@ -166,6 +167,8 @@ public static class EmpireBankruptcySystem
             if (city.kingdom == rebel) moved++;
         }
         if (moved == 0) return false;
+        // 举城投贼记在原来那一国之主身上(量刑天平的叛逆砝码)
+        if (defector?.data != null && !defector.isRekt()) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteDefiance(defector, true);
         EventRecorder.Record(empire, actor: rebel.king, logKingdom: rebel, text: string.Format(
             LM.Get("bankruptcy_defect_history"), empire.GetEmpireFullName(), name, rebel.GetKingdomFullName()));
         return true;

@@ -132,6 +132,8 @@ public static partial class SteppeOrderSystem
         if (key == null || UnityEngine.Random.value >= chance) return;
         empire.leave(kingdom, true, true);
         if (kingdom.GetEmpire() == empire) return;
+        // 附从散去记在部落之主身上(量刑天平的叛逆砝码)
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(kingdom);
         state.attached_empire_id = state.attached_khan_id = -1L;
         state.attached_at = -1d;
         Chronicle(string.Format(LM.Get(key), kingdom.GetKingdomName(), empire.GetEmpireName()), kingdom, empire.CoreKingdom);

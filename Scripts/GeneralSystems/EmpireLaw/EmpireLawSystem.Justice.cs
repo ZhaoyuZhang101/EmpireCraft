@@ -590,6 +590,9 @@ public static partial class EmpireLawSystem
         return RoyalRank.Kin;
     }
 
+    // 皇室身份：0 不是、1 宗室、2 近支、3 储君(名望年入也按它，见 RenownSystem)
+    public static int RoyalStanding(Actor actor, Kingdom kingdom) => (int)RoyalRankOf(actor, kingdom);
+
     // 叛逆：起兵叛乱、拥兵自立的次数(见 NoteDefiance)与犯过的十恶。这一案就是那场兵败的叛乱的，那一回不重算
     private static int DefianceCount(PersonalClanIdentity identity, string reasonKey)
     {
@@ -856,6 +859,14 @@ public static partial class EmpireLawSystem
             AddNote(context.Notes, "law_note_cost_lenient");
             LogService.LogInfo($"[律法][量刑] 放过 {context.ActorName}：罪责 ×{info.GuiltWeight:0.00} 仍减 {-info.Shift} 等，吏治败坏 +2");
         }
+    }
+
+    // 不打仗的拥兵自立(据地自专、自立为汗、各自为汗、对立国王相持离去、投靠外国、改投入侵者、飞地自立……)：
+    // 记在离去那一国的君主身上。各处在确认已离开帝国后调用(用户 2026-11-10 "接着做"自立的判定)
+    public static void NoteSecession(Kingdom kingdom)
+    {
+        Actor ruler = kingdom?.data != null && !kingdom.isRekt() ? kingdom.king : null;
+        if (ruler?.data != null && !ruler.isRekt()) NoteDefiance(ruler, true);
     }
 
     // 起兵叛乱、拥兵自立记在首领的族谱身份上(叛逆砝码)：每场仗每位首领记一次(见 LawEvents.TrackRebelLeader)

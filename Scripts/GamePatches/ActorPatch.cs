@@ -458,6 +458,8 @@ public class ActorPatch : GamePatch
         __instance?.GetModName()?.RepairOrder(__instance);
         // 过生日：老死、皇嗣夭折、补姓(见 RoyalHouseSystem)
         using (FrameProfiler.Measure("宗室·过生日")) EmpireCraft.Scripts.GeneralSystems.RoyalHouseSystem.OnBirthday(__instance);
+        // 名望年结：先去一成，再按身份记年入(见 RenownSystem)
+        using (FrameProfiler.Measure("名望·年结")) EmpireCraft.Scripts.GeneralSystems.RenownSystem.Yearly(__instance);
     }
 
     public static bool CheckNaturalDeath(Actor __instance, ref bool __result)

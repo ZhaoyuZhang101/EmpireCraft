@@ -570,6 +570,8 @@ public static class SchismSystem
                 {
                     Unflag(member, empire);
                     empire.leave(member, pRecalc: true, isLeave: true);
+                    // 不复奉令记在各国之主身上(量刑天平的叛逆砝码)
+                    if (member.GetEmpire() != empire) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
                 }
                 if (distant.Count > 0)
                 {
@@ -597,7 +599,12 @@ public static class SchismSystem
         foreach (Kingdom leaver in leavers)
         {
             Unflag(leaver, empire);
-            if (leaver.GetEmpire() == empire && leaver != empire.CoreKingdom) empire.leave(leaver, pRecalc: true, isLeave: true);
+            if (leaver.GetEmpire() == empire && leaver != empire.CoreKingdom)
+            {
+                empire.leave(leaver, pRecalc: true, isLeave: true);
+                // 相持自立记在争位者与随攻诸国之主身上(量刑天平的叛逆砝码；对立国王之战不在叛乱之列，那边没记)
+                if (leaver.GetEmpire() != empire) EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(leaver);
+            }
         }
         List<Kingdom> stayed = Members(empire);
         Restore(empire, stayed);

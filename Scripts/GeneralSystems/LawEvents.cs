@@ -133,15 +133,34 @@ public static class LawEvents
             Actor leader = war?.data == null || war.hasEnded() ? null : war.getMainAttacker()?.king;
             if (!Living(leader)) return;
             WarExtension.WarExtraData data = war.GetOrCreate();
-            if (data == null || data.rebel_leader_id == leader.id || RebelLaw(war, data.empireWarType) == null) return;
+            LawType? law = data == null ? null : RebelLaw(war, data.empireWarType);
+            if (law == null) return;
             data.rebel_leader_id = leader.id;
-            // 起兵、自立记在首领身上(量刑天平的叛逆砝码)
-            LawType? law = RebelLaw(war, data.empireWarType);
-            EmpireLawSystem.NoteDefiance(leader, law == LawType.叛国);
+            NoteRebels(war, data, law == LawType.叛国);
         }
         catch (Exception)
         {
             // 记不上首领只是战后不论处，不影响战争
+        }
+    }
+
+    // 起兵、自立记在叛乱一方各国之主身上(量刑天平的叛逆砝码)：主攻之外，随攻的本朝诸国(还在帝国里或就是从这个帝国叛出的)
+    // 也记；外国来助的不记。每场仗每人只记一次(用户 2026-11-10 "接着做"自立的判定；以前只记主攻)
+    private static void NoteRebels(War war, WarExtension.WarExtraData data, bool secession)
+    {
+        Kingdom main = war.getMainAttacker();
+        Empire home = war.getMainDefender()?.GetEmpire();
+        foreach (Kingdom kingdom in war.getAttackers())
+        {
+            Actor ruler = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.king;
+            if (!Living(ruler)) continue;
+            bool own = kingdom == main || home != null && !home.isRekt() &&
+                       (kingdom.GetEmpire() == home || kingdom.GetOrCreate().left_empire_id == home.id);
+            if (!own) continue;
+            data.defiance_noted ??= new List<long>();
+            if (data.defiance_noted.Contains(ruler.id)) continue;
+            data.defiance_noted.Add(ruler.id);
+            EmpireLawSystem.NoteDefiance(ruler, secession);
         }
     }
 

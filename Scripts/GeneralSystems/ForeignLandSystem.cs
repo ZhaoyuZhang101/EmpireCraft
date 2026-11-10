@@ -239,6 +239,8 @@ public static class ForeignLandSystem
             member.FinishedSelfPlot();
             empire.leave(member, true, false);
             if (member.IsInEmpire()) continue;
+            // 异族之地自立记在各国之主身上(量刑天平的叛逆砝码)
+            EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
             EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
             gone.Add(member);
         }

@@ -209,6 +209,8 @@ public static class SouthernGarrisonSystem
         }
         conqueror.join(garrison, true, pForce: true);
         if (garrison.GetEmpire() != conqueror) return;
+        // 降敌记在镇将身上(量刑天平的叛逆砝码)
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(garrison);
         // 归了入侵者，随那边的颜色
         garrison._cached_color = null;
         garrison.updateColor(conqueror.getColor());

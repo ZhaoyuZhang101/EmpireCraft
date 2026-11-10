@@ -209,10 +209,18 @@ public static class FamousTalentSystem
         {
             if (corps == null || corps.militia) continue;
             if (corps.general_id >= 0)
-                Credit(World.world.units.get(corps.general_id), TalentKind.General, fame, deed, cityName);
+            {
+                Actor general = World.world.units.get(corps.general_id);
+                Credit(general, TalentKind.General, fame, deed, cityName);
+                // 战功也是名望(见 RenownSystem)
+                RenownSystem.OnBattle(general, fame);
+            }
             Actor commander = WarCommandSystem.Commander(kingdom);
             if (commander != null && commanders.Add(commander.id))
+            {
                 Credit(commander, TalentKind.General, fame * CommanderShare, deed, cityName);
+                RenownSystem.OnBattle(commander, fame * CommanderShare);
+            }
         }
     }
 

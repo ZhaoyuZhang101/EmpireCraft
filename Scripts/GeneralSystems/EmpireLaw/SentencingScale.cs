@@ -46,15 +46,20 @@ public static class SentencingScale
     public static float PerformanceFactor(double totalPerformance) =>
         1f + (float)(Math.Max(-750d, Math.Min(1500d, totalPerformance)) / 5000d);
 
-    // 影响力(名望)：比君主的名望，到了君主那么高 ×1.5；名望不足 MinRenown 不算。没有君主时按名望本身(300 以上 ×1.3、120 以上 ×1.15)
-    public const int MinRenown = 30;
+    // 影响力(名望)：InfluenceFloor 起上秤，InfluenceFull 为满 ×1.3；名望不如本朝君主的只算一半(功高震主才难动)。
+    // 2026-11-10 拿两份自动存档模拟定的：名望改成身份年入(见 RenownSystem)后稳态是皇帝八九百、一品大员五百上下、
+    // 下级官员一两百，从 400 起算，一二成大员与部分封君压得上秤，名将的战功另外加
+    public const int InfluenceFloor = 400;
+    public const int InfluenceFull = 1200;
     public static float InfluenceFactor(int renown, int rulerRenown, bool hasRuler)
     {
-        if (renown < MinRenown) return 1f;
-        if (!hasRuler) return renown >= 300 ? 1.3f : renown >= 120 ? 1.15f : 1f;
-        float ratio = Math.Min(1f, renown / (float)Math.Max(1, rulerRenown));
-        return 1f + 0.5f * ratio;
+        float scale = Math.Max(0f, Math.Min(1f, (renown - InfluenceFloor) / (float)(InfluenceFull - InfluenceFloor)));
+        bool outshines = !hasRuler || renown >= rulerRenown;
+        return 1f + 0.3f * scale * (outshines ? 1f : 0.5f);
     }
+
+    // 告发者至少要有这么多名望才上秤
+    public const int MinRenown = 30;
 
     // 赃额：每 200 两加五成罪责，至多 ×1.5(未发之赃按每回贪墨累计，见 EmpireLawSystem.RecordCrime)
     public static float LootFactor(int amount) => 1f + 0.5f * Math.Min(1f, Math.Max(0, amount) / 200f);

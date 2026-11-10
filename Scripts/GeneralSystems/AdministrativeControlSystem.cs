@@ -864,6 +864,8 @@ public static class AdministrativeControlSystem
         string seedName = seed.data.name;
         Kingdom local = ReleaseToLocal(realm, cluster, _ => "exclave", out _);
         if (local == null) return false;
+        // 飞地自立记在当地首领(新国之主)身上(量刑天平的叛逆砝码)
+        EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(local);
         if (former != realm && former.cities.Count == 0 && former.GetEmpire() == realm.GetEmpire())
             former.GetEmpire()?.leave(former);
         EventRecorder.Record(realm, string.Format(LM.Get("admin_exclave_secede_history"), seedName, realm.GetKingdomName(),

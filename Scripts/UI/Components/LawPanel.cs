@@ -465,6 +465,12 @@ public static class LawPanel
         var card = page.BeginCard(width, "law_scale_card", WideKit.Gold,
             string.Format(LM.Get("law_scale_if_tried"), EmpireLawSystem.ShiftText(info.Shift)), "ui/icons/iconWorldLaws");
         DrawScaleBody(card, width, info.Guilt, info.Mercy, info.GuiltWeight, info.MercyWeight, info.Shift, info.MercyIgnored);
+        // 名望(影响力砝码的来源)：现名望、每年按身份记多少(见 RenownSystem)
+        var parts = new List<(string key, int value)>();
+        int income = RenownSystem.Income(actor, parts);
+        string sources = parts.Count == 0 ? LM.Get("renown_income_none")
+            : string.Join(Separator, parts.Select(part => $"{LM.Get(part.key)} {part.value}"));
+        card.AddParagraph(width, string.Format(LM.Get("renown_income_line"), actor.renown, income, sources), 6, WideKit.Soft);
         var rules = new List<string>();
         if (info.Tyrant) rules.Add(LM.Get("law_scale_rule_tyrant"));
         if (info.Royal) rules.Add(LM.Get(info.Heir ? "law_scale_rule_heir" : "law_scale_rule_royal"));
