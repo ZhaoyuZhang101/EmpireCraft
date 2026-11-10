@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using EmpireCraft.Scripts.GeneralSystems;
-using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
 
 namespace EmpireCraft.Scripts.GodPowers;
 
 // 高原画笔(用户 2026-11-10 "高原地形的神力呢""玩家可以自己放的""放的时候边缘也要自动铺设自然山体")：
-//   高寒高原、黄土高原、草原高原三支画笔，照原版「高地」画笔(笔刷大小、按住拖动、音效都同原版)，排在原版造物页「山巅」后面；
+//   高寒高原、黄土高原、草原高原三支画笔，照原版「高地」画笔(笔刷大小、按住拖动、音效都同原版)，按钮在文化与营建页营建一组后面
+//   (用户 2026-11-10 "没看到高原按钮, 建议加在文化与营建这一栏"；以前插在原版造物页没显示出来，见 MainTab)；
 //   每画完一笔(松开)，新画出来的高原边上自动起山脊、外面铺坡地、挑一两处山口(见 PlateauPaintLedger、PlateauShaper.ShapePainted)；
 //   接着往外画，旧的边自己退掉；铺好的山脊用别的画笔擦掉就是缺口，以后重算照留。原本就是高原的地方换一种高原不起山。
 public static class PlateauPowers
@@ -20,8 +20,6 @@ public static class PlateauPowers
         ("tile_steppe_plateau", PlateauTerrain.SteppeId, "iconTileSteppePlateau"),
     };
 
-    // 原版造物页、插在哪个按钮后面
-    private const string Tab = "creation", After = "tile_summit";
     // 松手后等这么久再算(最后一帧的笔刷先落完)
     private const float SettleSeconds = 0.05f;
 
@@ -49,33 +47,11 @@ public static class PlateauPowers
                     new PowerActionWithID(AfterDraw));
             }
             PlateauPaintLedger.Writer = (tile, main, top) => MapAction.terraformTile(tile, main, top, TerraformLibrary.destroy_no_flash);
-            AddButtons();
         }
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft] 高原画笔初始化失败: {exception.Message}");
         }
-    }
-
-    private static void AddButtons()
-    {
-        PowersTab tab = PowerButtonCreator.GetTab(Tab);
-        if (tab == null) return;
-        Transform anchor = tab.transform.Find(After);
-        int index = anchor != null ? anchor.GetSiblingIndex() + 1 : tab.transform.childCount;
-        foreach ((string id, string _, string icon) in Brushes)
-        {
-            if (tab.transform.Find(id) != null) continue;
-            PowerButton button = PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/" + icon));
-            PowerButtonCreator.AddButtonToTab(button, tab, index++);
-        }
-        // 原版地形画笔 9 个后面垫了一格空位凑满两行；加了 3 个正好 12 个，空位不要了
-        if (index < tab.transform.childCount)
-        {
-            Transform next = tab.transform.GetChild(index);
-            if (next.name.StartsWith("_space") && !next.name.StartsWith("_space_half")) next.gameObject.SetActive(false);
-        }
-        tab.findNeighbours();
     }
 
     private static bool BeforeDraw(WorldTile tile, string power)

@@ -27,6 +27,8 @@ internal static class MainTab
     public const string CULTURE_GROUP = "culture_ideology_group";
     public const string BUILD_GROUP = "city_building_group";
     public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
+    // 高原画笔(见 PlateauPowers)：文化与营建页里紧跟营建一组
+    public const string PLATEAU_GROUP = "plateau_brush_group";
     public const string CULTURE_BRUSH_GROUP = "culture_brush_group";
     public const string RESOURCE_BRUSH_GROUP = "resource_brush_group";
     public const string DISPLAY_GROUP = "display_tool_group";
@@ -39,6 +41,8 @@ internal static class MainTab
     public static PowersTab tab;
     public static PowersTab cultureTab;
     public static PowersTab warTab;
+    // 理念种子页(用户 2026-11-10 "把理念种子单独列一栏")
+    public static PowersTab ideologyTab;
 
     public static void Init()
     {
@@ -64,7 +68,7 @@ internal static class MainTab
         {
             CULTURE_GROUP,
             BUILD_GROUP,
-            IDEOLOGY_SEED_GROUP,
+            PLATEAU_GROUP,
             CULTURE_BRUSH_GROUP,
             RESOURCE_BRUSH_GROUP,
         });
@@ -76,22 +80,25 @@ internal static class MainTab
             VASSAL_GROUP,
             ZHOU_GROUP,
         });
+        ideologyTab = TabManager.CreateTab("EmpireIdeologyTab", "empire_ideology_tab_name", "empire_ideology_tab_description",
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabIdeologySeed.png"));
+        ideologyTab.SetLayout(new List<string>() { IDEOLOGY_SEED_GROUP });
         // Add buttons to the tab.
         // 向标签页添加按钮.
         _addButtons();
-        // 高原画笔插进原版造物页(山巅后面)
-        PlateauPowers.Init();
         _createWindows();
         // Update the layout of the tab.
         // 更新标签页的布局.
         tab.UpdateLayout();
         cultureTab.UpdateLayout();
         warTab.UpdateLayout();
+        ideologyTab.UpdateLayout();
         // 当前加载器版本的 UpdateLayout 把所有按钮排成一整列，不分组也不画分隔线：
         // 在它排好的基础上按组重新排，组与组之间留空并画分隔线(同原版标签页)
         ApplyGroupedLayout(tab);
         ApplyGroupedLayout(cultureTab);
         ApplyGroupedLayout(warTab);
+        ApplyGroupedLayout(ideologyTab);
     }
 
     private static void _createWindows()
@@ -555,6 +562,15 @@ internal static class MainTab
         foreach (string id in RoadPowers.Ids)
             AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
 
+        // ---- 高原画笔：高寒、黄土、草原三种高原，松手后新画的边上自动起山脊坡地(见 PlateauPowers) ----
+        PlateauPowers.Init();
+        foreach ((string id, string _, string icon) in PlateauPowers.Brushes)
+        {
+            PowerButton brush = PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/" + icon));
+            SetTip(brush, id);
+            AddButton(PLATEAU_GROUP, brush);
+        }
+
         // ---- 易俗：点城一键改换文化，本国最后一座城连国家制度一并改(见 CityCulturePower) ----
         // 举国 / 举朝易俗开关与复旧法理(见 RealmCulturePowers)放在各文化笔刷前面
         RealmCulturePowers.Init();
@@ -618,16 +634,7 @@ internal static class MainTab
             string powerId = IdeologySeedPower.Id(ideology);
             PowerButton seedButton = PowerButtonCreator.CreateGodPowerButton(powerId,
                 SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)));
-            // NML 从原版 inspect 按钮克隆 GodPower 按钮。当前游戏版本的预制体自带
-            // TipButton，若不覆盖就会一直显示它继承来的 "Normal Tooltip"。
-            TipButton tip = seedButton?.GetComponent<TipButton>();
-            if (tip != null)
-            {
-                tip.textOnClick = powerId;
-                tip.textOnClickDescription = powerId + "_description";
-                tip.text_description_2 = "";
-                tip.type = "normal";
-            }
+            SetTip(seedButton, powerId);
             AddButton(IDEOLOGY_SEED_GROUP, seedButton);
         }
 
@@ -724,10 +731,23 @@ internal static class MainTab
 
     private static void AddButton(string group, PowerButton button)
     {
-        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or IDEOLOGY_SEED_GROUP or CULTURE_BRUSH_GROUP or RESOURCE_BRUSH_GROUP;
+        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or PLATEAU_GROUP or CULTURE_BRUSH_GROUP or RESOURCE_BRUSH_GROUP;
         bool warSide = group is WAR_GROUP or VASSAL_GROUP or ZHOU_GROUP;
-        (warSide ? warTab : cultureSide ? cultureTab : tab).AddPowerButton(group, button);
+        PowersTab target = group == IDEOLOGY_SEED_GROUP ? ideologyTab : warSide ? warTab : cultureSide ? cultureTab : tab;
+        target.AddPowerButton(group, button);
         if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
+    }
+
+    // NML 从原版 inspect 按钮克隆 GodPower 按钮。当前游戏版本的预制体自带
+    // TipButton，若不覆盖就会一直显示它继承来的 "Normal Tooltip"：改成这个权能的名字与说明(<id>、<id>_description)
+    private static void SetTip(PowerButton button, string powerId)
+    {
+        TipButton tip = button?.GetComponent<TipButton>();
+        if (tip == null) return;
+        tip.textOnClick = powerId;
+        tip.textOnClickDescription = powerId + "_description";
+        tip.text_description_2 = "";
+        tip.type = "normal";
     }
 
     // 原版 PowersTab.sortButtons 按子物体顺序排版(子物体数量变化时重排)，会覆盖任何手动坐标；
@@ -769,7 +789,7 @@ internal static class MainTab
     {
         foreach (PowersTab other in Resources.FindObjectsOfTypeAll<PowersTab>())
         {
-            if (other == null || other == tab || other == cultureTab || other == warTab || other == target) continue;
+            if (other == null || other == tab || other == cultureTab || other == warTab || other == ideologyTab || other == target) continue;
             foreach (Transform child in other.transform)
                 if (child.name.StartsWith("_line")) return child.gameObject;
         }
