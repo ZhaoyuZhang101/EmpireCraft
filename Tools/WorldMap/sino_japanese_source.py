@@ -852,7 +852,9 @@ WILDERNESS = {
     "qinling": "roc", "daba": "roc", "dabie": "roc", "wuyi": "roc", "nanling": "roc", "liupan": "roc",
     "taihang": "jinsui", "luliang": "jinsui", "yanshan": "jicha", "min_shan": "sichuan", "qionglai": "sichuan",
     "ailao": "yunnan", "wuliang": "yunnan", "gaoligong": "yunnan", "helan": "ningxia", "mu_us": "ningxia", "ulan_buh": "ningxia",
-    "qilian": "qinghai", "qaidam": "qinghai", "altun": "qinghai", "badain_jaran": "qinghai", "tengger": "qinghai",
+    "qilian": "qinghai", "qaidam": "qinghai", "altun": "qinghai",
+    # 阿拉善、额济纳(巴丹吉林、腾格里)1929 年起属宁夏省，归马鸿逵；以前挂青海，隔着河西走廊成了飞地
+    "badain_jaran": "ningxia", "tengger": "ningxia",
     "hida": "japan", "kiso": "japan", "akaishi": "japan", "ou": "japan",
     "cardamom": "indochina", "bago_yoma": "burma",
     "thar": "british_india", "aravalli": "british_india", "vindhya": "british_india", "satpura": "british_india",
