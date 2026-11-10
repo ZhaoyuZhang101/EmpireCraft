@@ -20,8 +20,26 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   高原里被山围住、连不到外面大片平地的小块谷地(不到 PocketMax 格，如雅鲁藏布江谷地)不围山脊，照留作河谷耕地；
 //   铺完再查一遍：哪块高原(连同挨着的谷地)走不到外面的平地，就沿最省的路挖一道山口接出去(Unseal)，保证各国都走得进去。
 // 之后不再重铺：神力擦掉山就是新山口。
+// 神力画高原(用户 2026-11-10 "高原地形的神力呢""玩家可以自己放的""放的时候边缘也要自动铺设自然山体")：每画完一笔，
+// 只在新画那一片附近重算一遍(ShapePainted，账见 PlateauPaintLedger)：算的时候把以前画高原铺的外缘看成没铺，只给画出来的高原格起山脊、
+// 只在画出来的高原外面铺坡地，所以接着往外画，旧的外缘自己退掉、新边上再起；生成地图时铺的外缘、原有的高原不动。
 public static class PlateauShaper
 {
+    // 神力画高原这一笔要重算的范围与账(格号都是图上的 y*宽+x；Scan 窗口比 Apply 窗口每边多出外缘能波及的距离)
+    public sealed class Painting
+    {
+        public int ScanX0, ScanY0, ScanX1, ScanY1, ApplyX0, ApplyY0, ApplyX1, ApplyY1;
+        // 以前画高原铺的外缘：这格铺之前的地面格(没铺过为 null，按现在的算)
+        public Func<int, TileType> Base;
+        // 画出来的高原格(只有它们起山脊)；缺口(铺好的山脊被擦掉的格：不算外面，背后不再起山)；不再铺坡地的格；以前开的山口
+        public Func<int, bool> Painted, Opening, Keep, Pass;
+        // 这格该是这样的外缘(记账再改)；这格不该有外缘(以前铺过的还原)
+        public Action<int, TileType, TopTileType> Put;
+        public Action<int> Clear;
+        // 这一笔新开的山口谷道
+        public readonly List<int> Carved = new();
+    }
+
     public readonly struct Route
     {
         public readonly string Name;
@@ -58,11 +76,22 @@ public static class PlateauShaper
     private static int[] _comp;
     private static List<int> _sizes;
     private static int _seed;
+    // 窗口在图上的左下角(整图为 0)；画高原时的账、只算画出来的格、不当外面的缺口、不铺坡地的格、各片的情况
+    private static int _ox, _oy;
+    private static Painting _paint;
+    private static TileType[] _main;
+    private static bool[] _eligible, _noSource, _noSlope;
+    private static bool[] _compPainted, _compOld;
+    private static List<int> _carved;
+    // 画高原时自动山口离 Apply 窗口边至少几格(谷道整条落在窗口里)
+    private const int PaintInset = 8;
 
     public static int Shape(IList<Route> routes, int seed)
     {
         MapBox world = World.world;
         if (world == null || PlateauTerrain.Alpine == null || PlateauTerrain.Loess == null) return 0;
+        _ox = _oy = 0;
+        _paint = null;
         _w = MapBox.width;
         _h = MapBox.height;
         _seed = seed;
@@ -90,33 +119,119 @@ public static class PlateauShaper
         }
         finally
         {
-            _tiles = null;
-            _region = _water = _narrow = _lava = _block = _walk = _corridor = _opened = null;
-            _dIn = _dOut = null;
-            _comp = null;
-            _sizes = null;
+            Release();
         }
+    }
+
+    private static void Release()
+    {
+        _tiles = null;
+        _region = _water = _narrow = _lava = _block = _walk = _corridor = _opened = null;
+        _dIn = _dOut = null;
+        _comp = null;
+        _sizes = null;
+        _main = null;
+        _eligible = _noSource = _noSlope = _compPainted = _compOld = null;
+        _carved = null;
+        _paint = null;
+        _ox = _oy = 0;
+    }
+
+    // 神力画完一笔(见 PlateauPaintLedger)：只在 Scan 窗口里算、只改 Apply 窗口里的格。画出来的一片高原(没连着原有高原)
+    // 窗口里还没有通到外面的山口，就在新画的边上挑 1~5 处；最后照样查一遍围死的(不碰窗口边的)挖通
+    public static int ShapePainted(Painting paint, int seed)
+    {
+        MapBox world = World.world;
+        if (world == null || paint == null || PlateauTerrain.Alpine == null || PlateauTerrain.Loess == null) return 0;
+        int x0 = Math.Max(0, paint.ScanX0), y0 = Math.Max(0, paint.ScanY0);
+        int x1 = Math.Min(MapBox.width - 1, paint.ScanX1), y1 = Math.Min(MapBox.height - 1, paint.ScanY1);
+        if (x1 - x0 < 3 || y1 - y0 < 3) return 0;
+        _ox = x0;
+        _oy = y0;
+        _w = x1 - x0 + 1;
+        _h = y1 - y0 + 1;
+        _seed = seed;
+        _paint = paint;
+        _carved = new List<int>();
+        try
+        {
+            if (!Scan(world, _w * _h)) return 0;
+            var passed = new HashSet<int>();
+            float ridgeBand = MinRidge + RidgeSpread;
+            // 以前开的山口还通着的(谷道里的高原格还在山脊带上)：这片算有路
+            for (int i = 0; i < _region.Length; i++)
+                if (_corridor[i] && _region[i] && _dIn[i] <= ridgeBand) passed.Add(_comp[i]);
+            int auto = 0;
+            for (int c = 0; c < _sizes.Count; c++)
+            {
+                if (_sizes[c] < MinRegion || passed.Contains(c) || !_compPainted[c] || _compOld[c]) continue;
+                auto += AutoPasses(c, passed);
+            }
+            (int ridge, int slope, int opened) = Apply();
+            (int unsealed, int dug) = Unseal();
+            foreach (int i in _carved) paint.Carved.Add(Global(i));
+            if (ridge + slope + opened + dug > 0)
+                LogService.LogInfo($"[EmpireCraft][高原] 神力画高原：山脊 {ridge} 格、坡地 {slope} 格、山口里开山 {opened} 格；" +
+                                   $"自动山口 {auto} 条；围死的挖通 {unsealed} 处({dug} 格)");
+            return ridge + slope + opened + dug;
+        }
+        finally
+        {
+            Release();
+        }
+    }
+
+    // 窗口里的格号 → 图上的格号
+    private static int Global(int i) => (i / _w + _oy) * MapBox.width + i % _w + _ox;
+
+    private static bool InApply(int x, int y, int inset = 0)
+    {
+        if (_paint == null) return true;
+        int wx = x + _ox, wy = y + _oy;
+        return wx >= _paint.ApplyX0 + inset && wx <= _paint.ApplyX1 - inset && wy >= _paint.ApplyY0 + inset && wy <= _paint.ApplyY1 - inset;
+    }
+
+    // 写格：整图生成直接改；画高原时交给账(记下原样，以后能退)
+    private static void Put(int i, WorldTile tile, TileType main, TopTileType top)
+    {
+        if (_paint == null) Set(tile, main, top);
+        else _paint.Put(Global(i), main, top);
     }
 
     private static bool Scan(MapBox world, int n)
     {
         _tiles = new WorldTile[n];
+        _main = new TileType[n];
         var plateau = new bool[n];
         _water = new bool[n];
         _lava = new bool[n];
         _block = new bool[n];
         _walk = new bool[n];
+        bool painting = _paint != null;
+        _eligible = painting ? new bool[n] : null;
+        _noSource = painting ? new bool[n] : null;
+        _noSlope = painting ? new bool[n] : null;
         bool any = false;
         for (int y = 0; y < _h; y++)
         for (int x = 0; x < _w; x++)
         {
             int i = y * _w + x;
-            WorldTile tile = world.GetTileSimple(x, y);
+            WorldTile tile = world.GetTileSimple(x + _ox, y + _oy);
             _tiles[i] = tile;
             TileType main = tile?.main_type;
+            if (painting && tile != null)
+            {
+                // 以前画高原铺的外缘按铺之前的样子算
+                int g = Global(i);
+                main = _paint.Base(g) ?? main;
+                _noSource[i] = _paint.Opening(g);
+                _noSlope[i] = _noSource[i] || _paint.Keep(g);
+            }
+            _main[i] = main;
             if (main == null) continue;
             plateau[i] = PlateauTerrain.IsPlateau(main);
-            any |= plateau[i];
+            if (painting) _eligible[i] = plateau[i] && _paint.Painted(Global(i));
+            any |= painting ? _eligible[i] : plateau[i];
             _lava[i] = main.lava;
             _water[i] = main.liquid && !main.lava;
             _block[i] = main.block || main.mountains || main.summit;
@@ -136,11 +251,27 @@ public static class PlateauShaper
             foreach (int i in add) _region[i] = true;
         }
         _comp = Label(_region, out _sizes);
+        // 画高原时各片的情况：有没有画出来的格、有没有原有的高原格、碰没碰窗口边(碰边的不知道外头多大，不当碎块)
+        var border = new bool[_sizes.Count];
+        if (painting)
+        {
+            _compPainted = new bool[_sizes.Count];
+            _compOld = new bool[_sizes.Count];
+            for (int y = 0; y < _h; y++)
+            for (int x = 0; x < _w; x++)
+            {
+                int i = y * _w + x, c = _comp[i];
+                if (c < 0) continue;
+                if (_eligible[i]) _compPainted[c] = true;
+                else if (plateau[i]) _compOld[c] = true;
+                if (x == 0 || y == 0 || x == _w - 1 || y == _h - 1) border[c] = true;
+            }
+        }
         // 太小的碎块不围山，也不算高原一侧
         for (int i = 0; i < n; i++)
-            if (_region[i] && _sizes[_comp[i]] < MinRegion) _region[i] = false;
+            if (_region[i] && _sizes[_comp[i]] < MinRegion && !border[_comp[i]]) _region[i] = false;
         var passable = new bool[n];
-        for (int i = 0; i < n; i++) passable[i] = !_region[i] && _walk[i] && !Desert(_tiles[i]);
+        for (int i = 0; i < n; i++) passable[i] = !_region[i] && _walk[i] && !Desert(_tiles[i]) && !(painting && _noSource[i]);
         // 被山、高原围住的小块谷地不算外面(不对着它铺山脊)
         int[] pocket = Label(passable, out List<int> pocketSizes);
         var open = new bool[pocketSizes.Count];
@@ -154,9 +285,24 @@ public static class PlateauShaper
         for (int i = 0; i < n; i++)
             if (passable[i] && !open[pocket[i]]) passable[i] = false;
         _dIn = Distance(passable);
-        _dOut = Distance(_region);
+        if (painting)
+        {
+            // 坡地只铺在画出来的高原外面
+            var painted = new bool[n];
+            for (int i = 0; i < n; i++) painted[i] = _region[i] && _eligible[i];
+            _dOut = Distance(painted);
+        }
+        else _dOut = Distance(_region);
         _corridor = new bool[n];
         _opened = new bool[n];
+        // 以前开的山口照留(谷道里不起山脊、不铺坡地)
+        if (painting)
+            for (int i = 0; i < n; i++)
+                if (_paint.Pass(Global(i)))
+                {
+                    _corridor[i] = true;
+                    if (_block[i]) _opened[i] = true;
+                }
         return true;
     }
 
@@ -281,10 +427,15 @@ public static class PlateauShaper
         return d;
     }
 
-    private static float RidgeWidth(int x, int y) =>
-        MinRidge + RidgeSpread * Noise.Fbm(x / 13f, y / 13f, _seed) + RidgeSwell * Noise.Value(x / 41f, y / 41f, _seed + 7);
+    // 噪声都按图上坐标取(画高原分窗口重算时同一格结果不变)
+    private static float RidgeWidth(int x, int y)
+    {
+        x += _ox;
+        y += _oy;
+        return MinRidge + RidgeSpread * Noise.Fbm(x / 13f, y / 13f, _seed) + RidgeSwell * Noise.Value(x / 41f, y / 41f, _seed + 7);
+    }
 
-    private static float SlopeWidth(int x, int y) => MinSlope + SlopeSpread * Noise.Fbm(x / 9f, y / 9f, _seed + 17);
+    private static float SlopeWidth(int x, int y) => MinSlope + SlopeSpread * Noise.Fbm((x + _ox) / 9f, (y + _oy) / 9f, _seed + 17);
 
     // 路线朝高原那头：落在高原上就是它，否则接到 EnterSearch 格内最近的高原格(不是水)
     private static Vector2Int IntoRegion(Vector2Int to)
@@ -301,7 +452,7 @@ public static class PlateauShaper
         if (_lava[i]) return Inf;
         if (_water[i]) return _narrow[i] ? 4f : Inf;
         if (_block[i]) return 8f;
-        TileType main = _tiles[i]?.main_type;
+        TileType main = _main[i];
         return main != null && main.rocks ? 1.6f : 1f;
     }
 
@@ -318,7 +469,7 @@ public static class PlateauShaper
         foreach (int k in path)
         {
             int px = k % _w, py = k / _w;
-            float radius = PassRadius + PassSpread * Noise.Fbm(px / 5f, py / 5f, _seed + 91);
+            float radius = PassRadius + PassSpread * Noise.Fbm((px + _ox) / 5f, (py + _oy) / 5f, _seed + 91);
             int r = Mathf.CeilToInt(radius);
             for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
@@ -327,6 +478,7 @@ public static class PlateauShaper
                 int qx = px + dx, qy = py + dy;
                 if (qx < 0 || qy < 0 || qx >= _w || qy >= _h) continue;
                 int j = qy * _w + qx;
+                if (!_corridor[j]) _carved?.Add(j);
                 _corridor[j] = true;
                 if (_block[j]) _opened[j] = true;
                 if (_region[j] && _dIn[j] <= ridgeBand) passed.Add(_comp[j]);
@@ -404,6 +556,9 @@ public static class PlateauShaper
             var plateauIn = new int[sizes.Count];
             var lowIn = new int[sizes.Count];
             var first = new int[sizes.Count];
+            // 画高原时只管有画出来的格、不碰窗口边的(碰边的可能从窗口外通出去)
+            var painted = new bool[sizes.Count];
+            var border = new bool[sizes.Count];
             for (int c = 0; c < first.Length; c++) first[c] = -1;
             for (int i = 0; i < n; i++)
             {
@@ -415,11 +570,16 @@ public static class PlateauShaper
                     if (first[c] < 0) first[c] = i;
                 }
                 else lowIn[c]++;
+                if (_paint == null) continue;
+                if (_eligible[i]) painted[c] = true;
+                int x = i % _w, y = i / _w;
+                if (x == 0 || y == 0 || x == _w - 1 || y == _h - 1) border[c] = true;
             }
             bool any = false;
             for (int c = 0; c < sizes.Count; c++)
             {
                 if (plateauIn[c] < SealedMin || lowIn[c] >= SealedMin) continue;
+                if (_paint != null && (!painted[c] || border[c])) continue;
                 int start = first[c];
                 int? to = Nearest(start % _w, start / _w, i => part[i] >= 0 && part[i] != c && lowIn[part[i]] >= SealedMin, UnsealSearch);
                 if (to == null) continue;
@@ -428,6 +588,8 @@ public static class PlateauShaper
                 foreach (int k in path)
                 {
                     int px = k % _w, py = k / _w;
+                    // 画高原时挖出的路记作山口，以后重算不再在路上起山脊
+                    _carved?.Add(k);
                     for (int dy = -1; dy <= 1; dy++)
                     for (int dx = -1; dx <= 1; dx++)
                     {
@@ -436,7 +598,7 @@ public static class PlateauShaper
                         if (qx < 0 || qy < 0 || qx >= _w || qy >= _h) continue;
                         int j = qy * _w + qx;
                         if (!_block[j]) continue;
-                        Set(_tiles[j], TileLibrary.hills, null);
+                        Put(j, _tiles[j], TileLibrary.hills, null);
                         _block[j] = false;
                         dug++;
                     }
@@ -467,12 +629,13 @@ public static class PlateauShaper
         return false;
     }
 
-    // 一片高原没有路线经过：挑 2~5 处山口(沿边每 160 格一处)，先挑外面能走的地最近(山最薄)的边，之后挑离已挑的最远的
+    // 一片高原没有路线经过：挑 2~5 处山口(沿边每 160 格一处)，先挑外面能走的地最近(山最薄)的边，之后挑离已挑的最远的；
+    // 画高原时只在画出来、离 Apply 窗口边够远的边上挑，1~5 处
     private static int AutoPasses(int comp, HashSet<int> passed)
     {
         var edge = new List<int>();
         for (int i = 0; i < _region.Length; i++)
-            if (_region[i] && _comp[i] == comp && _dIn[i] <= 3f) edge.Add(i);
+            if (_region[i] && _comp[i] == comp && _dIn[i] <= 3f && PassSite(i)) edge.Add(i);
         if (edge.Count == 0)
         {
             // 四周全是厚山、海：挑离能走的地最近的边
@@ -480,7 +643,7 @@ public static class PlateauShaper
             int pick = -1;
             bool[] outside = OutsideLand();
             for (int i = 0; i < _region.Length; i++)
-                if (_region[i] && _comp[i] == comp && _dIn[i] < best && Touches(outside, i))
+                if (_region[i] && _comp[i] == comp && _dIn[i] < best && PassSite(i) && Touches(outside, i))
                 {
                     best = _dIn[i];
                     pick = i;
@@ -488,7 +651,7 @@ public static class PlateauShaper
             if (pick < 0 || best >= Inf) return 0;
             edge.Add(pick);
         }
-        int want = Mathf.Clamp(Mathf.RoundToInt(edge.Count / 160f), 2, 5);
+        int want = Mathf.Clamp(Mathf.RoundToInt(edge.Count / 160f), _paint == null ? 2 : 1, 5);
         var chosen = new List<int>();
         var rng = new global::System.Random(_seed ^ (comp * 7919));
         // 第一处：山最薄的边里随便挑一处
@@ -530,6 +693,8 @@ public static class PlateauShaper
         return made;
     }
 
+    private static bool PassSite(int i) => _paint == null || _eligible[i] && InApply(i % _w, i / _w, PaintInset);
+
     // 高原外面的陆地(山也算)
     private static bool[] OutsideLand()
     {
@@ -561,60 +726,71 @@ public static class PlateauShaper
 
     private static (int ridge, int slope, int opened) Apply()
     {
-        TileType mountains = TileLibrary.mountains, summit = TileLibrary.summit, hills = TileLibrary.hills;
-        TopTileType snowBlock = TopTileLibrary.snow_block, snowSummit = TopTileLibrary.snow_summit;
         int ridge = 0, slope = 0, opened = 0;
         for (int y = 1; y < _h - 1; y++)
         for (int x = 1; x < _w - 1; x++)
         {
             int i = y * _w + x;
             WorldTile tile = _tiles[i];
-            if (tile == null) continue;
-            if (_corridor[i])
-            {
-                if (_opened[i])
-                {
-                    Set(tile, hills, null);
-                    opened++;
-                }
-                continue;
-            }
-            if (_region[i])
-            {
-                float width = RidgeWidth(x, y);
-                bool alpine = PlateauTerrain.IsAlpine(tile) || _water[i] && NearAlpine(x, y);
-                bool snowy = alpine && Noise.Fbm(x / 6f, y / 6f, _seed + 71) > 0.45f;
-                if (_dIn[i] <= width)
-                {
-                    // 宽水面(湖)只在最外两格封住，余下照留
-                    if (_water[i] && !_narrow[i] && _dIn[i] > MinRidge) continue;
-                    bool peak = _dIn[i] >= 0.8f && _dIn[i] <= width - 0.5f && Noise.Fbm(x / 4f, y / 4f, _seed + 31) > 0.62f;
-                    Set(tile, peak ? summit : mountains, snowy ? (peak ? snowSummit : snowBlock) : null);
-                    ridge++;
-                    continue;
-                }
-                if (!_water[i] && Spur(x, y, _dIn[i], width))
-                {
-                    Set(tile, mountains, snowy ? snowBlock : null);
-                    ridge++;
-                }
-                continue;
-            }
-            // 荒漠一侧不铺坡地(同山脊，见 Desert)
-            if (_walk[i] && SoftLand(tile.main_type) && !Desert(tile))
-            {
-                float width = SlopeWidth(x, y);
-                if (_dOut[i] > width) continue;
-                // 坡地靠里那半边偶有孤山(不连成墙，坡地照样走得通)
-                bool knob = _dOut[i] <= width * 0.6f && Noise.Fbm(x / 5f, y / 5f, _seed + 61) > KnobLevel;
-                Set(tile, knob ? mountains : hills, null);
-                slope++;
-            }
+            if (tile == null || !InApply(x, y)) continue;
+            // 画高原时这格算下来不是外缘：以前铺过的还原
+            if (!Rim(i, x, y, tile, ref ridge, ref slope, ref opened)) _paint?.Clear(Global(i));
         }
         return (ridge, slope, opened);
     }
 
-    // 山嘴：山脊往高原里伸的几道细长山梁(脊状噪声的峰线)
+    // 一格该不该是外缘，该就铺上(返回真)
+    private static bool Rim(int i, int x, int y, WorldTile tile, ref int ridge, ref int slope, ref int opened)
+    {
+        TileType mountains = TileLibrary.mountains, summit = TileLibrary.summit, hills = TileLibrary.hills;
+        TopTileType snowBlock = TopTileLibrary.snow_block, snowSummit = TopTileLibrary.snow_summit;
+        int wx = x + _ox, wy = y + _oy;
+        if (_corridor[i])
+        {
+            if (!_opened[i]) return false;
+            Put(i, tile, hills, null);
+            opened++;
+            return true;
+        }
+        if (_region[i])
+        {
+            // 画高原时只给画出来的高原格起山脊
+            if (_paint != null && !_eligible[i]) return false;
+            float width = RidgeWidth(x, y);
+            bool alpine = ReferenceEquals(_main[i], PlateauTerrain.Alpine) || _water[i] && NearAlpine(x, y);
+            bool snowy = alpine && Noise.Fbm(wx / 6f, wy / 6f, _seed + 71) > 0.45f;
+            if (_dIn[i] <= width)
+            {
+                // 宽水面(湖)只在最外两格封住，余下照留
+                if (_water[i] && !_narrow[i] && _dIn[i] > MinRidge) return false;
+                bool peak = _dIn[i] >= 0.8f && _dIn[i] <= width - 0.5f && Noise.Fbm(wx / 4f, wy / 4f, _seed + 31) > 0.62f;
+                Put(i, tile, peak ? summit : mountains, snowy ? (peak ? snowSummit : snowBlock) : null);
+                ridge++;
+                return true;
+            }
+            if (!_water[i] && Spur(wx, wy, _dIn[i], width))
+            {
+                Put(i, tile, mountains, snowy ? snowBlock : null);
+                ridge++;
+                return true;
+            }
+            return false;
+        }
+        // 荒漠一侧不铺坡地(同山脊，见 Desert)；画高原时缺口、玩家改过的坡地不铺
+        if (_walk[i] && SoftLand(_main[i]) && !Desert(tile) && (_noSlope == null || !_noSlope[i]))
+        {
+            float width = SlopeWidth(x, y);
+            if (_dOut[i] > width) return false;
+            // 坡地靠里那半边偶有孤山(不连成墙，坡地照样走得通)
+            bool knob = _dOut[i] <= width * 0.6f && Noise.Fbm(wx / 5f, wy / 5f, _seed + 61) > KnobLevel;
+            Put(i, tile, knob ? mountains : hills, null);
+            slope++;
+            return true;
+        }
+        return false;
+    }
+
+    // 山嘴：山脊往高原里伸的几道细长山梁(脊状噪声的峰线)；x、y 是图上坐标
     private static bool Spur(int x, int y, float dIn, float width)
     {
         if (dIn <= width || dIn > width + SpurReach * Noise.Fbm(x / 13f, y / 13f, _seed + 43)) return false;
@@ -628,7 +804,7 @@ public static class PlateauShaper
         for (int dx = -1; dx <= 1; dx++)
         {
             int nx = x + dx, ny = y + dy;
-            if (nx >= 0 && ny >= 0 && nx < _w && ny < _h && PlateauTerrain.IsAlpine(_tiles[ny * _w + nx])) return true;
+            if (nx >= 0 && ny >= 0 && nx < _w && ny < _h && ReferenceEquals(_main[ny * _w + nx], PlateauTerrain.Alpine)) return true;
         }
         return false;
     }

@@ -241,6 +241,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RoadPaintSystem.ResetWorldState();
+        EmpireCraft.Scripts.GodPowers.PlateauPowers.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.RuralSettlementSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.FactorySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WildernessSystem.ResetWorldState();

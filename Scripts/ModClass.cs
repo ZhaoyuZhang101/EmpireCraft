@@ -109,6 +109,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();
         // 无人区：加载完头一帧划区、改过地形停手后重划(暂停时也做，见 WildernessSystem.Tick)
         EmpireCraft.Scripts.GeneralSystems.WildernessSystem.Tick();
+        // 高原画笔：松手后给新画的高原铺外缘(暂停时也做)
+        EmpireCraft.Scripts.GodPowers.PlateauPowers.Tick();
         EmpireCraft.Scripts.GeneralSystems.LayerDiagnostics.Tick();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
         // 科技回退神力：超出科技的建筑逐城分帧降级、补盖(见 TechRollbackSystem)

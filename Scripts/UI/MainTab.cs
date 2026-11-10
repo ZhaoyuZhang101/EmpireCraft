@@ -79,6 +79,8 @@ internal static class MainTab
         // Add buttons to the tab.
         // 向标签页添加按钮.
         _addButtons();
+        // 高原画笔插进原版造物页(山巅后面)
+        PlateauPowers.Init();
         _createWindows();
         // Update the layout of the tab.
         // 更新标签页的布局.
