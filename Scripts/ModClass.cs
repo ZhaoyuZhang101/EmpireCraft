@@ -111,6 +111,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.WildernessSystem.Tick();
         // 高原画笔：松手后给新画的高原铺外缘(暂停时也做)
         EmpireCraft.Scripts.GodPowers.PlateauPowers.Tick();
+        // 上一帧网格超限的文字在这里删减(重建当中不能改字，见 TextOverflowGuardPatch)
+        EmpireCraft.Scripts.GamePatches.TextOverflowGuardPatch.Tick();
         EmpireCraft.Scripts.GeneralSystems.LayerDiagnostics.Tick();
         EmpireCraft.Scripts.GeneralSystems.EnclaveFill.Tick();
         // 科技回退神力：超出科技的建筑逐城分帧降级、补盖(见 TechRollbackSystem)
@@ -247,6 +249,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         }
         // 易俗按钮逐项读取文化配置；必须先读文化，不能只生成范围开关、漏掉全部文化笔刷。
         OnomasticsRule.ReadSetting();
+        // 高原三种地面格：读档、生成地图前就要在原版地块库里；也要赶在 LoadUI 前，
+        // 高原画笔的神力在建按钮时才注册，地面格还没有就注册不上，按钮点了报空引用
+        EmpireCraft.Scripts.GeneralSystems.PlateauTerrain.Register();
         LoadUI();
         prefab_library = new GameObject("PrefabLibrary").transform;
         prefab_library.SetParent(transform);
@@ -275,8 +280,6 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftLoyaltyLibrary.init();
         EmpireCraftBuildingLibrary.init();
         EmpireCraftWarshipLibrary.init();
-        // 高原两种地面格：读档、生成地图前就要在原版地块库里
-        EmpireCraft.Scripts.GeneralSystems.PlateauTerrain.Register();
         RegimeManager.init();
         // 政体的国家类别、官名文本(各政体目录下的 OfficialType.csv，如"侯国""公国""国")在 RegimeManager.init 里才读，
         // 上面那次 ApplyLocale 之后读的文本要再应用一次，否则国名后缀显示成 ZhouFeudalism_hou 这样的键名

@@ -527,8 +527,14 @@ internal static class MainTab
     private static PowerButton Power(string powerId, string iconPath, bool setTip = false) =>
         Power(powerId, SpriteTextureLoader.getSprite(iconPath), setTip);
 
+    // 神力还没注册就不建按钮：原版按钮启用时按名字取一次神力，取不到以后一点就在 clickPowerButton 里报空引用
     private static PowerButton Power(string powerId, Sprite icon, bool setTip = false)
     {
+        if (AssetManager.powers.get(powerId) == null)
+        {
+            LogService.LogWarning($"[EmpireCraft] 神力 {powerId} 没有注册，不建按钮");
+            return null;
+        }
         PowerButton button = PowerButtonCreator.CreateGodPowerButton(powerId, icon);
         if (setTip) SetTip(button, powerId);
         return button;
