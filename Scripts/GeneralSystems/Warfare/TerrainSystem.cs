@@ -89,8 +89,23 @@ public static class TerrainSystem
         if (zone != null && zone.id >= 0 && zone.id < _cache.Length) _cache[zone.id].Known = false;
         // 交界的路口跟着重判(地形难得改，整表清掉)
         Edges.Clear();
-        MountainZones.Clear();
-        RiverZones.Clear();
+        // 山地、河上只看本块的格子：只清这一块(草木蔓生时时改格子，整表清掉等于没缓存，城市扩张每看一块地都要重数四邻的格子)
+        if (zone == null)
+        {
+            MountainZones.Clear();
+            RiverZones.Clear();
+            return;
+        }
+        MountainZones.Remove(zone.id);
+        RiverZones.Remove(zone.id);
+    }
+
+    // 地面格水陆变了(挖河、填海)：水体大小跟着变，别处的地块算不算河上也可能变，整表清掉(见 MapWallPatch.AfterSetTileType)
+    public static void GroundChanged(TileTypeBase before, TileTypeBase after)
+    {
+        bool wasWater = before != null && (Marks(before) & MarkWater) != 0;
+        bool isWater = after != null && (Marks(after) & MarkWater) != 0;
+        if (wasWater != isWater) RiverZones.Clear();
     }
 
     // 河上的地块(城市扩张不越过大河，见 CityExpansionPatch.Bordering)：水面占一成二以上，且水都是小水体。

@@ -531,6 +531,10 @@ public static class WildernessSystem
         Owners.Clear();
         Merged.Clear();
         _settling = 0;
+        ReachCache.Clear();
+        _reachPrimed = false;
+        _fragmentBuilds = -1;
+        _fragmentAt = 0f;
         Version++;
     }
 
@@ -889,7 +893,9 @@ public static class WildernessSystem
         _builtAt = World.world.getCurWorldTime();
         _settlementRevision = RuralSettlementSystem.Revision;
         _factoryRevision = FactorySystem.Revision;
-        if (!changed && !force && !regroup && !(WorldMap.WorldMapWilderness.FixedLayout && terrainChanges.Count > 0)) return;
+        // 预设剧本照史实固定分区：改过格子的地块真会进出区域才重划(见 PresetAffected)，单是类型标记变了不算
+        bool preset = WorldMap.WorldMapWilderness.FixedLayout && _regions.Count > 0;
+        if (!force && !regroup && (preset ? terrainChanges.Count == 0 || !PresetAffected(terrainChanges) : !changed)) return;
         int carved = Regroup(fromSave, terrainChanges);
         _saved = null;
         Version++;
@@ -898,6 +904,25 @@ public static class WildernessSystem
                            $"从城里划出 {carved} 块，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
         // 划完看城地碎块：陷在别国地里的小块城地交给四周的城(见 CityFragmentSystem)
         CityFragmentSystem.AfterBuild();
+    }
+
+    // 预设剧本(区域照史实固定)里改了地形的地块会不会让区域变(同 Regroup 的 retain 与 PresetGroups)：片里的地块够不上原来的类型就退出；
+    // 片外的够得上无人区、凑够 MinZones 块才可能新添一片。都不会就不重划——草木蔓生、林火之类时时改格子，以前停手十秒就整图重划一次
+    // (世界地图上一次七八十到上百毫秒，偶尔七百多，进图后隔几秒卡一下)
+    private static bool PresetAffected(HashSet<int> terrainChanges)
+    {
+        int fresh = 0;
+        foreach (int id in terrainChanges)
+        {
+            if (id < 0 || id >= _zones.Length || _zones[id] == null) continue;
+            int index = id < _regionOf.Length ? _regionOf[id] : -1;
+            if (index >= 0 && index < _regions.Count)
+            {
+                if (!KeepsPresetKind(_zones[id], _regions[index].Kind)) return true;
+            }
+            else if (id < _kind.Length && _kind[id] != 0 && ++fresh >= MinZones) return true;
+        }
+        return false;
     }
 
     private sealed class OldRegion
@@ -2220,13 +2245,13 @@ public static class WildernessSystem
         if (signature != _titleSignature)
         {
             _titleSignature = signature;
-            Attach(true);
+            using (FrameProfiler.Measure("无人区·挂法理")) Attach(true);
             changed = true;
         }
         // 笔刷擦掉的地块补挂
         else if (_attachPending)
         {
-            Attach(false);
+            using (FrameProfiler.Measure("无人区·挂法理")) Attach(false);
             changed = true;
         }
         _attachPending = false;
@@ -2234,25 +2259,44 @@ public static class WildernessSystem
         if (changed) Version++;
     }
 
-    // 各法理的持有国(KingdomExtension.FindRealmTitleHolder)；有变化返回 true
+    // 碎块核对(见 RefreshFragments)：归属、远近有变或重新划过区当场核，否则至多隔几秒(真实时间)核一次——城扩张、易手改了四邻也在这时补上。
+    // 以前同挂法理一起每 2 秒整片扫一遍
+    private const float FragmentSeconds = 10f;
+    private static float _fragmentAt;
+    private static int _fragmentBuilds = -1;
+
+    // 各法理的持有国(KingdomExtension.FindRealmTitleHolder)；有变化返回 true。
+    // 每 2 秒一核，各段分开计时(进图后一卡一卡时看性能日志里「无人区·」开头的几段)
     private static bool RefreshOwners()
     {
-        var seen = new HashSet<KingdomTitle>();
-        foreach (KingdomTitle title in _titles)
-            if (title != null) seen.Add(title);
         bool changed = false;
-        foreach (KingdomTitle title in seen)
+        using (FrameProfiler.Measure("无人区·法理持有"))
         {
-            Kingdom holder = title.isRekt() ? null : title.FindRealmTitleHolder();
-            if (holder != null && holder.isRekt()) holder = null;
-            if (Owners.TryGetValue(title, out Kingdom old) && old == holder) continue;
-            Owners[title] = holder;
-            changed = true;
+            var seen = new HashSet<KingdomTitle>();
+            foreach (KingdomTitle title in _titles)
+                if (title != null) seen.Add(title);
+            foreach (KingdomTitle title in seen)
+            {
+                Kingdom holder = title.isRekt() ? null : title.FindRealmTitleHolder();
+                if (holder != null && holder.isRekt()) holder = null;
+                if (Owners.TryGetValue(title, out Kingdom old) && old == holder) continue;
+                Owners[title] = holder;
+                changed = true;
+            }
+            foreach (KingdomTitle stale in Owners.Keys.Where(title => !seen.Contains(title)).ToList()) Owners.Remove(stale);
         }
-        foreach (KingdomTitle stale in Owners.Keys.Where(title => !seen.Contains(title)).ToList()) Owners.Remove(stale);
-        if (RefreshSurround()) changed = true;
-        if (RefreshReach()) changed = true;
-        if (RefreshFragments()) changed = true;
+        using (FrameProfiler.Measure("无人区·周边归属"))
+            if (RefreshSurround()) changed = true;
+        using (FrameProfiler.Measure("无人区·版图远近"))
+            if (RefreshReach()) changed = true;
+        float now = Time.realtimeSinceStartup;
+        if (changed || Builds != _fragmentBuilds || now >= _fragmentAt)
+        {
+            _fragmentAt = now + FragmentSeconds;
+            _fragmentBuilds = Builds;
+            using (FrameProfiler.Measure("无人区·碎块并国"))
+                if (RefreshFragments()) changed = true;
+        }
         return changed;
     }
 
@@ -2275,13 +2319,37 @@ public static class WildernessSystem
         return ReachStone + ReachPerEra * (Math.Max(1, TechnologySystem.GetEraTier(culture)) - 1);
     }
 
+    // 远近按国缓存：一国的城、城的地块与远近(时代)都没变就沿用上回走出的范围；地形改了靠 ReachEpochSeconds 一轮全部重走。
+    // 每次核对至多重算 ReachBudgetMs 毫秒，没轮到的照上回的(还没算过的那几块远近先不动)；进图后头一轮一次算齐。
+    // 以前每 2 秒(真实时间)把每个国家从它所有城的地块起步整片按地形走一遍，地图大、国家多时一次几十到上百毫秒，进图就一卡一卡
+    private sealed class ReachEntry
+    {
+        public long Key;
+        public HashSet<int> Near;
+    }
+
+    private static readonly Dictionary<Kingdom, ReachEntry> ReachCache = new();
+    private const double ReachBudgetMs = 4d;
+    private const float ReachEpochSeconds = 60f;
+    private static float _reachEpochAt;
+    private static int _reachEpoch;
+    private static bool _reachPrimed;
+
     private static bool RefreshReach()
     {
         int length = _titles.Length;
         if (_far.Length != length) _far = new bool[length];
         bool exempt = WorldMap.WorldMapWilderness.FixedLayout;
-        var reach = new Dictionary<Kingdom, HashSet<int>>();
-        bool changed = false;
+        float now = Time.realtimeSinceStartup;
+        if (now >= _reachEpochAt)
+        {
+            _reachEpoch++;
+            _reachEpochAt = now + ReachEpochSeconds;
+        }
+        var keys = new Dictionary<Kingdom, long>();
+        var watch = global::System.Diagnostics.Stopwatch.StartNew();
+        double budget = _reachPrimed ? ReachBudgetMs : double.PositiveInfinity;
+        bool changed = false, complete = true;
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
             {
@@ -2290,59 +2358,140 @@ public static class WildernessSystem
                 if (!exempt)
                 {
                     Kingdom owner = Candidate(_zones[id], out _);
-                    far = owner != null && TooFar(_zones[id], owner, reach);
+                    if (owner != null)
+                    {
+                        HashSet<int> near = NearOf(owner, keys, watch, budget, ref complete);
+                        // 还没轮到算的国：这块的远近照旧
+                        if (near == null) continue;
+                        // 没有城的国(还在筹备建城)不领无人区：一块都没走到
+                        far = !near.Contains(id);
+                    }
                 }
                 if (_far[id] == far) continue;
                 _far[id] = far;
                 changed = true;
             }
+        if (complete) _reachPrimed = true;
+        if (ReachCache.Count > keys.Count + 32)
+            foreach (Kingdom stale in ReachCache.Keys.Where(kingdom => kingdom == null || kingdom.isRekt() || !keys.ContainsKey(kingdom)).ToList())
+                ReachCache.Remove(stale);
         return changed;
     }
 
-    private static bool TooFar(TileZone zone, Kingdom owner, Dictionary<Kingdom, HashSet<int>> cache)
+    // 这国走得到的范围：缓存对得上就沿用；对不上且这轮还有余量就重走，没余量先用过期的(没有过就是 null)
+    private static HashSet<int> NearOf(Kingdom owner, Dictionary<Kingdom, long> keys, global::System.Diagnostics.Stopwatch watch,
+        double budget, ref bool complete)
     {
-        if (!cache.TryGetValue(owner, out HashSet<int> near)) cache[owner] = near = Near(owner, ReachOf(owner));
-        // 没有城的国(还在筹备建城)不领无人区：一块都没走到
-        return !near.Contains(zone.id);
+        if (!keys.TryGetValue(owner, out long key)) keys[owner] = key = ReachKey(owner);
+        ReachCache.TryGetValue(owner, out ReachEntry entry);
+        if (entry != null && entry.Key == key) return entry.Near;
+        if (watch.Elapsed.TotalMilliseconds >= budget)
+        {
+            complete = false;
+            return entry?.Near;
+        }
+        HashSet<int> near = Near(owner, ReachOf(owner));
+        ReachCache[owner] = new ReachEntry { Key = key, Near = near };
+        return near;
     }
 
-    // 从这国各城的地块起步，按地形阻力走得到、花不到 budget 的地块
+    // 一国的远近、各城的地块(不计次序)与地形轮次合成的签名
+    private static long ReachKey(Kingdom owner)
+    {
+        long count = 0L, sum = 0L, squares = 0L, cities = 0L;
+        foreach (City city in owner.cities ?? new List<City>())
+        {
+            if (city?.data == null || city.isRekt()) continue;
+            cities += city.id;
+            foreach (TileZone part in city.zones ?? new List<TileZone>())
+            {
+                if (part == null || part.id < 0) continue;
+                count++;
+                sum += part.id;
+                squares += (long)part.id * part.id;
+            }
+        }
+        unchecked
+        {
+            long key = ReachOf(owner) * 1_000_003L + _reachEpoch;
+            key = key * 1_000_003L + count;
+            key = key * 1_000_003L + sum;
+            key = key * 1_000_003L + squares;
+            return key * 1_000_003L + cities;
+        }
+    }
+
+    // 从这国各城的地块起步，按地形阻力走得到、花不到 budget 的地块(不含起步的城地块；记全，无人区重划后照样查得到)。
+    // 只从挨着外面的城地块起步：里面的城地块代价同为 0，从那儿出发绕不出更近的路(结果同从全部城地块起步)；代价按地块编号放数组、带戳记
+    private static float[] _nearCost = new float[0];
+    private static int[] _nearMark = new int[0];
+    private static int _nearStamp;
+
     private static HashSet<int> Near(Kingdom owner, float budget)
     {
-        var cost = new Dictionary<int, float>();
-        var heap = new WorldMap.WorldMapZones.MinHeap();
+        var zones = World.world?.zone_calculator?.zones;
+        int size = Math.Max(_zones.Length, zones?.Count ?? 0);
+        if (_nearCost.Length < size)
+        {
+            _nearCost = new float[size];
+            _nearMark = new int[size];
+            _nearStamp = 0;
+        }
+        if (++_nearStamp == int.MaxValue)
+        {
+            Array.Clear(_nearMark, 0, _nearMark.Length);
+            _nearStamp = 1;
+        }
+        int stamp = _nearStamp;
+        var result = new HashSet<int>();
+        var seeds = new List<TileZone>();
         foreach (City city in owner.cities ?? new List<City>())
         {
             if (city?.data == null || city.isRekt()) continue;
             foreach (TileZone part in city.zones ?? new List<TileZone>())
             {
-                if (part == null || part.id < 0 || cost.ContainsKey(part.id)) continue;
-                cost[part.id] = 0f;
-                heap.Push(0f, part.id);
+                if (part == null || part.id < 0 || part.id >= size || _nearMark[part.id] == stamp) continue;
+                _nearMark[part.id] = stamp;
+                _nearCost[part.id] = 0f;
+                seeds.Add(part);
             }
         }
-        var zones = World.world?.zone_calculator?.zones;
+        var heap = new WorldMap.WorldMapZones.MinHeap();
+        foreach (TileZone part in seeds)
+        {
+            bool edge = part.neighbours_all == null;
+            if (!edge)
+                foreach (TileZone next in part.neighbours_all)
+                    if (next == null || next.id < 0 || next.id >= size || _nearMark[next.id] != stamp)
+                    {
+                        edge = true;
+                        break;
+                    }
+            if (edge) heap.Push(0f, part.id);
+        }
         while (heap.Count > 0)
         {
             heap.Pop(out float at, out int id);
-            if (cost.TryGetValue(id, out float known) && at > known) continue;
+            if (at > _nearCost[id]) continue;
             TileZone zone = zones != null && id < zones.Count ? zones[id] : id < _zones.Length ? _zones[id] : null;
             if (zone?.neighbours_all == null) continue;
             bool fromRiver = TerrainSystem.Of(zone) == FrontTerrain.River;
             foreach (TileZone next in zone.neighbours_all)
             {
-                if (next == null || next.id < 0) continue;
+                if (next == null || next.id < 0 || next.id >= size) continue;
                 float step = SeaRegionSystem.IsSea(next) ? SeaReachStep : TerrainResistance.TerrainStep(next);
                 if (step < 0f) continue;
                 if (!fromRiver && (TerrainSystem.Of(next) == FrontTerrain.River || CutsRiverCorner(zone, next)))
                     step += TerrainResistance.RiverCrossing;
                 float total = at + (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * step;
-                if (total > budget || cost.TryGetValue(next.id, out float old) && total >= old) continue;
-                cost[next.id] = total;
+                if (total > budget || _nearMark[next.id] == stamp && total >= _nearCost[next.id]) continue;
+                _nearMark[next.id] = stamp;
+                _nearCost[next.id] = total;
+                result.Add(next.id);
                 heap.Push(total, next.id);
             }
         }
-        return new HashSet<int>(cost.Keys);
+        return result;
     }
 
     // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。

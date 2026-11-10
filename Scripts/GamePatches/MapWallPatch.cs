@@ -51,6 +51,7 @@ public class MapWallPatch : GamePatch
     public static void AfterSetTileType(WorldTile __instance, TileTypeBase __state)
     {
         TileChanged(__instance);
+        TerrainSystem.GroundChanged(__state, __instance?.Type);
         SeaRegionSystem.OnTileChanged(__instance?.zone);
         ZonePaintBudget.TerrainChanged(__instance, __state);
     }
