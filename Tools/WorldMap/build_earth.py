@@ -32,8 +32,11 @@
   python -I build_earth.py terrarium <数据目录> <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       数据目录里要有 terrarium_z6.npz、ne/ne_10m_rivers_lake_centerlines.shp(.dbf)，ne/ne_10m_geography_regions_polys.shp(.dbf)
       可缺；海陆湖泊与气候取旧网格。河道数据没变，rivers.bytes 不重出。
-  python -I build_earth.py plateau <旧 earth.bytes> <输出 earth.bytes> [预览.png]
+  python -I build_earth.py fetch-terrarium-box <数据目录> <西> <南> <东> <北>
+      只下一块经纬框的 Terrarium 瓦片，存 <数据目录>/terrarium_z6_box.npz(蒙古高原：86 37 127 56，约 50 张、4 MB)。
+  python -I build_earth.py plateau <旧 earth.bytes> <输出 earth.bytes> [预览.png 或 -] [高程 npz]
       只补高寒高原、黄土高原、草原高原三种地面格(见 apply_plateaus；整套重烘时 compose 末尾也会做)。旧网格编号表短的在末尾追加。
+      旧网格要用没烘过高原的(git 里 49d259be 之前那版)；给了高程，蒙古高原的边按真实海拔起伏(见 mongolia_mask)。
   python -I build_earth.py beaches <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       只改沙地：离水 BEACH_REACH 格以外的沙地(以前画的大漠沙丘)改成荒漠(高低照最近的荒漠格)，海边湖边的留作沙滩。
 
@@ -744,7 +747,7 @@ def compose(water_codes, water, surface, mountains, hills, f):
     out[land & ((hills & snowy) | plateau)] = CODE["hills:snow_hills"]
     out[mountains] = CODE["mountains"]
     out[mountains & snowy] = CODE["mountains:snow_block"]
-    return apply_plateaus(out)
+    return apply_plateaus(out, f["elev"])
 
 
 # 黄土高原的范围(经纬度多边形，用户 2026-11-10 定"黄土高原也做")：西到乌鞘岭以南、兰州以西，北沿长城一线(河套、鄂尔多斯、
@@ -789,10 +792,10 @@ def polygon_mask(points):
     return inside
 
 
-def apply_plateaus(out):
+def apply_plateaus(out, elev=None):
     """三种高原(用户 2026-11-10)：青藏、帕米尔的高原面(3800 米以上，网格里的雪丘连片)连同里面的谷地、丘陵改成高寒高原；
-    黄土高原多边形里的平地、丘陵改成黄土高原；蒙古高原多边形里的草地、稀树草原、丘陵改成草原高原(戈壁照旧)。
-    山、水不动；外缘山脊、坡地、山口在游戏里生成世界时铺(PlateauShaper)。"""
+    黄土高原多边形里的平地、丘陵改成黄土高原；蒙古高原里的草地、稀树草原、丘陵改成草原高原(戈壁照旧，边界见 mongolia_mask)。
+    山、水不动；外缘山脊、坡地、山口在游戏里生成世界时铺(PlateauShaper)。elev 为各格平均海拔(米，没有的为 NaN)，不给时蒙古高原照多边形。"""
     out = out.copy()
     land = ~np.isin(out, [CODE["deep_ocean"], CODE["close_ocean"], CODE["shallow_waters"]])
     rock = np.isin(out, [CODE["mountains"], CODE["mountains:snow_block"]])
@@ -833,17 +836,45 @@ def apply_plateaus(out):
     # 蒙古高原：草地、稀树草原(高低两种)与丘陵改成草原高原
     grassy = np.isin(out, [CODE["soil_%s:%s_%s" % (lv, b, lv)] for b in ("grass", "savanna") for lv in ("low", "high")] +
                      [CODE["hills"]])
-    steppe = wobbly(MONGOLIA) & grassy & ~alpine & ~loess
+    steppe = (wobbly(MONGOLIA) if elev is None else mongolia_mask(elev)) & grassy & ~alpine & ~loess
     out[steppe] = CODE["steppe_plateau"]
     print("高寒高原 %d 格(雪丘 %d 片)，黄土高原 %d 格，草原高原 %d 格" % (alpine.sum(), merged, loess.sum(), steppe.sum()))
     return out
 
 
-def plateaus(old_path, out_path, preview_path=None):
-    """只补两种高原(旧网格没有高原编号时追加在编号表末尾，别的格不动)。"""
+# 蒙古高原的边(用户 2026-11-10 截图"蒙古高原的地形这么直的吗")：多边形只当骨架，边按多尺度噪声(约 ±0.6 度，几十到一百多公里一个起伏)
+# 起伏；北沿、西沿还看真实海拔——高处往外推、低处往里收(约 ±0.5 度；东边呼伦贝尔、东蒙低一些，门槛从东经 112 度往东降到 700 米)，
+# 能长出多边形(草原一直连到俄蒙边境、阿尔泰东麓)；南沿(阴山、燕山、坝上)与东沿(大兴安岭)只按噪声往里收(那一带山高，
+# 再看海拔就贴死在多边形上成了直线)，呼和浩特、河套、张家口、大同、赤峰、嫩江平原照旧在外
+def mongolia_mask(elev):
+    lon2 = np.broadcast_to(LONS[None, :], elev.shape)
+    lat2 = np.broadcast_to(LATS[:, None], elev.shape)
+    inside = polygon_mask(MONGOLIA)
+    signed = (ndimage.distance_transform_edt(inside) - ndimage.distance_transform_edt(~inside)) * STEP
+    rng = np.random.default_rng(1111)
+    noise = (ndimage.gaussian_filter(rng.standard_normal(elev.shape), 30) * 0.55 +
+             ndimage.gaussian_filter(rng.standard_normal(elev.shape), 10) * 0.3 +
+             ndimage.gaussian_filter(rng.standard_normal(elev.shape), 3) * 0.15)
+    noise /= noise.std() + 1e-9
+    smooth = ndimage.gaussian_filter(np.nan_to_num(elev, nan=0.0), 3)
+    base = 1000.0 - 300.0 * np.clip((lon2 - 112.0) / 5.0, 0.0, 1.0)
+    grows = (lat2 >= 46.0) & (lon2 <= 119.0) | (lon2 <= 100.0)
+    score = signed + 0.6 * noise + np.where(grows, 0.5 * np.clip((smooth - base) / 600.0, -1.0, 1.0), 0.0)
+    return (score > 0) & (inside | grows)
+
+
+def load_elevation(path):
+    """各格平均海拔(fetch-terrarium 的 terrarium_z6.npz，或 fetch-terrarium-box 只下一块的)。"""
+    mean = np.load(path)["mean"]
+    assert mean.shape == (ROWS, COLS), "高程网格大小对不上"
+    return mean
+
+
+def plateaus(old_path, out_path, preview_path=None, elev_path=None):
+    """只补三种高原(旧网格没有高原编号时追加在编号表末尾，别的格不动)。要从没有高原的旧网格起烘(已烘过的草原高原不会退回去)。"""
     grid, types = read_earth(old_path)
     assert TYPES[:len(types)] == types, "地块写法表与本脚本的 TYPES 对不上"
-    finish(apply_plateaus(grid), out_path, preview_path)
+    finish(apply_plateaus(grid, load_elevation(elev_path) if elev_path else None), out_path, preview_path)
 
 
 def local_relief(f):
@@ -965,8 +996,9 @@ def read_earth(path):
     return grid, types
 
 
-def fetch_terrarium(data_dir, zoom=6):
-    """逐张下 Terrarium 瓦片，按每个像素的经纬度落进 0.05° 网格，累计格内均值、最高、最低；瓦片只在内存里过一遍。"""
+def fetch_terrarium(data_dir, zoom=6, box=None):
+    """逐张下 Terrarium 瓦片，按每个像素的经纬度落进 0.05° 网格，累计格内均值、最高、最低；瓦片只在内存里过一遍。
+    box=(西, 南, 东, 北) 时只下这一块(框外为 NaN)，存 terrarium_z6_box.npz(蒙古高原的边用，见 mongolia_mask)。"""
     import urllib.request
     from concurrent.futures import ThreadPoolExecutor
     from PIL import Image
@@ -982,6 +1014,9 @@ def fetch_terrarium(data_dir, zoom=6):
 
     xs = range(tile_x(LON0 - STEP / 2), tile_x(LON0 + (COLS - 0.5) * STEP) + 1)
     ys = range(tile_y(LAT0 + (ROWS - 0.5) * STEP), tile_y(LAT0 - STEP / 2) + 1)
+    if box:
+        xs = range(tile_x(box[0]), tile_x(box[2]) + 1)
+        ys = range(tile_y(box[3]), tile_y(box[1]) + 1)
 
     def get(xy):
         for attempt in range(5):
@@ -1019,6 +1054,11 @@ def fetch_terrarium(data_dir, zoom=6):
             count[at] += np.diff(np.r_[sr, len(ci)])[:, None] * np.diff(np.r_[sc, len(cj)])[None, :]
             top[at] = np.maximum(top[at], np.maximum.reduceat(np.maximum.reduceat(h, sc, axis=1), sr, axis=0))
             bottom[at] = np.minimum(bottom[at], np.minimum.reduceat(np.minimum.reduceat(h, sc, axis=1), sr, axis=0))
+    if box:
+        mean = np.where(count > 0, total / np.maximum(count, 1), np.nan).astype(np.float32)
+        np.savez_compressed(data_dir + "/terrarium_z6_box.npz", mean=mean)
+        print("Terrarium z%d 框 %s：%d×%d 张、%.1f MB" % (zoom, box, len(xs), len(ys), got / 1e6))
+        return
     assert count.min() > 0, "有格子没落到像素"
     mean = (total / count).astype(np.float32)
     np.savez_compressed(data_dir + "/terrarium_z6.npz", mean=mean, max=top, min=bottom)
@@ -1165,8 +1205,10 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "fetch-terrarium":
         fetch_terrarium(args[1])
+    elif args and args[0] == "fetch-terrarium-box":
+        fetch_terrarium(args[1], box=tuple(float(v) for v in args[2:6]))
     elif args and args[0] == "plateau":
-        plateaus(args[1], args[2], args[3] if len(args) > 3 else None)
+        plateaus(args[1], args[2], args[3] if len(args) > 3 and args[3] != "-" else None, args[4] if len(args) > 4 else None)
     elif args and args[0] == "beaches":
         beaches(args[1], args[2], args[3] if len(args) > 3 else None)
     elif args and args[0] == "terrarium":
