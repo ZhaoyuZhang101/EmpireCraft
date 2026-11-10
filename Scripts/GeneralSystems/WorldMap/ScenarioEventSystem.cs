@@ -66,7 +66,7 @@ public static class ScenarioEventSystem
 {
     public static readonly string[] ConditionKinds = { "holds_city", "holds_region", "gone", "alive", "empire", "at_war", "strain_above", "before" };
     public static readonly string[] EffectKinds = { "relation", "proclaim", "rename", "move_capital", "culture", "adopt_huaxia", "rebel", "cede", "dies", "heir", "grant_title", "rally",
-        "banner_city", "banner_enclosure", "banner_law" };
+        "banner_city", "banner_enclosure", "banner_law", "puppet", "ideology", "exile" };
 
     private static ScenarioEventSave _state;
     // 剧本人物的编号；还没演完戏份的人护到第几年；还没起事、不让朝廷派官的人(都从存档现算，见 RebuildPlot)
@@ -145,7 +145,7 @@ public static class ScenarioEventSystem
             WorldMapEvent item = _state.events[i];
             if (item?.then == null || _state.fired.Contains(i)) continue;
             foreach (WorldMapEventStep step in item.then)
-                if (step.kind is "rebel" or "cede")
+                if (step.kind is "rebel" or "cede" or "puppet")
                     foreach (string name in ScenarioPlotRules.Names(step.person))
                         if (_state.people.TryGetValue(name, out long id)) pending.Add(id);
         }
@@ -274,13 +274,18 @@ public static class ScenarioEventSystem
         }
     }
 
-    // 城在不在这国手里(帝国连同它的成员国都算)
-    private static bool Holds(Kingdom kingdom, City city)
+    // 城在不在这国手里(帝国连同它的成员国都算；殖民地、傀儡算宗主国、主国的，日本据有京城、台北、新京)
+    private static bool Holds(Kingdom kingdom, City city) => city?.kingdom != null && Controls(kingdom, city.kingdom);
+
+    // holder 是不是 kingdom 这一方：本国、本帝国的成员、本国(帝国中央)的殖民地与傀儡
+    private static bool Controls(Kingdom kingdom, Kingdom holder)
     {
-        if (kingdom == null || city?.kingdom == null) return false;
-        if (city.kingdom == kingdom) return true;
+        if (kingdom == null || holder == null) return false;
+        if (holder == kingdom) return true;
         Empire empire = kingdom.GetEmpire();
-        return empire != null && kingdom.IsEmpire() && city.kingdom.GetEmpire() == empire;
+        if (empire != null && kingdom.IsEmpire() && holder.GetEmpire() == empire) return true;
+        Kingdom lord = ColonySystem.MetropoleOf(holder) ?? PuppetStateSystem.Master(holder);
+        return lord != null && lord != holder && Controls(kingdom, lord);
     }
 
     #endregion
@@ -453,6 +458,22 @@ public static class ScenarioEventSystem
                 return Rebel(step, a);
             case "cede":
                 return Cede(step, a);
+            case "puppet":
+                return Puppet(step, a);
+            case "ideology":
+                return ScenarioModernPolitics.ChangeIdeology(a, step.name, Text(step.party), step.oneParty);
+            case "exile":
+            {
+                // 政府流亡(捷克、奥地利被吞并，见 ExileGovernmentSystem)：a 的政府流亡到 b，c 是占领者；
+                // a 眼下的城连同 region 地区里的城记作待收复。写在献城(cede)之前，随员先出城
+                Kingdom host = Realm(step.b);
+                if (host == null || host == a) return "东道国不在";
+                if (ExileGovernmentSystem.IsExiled(a)) return null;
+                List<long> claims = (a.cities ?? new List<City>()).Concat(RegionCities(step.region))
+                    .Where(city => city?.data != null).Select(city => city.data.id).Distinct().ToList();
+                ExileGovernmentSystem.Begin(a, host, Realm(step.c), claims, null);
+                return null;
+            }
             case "banner_city":
             {
                 if (!BannerSystem.Practices(a)) return "不是八旗多元制";
@@ -831,6 +852,43 @@ public static class ScenarioEventSystem
         new[] { step.city }.Concat(step.cities ?? new List<string>()).Select(CityOf)
             .Where(city => city != null && Holds(a, city)).Distinct().ToList();
 
+    // 地区(王国法理)里的城；没写或对不上的为空
+    private static IEnumerable<City> RegionCities(string region)
+    {
+        KingdomTitle title = Title(region);
+        return title == null ? Enumerable.Empty<City>() : title.getCities().Where(city => city?.data != null && !city.isRekt()).ToList();
+    }
+
+    // 扶植傀儡政权(伪满、蒙疆、华北临时政府、汪伪)：a(占领者一方)手里的这些城(city、cities，或 region 地区里的)交给新立的 b，
+    // 立为 a 的傀儡(见 PuppetStateSystem)。person 里头一位还活着的成年人领头，可以是别国的人(投敌的汪精卫，连同部将改投)，
+    // 都找不到由治所城主领头；name 国号；culture 写了改新国文化。a 的京城不给
+    private static string Puppet(WorldMapEventStep step, Kingdom master)
+    {
+        Kingdom core = master.GetEmpire()?.CoreKingdom ?? master;
+        List<City> seats = new[] { step.city }.Concat(step.cities ?? new List<string>()).Select(CityOf).Concat(RegionCities(step.region))
+            // 别的傀儡手里的城也能拿来(汪伪国民政府接收维新政府的南京)
+            .Where(city => city != null && Holds(master, city) && city != core.capital)
+            .Distinct().ToList();
+        if (seats.Count == 0) return "城都不在本国";
+        City seat = seats[0];
+        List<Actor> people = People(step.person).Where(actor => !actor.isKing()).ToList();
+        Actor leader = people.FirstOrDefault(actor => actor.isAdult() && actor.CanFoundCivKingdom());
+        if (leader == null && seat.leader is Actor holder && holder.isAlive() && holder.isAdult() && holder.CanFoundCivKingdom() &&
+            !holder.isKing() && MayLead(holder, seat)) leader = holder;
+        if (leader == null) return "没人领头";
+        string name = Text(step.name);
+        Kingdom puppet = PuppetStateSystem.Found(master, seat, seats.Where(city => Holds(master, city)), leader, name, step.culture,
+            people.Where(actor => actor != leader && !actor.isKing()));
+        if (puppet == null) return "立国失败";
+        if (!string.IsNullOrEmpty(step.b)) _state.realms[step.b] = puppet.data.id;
+        string text = string.Format(LM.Get("scenario_puppet_history"), master.GetKingdomName(), leader.getName(), seat.GetCityName(),
+            puppet.GetKingdomName());
+        EventRecorder.Record(master, text, leader);
+        BiographySystem.Note(leader, string.Format(LM.Get("scenario_puppet_bio"), seat.GetCityName(), puppet.GetKingdomName(),
+            master.GetKingdomName()), master.king);
+        return null;
+    }
+
     // 剧本人物的名单：顿号、逗号隔开，找得到又还活着的，按写的顺序
     private static List<Actor> People(string names) =>
         (names ?? "").Split(new[] { '、', ',', '，' }, StringSplitOptions.RemoveEmptyEntries)
@@ -839,15 +897,17 @@ public static class ScenarioEventSystem
     // 献城改投：city、cities 里还在 a(帝国连同成员国)手里的城归 b，person 里的人连同所统之军投奔 b，驻在这些城的军也跟着走。
     // 只写 person 不写城就是单纯投奔。都城也能给，要留朝廷的先写一条 move_capital 迁走(甲申城破、南京监国)。
     // 城里的人全归 b：不想让谁跟着走，先把事情做完再献城
+    // 写了 all 的是 a 这一方手里的全部城(傀儡覆灭、战败交还)；写了 region 的另加那片地区里 a 这一方手里的城(1945 交还朝鲜、东北)。
+    // a 这一方连同它的殖民地、傀儡(日本连同朝鲜总督府、台湾总督府，见 Controls)
     private static string Cede(WorldMapEventStep step, Kingdom origin)
     {
         Kingdom to = Realm(step.b);
         if (to == null) return "对方不在";
-        Empire empire = origin.GetEmpire();
-        if (empire != null && (empire.isRekt() || empire.IsArchived())) empire = null;
-        bool Ours(Kingdom kingdom) => kingdom != null && (kingdom == origin || empire != null && kingdom.GetEmpire() == empire);
+        bool Ours(Kingdom kingdom) => Controls(origin, kingdom);
         if (Ours(to)) return "本是一家";
         List<City> cities = new[] { step.city }.Concat(step.cities ?? new List<string>()).Select(CityOf)
+            .Concat(RegionCities(step.region))
+            .Concat(step.all ? World.world.cities.list.Where(city => city?.data != null && !city.isRekt()) : Enumerable.Empty<City>())
             .Where(city => city != null && Ours(city.kingdom)).Distinct().ToList();
         List<Actor> people = People(step.person).Where(actor => Ours(actor.kingdom) && !actor.isKing()).ToList();
         if (cities.Count == 0 && people.Count == 0) return "城和人都不在本国";
@@ -981,6 +1041,8 @@ public static class ScenarioEventSystem
         KingdomTitle main = kingdom.GetMainTitle();
         if (main?.data != null) main.data.name = name;
         kingdom.SetKingdomName(name);
+        // 剧本锁定了国号的(近代国家、傀儡、流亡政府，见 ScenarioModernPolitics)：锁定的国号一并改
+        if (!string.IsNullOrWhiteSpace(kingdom.GetCustomCountryName())) kingdom.SetCustomCountryName(name);
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
     }
 

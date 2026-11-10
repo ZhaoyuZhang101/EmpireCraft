@@ -14,13 +14,17 @@ TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "a
        "exact", "own_wilderness", "paint_base", "base_stale", "size", "own_cities", "independent", "develop", "base"}
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "hero", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
-          "conquest_city", "decline"}
+          "conquest_city", "decline", "modern", "autonomy", "exile", "colony_of", "company"}
+MODERN = {"regime", "ideology", "party", "one_party", "parties"}
+REGIMES = {"republic", "constitutional", "monarchy"}
+IDEOLOGIES = {"Anarchism", "SocialDemocracy", "Libertarianism", "SocialLiberalism", "Capitalism", "ConservativeLiberalism", "Centrism",
+              "Socialism", "Communism", "ReligiousDemocracy", "Authoritarianism", "Conservatism", "Fascism"}
 PERSON = {"fam", "giv", "age", "sex", "rel", "of", "heir", "mo", "in", "house", "f", "p"}
 FAMOUS = {"fam", "giv", "age", "sex", "kind", "rank", "post", "in"}
 RELS = {"son", "daughter", "grandson", "granddaughter", "brother", "sister", "nephew", "cousin", "wife", "consort"}
-CULTURES = {"Huaxia", "Youmu", "Japan", "Roma", "Frankish", "Germanic", "Viking", "Slavonic", "Arab", "Persepolis", "India", "Egypt",
+CULTURES = {"Huaxia", "China", "Youmu", "Japan", "Roma", "Frankish", "Germanic", "Viking", "Slavonic", "Arab", "Persepolis", "India", "Egypt",
             "Kosher", "Manzhou", "Xizang", "Swahili", "Bantu", "Zulu", "Aztec", "Ojibwe"}
-RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud"}
+RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud", "puppet"}
 GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}
 CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "alive": ("a",), "empire": ("a",),
@@ -29,8 +33,10 @@ EFFECTS = {"relation": ("a", "b", "relation"), "proclaim": ("a",), "rename": ("a
            "culture": ("a", "culture"), "adopt_huaxia": ("a",), "rebel": ("a", "city", "name", "person"),
            "cede": ("a", "b"), "dies": ("a", "person"), "heir": ("a", "person"),
            "grant_title": ("a", "person", "name"), "rally": ("a", "b"), "submit": ("a", "b"),
-           "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",)}
-STEP = {"kind", "a", "b", "c", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person", "roving", "hero"}
+           "banner_city": ("a",), "banner_enclosure": ("a",), "banner_law": ("a",),
+           "puppet": ("a", "b", "city", "name"), "ideology": ("a", "name"), "exile": ("a", "b")}
+STEP = {"kind", "a", "b", "c", "city", "cities", "region", "value", "name", "relation", "goal", "culture", "person", "roving", "hero",
+        "all", "party", "one_party"}
 EVENT = {"name", "text", "after", "repeat", "when", "then"}
 
 errors, notes = [], []
@@ -46,6 +52,27 @@ def note(text):
 
 def first(text):
     return (text or "").split("|")[0]
+
+
+def check_modern(p, where):
+    m = p.get("modern")
+    if m is None:
+        return
+    if not isinstance(m, dict):
+        err(where + "：modern 要写成 {regime, ideology, party, one_party, parties}")
+        return
+    for key in m:
+        if key not in MODERN:
+            err("%s modern：不认得的键 %s" % (where, key))
+    if m.get("regime") and m["regime"] not in REGIMES:
+        err("%s modern：regime=%s 只能是 %s" % (where, m["regime"], "、".join(sorted(REGIMES))))
+    if m.get("ideology") and m["ideology"] not in IDEOLOGIES:
+        err("%s modern：ideology=%s 不是理念名" % (where, m["ideology"]))
+    if m.get("regime") in ("republic", "constitutional") and not p.get("emp") and not p.get("exile"):
+        note("%s：共和、立宪要和 emp 一起写(组建政府、设议会)，不然只改政体" % where)
+    for party in m.get("parties", []):
+        if party.get("ideology") not in IDEOLOGIES:
+            err("%s modern.parties：ideology=%s 不是理念名" % (where, party.get("ideology")))
 
 
 def check_boundary(polygons, where):
@@ -185,6 +212,7 @@ def main():
         if p.get("c") and p["c"] not in CULTURES:
             err("%s：c=%s 不是文化键" % (where, p["c"]))
         city(p.get("cap"), where + " 的都城 cap")
+        check_modern(p, where)
         for cid in p.get("cities", []):
             city(cid, where + " 的 cities")
         for r in p.get("r", []):
@@ -202,6 +230,11 @@ def main():
                 city(cid, where + " 行政区 " + first(d.get("name")) + "(开局跳过)", soft=True)
         check_decline(p, where)
     for p in polities:
+        for key in ("exile", "colony_of"):
+            if p.get(key) and p[key] not in by_id:
+                err("国 %s：%s=%s 不是本剧本的国" % (p.get("id"), key, p[key]))
+        if p.get("autonomy") and not p.get("of"):
+            note("国 %s：autonomy 只对写了 of 的现代国家成员有用" % p.get("id"))
         if p.get("of") and p["of"] not in by_id:
             err("国 %s：宗主 of=%s 不存在" % (p.get("id"), p["of"]))
         elif p.get("of") and not by_id[p["of"]].get("emp"):
@@ -262,7 +295,7 @@ def main():
             if f.get("rank") not in (0, 1, 2):
                 err("%s：rank 只能是 0、1、2" % where)
             post = f.get("post", "")
-            if post not in ("chief", "core", "div", "general", "none"):
+            if post not in ("chief", "core", "div", "general", "none", "pm"):
                 city(post, where + " 的 post")
             v = f.get("in", -1)
             if v not in (-1, None) and (not isinstance(v, int) or v < 0 or v >= len(kin) or kin[v].get("rel") not in ("wife", "consort")):
@@ -314,7 +347,7 @@ def main():
                     if s.get(key) in (None, "", []):
                         err("%s：缺 %s" % (at, key))
                 for key in ("a", "b"):
-                    if key == "b" and kind == "rebel":
+                    if key == "b" and kind in ("rebel", "puppet"):
                         continue
                     if s.get(key) and s[key] not in realms:
                         err("%s：%s=%s 不是本剧本的国(也不是前面起兵立的国)" % (at, key, s[key]))
@@ -332,8 +365,19 @@ def main():
                         err("%s：goal=%s 不认得" % (at, s["goal"]))
                 if kind == "culture" and s.get("culture") not in CULTURES:
                     err("%s：culture=%s 不是文化键" % (at, s.get("culture")))
-                if kind == "cede" and not s.get("city") and not s.get("cities") and not s.get("person"):
-                    err("%s：城和人至少写一样" % at)
+                if kind == "cede" and not s.get("city") and not s.get("cities") and not s.get("person") and                         not s.get("region") and not s.get("all"):
+                    err("%s：城(city、cities、region、all)和人至少写一样" % at)
+                if kind == "ideology" and s.get("name") not in IDEOLOGIES:
+                    err("%s：name=%s 不是理念名(%s)" % (at, s.get("name"), "、".join(sorted(IDEOLOGIES))))
+                if kind in ("puppet", "exile") and s.get("b") and kind == "puppet":
+                    realms.add(s["b"])
+                for flag in ("all", "one_party"):
+                    if flag in s and not isinstance(s[flag], bool):
+                        err("%s：%s 写 true/false" % (at, flag))
+                if kind == "puppet":
+                    for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
+                        if name not in people:
+                            err("%s：剧本人物里找不到 %s(写进 famous，简体姓+名连写)" % (at, name))
                 if kind in ("dies", "heir", "grant_title", "dead"):
                     for name in [n.strip() for n in (s.get("person") or "").replace("，", "、").replace(",", "、").split("、") if n.strip()]:
                         if name not in people:

@@ -354,6 +354,8 @@ public static class CultureService
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        // 换了文化也不因本文化已废君就成共和国(见 StateModernization)
+        regimeType = StateModernization.AdjustFounding(kingdom, culture, regimeType);
         regimeType = InstitutionSystem.AdjustForMonarchyEmpire(kingdom, regimeType);
         if (!IsRegimeAvailable(regimeType)) return false;
         if (kingdom.GetRegime()?.type == regimeType) return true;

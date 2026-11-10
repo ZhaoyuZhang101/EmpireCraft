@@ -249,6 +249,31 @@ public static partial class ParliamentSystem
         RecordPrimeMinister(empire, primeMinister, plan.Formateur, plan.Type, plan.Seats, total);
     }
 
+    // 剧本开局的首相(近卫文麿、张伯伦、墨索里尼)：第一届议会照剧本组阁——这人出任首相，他的党执政。
+    // 他同时是这个党的党魁，下届大选前补选、换届复核都留着他(见 TryKeepGovernment)
+    public static bool ScenarioAppoint(Empire empire, Actor primeMinister, FixedFaction party)
+    {
+        ConstitutionalEconomyState state = GetState(empire);
+        if (state == null || primeMinister == null || party == null || !HasParliament(empire) || !IsValidMember(empire, primeMinister))
+            return false;
+        if (party.GetLeader() != primeMinister)
+        {
+            primeMinister.SetFaction(party);
+            party.SetLeader(primeMinister);
+        }
+        int seats = state.parliament_seats.Count(seat => seat.faction_id == party.GetID());
+        int total = state.parliament_seats.Count;
+        state.coalition_faction_ids ??= new List<string>();
+        state.prime_minister_id = primeMinister.id;
+        state.prime_minister_faction_id = party.GetID();
+        state.government_type = seats * 2 > total ? GovernmentMajority : GovernmentMinority;
+        state.government_seats = seats;
+        state.coalition_faction_ids = new List<string> { party.GetID() };
+        state.government_formed_at = World.world.getCurWorldTime();
+        AssignMinisters(empire, state, announce: false);
+        return true;
+    }
+
     // 顺应民意(PublicOpinionSystem.AcceptPreferred)：把民意所向之党邀入执政联盟——它在议会有席位、不在执政一方、
     // 理念与首相党相距不超过 MaxCoalitionDistance；邀入后按新联盟重分部长(用户 2026-11-10 "政党机制也完善下"，问答选"一并修")
     public static bool InviteIntoGovernment(Empire empire, FixedFaction party)

@@ -90,8 +90,10 @@ public static class AdministrationReorganizationSystem
     private static bool Requested(Empire empire) =>
         !WorldMap.WorldMapWilderness.FixedLayout || empire.data.administrative_reorganization_explicit;
 
+    // 剧本的地方实力派(晋绥、桂系……)自成一块，不拿来改划(见 ScenarioModernPolitics.MakeWarlordMember)
     private static bool Eligible(Empire empire, Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&
-        kingdom.GetEmpire() == empire && kingdom.cities?.Count > 0 && !AncientWarfareCompatibility.Owns(kingdom);
+        kingdom.GetEmpire() == empire && kingdom.cities?.Count > 0 && !AncientWarfareCompatibility.Owns(kingdom) &&
+        !kingdom.GetOrCreate().scenario_autonomy;
 
     private static void RefreshProtected(Work work)
     {

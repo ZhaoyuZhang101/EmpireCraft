@@ -439,6 +439,8 @@ namespace EmpireCraft.Scripts.UI.Windows
                 opinion.desperate > 0 ? string.Format(LM.Get("peace_tip_desperate"), Signed(-opinion.desperate))
                     : LM.Get("peace_tip_desperate_none")
             };
+            // 民族意识：近代割让、立傀儡他国本土，失地一方另记(见 PeaceTermRules 民族意识一节)
+            if (opinion.nation > 0) lines.Add(string.Format(LM.Get("peace_tip_nation"), Signed(-opinion.nation)) + Items(war, opinion.nations));
             return string.Join("\n", lines);
         }
 
@@ -458,6 +460,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             if (wear.unpaid > 0) parts.Add(string.Format(LM.Get("peace_wear_unpaid"), wear.unpaidMonths, N(wear.unpaid)));
             if (wear.food > 0) parts.Add(string.Format(LM.Get("peace_wear_food"), Mathf.RoundToInt(wear.foodShort * 100f), N(wear.food)));
             if (wear.collapse > 0) parts.Add(string.Format(LM.Get("peace_wear_collapse"), N(wear.collapse)));
+            if (wear.occupation > 0) parts.Add(string.Format(LM.Get("peace_wear_occupation"), wear.occupiedCities, N(wear.occupation)));
             return parts.Count == 0 ? "" : LM.Get("peace_tip_colon") + string.Join(LM.Get("list_separator"), parts);
         }
 
@@ -484,6 +487,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private static Sprite TermIcon(PeaceTerm term) => term.kind switch
         {
             PeaceTermKind.City => Icon("iconCity"),
+            PeaceTermKind.Puppet => Icon("iconKings", "iconCity"),
             PeaceTermKind.Indemnity => Icon("iconMoney"),
             PeaceTermKind.Tribute => Icon("iconGold", "iconMoney"),
             PeaceTermKind.Vassal => Icon("iconCrown"),

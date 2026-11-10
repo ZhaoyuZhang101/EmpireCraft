@@ -38,7 +38,7 @@ public static partial class WarlordEraSystem
     private enum Role { Central, Provisional, Warlord }
 
     private const float UnifyShare = 0.7f;
-    private const float OppositeIdeologyDistance = 90f;
+    internal const float OppositeIdeologyDistance = 90f;
     private const float CoalitionStrengthShare = 0.6f;
     private const float SoloRivalShare = 0.5f;
     private const float CoalitionChance = 0.2f;

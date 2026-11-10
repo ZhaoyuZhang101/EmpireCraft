@@ -46,8 +46,9 @@ def plan(base, era):
     cities = {c["id"]: c for c in base["cities"] if active(c, year)}
     owner = {}
     problems = []
-    polities = era["polities"]
-    ids = {p["id"] for p in polities}
+    # 开局即流亡的国家(大韩民国临时政府)不占城、不认领地区(见 ExileGovernmentSystem)
+    ids = {p["id"] for p in era["polities"]}
+    polities = [p for p in era["polities"] if not p.get("exile")]
     for p in polities:
         if p["cap"] not in cities:
             problems.append("%s 都城 %s 不存在或该年不在" % (p["id"], p["cap"]))

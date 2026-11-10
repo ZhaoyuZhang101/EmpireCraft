@@ -178,11 +178,12 @@ public static class CultureModernizationSystem
         bool changed = false;
         foreach (Kingdom kingdom in candidates)
         {
+            if (PuppetStateSystem.IsPuppet(kingdom)) continue;
+            // 近代化按国家各自走(用户 2026-11-10 "全文明一同现代化的设定")：以前同文化一进现代政治，这里每年把独立君主国统统改成
+            // 现代政体；现在君主国照本国条件掷共和革命(见 StateModernization.TryRevolution)，没起革命的照旧是君主国
             if (kingdom.GetRegime()?.type != RegimeType.Modern)
             {
-                kingdom.SetRegimeType(RegimeType.Modern);
-                kingdom.LoadRegime();
-                kingdom.SystemChange();
+                if (!StateModernization.TryRevolution(kingdom)) continue;
                 changed = true;
             }
             if (ModernStateFormationSystem.TryUpdate(kingdom)) changed = true;

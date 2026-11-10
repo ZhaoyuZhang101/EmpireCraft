@@ -193,8 +193,8 @@ public static class ConstitutionalEconomySystem
         SyncRegime(empire, state);
         // 玩家随时可能在政体窗口切换国家制度：共和标记跟着实际政体走
         RepublicSystem.SyncWithRegime(empire);
-        // 本文化废除君主制之后才成立的君主国：强制改建现代国家
-        RepublicSystem.TryModernizeLateMonarchy(empire);
+        // 以前这里把"本文化废君以后才立的君主国"强改共和(RepublicSystem.TryModernizeLateMonarchy)；近代化改按国家各自走以后不再强改，
+        // 君主国照本国的废君压力、退位、革命走(见 StateModernization)
         // 旧存档清理：已废除君主制的国家名下还挂着朝贡国(共和国不再接收新朝贡国，所以只会出现在旧存档里)
         if (RepublicSystem.IsRepublic(empire) && empire.taken_Kingdoms?.Count > 0)
             TributaryAbolitionService.OnMonarchyAbolished(empire);
@@ -289,7 +289,9 @@ public static class ConstitutionalEconomySystem
              Date.getYearsSince(state.last_ai_constitution_attempt) >= Config.ai_attempt_interval_years))
         {
             state.last_ai_constitution_attempt = World.world.getCurWorldTime();
-            if (GetParliamentarySupport(empire) >= Config.ai_start_support) StartReform(empire);
+            // 示范效应：同文化已有国家立宪、邻国立宪或共和，发起立宪要的议会支持随之降低
+            if (GetParliamentarySupport(empire) >= Config.ai_start_support - StateModernization.ConstitutionSupportBonus(empire))
+                StartReform(empire);
         }
     }
 
@@ -379,7 +381,7 @@ public static class ConstitutionalEconomySystem
         Record(empire, "constitution_ended_history");
     }
 
-    // 君主立宪是文化层面的制度：本文化已经确立的话，同文化的君主制帝国直接随之确立(进行中的制宪就此结束)
+    // 本文化是否已有国家立宪(首开的记在文化上)：同文化别国立宪的示范(见 StateModernization)，不再代办
     public static bool IsCultureConstitutional(Empire empire) =>
         empire != null && InstitutionSystem.GetOrCreateCultureState(InstitutionSystem.GetPrimaryCulture(empire))
             ?.constitutional_monarchy == true;
@@ -387,24 +389,12 @@ public static class ConstitutionalEconomySystem
     public static CultureInstitutionState GetCultureConstitution(Empire empire) =>
         empire == null ? null : InstitutionSystem.GetOrCreateCultureState(InstitutionSystem.GetPrimaryCulture(empire));
 
+    // 以前本文化已立宪时，同文化的君主国直接随之立宪(进行中的制宪就此结束)；近代化改按国家各自走以后(用户 2026-11-10
+    // "全文明一同现代化的设定")，先立宪的只作示范(见 StateModernization.ConstitutionSupportBonus)，这里只给旧档补记本文化首开
     private static void AdoptCultureConstitution(Empire empire, ConstitutionalEconomyState state)
     {
-        // 旧存档：本帝国早已立宪但文化还没记上 → 补记为本文化首开
         if (state.constitutional_monarchy && IsMonarchy(empire) && !IsCultureConstitutional(empire))
             MarkCultureConstitutional(empire);
-        if (state.constitutional_monarchy || !IsMonarchy(empire) || !IsCultureConstitutional(empire)) return;
-        // 积弊深重的老王朝不随文化立宪：立了宪积弊就不算了，等于靠改制躲过改朝换代(见 DynasticCycleSystem.TooDecayedToReform)
-        if (DynasticCycleSystem.TooDecayedToReform(empire)) return;
-        if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null) return;
-        CancelReform(state);
-        state.constitutional_monarchy = true;
-        CultureInstitutionState culture = GetCultureConstitution(empire);
-        string content = string.Format(LM.Get("constitution_culture_adopted_history"),
-            InstitutionSystem.GetPrimaryCulture(empire).GetCultureTranslate(),
-            string.IsNullOrWhiteSpace(culture?.constitutional_monarchy_pioneer_name)
-                ? LM.Get("label_none") : culture.constitutional_monarchy_pioneer_name);
-        empire.RecordHistory(directContent: content, actorId: empire.Emperor?.id ?? -1L,
-            kingdomId: empire.CoreKingdom.id);
     }
 
     private static void MarkCultureConstitutional(Empire empire)
@@ -627,8 +617,6 @@ public static class ConstitutionalEconomySystem
         if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(line)) return false;
         if (state.constitutional_monarchy) { reason = "constitution_already_enacted"; return false; }
         if (IsMonarchy(empire) && EraBlocker(empire) is string blocker) { reason = blocker; return false; }
-        // 本文化已确立君主立宪：下一次更新自动随之确立，不必再走一遍制宪
-        if (IsCultureConstitutional(empire)) { reason = "constitution_culture_enacted"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
         if (!IsMonarchy(empire)) { reason = "constitution_requires_monarchy"; return false; }
         if (DynasticCycleSystem.TooDecayedToReform(empire)) { reason = "constitution_dynastic_decay"; return false; }
@@ -682,6 +670,19 @@ public static class ConstitutionalEconomySystem
         MarkCultureConstitutional(empire);
         ParliamentSystem.Update(empire);
         Record(empire, "constitution_forced_history");
+        return true;
+    }
+
+    // 剧本开局即是君主立宪(1937 的英、日、意)：同上帝模式直接确立，但不记"强行立宪"那一笔(开局前早就立了)
+    public static bool EstablishScenarioConstitution(Empire empire)
+    {
+        if (!CanForceConstitution(empire)) return false;
+        ConstitutionalEconomyState state = Ensure(empire);
+        CancelReform(state);
+        state.constitutional_monarchy = true;
+        state.constitution_gate_exempt = true;
+        MarkCultureConstitutional(empire);
+        ParliamentSystem.Update(empire);
         return true;
     }
 

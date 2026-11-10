@@ -68,6 +68,14 @@ public static class EmpireCraftStrategicScheduler
         using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
         // 本土帝国抵御异族入侵：号召同族来援(每月，见 NativeDefenseSystem)
         using (FrameProfiler.Measure("御侮")) NativeDefenseSystem.Tick();
+        // 傀儡随主国参战、流亡政府换东道国与还都(每月，见 PuppetStateSystem、ExileGovernmentSystem)
+        using (FrameProfiler.Measure("傀儡与流亡政府"))
+        {
+            PuppetStateSystem.Tick();
+            ExileGovernmentSystem.Tick();
+            // 近代占领他国：军管满一年的交给这一片的傀儡、议和割给傀儡的城(见 OccupationPuppetSystem)
+            OccupationPuppetSystem.Tick();
+        }
         // 异族之地：年度扫描、正统跌破五十时镇压或自立(见 ForeignLandSystem)
         using (FrameProfiler.Measure("异族之地")) ForeignLandSystem.Tick();
         // 独立的游牧国换君后诸子分帐(见 NomadAppanageSystem)

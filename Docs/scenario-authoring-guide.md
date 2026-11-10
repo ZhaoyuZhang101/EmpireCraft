@@ -1,6 +1,6 @@
 # 世界地图剧本编写指南(给人和 AI 写剧本用)
 
-写于 2026-10-30，对应代码：`Scripts/GeneralSystems/WorldMap/WorldMapData.cs`(字段)、`WorldMapScenario.cs`(开局怎么摆)、
+写于 2026-10-30(2026-11-10 补近代：政体、傀儡、流亡政府)，对应代码：`Scripts/GeneralSystems/WorldMap/WorldMapData.cs`(字段)、`WorldMapScenario.cs`(开局怎么摆)、
 `ScenarioEventSystem.cs`(剧情事件)。字段名、取值以本文为准；本文没写的字段不要自己发明，游戏会忽略或读错。
 写完先跑校验：`python -I -X utf8 Tools/WorldMap/check_scenario.py <模组目录> <剧本文件>`，没有"错"再进游戏。
 
@@ -32,7 +32,7 @@
   内置剧本由 `administrative_defaults_source.py` 检查首都和行政治所；其他小城(k=3)可能不生成，事件条件别只靠它们。
 - **地区(王国法理)**：`cities.json` 的 `regions[].id`(如 `guanzhong`、`hebei`、`youyan`、`liaodong`、`manchuria`、`monan`)。
 - **国**：剧本自己起的 `polities[].id`，全剧本唯一，只用小写英文、数字、下划线。
-- **文化键**：`Huaxia`(华夏)、`Youmu`(游牧)、`Japan`、`Roma`、`Frankish`、`Germanic`、`Viking`、`Slavonic`、`Arab`、`Persepolis`、`India`、`Egypt`、`Kosher`、`Manzhou`(女真)、`Xizang`(青藏)、`Swahili`(斯瓦希里)、`Bantu`(班图)、`Zulu`(祖鲁)、`Aztec`、`Ojibwe`。
+- **文化键**：`Huaxia`(华夏)、`China`(现代中国，开局即现代政体)、`Youmu`(游牧)、`Japan`、`Roma`、`Frankish`、`Germanic`、`Viking`、`Slavonic`、`Arab`、`Persepolis`、`India`、`Egypt`、`Kosher`、`Manzhou`(女真)、`Xizang`(青藏)、`Swahili`(斯瓦希里)、`Bantu`(班图)、`Zulu`(祖鲁)、`Aztec`、`Ojibwe`。
 - 查城：`python -X utf8 -c "import json;[print(c['id'],c['zh'],c['r'],c.get('k'),c.get('from'),c.get('to')) for c in json.load(open('WorldMaps/cities.json',encoding='utf-8'))['cities']]"`
 
 ## 四、文件顶层
@@ -91,10 +91,33 @@
 | `banner` | `true` 立八旗多元制(要和 `emp` 一起写)：朝廷走多元帝国兼用路线，国号"朝"，军制八旗、绿营，有旗人阶级和满城 |
 | `court` | 开局就用这个文化的朝廷(要和 `emp` 一起写)，游牧入主的王朝用：金写 `"Huaxia"`，国号大金朝，走多元帝国兼用路线，不分治、不北归 |
 | `shogun` | 幕府将军家(江户德川)；`holy` 神圣罗马之名；`zhou`/`king` 只用于战国 |
+| `modern` | 近代政治(见下节「近代政治」)：政体、执政理念、执政党、一党专政、别的政党 |
+| `autonomy` | `true` 现代国家底下的地方实力派(民国的晋绥、桂系)：要和 `of` 一起写，宗主是现代政体；留兵、留财政、首领由军中最能者接替，国号照剧本，随中央出征，行政改划不拆它的地盘 |
+| `exile` | 开局即流亡(大韩民国临时政府)：写东道国的国 id。不占城，`cap` 随便写一座城(不用)，`r` 写待收复的地区；人住在东道国都城外，盟国打回这些城就交还、政府还都(见第十节) |
+| `colony_of` | 本身是殖民地(英属印度、朝鲜总督府)：写宗主国的国 id，进世界后设为它的殖民地；殖民地自有首府，只开东亚半幅、宗主国不在图上时照样自成一国。`company` 为 `true` 时是特许公司 |
 | `ruler` | 君主(人物，见第六节)；不写随机起 |
 | `kin` | 宗室与后妃列表 |
 | `famous` | 名将名臣列表 |
 | `colonies` | 殖民地 `[{"name": "...", "company": true, "cities": [...]}]` |
+
+### 近代政治 `modern`
+
+以前政体只能按文化整体定(同为法兰克文化的英国立宪、法国共和写不出来)，近代剧本按国家写：
+
+```json
+"modern": {"regime": "republic", "ideology": "Centrism", "party": "中国国民党|Kuomintang|中國國民黨", "one_party": true,
+           "parties": [{"ideology": "SocialDemocracy", "name": "工党|Labour Party", "leader": "克莱门特·艾德礼"}]}
+```
+
+| 键 | 含义 |
+|---|---|
+| `regime` | `republic` 共和(现代政体；要和 `emp` 一起写才组建政府，开局即已制宪、不走三年过渡) / `constitutional` 君主立宪(要和 `emp` 一起写，设议会) / `monarchy` 君主国(本文化废了君也照旧是君主国) |
+| `ideology` | 执政理念：`Anarchism` `SocialDemocracy` `Libertarianism` `SocialLiberalism` `Capitalism` `ConservativeLiberalism` `Centrism` `Socialism` `Communism` `ReligiousDemocracy` `Authoritarianism` `Conservatism` `Fascism` |
+| `party` | 执政党名号 `"简体\|英文\|繁体"`；共和国的党魁是元首本人，立宪国的是首相 |
+| `one_party` | `true` 一党专政(训政、联共、纳粹) |
+| `parties` | 开局就有的别的政党：`ideology`、`name`，`leader` 写剧本人物的"简体姓+名"(可省) |
+
+名将名臣 `post` 写 `pm` 的是首相、总理：开局第一届议会由他组阁。写了 `modern` 的国家国号照剧本锁定，不被军阀时期的"临时政府""某系军阀"、天下之名改掉。
 
 ### 国祚与积弊 `decline`
 
@@ -145,7 +168,7 @@
 | `fam`、`giv`、`age`、`sex` | 同上 |
 | `kind` | `general` 名将 / `minister` 名臣 |
 | `rank` | 0 良才、1 名、2 国柱 |
-| `post` | `chief` 首席朝官、`core` 中枢要职、`div` 部寺、`general` 统一支军、`none` 不任官(日后才起事的人)，或**城 id**(坐镇该城，当城主) |
+| `post` | `chief` 首席朝官、`core` 中枢要职、`div` 部寺、`general` 统一支军、`pm` 首相(有议会的立宪国、共和国)、`none` 不任官(日后才起事、投敌的人)，或**城 id**(坐镇该城，当城主) |
 | `in` | 与本国 kin 里这一位后妃同一家(杨国忠 `"in"` 指杨贵妃)，外戚就连得上 |
 
 **剧本人物的保护**：写进 `ruler`、`kin`、`famous` 的人一直留在地图上，不并入背景人口；还没发生的事件里点了名的人(`person`)刀兵老病都不死，直到那件事发生，或过了它的 `after` 八年还没发生。`post` 写 `none` 又等着 `rebel`、`cede` 的人，起事前朝廷不派官、不让统兵。想让人物按史实身故，写一条 `dies`。
@@ -159,6 +182,7 @@
 - `war` a 向 b 宣战，`goal`：`夺城` `收复` `争法理` `劫掠` `侵略` `争夺资源` `吞并` `迫使附庸`
 - `truce` 停战、`alliance` 结盟、`marriage` 和亲、`pact` 通好(两边都是帝国)
 - `protect` a 保护 b、`tribute` a 向帝国 b 称臣纳贡、`vassal` **a 立 b 为附庸**、`union` b 并入 a 的市场
+- `puppet` **a 立 b 为傀儡**(伪满、蒙疆)：b 不自行宣战，随 a 参战；a 亡了 b 就自立
 - `friend` 旧谊 / `feud` 宿怨，`value` 分量(默认 30)
 
 ## 八、剧情事件 `events[]`
@@ -197,7 +221,7 @@
 | `culture` | `a`、`culture` | 改文化(帝国连同成员) |
 | `adopt_huaxia` | `a`、`name` | 入主中原、采纳华夏制度，国号照 `name` 定(写"清"成"大清") |
 | `rebel` | `a`、`city`、`cities`、`name`、`person`、`b`、`roving`、`hero` | **起兵割据**，见下 |
-| `cede` | `a`、`b`、`city`、`cities`、`person` | **献城改投**：这些城归 b，`person` 里的人连同所统之军投奔 b；城、人可只写一样 |
+| `cede` | `a`、`b`、`city`、`cities`、`region`、`all`、`person` | **献城改投**：这些城归 b，`person` 里的人连同所统之军投奔 b；城、人可只写一样。`region` 是那片地区里 a 手里的城，`all: true` 是 a 手里的全部城；a 连同它的帝国成员、殖民地、傀儡(1945 日本连同朝鲜总督府、满洲国交还) |
 | `dies` | `a`、`person`、`name`(死因，可省) | **人物身故**：按写的顺序走，君主身故走正常继位 |
 | `heir` | `a`、`person`、`city`(可省) | **立储**：立为储君并接到都城，优先于继承法。写了 `city` 的是候补：人到那座城候着，排在继承名单最后，前面的人死了、被俘就轮到他。写在君主的 `dies` 之前就是立某人为君 |
 | `grant_title` | `a`、`person`、`name` | **封官授爵**：a 封这个人，`name` 写爵位全称(如"平西王")。不占法理，人留在原任 |
@@ -206,6 +230,9 @@
 | `banner_city` | `a`、`city`、`cities` | 八旗多元制：在这些城建满城 |
 | `banner_enclosure` | `a`、`city`、`cities` | 八旗多元制：跑马圈地，一次圈三成，至多圈到六成 |
 | `banner_law` | `a` | 八旗多元制：颁行逃人法 |
+| `puppet` | `a`、`b`、`city`、`name`(`cities`、`region`、`person`、`culture` 可选) | **扶植傀儡政权**：a(占领者一方，连同它的傀儡、殖民地)手里的这些城交给新立的 b，立为 a 的傀儡；`person` 头一位还活着的成年人领头(可以是别国的人，投敌的汪精卫，部将一同改投)，找不到由治所城主领头；a 的京城不给；别的傀儡手里的城也能拿来(汪伪接收维新政府的南京) |
+| `ideology` | `a`、`name`(`party`、`one_party` 可选) | **改执政理念**：`name` 写理念名(同 `modern.ideology`)，`party` 新执政党名号；`one_party` 一党专政，不写而原来是一党的重开党禁(战后日本) |
+| `exile` | `a`、`b`(`c`、`region` 可选) | **政府流亡**：a 的政府流亡到 b，c 是占领者；a 眼下的城连同 `region` 的城记作待收复。写在献城(`cede`)之前，随员先出城(捷克流亡伦敦) |
 
 **起兵割据 `rebel`**：
 
@@ -265,7 +292,15 @@
   内置预设「明清鼎革」(`WorldMaps/eras/ming_qing.json`)就是这样写的，可以直接"存为自定剧本"再改。
 - 国号 `"大顺"` 照写就显示"大顺"；内置国家要"大"字前缀用 `"grand": true`，事件称帝没有这个开关。
 
-## 十、自查清单(给 AI 的硬规则)
+## 十、近代(1937 日军侵华)
+
+内置预设「日军侵华」(`WorldMaps/eras/sino_japanese.json`，由 `Tools/WorldMap/sino_japanese_source.py` 生成)是近代写法的样板，可以"存为自定剧本"再改。几条机制写剧本时要心里有数：
+
+- **近代化按国家各自走**：文化里的制度只代表思潮传到了。新立的国家照出身定政体(从共和国分出来、共和派起事所立的是现代政体，从君主国割据的照旧君主)；独立君主国按本国条件掷共和革命(共和派人口、民心离散、邻国共和)；同文化先立宪的只是示范，不再带着别国立宪。所以近代剧本里的共和国、立宪国都要写 `modern`。
+- **流亡政府**：近代国家(现代政体、立宪，或科技进了电气时代)打仗丢了最后一座城，有与占领者交战的国家、盟国或交情很好的国家可投，元首就带着政府流亡过去；盟国从占领者手里打回它的旧城就交还，政府还都；流亡满三十年无望复国、或无处可投就解散。开局流亡写 `exile`，事件里写 `exile`。
+- **近代占领**：近代国家打下他国本土(城里有民族意识、与占领者不同族)先军管，打仗时按城价 × 民族情绪 × 两国大小之比记进占领方的疲敝；军管满一年，按帝国法理分片交给这一片的傀儡政府(没有就从当地人里扶一个，"某某自治政府")。议和台割他国本土另有"割地立傀儡"，失地一方另记"民族意识"：吞并按全数，立傀儡少六成。
+
+## 十一、自查清单(给 AI 的硬规则)
 
 1. 只用本文列出的键；`kind`、`rel`、`relation`、`goal`、文化键只取本文列出的值。
 2. 城 id 都在城表里、开局年在城的 `from`~`to` 里；地区 id 都在 `regions` 里；国 id 唯一。

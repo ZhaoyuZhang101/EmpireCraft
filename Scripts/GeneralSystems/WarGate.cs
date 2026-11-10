@@ -20,6 +20,8 @@ public static class WarGate
             return false;
         // 世界法则「禁止AI宣战」(见 DiplomacyLaws)：玩家强制的不经这里，不受此限
         if (DiplomacyLaws.WarBlocked) return false;
+        // 傀儡不自行宣战，随主国参战(见 PuppetStateSystem)；流亡政府没有城，不开新仗
+        if (PuppetStateSystem.IsPuppet(attacker) || ExileGovernmentSystem.IsExiled(attacker)) return false;
         if (Forbidden(attacker, target, ownTributary)) return false;
         double lastWarEnded = World.world?.diplomacy?.getRelation(attacker, target)?.data?.timestamp_last_war_ended ?? -1d;
         if (lastWarEnded >= 0d && Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars) return false;
@@ -45,6 +47,8 @@ public static class WarGate
         if (FeudalVassalService.IsInChain(attacker, target) || FeudalVassalService.IsInChain(target, attacker)) return true;
         // 宗主与殖民地、同一宗主的殖民地(见 ColonySystem)
         if (ColonySystem.Bound(attacker, target)) return true;
+        // 主国与傀儡、同一主国的傀儡(见 PuppetStateSystem)
+        if (PuppetStateSystem.Bound(attacker, target)) return true;
         // 穿越政权伪装成属国期间：朝廷与各省不来开战，穿越政权也不碰朝廷本部(见 TransmigrantSystem.DisguiseForbids)
         if (TransmigrantSystem.DisguiseForbids(attacker, target)) return true;
         // 保护约三十年：保护人与被保护者互不攻伐(见 HolyRomanSystem.Decline)

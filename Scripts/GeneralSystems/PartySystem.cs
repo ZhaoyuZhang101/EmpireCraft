@@ -827,6 +827,29 @@ public static class PartySystem
         return party;
     }
 
+    // 剧本开局就有的政党(中国国民党、全联盟共产党、立宪政友会)：不看民间理念份额、党数上限，照剧本的名号与党魁立党；
+    // 同理念的党已有就改名换党魁。党魁没写(或找不到)就照常推举
+    public static FixedFaction ScenarioFoundParty(Empire empire, PartyIdeology ideology, Actor leader, string name)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        if (regime == null || IdeologyFamilies.IsAncient(ideology)) return null;
+        FixedFaction party = GetParties(empire).FirstOrDefault(candidate => candidate.Ideology == ideology);
+        if (party == null)
+        {
+            Actor founder = leader ?? FindFounder(empire, ideology) ?? SpawnFounder(empire, ideology);
+            party = CreateParty(empire, regime, ideology, founder);
+            Recruit(party, GetCitizens(empire), FoundRecruits);
+        }
+        else if (leader != null && party.GetLeader() != leader)
+        {
+            leader.SetFaction(party);
+            party.SetLeader(leader);
+        }
+        if (leader != null) IdeologyPopulationSystem.Set(leader, ideology);
+        if (!string.IsNullOrWhiteSpace(name)) party.Name = name;
+        return party;
+    }
+
     // 理念相近的小党自由合并：双方都不超过两成(议席，没有议会看中央占比)、光谱距离在合并范围内
     private const float PlayerMergeMaxShare = 0.2f;
 

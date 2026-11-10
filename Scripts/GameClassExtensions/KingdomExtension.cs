@@ -324,6 +324,23 @@ public static class KingdomExtension
         public double scripted_tribute_at = -1d;
         // 奉表归附进了这个帝国(顺、西归南明，见 ScenarioEventSystem.Submit)：在这个帝国里不再用原来的国号，按都城称呼
         public long submitted_empire_id = -1L;
+        // 傀儡国(见 PuppetStateSystem)：主国编号、立为傀儡的时间；-1 = 不是傀儡
+        public long puppet_master_id = -1L;
+        public double puppet_since = -1d;
+        // 流亡政府(见 ExileGovernmentSystem)：东道国、流亡起始、占领者；待收复的旧城(城编号)；
+        // 还都的时间(exile_returned_at，还都后的收复期内盟友打回来的旧城照样交还)
+        public long exile_host_id = -1L;
+        public double exile_since = -1d;
+        public long exile_enemy_id = -1L;
+        public List<long> exile_city_ids;
+        public double exile_returned_at = -1d;
+        // 剧本定下的君主国(英、意、泰、伪满……)与傀儡：共和革命的机会减半(见 StateModernization.RevolutionChance)
+        public bool scenario_monarchy;
+        // 剧本的地方实力派(民国的晋绥、桂系……)：现代国家的成员却保留军队与财政，行政改划不拆它的地盘(见 ScenarioModernPolitics)
+        public bool scenario_autonomy;
+        // 立国出身(见 StateModernization)：1 从共和国分出、共和派起事或剧本按文化立(本文化已废君就能一立国即现代政体)；
+        // 2 从君主国割据自立；0 旧档或别的途径立的(照本文化的君主政体)
+        public int modern_origin;
         public double left_empire_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;
@@ -2508,6 +2525,8 @@ public static class KingdomExtension
             : OnomasticsRule.ALL_CULTURE_RULE.TryGetValue(culture, out Setting setting)
                 ? setting.regime
                 : RegimeType.Feudalism;
+        // 本文化已废君不等于这一国就是共和国：照立国出身定(见 StateModernization)
+        regimeType = StateModernization.AdjustFounding(k, culture, regimeType);
         regimeType = InstitutionSystem.AdjustForMonarchyEmpire(k, regimeType);
         // 改制共和的帝国：保留现在的政体，只重建官职——否则一丢官职就被按文化重置回君主制
         if (RepublicSystem.IsRegimeLocked(k) || k.GetOrCreate().regime_manually_selected) regimeType = k.GetOrCreate().regimeType;

@@ -23,6 +23,9 @@ def main():
         cities, owner, problems = check_eras.plan(base, era)
         check(not problems, f"{era['id']}: " + '; '.join(problems))
         for polity in era['polities']:
+            # 开局即流亡的国家不占城(见 ExileGovernmentSystem)
+            if polity.get('exile'):
+                continue
             check(polity['cap'] in cities, f"{era['id']}: unavailable capital {polity['cap']}")
             check(owner.get(polity['cap']) == polity['id'], f"{era['id']}: stolen capital {polity['cap']}")
             rank = era.get('ranks', {}).get(polity['cap'], cities[polity['cap']].get('k', 2))

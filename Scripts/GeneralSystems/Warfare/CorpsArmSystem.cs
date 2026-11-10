@@ -130,12 +130,14 @@ public static class CorpsArmSystem
         if (Has(culture, HeavyCannonTech)) mix.Add((Arm.HeavyArtillery, 12));
         else if (Has(culture, "gunpowder")) mix.Add((Arm.Artillery, 12));
         if (Has(culture, "armored_warfare")) mix.Add((Arm.Tank, 20));
-        if (Has(culture, "strategic_aviation"))
+        // 飞机先于直升机(用户 2026-11-10 "现代政体……受限于机制的话优先完善机制"：1937 年开局各国打出来的是直升机)：
+        // 航空(第 9 档，一战到二战)出战斗机、轰炸机，战略航空(第 10 档)才添直升机
+        if (Has(culture, "aviation"))
         {
             mix.Add((Arm.Fighter, 10));
-            mix.Add((Arm.Bomber, 8));
+            mix.Add((Arm.Bomber, 6));
         }
-        else if (Has(culture, "aviation")) mix.Add((Arm.Helicopter, 10));
+        if (Has(culture, "strategic_aviation")) mix.Add((Arm.Helicopter, 8));
         int total = mix.Sum(entry => entry.Item2);
         var entry = (now, mix, Mathf.Max(1, total));
         Mixes[culture] = entry;
@@ -156,8 +158,6 @@ public static class CorpsArmSystem
             case Arm.Cavalry:
                 if (Has(culture, "motorization")) return Arm.Mechanized;
                 return arm == Arm.Chariot && Has(culture, "ironworking") ? Arm.Cavalry : arm;
-            case Arm.Helicopter:
-                return Has(culture, "strategic_aviation") ? Arm.Fighter : arm;
             case Arm.Artillery:
                 return Has(culture, HeavyCannonTech) ? Arm.HeavyArtillery : arm;
             default:
@@ -249,11 +249,11 @@ public static class CorpsArmSystem
             case HeavyCannonTech: yield return Arm.HeavyArtillery; break;
             case "motorization": yield return Arm.Mechanized; break;
             case "armored_warfare": yield return Arm.Tank; break;
-            case "aviation": yield return Arm.Helicopter; break;
-            case "strategic_aviation":
+            case "aviation":
                 yield return Arm.Fighter;
                 yield return Arm.Bomber;
                 break;
+            case "strategic_aviation": yield return Arm.Helicopter; break;
         }
     }
 

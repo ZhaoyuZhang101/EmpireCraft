@@ -30,6 +30,8 @@ public static class NationalUnificationSystem
     public static void Consider(Empire small)
     {
         if (!IsModern(small) || small.CoreKingdom.hasEnemies()) return;
+        // 傀儡由主国定去留(见 PuppetStateSystem)
+        if (PuppetStateSystem.IsPuppet(small.CoreKingdom)) return;
         string culture = CultureService.GetRealmCulture(small.CoreKingdom);
         if (!CultureService.IsValidCulture(culture)) return;
         bool east = WarlordEraSystem.HasStrongUnification(culture);
@@ -45,6 +47,10 @@ public static class NationalUnificationSystem
                                 : CultureService.GetRealmCulture(other.CoreKingdom) == culture) &&
                             Cities(other) >= Math.Max(LargeCities, Cities(small) * 2) &&
                             !small.CoreKingdom.isEnemy(other.CoreKingdom) && !other.CoreKingdom.hasEnemies() &&
+                            !PuppetStateSystem.IsPuppet(other.CoreKingdom) &&
+                            // 理念截然相反的政府(国民党与共产党)不会和平并入，要打或联合(同军阀时期的异见政府，见 WarlordEraSystem)
+                            PartySystem.IdeologyDistance(WarlordEraSystem.GovernmentIdeology(small),
+                                WarlordEraSystem.GovernmentIdeology(other)) < WarlordEraSystem.OppositeIdeologyDistance &&
                             (east || lawful != null && Lawful(other) == lawful))
             .OrderByDescending(Cities).FirstOrDefault();
         if (large == null) return;

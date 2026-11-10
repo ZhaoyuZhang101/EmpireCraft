@@ -82,6 +82,8 @@ public static class WorldMapScenario
     private static int _fillerStart;
     private static List<PlannedCity> _cities = new();
     private static List<PlannedPolity> _polities = new();
+    // 开局即流亡的国家(见 BuildExiles)：建好后并入 _polities
+    private static readonly List<PlannedPolity> _exiles = new();
     private static readonly Dictionary<string, Subspecies> _subspecies = new();
     private static readonly HashSet<TileZone> _usedZones = new();
 
@@ -149,9 +151,17 @@ public static class WorldMapScenario
         }
         var allData = WorldMapData.Cities.GroupBy(city => city.id).ToDictionary(group => group.Key, group => group.First());
         var polityById = new Dictionary<string, PlannedPolity>();
+        _exiles.Clear();
         foreach (WorldMapPolity data in era.polities)
         {
             var polity = new PlannedPolity { data = data, name = data.Name };
+            // 开局即流亡的(大韩民国临时政府)：不占城、不认领地区，各国建好后再立在东道国都城外(见 BuildExiles)
+            if (!string.IsNullOrEmpty(data.exile))
+            {
+                polity.culture = CultureService.IsValidCulture(data.culture) ? data.culture : null;
+                _exiles.Add(polity);
+                continue;
+            }
             _polities.Add(polity);
             polityById[data.id] = polity;
             foreach (string id in data.cities.Append(data.capital))
@@ -259,6 +269,9 @@ public static class WorldMapScenario
             }
         }
         TechnologySystem.BeginCalendar(_era.year, cultures.Count == 0 ? 0 : cultures.Max(key => _era.TechTier(key)));
+        // 近代以后开局(1937 日军侵华)：上一局开着的"禁止近代化"会把开局给的科技、政党、共和全锁死，这里关掉
+        if (cultures.Count > 0 && cultures.Max(key => _era.TechTier(key)) > TechnologySystem.PremodernMaxTier)
+            SetLaw("empirecraft_law_premodern", false);
     }
 
     #endregion
@@ -311,6 +324,8 @@ public static class WorldMapScenario
                     // 开国之君：剧本写了照剧本(姓名、年龄、性别)，没写的按本国文化起名，一律男主(剧本里的女主除外)
                     SetSexAge(actor, ruler, true);
                     polity.kingdom = World.world.kingdoms.makeNewCivKingdom(actor, null, false);
+                    // 剧本的国家照本文化定政体(本文化已废君的一立国就是现代政体，见 StateModernization)
+                    polity.kingdom.GetOrCreate().modern_origin = 1;
                     planned.city = World.world.cities.buildFirstCivilizationCity(actor);
                     // 先换成本国文化、按本国模板起名，再建家族：家族名取这人的姓，起名前没换文化就成了种族默认的西式姓
                     PrepareName(actor, polity.culture);
@@ -364,9 +379,10 @@ public static class WorldMapScenario
 
     // 宗室：剧本里的储君、兄弟、子孙生在都城，同一家族，子孙认父(君主或 kin 里 of 指的那位)；
     // 后妃也生在都城，不入皇族，按娘家另立一家(同 kin 里 in 指的那位一家；house 指别国君主家的，收尾时再并过去，见 Marry)
+    // 流亡政府(seat 为空)：人生在元首身边，只入国不入城(见 BuildExiles)
     private static void CreateKin(PlannedPolity polity, Actor founder)
     {
-        City seat = polity.capital.city;
+        City seat = polity.capital?.city;
         string surname = founder.GetModName().familyName;
         List<Actor> made = polity.kinByIndex;
         made.Clear();
@@ -375,12 +391,12 @@ public static class WorldMapScenario
             Actor actor = null;
             try
             {
-                actor = Spawn(SpeciesFor(polity.culture), seat.getTile() ?? founder.current_tile);
+                actor = Spawn(SpeciesFor(polity.culture), seat?.getTile() ?? founder.current_tile);
                 if (actor != null && person.Spouse)
                 {
                     SetSexAge(actor, person, false);
                     actor.joinKingdom(polity.kingdom);
-                    actor.joinCity(seat);
+                    if (seat != null) actor.joinCity(seat);
                     PrepareName(actor, polity.culture);
                     ApplyNames(actor, person.fam, person.giv);
                     Actor kin = person.sameHouse >= 0 && person.sameHouse < made.Count ? made[person.sameHouse] : null;
@@ -393,7 +409,7 @@ public static class WorldMapScenario
                 {
                     SetSexAge(actor, person, false);
                     actor.joinKingdom(polity.kingdom);
-                    actor.joinCity(seat);
+                    if (seat != null) actor.joinCity(seat);
                     PrepareName(actor, polity.culture);
                     if (founder.clan != null) actor.setClan(founder.clan);
                     ApplyNames(actor, person.fam ?? surname, person.giv);
@@ -518,16 +534,16 @@ public static class WorldMapScenario
     // 名将名臣：生在都城、照剧本起名(各自一家，不入宗室)；进世界后再任官、统兵、坐镇(见 SeatFamous)
     private static void CreateFamous(PlannedPolity polity, Actor founder)
     {
-        City seat = polity.capital.city;
+        City seat = polity.capital?.city;
         foreach (WorldMapFamous person in polity.data.famous)
         {
             try
             {
-                Actor actor = Spawn(SpeciesFor(polity.culture), seat.getTile() ?? founder.current_tile);
+                Actor actor = Spawn(SpeciesFor(polity.culture), seat?.getTile() ?? founder.current_tile);
                 if (actor == null) continue;
                 SetSexAge(actor, person.AsPerson(), false);
                 actor.joinKingdom(polity.kingdom);
-                actor.joinCity(seat);
+                if (seat != null) actor.joinCity(seat);
                 PrepareName(actor, polity.culture);
                 ApplyNames(actor, person.fam, person.giv);
                 // 当场立家族，家族名就是剧本的姓(诸葛亮入诸葛氏)：以前等任官时才立，没姓的(扬古利)被安上模板起的家族名与姓
@@ -2002,11 +2018,21 @@ public static class WorldMapScenario
         // 建国时的城还没进各国城表：立八旗要数开局手里的城(以前清立八旗时"0 城"，一座旗下旧地都没记上)
         RefreshCityLists();
         var byId = _polities.Where(polity => polity.data != null).ToDictionary(polity => polity.data.id, polity => polity);
+        // 不称帝的剧本国家也照 modern 定政体(君主国记为剧本君主国、国号锁定)，称帝的在下面称帝前后做
+        foreach (PlannedPolity polity in byId.Values.Where(polity => !polity.data.empire && polity.data.modern != null &&
+                                                                     polity.kingdom?.data != null && !polity.kingdom.isRekt()))
+            Guard($"{polity.name} 政体", () =>
+            {
+                ScenarioModernPolitics.BeforeEmpire(polity.kingdom, polity.data);
+                ScenarioModernPolitics.AfterEmpire(polity.kingdom, null, polity.data, polity.name);
+            });
         foreach (PlannedPolity polity in byId.Values.Where(polity => polity.data.empire))
         {
             if (polity.kingdom == null || polity.kingdom.isRekt() || ModClass.EMPIRE_MANAGER == null) continue;
             try
             {
+                // 近代：剧本写了共和的先改现代政体，写了君主国、立宪的记为剧本君主国(见 ScenarioModernPolitics)
+                ScenarioModernPolitics.BeforeEmpire(polity.kingdom, polity.data);
                 // 挂都城所在的帝国法理(蜀汉挂漢、孙吴挂吴、唐挂秦、宋挂吴、金挂晋)；时代文件点名的优先
                 if (!_coreById.TryGetValue(polity.data.core ?? "", out EmpireCore core) && polity.capital != null)
                     _coreByRegion.TryGetValue(polity.capital.region.id, out core);
@@ -2022,6 +2048,8 @@ public static class WorldMapScenario
                 if (polity.data.banner) BannerSystem.Establish(polity.kingdom, polity.empire);
                 else if (CultureService.IsValidCulture(polity.data.court))
                     CompositeEmpireService.EstablishCourt(polity.empire, CultureService.GetRealmCulture(polity.kingdom), polity.data.court);
+                // 共和国开局即已制宪、立宪国立宪、国号锁定
+                ScenarioModernPolitics.AfterEmpire(polity.kingdom, polity.empire, polity.data, polity.name);
                 AnchorCapital(polity);
                 // 华夏年号：开局即是年号的第几年(一年 60 秒)
                 if (!string.IsNullOrEmpty(polity.data.eraName))
@@ -2055,6 +2083,9 @@ public static class WorldMapScenario
                 lord.empire.join(polity.kingdom, true, true);
                 polity.kingdom.SetKingdomName(polity.name);
                 if (IsFanzhen(polity)) MakeFanzhen(polity, lord);
+                // 现代国家底下的地方实力派(民国的晋绥、桂系)：留兵、留财政、留名号(见 ScenarioModernPolitics)
+                else if (polity.data.autonomy && lord.kingdom.GetRegime()?.type is RegimeType.Modern or RegimeType.Republic)
+                    ScenarioModernPolitics.MakeWarlordMember(polity.kingdom, polity.data, polity.name);
             }
             catch (Exception exception)
             {
@@ -2176,6 +2207,7 @@ public static class WorldMapScenario
 
     private static void Finish()
     {
+        Guard("开局流亡的国家", BuildExiles);
         Guard("法理更新", () => ModClass.KINGDOM_TITLE_MANAGER?.update(-1f));
         Guard("入主国号", ScriptConquests);
         Guard("城的帝国法理", () => { EmpireCoreManager.ReconcileCityCores(); });
@@ -2239,6 +2271,53 @@ public static class WorldMapScenario
         _usedZones.Clear();
         _subspecies.Clear();
         _fillerSites.Clear();
+    }
+
+    // 开局即流亡的国家(用户 2026-11-10 "流亡政府机制"；大韩民国临时政府寄居中华民国)：各国建好之后，
+    // 元首与宗室、名人生在东道国都城外，只入国不入城；r 认领的地区里的城记作待收复(落到东道国、盟国、与占领者交战的国家手里就交还)，
+    // 占领者取占着这些城最多的一方(见 ExileGovernmentSystem)
+    private static void BuildExiles()
+    {
+        foreach (PlannedPolity polity in _exiles)
+        {
+            PlannedPolity host = _polities.FirstOrDefault(other => other.data?.id == polity.data.exile && other.kingdom?.data != null &&
+                                                                   !other.kingdom.isRekt());
+            City seat = host?.kingdom?.capital;
+            if (seat == null || seat.isRekt())
+            {
+                LogService.LogWarning($"[EmpireCraft][世界地图] {polity.name} 的东道国 {polity.data.exile} 不在，不立");
+                continue;
+            }
+            polity.culture ??= host.culture;
+            WorldMapPerson ruler = polity.data.ruler;
+            Actor founder = Spawn(SpeciesFor(polity.culture), seat.getTile());
+            if (founder == null) continue;
+            SetSexAge(founder, ruler, true);
+            polity.kingdom = World.world.kingdoms.makeNewCivKingdom(founder, null, false);
+            polity.kingdom.GetOrCreate().modern_origin = 1;
+            PrepareName(founder, polity.culture);
+            string house = ruler?.fam == null ? HouseOf(polity.data) : null;
+            ApplyNames(founder, ruler?.fam ?? (string.IsNullOrEmpty(house) ? null : house), ruler?.giv);
+            founder.createDefaultCultureAndLanguageAndClan(polity.name);
+            if (string.IsNullOrEmpty(founder.GetModName().familyName) && founder.clan != null)
+                founder.GetModName().familyName = founder.clan.GetMemberSurname();
+            polity.kingdom.setUnitMetas(founder);
+            founder.GetModName().SetName(founder);
+            polity.founder = founder;
+            polity.kingdom.SetKingdomName(polity.name);
+            polity.kingdom.SetCustomCountryName(polity.name);
+            if (polity.data.kin?.Count > 0) CreateKin(polity, founder);
+            if (polity.data.famous?.Count > 0) CreateFamous(polity, founder);
+            ScenarioModernPolitics.BeforeEmpire(polity.kingdom, polity.data);
+            var claims = _cities.Where(city => city.city?.data != null && !city.city.isRekt() &&
+                                               polity.data.regions.Contains(city.region?.id ?? city.data.region)).Select(city => city.city).ToList();
+            Kingdom enemy = claims.Where(city => city.kingdom != null).GroupBy(city => city.kingdom.GetEmpire()?.CoreKingdom ?? city.kingdom)
+                .OrderByDescending(group => group.Count()).FirstOrDefault()?.Key;
+            ExileGovernmentSystem.Begin(polity.kingdom, host.kingdom, enemy, claims.Select(city => city.data.id), null, quiet: true);
+            _polities.Add(polity);
+            LogService.LogInfo($"[EmpireCraft][世界地图] {polity.name} 开局流亡 {host.name}，待收复 {claims.Count} 城，占领者 {enemy?.GetKingdomName() ?? "无"}");
+        }
+        _exiles.Clear();
     }
 
     // 剧本人物的名字 → 人物编号(君主、宗室后妃、名将名臣；同名的先到先得)
@@ -2314,6 +2393,10 @@ public static class WorldMapScenario
                 List<City> cities = CitiesOf(c.cities);
                 if (cities.Count > 0) _afterLoad.Add(($"{p.name} 殖民地 {c.Name}", () => FoundColony(p.kingdom, c, cities)));
             }
+            // 自成一国的殖民地(英属印度、朝鲜总督府)：宗主国在图上就挂过去
+            PlannedPolity metropole = string.IsNullOrEmpty(p.data.colonyOf) ? null
+                : _polities.FirstOrDefault(other => other.data?.id == p.data.colonyOf && other.kingdom != null);
+            if (metropole != null) _afterLoad.Add(($"{p.name} 归 {metropole.name}", () => AnnexColony(p, metropole)));
             // 幕府：将军家的君主就任征夷大将军(天皇是宗主帝国的君主；开国之君在位本来不立幕府，剧本照史当场立)
             if (p.data.shogun) _afterLoad.Add(($"{p.name} 征夷大将军", () => Shogunate(p)));
             if (p.data.holy && p.empire != null)
@@ -2404,6 +2487,15 @@ public static class WorldMapScenario
             PlannedPolity p = polity;
             var people = p.famous.ToList();
             _afterLoad.Add(($"{p.name} 名将名臣", () => SeatFamous(p.kingdom, p.empire, people)));
+        }
+        // 近代政治：立党、一党专政、首相(名将名臣就位之后；首相是名人里 post 写 pm 的，见 ScenarioModernPolitics)
+        Dictionary<string, long> named = ScenarioPeople();
+        Actor Named(string name) => !string.IsNullOrWhiteSpace(name) && named.TryGetValue(name.Trim(), out long id) ? World.world.units.get(id) : null;
+        foreach (PlannedPolity polity in _polities.Where(polity => polity.data?.modern != null && polity.empire != null && polity.kingdom != null))
+        {
+            PlannedPolity p = polity;
+            Actor pm = p.famous.FirstOrDefault(entry => entry.person.post == "pm").actor;
+            _afterLoad.Add(($"{p.name} 近代政治", () => ScenarioModernPolitics.Settle(p.kingdom, p.empire, p.data, pm, Named)));
         }
         // 君主的妃嫔进后宫妃位(皇后位按君主配偶自选)
         foreach (PlannedPolity polity in _polities.Where(polity => polity.empire != null))
@@ -2697,6 +2789,24 @@ public static class WorldMapScenario
                 if (empire.EstablishTerritorialDivision(parts[part], group.Key, part > 0) != null) made++;
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 按王国法理划出 {made} 块(行政区或封国)，直辖留 {core.cities.Count} 城");
+    }
+
+    // 自成一国的殖民地设为宗主国的殖民地：国号照剧本(不改成"某某总督府")，剧本写了总督的仍由他当总督
+    private static void AnnexColony(PlannedPolity colony, PlannedPolity metropole)
+    {
+        Kingdom kingdom = colony.kingdom;
+        if (kingdom?.data == null || kingdom.isRekt() || metropole.kingdom?.data == null || metropole.kingdom.isRekt() ||
+            ColonySystem.IsColony(kingdom)) return;
+        Actor governor = colony.data.ruler != null ? colony.founder : null;
+        ColonySystem.Annex(metropole.kingdom, kingdom, colony.data.company);
+        kingdom.SetCustomCountryName(colony.name);
+        kingdom.SetCustomCountrySuffix("");
+        if (governor?.data != null && !governor.isRekt() && governor.isAlive() && governor.kingdom == kingdom && !colony.data.company &&
+            ColonySystem.Of(kingdom) is { } state)
+        {
+            TransmigrantSystem.InstallRuler(kingdom, governor);
+            state.governor_id = governor.data.id;
+        }
     }
 
     private static void FoundColony(Kingdom metropole, WorldMapColony data, List<City> cities)

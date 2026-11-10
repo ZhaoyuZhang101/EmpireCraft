@@ -72,6 +72,42 @@ public static class PeaceTermRules
 
     public static int Share(Kingdom kingdom, double share) => (int)Math.Round(RealmValue(kingdom) * share);
 
+    #region 民族意识、立傀儡、占领(近代)
+
+    // 用户 2026-11-10 "近代占领民族国家, 不是直接占领土地因为民族意识很强, 需要先设置傀儡政府""开战的目标中砝码里面民族主义
+    // 建议也是筹码的一部分, 然后傀儡吞并之间所需要的砝码数值也不同""大国的占领成本和小国的也明显不一样"：
+    //   · 民族意识：近代国家割走他国本土(见 OccupationPuppetSystem.NationalLand)，失地一方另记一笔 = 城价 × 民族情绪 × 大小之比
+    //     × 吞并或立傀儡的倍数——吞并要的砝码最多，割地立傀儡(名义上还是本族人的政府)少得多；
+    //   · 大小之比：失地一国连同成员全境 ÷ 战胜一方全境，开方后夹在 NationSizeMin~NationSizeMax——大国割地、被占的代价都重得多；
+    //   · 立傀儡的战胜一方只得城价的 PuppetGainShare(间接统治)；
+    //   · 占领：打仗时直接军管着他国本土，按城价 × 城中民族情绪 × 大小之比的 OccupationShare 记进占领方的疲敝(封顶全境的 OccupationCap)
+    public const double NationAnnexFactor = 1d, NationPuppetFactor = 0.4d, PuppetGainShare = 0.7d;
+    public const float NationSizeMin = 0.5f, NationSizeMax = 2.5f;
+    // 民族情绪的底：本文化有了民族主义(科技)的，城里情绪再低也按这么多算
+    public const float NationFloor = 0.3f;
+    public const double OccupationShare = 0.25d, OccupationCap = 0.5d;
+
+    public static float SizeFactor(int nationValue, int occupierValue) =>
+        Math.Max(NationSizeMin, Math.Min(NationSizeMax, (float)Math.Sqrt(Math.Max(0, nationValue) / (double)Math.Max(1, occupierValue))));
+
+    public static int NationResistance(int cityValue, float sentiment, float size, bool puppet) =>
+        (int)Math.Round(Math.Max(0, cityValue) * Math.Max(0f, Math.Min(1f, sentiment)) * size * (puppet ? NationPuppetFactor : NationAnnexFactor));
+
+    public static int OccupationWear(int occupiedResistance, int realmValue) =>
+        (int)Math.Round(Math.Min(Math.Max(0, occupiedResistance) * OccupationShare, Math.Max(0, realmValue) * OccupationCap));
+
+    // 一国连同帝国成员的全境价值(民族国家的大小)
+    public static int NationValue(Kingdom kingdom)
+    {
+        if (kingdom?.data == null || kingdom.isRekt()) return 0;
+        Layer.Empire empire = kingdom.GetEmpire();
+        return empire?.CoreKingdom == kingdom && empire.cities_list != null
+            ? empire.cities_list.Where(city => city?.data != null && !city.isRekt()).Sum(CityValue)
+            : RealmValue(kingdom);
+    }
+
+    #endregion
+
     #region 筹码
 
     public struct Leverage
@@ -122,10 +158,10 @@ public static class PeaceTermRules
 
     public struct Wear
     {
-        public int years, unpaid, food, collapse;
-        public int yearCount, unpaidMonths;
+        public int years, unpaid, food, collapse, occupation;
+        public int yearCount, unpaidMonths, occupiedCities;
         public float foodShort;
-        public int Total => years + unpaid + food + collapse;
+        public int Total => years + unpaid + food + collapse + occupation;
     }
 
     public static Wear WearOf(War war, bool attackers)
@@ -150,6 +186,8 @@ public static class PeaceTermRules
         result.unpaid = (int)Math.Round(value * unpaid * scale);
         result.food = (int)Math.Round(value * food * scale);
         result.collapse = (int)Math.Round(value * collapse * scale);
+        // 占领成本：直接军管着他国本土(另算，不进上面的封顶)
+        (result.occupation, result.occupiedCities) = OccupationPuppetSystem.OccupationCost(realm, foe);
         return result;
     }
 

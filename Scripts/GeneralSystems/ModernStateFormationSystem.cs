@@ -24,6 +24,8 @@ public static class ModernStateFormationSystem
         if (kingdom == null || kingdom.isRekt() || !kingdom.hasCities() || kingdom.GetRegime()?.type != RegimeType.Modern ||
             kingdom.GetAdministrativeTitle() != null)
             return false;
+        // 傀儡(汪伪、蒙疆)不自行建政、不认领法理，国号照扶植时定的(见 PuppetStateSystem)
+        if (PuppetStateSystem.IsPuppet(kingdom)) return false;
         if (TryGetSameCoreOverlord(kingdom, out Kingdom overlord) &&
             overlord.GetRegime()?.type == RegimeType.Modern)
         {
@@ -55,7 +57,8 @@ public static class ModernStateFormationSystem
     private static void RestoreSovereignRights(Kingdom kingdom)
     {
         Regime regime = kingdom.GetRegime();
-        if (regime == null || regime.IsAllowDiplomacy() || FeudalVassalService.GetOverlord(kingdom) != null) return;
+        if (regime == null || regime.IsAllowDiplomacy() || FeudalVassalService.GetOverlord(kingdom) != null ||
+            PuppetStateSystem.IsPuppet(kingdom)) return;
         regime.SetAllowDiplomacy(true);
     }
 

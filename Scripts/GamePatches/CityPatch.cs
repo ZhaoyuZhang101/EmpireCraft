@@ -1032,6 +1032,8 @@ public class CityPatch : GamePatch
             pHappinessEvent = "just_rebelled";
         }
         Kingdom pKingdom = __instance.kingdom;
+        // 近代国家丢最后一座城：先把元首与要员带出城去东道国，免得随城归了占领者(见 ExileGovernmentSystem)
+        EmpireCraft.Scripts.GeneralSystems.ExileGovernmentSystem.BeforeCityLeaves(__instance, pKingdom, pNewSetKingdom, pCaptured);
         pKingdom?.InvalidateCityValueContext();
         pNewSetKingdom.InvalidateCityValueContext();
         __instance.InvalidateCityStrategicValue();
@@ -1173,6 +1175,8 @@ public class CityPatch : GamePatch
         // 叛乱自立的取当地之俗(见 CultureService.ApplyLocalCulture)
         if (pRebellion) EmpireCraft.Scripts.GeneralSystems.CultureService.ApplyLocalCulture(kingdom, __instance);
         kingdom.RememberRebellionOrigin(rebellionOrigin);
+        // 立国出身：从共和国分出、共和派起事的一立国就是现代政体，从君主国割据的照旧君主(见 StateModernization)
+        EmpireCraft.Scripts.GeneralSystems.StateModernization.MarkFounding(kingdom, pKingdom, pActor, pRebellion);
         if (pRebellion) kingdom.SetRebellionOriginCityValue(rebellionOriginValue);
         // 分封制的诸侯国里起事：一城一邑的小乱(见 PettyRebellion)
         if (pRebellion) EmpireCraft.Scripts.GeneralSystems.PettyRebellion.Mark(kingdom, pKingdom);

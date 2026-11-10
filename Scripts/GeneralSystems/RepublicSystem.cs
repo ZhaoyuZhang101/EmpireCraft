@@ -113,11 +113,13 @@ public static class RepublicSystem
     public static bool IsTransitioning(Empire empire) => IsRepublic(empire) &&
         State(empire)?.republic_transition_stage > 0;
 
+    // 万世一系的日本皇室不废(用户 10-29 "天皇不应该是万世一系的吗"；以前废君压力照样把日本改成共和，见 ConstitutionalSuccessionSystem.Unbroken)
     public static bool CanAbolish(Empire empire) =>
         !TechnologySystem.PremodernLocked &&
         empire?.CoreKingdom != null && !IsRepublic(empire) &&
         RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) &&
-        InstitutionSystem.GetFeature(empire, FeatureAbolishMonarchy) > 0f;
+        InstitutionSystem.GetFeature(empire, FeatureAbolishMonarchy) > 0f &&
+        !ConstitutionalSuccessionSystem.Unbroken(empire);
 
     #region 废君压力
 
@@ -280,6 +282,8 @@ public static class RepublicSystem
     public static bool TryModernizeLateMonarchy(Empire empire)
     {
         if (empire?.data == null || IsRepublic(empire) || !CanAbolish(empire)) return false;
+        // 剧本开局就有的君主国(英、意、泰、伪满)与傀儡：不算"废君以后才立的"，照常走废君压力、革命(见 WorldMapPolity.modern)
+        if (empire.CoreKingdom.GetOrCreate().scenario_monarchy) return false;
         double abolishedAt = InstitutionSystem.GetFeatureEnactedTime(InstitutionSystem.GetPrimaryCulture(empire),
             FeatureAbolishMonarchy);
         if (abolishedAt < 0d || empire.data.timestamp_established_time <= abolishedAt) return false;

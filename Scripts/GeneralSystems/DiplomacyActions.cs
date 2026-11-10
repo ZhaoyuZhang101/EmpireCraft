@@ -428,6 +428,8 @@ public static class DiplomacyActions
             }
             return null;
         }
+        // a 立 b 为傀儡(伪满、蒙疆，见 PuppetStateSystem)：不在外交界面，只由剧本与剧情事件立
+        if (kind == "puppet") return PuppetStateSystem.Establish(a, b);
         if (!ScenarioKinds.TryGetValue(kind ?? "", out string key)) return "diplomacy_reason_invalid";
         Action action = Groups.SelectMany(group => group.actions).FirstOrDefault(item => item.key == key);
         if (action == null) return "diplomacy_reason_invalid";

@@ -28,7 +28,8 @@ REGIONS = {
     'massif_central': 'gaul_s',
 }
 YEARS = {'warring_states': -260, 'roman_empire': 117, 'three_kingdoms': 230,
-         'high_tang': 750, 'charlemagne': 800, 'crusades': 1190, 'song_jin': 1140, 'mongol_song': 1258, 'lingao': 1628, 'ming_qing': 1638}
+         'high_tang': 750, 'charlemagne': 800, 'crusades': 1190, 'song_jin': 1140, 'mongol_song': 1258, 'lingao': 1628, 'ming_qing': 1638,
+         'sino_japanese': 1937}
 
 
 def defaults(base, era):

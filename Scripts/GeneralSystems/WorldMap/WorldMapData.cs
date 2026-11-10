@@ -198,6 +198,35 @@ public sealed class WorldMapEventStep
     public bool roving;
     // rebel：领头的人是雄主，起兵就带开国雄主特质(称帝以后生效，见 RulerTraitSystem)
     public bool hero;
+    // cede：a 手里的全部城(傀儡覆灭、战败交还)；不写看 city、cities、region
+    public bool all;
+    // ideology：执政党名号与一党专政(大政翼赞会)
+    public string party = "";
+    [JsonProperty("one_party")] public bool oneParty;
+}
+
+// 近代政治(用户 2026-11-10 "现代政体如果要做的符合历史但是受限于机制的话优先完善机制")：剧本按国家定政体、执政理念与政党，
+// 以前只能按文化整体定(同为法兰克文化的英国是君主立宪、法国是共和就写不出来)。见 ScenarioModernPolitics
+public sealed class WorldMapModern
+{
+    // republic 共和(现代政体，组建政府) / constitutional 君主立宪(议会、首相) / monarchy 君主国(不受本文化废君波及)；空 = 照文化
+    public string regime = "";
+    // 执政理念(PartyIdeology 的名字，如 Centrism、Communism、Fascism、Conservatism)
+    public string ideology = "";
+    // 执政党名号 "简体|英文|繁体"(中国国民党、全联盟共产党)；空的照理念起名
+    public string party = "";
+    // 一党专政(训政、苏联、纳粹德国)
+    [JsonProperty("one_party")] public bool oneParty;
+    // 另外开局就有的政党(在野党、联合政府的友党)
+    public List<WorldMapParty> parties = new();
+}
+
+public sealed class WorldMapParty
+{
+    public string ideology = "";
+    public string name = "";
+    // 党魁：剧本人物的"简体姓+名"(找不到就照常推举)
+    public string leader = "";
 }
 
 // 长城、边墙：name "简体|英文|繁体"，pts 是 [经度, 纬度] 折线(两点之间铺墙时沿山脊找路)
@@ -227,7 +256,8 @@ public sealed class WorldMapRelation
 }
 
 // 名将名臣(见 Tools/WorldMap/famous_source.py)：kind general/minister，rank 0 良才 1 名 2 国柱，
-// post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / 城 id 坐镇该城；
+// post chief 首席朝官 / core 中枢要职 / div 部寺 / general 统一支军 / pm 首相、总理(有议会的立宪国、共和国，见 ScenarioModernPolitics) /
+// none 不任官 / 城 id 坐镇该城；
 // in 为与本国 kin 里这一位后妃同一家(杨国忠入杨贵妃的杨氏，外戚就连得上，见 consorts_source.py)
 public sealed class WorldMapFamous
 {
@@ -298,6 +328,17 @@ public sealed class WorldMapPolity
     // 开局的王朝积弊("strain")与六弊(graft、annexation、bloat、military、factionalism、levies，0~100；明末之类，
     // 见 WorldMapScenario.ApplyDecline)；不写的照国祚给同岁数最少该有的
     public Dictionary<string, float> decline = new();
+    // 近代政治：政体、执政理念与政党(见 WorldMapModern、ScenarioModernPolitics)
+    public WorldMapModern modern;
+    // 地方实力派(民国的晋绥、桂系、川系、滇系、西北马家)：写了 of 的现代政体成员保留自己的军队、财政与名号，随中央出征，
+    // 不被收成没有兵的省(见 ScenarioModernPolitics.MakeWarlordMember)
+    public bool autonomy;
+    // 开局即流亡(大韩民国临时政府)：写东道国的国 id；不占城，r 写待收复的地区，人住在东道国都城(见 ExileGovernmentSystem)
+    public string exile = "";
+    // 本身是殖民地(英属印度、法属印度支那、朝鲜总督府)：写宗主国的国 id，进世界后设为它的殖民地(company 为特许公司)。
+    // 和宗主国的 colonies 不同：殖民地自有首府，只开东亚半幅、宗主国不在图上时照样自成一国(见 WorldMapScenario.AnnexColony)
+    [JsonProperty("colony_of")] public string colonyOf = "";
+    public bool company;
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }

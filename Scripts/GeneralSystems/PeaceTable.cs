@@ -9,7 +9,8 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
-public enum PeaceTermKind { City, Indemnity, Tribute, Vassal, Install, Trade, Convert }
+// Puppet：割地立傀儡(近代割他国本土，城交给战胜国这一片的傀儡政府，见 OccupationPuppetSystem)；追加在末尾
+public enum PeaceTermKind { City, Indemnity, Tribute, Vassal, Install, Trade, Convert, Puppet }
 
 // 和约里的一项：谁出(by_attacker = 攻方出)、出什么
 public sealed class PeaceTerm
@@ -24,8 +25,10 @@ public sealed class PeaceTerm
 
     public string Key => $"{(int)kind}:{(by_attacker ? 1 : 0)}:{city_id}:{tier}:{resource}";
 
-    // 同一方出的同类条款只能有一项(赔款换档、岁供换矿都是替换)；城各算各的
-    public string Slot => kind == PeaceTermKind.City ? Key : $"{(int)kind}:{(by_attacker ? 1 : 0)}";
+    // 同一方出的同类条款只能有一项(赔款换档、岁供换矿都是替换)；城各算各的，同一座城割让、立傀儡二者取一
+    public string Slot => IsCity ? $"city:{(by_attacker ? 1 : 0)}:{city_id}" : $"{(int)kind}:{(by_attacker ? 1 : 0)}";
+
+    public bool IsCity => kind is PeaceTermKind.City or PeaceTermKind.Puppet;
 
     public PeaceTerm Copy() => (PeaceTerm)MemberwiseClone();
 }
@@ -44,12 +47,12 @@ public sealed class PeaceDeal
     public bool Has(PeaceTerm term) => terms.Exists(item => item.Key == term.Key);
 }
 
-// 一方的意愿账：意愿 = 所得 − 所失 + 战局 + 疲敝 − 势头 − 死战(见 PeaceTermRules 文件头)
+// 一方的意愿账：意愿 = 所得 − 所失 + 战局 + 疲敝 − 势头 − 死战 − 民族意识(见 PeaceTermRules 文件头与民族意识一节)
 public sealed class PeaceOpinion
 {
-    public int gain, loss, standing, wear, momentum, desperate;
-    public readonly List<(PeaceTerm term, int value)> gains = new(), losses = new();
-    public int Total => gain - loss + standing + wear - momentum - desperate;
+    public int gain, loss, standing, wear, momentum, desperate, nation;
+    public readonly List<(PeaceTerm term, int value)> gains = new(), losses = new(), nations = new();
+    public int Total => gain - loss + standing + wear - momentum - desperate - nation;
     public bool Accepts => Total >= 0;
 }
 
@@ -184,7 +187,7 @@ public static class PeaceTable
         void Cede(City city)
         {
             if (city?.data == null || city.isRekt() || city.kingdom != defender) return;
-            var term = new PeaceTerm { kind = PeaceTermKind.City, city_id = city.id };
+            var term = new PeaceTerm { kind = CessionKind(city, defender, attacker), city_id = city.id };
             if (!deal.Has(term)) deal.terms.Add(term);
         }
 
@@ -240,9 +243,13 @@ public static class PeaceTable
     {
         City main = WarObjective.Main(war.GetOrCreate());
         return main?.data != null && main.kingdom == war.main_defender
-            ? new PeaceTerm { kind = PeaceTermKind.City, city_id = main.id }.Key
+            ? new PeaceTerm { kind = CessionKind(main, war.main_defender, war.main_attacker), city_id = main.id }.Key
             : null;
     }
+
+    // 照目标开价时割城的写法：近代割他国本土写"割地立傀儡"(民族意识的砝码少得多，见 PeaceTermRules)，别的照旧割让
+    private static PeaceTermKind CessionKind(City city, Kingdom giver, Kingdom receiver) =>
+        OccupationPuppetSystem.NationalLand(city, giver, receiver) ? PeaceTermKind.Puppet : PeaceTermKind.City;
 
     #endregion
 
@@ -255,7 +262,12 @@ public static class PeaceTable
         if (!Usable(war)) return list;
         Kingdom giver = byAttacker ? war.main_attacker : war.main_defender, receiver = byAttacker ? war.main_defender : war.main_attacker;
         foreach (City city in CityOptions(war, giver, receiver, !byAttacker, nearOnly))
+        {
             list.Add((new PeaceTerm { kind = PeaceTermKind.City, by_attacker = byAttacker, city_id = city.id }, null));
+            // 他国本土另有"割地立傀儡"一项
+            if (OccupationPuppetSystem.NationalLand(city, giver, receiver))
+                list.Add((new PeaceTerm { kind = PeaceTermKind.Puppet, by_attacker = byAttacker, city_id = city.id }, null));
+        }
         for (int tier = 0; tier < PeaceTermRules.IndemnityTiers.Length; tier++)
             Add(new PeaceTerm { kind = PeaceTermKind.Indemnity, by_attacker = byAttacker, tier = tier });
         List<string> minerals = TributeResources(giver, receiver);
@@ -319,6 +331,10 @@ public static class PeaceTable
             case PeaceTermKind.City:
                 City city = World.world.cities.get(term.city_id);
                 return city?.data != null && !city.isRekt() && city.kingdom == giver ? null : "peace_reason_gone";
+            case PeaceTermKind.Puppet:
+                City land = World.world.cities.get(term.city_id);
+                if (land?.data == null || land.isRekt() || land.kingdom != giver) return "peace_reason_gone";
+                return OccupationPuppetSystem.NationalLand(land, giver, receiver) ? null : "peace_reason_not_national";
             case PeaceTermKind.Indemnity:
                 return TreasurySystem.Enabled(giver) && TreasurySystem.Enabled(receiver) ? null : "peace_reason_treasury";
             case PeaceTermKind.Tribute:
@@ -376,6 +392,7 @@ public static class PeaceTable
         switch (term.kind)
         {
             case PeaceTermKind.City:
+            case PeaceTermKind.Puppet:
                 City city = World.world.cities.get(term.city_id);
                 return city?.kingdom == giver ? PeaceTermRules.CityValue(city) : 0;
             case PeaceTermKind.Indemnity:
@@ -401,12 +418,35 @@ public static class PeaceTable
         if (!Usable(war)) return (new PeaceOpinion(), new PeaceOpinion());
         return Tally(deal, basis, term => Value(war, term, basis),
             term => World.world.cities.get(term.city_id) is City city && city == Giver(war, term).capital,
-            war.main_attacker.cities?.Count ?? 0, war.main_defender.cities?.Count ?? 0);
+            war.main_attacker.cities?.Count ?? 0, war.main_defender.cities?.Count ?? 0,
+            term => Nation(war, term, basis), term => Gain(war, term, basis));
+    }
+
+    // 民族意识(失地一方另记)：割让、立傀儡他国本土(见 OccupationPuppetSystem.Resistance)
+    private static int Nation(War war, PeaceTerm term, PeaceBasis basis)
+    {
+        if (!term.IsCity) return 0;
+        string key = "nation:" + term.Key;
+        if (basis != null && basis.values.TryGetValue(key, out int cached)) return cached;
+        City city = World.world.cities.get(term.city_id);
+        int value = city?.data == null ? 0
+            : OccupationPuppetSystem.Resistance(city, Giver(war, term), Receiver(war, term), term.kind == PeaceTermKind.Puppet);
+        if (basis != null) basis.values[key] = value;
+        return value;
+    }
+
+    // 收的一方所得：立傀儡只是间接统治，按城价的几成
+    private static int Gain(War war, PeaceTerm term, PeaceBasis basis)
+    {
+        int value = Value(war, term, basis);
+        return term.kind == PeaceTermKind.Puppet ? (int)Math.Round(value * PeaceTermRules.PuppetGainShare) : value;
     }
 
     // 意愿账的算术(不碰游戏对象，回归测试直接跑这一段)：value 给条款折价，capital 判这座城是不是出的一方的都城
+    // nation：失地一方另记的民族意识；gain：收的一方的所得(不写同 value)
     internal static (PeaceOpinion attacker, PeaceOpinion defender) Tally(PeaceDeal deal, PeaceBasis basis, Func<PeaceTerm, int> value,
-        Func<PeaceTerm, bool> capital, int attackerCityCount, int defenderCityCount)
+        Func<PeaceTerm, bool> capital, int attackerCityCount, int defenderCityCount, Func<PeaceTerm, int> nation = null,
+        Func<PeaceTerm, int> gain = null)
     {
         var a = new PeaceOpinion();
         var d = new PeaceOpinion();
@@ -414,13 +454,18 @@ public static class PeaceTable
         bool attackerCapital = false, defenderCapital = false;
         foreach (PeaceTerm term in deal.terms)
         {
-            int worth = value(term);
+            int worth = value(term), got = gain?.Invoke(term) ?? worth, pride = nation?.Invoke(term) ?? 0;
             PeaceOpinion giver = term.by_attacker ? a : d, taker = term.by_attacker ? d : a;
             giver.loss += worth;
             giver.losses.Add((term, worth));
-            taker.gain += worth;
-            taker.gains.Add((term, worth));
-            if (term.kind != PeaceTermKind.City) continue;
+            taker.gain += got;
+            taker.gains.Add((term, got));
+            if (pride > 0)
+            {
+                giver.nation += pride;
+                giver.nations.Add((term, pride));
+            }
+            if (!term.IsCity) continue;
             if (term.by_attacker)
             {
                 attackerCities++;
@@ -604,6 +649,12 @@ public static class PeaceTable
                         WarGoalSystem.QueueCession(city, receiver, unification && !term.by_attacker);
                         ceded[term.by_attacker].Add(city);
                         break;
+                    case PeaceTermKind.Puppet:
+                        City land = World.world.cities.get(term.city_id);
+                        if (land?.data == null || land.isRekt() || land.kingdom != giver) break;
+                        OccupationPuppetSystem.QueueCession(land, receiver);
+                        ceded[term.by_attacker].Add(land);
+                        break;
                     case PeaceTermKind.Indemnity:
                         (double share, bool installments) = PeaceTermRules.IndemnityTiers[
                             Math.Max(0, Math.Min(PeaceTermRules.IndemnityTiers.Length - 1, term.tier))];
@@ -682,6 +733,12 @@ public static class PeaceTable
                 }
                 return (string.Format(LM.Get("peace_term_city"), city.GetCityName()), string.Join(" · ", tags), hex);
             }
+            case PeaceTermKind.Puppet:
+            {
+                City city = World.world.cities.get(term.city_id);
+                return city?.data == null ? ("—", null, null)
+                    : (string.Format(LM.Get("peace_term_puppet"), city.GetCityName()), LM.Get("peace_tag_puppet"), "#C58BE0");
+            }
             case PeaceTermKind.Indemnity:
                 return (string.Format(LM.Get("peace_term_indemnity"), MoneyDisplay.Format(PeaceTermRules.IndemnityAmount(giver, term.tier))),
                     LM.Get("peace_tier_" + term.tier), "#8FA0A8");
@@ -710,7 +767,7 @@ public static class PeaceTable
     // 议和页"添加条件"的分类：1 城池、2 财货、3 臣属、4 宗教通商
     public static int Category(PeaceTerm term) => term.kind switch
     {
-        PeaceTermKind.City => 1,
+        PeaceTermKind.City or PeaceTermKind.Puppet => 1,
         PeaceTermKind.Indemnity or PeaceTermKind.Tribute => 2,
         PeaceTermKind.Vassal or PeaceTermKind.Install => 3,
         _ => 4

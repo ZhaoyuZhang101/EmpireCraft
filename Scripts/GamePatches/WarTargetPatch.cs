@@ -31,6 +31,12 @@ public class WarTargetPatch : GamePatch
             __result = null;
             return;
         }
+        // 傀儡不自行宣战、流亡政府不开新仗(见 PuppetStateSystem、ExileGovernmentSystem)
+        if (GeneralSystems.PuppetStateSystem.IsPuppet(pInitiatorKingdom) || GeneralSystems.ExileGovernmentSystem.IsExiled(pInitiatorKingdom))
+        {
+            __result = null;
+            return;
+        }
         // 帝国、帝国成员、附庸已由 DiplomacyManagerPatch 的前缀改走 EmpireCraftPlotsAddition.GetWarTarget(有自己的校验与先收法理)；
         // 前缀跳过原版后这里照样会跑，以前没目标时会改从近邻里挑，绕过分治兄弟之国、统一战线等不得互攻的规矩
         if (!EmpireCraft.Scripts.AI.EmpireCraftPlotsAddition.UsesVanillaWarPlot(pInitiatorKingdom.IsEmpire(), pInitiatorKingdom.IsInEmpire(),
