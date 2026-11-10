@@ -60,6 +60,10 @@ public class EmpireData : MetaObjectData
     public double gentry_feud_at = -1d;
     // 诉求上回施行的时间(见 TemporaryFaction.CooldownYears)
     public Dictionary<string, double> claim_done_at = new();
+    // 科技革新：在办的一项、往期、AI 上回挑的时间(用户 2026-11-11 "还有派系会支持的科技革新""也可以并行"，见 TechDriveSystem)
+    public TechDriveState tech_drive;
+    public List<TechDriveRecord> tech_drive_history = new();
+    public double tech_drive_last_try = -1d;
     // 羁縻朝贡(见 JimiTributeSystem)：各羁縻政区受册封的首领(负数 = 新首领还没册封)、上回入朝、加恩安抚的时间；
     // 叛去的羁縻政区与叛去的时间
     public Dictionary<long, long> jimi_chiefs = new();

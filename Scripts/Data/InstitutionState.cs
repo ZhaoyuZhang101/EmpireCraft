@@ -115,6 +115,8 @@ public sealed class InstitutionReformState
     public bool resistance_triggered;
     // 叛乱战争进行时冻结改革进度，战争结局负责继续或撤销改革。
     public long resistance_war_id = -1L;
+    // 回退：推完撤下 node_id 这项制度，而不是施行它(用户 2026-11-11 "派系可以有自己倾向的文化制度节点""或者回退，但是回退阻力应当巨大"，见 InstitutionSystem.FactionAgenda)
+    public bool revert;
 }
 
 public static class InstitutionStateNormalizer

@@ -486,7 +486,7 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             LM.Get("institution_card_reform"), reformStatus);
         if (reform != null)
         {
-            AddCardLine(reformCard, $"{InstitutionSystem.GetNodeName(reformNode, _culture).ColorString("#F3C34A")}  ·  " +
+            AddCardLine(reformCard, $"{InstitutionSystem.ReformName(reform, _culture).ColorString("#F3C34A")}  ·  " +
                                     $"{GetStageName(reform.stage)} {reform.progress:0}%".ColorString("#65D6C4"));
             var barRow = reformCard.BeginHoriGroup(new Vector2(CardWidth - 12f, CardLineHeight),
                 TextAnchor.MiddleCenter, 0);

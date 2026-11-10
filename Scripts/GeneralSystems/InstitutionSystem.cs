@@ -987,6 +987,12 @@ public static partial class InstitutionSystem
             state.active_reform = null;
             return;
         }
+        // 回退另算阻力与进度，推完是撤下而不是施行(用户 2026-11-11 "派系可以有自己倾向的文化制度节点""或者回退，但是回退阻力应当巨大"，见 InstitutionSystem.FactionAgenda)
+        if (reform.revert)
+        {
+            AdvanceRevert(realm, reform, node, shares, years);
+            return;
+        }
         if (IdeologyInstitutionPaths.TryGetIdeology(node.branch, out PartyIdeology ideology) &&
             (!realm.IsEmpire || PartySystem.GetGovernmentParty(realm.Empire)?.Ideology != ideology))
         {
@@ -1465,7 +1471,7 @@ public static partial class InstitutionSystem
                 !string.Equals(GetPrimaryCulture(empire), culture, StringComparison.Ordinal)) continue;
             InstitutionEmpireState empireState = EnsureEmpireState(empire);
             // 正在推进的改革对象已经被点亮了，或者已经被新点亮的制度取代了，就结束这次改革
-            if (empireState?.active_reform != null && (IsEnacted(culture, empireState.active_reform.node_id) ||
+            if (empireState?.active_reform != null && !empireState.active_reform.revert && (IsEnacted(culture, empireState.active_reform.node_id) ||
                                                        IsSuperseded(culture, empireState.active_reform.node_id)))
                 empireState.active_reform = null;
             // 本国还没采纳新体制所需的科技：政体暂不过渡
@@ -1715,6 +1721,12 @@ public static partial class InstitutionSystem
         if (imperial != null)
         {
             if (StartReform(realm, imperial.id)) NoteAiStart(primaryCulture);
+            return;
+        }
+        // 派系倾向优先：占比大的派系先走本派倾向的节点，或回退本派反对的制度(用户 2026-11-11 "派系可以有自己倾向的文化制度节点""或者回退，但是回退阻力应当巨大"，见 InstitutionSystem.FactionAgenda)
+        if (TryStartFactionPreference(realm, candidates, shares))
+        {
+            NoteAiStart(primaryCulture);
             return;
         }
         if (candidates.Count == 0) return;

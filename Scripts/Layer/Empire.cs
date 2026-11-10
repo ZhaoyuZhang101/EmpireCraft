@@ -1957,6 +1957,8 @@ public class Empire : MetaObject<EmpireData>
         // 土崩瓦解收束时可能就此灭亡，后面的更新不再跑
         if (IsArchived()) return;
         InstitutionSystem.Update(this);
+        // 科技革新：与朝议、改革线并行的第三条线(用户 2026-11-11 "还有派系会支持的科技革新""也可以并行"，见 TechDriveSystem)
+        TechDriveSystem.Update(this);
         // 上面的制度更新可能在本帧直接完成改制。后续行为必须读取新政体，
         // 否则刚进入现代的国家还会按旧郡县制配置再册封一次。
         regime = coreKingdom.GetRegime();

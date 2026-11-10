@@ -2094,6 +2094,9 @@ public static class TechnologySystem
         state.player_targets.RemoveAll(id => HasTech(culture, id) || !_techs.ContainsKey(id));
         foreach (string target in state.player_targets.Take(slots))
             Add(FindNextStepToward(culture, target, new HashSet<string>()));
+        // 本文化各帝国在办的科技革新先占研究位(用户 2026-11-11 "还有派系会支持的科技革新""也可以并行"，见 TechDriveSystem)
+        foreach (string target in TechDriveSystem.DriveTargets(culture))
+            Add(FindNextStepToward(culture, target, new HashSet<string>()));
         // 手上在研的照旧接着研；超出时代的(费用乘十倍，见 BeyondEra)让出研究位，先研本时代的
         foreach (string id in state.current_techs)
             if (_techs.TryGetValue(id, out TechNodeConfig current) && !BeyondEra(culture, current)) Add(current);
@@ -2109,6 +2112,10 @@ public static class TechnologySystem
         TechnologyStateRules.SyncLegacy(state);
         return selected;
     }
+
+    // 通往某项技术的下一步(本项前置已齐就是本项)；科技革新拨款推这一步(见 TechDriveSystem)
+    public static TechNodeConfig NextStepToward(string culture, string techId) =>
+        string.IsNullOrEmpty(techId) ? null : FindNextStepToward(culture, TechnologyStateRules.Canonical(techId), new HashSet<string>());
 
     private static TechNodeConfig FindNextStepToward(string culture, string techId, HashSet<string> visited)
     {

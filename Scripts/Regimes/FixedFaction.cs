@@ -370,6 +370,11 @@ public class FixedFaction
     public int NameMode { get; set; }
     public string Name { set; get; }
     public long EmpireId { get; set; } = -1L;
+    // 制度倾向：神力固定的倾向推行节点、想回退的节点(空 = 按支持/反对权重自动挑)(用户 2026-11-11 "派系可以有自己倾向的文化制度节点""或者回退，但是回退阻力应当巨大"，见 InstitutionSystem.FactionAgenda)
+    public string PreferredInstitution { get; set; } = "";
+    public string RevertInstitution { get; set; } = "";
+    // 科技革新：神力固定的倾向科技(空 = 按立场自动挑)(用户 2026-11-11 "还有派系会支持的科技革新""也可以并行"，见 TechDriveSystem)
+    public string PreferredTech { get; set; } = "";
     public bool Hide { get; set; } = false;
     public bool Force = false; 
     [JsonIgnore]
@@ -462,6 +467,9 @@ public class FixedFaction
             PartyFoundedAt = PartyFoundedAt,
             IsClique = IsClique,
             CliqueFoundedAt = CliqueFoundedAt,
+            PreferredInstitution = PreferredInstitution,
+            RevertInstitution = RevertInstitution,
+            PreferredTech = PreferredTech,
             IdeologyChosen = IdeologyChosen,
             NameMode = NameMode
         };
@@ -498,6 +506,9 @@ public class FixedFaction
             PartyFoundedAt = PartyFoundedAt,
             IsClique = IsClique,
             CliqueFoundedAt = CliqueFoundedAt,
+            PreferredInstitution = PreferredInstitution,
+            RevertInstitution = RevertInstitution,
+            PreferredTech = PreferredTech,
             IdeologyChosen = IdeologyChosen,
             NameMode = NameMode
         };

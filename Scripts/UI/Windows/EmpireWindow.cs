@@ -606,7 +606,7 @@ namespace EmpireCraft.Scripts.UI.Windows
             InstitutionReformState activeReform = renderedEmpire.data.institution_state?.active_reform;
             if (activeReform != null)
                 reformChip = string.Format(LM.Get("empire_reform_chip"),
-                    InstitutionSystem.GetNodeName(renderedEmpire, InstitutionDefinitionRegistry.Get(activeReform.node_id)),
+                    InstitutionSystem.ReformName(renderedEmpire, activeReform),
                     activeReform.progress.ToString("0.0"));
             var parent = BeginPage("empire_controlled_kingdoms", reformChip);
             if (parent == null) yield break;
