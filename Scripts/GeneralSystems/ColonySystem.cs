@@ -302,7 +302,7 @@ public static class ColonySystem
     {
         if (kingdom?.data == null || metropole?.data == null || kingdom.isRekt() || metropole.isRekt() || kingdom == metropole) return false;
         if (kingdom.IsEmpire() && kingdom.GetEmpire()?.kingdoms_list?.Count > 1) return false;
-        if (IsColony(kingdom) || PuppetStateSystem.IsPuppet(kingdom)) return false;
+        if (WarlordEraSystem.Dependent(kingdom)) return false;
         if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) kingdom.GetEmpire()?.leave(kingdom, true, true);
         DiplomacyActions.EndWars(metropole, kingdom);
         Annex(metropole, kingdom, ColonyState.Protectorate, "");
@@ -455,6 +455,8 @@ public static class ColonySystem
     {
         if (!string.IsNullOrWhiteSpace(state?.place)) return WorldMap.WorldMapData.PickParts(state.place);
         string title = colony.capital?.GetTitle()?.data?.name;
+        // 法理按"英属马来亚"这样的国名立的：去掉"某属"(以前暹罗收它作保护国叫"暹属英属马来亚")
+        if (!string.IsNullOrWhiteSpace(title) && title.Length > 2 && title[1] is '属' or '屬') title = title.Substring(2);
         return !string.IsNullOrWhiteSpace(title) ? title : colony.capital?.GetCityName() ?? colony.GetKingdomName();
     }
 

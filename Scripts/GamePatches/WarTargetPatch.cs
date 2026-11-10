@@ -32,8 +32,9 @@ public class WarTargetPatch : GamePatch
             return;
         }
         // 傀儡不自行宣战、流亡政府不开新仗(见 PuppetStateSystem、ExileGovernmentSystem)
+        // 宗主国不在图上的剧本属地(东亚半幅的葡属澳门、英属香港、荷属东印度)也不自行宣战：以前澳门打下广州、台北，收闽系军阀作附庸
         if (GeneralSystems.PuppetStateSystem.IsPuppet(pInitiatorKingdom) || GeneralSystems.ExileGovernmentSystem.IsExiled(pInitiatorKingdom) ||
-            GeneralSystems.ColonySystem.ForeignAffairsByMetropole(pInitiatorKingdom))
+            GeneralSystems.ColonySystem.ForeignAffairsByMetropole(pInitiatorKingdom) || pInitiatorKingdom.GetOrCreate().scenario_dependent)
         {
             __result = null;
             return;

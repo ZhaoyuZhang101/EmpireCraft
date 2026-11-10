@@ -162,6 +162,10 @@ public static class OccupationPuppetSystem
     }
 
     // 立这一片的傀儡：最大的城(片里有帝国法理首府先取首府)作治所，从当地人里扶一个领头
+    private static bool PolityLike(string name) =>
+        name.EndsWith("政府") || name.EndsWith("边区") || name.EndsWith("邊區") || name.EndsWith("委员会") ||
+        name.EndsWith("委員會") || name.Contains("军") || name.Contains("軍") || name.Contains("Government") || name.Contains("Council");
+
     private static Kingdom Create(Kingdom occupier, List<City> cities)
     {
         EmpireCore core = cities[0].GetEmpireCore();
@@ -169,8 +173,10 @@ public static class OccupationPuppetSystem
                     cities.OrderByDescending(PeaceTermRules.CityValue).First();
         Actor leader = Collaborator(seat, occupier);
         if (leader == null) return null;
+        // 法理用了国名的(剧本里没写地区的国按国名立的法理，如"蒙古军政府")：改用法理首府、本城的名，免得叫"蒙古军政府自治政府"
         string region = seat.GetTitle()?.data?.name;
-        if (string.IsNullOrWhiteSpace(region)) region = seat.GetCityName();
+        if (string.IsNullOrWhiteSpace(region) || PolityLike(region)) region = seat.GetTitle()?.GetTitleProvinceName();
+        if (string.IsNullOrWhiteSpace(region) || PolityLike(region)) region = seat.GetCityName();
         string name = string.Format(LM.Get("occupation_puppet_name"), region);
         Kingdom puppet = PuppetStateSystem.Found(occupier, seat, cities, leader, name);
         if (puppet == null) return null;

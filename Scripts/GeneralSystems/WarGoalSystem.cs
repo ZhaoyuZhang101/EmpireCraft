@@ -158,10 +158,12 @@ public static class WarGoalSystem
         if (goal == WarGoal.迫使附庸 && ColonySystem.ColonialPower(attacker) && !defender.IsEmpire() &&
             !CultureService.SameKin(CultureService.GetRealmCulture(attacker), CultureService.GetRealmCulture(defender)))
             goal = WarGoal.保护国;
+        // 别国的附从(傀儡、属地、宗主国不在图上的剧本属地)不收作附庸、保护国：只求赔款(以前暹罗收英属马来亚作保护国)
+        if (goal is WarGoal.迫使附庸 or WarGoal.保护国 && WarlordEraSystem.Dependent(defender)) goal = WarGoal.赔款;
         // 圣战且两边宗教不同：要对方改宗
         if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) goal = WarGoal.改宗;
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
-        else if (goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() &&
+        else if (goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() && !WarlordEraSystem.Dependent(defender) &&
                  (RoyalMarriageSystem.HasClaim(attacker, defender) || defender.king?.isAdult() == false) &&
                  InstallCandidate(defender) != null)
             goal = WarGoal.扶立;

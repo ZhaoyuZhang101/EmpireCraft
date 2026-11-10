@@ -272,14 +272,15 @@ public static class PeaceTable
         var list = new List<(PeaceTerm, string)>();
         if (!Usable(war)) return list;
         Kingdom giver = byAttacker ? war.main_attacker : war.main_defender, receiver = byAttacker ? war.main_defender : war.main_attacker;
+        bool dependentReceiver = WarlordEraSystem.Dependent(receiver);
         foreach (City city in CityOptions(war, giver, receiver, !byAttacker, nearOnly))
         {
             list.Add((new PeaceTerm { kind = PeaceTermKind.City, by_attacker = byAttacker, city_id = city.id }, null));
-            // 他国本土另有"割地立傀儡"一项
-            if (OccupationPuppetSystem.NationalLand(city, giver, receiver))
+            // 他国本土另有"割地立傀儡"一项(收的一方本身是附从的不立傀儡)
+            if (!dependentReceiver && OccupationPuppetSystem.NationalLand(city, giver, receiver))
                 list.Add((new PeaceTerm { kind = PeaceTermKind.Puppet, by_attacker = byAttacker, city_id = city.id }, null));
             // 近代殖民列强另可租借港口城
-            if (ColonySystem.ColonialPower(receiver) && city != giver.capital && ColonySystem.Port(city))
+            if (!dependentReceiver && ColonySystem.ColonialPower(receiver) && city != giver.capital && ColonySystem.Port(city))
                 list.Add((new PeaceTerm { kind = PeaceTermKind.Lease, by_attacker = byAttacker, city_id = city.id }, null));
         }
         Add(new PeaceTerm { kind = PeaceTermKind.Protectorate, by_attacker = byAttacker });
@@ -344,6 +345,12 @@ public static class PeaceTable
     {
         Kingdom giver = Giver(war, term), receiver = Receiver(war, term);
         if (giver?.data == null || receiver?.data == null || giver.isRekt() || receiver.isRekt()) return "peace_reason_gone";
+        // 别国的附从(傀儡、属地、宗主国不在图上的剧本属地)不收附庸、保护国、租借、托管、傀儡，也不被第三国收作附庸、另立君主
+        // (以前葡属澳门收闽系军阀作附庸)
+        if ((term.kind is PeaceTermKind.Vassal or PeaceTermKind.Install or PeaceTermKind.Protectorate or PeaceTermKind.Lease or
+                 PeaceTermKind.Mandate or PeaceTermKind.Puppet && WarlordEraSystem.Dependent(receiver)) ||
+            (term.kind is PeaceTermKind.Vassal or PeaceTermKind.Install or PeaceTermKind.Protectorate && WarlordEraSystem.Dependent(giver)))
+            return "peace_reason_dependent";
         switch (term.kind)
         {
             case PeaceTermKind.City:
