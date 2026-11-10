@@ -216,7 +216,8 @@ public static class FeudalVassalService
         if (subject.GetOrCreate().feudal_overlord_kingdom_id < 0)
         {
             Kingdom suzerain = subject.HasTakenAlliance() ? subject.GetTakenAllianceEmpire()?.CoreKingdom
-                : ColonySystem.MetropoleOf(subject);
+                : ColonySystem.MetropoleOf(subject) ?? PuppetStateSystem.Master(subject);
+            // 傀儡也套宗主色：以前这里只认朝贡、殖民，傀儡的宗主色被月度同步抹掉、两秒后又套上，伪满颜色一直在跳(用户 2026-11-10)
             if (suzerain != null) VassalColorService.Apply(subject, suzerain);
             else VassalColorService.Clear(subject);
             return;

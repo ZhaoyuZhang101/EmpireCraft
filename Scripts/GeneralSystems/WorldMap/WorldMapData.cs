@@ -350,6 +350,8 @@ public sealed class WorldMapPolity
     // 元首的实际职位("简体|英文|繁体"，如 委员长、总书记、元首、国王)：开局政府的元首称号照它，不再按理念一律叫总统、主席，
     // 君主国也不一律叫皇帝；政体改了(共和改君主或反过来)就不再用(见 EmpireData.head_title)
     public string title = "";
+    // 简称("简体|英文|繁体"，如 英、法、德、日)：国号写全称(大不列颠帝国)时，属地"某属某地"的"某"照它(见 ColonySystem.Abbrev)
+    public string abbr = "";
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }

@@ -8445,7 +8445,7 @@
   "party_ideology_Conservatism": "Conservatism",
   "party_ideology_Fascism": "Fascism",
   "party_reorganized_entry": "{0} became {1} ({2})",
-  "party_reorganized_history": "The ban on parties was lifted and the court factions reorganized as parties: {0}.",
+  "party_reorganized_history": "The factions reorganized as parties: {0}.",
   "party_founded_history": "{0} founded the {1} ({2}).",
   "party_merged_history": "The {0} merged into the {1}.",
   "party_split_history": "{0} led a breakaway from the {1} to form the {2} ({3}).",
@@ -8460,7 +8460,7 @@
   "temporary_faction_claim_55": "Lift the party ban",
   "temporary_faction_claim_56": "Land reform",
   "institution_lift_party_ban": "Lifting the Party Ban",
-  "institution_lift_party_ban_desc": "Political associations are allowed. Once parliament sits, the court factions reorganize as parties; new parties may form, split and merge, and seats follow election results.",
+  "institution_lift_party_ban_desc": "Political associations are allowed. Once parliament sits, the factions reorganize as parties; new parties may form, split and merge, and seats follow election results.",
   "institution_universal_suffrage": "Universal Suffrage",
   "institution_universal_suffrage_desc": "The vote is no longer limited by property: peasants, workers and soldiers vote alongside the propertied classes.",
   "institution_resistance_reason_party_ban": "The old nobility and court cliques resist government by parties",
@@ -11636,7 +11636,8 @@
   "kov_puppet_row": "{0} cities · {1} years",
   "peace_card_goal": "{0}'s war goal",
   "peace_goal_hint": "\"Goal terms\" prices from this",
-  "peace_gives_none_attacker": "(empty) {1} started this war and may withdraw at any time, but that counts as a defeat and costs reparations",
+  "peace_gives_none_attacker": "(empty) {1} started this war and may withdraw at any time",
   "peace_btn_withdraw": "{0} withdraws",
-  "peace_withdraw_history": "{0} withdraws: its war on {1} failed and it pays reparations as the loser"
+  "peace_withdraw_history": "{0} withdraws: its war on {1} failed and it pays reparations as the loser",
+  "peace_tag_withdraw": "owed if it withdraws · click to put on the table"
 }

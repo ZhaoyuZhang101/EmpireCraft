@@ -8459,7 +8459,7 @@
   "party_ideology_Conservatism": "保守主義",
   "party_ideology_Fascism": "法西斯主義",
   "party_reorganized_entry": "{0}改組為{1}（{2}）",
-  "party_reorganized_history": "黨禁開放，朝中各派改組為政黨：{0}。",
+  "party_reorganized_history": "各派改組為政黨：{0}。",
   "party_founded_history": "{0}創立{1}（{2}）。",
   "party_merged_history": "{0}併入{1}。",
   "party_split_history": "{0}率眾脫離{1}，另組{2}（{3}）。",
@@ -8474,7 +8474,7 @@
   "temporary_faction_claim_55": "開放黨禁",
   "temporary_faction_claim_56": "土地改革",
   "institution_lift_party_ban": "開放黨禁",
-  "institution_lift_party_ban_desc": "解除結社組黨之禁。議會召開後，朝中各派改組為政黨，此後可自由建黨、分合，議席按選舉結果分配。",
+  "institution_lift_party_ban_desc": "解除結社組黨之禁。議會召開後，各派改組為政黨，此後可自由建黨、分合，議席按選舉結果分配。",
   "institution_universal_suffrage": "普選",
   "institution_universal_suffrage_desc": "選舉權不再以財產為限：農民、工人、軍人與有產階層一同投票。",
   "institution_resistance_reason_party_ban": "舊貴族與宮廷勢力不願見朝政被政黨把持",
@@ -11642,7 +11642,8 @@
   "kov_puppet_row": "{0} 城 · 已 {1} 年",
   "peace_card_goal": "{0}的戰爭目標",
   "peace_goal_hint": "「照目標開價」照它出價",
-  "peace_gives_none_attacker": "（空）{1}是開戰的一方，隨時可以罷兵，但算沒打成、要賠款",
+  "peace_gives_none_attacker": "（空）{1}是開戰的一方，隨時可以罷兵",
   "peace_btn_withdraw": "{0}罷兵",
-  "peace_withdraw_history": "{0}罷兵，伐{1}的目標沒打成，照敗方賠款"
+  "peace_withdraw_history": "{0}罷兵，伐{1}的目標沒打成，照敗方賠款",
+  "peace_tag_withdraw": "罷兵就得付 · 點一下放上台"
 }

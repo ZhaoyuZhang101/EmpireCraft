@@ -365,7 +365,18 @@ namespace EmpireCraft.Scripts.UI.Windows
             var card = columns.BeginColumnCard(ColumnWidth, string.Format(LM.Get("peace_gives"), taker.GetKingdomName(), giver.GetKingdomName()), hex,
                 string.Format(LM.Get("peace_items"), terms.Count));
             int row = 0;
-            if (terms.Count == 0)
+            // 开战一方台上没放东西：直接列出它罢兵要付的赔款(具体数目与折价)，点一下放上台(用户 11-10"直接把赔款算成具体的条件""干嘛要空")
+            if (terms.Count == 0 && byAttacker && PeaceTable.WithdrawTerm(war) is PeaceTerm pay)
+            {
+                (string payLabel, string _, string _) = PeaceTable.Label(war, pay);
+                card.AddValueRow(ColumnWidth, row++, payLabel + " " + LM.Get("peace_tag_withdraw").ColorString(WideKit.Orange),
+                    N(PeaceTable.Value(war, pay, basis)), WideKit.Soft, () =>
+                    {
+                        PeaceTable.Toggle(war, pay);
+                        Refresh();
+                    }, (ColumnWidth - 20f) * 0.7f);
+            }
+            else if (terms.Count == 0)
                 card.AddParagraph(ColumnWidth, string.Format(LM.Get(byAttacker ? "peace_gives_none_attacker" : "peace_gives_none"),
                     taker.GetKingdomName(), giver.GetKingdomName()), 7, WideKit.Muted);
             foreach (PeaceTerm term in terms)

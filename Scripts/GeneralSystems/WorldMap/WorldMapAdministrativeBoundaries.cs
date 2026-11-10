@@ -14,6 +14,8 @@ public sealed class WorldMapAdministrativeBoundary
     // 来源图的年代与精度随数据保存；不把近似历史图当作现代测绘边界。
     public int year;
     public string precision = "approximate";
+    // 共用省界(polity 为 "*")属于哪一片：china 中国现行省级区划、ussr 苏联 1983 年州一级(见 Tools/WorldMap/modern_administration_source.py)
+    public string realm = "";
 }
 
 internal static class WorldMapAdministrativeBoundaries
@@ -31,12 +33,26 @@ internal static class WorldMapAdministrativeBoundaries
         return string.IsNullOrEmpty(basis) || basis == era.id ? own : For(basis, era.year, polity, division);
     }
 
+    // 共用省界(不分哪一国，见 WorldMapScenario.ConformSharedBorders)：本剧本的，没有就照所本的剧本
+    public static List<WorldMapAdministrativeBoundary> Shared(WorldMapEra era)
+    {
+        if (era == null) return new();
+        For(era.id, era.year, "", "");
+        List<WorldMapAdministrativeBoundary> own = _boundaries.Where(item => item != null && item.era == era.id && item.year == era.year &&
+            item.polity == "*" && item.polygons is { Count: > 0 }).ToList();
+        if (own.Count > 0) return own;
+        string basis = WorldMapData.BaseOf(era);
+        return string.IsNullOrEmpty(basis) || basis == era.id ? own
+            : _boundaries.Where(item => item != null && item.era == basis && item.year == era.year && item.polity == "*" &&
+                                        item.polygons is { Count: > 0 }).ToList();
+    }
+
     public static List<WorldMapAdministrativeBoundary> For(string era, int year, string polity, string division)
     {
         if (_boundaries == null)
         {
             _boundaries = new();
-            foreach (string file in new[] { "administrative_boundaries.json", "administrative_boundaries_ming.json" })
+            foreach (string file in new[] { "administrative_boundaries.json", "administrative_boundaries_ming.json", "administrative_boundaries_modern.json" })
                 try
                 {
                     string path = Path.Combine(WorldMapData.Folder, file);

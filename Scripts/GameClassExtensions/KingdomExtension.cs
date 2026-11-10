@@ -342,6 +342,8 @@ public static class KingdomExtension
         public bool scenario_autonomy;
         // 剧本写明的属地、宗主国不在图上(东亚半幅里的葡属澳门、英属香港……)：不算本天下的地方武装(见 WarlordEraSystem.Dependent)
         public bool scenario_dependent;
+        // 剧本给的简称("简体|英文|繁体")：属地国号"某属某地"的那个"某"(见 ColonySystem.Abbrev)
+        public string country_abbrev;
         // 立国出身(见 StateModernization)：1 从共和国分出、共和派起事或剧本按文化立(本文化已废君就能一立国即现代政体)；
         // 2 从君主国割据自立；0 旧档或别的途径立的(照本文化的君主政体)
         public int modern_origin;

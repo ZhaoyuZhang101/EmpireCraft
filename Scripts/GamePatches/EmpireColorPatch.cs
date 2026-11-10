@@ -41,7 +41,8 @@ public class EmpireColorPatch : GamePatch
     {
         ColorAsset next = empire.CoreKingdom.getColor();
         ColorAsset old = empire.getColor();
-        if (next == null || old == next) return;
+        // 核心国挂着宗主的合成色(傀儡、殖民地)：合成色不在颜色库里，updateColor 会把编号记成 -1，成员国跟着乱跳
+        if (next == null || old == next || VassalColorService.IsComposite(next)) return;
         empire.updateColor(next);
         foreach (Kingdom member in empire.kingdoms_list)
         {

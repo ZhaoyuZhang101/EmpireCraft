@@ -441,6 +441,9 @@ public static class ColonySystem
     // 宗主国名的头一个字(英国 → 英、荷兰 → 荷)；美号"大"(大日本、大清)不算
     public static string Abbrev(Kingdom metropole)
     {
+        // 剧本给了简称的照简称(大不列颠帝国→英、大日本帝国→日：国号头一个字不一定是简称)
+        string custom = metropole?.data == null ? null : metropole.GetOrCreate().country_abbrev;
+        if (!string.IsNullOrWhiteSpace(custom)) return WorldMap.WorldMapData.PickParts(custom);
         string name = metropole?.GetKingdomName() ?? "";
         string grand = RealmNamingSystem.GrandPrefix;
         if (!string.IsNullOrEmpty(grand) && name.Length > grand.Length && name.StartsWith(grand, StringComparison.Ordinal) &&

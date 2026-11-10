@@ -60,6 +60,8 @@ public static class MilitaryRegency
     private static int Wanted(Empire empire)
     {
         RegimeType? regime = empire?.CoreKingdom?.GetRegime()?.type;
+        // 剧本定下的近代君主国(伊朗沙阿、伊拉克、埃及……)：不立苏丹、将军(1937 剧本开局"哈里发礼萨·巴列维退为象征")
+        if (empire?.CoreKingdom != null && empire.CoreKingdom.GetOrCreate().scenario_monarchy) return None;
         if (regime == RegimeType.Bakufu) return Shogun;
         if (regime == RegimeType.Arabic && InstitutionSystem.HasFeature(empire, InstitutionFeatures.Sultanate)) return Sultan;
         return None;

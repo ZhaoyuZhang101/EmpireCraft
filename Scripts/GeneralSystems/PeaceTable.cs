@@ -186,12 +186,19 @@ public static class PeaceTable
         return true;
     }
 
-    // 两国谈不拢时攻方肯不肯罢兵：照标准一档赔款算它的意愿(打不动、疲敝重的宁可赔钱收兵)
+    // 开战一方罢兵的代价：照败方赔款，就是标准一档(国库四分之一，另三年分付，同 WarReparationsSystem.Impose 的默认)；
+    // 国库制度没开的返回 null(罢兵不赔)
+    public static PeaceTerm WithdrawTerm(War war)
+    {
+        var pay = new PeaceTerm { kind = PeaceTermKind.Indemnity, by_attacker = true, tier = PeaceTermRules.StandardIndemnity };
+        return Usable(war) && Unavailable(war, pay) == null ? pay : null;
+    }
+
+    // 两国谈不拢时攻方肯不肯罢兵：照罢兵的代价算它的意愿(打不动、疲敝重的宁可赔钱收兵)
     private static bool WouldWithdraw(War war, PeaceBasis basis)
     {
         var deal = new PeaceDeal();
-        var pay = new PeaceTerm { kind = PeaceTermKind.Indemnity, by_attacker = true, tier = PeaceTermRules.StandardIndemnity };
-        if (Unavailable(war, pay) == null) deal.terms.Add(pay);
+        if (WithdrawTerm(war) is PeaceTerm pay) deal.terms.Add(pay);
         (PeaceOpinion attacker, PeaceOpinion _) = Evaluate(war, deal, basis);
         return attacker.Accepts;
     }

@@ -1196,6 +1196,24 @@ public static class PartySystem
         RemoveParty(empire, regime, party);
     }
 
+    // 剧本已立好各党(见 ScenarioModernPolitics.Settle)：政体模板里的派系(文官派、武官派、皇权派……)成员并进执政党、派系撤掉，
+    // 记作已改组——以前头一回政党更新把它们改组成一串保守主义小党，还记一笔"党禁开放，朝中各派改组为政党"(用户 2026-11-10"为什么会开党禁")
+    internal static void FoldScenarioFactions(Empire empire, FixedFaction ruling)
+    {
+        Regime regime = empire?.CoreKingdom?.GetRegime();
+        ConstitutionalEconomyState state = empire?.data?.constitutional_economy;
+        if (regime == null || state == null || ruling == null) return;
+        if (!state.parties_reorganized) IdeologyPopulationSystem.SeedNewPartyPolitics(empire);
+        foreach (FixedFaction faction in regime.GetPlayerFactions().Where(faction => faction != null && !faction.IsParty && faction != ruling).ToList())
+        {
+            List<Actor> members = faction.Members.Select(id => World.world.units.get(id)).Where(actor => actor != null && !actor.isRekt()).ToList();
+            RemoveParty(empire, regime, faction, ruling);
+            foreach (Actor actor in members) actor.SetFaction(ruling);
+        }
+        state.parties_reorganized = true;
+        state.last_party_update = World.world.getCurWorldTime();
+    }
+
     // successor：并入的目标党(一党制下领导党被并入时由它接任领导党)
     private static void RemoveParty(Empire empire, Regime regime, FixedFaction party, FixedFaction successor = null)
     {

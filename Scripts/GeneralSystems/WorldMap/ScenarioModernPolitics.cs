@@ -70,6 +70,14 @@ public static class ScenarioModernPolitics
         {
             if (regime == "republic")
             {
+                // 组建政府时又按文化解析了一遍政体(阿拉伯文化的土耳其回到阿拉伯政体，凯末尔成了"哈里发"、苏丹入朝)：这里再改回现代政体
+                if (kingdom.GetRegime()?.type != RegimeType.Modern)
+                {
+                    kingdom.SetRegimeType(RegimeType.Modern);
+                    kingdom.LoadRegime();
+                    kingdom.SystemChange();
+                    kingdom.GetOrCreate().regime_manually_selected = true;
+                }
                 PartyIdeology ideology = ParseIdeology(modern.ideology) ?? ModernStateFormationSystem.ResolveGovernmentIdeology(kingdom);
                 RepublicSystem.SyncWithRegime(empire, foundingIdeology: ideology);
                 RepublicSystem.SetFoundingIdeology(empire, ideology);
@@ -119,6 +127,8 @@ public static class ScenarioModernPolitics
                     string.IsNullOrWhiteSpace(entry.leader) ? null : person(entry.leader), WorldMapData.PickParts(entry.name ?? ""));
                 if (party != null && party != ruling) others.Add(party);
             }
+            // 政体模板里的派系并进执政党，不再被改组成一串额外的党
+            PartySystem.FoldScenarioFactions(empire, ruling);
             SetRatios(empire.CoreKingdom, ruling, others);
             if (modern.oneParty && !RepublicSystem.IsOneParty(empire))
                 PartyBanSystem.Close(empire, ruling, Enumerable.Empty<FixedFaction>(), "party_ban_one_party_history");
