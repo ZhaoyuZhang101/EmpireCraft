@@ -103,6 +103,9 @@ public class WildRegionData
     // 权能笔刷划过法理的地块(见 WildernessSystem.Paint)：自动重挂不动它们
     public List<int> painted;
     public bool ShouldSerializepainted() => painted is { Count: > 0 };
+    // 按第几版分地规矩挂的(见 WildernessSystem.AttachRule)；旧档 0，读档后按新规矩重分一次
+    public int rule;
+    public bool ShouldSerializerule() => rule > 0;
 }
 
 public static class WildernessSystem
@@ -531,10 +534,15 @@ public static class WildernessSystem
         Version++;
     }
 
+    // 分地规矩的版本：1 = 换地形、下河有坎(见 Seam)。存档里的比这个旧，读档后自动挂的地块重分一次(权能笔刷划的、剧本照史实的不动)
+    private const int AttachRule = 1;
+    private static bool _ruleOutdated;
+
     public static void Load(List<WildRegionData> saved, int nextId)
     {
         _saved = new List<WildRegionData>();
         _nextId = Math.Max(1, nextId);
+        _ruleOutdated = saved != null && saved.Any(data => data != null && data.rule < AttachRule);
         if (saved == null) return;
         foreach (WildRegionData data in saved)
         {
@@ -553,7 +561,7 @@ public static class WildernessSystem
         {
             var data = new WildRegionData { id = region.Id, kind = (int)region.Kind, name = region.Name, culture = region.Culture,
                 custom_name = region.CustomName && !string.IsNullOrEmpty(region.Name), neutral = region.Neutral,
-                origins = new List<long>(region.Zones.Count) };
+                origins = new List<long>(region.Zones.Count), rule = AttachRule };
             foreach (int id in region.Zones)
             {
                 City origin = OriginOf(_zones[id]);
@@ -1213,7 +1221,11 @@ public static class WildernessSystem
         _parents = oldParents;
         _painted = painted;
         long signature = TitleSignature();
-        if (!fromSave && signature != _titleSignature) Attach(true);
+        // 旧档按旧规矩分的(直边、不顺地形)：读档后重分一次(用户 2026-11-10 "自然的地形占领也好直""而且也没顺着地形走")
+        bool outdated = fromSave && _ruleOutdated && !WorldMap.WorldMapWilderness.OnEarth;
+        _ruleOutdated = false;
+        if (outdated) LogService.LogInfo("[EmpireCraft][无人区] 旧档的无人区按顺着地形的新规矩重分一次");
+        if (!fromSave && signature != _titleSignature || outdated) Attach(true);
         else if (missing || _attachPending) Attach(false);
         _attachPending = false;
         _titleSignature = signature;
@@ -1957,6 +1969,8 @@ public static class WildernessSystem
         var stateFrom = new KingdomTitle[size * layers];
         var stateCity = new City[size * layers];
         var cost = new float[size * layers];
+        // travel：不算地形的坎的代价，limit(游牧挂接走多远)只量它，坎只管谁先领到(见 Seam)
+        var travel = new float[size * layers];
         for (int i = 0; i < cost.Length; i++) cost[i] = float.PositiveInfinity;
         var heap = new WorldMap.WorldMapZones.MinHeap();
         for (int id = 0; id < size; id++)
@@ -1975,6 +1989,7 @@ public static class WildernessSystem
             stateFrom[s0] = title;
             stateCity[s0] = city;
             cost[s0] = 0f;
+            travel[s0] = 0f;
             heap.Push(0f, s0);
         }
         while (heap.Count > 0)
@@ -1992,13 +2007,16 @@ public static class WildernessSystem
                 if (next == null || next.id < 0 || next.id >= size || !Land(next)) continue;
                 // 只从部分城起步时(游牧)不穿过别的城的地：农耕国腹地里的沙漠走不到，照旧挂最近的城
                 if (block && starts != null && next.city?.data != null && !next.city.isRekt() && !starts(next.city)) continue;
-                float total = at + (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * Roughness(next);
-                if (total > limit) continue;
+                float step = (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * Roughness(next);
+                float walked = travel[state] + step;
+                if (walked > limit) continue;
+                float total = at + step + Seam(zone, next);
                 int nextDepth = overMountains ? 0 : Step(zone, depth, next);
                 if (nextDepth < 0) continue;
                 int target = next.id * layers + nextDepth;
                 if (total >= cost[target]) continue;
                 cost[target] = total;
+                travel[target] = walked;
                 stateFrom[target] = stateFrom[state];
                 stateCity[target] = stateCity[state];
                 heap.Push(total, target);
@@ -2024,6 +2042,33 @@ public static class WildernessSystem
     }
 
     private static bool OnWall(int id) => id < _walled.Length && _walled[id];
+
+    // 换地形、下河的坎(用户 2026-11-10 截图韦部落："自然的地形占领也好直""而且也没顺着地形走")：每块地的代价互不相干(TerritoryGrain)，
+    // 走远了正负抵消，两城之间的分界在大尺度上还是两城连线的中垂线，画成平滑轮廓、磨掉碎齿就成了一条长直边；地形自己连成片，
+    // 从一种地形走进另一种(平原进林子、草原进沙漠、平地上丘陵)多花 TerrainSeam，从岸上下河多花 RiverSeam(上岸不收)，
+    // 分界就落在林缘、沙漠边、河上、山脚下。城池那几块不算换地形(哪座城出城都一样)。只管谁先领到，不算进走多远(见 Spread 的 travel)。
+    // 斜着走过河的拐角(河只有一块宽时八方向走能从拐角跨过去)也算下河。按同一套走法在格子上模拟过两城之间：
+    // 斜着的林缘，分界离林缘平均从 4.9 块近到 1.7 块；绕着中垂线左右摆 7 块的河，从 5.4 块近到 0.7 块
+    private const float TerrainSeam = 5f, RiverSeam = 10f;
+
+    private static float Seam(TileZone zone, TileZone next)
+    {
+        FrontTerrain from = TerrainSystem.Of(zone), to = TerrainSystem.Of(next);
+        if (from == FrontTerrain.River) return 0f;
+        if (to == FrontTerrain.River || CutsRiverCorner(zone, next)) return RiverSeam;
+        if (from == to || from == FrontTerrain.Urban || to == FrontTerrain.Urban) return 0f;
+        return TerrainSeam;
+    }
+
+    // 斜走一步时，旁边两块里有河：从河的拐角跨了过去
+    private static bool CutsRiverCorner(TileZone zone, TileZone next)
+    {
+        if (next.x == zone.x || next.y == zone.y) return false;
+        ZoneCalculator calculator = World.world?.zone_calculator;
+        if (calculator == null) return false;
+        TileZone a = calculator.getZone(zone.x, next.y), b = calculator.getZone(next.x, zone.y);
+        return a != null && TerrainSystem.Of(a) == FrontTerrain.River || b != null && TerrainSystem.Of(b) == FrontTerrain.River;
+    }
 
     // 隔山不领(用户 2026-11-10 截图犍陀罗、迦湿弥罗挂走了兴都库什、喀喇昆仑山里山梁那边的无人区："山地对面的无人区也不准自动领取"；
     // 问答定"至多 2 块""法理也不挂，留作无主")：挂法理往外走时，成片的山(地块里走不通，见 TerrainSystem.ImpassableGround)
@@ -2215,8 +2260,12 @@ public static class WildernessSystem
     // "放个部落全归属了"；问答定"法理照挂，版图只算附近""按时代放宽")：法理照旧不限远近挂最近的城(地形都进法理图层)，
     // 可离本来该归的那国的城(城心连同城的大小)超过 ReachOf 块的地块不算它的版图，显示为无主无人区，城多了、近了自然归入。
     // 石器时代 ReachStone 块，之后每进一个时代多 ReachPerEra 块；科技树关着按 ReachDefault 块。世界地图预设剧本照史实不变。
-    // 每次核归属时算好记在 _far，OwnerOf 只看这个
+    // 每次核归属时算好记在 _far，OwnerOf 只看这个。
+    // 远近顺着地形量(用户 2026-11-10 截图韦部落："自然的地形占领也好直""而且也没顺着地形走")：以前量直线(城心到地块，加上城的大小)，版图边是一段段圆弧，
+    // 隔着林子、沙漠、河也一样远。现在从这国各城的地块起步按地形阻力往外走(TerrainResistance.TerrainStep：平原 1、森林 1.3、
+    // 丘陵 1.6、沙漠雪地 2、沼泽丛林 2.5、山地高原 4，斜走 ×1.414，下河 +2)，花得不到 ReachOf 的才算近；近岸的岛隔着海一块按 SeaReachStep
     private const int ReachStone = 6, ReachPerEra = 3, ReachDefault = 10;
+    private const float SeaReachStep = 2f;
     private static bool[] _far = new bool[0];
 
     public static int ReachOf(Kingdom kingdom)
@@ -2231,7 +2280,7 @@ public static class WildernessSystem
         int length = _titles.Length;
         if (_far.Length != length) _far = new bool[length];
         bool exempt = WorldMap.WorldMapWilderness.FixedLayout;
-        var reach = new Dictionary<Kingdom, (int reach, List<(int x, int y, float radius)> cities)>();
+        var reach = new Dictionary<Kingdom, HashSet<int>>();
         bool changed = false;
         foreach (WildRegion region in _regions)
             foreach (int id in region.Zones)
@@ -2250,34 +2299,50 @@ public static class WildernessSystem
         return changed;
     }
 
-    private static bool TooFar(TileZone zone, Kingdom owner,
-        Dictionary<Kingdom, (int reach, List<(int x, int y, float radius)> cities)> cache)
+    private static bool TooFar(TileZone zone, Kingdom owner, Dictionary<Kingdom, HashSet<int>> cache)
     {
-        if (!cache.TryGetValue(owner, out var entry))
+        if (!cache.TryGetValue(owner, out HashSet<int> near)) cache[owner] = near = Near(owner, ReachOf(owner));
+        // 没有城的国(还在筹备建城)不领无人区：一块都没走到
+        return !near.Contains(zone.id);
+    }
+
+    // 从这国各城的地块起步，按地形阻力走得到、花不到 budget 的地块
+    private static HashSet<int> Near(Kingdom owner, float budget)
+    {
+        var cost = new Dictionary<int, float>();
+        var heap = new WorldMap.WorldMapZones.MinHeap();
+        foreach (City city in owner.cities ?? new List<City>())
         {
-            var cities = new List<(int x, int y, float radius)>();
-            foreach (City city in owner.cities ?? new List<City>())
+            if (city?.data == null || city.isRekt()) continue;
+            foreach (TileZone part in city.zones ?? new List<TileZone>())
             {
-                TileZone center = city?.data == null || city.isRekt() ? null : city.getTile()?.zone;
-                if (center == null) continue;
-                float radius = 0f;
-                foreach (TileZone part in city.zones ?? new List<TileZone>())
-                    if (part != null)
-                        radius = Math.Max(radius, (part.x - center.x) * (part.x - center.x) + (part.y - center.y) * (part.y - center.y));
-                cities.Add((center.x, center.y, (float)Math.Sqrt(radius)));
+                if (part == null || part.id < 0 || cost.ContainsKey(part.id)) continue;
+                cost[part.id] = 0f;
+                heap.Push(0f, part.id);
             }
-            entry = (ReachOf(owner), cities);
-            cache[owner] = entry;
         }
-        // 没有城的国(还在筹备建城)不领无人区
-        if (entry.cities.Count == 0) return true;
-        foreach ((int x, int y, float radius) in entry.cities)
+        var zones = World.world?.zone_calculator?.zones;
+        while (heap.Count > 0)
         {
-            float limit = entry.reach + radius;
-            int dx = x - zone.x, dy = y - zone.y;
-            if (dx * dx + dy * dy <= limit * limit) return false;
+            heap.Pop(out float at, out int id);
+            if (cost.TryGetValue(id, out float known) && at > known) continue;
+            TileZone zone = zones != null && id < zones.Count ? zones[id] : id < _zones.Length ? _zones[id] : null;
+            if (zone?.neighbours_all == null) continue;
+            bool fromRiver = TerrainSystem.Of(zone) == FrontTerrain.River;
+            foreach (TileZone next in zone.neighbours_all)
+            {
+                if (next == null || next.id < 0) continue;
+                float step = SeaRegionSystem.IsSea(next) ? SeaReachStep : TerrainResistance.TerrainStep(next);
+                if (step < 0f) continue;
+                if (!fromRiver && (TerrainSystem.Of(next) == FrontTerrain.River || CutsRiverCorner(zone, next)))
+                    step += TerrainResistance.RiverCrossing;
+                float total = at + (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * step;
+                if (total > budget || cost.TryGetValue(next.id, out float old) && total >= old) continue;
+                cost[next.id] = total;
+                heap.Push(total, next.id);
+            }
         }
-        return true;
+        return new HashSet<int>(cost.Keys);
     }
 
     // 各片周边的城(与区域相邻的地块上的城)是不是全属于同一个国家；有变化返回 true。
