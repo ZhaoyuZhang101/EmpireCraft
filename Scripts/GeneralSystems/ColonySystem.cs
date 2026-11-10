@@ -70,11 +70,29 @@ public static class ColonySystem
     {
         if (city?.data == null || city.isRekt()) return false;
         if (city.getBuildingOfType("type_docks", pCountOnlyFinished: true, pRandom: false) != null) return true;
-        foreach (TileZone zone in city.zones ?? new List<TileZone>())
-            foreach (WorldTile tile in zone?.tiles ?? Array.Empty<WorldTile>())
-                if (tile?.Type?.ocean == true) return true;
-        return false;
+        // 临不临海要逐格看，内陆大城上万格：同一座城、地块数没变的一年内照旧(议和台每场仗每年给每座城问一遍)
+        int count = city.zones?.Count ?? 0, year = Date.getCurrentYear();
+        if (PortCache.TryGetValue(city.data.id, out (City city, int zones, int year, bool port) hit) &&
+            ReferenceEquals(hit.city, city) && hit.zones == count && hit.year == year)
+            return hit.port;
+        bool port = false;
+        if (city.zones != null)
+            foreach (TileZone zone in city.zones)
+            {
+                foreach (WorldTile tile in zone?.tiles ?? Array.Empty<WorldTile>())
+                    if (tile?.Type?.ocean == true)
+                    {
+                        port = true;
+                        break;
+                    }
+                if (port) break;
+            }
+        if (PortCache.Count > 4096) PortCache.Clear();
+        PortCache[city.data.id] = (city, count, year, port);
+        return port;
     }
+
+    private static readonly Dictionary<long, (City city, int zones, int year, bool port)> PortCache = new();
 
     // 战争收场时的属地安排(立保护国、租借、移交殖民地)：过几帧再做，不在原版结束战争的同一帧里改归属、关系
     private static readonly Queue<Action> Deferred = new();

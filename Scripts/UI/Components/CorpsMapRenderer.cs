@@ -112,7 +112,20 @@ public static class CorpsMapRenderer
         public Image Frame, Attacker, Defender;
         public Text Title, Label;
         public float TitleWidth, LabelWidth;
+        // 两行字的缓存：同一场交战半秒内不重拼字、不重数已占地块(每帧给每块牌子格式化三段字、数一遍城里各地块归谁太费)
+        public long TextKey = long.MinValue;
+        public float TextAt = float.NegativeInfinity;
+
+        public bool TextStale(long key, float now)
+        {
+            if (TextKey == key && now - TextAt < MarkerTextSeconds) return false;
+            TextKey = key;
+            TextAt = now;
+            return true;
+        }
     }
+
+    private const float MarkerTextSeconds = 0.5f;
 
     private struct Hit
     {
@@ -927,28 +940,31 @@ public static class CorpsMapRenderer
                 marker.Root.gameObject.SetActive(true);
                 marker.Root.localScale = pixelScale;
                 SetFrame(marker.Frame, Frame("CorpsBattle"));
-                // 上行：战役名(辽阳之战 / 辽阳登陆战)
-                City seat = World.world.cities.get(battle.city_id);
-                string title = seat?.data == null ? ""
-                    : string.Format(LM.Get(battle.landing ? "corps_battle_name_landing" : "corps_battle_name"),
-                        seat.GetCityName());
-                if (marker.Title.text != title)
+                if (marker.TextStale(battle.city_id * 2 + (battle.landing ? 1 : 0), Time.unscaledTime))
                 {
-                    marker.Title.text = title;
-                    marker.TitleWidth = marker.Title.preferredWidth;
-                }
-                // 下行：攻方胜算 + 已占地块(同提示里的那两行，不必悬停也看得见)
-                // 渡海登陆的一仗标"登陆"，画在抢滩的那块地(见 FrontSystem.Record)
-                int zones = seat?.zones?.Count ?? 0;
-                int held = zones == 0 ? 0
-                    : seat.zones.Count(z => FrontSystem.Hostile(seat.kingdom, FrontSystem.Controller(z)));
-                string label = string.Format(LM.Get(battle.landing ? "corps_battle_marker_landing" : "corps_battle_marker"),
-                                   Mathf.RoundToInt(battle.ratio * 100f)) +
-                               string.Format(LM.Get("corps_battle_marker_tiles"), held, zones);
-                if (marker.Label.text != label)
-                {
-                    marker.Label.text = label;
-                    marker.LabelWidth = marker.Label.preferredWidth;
+                    // 上行：战役名(辽阳之战 / 辽阳登陆战)
+                    City seat = World.world.cities.get(battle.city_id);
+                    string title = seat?.data == null ? ""
+                        : string.Format(LM.Get(battle.landing ? "corps_battle_name_landing" : "corps_battle_name"),
+                            seat.GetCityName());
+                    if (marker.Title.text != title)
+                    {
+                        marker.Title.text = title;
+                        marker.TitleWidth = marker.Title.preferredWidth;
+                    }
+                    // 下行：攻方胜算 + 已占地块(同提示里的那两行，不必悬停也看得见)
+                    // 渡海登陆的一仗标"登陆"，画在抢滩的那块地(见 FrontSystem.Record)
+                    int zones = seat?.zones?.Count ?? 0, held = 0;
+                    for (int i = 0; i < zones; i++)
+                        if (FrontSystem.Hostile(seat.kingdom, FrontSystem.Controller(seat.zones[i]))) held++;
+                    string label = string.Format(LM.Get(battle.landing ? "corps_battle_marker_landing" : "corps_battle_marker"),
+                                       Mathf.RoundToInt(battle.ratio * 100f)) +
+                                   string.Format(LM.Get("corps_battle_marker_tiles"), held, zones);
+                    if (marker.Label.text != label)
+                    {
+                        marker.Label.text = label;
+                        marker.LabelWidth = marker.Label.preferredWidth;
+                    }
                 }
                 float width = Mathf.Max(MarkerWidth, 26f + Mathf.Max(marker.TitleWidth, marker.LabelWidth));
                 marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
@@ -1078,20 +1094,24 @@ public static class CorpsMapRenderer
                 marker.Root.gameObject.SetActive(true);
                 marker.Root.localScale = pixelScale;
                 SetFrame(marker.Frame, Frame("CorpsBattle"));
-                // 上行：交战两国
-                string title = string.Format(LM.Get("navy_battle_name"),
-                    World.world.kingdoms.get(battle.attacker_id)?.GetKingdomName() ?? "?",
-                    World.world.kingdoms.get(battle.defender_id)?.GetKingdomName() ?? "?");
-                if (marker.Title.text != title)
+                // 海战的键取负数，不跟陆上交战(城编号)撞
+                if (marker.TextStale(~unchecked(battle.attacker_id * 1000003L + battle.defender_id), Time.unscaledTime))
                 {
-                    marker.Title.text = title;
-                    marker.TitleWidth = marker.Title.preferredWidth;
-                }
-                string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
-                if (marker.Label.text != label)
-                {
-                    marker.Label.text = label;
-                    marker.LabelWidth = marker.Label.preferredWidth;
+                    // 上行：交战两国
+                    string title = string.Format(LM.Get("navy_battle_name"),
+                        World.world.kingdoms.get(battle.attacker_id)?.GetKingdomName() ?? "?",
+                        World.world.kingdoms.get(battle.defender_id)?.GetKingdomName() ?? "?");
+                    if (marker.Title.text != title)
+                    {
+                        marker.Title.text = title;
+                        marker.TitleWidth = marker.Title.preferredWidth;
+                    }
+                    string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
+                    if (marker.Label.text != label)
+                    {
+                        marker.Label.text = label;
+                        marker.LabelWidth = marker.Label.preferredWidth;
+                    }
                 }
                 float width = Mathf.Max(MarkerWidth, 26f + Mathf.Max(marker.TitleWidth, marker.LabelWidth));
                 marker.Root.sizeDelta = new Vector2(width, MarkerHeight);

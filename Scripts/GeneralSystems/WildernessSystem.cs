@@ -617,7 +617,7 @@ public static class WildernessSystem
                 using (FrameProfiler.Measure("无人区·重划")) Build(false, true);
                 return;
             }
-            CityFragmentSystem.Tick();
+            using (FrameProfiler.Measure("无人区·城地碎块")) CityFragmentSystem.Tick();
             if (now >= _nextRefresh)
             {
                 _nextRefresh = now + RefreshSeconds;
