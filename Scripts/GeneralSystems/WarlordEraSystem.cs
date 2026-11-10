@@ -110,7 +110,7 @@ public static partial class WarlordEraSystem
     {
         name = "";
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.GetRegime()?.type != RegimeType.Modern ||
-            kingdom.IsEmpire() || kingdom.IsInEmpire() || kingdom.GetAdministrativeTitle() != null) return false;
+            kingdom.IsEmpire() || kingdom.IsInEmpire() || kingdom.GetAdministrativeTitle() != null || Dependent(kingdom)) return false;
         // 正在造反的(农民军、起义军、某某叛乱)用自己的叛军名号，打赢独立之后才按军阀称呼
         if (kingdom.IsFactionRebelling() || kingdom.IsLocalRebelling()) return false;
         // 名号用王国法理：自己的主法理 → 都城所在的法理(没有别的政权以它为主法理时) → 都城名。
@@ -604,11 +604,17 @@ public static partial class WarlordEraSystem
     // 天下里的势力：都城在这个天下(按法理所属的核心，零星城并入相邻天下)，或主法理在这个天下的某个核心里
     private static bool IsLocalHolder(EmpireCore lead, Kingdom holder)
     {
-        if (lead == null || holder == null || holder.isRekt()) return false;
+        if (lead == null || holder == null || holder.isRekt() || Dependent(holder)) return false;
         if (holder.capital != null && TianxiaSystem.LeadOf(holder.capital) == lead) return true;
         KingdomTitle title = holder.GetMainTitle();
         return title != null && MembersOf(lead).Any(member => EmpireCoreManager.ContainsTitle(member, title));
     }
+
+    // 别国的附从：傀儡、属地(连同宗主国不在图上的剧本属地)、流亡政府。不是这个天下自己的势力——不算地方武装、不争中央、
+    // 不被易帜归附、不当统一战争的目标(1937 剧本开局冀东、葡属澳门被叫成"某某系军阀")
+    internal static bool Dependent(Kingdom kingdom) =>
+        kingdom?.data != null && (PuppetStateSystem.IsPuppet(kingdom) || ColonySystem.IsColony(kingdom) ||
+                                  ExileGovernmentSystem.IsExiled(kingdom) || kingdom.GetOrCreate().scenario_dependent);
 
     // 帝国核心里的势力(古代开国雄主的归附、讨伐仍按帝国核心)
     private static bool IsCoreHolder(EmpireCore core, Kingdom holder)

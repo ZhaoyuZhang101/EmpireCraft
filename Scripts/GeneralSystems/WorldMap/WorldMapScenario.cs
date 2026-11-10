@@ -51,6 +51,8 @@ public static class WorldMapScenario
         public City city;
         // 补空立的随机小国：没有史料，城名国名按本地文化随机起
         public bool random;
+        // 补空城落在哪个剧本地区：走得到的最近剧本城所在的地区(region 是补空自己起的，不在任何一国的 r 里，见 ClaimingPolity)
+        public WorldMapRegion home;
         // 城心那块地；建城时原版顺手领的一圈退过了没有(见 ReleaseFoundingRings)
         public TileZone seat;
         public bool ringReleased;
@@ -701,7 +703,10 @@ public static class WorldMapScenario
             string reason = DiplomacyActions.ApplyScenario(relation.kind, a, b, goal, relation.value, target);
             if (reason == null) done++;
             // 剧本定下的朝贡：若干年内不因国力坐大脱离(见 KingdomExtension.StartToTaken)
-            if (reason == null && relation.kind == "tribute") a.GetOrCreate().scripted_tribute_at = World.world.getCurWorldTime();
+            if (reason == null)
+            {
+                if (relation.kind == "tribute") a.GetOrCreate().scripted_tribute_at = World.world.getCurWorldTime();
+            }
             else LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交 {a.GetKingdomName()}→{b.GetKingdomName()} {relation.kind} 没成：{reason}");
         }
         LogService.LogInfo($"[EmpireCraft][世界地图] 开局外交：{done}/{relations.Count} 条");
@@ -1135,17 +1140,19 @@ public static class WorldMapScenario
     // 补空小国的城过半落在哪一国写明据有的地区里：那一国(几国都写了取离得最近的；部落、补空小国不算)
     private static PlannedPolity ClaimingPolity(PlannedPolity filler)
     {
-        List<PlannedCity> cities = filler.cities.Where(city => city?.region != null).ToList();
+        // 补空城自己的 region 是补空时现起的(filler_N)，按它落在的剧本地区(home)算
+        List<PlannedCity> cities = filler.cities.Where(city => (city?.home ?? city?.region) != null).ToList();
         if (cities.Count == 0) return null;
         var votes = new Dictionary<PlannedPolity, int>();
         foreach (PlannedCity planned in cities)
         {
+            string region = (planned.home ?? planned.region).id;
             PlannedPolity best = null;
             float bestDistance = float.MaxValue;
             foreach (PlannedPolity polity in _polities)
             {
                 if (polity == filler || polity.tribe || polity.capital?.random == true || polity.kingdom?.data == null ||
-                    polity.data?.regions == null || !polity.data.regions.Contains(planned.region.id) || polity.cities.Count == 0) continue;
+                    polity.data?.regions == null || !polity.data.regions.Contains(region) || polity.cities.Count == 0) continue;
                 float distance = polity.cities.Min(city => (city.tile - planned.tile).sqrMagnitude);
                 if (distance >= bestDistance) continue;
                 best = polity;
@@ -1228,7 +1235,7 @@ public static class WorldMapScenario
         PlanTribes();
         var centers = _cities.Where(city => city.city != null && !city.random && CultureService.IsValidCulture(city.culture))
             .GroupBy(city => city.region.id)
-            .Select(group => (culture: group.First().culture, x: (float)group.Average(city => city.tile.x),
+            .Select(group => (culture: group.First().culture, region: group.First().region, x: (float)group.Average(city => city.tile.x),
                 y: (float)group.Average(city => city.tile.y)))
             .ToList();
         if (centers.Count == 0) return;
@@ -1249,9 +1256,9 @@ public static class WorldMapScenario
             TileZone zone = WorldMapZones.Zone(index);
             var tile = new Vector2Int(zone.centerTile.x, zone.centerTile.y);
             int from = index >= 0 && index < reach.Length ? reach[index] : -1;
-            string culture = from >= 0
-                ? anchors[from].culture
-                : centers.OrderBy(center => (center.x - tile.x) * (center.x - tile.x) + (center.y - tile.y) * (center.y - tile.y)).First().culture;
+            var nearest = centers.OrderBy(center => (center.x - tile.x) * (center.x - tile.x) + (center.y - tile.y) * (center.y - tile.y)).First();
+            string culture = from >= 0 ? anchors[from].culture : nearest.culture;
+            WorldMapRegion home = from >= 0 ? anchors[from].region : nearest.region;
             PlannedPolity polity = fillers.Where(other => other.culture == culture && other.cities.Count < CitiesPerFiller &&
                                                           (other.capital.tile - tile).sqrMagnitude <= FillerJoinTiles * FillerJoinTiles)
                 .OrderBy(other => (other.capital.tile - tile).sqrMagnitude).FirstOrDefault();
@@ -1260,7 +1267,7 @@ public static class WorldMapScenario
             {
                 data = new WorldMapCity { id = id, region = polity?.capital.region.id ?? id, rank = 3 }, rank = 3,
                 region = polity?.capital.region ?? new WorldMapRegion { id = id, culture = culture },
-                tile = tile, culture = culture, random = true
+                tile = tile, culture = culture, random = true, home = home
             };
             if (polity == null)
             {
@@ -2403,6 +2410,8 @@ public static class WorldMapScenario
             PlannedPolity metropole = string.IsNullOrEmpty(p.data.colonyOf) ? null
                 : _polities.FirstOrDefault(other => other.data?.id == p.data.colonyOf && other.kingdom != null);
             if (metropole != null) _afterLoad.Add(($"{p.name} 归 {metropole.name}", () => AnnexColony(p, metropole)));
+            // 宗主国不在图上(东亚半幅的葡属澳门、英属香港)：照旧自成一国，只是不当本天下的地方武装
+            else if (!string.IsNullOrEmpty(p.data.colonyOf) && p.kingdom.data != null) p.kingdom.GetOrCreate().scenario_dependent = true;
             // 幕府：将军家的君主就任征夷大将军(天皇是宗主帝国的君主；开国之君在位本来不立幕府，剧本照史当场立)
             if (p.data.shogun) _afterLoad.Add(($"{p.name} 征夷大将军", () => Shogunate(p)));
             if (p.data.holy && p.empire != null)

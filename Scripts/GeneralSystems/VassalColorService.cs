@@ -11,6 +11,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   合成颜色只放在运行时缓存 _cached_color 里，存档里的 color_id 仍是附属国自己的颜色；
 //   读档或被原版改色后由月度同步(FeudalVassalService.Sync)重新套上，独立时 KingdomColorService.Restore 清掉。
 // 朝贡国底色整个用帝国的颜色(用户 2026-10-29)，退出朝贡照样由 Restore 换回自己的颜色。
+// 殖民地(连同保护国、托管地、租借地)与傀儡也整个用宗主的颜色(用户 2026-11-10 伪满、日属朝鲜看不出是日本的)；傀儡放开时清掉。
 public static class VassalColorService
 {
     private static readonly Dictionary<string, ColorAsset> Composites = new();
@@ -34,9 +35,10 @@ public static class VassalColorService
             own = subject.data.color_id;
         }
         if (own < 0 || own >= colors.Count || colors[own] == null) return;
-        // 朝贡国底色整个换成帝国的颜色(用户 2026-10-29："朝贡还是直接改为和帝国同色吧，退出朝贡才恢复")；封建附庸、殖民地仍各半
-        bool tributary = subject.HasTakenAlliance() && subject.GetTakenAllianceEmpire()?.CoreKingdom == lord;
-        ColorAsset composite = Composite(colors[own], lordColor, tributary ? 1f : LordBlend);
+        // 朝贡国、殖民地、傀儡底色整个换成宗主的颜色(朝贡见用户 2026-10-29"退出朝贡才恢复")；封建附庸仍各半
+        bool full = subject.HasTakenAlliance() && subject.GetTakenAllianceEmpire()?.CoreKingdom == lord ||
+                    ColonySystem.MetropoleOf(subject) == lord || PuppetStateSystem.Master(subject) == lord;
+        ColorAsset composite = Composite(colors[own], lordColor, full ? 1f : LordBlend);
         if (subject._cached_color == composite) return;
         subject._cached_color = composite;
         World.world?.zone_calculator?.dirtyAndClear();
@@ -67,6 +69,7 @@ public static class VassalColorService
             Kingdom lord = FeudalVassalService.GetOverlord(subject);
             if (lord == null && subject.HasTakenAlliance()) lord = subject.GetTakenAllianceEmpire()?.CoreKingdom;
             lord ??= ColonySystem.MetropoleOf(subject);
+            lord ??= PuppetStateSystem.Master(subject);
             if (lord == null || lord.isRekt()) continue;
             // 已套着合成色的也再套一遍(Apply 里同一合成色直接返回)：附庸改为朝贡、朝贡改为附庸时深浅要跟着换
             Apply(subject, lord);

@@ -228,7 +228,7 @@ def M(regime, ideology="", party=None, one=False, parties=None):
 ROC = polity(
     "roc", "中华民国", "Republic of China", "China", "nanjing",
     r=["jiangdong", "huaisi", "jiangxi", "minyue", "lingnan", "qiongya", "jingchu", "henan", "guanzhong", "hanzhong", "longxi"],
-    cities=["guiyang", "shanghai"], emp=True, old_capital="beijing",
+    cities=["guiyang", "shanghai", "xian", "baoji"], emp=True, old_capital="beijing",
     modern=M("republic", "Centrism", ("中国国民党", "Kuomintang"), one=True),
     ruler=person("蒋|Chiang", "中正|Chung-cheng", 49),
     kin=[person("宋|Soong", "美龄|Mei-ling", 39, rel="wife"),
@@ -297,7 +297,7 @@ WARLORDS = [
 ]
 
 CCP = polity(
-    "ccp", "陕甘宁边区", "Shaan-Gan-Ning Border Region", "China", "yanan", cities=["yanan"], emp=True,
+    "ccp", "陕甘宁边区", "Shaan-Gan-Ning Border Region", "China", "yanan", r=["guanzhong"], cities=["yanan"], emp=True,
     modern=M("republic", "Communism", ("中国共产党", "Communist Party of China"), one=True),
     ruler=person("毛|Mao", "泽东|Zedong", 43),
     famous=[
@@ -361,7 +361,7 @@ TAIWAN_COLONY = polity("taiwan_gg", "日属台湾", "Japanese Taiwan", "Japan", 
 KWANTUNG = polity("kwantung", "日属关东州", "Kwantung Leased Territory", "Japan", "dalian", cities=["dalian"],
                   colony_of="japan", place="关东州|Kwantung", dependency="lease", lessor="roc", lease_years=60)
 MANCHUKUO = polity(
-    "manchukuo", "满洲国", "Manchukuo", "Huaxia", "fuyu", r=["manchuria", "liaodong"], cities=["chengde", "chaghan"], emp=True,
+    "manchukuo", "满洲国", "Manchukuo", "Huaxia", "fuyu", r=["manchuria", "liaodong"], cities=["chengde", "chaghan", "hetuala", "ninguta", "harbin", "qiqihar", "jilin", "heihe", "hailar"], emp=True,
     era_name="康德|Kangde", era_year=4, modern=M("monarchy"),
     ruler=person("爱新觉罗|Aisin Gioro", "溥仪|Puyi", 31),
     kin=[person("郭布罗|Gobulo", "婉容|Wanrong", 31, rel="wife"),
@@ -391,7 +391,8 @@ KOREA_EXILE = polity(
 
 USSR = polity(
     "ussr", "苏联", "Soviet Union", "Slavonic", "moscow",
-    r=["rus_n", "rus_c", "pontic", "crimea", "volga", "siberia", "kazakh", "sogdiana", "ferghana", "khwarazm", "caucasus"],
+    # manchuria：伯力、海参崴、雅克萨这一片(外东北)，与满洲国按最近的城分补空小国
+    r=["rus_n", "rus_c", "pontic", "crimea", "volga", "siberia", "kazakh", "sogdiana", "ferghana", "khwarazm", "caucasus", "manchuria"],
     cities=["kiev", "chernigov", "artaxata", "termez", "merv", "yaksa", "vladivostok", "khabarovsk", "st_petersburg"],
     emp=True, modern=M("republic", "Communism", ("联共(布)", "All-Union Communist Party (Bolsheviks)"), one=True),
     ruler=person("", "斯大林|Joseph Stalin", 58),
@@ -420,7 +421,7 @@ PHILIPPINES = polity("philippines", "菲律宾自治邦", "Commonwealth of the P
                      ruler=person("", "曼努埃尔·奎松|Manuel Quezon", 59),
                      famous=[famous("", "麦克阿瑟|Douglas MacArthur", 57, "general", 2, "general")])
 AFGHANISTAN = polity("afghanistan", "阿富汗", "Afghanistan", "Persepolis", "kabul",
-                     cities=["kabul", "kandahar", "ghazni", "herat", "balkh"], modern=M("monarchy"),
+                     r=["gandhara"], cities=["kabul", "kandahar", "ghazni", "herat", "balkh"], modern=M("monarchy"),
                      ruler=person("", "查希尔·沙|Mohammed Zahir Shah", 23))
 IRAN = polity("iran", "伊朗", "Iran", "Persepolis", "rayy", r=["persis", "media"], cities=["nishapur", "susa"], emp=True,
               modern=M("monarchy"),
@@ -431,7 +432,7 @@ IRAN = polity("iran", "伊朗", "Iran", "Persepolis", "rayy", r=["persis", "medi
 
 COLONIES = [
     polity("british_india", "英属印度", "British India", "India", "delhi",
-           r=["gandhara", "punjab", "sindh", "hindustan", "magadha", "bengal", "gujarat", "malwa", "deccan", "kalinga", "tamil"],
+           cities=["peshawar"], r=["gandhara", "punjab", "sindh", "hindustan", "magadha", "bengal", "gujarat", "malwa", "deccan", "kalinga", "tamil"],
            colony_of="uk", place="印度|India", ruler=person("", "林利思戈|Lord Linlithgow", 50)),
     polity("burma", "英属缅甸", "British Burma", "India", "rangoon", r=["burma"], colony_of="uk", place="缅甸|Burma"),
     polity("ceylon", "英属锡兰", "British Ceylon", "India", "colombo", r=["lanka"], colony_of="uk", place="锡兰|Ceylon"),
@@ -873,6 +874,21 @@ WILDERNESS_REGIONS = {"luliang": "hedong", "taebaek": "korea_s", "simien": "aksu
                       "massif_central": "gaul_s"}
 
 
+def claim_regions(polities, data):
+    """没有哪国写进 r 的地区：在那儿有城的各国都认领。开局补空的小国落在哪国认领的地区就并进哪国，
+    几国都认领的归城离得最近的那国(见 WorldMapScenario.ClaimingPolity)；不认领的话河套、漠南、幽燕、南中这些
+    地方补出来的小国开局就各自独立，成了一片"某某系军阀"。流亡政府不认领。"""
+    region_of = {c["id"]: c["r"] for c in data["cities"]}
+    claimed = {r for item in polities if not item.get("exile") for r in item.get("r", [])}
+    for item in polities:
+        if item.get("exile"):
+            continue
+        own = {region_of[cid] for cid in item.get("cities", []) + [item["cap"]] if cid in region_of}
+        extra = sorted(r for r in own - claimed if r not in item.get("r", []))
+        if extra:
+            item["r"] = item.get("r", []) + extra
+
+
 def main():
     root = sys.argv[1]
     cities = [dict(city) for city in NEW_CITIES]
@@ -902,6 +918,7 @@ def main():
         ids.add(item["id"])
         missing = [cid for cid in item.get("cities", []) + [item["cap"]] if cid not in active]
         assert not missing or item.get("exile"), (item["id"], missing)
+    claim_regions(polities, data)
     era = {
         "id": "sino_japanese", "year": YEAR, "focus": "east", "order": 5, "frame": "eastasia",
         "zh": "日军侵华", "en": "Japanese Invasion of China",

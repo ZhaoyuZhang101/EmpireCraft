@@ -340,6 +340,8 @@ public static class KingdomExtension
         public bool scenario_monarchy;
         // 剧本的地方实力派(民国的晋绥、桂系……)：现代国家的成员却保留军队与财政，行政改划不拆它的地盘(见 ScenarioModernPolitics)
         public bool scenario_autonomy;
+        // 剧本写明的属地、宗主国不在图上(东亚半幅里的葡属澳门、英属香港……)：不算本天下的地方武装(见 WarlordEraSystem.Dependent)
+        public bool scenario_dependent;
         // 立国出身(见 StateModernization)：1 从共和国分出、共和派起事或剧本按文化立(本文化已废君就能一立国即现代政体)；
         // 2 从君主国割据自立；0 旧档或别的途径立的(照本文化的君主政体)
         public int modern_origin;

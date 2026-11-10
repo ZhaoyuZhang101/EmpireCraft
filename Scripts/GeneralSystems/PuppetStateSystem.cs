@@ -75,6 +75,8 @@ public static class PuppetStateSystem
         data.scenario_monarchy = true;
         SyncIdeology(puppet, master);
         JoinWars(puppet, master);
+        // 地图上用宗主的颜色(见 VassalColorService)
+        VassalColorService.Apply(puppet, master);
         if (record)
         {
             string text = string.Format(LM.Get("puppet_established_history"), puppet.GetKingdomName(), master.GetKingdomName());
@@ -176,6 +178,7 @@ public static class PuppetStateSystem
         data.puppet_master_id = -1L;
         data.puppet_since = -1d;
         data.regime_manually_selected = false;
+        VassalColorService.Clear(puppet);
         if (puppet.isRekt() || string.IsNullOrEmpty(historyKey)) return;
         string text = string.Format(LM.Get(historyKey), puppet.GetKingdomName(), master?.data?.name ?? LM.Get("label_none"));
         EventRecorder.Record(puppet, text);
