@@ -17,88 +17,87 @@ namespace EmpireCraft.Scripts.UI;
 
 internal static class MainTab
 {
-    // 三个标签页，各按类别分组(同原版标签页，组与组之间有分隔线)：
-    //   帝国：王国法理 | 帝国法理 | 天下 | 行政区 | 帝国 | 显示与工具(法理三层按层排，每层 图层·建立·加入·兼属·移出)
-    //   文化与规划：文化理念等图层 | 城市规划 | 理念种子
+    // 五个标签页(用户 2026-11-10 "godpower好乱"后重排)，每页按组排，组与组之间画分隔线(同原版标签页)。
+    // 每组先放本组的图层、再放本组的工具；按钮多的笔刷组放在页尾，前面的短组不用滚动就看得到：
+    //   法理与帝国：王国法理 | 帝国法理 | 天下 | 帝国 | 行政区 | 显示 | 工具
+    //   列国与人物：邦交 | 征伐 | 春秋战国 | 人物 | 穿越
+    //   文化与宗教：文化 | 宗教 | 科技 | 易俗
+    //   营建：城池 | 村镇 | 厂区 | 道路 | 无人区 | 高原 | 民生 | 矿藏
+    //   理念种子：理念图层 | 各派种子
+    // 排版只看这里各页的组顺序，跟 _addButtons 里加按钮的先后无关
+    // ---- 法理与帝国 ----
     public const string KINGDOM_TITLE_GROUP = "kingdom_title_group";
     public const string EMPIRE_CORE_GROUP = "empire_core_group";
     public const string TIANXIA_GROUP = "tianxia_group";
     public const string EMPIRE_GROUP = "empire_layer_group";
-    public const string CULTURE_GROUP = "culture_ideology_group";
-    public const string BUILD_GROUP = "city_building_group";
-    public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
-    // 高原画笔(见 PlateauPowers)：文化与营建页里紧跟营建一组
-    public const string PLATEAU_GROUP = "plateau_brush_group";
-    public const string CULTURE_BRUSH_GROUP = "culture_brush_group";
-    public const string RESOURCE_BRUSH_GROUP = "resource_brush_group";
-    public const string DISPLAY_GROUP = "display_tool_group";
-    public const string EMPIRE_FUNCTIONS = "empire_function_group";
     public const string PROVINCE_GROUP = "province_group";
-    // 列国征伐页(用户 2026-10-17 "感觉可以再分一页了")：军令、附庸、春秋战国
+    public const string DISPLAY_GROUP = "display_tool_group";
+    public const string TOOL_GROUP = "debug_tool_group";
+    // ---- 列国与人物 ----
+    public const string DIPLOMACY_GROUP = "diplomacy_vassal_group";
     public const string WAR_GROUP = "war_command_group";
-    public const string VASSAL_GROUP = "vassal_group";
     public const string ZHOU_GROUP = "zhou_era_group";
+    public const string PEOPLE_GROUP = "people_group";
+    public const string TRANSMIGRANT_GROUP = "transmigrant_group";
+    // ---- 文化与宗教 ----
+    public const string CULTURE_GROUP = "culture_ideology_group";
+    public const string RELIGION_GROUP = "religion_group";
+    public const string TECH_GROUP = "tech_rollback_group";
+    public const string CULTURE_BRUSH_GROUP = "culture_brush_group";
+    // ---- 营建 ----
+    public const string CITY_GROUP = "city_group";
+    public const string SETTLEMENT_GROUP = "city_building_group";
+    public const string FACTORY_GROUP = "factory_group";
+    public const string ROAD_GROUP = "road_group";
+    public const string WILD_GROUP = "wilderness_group";
+    public const string PLATEAU_GROUP = "plateau_brush_group";
+    public const string LIVELIHOOD_GROUP = "livelihood_group";
+    public const string RESOURCE_BRUSH_GROUP = "resource_brush_group";
+    // ---- 理念种子(用户 2026-11-10 "把理念种子单独列一栏") ----
+    public const string IDEOLOGY_GROUP = "ideology_layer_group";
+    public const string IDEOLOGY_SEED_GROUP = "ideology_seed_group";
+
     public static PowersTab tab;
-    public static PowersTab cultureTab;
     public static PowersTab warTab;
-    // 理念种子页(用户 2026-11-10 "把理念种子单独列一栏")
+    public static PowersTab cultureTab;
+    public static PowersTab buildTab;
     public static PowersTab ideologyTab;
+
+    // 每页的组顺序；组归哪一页也由这里定
+    private static readonly List<(PowersTab tab, string[] groups)> _tabs = new();
+    private static readonly Dictionary<string, PowersTab> _tabOfGroup = new();
 
     public static void Init()
     {
-        // Create a tab with id "Example", title key "tab_example", description key "hotkey_tip_tab_other", and icon "ui/icons/iconSteam".
-        // 创建一个id为"Example", 标题key为"set_empire_power", 描述key为"hotkey_tip_tab_other", 图标为"ui/icons/iconSteam"的标签页.
-        tab = TabManager.CreateTab("EmpireTab", "empire_tab_name", "empire_tab_description",
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath+"/GameResources/TabEmpire.png"));
-        // Set the layout of the tab. The layout is a list of strings, each string is a category. Names of each category are not important.
-        // 设置标签页的布局. 布局是一个字符串列表, 每个字符串是一个分类. 每个分类的名字不重要.
-        tab.SetLayout(new List<string>()
-        {
-            KINGDOM_TITLE_GROUP,
-            EMPIRE_CORE_GROUP,
-            TIANXIA_GROUP,
-            PROVINCE_GROUP,
-            EMPIRE_GROUP,
-            DISPLAY_GROUP,
-        });
-        cultureTab = TabManager.CreateTab("EmpireCultureTab", "empire_culture_tab_name",
-            "empire_culture_tab_description",
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabCulturePlanning.png"));
-        cultureTab.SetLayout(new List<string>()
-        {
-            CULTURE_GROUP,
-            BUILD_GROUP,
-            PLATEAU_GROUP,
-            CULTURE_BRUSH_GROUP,
-            RESOURCE_BRUSH_GROUP,
-        });
-        warTab = TabManager.CreateTab("EmpireWarTab", "empire_war_tab_name", "empire_war_tab_description",
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabWarfare.png"));
-        warTab.SetLayout(new List<string>()
-        {
-            WAR_GROUP,
-            VASSAL_GROUP,
-            ZHOU_GROUP,
-        });
-        ideologyTab = TabManager.CreateTab("EmpireIdeologyTab", "empire_ideology_tab_name", "empire_ideology_tab_description",
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/TabIdeologySeed.png"));
-        ideologyTab.SetLayout(new List<string>() { IDEOLOGY_SEED_GROUP });
-        // Add buttons to the tab.
-        // 向标签页添加按钮.
+        tab = CreateTab("EmpireTab", "empire_tab_name", "empire_tab_description", "TabEmpire.png",
+            KINGDOM_TITLE_GROUP, EMPIRE_CORE_GROUP, TIANXIA_GROUP, EMPIRE_GROUP, PROVINCE_GROUP, DISPLAY_GROUP, TOOL_GROUP);
+        warTab = CreateTab("EmpireWarTab", "empire_war_tab_name", "empire_war_tab_description", "TabWarfare.png",
+            DIPLOMACY_GROUP, WAR_GROUP, ZHOU_GROUP, PEOPLE_GROUP, TRANSMIGRANT_GROUP);
+        cultureTab = CreateTab("EmpireCultureTab", "empire_culture_tab_name", "empire_culture_tab_description", "TabCulturePlanning.png",
+            CULTURE_GROUP, RELIGION_GROUP, TECH_GROUP, CULTURE_BRUSH_GROUP);
+        buildTab = CreateTab("EmpireBuildTab", "empire_build_tab_name", "empire_build_tab_description", "TabBuild.png",
+            CITY_GROUP, SETTLEMENT_GROUP, FACTORY_GROUP, ROAD_GROUP, WILD_GROUP, PLATEAU_GROUP, LIVELIHOOD_GROUP, RESOURCE_BRUSH_GROUP);
+        ideologyTab = CreateTab("EmpireIdeologyTab", "empire_ideology_tab_name", "empire_ideology_tab_description", "TabIdeologySeed.png",
+            IDEOLOGY_GROUP, IDEOLOGY_SEED_GROUP);
         _addButtons();
         _createWindows();
-        // Update the layout of the tab.
-        // 更新标签页的布局.
-        tab.UpdateLayout();
-        cultureTab.UpdateLayout();
-        warTab.UpdateLayout();
-        ideologyTab.UpdateLayout();
         // 当前加载器版本的 UpdateLayout 把所有按钮排成一整列，不分组也不画分隔线：
         // 在它排好的基础上按组重新排，组与组之间留空并画分隔线(同原版标签页)
-        ApplyGroupedLayout(tab);
-        ApplyGroupedLayout(cultureTab);
-        ApplyGroupedLayout(warTab);
-        ApplyGroupedLayout(ideologyTab);
+        foreach ((PowersTab powersTab, string[] groups) in _tabs)
+        {
+            powersTab.UpdateLayout();
+            ApplyGroupedLayout(powersTab, groups);
+        }
+    }
+
+    private static PowersTab CreateTab(string id, string titleKey, string descriptionKey, string iconFile, params string[] groups)
+    {
+        PowersTab created = TabManager.CreateTab(id, titleKey, descriptionKey,
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/" + iconFile));
+        created.SetLayout(new List<string>(groups));
+        foreach (string group in groups) _tabOfGroup[group] = created;
+        _tabs.Add((created, groups));
+        return created;
     }
 
     private static void _createWindows()
@@ -236,395 +235,268 @@ internal static class MainTab
     [Hotfixable]
     private static void _addButtons()
     {
+        _addEmpireButtons();
+        _addWarButtons();
+        _addCultureButtons();
+        _addBuildButtons();
+        _addIdeologyButtons();
+    }
+
+    // ======== 法理与帝国 ========
+    private static void _addEmpireButtons()
+    {
         // ---- 王国法理：图层、建立、加入、兼属、移出 ----
-        PowerButton pb0 = FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
-                 SpriteTextureLoader.getSprite("ui/icons/iconToolTitleLayer.png"));
-        AddButton(KINGDOM_TITLE_GROUP, pb0);
-
+        AddButton(KINGDOM_TITLE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.KingdomTitle,
+            SpriteTextureLoader.getSprite("ui/icons/iconToolTitleLayer.png")));
         CreateTitleButton.init();
-        AddButton(KINGDOM_TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_title",
-                  SpriteTextureLoader.getSprite("ui/icons/iconToolTitleCreate.png")));
-
+        AddButton(KINGDOM_TITLE_GROUP, Power("create_title", "ui/icons/iconToolTitleCreate.png"));
         AddTitleButton.init();
-        AddButton(KINGDOM_TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleAdd.png")));
-
+        AddButton(KINGDOM_TITLE_GROUP, Power("add_title", "ui/icons/iconToolTitleAdd.png"));
         // 兼属(城另挂一个王国法理、王国法理另挂一个帝国法理、帝国法理另挂一个天下，见 DeJureShareSystem)
         DeJureSharePowers.init();
-        AddButton(KINGDOM_TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.TitleShare,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleShare.png")));
-
+        AddButton(KINGDOM_TITLE_GROUP, Power(DeJureSharePowers.TitleShare, "ui/icons/iconToolTitleShare.png"));
         RemoveTitleButton.init();
-        AddButton(KINGDOM_TITLE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_title",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTitleRemove.png")));
-
-        // ---- 行政区：省份的增删，羁縻规划 ----
-        CreateProvinceButton.init();
-        AddButton(PROVINCE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_province",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceCreate.png")));
-
-        AddProvinceButton.init();
-        AddButton(PROVINCE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_province",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceAdd.png")));
-
-        RemoveProvinceButton.init();
-        AddButton(PROVINCE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_province",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolProvinceRemove.png")));
-
-        JimiPolicyPower.Init();
-        AddButton(PROVINCE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("jimi_policy",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/jimi_policy")));
+        AddButton(KINGDOM_TITLE_GROUP, Power("remove_title", "ui/icons/iconToolTitleRemove.png"));
 
         // ---- 帝国法理(帝国核心)：图层(法理图层的帝国法理显示)、建立、加入、兼属、移出、销毁 ----
         CreateEmpireCoreButton.init();
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.CoreLayer,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreLayer.png")));
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreCreate.png")));
-
+        AddButton(EMPIRE_CORE_GROUP, Power(DeJureSharePowers.CoreLayer, "ui/icons/iconToolCoreLayer.png"));
+        AddButton(EMPIRE_CORE_GROUP, Power("create_empire_core", "ui/icons/iconToolCoreCreate.png"));
         AddTitleToEmpireCoreButton.init();
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("add_title_to_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreAddTitle.png")));
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.CoreShare,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreShare.png")));
-
+        AddButton(EMPIRE_CORE_GROUP, Power("add_title_to_empire_core", "ui/icons/iconToolCoreAddTitle.png"));
+        AddButton(EMPIRE_CORE_GROUP, Power(DeJureSharePowers.CoreShare, "ui/icons/iconToolCoreShare.png"));
         RemoveTitleFromEmpireCoreButton.init();
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_title_from_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreRemoveTitle.png")));
-
+        AddButton(EMPIRE_CORE_GROUP, Power("remove_title_from_empire_core", "ui/icons/iconToolCoreRemoveTitle.png"));
         DestroyEmpireCoreButton.init();
-        AddButton(EMPIRE_CORE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("destroy_empire_core",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolCoreDestroy.png")));
+        AddButton(EMPIRE_CORE_GROUP, Power("destroy_empire_core", "ui/icons/iconToolCoreDestroy.png"));
 
         // ---- 天下：图层(按天下给城上色，模式二按各家据有着色，点城打开天下窗口，见 TianxiaMap)、并入、兼属、退出 ----
         AddButton(TIANXIA_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Tianxia,
             SpriteTextureLoader.getSprite("ui/icons/godpowers/tianxia_layer"), maxOption: 2));
         TianxiaPowers.init();
-        AddButton(TIANXIA_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("tianxia_join",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaJoin.png")));
-        AddButton(TIANXIA_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(DeJureSharePowers.TianxiaShare,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaShare.png")));
-        AddButton(TIANXIA_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("tianxia_leave",
-                SpriteTextureLoader.getSprite("ui/icons/iconToolTianxiaLeave.png")));
+        AddButton(TIANXIA_GROUP, Power("tianxia_join", "ui/icons/iconToolTianxiaJoin.png"));
+        AddButton(TIANXIA_GROUP, Power(DeJureSharePowers.TianxiaShare, "ui/icons/iconToolTianxiaShare.png"));
+        AddButton(TIANXIA_GROUP, Power("tianxia_leave", "ui/icons/iconToolTianxiaLeave.png"));
 
-        // ---- 帝国：图层、称帝与解散、分封、列表、人物建国 ----
-        PowerButton pb = FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_layer"));
-        AddButton(EMPIRE_GROUP, pb);
-
+        // ---- 帝国：图层与同盟叠加、加入、称帝、移除、分封、帝国列表 ----
+        AddButton(EMPIRE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Empire,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_layer")));
+        // 帝国视图下是否叠加显示同盟
+        SwitchEmpireAllianceButton.init();
+        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateToggleButton("empire_show_alliance",
+            SpriteTextureLoader.getSprite("plots/icons/plot_alliance_create")));
         CreateEmpireButton.init();
-        AddButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("create_empire",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/create_empire")));
-
+        AddButton(EMPIRE_GROUP, Power("create_empire", "ui/icons/godpowers/create_empire"));
         EmpireFormButton.init();
-        AddButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("empire_form",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_form")));
-
-
+        AddButton(EMPIRE_GROUP, Power("empire_form", "ui/icons/godpowers/empire_form"));
         RemoveEmpireButton.init();
-        AddButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("remove_empire",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/remove_empire")));
-
+        AddButton(EMPIRE_GROUP, Power("remove_empire", "ui/icons/godpowers/remove_empire"));
         EmpireEnfeoffButton.init();
         AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton("empire_enfeoff",
-                SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/SplitAllUnderHeaven.png")));
+        AddButton(EMPIRE_GROUP, WindowButton("empire_list", nameof(EmpireListWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_list"), "show_empire_list"));
 
-        // ---- 列国征伐页：军令、附庸、春秋战国 ----
-        // 军令：先点一国的城，再点目标城(本国的城固守，交战敌国的城集中攻打，见 CorpsCommandSystem)
-        CorpsCommandPower.init();
-        AddButton(WAR_GROUP, PowerButtonCreator.CreateGodPowerButton(CorpsCommandPower.Id,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + CorpsCommandPower.Id)));
+        // ---- 行政区：政令图层(行政控制力，鞭长莫及)，省份的增删，羁縻规划 ----
+        AddButton(PROVINCE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Governance,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/governance_layer"), maxOption: 2));
+        CreateProvinceButton.init();
+        AddButton(PROVINCE_GROUP, Power("create_province", "ui/icons/iconToolProvinceCreate.png"));
+        AddProvinceButton.init();
+        AddButton(PROVINCE_GROUP, Power("add_province", "ui/icons/iconToolProvinceAdd.png"));
+        RemoveProvinceButton.init();
+        AddButton(PROVINCE_GROUP, Power("remove_province", "ui/icons/iconToolProvinceRemove.png"));
+        JimiPolicyPower.Init();
+        AddButton(PROVINCE_GROUP, Power("jimi_policy", "ui/icons/godpowers/jimi_policy"));
 
-        // 附庸：强制附庸(先点宗主再点目标)与解除附庸
-        VassalPowerButtons.init();
-        AddButton(VASSAL_GROUP, PowerButtonCreator.CreateGodPowerButton("force_vassal",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/force_vassal")));
-        AddButton(VASSAL_GROUP, PowerButtonCreator.CreateGodPowerButton("release_vassal",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/release_vassal")));
+        // ---- 显示：人口数字、铭牌、声音 ----
+        SwitchRealNumButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("real_num",
+            SpriteTextureLoader.getSprite("ui/realNumToggle")));
+        SwitchSimpleNameplateButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("simple_nameplate",
+            SpriteTextureLoader.getSprite("ui/icons/iconHideUI")));
+        // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
+        AddButton(DISPLAY_GROUP, WindowButton("territory_font_button", nameof(TerritoryFontWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"), "territory_font_button"));
+        // 战声：镜头拉近到交战处时听得到厮杀声(见 BattleSound)
+        SwitchBattleSoundButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("battle_sound",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/battle_sound")));
+        // 文明乐：镜头拉近到某一系文明的地盘时放那一系的曲子(见 CivMusic)
+        SwitchCivMusicButton.init();
+        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("civ_music",
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/civ_music")));
 
-        // 春秋战国(周制)：召集会盟、赐胙立霸主、推进时代
-        ZhouEraPowers.init();
-        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_conference",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_conference")));
-        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_bestow",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_bestow")));
-        AddButton(ZHOU_GROUP, PowerButtonCreator.CreateGodPowerButton("zhou_advance",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/zhou_advance")));
+        // ---- 工具：性能面板、战线调试、反馈与更新 ----
+        // 原版性能面板：打开原版自带的计时窗口
+        VanillaBenchmarkButton.init();
+        AddButton(TOOL_GROUP, Power("vanilla_benchmark", "ui/icons/iconClock"));
+        DebugFrontLineButton.init();
+        AddButton(TOOL_GROUP, Power("debug_frontline", "ui/icons/iconWar"));
+        AddButton(TOOL_GROUP, WindowButton("bug_report_button", nameof(BugReportWindow), GetOriginalBugIcon(), "bug_report_button"));
+        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconArrowUP") ??
+                            SpriteTextureLoader.getSprite("ui/icons/iconSteam");
+        PowerButton updateButton = WindowButton("online_update_button", nameof(OnlineUpdateWindow), updateIcon, "online_update_button");
+        AddButton(TOOL_GROUP, updateButton);
+        EmpireCraft.Scripts.UI.Components.UpdateBadge.Attach(updateButton);
+    }
 
-        //帝国势力列表
-        var empireListButon = PowerButtonCreator.CreateWindowButton("empire_list", nameof(EmpireListWindow),
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/empire_list"));
-        AddButton(EMPIRE_GROUP, empireListButon);
-        empireListButon._button.OnHover(() =>
-        {
-            Tooltip.show(empireListButon,"normal", new TooltipData()
-            {
-                tip_name = "show_empire_list",
-                tip_description = "show_empire_list_description"
-            });
-        });
-        empireListButon._button.OnHoverOut(Tooltip.hideTooltip);
-
-        // 名臣名将名册
-        var famousTalentsButton = PowerButtonCreator.CreateWindowButton("famous_talents", nameof(FamousTalentWindow),
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/famous_talents"));
-        AddButton(EMPIRE_GROUP, famousTalentsButton);
-        famousTalentsButton._button.OnHover(() =>
-        {
-            Tooltip.show(famousTalentsButton, "normal", new TooltipData()
-            {
-                tip_name = "show_famous_talents",
-                tip_description = "show_famous_talents_description"
-            });
-        });
-        famousTalentsButton._button.OnHoverOut(Tooltip.hideTooltip);
-        // 册封名将、册封名臣(点人物直接封，再点晋一档)
-        FamousTalentPowers.init();
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(FamousTalentPowers.BestowGeneral,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + FamousTalentPowers.BestowGeneral)));
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(FamousTalentPowers.BestowMinister,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + FamousTalentPowers.BestowMinister)));
-
-        //宗族列表
-        var specificClanListButton = PowerButtonCreator.CreateWindowButton("specific_clan_list",
-            nameof(SpecificClanListWindow),
-            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ui/specificClanIcon.png"));
-        specificClanListButton._button.OnHover(() =>
-            {
-                Tooltip.show(specificClanListButton,"normal", new TooltipData()
-                {
-                    tip_name = "show_specific_clan_list",
-                    tip_description = "show_specific_clan_list_description"
-                });
-            });
-        specificClanListButton._button.OnHoverOut(Tooltip.hideTooltip);
-        AddButton(EMPIRE_GROUP, specificClanListButton);
-        
-        ActorCreateKingdom.init();
-        AddButton(EMPIRE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("actor_create_kingdom",
-               SpriteTextureLoader.getSprite("ui/icons/godpowers/actor_create_kingdom")));
-        // 穿越降临：五百二十一名穿越者连同城、船、枪与物资凭空出现(见 TransmigrantSystem)
-        EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.InitPower();
-        PowerButton landing = PowerButtonCreator.CreateGodPowerButton(EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId));
-        TipButton landingTip = landing?.GetComponent<TipButton>();
-        if (landingTip != null)
-        {
-            landingTip.textOnClick = EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId;
-            landingTip.textOnClickDescription = EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId + "_description";
-            landingTip.text_description_2 = "";
-            landingTip.type = "normal";
-        }
-        AddButton(EMPIRE_GROUP, landing);
-        // 元老院名册
-        var senateButton = PowerButtonCreator.CreateWindowButton("transmigrant_senate", nameof(SenateWindow),
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/transmigrant_senate"));
-        AddButton(EMPIRE_GROUP, senateButton);
-        senateButton._button.OnHover(() =>
-        {
-            Tooltip.show(senateButton, "normal", new TooltipData()
-            {
-                tip_name = "show_transmigrant_senate",
-                tip_description = "show_transmigrant_senate_description"
-            });
-        });
-        senateButton._button.OnHoverOut(Tooltip.hideTooltip);
-        // 外交：先点发起国、再点对象国，打开两国的外交界面
+    // ======== 列国与人物 ========
+    private static void _addWarButtons()
+    {
+        // ---- 邦交：外交(先点发起国、再点对象国，打开两国的外交界面)，强制附庸(先点宗主再点目标)与解除附庸 ----
         DiplomacyPower.Init();
-        AddButton(EMPIRE_GROUP, PowerButtonCreator.CreateGodPowerButton(DiplomacyPower.Id,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + DiplomacyPower.Id)));
-        
-        // ---- 文化与理念：图层与文化配置 ----
+        AddButton(DIPLOMACY_GROUP, Power(DiplomacyPower.Id, "ui/icons/godpowers/" + DiplomacyPower.Id));
+        VassalPowerButtons.init();
+        AddButton(DIPLOMACY_GROUP, Power("force_vassal", "ui/icons/godpowers/force_vassal"));
+        AddButton(DIPLOMACY_GROUP, Power("release_vassal", "ui/icons/godpowers/release_vassal"));
+
+        // ---- 征伐：太平时期的驻军兵牌；军令(先点一国的城，再点目标城：本国的城固守，交战敌国的城集中攻打，见 CorpsCommandSystem) ----
+        SwitchGarrisonButton.init();
+        AddButton(WAR_GROUP, PowerButtonCreator.CreateToggleButton("show_garrison",
+            SpriteTextureLoader.getSprite("ui/icons/iconWar")));
+        CorpsCommandPower.init();
+        AddButton(WAR_GROUP, Power(CorpsCommandPower.Id, "ui/icons/godpowers/" + CorpsCommandPower.Id));
+
+        // ---- 春秋战国(周制)：召集会盟、赐胙立霸主、推进时代 ----
+        ZhouEraPowers.init();
+        AddButton(ZHOU_GROUP, Power("zhou_conference", "ui/icons/godpowers/zhou_conference"));
+        AddButton(ZHOU_GROUP, Power("zhou_bestow", "ui/icons/godpowers/zhou_bestow"));
+        AddButton(ZHOU_GROUP, Power("zhou_advance", "ui/icons/godpowers/zhou_advance"));
+
+        // ---- 人物：名臣名将名册、册封名将与名臣(点人物直接封，再点晋一档)、宗族列表 ----
+        AddButton(PEOPLE_GROUP, WindowButton("famous_talents", nameof(FamousTalentWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/famous_talents"), "show_famous_talents"));
+        FamousTalentPowers.init();
+        AddButton(PEOPLE_GROUP, Power(FamousTalentPowers.BestowGeneral, "ui/icons/godpowers/" + FamousTalentPowers.BestowGeneral));
+        AddButton(PEOPLE_GROUP, Power(FamousTalentPowers.BestowMinister, "ui/icons/godpowers/" + FamousTalentPowers.BestowMinister));
+        AddButton(PEOPLE_GROUP, WindowButton("specific_clan_list", nameof(SpecificClanListWindow),
+            SpriteLoadUtils.LoadSingleSprite(ModClass._declare.FolderPath + "/GameResources/ui/specificClanIcon.png"),
+            "show_specific_clan_list"));
+
+        // ---- 穿越：五百二十一名穿越者连同城、船、枪与物资凭空出现(见 TransmigrantSystem)；元老院名册 ----
+        EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.InitPower();
+        string landingId = EmpireCraft.Scripts.GeneralSystems.TransmigrantSystem.PowerId;
+        AddButton(TRANSMIGRANT_GROUP, Power(landingId, "ui/icons/godpowers/" + landingId, setTip: true));
+        AddButton(TRANSMIGRANT_GROUP, WindowButton("transmigrant_senate", nameof(SenateWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/transmigrant_senate"), "show_transmigrant_senate"));
+    }
+
+    // ======== 文化与宗教 ========
+    private static void _addCultureButtons()
+    {
+        // ---- 文化：文化图层、民族情绪图层、教化图层(四方文化教化所及)、文化配置 ----
         // 原版文化图层的第二个入口：复用同一个 GodPower/OptionAsset，因此这里与
         // 原版按钮的区域模式、边框和名称开关始终同步。
-        PowerButton cultureLayer = FixFunctions.CloneExistingLayerButton(MetaType.Culture,
-                 SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
-        if (cultureLayer != null) AddButton(CULTURE_GROUP, cultureLayer);
+        AddButton(CULTURE_GROUP, FixFunctions.CloneExistingLayerButton(MetaType.Culture,
+            SpriteTextureLoader.getSprite("ui/icons/iconCulture")));
+        AddButton(CULTURE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Nation,
+            SpriteTextureLoader.getSprite("ui/icons/iconNationLayer")));
+        AddButton(CULTURE_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Edification,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/edification_layer"), maxOption: 2));
+        AddButton(CULTURE_GROUP, WindowButton("culture_list", nameof(CultureSpeciesPairWindow),
+            SpriteTextureLoader.getSprite("ui/icons/iconCultureList") ?? SpriteTextureLoader.getSprite("ui/icons/iconCulture"),
+            "show_culture_config"));
 
-        // 宗教图层(原版图层，铭牌换成模组文字铭牌，见 EmpireCraftNamePlateLibrary)与天下宗教名册
-        PowerButton religionLayer = FixFunctions.CloneExistingLayerButton(MetaType.Religion,
-                 SpriteTextureLoader.getSprite("ui/icons/iconReligion"));
-        if (religionLayer != null) AddButton(CULTURE_GROUP, religionLayer);
-        var worldReligionsButton = PowerButtonCreator.CreateWindowButton("world_religions", nameof(WorldReligionsWindow),
-            SpriteTextureLoader.getSprite("ui/icons/iconReligion"));
-        worldReligionsButton._button.OnHover(() =>
-        {
-            Tooltip.show(worldReligionsButton, "normal", new TooltipData()
-            {
-                tip_name = "show_world_religions",
-                tip_description = "show_world_religions_description"
-            });
-        });
-        worldReligionsButton._button.OnHoverOut(Tooltip.hideTooltip);
-        AddButton(CULTURE_GROUP, worldReligionsButton);
+        // ---- 宗教：宗教图层(原版图层，铭牌换成模组文字铭牌，见 EmpireCraftNamePlateLibrary)、天下宗教名册、指定圣地 ----
+        AddButton(RELIGION_GROUP, FixFunctions.CloneExistingLayerButton(MetaType.Religion,
+            SpriteTextureLoader.getSprite("ui/icons/iconReligion")));
+        AddButton(RELIGION_GROUP, WindowButton("world_religions", nameof(WorldReligionsWindow),
+            SpriteTextureLoader.getSprite("ui/icons/iconReligionList") ?? SpriteTextureLoader.getSprite("ui/icons/iconReligion"),
+            "show_world_religions"));
         // 指定圣地：点一座城，它成为它所奉宗教的圣地(见 HolyCityPower)
         HolyCityPower.init();
-        AddButton(CULTURE_GROUP,
-            PowerButtonCreator.CreateGodPowerButton(HolyCityPower.Id,
-                SpriteTextureLoader.getSprite("ui/icons/iconToolHolyCity.png")));
+        AddButton(RELIGION_GROUP, Power(HolyCityPower.Id, "ui/icons/iconToolHolyCity.png"));
 
-        // 理念图层(独立于原版宗教图层)
-        PowerButton ideologyLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
-                 SpriteTextureLoader.getSprite("ui/icons/iconBooks"));
-        AddButton(CULTURE_GROUP, ideologyLayer);
+        // ---- 科技：点城退回上一个时代；举世退回原始(点两下确认)，见 TechRollbackPowers ----
+        TechRollbackPowers.Init();
+        foreach (string powerId in TechRollbackPowers.Ids)
+            AddButton(TECH_GROUP, Power(powerId, "ui/icons/godpowers/" + powerId, setTip: true));
 
-        // 民族情绪图层
-        PowerButton nationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Nation,
-                 SpriteTextureLoader.getSprite("ui/icons/iconNationLayer"));
-        AddButton(CULTURE_GROUP, nationLayer);
-
-        // 财富图层(红到绿：最穷到最富)：按排名连片 / 按排名描城界 / 固定档位
-        PowerButton wealthLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Wealth,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"), maxOption: 3);
-        AddButton(CULTURE_GROUP, wealthLayer);
-
-        // 商品市场图层：按市场着色 / 按市场物资缺口着色 / 选中物资的产地
-        PowerButton marketLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Market,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), maxOption: 3);
-        AddButton(CULTURE_GROUP, marketLayer);
-
-        // 教化图层(四方文化教化所及)、政令图层(行政控制力，鞭长莫及)
-        PowerButton edificationLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Edification,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/edification_layer"), maxOption: 2);
-        AddButton(CULTURE_GROUP, edificationLayer);
-        PowerButton governanceLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Governance,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/governance_layer"), maxOption: 2);
-        AddButton(CULTURE_GROUP, governanceLayer);
-
-        // 矿产图层(图标用现成的资源图标)
-        PowerButton mineralLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.Mineral,
-                 SpriteTextureLoader.getSprite("ui/icons/resources/iconRes_coal"));
-        AddButton(CULTURE_GROUP, mineralLayer);
-
-        // 城市图层：只显示模拟的城市(纯净地图)
-        PowerButton cityViewLayer = FixFunctions.CreateLayerButton(MetaTypeExtension.CityView,
-                 SpriteTextureLoader.getSprite("ui/icons/godpowers/city_view"), maxOption: 1);
-        AddButton(CULTURE_GROUP, cityViewLayer);
-
-        var cultureConfigButton = PowerButtonCreator.CreateWindowButton("culture_list", nameof(CultureSpeciesPairWindow),
-            SpriteTextureLoader.getSprite("ui/icons/iconCulture"));
-        AddButton(CULTURE_GROUP, cultureConfigButton);
-        cultureConfigButton._button.OnHover(() =>
-        {
-            Tooltip.show(cultureConfigButton,"normal", new TooltipData()
-            {
-                tip_name = "show_culture_config",
-                tip_description = "show_culture_config_description"
-            });
-        });
-        cultureConfigButton._button.OnHoverOut(Tooltip.hideTooltip);
-
-        // ---- 营建：立村、设镇、毁弃、改隶(见 SettlementPowers)；撤城 ----
-        SettlementPowers.Init();
-        foreach (string id in SettlementPowers.Ids)
-            AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
-        // 无人区名册(全图各片、改名，见 WildernessWindow)：跟在中立区、开发、法理这几个无人区权能后面
-        var wildernessButton = PowerButtonCreator.CreateWindowButton("wild_window", nameof(WildernessWindow),
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/wild_window"));
-        AddButton(BUILD_GROUP, wildernessButton);
-        wildernessButton._button.OnHover(() =>
-        {
-            Tooltip.show(wildernessButton, "normal", new TooltipData
-            {
-                tip_name = "show_wild_window",
-                tip_description = "show_wild_window_description"
-            });
-        });
-        wildernessButton._button.OnHoverOut(Tooltip.hideTooltip);
-        // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
-        CityDissolutionPower.init();
-        AddButton(BUILD_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("dissolve_city",
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/dissolve_city")));
-        // 道路：绘制、擦除(笔刷)，连路(先后点两座城)，见 RoadPowers
-        RoadPowers.Init();
-        foreach (string id in RoadPowers.Ids)
-            AddButton(BUILD_GROUP, PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/godpowers/" + id)));
-
-        // ---- 高原画笔：高寒、黄土、草原三种高原，松手后新画的边上自动起山脊坡地(见 PlateauPowers) ----
-        PlateauPowers.Init();
-        foreach ((string id, string _, string icon) in PlateauPowers.Brushes)
-        {
-            PowerButton brush = PowerButtonCreator.CreateGodPowerButton(id, SpriteTextureLoader.getSprite("ui/icons/" + icon));
-            SetTip(brush, id);
-            AddButton(PLATEAU_GROUP, brush);
-        }
-
-        // ---- 易俗：点城一键改换文化，本国最后一座城连国家制度一并改(见 CityCulturePower) ----
-        // 举国 / 举朝易俗开关与复旧法理(见 RealmCulturePowers)放在各文化笔刷前面
+        // ---- 易俗：举国 / 举朝易俗开关与复旧法理(见 RealmCulturePowers)，再是各文化笔刷：点城一键改换文化，
+        //      本国最后一座城连国家制度一并改(见 CityCulturePower) ----
         RealmCulturePowers.Init();
         foreach (string toggle in new[] { RealmCulturePowers.Kingdom, RealmCulturePowers.Empire })
             AddButton(CULTURE_BRUSH_GROUP, PowerButtonCreator.CreateToggleButton(toggle,
                 SpriteTextureLoader.getSprite("ui/icons/godpowers/" + toggle)));
-        AddButton(CULTURE_BRUSH_GROUP, PowerButtonCreator.CreateGodPowerButton(RealmCulturePowers.Restore,
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/" + RealmCulturePowers.Restore)));
-        // 科技回退：点城退回上一个时代；举世退回原始(点两下确认)，见 TechRollbackPowers
-        TechRollbackPowers.Init();
-        foreach (string powerId in TechRollbackPowers.Ids)
-        {
-            PowerButton rollback = PowerButtonCreator.CreateGodPowerButton(powerId,
-                SpriteTextureLoader.getSprite("ui/icons/godpowers/" + powerId));
-            TipButton rollbackTip = rollback?.GetComponent<TipButton>();
-            if (rollbackTip != null)
-            {
-                rollbackTip.textOnClick = powerId;
-                rollbackTip.textOnClickDescription = powerId + "_description";
-                rollbackTip.text_description_2 = "";
-                rollbackTip.type = "normal";
-            }
-            AddButton(CULTURE_BRUSH_GROUP, rollback);
-        }
+        AddButton(CULTURE_BRUSH_GROUP, Power(RealmCulturePowers.Restore, "ui/icons/godpowers/" + RealmCulturePowers.Restore));
         foreach ((string powerId, string culture) in CityCulturePower.Init())
-        {
-            PowerButton brush = PowerButtonCreator.CreateGodPowerButton(powerId, EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture));
-            TipButton brushTip = brush?.GetComponent<TipButton>();
-            if (brushTip != null)
-            {
-                brushTip.textOnClick = powerId;
-                brushTip.textOnClickDescription = powerId + "_description";
-                brushTip.text_description_2 = "";
-                brushTip.type = "normal";
-            }
-            AddButton(CULTURE_BRUSH_GROUP, brush);
-        }
+            AddButton(CULTURE_BRUSH_GROUP, Power(powerId, EmpireCraft.Scripts.UI.Components.CultureIcons.Get(culture), setTip: true));
+    }
 
-        // ---- 人口、矿藏笔刷(见 CityResourcePowers) ----
+    // ======== 营建 ========
+    private static void _addBuildButtons()
+    {
+        SettlementPowers.Init();
+        var placed = new HashSet<string>();
+        PowerButton SettlementButton(string powerId)
+        {
+            placed.Add(powerId);
+            return Power(powerId, "ui/icons/godpowers/" + powerId);
+        }
+        // ---- 城池：城市图层(只显示模拟的城市，纯净地图)、建城、点小人建国、迁城、营宫殿、城貌、撤城 ----
+        AddButton(CITY_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.CityView,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/city_view"), maxOption: 1));
+        AddButton(CITY_GROUP, SettlementButton(SettlementPowers.NewCity));
+        ActorCreateKingdom.init();
+        AddButton(CITY_GROUP, Power("actor_create_kingdom", "ui/icons/godpowers/actor_create_kingdom"));
+        foreach (string id in new[] { SettlementPowers.Relocate, SettlementPowers.Palace, SettlementPowers.Restyle })
+            AddButton(CITY_GROUP, SettlementButton(id));
+        // 撤城：点一座城，百姓迁往本国最近的城，城市废弃
+        CityDissolutionPower.init();
+        AddButton(CITY_GROUP, Power("dissolve_city", "ui/icons/godpowers/dissolve_city"));
+
+        // ---- 村镇：立村、设镇、筑关、毁弃、改隶(见 SettlementPowers) ----
+        foreach (string id in new[] { SettlementPowers.Village, SettlementPowers.Town, SettlementPowers.Fort,
+                     SettlementPowers.Raze, SettlementPowers.Assign })
+            AddButton(SETTLEMENT_GROUP, SettlementButton(id));
+
+        // ---- 厂区：小、中、大 ----
+        foreach (string id in new[] { SettlementPowers.FactorySmall, SettlementPowers.FactoryMedium, SettlementPowers.FactoryLarge })
+            AddButton(FACTORY_GROUP, SettlementButton(id));
+
+        // ---- 道路：绘制、擦除(笔刷)，连路(先后点两座城)，见 RoadPowers ----
+        RoadPowers.Init();
+        foreach (string id in RoadPowers.Ids)
+            AddButton(ROAD_GROUP, Power(id, "ui/icons/godpowers/" + id));
+
+        // ---- 无人区：中立区、开发、无人区法理、还给法理，无人区名册(全图各片、改名，见 WildernessWindow) ----
+        foreach (string id in new[] { SettlementPowers.WildNeutral, SettlementPowers.WildDevelop,
+                     SettlementPowers.WildTitle, SettlementPowers.WildTitleClear })
+            AddButton(WILD_GROUP, SettlementButton(id));
+        AddButton(WILD_GROUP, WindowButton("wild_window", nameof(WildernessWindow),
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/wild_window"), "show_wild_window"));
+
+        // ---- 高原画笔：高寒、黄土、草原三种高原，松手后新画的边上自动起山脊坡地(见 PlateauPowers) ----
+        PlateauPowers.Init();
+        foreach ((string id, string _, string icon) in PlateauPowers.Brushes)
+            AddButton(PLATEAU_GROUP, Power(id, "ui/icons/" + icon, setTip: true));
+
+        // ---- 民生：财富图层(红到绿：最穷到最富)、商品市场图层，人口增减与繁荣笔刷 ----
+        // ---- 矿藏：矿产图层，各矿藏笔刷与清除矿藏(见 CityResourcePowers) ----
+        AddButton(LIVELIHOOD_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Wealth,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/wealth_layer"), maxOption: 3));
+        AddButton(LIVELIHOOD_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Market,
+            SpriteTextureLoader.getSprite("ui/icons/godpowers/market_layer"), maxOption: 3));
+        AddButton(RESOURCE_BRUSH_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Mineral,
+            SpriteTextureLoader.getSprite("ui/icons/resources/iconRes_coal")));
         foreach ((string powerId, string icon) in CityResourcePowers.Init())
         {
-            PowerButton brush = PowerButtonCreator.CreateGodPowerButton(powerId, SpriteTextureLoader.getSprite(icon));
-            TipButton brushTip = brush?.GetComponent<TipButton>();
-            if (brushTip != null)
-            {
-                brushTip.textOnClick = powerId;
-                brushTip.textOnClickDescription = powerId + "_description";
-                brushTip.text_description_2 = "";
-                brushTip.type = "normal";
-            }
-            AddButton(RESOURCE_BRUSH_GROUP, brush);
+            bool livelihood = powerId is CityResourcePowers.PopulationAdd or CityResourcePowers.PopulationRemove or CityResourcePowers.Flourish;
+            AddButton(livelihood ? LIVELIHOOD_GROUP : RESOURCE_BRUSH_GROUP, Power(powerId, icon, setTip: true));
         }
+        // SettlementPowers 以后新加、上面没分到组的权能先归村镇一组，免得漏掉
+        foreach (string id in SettlementPowers.Ids)
+            if (!placed.Contains(id)) AddButton(SETTLEMENT_GROUP, SettlementButton(id));
+    }
 
-        // ---- 理念种子 ----
+    // ======== 理念种子 ========
+    private static void _addIdeologyButtons()
+    {
+        // 理念图层(独立于原版宗教图层)
+        AddButton(IDEOLOGY_GROUP, FixFunctions.CreateLayerButton(MetaTypeExtension.Ideology,
+            SpriteTextureLoader.getSprite("ui/icons/iconBooks")));
         IdeologyTraitIcons.Register();
         IdeologySeedPower.Init();
         foreach (GeneralSystems.PartyIdeology ideology in Enum.GetValues(typeof(GeneralSystems.PartyIdeology)))
@@ -632,98 +504,9 @@ internal static class MainTab
             // 只按身份归属、不在民间流传的理念(皇权、门阀、外戚、宦官、宗亲，见 IdeologyFamilies.IsIdentityStance)，撒种子没有意义
             if (GeneralSystems.IdeologyFamilies.IsIdentityStance(ideology)) continue;
             string powerId = IdeologySeedPower.Id(ideology);
-            PowerButton seedButton = PowerButtonCreator.CreateGodPowerButton(powerId,
-                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)));
-            SetTip(seedButton, powerId);
-            AddButton(IDEOLOGY_SEED_GROUP, seedButton);
+            AddButton(IDEOLOGY_SEED_GROUP, Power(powerId,
+                SpriteTextureLoader.getSprite(IdeologyTraitIcons.Path(ideology)), setTip: true));
         }
-
-        // ---- 显示与工具：显示开关、调试、反馈与更新 ----
-        SwitchRealNumButton.init();
-        PowerButton pb4 = PowerButtonCreator.CreateToggleButton("real_num",
-            SpriteTextureLoader.getSprite("ui/realNumToggle"));
-        AddButton(DISPLAY_GROUP, pb4);
-
-        SwitchSimpleNameplateButton.init();
-        PowerButton simpleNameplateButton = PowerButtonCreator.CreateToggleButton("simple_nameplate",
-            SpriteTextureLoader.getSprite("ui/icons/iconHideUI"));
-        AddButton(DISPLAY_GROUP, simpleNameplateButton);
-
-        SwitchGarrisonButton.init();
-        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("show_garrison",
-            SpriteTextureLoader.getSprite("ui/icons/iconWar")));
-
-        // 战声：镜头拉近到交战处时听得到厮杀声(见 BattleSound)
-        SwitchBattleSoundButton.init();
-        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("battle_sound",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/battle_sound")));
-
-        // 文明乐：镜头拉近到某一系文明的地盘时放那一系的曲子(见 CivMusic)
-        SwitchCivMusicButton.init();
-        AddButton(DISPLAY_GROUP, PowerButtonCreator.CreateToggleButton("civ_music",
-            SpriteTextureLoader.getSprite("ui/icons/godpowers/civ_music")));
-
-        // 领土铭牌字体：自动(传统书体优先) / 游戏字体 / 本机任一字体
-        var territoryFontButton = PowerButtonCreator.CreateWindowButton("territory_font_button",
-            nameof(TerritoryFontWindow), SpriteTextureLoader.getSprite("ui/icons/godpowers/territory_font"));
-        AddButton(DISPLAY_GROUP, territoryFontButton);
-        territoryFontButton._button.OnHover(() =>
-        {
-            Tooltip.show(territoryFontButton, "normal", new TooltipData
-            {
-                tip_name = "territory_font_button",
-                tip_description = "territory_font_button_description"
-            });
-        });
-        territoryFontButton._button.OnHoverOut(Tooltip.hideTooltip);
-
-        // 帝国视图下是否叠加显示同盟
-        SwitchEmpireAllianceButton.init();
-        PowerButton empireAllianceButton = PowerButtonCreator.CreateToggleButton("empire_show_alliance",
-            SpriteTextureLoader.getSprite("plots/icons/plot_alliance_create"));
-        AddButton(DISPLAY_GROUP, empireAllianceButton);
-
-        // 原版性能面板：打开原版自带的计时窗口
-        VanillaBenchmarkButton.init();
-        AddButton(DISPLAY_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("vanilla_benchmark",
-                SpriteTextureLoader.getSprite("ui/icons/iconHideUI")));
-
-        DebugFrontLineButton.init();
-        AddButton(DISPLAY_GROUP,
-            PowerButtonCreator.CreateGodPowerButton("debug_frontline",
-                SpriteTextureLoader.getSprite("ui/icons/iconWar")));
-
-        var bugReportButton = PowerButtonCreator.CreateWindowButton("bug_report_button", nameof(BugReportWindow),
-            GetOriginalBugIcon());
-        AddButton(DISPLAY_GROUP, bugReportButton);
-        bugReportButton._button.OnHover(() =>
-        {
-            Tooltip.show(bugReportButton, "normal", new TooltipData
-            {
-                tip_name = "bug_report_button",
-                tip_description = "bug_report_button_description"
-            });
-        });
-        bugReportButton._button.OnHoverOut(Tooltip.hideTooltip);
-
-        Sprite updateIcon = SpriteTextureLoader.getSprite("ui/icons/iconArrowUP") ??
-                            SpriteTextureLoader.getSprite("ui/icons/iconSteam");
-        var updateButton = PowerButtonCreator.CreateWindowButton(
-            "online_update_button",
-            nameof(OnlineUpdateWindow),
-            updateIcon);
-        AddButton(DISPLAY_GROUP, updateButton);
-        EmpireCraft.Scripts.UI.Components.UpdateBadge.Attach(updateButton);
-        updateButton._button.OnHover(() =>
-        {
-            Tooltip.show(updateButton, "normal", new TooltipData
-            {
-                tip_name = "online_update_button",
-                tip_description = "online_update_button_description"
-            });
-        });
-        updateButton._button.OnHoverOut(Tooltip.hideTooltip);
     }
 
     // 各组的按钮(按加入顺序)，用于自行分组排版
@@ -731,11 +514,41 @@ internal static class MainTab
 
     private static void AddButton(string group, PowerButton button)
     {
-        bool cultureSide = group is CULTURE_GROUP or BUILD_GROUP or PLATEAU_GROUP or CULTURE_BRUSH_GROUP or RESOURCE_BRUSH_GROUP;
-        bool warSide = group is WAR_GROUP or VASSAL_GROUP or ZHOU_GROUP;
-        PowersTab target = group == IDEOLOGY_SEED_GROUP ? ideologyTab : warSide ? warTab : cultureSide ? cultureTab : tab;
+        if (button == null) return;
+        if (!_tabOfGroup.TryGetValue(group, out PowersTab target))
+        {
+            LogService.LogWarning($"[EmpireCraft] 按钮 {button.name} 的组 {group} 没有归到任何标签页");
+            return;
+        }
         target.AddPowerButton(group, button);
-        if (button != null) _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
+        _buttonsInOrder.Add(new KeyValuePair<string, PowerButton>(group, button));
+    }
+
+    private static PowerButton Power(string powerId, string iconPath, bool setTip = false) =>
+        Power(powerId, SpriteTextureLoader.getSprite(iconPath), setTip);
+
+    private static PowerButton Power(string powerId, Sprite icon, bool setTip = false)
+    {
+        PowerButton button = PowerButtonCreator.CreateGodPowerButton(powerId, icon);
+        if (setTip) SetTip(button, powerId);
+        return button;
+    }
+
+    // 打开窗口的按钮；悬停提示用 <tipKey>、<tipKey>_description
+    private static PowerButton WindowButton(string id, string windowId, Sprite icon, string tipKey)
+    {
+        PowerButton button = PowerButtonCreator.CreateWindowButton(id, windowId, icon);
+        if (button == null) return null;
+        button._button.OnHover(() =>
+        {
+            Tooltip.show(button, "normal", new TooltipData
+            {
+                tip_name = tipKey,
+                tip_description = tipKey + "_description"
+            });
+        });
+        button._button.OnHoverOut(Tooltip.hideTooltip);
+        return button;
     }
 
     // NML 从原版 inspect 按钮克隆 GodPower 按钮。当前游戏版本的预制体自带
@@ -752,30 +565,37 @@ internal static class MainTab
 
     // 原版 PowersTab.sortButtons 按子物体顺序排版(子物体数量变化时重排)，会覆盖任何手动坐标；
     // 但它认得名字以 "_line" 开头的子物体：遇到就收尾当前列、画一条分隔线再继续。
-    // 所以这里按组调整子物体顺序，并在组与组之间插入一条 "_line" 分隔线，交给原版排版
-    private static void ApplyGroupedLayout(PowersTab target)
+    // 所以这里按本页的组顺序(组内按加入先后)调整子物体顺序，并在组与组之间插入一条 "_line" 分隔线，交给原版排版
+    private static void ApplyGroupedLayout(PowersTab target, string[] groups)
     {
         try
         {
             Transform parent = target.transform;
+            var buttons = new List<KeyValuePair<string, PowerButton>>();
             int index = int.MaxValue;
-            foreach (var pair in _buttonsInOrder)
-                if (pair.Value != null && pair.Value.transform.parent == parent)
-                    index = Mathf.Min(index, pair.Value.transform.GetSiblingIndex());
-            if (index == int.MaxValue) return;
-            GameObject template = FindVanillaLine(target);
-            string current = null;
-            int lineCount = 0;
             foreach (var pair in _buttonsInOrder)
             {
                 if (pair.Value == null || pair.Value.transform.parent != parent) continue;
-                if (current != null && pair.Key != current)
+                buttons.Add(pair);
+                index = Mathf.Min(index, pair.Value.transform.GetSiblingIndex());
+            }
+            if (buttons.Count == 0) return;
+            GameObject template = FindVanillaLine(target);
+            string current = null;
+            int lineCount = 0;
+            foreach (string group in groups)
+            {
+                foreach (var pair in buttons)
                 {
-                    GameObject line = CreateLine(parent, template, lineCount++);
-                    line.transform.SetSiblingIndex(index++);
+                    if (pair.Key != group) continue;
+                    if (current != null && current != group)
+                    {
+                        GameObject line = CreateLine(parent, template, lineCount++);
+                        line.transform.SetSiblingIndex(index++);
+                    }
+                    current = group;
+                    pair.Value.transform.SetSiblingIndex(index++);
                 }
-                current = pair.Key;
-                pair.Value.transform.SetSiblingIndex(index++);
             }
         }
         catch (Exception exception)
@@ -789,7 +609,7 @@ internal static class MainTab
     {
         foreach (PowersTab other in Resources.FindObjectsOfTypeAll<PowersTab>())
         {
-            if (other == null || other == tab || other == cultureTab || other == warTab || other == ideologyTab || other == target) continue;
+            if (other == null || other == target || _tabs.Exists(entry => entry.tab == other)) continue;
             foreach (Transform child in other.transform)
                 if (child.name.StartsWith("_line")) return child.gameObject;
         }
