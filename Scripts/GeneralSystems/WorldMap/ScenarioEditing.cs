@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -747,6 +748,61 @@ public static class ScenarioEditing
         polity.ruler.fam = fam;
         polity.ruler.giv = giv;
         polity.ruler.age = years;
+        Changed();
+    }
+
+    #endregion
+
+    #region 王朝积弊
+
+    // 开局国祚、王朝积弊、六弊(群友"要不要能让玩家可以自定义积弊度""这个在剧本编辑里面能设置比较好一些")：写进国家的 decline
+    // (同内置时代文件，开局称帝的国家进世界后照它定，见 WorldMapScenario.ApplyDecline)。空着的照默认(DeclineDefault)：
+    // 国祚照前史、没挂前史为新开国，积弊照国祚给同岁数最少该有的，六弊补到积弊托着的底。积弊、六弊 0~100，国祚 0~1000 年；
+    // 框里填不成数的不动
+    public const string DeclineAge = "age", DeclineStrain = "strain";
+    public static readonly string[] DeclineKeys = new[] { DeclineAge, DeclineStrain }.Concat(MaladySystem.All).ToArray();
+
+    public static string DeclineText(WorldMapPolity polity, string key) =>
+        polity?.decline != null && polity.decline.TryGetValue(key, out float value) ? DeclineFormat(key, value) : "";
+
+    public static string DeclineFormat(string key, float value) =>
+        value.ToString(key == DeclineAge ? "0" : "0.#", CultureInfo.InvariantCulture);
+
+    // 没写时开局会给的值：国祚照前史(不看写了的国祚)；积弊照国祚(写了的国祚算数)；六弊照积弊(写了的积弊算数)
+    public static float DeclineDefault(WorldMapPolity polity, string key) => key switch
+    {
+        DeclineAge => WorldMapScenario.HistoryAge(polity, Era),
+        DeclineStrain => DynasticCycleRules.AgeFloor(WorldMapScenario.StartingAge(polity, Era)),
+        _ => MaladySystem.FloorOf(WorldMapScenario.StartingStrain(polity, Era))
+    };
+
+    // 清回默认：国祚、积弊、六弊都不写
+    public static string ClearDecline(WorldMapPolity polity)
+    {
+        if (polity?.decline == null || polity.decline.Count == 0) return null;
+        Before();
+        polity.decline.Clear();
+        Changed();
+        return LM.Get("scenario_editor_decline_cleared");
+    }
+
+    public static void SetDecline(WorldMapPolity polity, string key, string text)
+    {
+        if (polity == null || Array.IndexOf(DeclineKeys, key) < 0) return;
+        string trimmed = (text ?? "").Trim();
+        float? value = null;
+        if (trimmed.Length > 0)
+        {
+            if (!float.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture,
+                    out float parsed) || float.IsNaN(parsed) || float.IsInfinity(parsed)) return;
+            value = key == DeclineAge ? Mathf.Clamp(Mathf.Round(parsed), 0f, 1000f) : Mathf.Clamp(parsed, 0f, 100f);
+        }
+        float? old = polity.decline != null && polity.decline.TryGetValue(key, out float had) ? had : (float?)null;
+        if (old == value) return;
+        Before();
+        polity.decline ??= new Dictionary<string, float>();
+        if (value.HasValue) polity.decline[key] = value.Value;
+        else polity.decline.Remove(key);
         Changed();
     }
 

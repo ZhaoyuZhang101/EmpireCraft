@@ -617,6 +617,23 @@ public static class WorldMapScenario
         }
     }
 
+    // 开局国祚、王朝积弊、六弊没写时的默认(剧本编辑器积弊卡上的灰字也用这几个，见 ScenarioEditing.DeclineDefault)：
+    //   国祚——前史里本朝第一位君主即位到开局年，没挂前史为 0(新开国)；前史里一个朝代跨了几个王室的(拜占庭、神圣罗马、
+    //   东汉接西汉)，剧本另给"age"：现王室立了多少年；积弊——同岁数最少该有的；六弊——积弊托着的底(见 MaladySystem.FloorOf)
+    public static int HistoryAge(WorldMapPolity data, WorldMapEra era)
+    {
+        WorldMapDynasty dynasty = string.IsNullOrEmpty(data?.dynasty) ? null
+            : WorldMapData.Dynasties?.FirstOrDefault(item => item.id == data.dynasty && item.rulers.Count > 0);
+        return dynasty == null || era == null ? 0 : Math.Max(0, era.year - dynasty.rulers.Min(reign => reign.a));
+    }
+
+    public static int StartingAge(WorldMapPolity data, WorldMapEra era) =>
+        data?.decline != null && data.decline.TryGetValue("age", out float set) ? Math.Max(0, Mathf.RoundToInt(set)) : HistoryAge(data, era);
+
+    public static float StartingStrain(WorldMapPolity data, WorldMapEra era) =>
+        Mathf.Clamp(data?.decline != null && data.decline.TryGetValue("strain", out float set) ? set
+            : DynasticCycleRules.AgeFloor(StartingAge(data, era)), 0f, 100f);
+
     // 老王朝(前史里开国早于开局年)：国祚接着算(dynastic_age_offset)，不算新开国、没有开国气象；王朝积弊取剧本给的，
     // 没给照同岁数最少该有的；六弊取剧本给的，没给的补到积弊对应的底线
     private static void ApplyDecline(List<PlannedPolity> polities)
@@ -625,12 +642,8 @@ public static class WorldMapScenario
         {
             Empire empire = polity.empire;
             if (empire?.data == null || empire.isRekt() || !DynasticCycleSystem.Applies(empire)) continue;
-            WorldMapDynasty dynasty = string.IsNullOrEmpty(polity.data.dynasty) ? null
-                : WorldMapData.Dynasties.FirstOrDefault(item => item.id == polity.data.dynasty && item.rulers.Count > 0);
             var decline = polity.data.decline ?? new Dictionary<string, float>();
-            // 前史里一个朝代跨了几个王室的(拜占庭、神圣罗马、东汉接西汉)，剧本另给"age"：现王室立了多少年
-            int age = decline.TryGetValue("age", out float setAge) ? Mathf.RoundToInt(setAge)
-                : dynasty == null || _era == null ? 0 : Math.Max(0, _era.year - dynasty.rulers.Min(reign => reign.a));
+            int age = StartingAge(polity.data, _era);
             if (age <= 0 && decline.Count == 0) continue;
             ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
             double now = World.world.getCurWorldTime();
@@ -638,8 +651,10 @@ public static class WorldMapScenario
             state.dynastic_age_offset = age;
             state.last_dynastic_update = now;
             if (age > Empire.FounderGraceYears) empire.data.inherited_decline = true;
-            float strain = decline.TryGetValue("strain", out float given) ? given : DynasticCycleRules.AgeFloor(age);
-            state.dynastic_strain = Mathf.Clamp(Mathf.Max(state.dynastic_strain, strain), 0f, 100f);
+            state.dynastic_strain = Mathf.Clamp(Mathf.Max(state.dynastic_strain, StartingStrain(polity.data, _era)), 0f, 100f);
+            // 剧本明写的积弊低于同岁数补底线(编辑器里填了国祚又填了低积弊)：照剧本的算，补底线让出差额，不再每年补回去
+            state.dynastic_floor_relief = decline.ContainsKey("strain")
+                ? Mathf.Max(0f, DynasticCycleRules.AgeFloor(age) - state.dynastic_strain) : 0f;
             empire.data.maladies ??= new Dictionary<string, float>();
             float floor = MaladySystem.Floor(empire);
             foreach (string key in MaladySystem.All)

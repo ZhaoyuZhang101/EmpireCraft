@@ -602,7 +602,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 // 分裂进程：类别、阶段、时限、离心与割据的成员、争位者(见 SchismSystem)；放在积弊前头，进程中一眼看到
                 SchismPanel.Render(parent, renderedEmpire, MainWidth);
                 // 朝政积弊(见 MaladySystem)
-                MaladyPanel.Render(parent, renderedEmpire, MainWidth);
+                MaladyPanel.Render(parent, renderedEmpire, MainWidth, () => StartCoroutine(ShowKingdomList()));
                 // 游牧汗国：草原形势(纪元、草原压力、依附来的兀鲁思，见 SteppePanel)
                 SteppePanel.Render(parent, renderedEmpire, MainWidth);
                 // 周制：天下大势(春秋战国)

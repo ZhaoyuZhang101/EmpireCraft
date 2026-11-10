@@ -4,15 +4,19 @@ using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Window.Layout;
+using UnityEngine.Events;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
 // 帝国主页的"朝政弊病"卡(见 MaladySystem)：六条弊病各一行——轻重(绿/黄/红)与眼下的后果；都还轻时只写一句朝政清明。
 // 头一行是王朝积弊(周期压力，见 DynasticCycleSystem)：两样以前都叫"积弊"，卡上写"积弊未生"、上面又是"王朝积弊 11.8"，
-// 玩家看着对不上(用户 2026-10-27)——六弊明君能治、能降到零，王朝积弊随国祚只增不减、只能延缓
+// 玩家看着对不上(用户 2026-10-27)——六弊明君能治、能降到零，王朝积弊随国祚只增不减、只能延缓。
+// 王朝积弊下面一排按钮直接定积弊(归零、−10、+10、拉满，用户 2026-11-10，见 DynasticCycleSystem.SetPressure)，refresh 重绘本页
 public static class MaladyPanel
 {
-    public static void Render(AutoVertLayoutGroup parent, Empire empire, float width)
+    private const float StrainStep = 10f;
+
+    public static void Render(AutoVertLayoutGroup parent, Empire empire, float width, UnityAction refresh = null)
     {
         if (!MaladySystem.Applies(empire)) return;
         float average = MaladySystem.Average(empire);
@@ -21,6 +25,19 @@ public static class MaladyPanel
         string strainHex = Hex(strain);
         card.AddListRow(width, 0, null, LM.Get("label_dynastic_strain"),
             $"<color={strainHex}>{strain:0.0}</color>/100  {LM.Get("malady_strain_note")}", titleHex: strainHex, titleWidth: 80f);
+        if (DynasticCycleSystem.Applies(empire))
+        {
+            void Set(float value)
+            {
+                DynasticCycleSystem.SetPressure(empire, value);
+                refresh?.Invoke();
+            }
+            card.AddActionRow(width - 12f,
+                (LM.Get("malady_strain_zero"), "#9BD27A", strain > 0f, () => Set(0f)),
+                (LM.Get("malady_strain_down"), "#9BD27A", strain > 0f, () => Set(strain - StrainStep)),
+                (LM.Get("malady_strain_up"), "#E8C35A", strain < 100f, () => Set(strain + StrainStep)),
+                (LM.Get("malady_strain_full"), "#E8584F", strain < 100f, () => Set(100f)));
+        }
         float imbalance = FactionBalanceSystem.Imbalance(empire);
         if (MaladySystem.All.All(key => MaladySystem.Get(empire, key) < 5f) && imbalance < 5f)
         {

@@ -249,6 +249,11 @@ public static class ScenarioEditorScreen
     private static int _divisionIndex = -1;
     private static bool _seatMode;
     private static RectTransform _divisionCard;
+    // 国祚与积弊卡：各项的输入框与框里的灰字(默认值，见 RefreshDecline)
+    private static RectTransform _declineCard;
+    private static Text _declineInfo;
+    private static Btn _declineClearBtn;
+    private static readonly Dictionary<string, (InputField input, Text hint)> DeclineInputs = new();
     private static Text _divisionHead, _divisionInfo;
     private static Btn _divisionBtn, _newDivisionBtn, _deleteDivisionBtn, _seatModeBtn, _clearSeatsBtn;
     private static InputField _divisionNameInput;
@@ -783,6 +788,20 @@ public static class ScenarioEditorScreen
         _realmInfo = Label(_realmCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         _claimBtn = MakeButton(_realmCard, "", ToolColor, () => Say(ScenarioEditing.ToggleClaim(ScenarioEditing.Polity(_realmId), ScenarioEditing.City(_cityId)?.region)));
         _deleteRealmBtn = MakeButton(_realmCard, LM.Get("scenario_editor_delete_realm"), DangerColor, ArmDeleteRealm);
+
+        // 国祚与积弊：开局国祚、王朝积弊、六弊(写进国家的 decline，见 ScenarioEditing.SetDecline)；空着照默认，框里灰字是默认值。
+        // 只对开局称帝的国家生效
+        _declineCard = Card(side, LM.Get("scenario_editor_card_decline"));
+        foreach (string key in ScenarioEditing.DeclineKeys)
+        {
+            string field = key;
+            InputField input = Field(_declineCard, LM.Get(DeclineCaption(field)),
+                text => ScenarioEditing.SetDecline(ScenarioEditing.Polity(_realmId), field, text));
+            DeclineInputs[field] = (input, Placeholder(input));
+        }
+        _declineInfo = Label(_declineCard, "Info", 13, DimText, TextAnchor.UpperLeft, true);
+        _declineClearBtn = MakeButton(_declineCard, LM.Get("scenario_editor_decline_clear"), ToolColor,
+            () => Say(ScenarioEditing.ClearDecline(ScenarioEditing.Polity(_realmId))));
 
         // 王国法理：地区名、法理名、文化、首都、兼属
         _regionCard = Card(side, LM.Get("scenario_editor_card_region"));
@@ -2985,6 +3004,7 @@ public static class ScenarioEditorScreen
         _scenarioCard.gameObject.SetActive(showScenario);
         _cityCard.gameObject.SetActive(showCity);
         _realmCard.gameObject.SetActive(showRealm);
+        _declineCard.gameObject.SetActive(showRealm && ScenarioEditing.Polity(_realmId) != null);
         _regionCard.gameObject.SetActive(showRegion);
         _coreCard.gameObject.SetActive(showCore);
         _relationCard.gameObject.SetActive(_tool == Tool.Relation);
@@ -3002,6 +3022,7 @@ public static class ScenarioEditorScreen
         if (showScenario) RefreshScenario(era);
         if (showCity) RefreshCity(era);
         if (showRealm) RefreshRealm();
+        if (showRealm && ScenarioEditing.Polity(_realmId) != null) RefreshDecline();
         if (showRegion) RefreshRegion();
         if (showCore) RefreshCore();
         if (_tool == Tool.Relation) RefreshRelation();
@@ -3297,6 +3318,30 @@ public static class ScenarioEditorScreen
         _deleteRealmBtn.Set(null, DangerColor);
     }
 
+    // 国祚与积弊卡：写了的照写的显示，空着的框里灰字是开局会给的默认值；不称帝的国家不生效，框灰掉(写了的照样显示，可清回默认)
+    private static void RefreshDecline()
+    {
+        WorldMapPolity realm = ScenarioEditing.Polity(_realmId);
+        bool on = realm?.empire == true;
+        foreach (string key in ScenarioEditing.DeclineKeys)
+        {
+            if (!DeclineInputs.TryGetValue(key, out var field)) continue;
+            field.input.interactable = on;
+            SetInput(field.input, ScenarioEditing.DeclineText(realm, key));
+            field.hint.text = on ? string.Format(LM.Get("scenario_editor_decline_default"),
+                ScenarioEditing.DeclineFormat(key, ScenarioEditing.DeclineDefault(realm, key))) : "";
+        }
+        _declineInfo.text = LM.Get(on ? "scenario_editor_decline_hint" : "scenario_editor_decline_off");
+        _declineClearBtn.Set(null, ToolColor, realm?.decline is { Count: > 0 });
+    }
+
+    private static string DeclineCaption(string key) => key switch
+    {
+        ScenarioEditing.DeclineAge => "scenario_editor_dynasty_age",
+        ScenarioEditing.DeclineStrain => "scenario_editor_strain",
+        _ => "malady_" + key
+    };
+
     private static void RefreshRegion()
     {
         WorldMapRegion region = ScenarioEditing.Region(_regionId);
@@ -3538,6 +3583,16 @@ public static class ScenarioEditorScreen
 
     private static string CultureName(string culture) =>
         CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture ?? "";
+
+    // 输入框空着时的灰字
+    private static Text Placeholder(InputField input)
+    {
+        Text text = Label(input.transform, "Placeholder", 15, DimText, TextAnchor.MiddleLeft);
+        text.supportRichText = false;
+        Place(text.rectTransform, Vector2.zero, Vector2.one, new Vector2(6f, 2f), new Vector2(-6f, -2f));
+        input.placeholder = text;
+        return text;
+    }
 
     private static void SetInput(InputField input, string value)
     {

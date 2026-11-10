@@ -61,7 +61,10 @@ public static class MaladySystem
     // 王朝积弊托着的底：六弊治不到这条线以下(见类头)
     private const float StrainFloorShare = 0.5f;
 
-    public static float Floor(Empire empire) => DynasticCycleSystem.GetPressure(empire) * StrainFloorShare;
+    public static float Floor(Empire empire) => FloorOf(DynasticCycleSystem.GetPressure(empire));
+
+    // 某个王朝积弊托着的底(剧本编辑器显示六弊默认值用，见 WorldMapScenario.StartingStrain)
+    public static float FloorOf(float strain) => strain * StrainFloorShare;
 
     // 减的时候至多减到王朝积弊托着的底(本来就在底下的不再往下减)
     private static void Add(Empire empire, string key, float delta)

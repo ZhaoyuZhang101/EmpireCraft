@@ -129,7 +129,7 @@ public static class DynasticCycleSystem
         // 旧档补底：积弊低于同岁数最少该有的(以前治世会往回降、旧档读进来只补了一部分)，每年另补，补到为止
         if (pace > 0f)
         {
-            float floor = DynasticCycleRules.AgeFloor(GetAge(empire));
+            float floor = DynasticCycleRules.AgeFloor(GetAge(empire)) - Math.Max(0f, state.dynastic_floor_relief);
             float gap = floor - (state.dynastic_strain + change);
             if (gap > 0f)
             {
@@ -171,6 +171,25 @@ public static class DynasticCycleSystem
         state.dynastic_saturated_since = -1d;
         state.saturated_uprising_at = -1d;
         state.saturated_origin_cities = 0;
+    }
+
+    // 直接定王朝积弊(用户 2026-11-10 群友"那个帝国不爽直接拉满100"，帝国主页朝政弊病卡上的按钮)：不受"只增不减"约束。
+    //   · 头一年结算还没跑过的，先把王朝起点定下来——否则头一次结算按旧档估算整个盖掉；
+    //   · 调到同岁数补底线以下，差额记进 dynastic_floor_relief，补底线跟着降，不再每年补回去；
+    //   · 过危机线、到满额照常记史、起满额民变；降回线下，危机与满额的记录照改朝换代那样清掉
+    public static void SetPressure(Empire empire, float value)
+    {
+        if (empire?.data == null || World.world == null || !Applies(empire)) return;
+        ConstitutionalEconomyState state = empire.data.constitutional_economy ??= new ConstitutionalEconomyState();
+        double now = World.world.getCurWorldTime();
+        if (state.dynastic_since < 0d) state.dynastic_since = FindDynastyStart(empire, now);
+        int previousBurden = DynasticCycleRules.HarshBurden(state.dynastic_strain);
+        state.dynastic_strain = Math.Max(0f, Math.Min(100f, value));
+        state.dynastic_floor_relief = Math.Max(0f, DynasticCycleRules.AgeFloor(GetAge(empire)) - state.dynastic_strain);
+        Settle(empire, state, now);
+        AfterCarry(empire, state, previousBurden, now);
+        LogService.LogInfo($"[EmpireCraft][王朝积弊] {empire.GetEmpireName()} 积弊直接定为{state.dynastic_strain:0.0}，" +
+                           $"王朝{GetAge(empire)}年，补底让出{state.dynastic_floor_relief:0.0}");
     }
 
     #region 换君：早逝、更替频繁
@@ -287,6 +306,7 @@ public static class DynasticCycleSystem
             state.court_split_at = -1d;
             state.last_dynastic_update = now;
             state.dynastic_strain = DynasticCycleRules.Carry(state.dynastic_strain, transition);
+            state.dynastic_floor_relief = 0f;
             MaladySystem.OnDynastyChanged(empire, DynasticCycleRules.MaladyShare(transition));
             if (transition == Transition.Clear) FactionBalanceSystem.OnDynastyChanged(empire);
             state.reign_ruler_id = -1L;
@@ -319,6 +339,7 @@ public static class DynasticCycleSystem
         public double since = -1d;
         public int age_offset;
         public double saturated_since = -1d;
+        public float floor_relief;
         public Dictionary<string, float> maladies = new();
     }
 
@@ -331,6 +352,7 @@ public static class DynasticCycleSystem
             since = state?.dynastic_since ?? -1d,
             age_offset = state?.dynastic_age_offset ?? 0,
             saturated_since = state?.dynastic_saturated_since ?? -1d,
+            floor_relief = state?.dynastic_floor_relief ?? 0f,
             maladies = new Dictionary<string, float>(empire?.data?.maladies ?? new Dictionary<string, float>())
         };
     }
@@ -352,6 +374,7 @@ public static class DynasticCycleSystem
             state.dynastic_since = legacy.since;
             state.dynastic_age_offset = legacy.age_offset;
             state.dynastic_saturated_since = legacy.saturated_since;
+            state.dynastic_floor_relief = legacy.floor_relief;
             state.court_split_at = now;
         }
         else
@@ -361,6 +384,7 @@ public static class DynasticCycleSystem
             state.court_split_at = -1d;
             state.last_dynastic_update = now;
             state.dynastic_saturated_since = -1d;
+            state.dynastic_floor_relief = 0f;
         }
         state.saturated_uprising_at = -1d;
         state.saturated_origin_cities = 0;

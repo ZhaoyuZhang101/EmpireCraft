@@ -235,6 +235,9 @@ public sealed class ConstitutionalEconomyState
     public double last_dynastic_uprising_attempt = -1d;
     public float dynastic_strain;
     public bool dynastic_crisis_announced;
+    // 帝国主页直接把积弊调到同岁数补底线以下时差了多少(见 DynasticCycleSystem.SetPressure)：补底线照减，免得每年又补回去；
+    // 调回补底线以上、改朝换代(清空、减半)归零。旧档 0
+    public float dynastic_floor_relief;
     // 王朝积弊满额(用户 2026-10-26，见 DynasticCycleSystem)：到满额的时间(-1 = 未满额；积弊只在改朝换代时降回去才清)；
     // 满额后第一场民变的时间(-1 = 还没起)与那时本帝国原有的城数(连同本朝民变已占去的；律令制群雄割据的五成线，见 ProvincialCollapseSystem)。旧档 -1 / 0
     public double dynastic_saturated_since = -1d;

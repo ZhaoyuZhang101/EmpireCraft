@@ -69,6 +69,45 @@ def check_boundary(polygons, where):
                 err(where + "：boundary 经纬度无效或环未闭合")
 
 
+MALADIES = ("graft", "annexation", "bloat", "military", "factionalism", "levies")
+
+
+def check_decline(p, where):
+    """国祚与王朝积弊(decline)：age 为开局时本朝已立几年(0~1000 的整数)，其余 0~100。
+    不是数的整份剧本读不进来(错)；超出范围的开局会夹到范围里、不称帝的不生效、六弊低于积弊一半的开局后会浮上来(注意)。"""
+    decline = p.get("decline")
+    if decline is None:
+        return
+    if not isinstance(decline, dict):
+        err("%s：decline 要写成 {\"strain\": 65, ...}" % where)
+        return
+    values = {}
+    for key, value in decline.items():
+        if key not in DECLINE:
+            err("%s：decline 不认得的项 %s" % (where, key))
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            err("%s：decline 的 %s 要写数字，写的是 %r" % (where, key, value))
+            continue
+        values[key] = value
+        if key == "age":
+            if value < 0:
+                note("%s：decline 的 age=%s 是负数，开局按 0(新开国)算" % (where, value))
+            elif value > 1000:
+                note("%s：decline 的 age=%s 超过 1000，编辑器里改一下就会夹到 1000" % (where, value))
+            elif value != int(value):
+                note("%s：decline 的 age=%s 不是整数，开局取整为 %s" % (where, value, round(value)))
+        elif value < 0 or value > 100:
+            note("%s：decline 的 %s=%s 超出 0~100，开局夹到 %s" % (where, key, value, max(0, min(100, value))))
+    if values and not p.get("emp"):
+        note("%s：没有 emp，decline 不生效(开局称帝的国家才有国祚与王朝积弊)" % where)
+    if "strain" in values:
+        floor = max(0, min(100, values["strain"])) * 0.5
+        for key in MALADIES:
+            if key in values and values[key] < floor:
+                note("%s：decline 的 %s=%s 低于王朝积弊的一半，开局后会浮上来到 %s" % (where, key, values[key], floor))
+
+
 def full_names(person):
     fam, giv = person.get("fam"), person.get("giv") or ""
     yield (first(fam) if fam else "") + first(giv)
@@ -161,9 +200,7 @@ def main():
             check_boundary(d.get("boundary"), where + " 行政区 " + first(d.get("name")))
             for cid in d.get("cities", []):
                 city(cid, where + " 行政区 " + first(d.get("name")) + "(开局跳过)", soft=True)
-        for key in p.get("decline", {}):
-            if key not in DECLINE:
-                err("%s：decline 不认得的项 %s" % (where, key))
+        check_decline(p, where)
     for p in polities:
         if p.get("of") and p["of"] not in by_id:
             err("国 %s：宗主 of=%s 不存在" % (p.get("id"), p["of"]))
