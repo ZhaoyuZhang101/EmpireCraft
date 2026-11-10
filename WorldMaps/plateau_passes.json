@@ -1,0 +1,23 @@
+{
+  "_comment": "高原外缘的史实山口(用户 2026-11-10)：生成世界地图时沿 from→to 最省的路开 3~5 格宽的谷道，穿过高原外缘的山脊与坡地(见 Scripts/GeneralSystems/PlateauShaper.cs)。经纬度为 [经度, 纬度]；to 是高原那头，没落在高原上的接到最近的高原格(enter 为 false 的不接，只保证这条路不被坡地堵上)。没有路线经过的高原自动挑山口。",
+  "passes": [
+    { "id": "riyue", "zh": "唐蕃古道(日月山)", "en": "Tang-Tibet Road (Riyue Pass)", "from": [101.78, 36.62], "to": [98.21, 34.92] },
+    { "id": "dajianlu", "zh": "川藏道(打箭炉)", "en": "Sichuan-Tibet Road (Dartsedo)", "from": [103.00, 29.98], "to": [100.27, 30.00] },
+    { "id": "diancang", "zh": "滇藏道(阿墩子)", "en": "Yunnan-Tibet Road (Atuntze)", "from": [100.23, 26.87], "to": [98.60, 29.68] },
+    { "id": "gyirong", "zh": "泥婆罗道(吉隆)", "en": "Nepal Road (Gyirong)", "from": [85.32, 27.70], "to": [85.25, 29.35] },
+    { "id": "zojila", "zh": "拉达克道(佐吉拉)", "en": "Ladakh Road (Zoji La)", "from": [74.80, 34.08], "to": [77.58, 34.16] },
+    { "id": "kargilik", "zh": "叶城道(赛图拉)", "en": "Karghalik Road (Shahidulla)", "from": [77.42, 37.88], "to": [78.20, 35.60] },
+    { "id": "congling", "zh": "葱岭道(塔什库尔干)", "en": "Pamir Road (Tashkurgan)", "from": [75.99, 39.47], "to": [75.23, 37.77] },
+    { "id": "wushaoling", "zh": "乌鞘岭(河西入陇右)", "en": "Wushao Ridge (Hexi to Longyou)", "from": [102.64, 37.93], "to": [103.83, 36.06] },
+    { "id": "huangshui", "zh": "湟水谷(西宁—兰州)", "en": "Huangshui Valley (Xining-Lanzhou)", "from": [101.78, 36.62], "to": [103.83, 36.06] },
+    { "id": "xiaoguan_north", "zh": "萧关道北口(河套沿黄河南下)", "en": "Xiao Pass Road, north (Hetao along the Yellow River)", "from": [106.23, 38.49], "to": [106.28, 36.00] },
+    { "id": "xiaoguan_south", "zh": "萧关道南口(泾河入关中)", "en": "Xiao Pass Road, south (Jing Valley into Guanzhong)", "from": [106.28, 36.00], "to": [108.84, 34.53] },
+    { "id": "longguan", "zh": "陇关(陇右入关中)", "en": "Long Pass (Longyou to Guanzhong)", "from": [105.72, 34.58], "to": [107.14, 34.37] },
+    { "id": "yanmen", "zh": "雁门关(大同入汾河谷)", "en": "Yanmen Pass (Datong to the Fen Valley)", "from": [113.30, 40.08], "to": [112.55, 37.87] },
+    { "id": "pujin", "zh": "蒲津(汾河谷入关中)", "en": "Pujin Ford (Fen Valley to Guanzhong)", "from": [111.52, 36.08], "to": [109.94, 34.80] },
+    { "id": "tongguan", "zh": "潼关(关中东出)", "en": "Tong Pass (Guanzhong to the east)", "from": [112.45, 34.62], "to": [108.94, 34.34], "enter": false },
+    { "id": "jingxing", "zh": "井陉(太行)", "en": "Jingxing Pass (Taihang)", "from": [114.51, 38.04], "to": [112.55, 37.87] },
+    { "id": "fukou", "zh": "滏口陉(太行)", "en": "Fukou Pass (Taihang)", "from": [114.49, 36.61], "to": [113.12, 36.20] },
+    { "id": "taihangxing", "zh": "太行陉(太行)", "en": "Taihang Pass", "from": [113.90, 35.30], "to": [112.85, 35.49] }
+  ]
+}

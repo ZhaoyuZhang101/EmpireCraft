@@ -502,6 +502,7 @@ public static class WildernessOverlay
         WildKind.Jungle => new Color32(42, 108, 58, 255),
         WildKind.Swamp => new Color32(64, 136, 120, 255),
         WildKind.Lava => new Color32(168, 62, 36, 255),
+        WildKind.Plateau => new Color32(178, 166, 120, 255),
         _ => new Color32(160, 160, 150, 255)
     };
 
@@ -514,6 +515,7 @@ public static class WildernessOverlay
         WildKind.Jungle => new Color32(20, 66, 32, 255),
         WildKind.Swamp => new Color32(30, 92, 108, 255),
         WildKind.Lava => new Color32(255, 150, 52, 255),
+        WildKind.Plateau => new Color32(120, 108, 70, 255),
         _ => new Color32(100, 100, 96, 255)
     };
 
@@ -557,6 +559,12 @@ public static class WildernessOverlay
                 // 熔岩裂纹(斜的三格短纹)：6×5 一组，错行半组
                 int lx = (x + y / 5 % 2 * 3) % 6, ly = y % 5;
                 return ly >= 1 && ly <= 3 && lx == ly;
+            }
+            case WildKind.Plateau:
+            {
+                // 高原：平顶台地(一道三格短横，两头往下一格)，8×5 一组，错行半组
+                int lx = (x + y / 5 % 2 * 4) % 8, ly = y % 5;
+                return ly == 1 && lx >= 2 && lx <= 4 || ly == 2 && (lx == 1 || lx == 5);
             }
         }
         return false;

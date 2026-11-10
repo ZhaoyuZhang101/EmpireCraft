@@ -121,6 +121,11 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.GeneralSystems.WildernessSystem.SetJungleDeveloped(on);
         }
+        // 随机地图生成高原(默认开)：新开随机地图时挑一两片成片高地抬成高原、外缘铺山脊坡地留山口(见 PlateauGenerator)；已有的图不动
+        public static void PlateauRandomMapCallBack(bool on)
+        {
+            EmpireCraft.Scripts.GeneralSystems.PlateauGenerator.Enabled = on;
+        }
         // 平滑国界：逐像素画国界、城界，军团模式下占领逐格推进(见 SmoothBorders、FrontSystem.Smooth)
         public static void SmoothBordersCallBack(bool on)
         {

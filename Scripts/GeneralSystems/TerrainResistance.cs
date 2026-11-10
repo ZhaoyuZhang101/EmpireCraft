@@ -5,7 +5,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 
 // 地形阻力(用户 2026-10-16 定："按照地形和距离来判断辐射范围，比如有山川和长城，文化的传播就会减缓甚至衰减""河流过河加阻力")：
 // 走进一块地的代价，国家控制力(AdministrativeControlSystem)与文化辐射(CultureRadiation)共用——
-//   平原、城池 1，森林 1.3，丘陵 1.6，沙漠、雪地 2，沼泽、丛林 2.5，山地 4，几乎走不通的高山 8；
+//   平原、城池 1，森林 1.3，丘陵 1.6，沙漠、雪地 2，沼泽、丛林 2.5，山地、高原 4(用户 2026-11-10 "教化政令难达"，按高山算)，几乎走不通的高山 8；
 //   过河(水多的地块)+2，有路(有桥)不加；有城墙(原版城墙或图层长城，见 MapWallSystem)+6；有路的地块阻力减半。
 //   城墙上有关城(关门，见 WallGateSystem)的地块：守关一方与同一势力、并肩作战的友邦、同盟从关门过，不加城墙阻力；别人照旧 +6。
 //   海面走不了(跨海按水师辐射另算)。
@@ -45,7 +45,7 @@ public static class TerrainResistance
         FrontTerrain.Hills => 1.6f,
         FrontTerrain.Desert or FrontTerrain.Snow => 2f,
         FrontTerrain.Swamp or FrontTerrain.Jungle => 2.5f,
-        FrontTerrain.Mountain => 4f,
+        FrontTerrain.Mountain or FrontTerrain.Plateau => 4f,
         _ => 1f
     };
 

@@ -59,6 +59,8 @@ public static class WarWeather
         {
             case FrontTerrain.Snow:
             case FrontTerrain.Mountain:
+            // 高原冬天同山地一样冻
+            case FrontTerrain.Plateau:
                 return ice || FrostMonth(month) ? Kind.Frost : Kind.Clear;
             case FrontTerrain.Jungle:
             case FrontTerrain.Swamp:
@@ -93,6 +95,8 @@ public static class WarWeather
         {
             FrontTerrain.Desert => culture == "Arab" || AnimalHusbandrySystem.IsNomadic(kingdom),
             FrontTerrain.Snow => culture == "Slavonic" || AnimalHusbandrySystem.IsNomadic(kingdom),
+            // 高原：青藏文化与游牧惯了(高寒高原的牧人)
+            FrontTerrain.Plateau => culture == "Xizang" || AnimalHusbandrySystem.IsNomadic(kingdom),
             _ => false
         };
         if (used) exposure *= Softened;

@@ -273,6 +273,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraftLoyaltyLibrary.init();
         EmpireCraftBuildingLibrary.init();
         EmpireCraftWarshipLibrary.init();
+        // 高原两种地面格：读档、生成地图前就要在原版地块库里
+        EmpireCraft.Scripts.GeneralSystems.PlateauTerrain.Register();
         RegimeManager.init();
         // 政体的国家类别、官名文本(各政体目录下的 OfficialType.csv，如"侯国""公国""国")在 RegimeManager.init 里才读，
         // 上面那次 ApplyLocale 之后读的文本要再应用一次，否则国名后缀显示成 ZhouFeudalism_hou 这样的键名

@@ -55,6 +55,7 @@ public static class CityGeographySystem
             {
                 case FrontTerrain.Mountain:
                 case FrontTerrain.Hills:
+                case FrontTerrain.Plateau:
                 case FrontTerrain.Jungle:
                 case FrontTerrain.Swamp:
                     rough++;

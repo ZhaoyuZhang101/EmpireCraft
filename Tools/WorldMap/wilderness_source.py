@@ -3,7 +3,8 @@ WorldMaps/eras/*.json 的 "wilderness" 一节。游戏里由 Scripts/GeneralSyst
 (用户 2026-10-29 "然后要适配预设地图得历史设定""包括真实的地理名称和归属")。
 
 地理单元(UNITS)：
-  - k：能对上的无人区类型(M 山脉、D 沙漠、T 冻原、J 雨林、S 大泽；青藏一带的雪丘高原按地块构成常判成山脉或冻原，两样都写)；
+  - k：能对上的无人区类型(M 山脉、D 沙漠、T 冻原、J 雨林、S 大泽、P 高原；青藏一带按地块构成常判成山脉、冻原或高原(2026-11-10
+    起高原面是高寒高原格)，几样都写)；
   - 定位：box 经纬框 [西, 南, 东, 北](可几个)，pts 锚点 [经度, 纬度] 连同半径 r(度，经向按纬度折算)；
     一块地落在任一框里或离任一锚点 r 度以内就算这个单元盖住了它。撒哈拉、阿拉伯沙漠、西伯利亚、青藏高原这类大单元框得大，
     底下另有细的(利比亚沙漠、叙利亚沙漠、泰梅尔半岛、羌塘……)：一片区域被几个单元盖住时取重合得最多的
@@ -31,7 +32,7 @@ import json
 import os
 import sys
 
-KIND = {"M": "mountain", "D": "desert", "T": "tundra", "J": "jungle", "S": "swamp"}
+KIND = {"M": "mountain", "D": "desert", "T": "tundra", "J": "jungle", "S": "swamp", "P": "plateau"}
 UNITS = []
 
 
@@ -213,7 +214,7 @@ U("spin_ghar", "M", "斯平加尔山脉", "Spin Ghar", pts=[[70.5, 34.1]], r=0.5
 U("sulaiman", "M", "苏莱曼山脉", "Sulaiman Mountains", pts=[[69.8, 30], [69.9, 31.3], [69.6, 32.4]], r=0.8)
 U("kirthar", "M", "基尔塔尔山脉", "Kirthar Mountains", pts=[[67.4, 26.3], [67.3, 27.8]], r=0.6)
 # 张骞通西域以后称葱岭；托勒密的 Imaus
-U("pamir", "MT", "帕米尔高原", "Pamir Mountains", box=[[71, 36.8, 75.5, 39.6]],
+U("pamir", "MTP", "帕米尔高原", "Pamir Mountains", box=[[71, 36.8, 75.5, 39.6]],
   c={"Huaxia": ["-120~|葱岭|Congling|蔥嶺"], "Roma": ["伊茂斯山|Imaus|伊茂斯山"]})
 U("karakoram", "MT", "喀喇昆仑山脉", "Karakoram", pts=[[74.5, 36.2], [76, 35.8], [77.3, 35.3], [78.5, 34.7]], r=0.9)
 # 法显以来汉译佛典称雪山(梵语 Himavat)；托勒密的 Emodus
@@ -222,9 +223,9 @@ U("himalaya", "MT", "喜马拉雅山脉", "Himalayas",
        [89.3, 27.9], [91.3, 27.9], [93.3, 28.2], [95, 29]], r=1.1,
   c={"Huaxia": ["400~|雪山|Snowy Mountains|雪山"], "India": ["雪山|Himavat|雪山"], "Roma": ["埃莫杜斯山|Emodus|埃莫杜斯山"]})
 U("pir_panjal", "M", "皮尔本贾尔山脉", "Pir Panjal Range", pts=[[74.3, 33.6], [75.2, 33.3]], r=0.6)
-U("tibetan_plateau", "MT", "青藏高原", "Tibetan Plateau", box=[[78.5, 28, 103, 38.3]])
-U("changtang", "TM", "羌塘高原", "Changtang", box=[[79.5, 31.5, 92.3, 36.2]])
-U("hoh_xil", "TM", "可可西里", "Hoh Xil", box=[[89.5, 34.3, 94.5, 36.6]])
+U("tibetan_plateau", "MTP", "青藏高原", "Tibetan Plateau", box=[[78.5, 28, 103, 38.3]])
+U("changtang", "TMP", "羌塘高原", "Changtang", box=[[79.5, 31.5, 92.3, 36.2]])
+U("hoh_xil", "TMP", "可可西里", "Hoh Xil", box=[[89.5, 34.3, 94.5, 36.6]])
 U("tanggula", "MT", "唐古拉山脉", "Tanggula Mountains", pts=[[90, 33.2], [91.8, 33], [93.5, 33.3]], r=0.6)
 U("nyainqentanglha", "MT", "念青唐古拉山脉", "Nyenchen Tanglha", pts=[[89.5, 30.3], [91, 30.5], [92.8, 30.4], [94.5, 30]], r=0.7)
 U("gangdise", "MT", "冈底斯山脉", "Gangdise Mountains",

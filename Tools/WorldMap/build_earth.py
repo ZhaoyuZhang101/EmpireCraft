@@ -32,6 +32,8 @@
   python -I build_earth.py terrarium <数据目录> <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       数据目录里要有 terrarium_z6.npz、ne/ne_10m_rivers_lake_centerlines.shp(.dbf)，ne/ne_10m_geography_regions_polys.shp(.dbf)
       可缺；海陆湖泊与气候取旧网格。河道数据没变，rivers.bytes 不重出。
+  python -I build_earth.py plateau <旧 earth.bytes> <输出 earth.bytes> [预览.png]
+      只补高寒高原、黄土高原两种地面格(见 apply_plateaus；整套重烘时 compose 末尾也会做)。
   python -I build_earth.py beaches <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       只改沙地：离水 BEACH_REACH 格以外的沙地(以前画的大漠沙丘)改成荒漠(高低照最近的荒漠格)，海边湖边的留作沙滩。
 
@@ -50,7 +52,7 @@
     华南、东南亚、印度的低丘(水田梯田的地方)门槛提高，江南、岭南的低山丘陵大多仍算平地，只有真正破碎陡峭的才算；
   - 山间谷地、山口留出来：山里的谷底不算山；名关要道(ROUTES)与被山围住的谷地盆地沿最低处开出三格宽的山口(丘陵)；
   - 高地平原(soil_high)：周围平均海拔 450 米以上，四周高山围着的低盆地(四川、关中、汉中、费尔干纳)仍算低地；
-  - 青藏 3800 米以上的高原面是雪丘；雪线随纬度降(赤道 5200 米、阿尔卑斯约 3000 米、斯堪的纳维亚约 1300 米)，
+  - 青藏 3800 米以上的高原面是高寒高原(模组的地面格 alpine_plateau，2026-11-10 起；以前是雪丘)，黄土高原按多边形(loess_plateau)；雪线随纬度降(赤道 5200 米、阿尔卑斯约 3000 米、斯堪的纳维亚约 1300 米)，
     雪线以上的山顶、丘陵盖雪。
 """
 import io
@@ -242,6 +244,8 @@ BIOMES = ["grass", "savanna", "jungle", "desert", "permafrost", "birch", "maple"
 for b in BIOMES:
     TYPES.append("soil_low:%s_low" % b)
     TYPES.append("soil_high:%s_high" % b)
+# 模组自己的两种高原地面格(见 Scripts/GeneralSystems/PlateauTerrain.cs、apply_plateaus)：排在最后，旧网格的编号不变
+TYPES += ["alpine_plateau", "loess_plateau"]
 CODE = {t: i for i, t in enumerate(TYPES)}
 # 平地的地表：沙地(沙丘、旱区海滩)另记一种，其余按生物群系分高低
 SURFACES = ["sand"] + BIOMES
@@ -740,7 +744,81 @@ def compose(water_codes, water, surface, mountains, hills, f):
     out[land & ((hills & snowy) | plateau)] = CODE["hills:snow_hills"]
     out[mountains] = CODE["mountains"]
     out[mountains & snowy] = CODE["mountains:snow_block"]
+    return apply_plateaus(out)
+
+
+# 黄土高原的范围(经纬度多边形，用户 2026-11-10 定"黄土高原也做")：西到乌鞘岭以南、兰州以西，北沿长城一线(河套、鄂尔多斯、
+# 银川平原、大同盆地在外)，东到太行山，南到中条山、关中北山(关中平原在外)、西秦岭北麓。里面除山、水以外的地一律算黄土高原
+# (汾河谷、渭河上游的谷地也是：高原里的河谷照样能耕，不沿河谷围山)
+LOESS = [(102.8, 36.3), (102.8, 37.0), (103.6, 37.3), (104.5, 37.4), (105.3, 37.25), (106.0, 37.15), (106.7, 37.3),
+         (107.4, 37.45), (108.1, 37.55), (108.9, 37.85), (109.6, 38.3), (110.3, 38.85), (111.0, 39.35), (111.6, 39.5),
+         (112.3, 39.3), (112.9, 39.2), (113.6, 39.4), (114.2, 39.45), (114.05, 38.5), (113.9, 37.5), (113.75, 36.5),
+         (113.45, 35.6), (112.8, 35.1), (111.8, 34.95), (111.0, 34.9), (110.45, 34.95), (110.35, 35.2), (109.5, 35.05),
+         (108.8, 34.95), (108.0, 34.9), (107.2, 34.8), (106.6, 34.65), (106.0, 34.45), (105.0, 34.4), (104.2, 34.6),
+         (103.5, 35.0), (102.9, 35.6)]
+
+
+def polygon_mask(points):
+    """经纬度多边形里的格(射线法)。"""
+    lon2 = LONS[None, :]
+    lat2 = LATS[:, None]
+    inside = np.zeros((ROWS, COLS), bool)
+    n = len(points)
+    for k in range(n):
+        x1, y1 = points[k]
+        x2, y2 = points[(k + 1) % n]
+        if y1 == y2:
+            continue
+        crosses = ((lat2 >= min(y1, y2)) & (lat2 < max(y1, y2)))
+        xcross = x1 + (lat2 - y1) * (x2 - x1) / (y2 - y1)
+        inside ^= crosses & (lon2 < xcross)
+    return inside
+
+
+def apply_plateaus(out):
+    """两种高原(用户 2026-11-10)：青藏、帕米尔的高原面(3800 米以上，网格里的雪丘连片)连同里面的谷地、丘陵改成高寒高原；
+    黄土高原多边形里的平地、丘陵改成黄土高原。山、水不动；外缘山脊、坡地、山口在游戏里生成世界时铺(PlateauShaper)。"""
+    out = out.copy()
+    land = ~np.isin(out, [CODE["deep_ocean"], CODE["close_ocean"], CODE["shallow_waters"]])
+    rock = np.isin(out, [CODE["mountains"], CODE["mountains:snow_block"]])
+    lon2 = np.broadcast_to(LONS[None, :], out.shape)
+    lat2 = np.broadcast_to(LATS[:, None], out.shape)
+    box = (lon2 >= 72.0) & (lon2 <= 106.0) & (lat2 >= 25.0) & (lat2 <= 41.0)
+    snow = (out == CODE["hills:snow_hills"]) & box
+    lab, n = ndimage.label(snow, structure=np.ones((3, 3), bool))
+    sizes = ndimage.sum(snow, lab, np.arange(1, n + 1)) if n else np.zeros(0)
+    # 主片(青藏腹地)；隔着雪山、相距不到半度的雪丘片(阿里、阿克赛钦、拉达克、帕米尔)一片片并进来
+    tibet = np.isin(lab, np.flatnonzero(sizes >= 4000) + 1)
+    merged = int((sizes >= 4000).sum())
+    for _ in range(8):
+        near = ndimage.binary_dilation(tibet, iterations=10)
+        ids = np.unique(lab[near & snow & ~tibet])
+        ids = ids[(ids > 0) & (sizes[ids - 1] >= 80)]
+        if len(ids) == 0:
+            break
+        tibet |= np.isin(lab, ids)
+        merged += len(ids)
+    tibet = ndimage.binary_fill_holes(ndimage.binary_closing(tibet, structure=np.ones((3, 3), bool), iterations=3))
+    alpine = tibet & land & ~rock
+    out[alpine] = CODE["alpine_plateau"]
+    # 黄土高原：多边形的边按噪声起伏(约 ±0.2 度)，不是直线；北纬 35.45 度以南的低地(关中、渭河谷)留在外面
+    rng = np.random.default_rng(1110)
+    wobble = ndimage.gaussian_filter(rng.standard_normal(out.shape), 8) * 0.7 +         ndimage.gaussian_filter(rng.standard_normal(out.shape), 2.5) * 0.3
+    wobble /= wobble.std() + 1e-9
+    inside = polygon_mask(LOESS)
+    signed = (ndimage.distance_transform_edt(inside) - ndimage.distance_transform_edt(~inside)) * STEP
+    lowland = np.isin(out, [CODE["soil_low:%s_low" % b] for b in BIOMES]) & (lat2 < 35.45)
+    loess = (signed + 0.2 * wobble > 0) & land & ~rock & ~alpine & ~lowland & (out != CODE["sand"])
+    out[loess] = CODE["loess_plateau"]
+    print("高寒高原 %d 格(雪丘 %d 片)，黄土高原 %d 格" % (alpine.sum(), merged, loess.sum()))
     return out
+
+
+def plateaus(old_path, out_path, preview_path=None):
+    """只补两种高原(旧网格没有高原编号时追加在编号表末尾，别的格不动)。"""
+    grid, types = read_earth(old_path)
+    assert TYPES[:len(types)] == types, "地块写法表与本脚本的 TYPES 对不上"
+    finish(apply_plateaus(grid), out_path, preview_path)
 
 
 def local_relief(f):
@@ -982,7 +1060,7 @@ BEACH_REACH = 2
 def beaches(old_path, out_path, preview_path=None):
     """沙地只留海边湖边的沙滩：离水 BEACH_REACH 格以外的沙地改成最近的荒漠格那一种(高低两种)，没有就低地荒漠。"""
     grid, types = read_earth(old_path)
-    assert types == TYPES, "地块写法表与本脚本的 TYPES 对不上"
+    assert TYPES[:len(types)] == types, "地块写法表与本脚本的 TYPES 对不上"
     out = grid.copy()
     water = np.isin(out, [CODE[t] for t in TYPES if t in ("deep_ocean", "close_ocean", "shallow_waters")])
     sand = out == CODE["sand"]
@@ -1031,6 +1109,7 @@ PREVIEW = {
     "jungle": ((40, 120, 40), (30, 100, 30)), "desert": ((245, 225, 150), (225, 195, 110)),
     "permafrost": ((200, 215, 225), (180, 195, 210)), "birch": ((110, 150, 90), (90, 130, 75)),
     "maple": ((130, 160, 70), (110, 140, 60)), "swamp": ((90, 110, 60), (80, 100, 50)),
+    "alpine_plateau": (143, 144, 112), "loess_plateau": (185, 154, 104),
 }
 
 
@@ -1061,6 +1140,8 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "fetch-terrarium":
         fetch_terrarium(args[1])
+    elif args and args[0] == "plateau":
+        plateaus(args[1], args[2], args[3] if len(args) > 3 else None)
     elif args and args[0] == "beaches":
         beaches(args[1], args[2], args[3] if len(args) > 3 else None)
     elif args and args[0] == "terrarium":

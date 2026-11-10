@@ -54,8 +54,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     岩浆会流、会冷却，格子变了照常停手后重判(喷发时这一带隔几秒重划一回，冷却后退回山脉或无主地，城照常再扩回去)。
 //   · 模组设置「雨林全开发」(默认开，见 JungleDeveloped)：玩家自己的图上雨林不划无人区；世界地图剧本同样不受它管。
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
+// 高原(用户 2026-11-10)：高寒高原格(见 PlateauTerrain)占三成五、连同冻土雪地山地丘陵够八成五的划高原无人区(青藏、帕米尔的高原面
+// 夹着雪山)；黄土高原是农耕之地，不划。法理挂走得到的最近的城(不先给游牧，用户问琼结为何比藏巴多认领那么多无人区后定)，
+// 隔着外缘山脊走不进来(见 Spread)；游牧之国的城能扩进挨着的高原无人区("高原游牧不算荒地"，见 HerdsOnPlateau)。
 // 类型按整数存档(WildRegionData.kind、开发度、县址)：只往后加，不改已有的编号
-public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5, Lava = 6 }
+public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5, Lava = 6, Plateau = 7 }
 
 public sealed class WildRegion
 {
@@ -123,6 +126,8 @@ public static class WildernessSystem
     private const int MinLand = 16;
     private const float MountainCore = 0.5f, MountainFlank = 0.35f, MountainRugged = 0.75f;
     private const float LavaCore = 0.3f, LavaFlank = 0.15f, LavaRugged = 0.6f;
+    // 高原无人区：高寒高原格至少占陆地这么多(其余是雪山、丘陵、冻土)
+    private const float PlateauCore = 0.35f;
     private const float BarrenShare = 0.85f, SwampShare = 0.75f, JungleShare = 0.85f;
     private const float Hysteresis = 0.1f;
     // 至少几块连成一片才算无人区
@@ -380,6 +385,10 @@ public static class WildernessSystem
     public static bool CanTake(City city) =>
         _settling > 0 || CityPlacementSystem.Placing || city?.zones == null || city.zones.Count == 0;
 
+    // 高原游牧不算荒地(用户 2026-11-10)：游牧之国的城能扩进挨着的高原无人区(扩进去的地当即退出无人区，同神力手动划地)
+    public static bool HerdsOnPlateau(City city, TileZone zone) =>
+        city?.kingdom != null && KindOf(zone) == WildKind.Plateau && FrontierRelations.IsNomadRealm(city.kingdom);
+
     // 地块归了城(City.addZone 之后，见 CityExpansionPatch.AfterAddZone)：当即退出无人区，停手后重划
     public static void OnZoneTaken(TileZone zone)
     {
@@ -527,7 +536,7 @@ public static class WildernessSystem
         if (saved == null) return;
         foreach (WildRegionData data in saved)
         {
-            if (data?.zones == null || data.zones.Count == 0 || data.kind <= 0 || data.kind > (int)WildKind.Lava) continue;
+            if (data?.zones == null || data.zones.Count == 0 || data.kind <= 0 || data.kind > (int)WildKind.Plateau) continue;
             data.titles ??= new List<long>();
             _saved.Add(data);
             _nextId = Math.Max(_nextId, data.id + 1);
@@ -635,7 +644,7 @@ public static class WildernessSystem
 
     // 格子种类的标记(按 TileTypeBase.index_id 缓存，同 TerrainSystem.Marks)
     private const int MarkWater = 1, MarkRock = 2, MarkHills = 4, MarkFrozen = 8, MarkSand = 16, MarkJungle = 32, MarkSwamp = 64,
-        MarkFarm = 128, MarkPaved = 256, MarkLava = 512;
+        MarkFarm = 128, MarkPaved = 256, MarkLava = 512, MarkPlateau = 1024;
     private static int[] _marks = new int[0];
     private static TileTypeBase[] _markTypes = new TileTypeBase[0];
 
@@ -663,6 +672,8 @@ public static class WildernessSystem
         // 原版的岩浆格也算液体(各处判水面都写 liquid && !lava，见 SmoothBorders.IsWater)，先看 lava
         if (type.lava) marks |= MarkLava;
         else if (type.liquid) marks |= MarkWater;
+        // 高寒高原(地面格)；黄土高原不算荒地
+        if (PlateauTerrain.Alpine != null && ReferenceEquals(type, PlateauTerrain.Alpine)) marks |= MarkPlateau;
         if (type.mountains || type.summit) marks |= MarkRock;
         string id = type.id ?? "";
         if (id == "hills" || type.rocks) marks |= MarkHills;
@@ -700,6 +711,8 @@ public static class WildernessSystem
         if (((marks | under) & MarkLava) != 0) return WildKind.Lava;
         rock = ((marks | under) & MarkRock) != 0;
         hills = !rock && ((marks | under) & MarkHills) != 0;
+        // 高寒高原格冻上了也是高原
+        if (!rock && (under & MarkPlateau) != 0) return WildKind.Plateau;
         int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
         if ((ground & MarkFrozen) != 0) return WildKind.Tundra;
         if ((ground & MarkSand) != 0) return WildKind.Desert;
@@ -715,6 +728,8 @@ public static class WildernessSystem
     private struct Counts
     {
         public int Total, Water, Rock, Hills, Frozen, Sand, Jungle, Swamp, Lava;
+        // 高寒高原格；山地、丘陵、冻土雪地里的格(每格只记一次，高原无人区的门槛用)
+        public int Plateau, Harsh;
         // 陆地连同岩浆格
         public int Land => Total - Water;
     }
@@ -722,7 +737,7 @@ public static class WildernessSystem
     // 一块地各类格子数(水、岩浆、山地山巅、丘陵石地、冻土雪地、荒漠(沙滩不算)、丛林、沼泽)
     private static Counts Count(TileZone zone)
     {
-        int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0, lava = 0;
+        int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0, lava = 0, plateau = 0, harsh = 0;
         foreach (WorldTile tile in zone.tiles)
         {
             TileTypeBase type = tile?.Type;
@@ -745,10 +760,18 @@ public static class WildernessSystem
             }
             // 开过的田不算荒地
             if ((marks & MarkFarm) != 0) continue;
-            if (((marks | under) & MarkRock) != 0) rock++;
-            else if (((marks | under) & MarkHills) != 0) hills++;
+            bool rocky = ((marks | under) & MarkRock) != 0, hilly = !rocky && ((marks | under) & MarkHills) != 0;
+            if (rocky) rock++;
+            else if (hilly) hills++;
+            // 高寒高原格(冻上了也是高原)
+            if (!rocky && (under & MarkPlateau) != 0)
+            {
+                plateau++;
+                continue;
+            }
             // 路、城墙铺在上面的看底下的地面
             int ground = (marks & MarkPaved) != 0 && main != null ? under : marks;
+            if (rocky || hilly || (ground & MarkFrozen) != 0) harsh++;
             if ((ground & MarkFrozen) != 0) frozen++;
             else if ((ground & MarkSand) != 0) sand++;
             else if ((ground & MarkJungle) != 0) jungle++;
@@ -757,7 +780,7 @@ public static class WildernessSystem
         return new Counts
         {
             Total = total, Water = water, Rock = rock, Hills = hills, Frozen = frozen, Sand = sand, Jungle = jungle, Swamp = swamp,
-            Lava = lava
+            Lava = lava, Plateau = plateau, Harsh = harsh
         };
     }
 
@@ -782,6 +805,9 @@ public static class WildernessSystem
         if (peak >= Need(wasMountain, MountainCore) ||
             peak >= Need(wasMountain, MountainFlank) && peak + hills >= Need(wasMountain, MountainRugged))
             return WildKind.Mountain;
+        // 高原：高寒高原格三成五以上，连同雪山、丘陵、冻土够荒地的门槛(青藏的高原面夹着雪山)
+        bool wasPlateau = previous == WildKind.Plateau;
+        if (c.Plateau >= Need(wasPlateau, PlateauCore) && c.Plateau + c.Harsh >= Need(wasPlateau, BarrenShare)) return WildKind.Plateau;
         if (frozen + sand >= Need(previous is WildKind.Desert or WildKind.Tundra, BarrenShare))
             return frozen > sand ? WildKind.Tundra : WildKind.Desert;
         bool wet = previous is WildKind.Jungle or WildKind.Swamp;
@@ -1313,6 +1339,8 @@ public static class WildernessSystem
             WildKind.Swamp => (104, 116, 82),
             // 熔岩暗红(偏褐，同山脉一样压得住地形浮雕；纹样另用亮橙，见 WildernessOverlay)
             WildKind.Lava => (156, 66, 44),
+            // 高原：高寒草甸的灰黄
+            WildKind.Plateau => (162, 152, 112),
             _ => (160, 160, 160)
         };
         uint hash = unchecked((uint)id * 2654435761u);
@@ -1955,6 +1983,9 @@ public static class WildernessSystem
             foreach (TileZone next in neighbours)
             {
                 if (next == null || next.id < 0 || next.id >= size || !Land(next)) continue;
+                // 高原无人区隔着外缘山脊走不进去，只从山口进(见 PlateauShaper；用户 2026-11-10 定按走得到的最近的城挂)
+                if (next.id < _kind.Length && _kind[next.id] == (byte)WildKind.Plateau &&
+                    (id >= _kind.Length || _kind[id] != (byte)WildKind.Plateau) && !TerrainSystem.Crossable(zone, next)) continue;
                 // 只从部分城起步时(游牧)不穿过别的城的地：农耕国腹地里的沙漠走不到，照旧挂最近的城
                 if (block && starts != null && next.city?.data != null && !next.city.isRekt() && !starts(next.city)) continue;
                 float total = at + (next.x != zone.x && next.y != zone.y ? 1.414f : 1f) * Roughness(next);

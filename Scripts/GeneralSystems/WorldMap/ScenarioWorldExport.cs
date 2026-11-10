@@ -533,6 +533,8 @@ public static class ScenarioWorldExport
         string mainId = main.id ?? "";
         if (main.liquid && !main.lava)
             return mainId.Contains("deep") ? "deep_ocean" : mainId.Contains("close") ? "close_ocean" : "shallow_waters";
+        // 高原两种(冻上的、开了田的照样是高原)
+        if (PlateauTerrain.IsPlateau(main)) return main.id;
         TopTileType top = tile.top_type;
         if (top != null && (top.road || top.farm_field || top.wall)) top = null;
         string topId = top?.id ?? "";

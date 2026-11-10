@@ -346,7 +346,8 @@ public static class ConnectivitySystem
         FrontTerrain.Snow => ConnectivityRules.Snow,
         FrontTerrain.Swamp => ConnectivityRules.Swamp,
         FrontTerrain.Jungle => ConnectivityRules.Jungle,
-        FrontTerrain.Mountain => ConnectivityRules.Mountain,
+        // 高原按山地算通达(两种高原都是，同地形阻力)
+        FrontTerrain.Mountain or FrontTerrain.Plateau => ConnectivityRules.Mountain,
         FrontTerrain.River => ConnectivityRules.River,
         FrontTerrain.Urban => ConnectivityRules.Urban,
         _ => ConnectivityRules.Plains

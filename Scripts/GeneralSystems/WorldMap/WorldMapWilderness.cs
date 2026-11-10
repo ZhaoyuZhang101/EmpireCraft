@@ -522,6 +522,8 @@ public static class WorldMapWilderness
         // 地球地图没有岩浆，wilderness.json 不写 lava；导入地图、从当前世界导入的剧本也把岩浆当山(见 ScenarioWorldExport.TypeOf)，
         // 这里只为对得上类型，进世界后神力放的岩浆划出来的熔岩照常按文化起名
         WildKind.Lava => "lava",
+        // 高原(2026-11-10)：wilderness.json 里青藏高原、羌塘、可可西里、帕米尔的 k 带 plateau
+        WildKind.Plateau => "plateau",
         _ => null
     };
 

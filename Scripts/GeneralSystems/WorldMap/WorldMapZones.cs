@@ -363,7 +363,8 @@ internal static class WorldMapZones
         // 整块荒漠冻土：同无人区的判定(WildernessSystem.ClassifyFresh)。以前这里另有一套口径(分母扣掉山地)，
         // 约三百多块开局留空、进世界后又不够无人区的门槛，成了既不归城、也不是无人区的空地
         WildKind wild = WildernessSystem.ClassifyFresh(zone);
-        bool barren = wild is WildKind.Desert or WildKind.Tundra;
+        // 高原无人区(2026-11-10)同荒漠冻土：开局不铺给城，进世界后划成无人区挂法理(青藏原来就是冻原无人区)
+        bool barren = wild is WildKind.Desert or WildKind.Tundra or WildKind.Plateau;
         bool mountainous = share(mountain) >= 0.2f;
         // 山地两成以上：山脉(走不通、不铺辖地)；整块荒漠冻土：天堑腹地；山丘过四成五：高地(秦岭、太行、大巴山一类)，铺得到但难走
         if (mountainous) travel = 6f;
@@ -375,7 +376,8 @@ internal static class WorldMapZones
         else if (share(forest) >= 0.5f) travel = 1.3f;
         else travel = 1f;
         claimable = !mountainous && !barren;
-        if (barren && !mountainous) barrenKind = wild == WildKind.Desert ? BarrenLandSystem.Desert : BarrenLandSystem.Frozen;
+        if (barren && !mountainous && wild != WildKind.Plateau)
+            barrenKind = wild == WildKind.Desert ? BarrenLandSystem.Desert : BarrenLandSystem.Frozen;
     }
 
     public static int IndexOf(Vector2Int tile)

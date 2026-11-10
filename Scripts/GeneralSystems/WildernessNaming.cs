@@ -132,6 +132,7 @@ public static class WildernessNaming
         WildKind.Jungle => "jungle",
         WildKind.Swamp => "swamp",
         WildKind.Lava => "lava",
+        WildKind.Plateau => "plateau",
         _ => null
     };
 

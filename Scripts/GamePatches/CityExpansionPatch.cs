@@ -130,7 +130,7 @@ public class CityExpansionPatch : GamePatch
         if (city.zones?.Contains(zone) == true || ModClass.IS_CLEAR || !Config.game_loaded || SmoothLoader.isLoading() ||
             AncientWarfareCompatibility.OwnsObject(city)) return true;
         if (CityTerritoryProtection.LocksAdd(city)) return false;
-        if (WildernessSystem.IsWild(zone) && !WildernessSystem.CanTake(city)) return false;
+        if (WildernessSystem.IsWild(zone) && !WildernessSystem.CanTake(city) && !WildernessSystem.HerdsOnPlateau(city, zone)) return false;
         // 预划县址(用户 2026-11-03 转群友"原有的城市跨河连片，本来该断掉的地方不断")：县址里开出来的地只给这一县已设的县城，
         // 没设县的谁也不领(老城不再顺着开出来的地一块块吞过去)；神力手动划地、手动营建、建城与新城落脚的头一块地照旧放行
         // (新城落在没设县的县址里就是这一县的县城，见 WildernessPlotSystem.OnCityBuilt)

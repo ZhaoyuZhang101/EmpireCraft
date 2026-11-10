@@ -241,7 +241,7 @@ public static class LogisticsSystem
         int grade = RoadNetwork.RoadGrade(zone);
         if (grade > 0) return loss * RoadShare * (1.25f - 0.15f * grade);
         bool rough = TerrainSystem.Of(zone) is FrontTerrain.Mountain or FrontTerrain.Jungle or FrontTerrain.Swamp or
-            FrontTerrain.Desert or FrontTerrain.Snow;
+            FrontTerrain.Desert or FrontTerrain.Snow or FrontTerrain.Plateau;
         return Mathf.Min(0.9f, rough ? loss * RoughLoss : loss);
     }
 

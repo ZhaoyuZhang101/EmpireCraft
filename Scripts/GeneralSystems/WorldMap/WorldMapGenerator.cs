@@ -116,6 +116,8 @@ public static class WorldMapGenerator
         Step(() => EarthTerrain.Fill(frame, size), "World Map: Terrain", true);
         // 导入地图没有河流图，不画地球的大河
         if (!EarthTerrain.Imported) Step(() => EarthTerrain.DrawRivers(frame, size), "World Map: Rivers");
+        // 高原外缘：山脊、坡地、史实山口(见 PlateauPasses)；在大河之后，流出高原的河在山脊处断开
+        Step(() => PlateauPasses.Shape(frame, size), "World Map: Plateau");
         Step(() =>
         {
             AssetManager.tiles.setListTo(DepthGeneratorType.Gameplay);

@@ -197,7 +197,8 @@ public static class WildernessPassage
         byte civil = kind switch
         {
             WildKind.Desert => DesertBlocks,
-            WildKind.Tundra => TundraBlocks,
+            // 高原无人区同冻原：定居之国要沿路、小径走，游牧惯走(外缘山脊另由地形挡，只从山口进)
+            WildKind.Tundra or WildKind.Plateau => TundraBlocks,
             // 熔岩谁都不惯走(见类头)
             WildKind.Lava => AllBlocks,
             _ => AllBlocks
@@ -220,6 +221,7 @@ public static class WildernessPassage
         {
             WildKind.Desert => "wild_passage_desert",
             WildKind.Tundra => "wild_passage_tundra",
+            WildKind.Plateau => "wild_passage_plateau",
             _ => "wild_passage_blocked"
         };
     }

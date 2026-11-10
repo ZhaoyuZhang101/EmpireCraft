@@ -128,8 +128,10 @@ public static class AnimalHusbandrySystem
                 tiles++;
                 // 可放牧：能耕(草地、荒漠、稀树草原……)又没开成田、没盖房的空地；山石(连同岩地、冰封丘陵)不算，同 LandKinds。
                 // 按水草算：草地一整格，稀树草原、林地八成，沼泽四成，荒原两成五，沙漠一成五，沙地一成
-                if (tile.Type.can_be_farm && !tile.Type.farm_field && !tile.hasBuilding() && !LandKinds.Is(tile.Type, LandKinds.Rough))
-                    open += Grazing(tile.Type);
+                // 高寒高原不能耕，是草甸牧场(牦牛)，照样算可放牧
+                bool alpine = PlateauTerrain.IsAlpine(tile) && !tile.Type.farm_field;
+                if ((tile.Type.can_be_farm || alpine) && !tile.Type.farm_field && !tile.hasBuilding() && !LandKinds.Is(tile.Type, LandKinds.Rough))
+                    open += Grazing(alpine ? tile.main_type : tile.Type);
             }
         }
         (double, float, float) result = (now, tiles == 0 ? 0f : open / tiles,
@@ -140,6 +142,8 @@ public static class AnimalHusbandrySystem
 
     private static float Grazing(TileTypeBase type)
     {
+        // 高寒草甸六成，黄土高原八成
+        if (PlateauTerrain.IsPlateau(type)) return ReferenceEquals(type, PlateauTerrain.Alpine) ? 0.6f : 0.8f;
         switch (type.biome_id)
         {
             case "biome_desert": return 0.15f;

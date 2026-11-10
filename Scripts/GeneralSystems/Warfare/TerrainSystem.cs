@@ -14,8 +14,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 路线经过的地块、跨过的交界算走得通(用户 2026-11-04 转群友"能走正常小人的，能保证从 A 城的主城走到 B 城的便可以走军团"，见 RoadNetwork.IsTrail、Spans)：
 // 路线是按格找出来的，山脊上一格宽的缺口小人也走得过去；城市扩张、剧本铺辖地(seatOpen 为假)不认这条。
 // 同一份缓存还记着地块里的陆地格数与旱地格数(水土用，见 ShuiTuSystem、DryCounts)：旱地按 LandKinds.Dry(荒漠、稀树草原、荒原)，
-// 陆地不含水、岩浆——同毡帐村镇的口径(RuralSettlementSystem.YurtGround)；这里的"沙漠"地形连海滩沙地也算，水土不用它
-public enum FrontTerrain { Plains, Forest, Jungle, Hills, Mountain, River, Swamp, Desert, Snow, Urban }
+// 陆地不含水、岩浆——同毡帐村镇的口径(RuralSettlementSystem.YurtGround)；这里的"沙漠"地形连海滩沙地也算，水土不用它。
+// 高原(用户 2026-11-10，模组的两种地面格，见 PlateauTerrain)：高原格(连同冻上、修了路开了田的，看底下的地面)占四成算高原地形
+// (山地照旧先判)：攻方打八折、攻方每月多掉 3 组织度(高原反应)、每月至多推进两块；高寒高原格算旱地(牧地，见 LandKinds)、
+// 宜居三成、不能耕，黄土高原宜居七成、能耕(收成打八折，见 LoessArable 与 FarmlandSystem)；高原格不算纯沙漠纯冻土
+public enum FrontTerrain { Plains, Forest, Jungle, Hills, Mountain, River, Swamp, Desert, Snow, Urban, Plateau }
 
 public readonly struct TerrainEffect
 {
@@ -47,7 +50,8 @@ public static class TerrainSystem
         [FrontTerrain.Swamp] = new TerrainEffect(0.7f, 4f, 4f, 2, true),
         [FrontTerrain.Desert] = new TerrainEffect(0.95f, 5f, 5f, 4, false),
         [FrontTerrain.Snow] = new TerrainEffect(0.85f, 5f, 5f, 3, false),
-        [FrontTerrain.Urban] = new TerrainEffect(0.7f, 0f, 0f, 2, false)
+        [FrontTerrain.Urban] = new TerrainEffect(0.7f, 0f, 0f, 2, false),
+        [FrontTerrain.Plateau] = new TerrainEffect(0.8f, 3f, 0f, 2, false)
     };
 
     // 地块地形缓存(按地块编号)：以前一律一年过期，又和行政控制力的年度结算同步，到期那一刻一国的地块一起重判。
@@ -59,6 +63,8 @@ public static class TerrainSystem
         public bool Impassable, Known;
         // 陆地格数、旱地格数(一块地 64 格)；宜居格(按地面加权 × LivableScale)、可耕格；纯沙漠 1、纯冻土 2(见 BarrenKind)；丛林格数；阻挡格数
         public byte Land, Dry, Livable, Arable, Barren, Jungle, Rock;
+        // 高寒高原格数、黄土高原上的可耕格数
+        public byte Alpine, LoessArable;
     }
 
     private const int RefreshMonths = 48, RefreshSpreadMonths = 24;
@@ -221,6 +227,17 @@ public static class TerrainSystem
         return Math.Min(1f, livable / (64f * LivableScale));
     }
 
+    // 地块里的陆地格数与其中的高寒高原格数
+    public static (int land, int alpine) AlpineCounts(TileZone zone)
+    {
+        if (zone == null) return (0, 0);
+        Entry entry = Lookup(zone);
+        return (entry.Land, entry.Alpine);
+    }
+
+    // 可耕格里有几格在黄土高原上(收成打八折，见 FarmlandSystem)
+    public static int LoessArable(TileZone zone) => zone == null ? 0 : Lookup(zone).LoessArable;
+
     // 陆地全是沙地、荒漠为 1(纯沙漠)，全是冻土(连冻住的沙地)为 2(纯冻土)，混着别的地、没有陆地为 0。
     // 只看地形；城心那块不算的口径见 BarrenLandSystem.KindOf
     public static int BarrenKind(TileZone zone) => zone == null ? 0 : Lookup(zone).Barren;
@@ -255,11 +272,12 @@ public static class TerrainSystem
         return sum;
     }
 
-    // 一格地能住多少人(相对草地)：草地、可耕地 1，林地 0.8，丛林 0.6，稀树草原 0.5，沼泽 0.4，冻土 0.3，
+    // 一格地能住多少人(相对草地)：草地、可耕地 1，林地 0.8，黄土高原 0.7，丛林 0.6，稀树草原 0.5，沼泽 0.4，冻土、高寒高原 0.3，
     // 丘陵山石、沙地 0.2，荒原 0.2，沙漠 0.15，地狱 0.05，水、岩浆 0
     public static float LivableWeight(TileTypeBase type)
     {
         if (type == null) return 0f;
+        if (PlateauTerrain.IsPlateau(type)) return ReferenceEquals(type, PlateauTerrain.Alpine) ? 0.3f : 0.7f;
         int kinds = LandKinds.Of(type);
         if ((kinds & (LandKinds.Water | LandKinds.Lava)) != 0) return 0f;
         if ((kinds & LandKinds.Infernal) != 0) return 0.05f;
@@ -419,20 +437,24 @@ public static class TerrainSystem
     // 门槛按本地大地图实测：城市地块里平原约四成，丛林、雪原、水网、山地、丘陵各占一到两成(视地图而定)
     private static Entry Classify(TileZone zone)
     {
-        (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren, int jungle, int rock) = ClassifyTiles(zone);
+        (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren, int jungle, int rock) =
+            ClassifyTiles(zone, out int alpine, out int loessArable);
         return new Entry
         {
             Terrain = terrain, Impassable = impassable,
             Land = (byte)Math.Min(byte.MaxValue, land), Dry = (byte)Math.Min(byte.MaxValue, dry),
             Livable = (byte)Math.Min(byte.MaxValue, livable), Arable = (byte)Math.Min(byte.MaxValue, arable),
-            Barren = (byte)barren, Jungle = (byte)Math.Min(byte.MaxValue, jungle), Rock = (byte)Math.Min(byte.MaxValue, rock)
+            Barren = (byte)barren, Jungle = (byte)Math.Min(byte.MaxValue, jungle), Rock = (byte)Math.Min(byte.MaxValue, rock),
+            Alpine = (byte)Math.Min(byte.MaxValue, alpine), LoessArable = (byte)Math.Min(byte.MaxValue, loessArable)
         };
     }
 
-    private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren, int jungle, int rock) ClassifyTiles(TileZone zone)
+    private static (FrontTerrain terrain, bool impassable, int land, int dry, int livable, int arable, int barren, int jungle, int rock) ClassifyTiles(
+        TileZone zone, out int alpine, out int loessArable)
     {
         int total = 0, water = 0, mountain = 0, hills = 0, trees = 0, woods = 0, swamp = 0, jungle = 0, desert = 0, snow = 0,
-            blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0, snowHills = 0;
+            blocked = 0, land = 0, dry = 0, arable = 0, sandy = 0, frozen = 0, snowHills = 0, plateau = 0;
+        alpine = loessArable = 0;
         float livableSum = 0f;
         // 地块里哪些格走得了(不是山地、山巅)，看山以外的地连不连得过去(见 Crossable)
         int size = Config.CITY_ZONE_SIZE, ox = zone.x * size, oy = zone.y * size;
@@ -447,19 +469,33 @@ public static class TerrainSystem
             TileTypeBase type = tile?.Type;
             if (type == null) continue;
             total++;
+            // 高原格(地面格是高原)：冻上、修了路的照样按高原算(看底下的地面)；开了田的按田算可耕
+            TileTypeBase high = PlateauTerrain.IsPlateau(tile.main_type) ? tile.main_type : null;
             // 水土：陆地(不含水、岩浆)与其中的旱地
-            int kinds = LandKinds.Of(type);
+            int kinds = LandKinds.Of(high != null && !type.farm_field ? high : type);
             if ((kinds & (LandKinds.Water | LandKinds.Lava)) == 0)
             {
                 land++;
                 if ((kinds & LandKinds.Dry) != 0) dry++;
-                if ((kinds & LandKinds.Arable) != 0) arable++;
-                livableSum += LivableWeight(type);
+                if ((kinds & LandKinds.Arable) != 0)
+                {
+                    arable++;
+                    if (high != null) loessArable++;
+                }
+                livableSum += LivableWeight(high ?? type);
+                if (high != null)
+                {
+                    plateau++;
+                    if (ReferenceEquals(high, PlateauTerrain.Alpine)) alpine++;
+                }
                 // 纯沙漠、纯冻土(见 BarrenLandSystem)：荒漠(沙地是沙滩，不算——海边一圈沙滩的地块以前算成纯荒地)；冻土(冻住的沙地也是冻土)。
-                // 路、田、墙铺在上面的看底下的地面(沙漠里修了路、开过田也还是沙漠)
+                // 路、田、墙铺在上面的看底下的地面(沙漠里修了路、开过田也还是沙漠)；高原格不算(冻上了也是高原)
                 TileTypeBase ground = (type.road || type.farm_field || type.wall) && tile.main_type != null ? tile.main_type : type;
-                if (ground.biome_id == "biome_permafrost") frozen++;
-                else if (ground.biome_id == "biome_desert") sandy++;
+                if (high == null)
+                {
+                    if (ground.biome_id == "biome_permafrost") frozen++;
+                    else if (ground.biome_id == "biome_desert") sandy++;
+                }
             }
             int marks = Marks(type);
             if ((marks & MarkWater) != 0)
@@ -491,6 +527,7 @@ public static class TerrainSystem
         bool impassable = blocked >= total * 0.75f || blocked > 0 && !Crossable(open, size);
         float Share(int count) => count / (float)total;
         if (Share(mountain) >= 0.25f) return (FrontTerrain.Mountain, impassable, land, dry, livable, arable, barren, jungle, blocked);
+        if (Share(plateau) >= 0.4f) return (FrontTerrain.Plateau, impassable, land, dry, livable, arable, barren, jungle, blocked);
         // 雪丘连片(青藏、帕米尔高原面)是雪原天堑，不是丘陵(用户 2026-10-29："控制力……完全没有体现地形的影响")
         if (Share(snowHills) >= 0.4f) return (FrontTerrain.Snow, impassable, land, dry, livable, arable, barren, jungle, blocked);
         if (Share(mountain + hills) >= 0.3f) return (FrontTerrain.Hills, impassable, land, dry, livable, arable, barren, jungle, blocked);

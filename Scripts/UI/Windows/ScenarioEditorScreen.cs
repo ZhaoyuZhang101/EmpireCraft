@@ -81,7 +81,7 @@ public static class ScenarioEditorScreen
     private const int BigMapChunks = 1024;
     private const int WildClass = -10, SkipClass = int.MinValue;
 
-    // 刷地形的十六种地表：写法、原版图标、文本键
+    // 刷地形的十八种地表：写法、图标(原版 ui/icons，高原两种是本模组的)、文本键
     private static readonly (string type, string icon, string name)[] TerrainPalette =
     {
         ("deep_ocean", "iconTileDeepOcean", "deep_ocean"), ("close_ocean", "iconTileCloseOcean", "close_ocean"),
@@ -91,7 +91,9 @@ public static class ScenarioEditorScreen
         ("soil_low:desert_low", "iconSeedDesert", "desert"), ("soil_low:permafrost_low", "iconSeedPermafrost", "permafrost"),
         ("soil_low:swamp_low", "iconTileSwamp", "swamp"), ("soil_low:birch_low", "iconTileForest", "forest"),
         ("hills", "iconTileHills", "hills"), ("mountains", "iconTileMountains", "mountains"),
-        ("hills:snow_hills", "iconSnow", "snow_hills"), ("mountains:snow_block", "iconTileSummit", "snow_mountains")
+        ("hills:snow_hills", "iconSnow", "snow_hills"), ("mountains:snow_block", "iconTileSummit", "snow_mountains"),
+        // 高原(2026-11-10)：刷出来的高原生成世界时自动围山脊、留山口(见 PlateauShaper)
+        (PlateauTerrain.AlpineId, "iconTileAlpinePlateau", "alpine_plateau"), (PlateauTerrain.LoessId, "iconTileLoessPlateau", "loess_plateau")
     };
 
     // 工具、图层按钮的图标(原版 ui/icons 与本模组 GameResources)
@@ -3160,7 +3162,7 @@ public static class ScenarioEditorScreen
         bool ownWild = ScenarioEditing.Era?.own_wilderness == true;
         _wildOwnBtn.Set(LM.Get(ownWild ? "scenario_editor_wild_own_on" : "scenario_editor_wild_own_follow"), ViewColor);
         // 按类型编号记(1 山脉 … 6 熔岩，见 WildKind)；多了类型这里跟着放大
-        int kindCount = (int)WildKind.Lava + 1;
+        int kindCount = (int)WildKind.Plateau + 1;
         var regions = new int[kindCount];
         var zones = new int[kindCount];
         ScenarioWilderness.Summary(regions, zones, out int neutral);
