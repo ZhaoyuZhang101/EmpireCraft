@@ -10008,12 +10008,12 @@
   "peace_kpi_wear": "疲敝 攻 / 守",
   "peace_kpi_offer": "照目標開價",
   "peace_offer_count": "{0} 項條件",
-  "peace_gives": "{0} 出",
+  "peace_gives": "{1}停戰的代價",
   "peace_items": "{0} 項",
-  "peace_gives_none": "（空）{0}不出任何條件",
-  "peace_add": "＋ 添加{0}出的條件",
+  "peace_gives_none": "（空）{1}不付代價，只求停戰",
+  "peace_add": "＋ 添加{1}的停戰代價",
   "peace_sum": "合計折價",
-  "peace_pick_title": "{0}出什麼",
+  "peace_pick_title": "{1}能付的停戰代價",
   "peace_pick_hint": "點一項加進台子 · 已在台上的點了撤下",
   "peace_cat_all": "全部",
   "peace_cat_city": "城池",
@@ -11639,5 +11639,7 @@
   "kov_puppets": "傀儡",
   "kov_puppet_master": "扶植者",
   "kov_puppet_years": "年數",
-  "kov_puppet_row": "{0} 城 · 已 {1} 年"
+  "kov_puppet_row": "{0} 城 · 已 {1} 年",
+  "peace_card_goal": "{0}的戰爭目標",
+  "peace_goal_hint": "「照目標開價」照它出價"
 }

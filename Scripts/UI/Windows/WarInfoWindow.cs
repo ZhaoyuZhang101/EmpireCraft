@@ -281,6 +281,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 UIHelper.AttachTextTooltip(kpis.transform.GetChild(2).gameObject, "peace_tip_offer",
                     LM.Get("peace_kpi_offer"), PeaceTable.Describe(war, offer));
             }
+            DrawPeaceGoal(page, war);
             var columns = page.BeginColumns(PageWidth);
             DrawGives(columns, war, deal, basis, false, d);
             DrawGives(columns, war, deal, basis, true, a);
@@ -319,17 +320,42 @@ namespace EmpireCraft.Scripts.UI.Windows
             Go(Page.Chronicle);
         }
 
-        // 一方出的条件(左栏守方、右栏攻方)
+        // 战争目标单列在两边砝码之上(用户 11-10"割让什么什么的是战争目标，应该单独列出来，而双方的砝码是希望停战的代价")：
+        // 攻方要什么、各目标城占了多少；「照目标开价」照它出价
+        private void DrawPeaceGoal(AutoVertLayoutGroup page, War war)
+        {
+            WarGoal goal = WarGoalSystem.Get(war);
+            if (goal == WarGoal.None) return;
+            WarExtension.WarExtraData data = war.GetOrCreate();
+            var card = page.BeginCard(PageWidth, string.Format(LM.Get("peace_card_goal"), war.main_attacker.GetKingdomName()), WideKit.Gold,
+                LM.Get("peace_goal_hint"));
+            int row = 0;
+            card.AddValueRow(PageWidth, row++, LM.Get("war_row_goal"), WarCatalog.GoalText(war), WideKit.Gold);
+            City main = WarObjective.Main(data);
+            List<City> targets = WarCatalog.Cities(data);
+            if (main != null && !targets.Contains(main)) targets.Insert(0, main);
+            foreach (City city in targets.OrderByDescending(city => city == main).Take(MaxTargets))
+            {
+                (float share, string text, string hex) = WarDisplay.Progress(war, city);
+                string label = city == main ? city.GetCityName() + LM.Get("war_main_city_mark") : city.GetCityName();
+                City target = city;
+                card.AddBarRow(PageWidth, row++, label, share, text, hex, WarDisplay.AttackBar, WarDisplay.DefendBar,
+                    () => OpenCity(target), 80f, 120f);
+            }
+        }
+
+        // 一方的砝码 = 它为停战付的代价(左栏守方、右栏攻方)。以前标题写"中华民国 出"，像是中国主动给的
         private void DrawGives(AutoHoriLayoutGroup columns, War war, PeaceDeal deal, PeaceBasis basis, bool byAttacker, PeaceOpinion giverOpinion)
         {
             Kingdom giver = byAttacker ? war.main_attacker : war.main_defender;
+            Kingdom taker = byAttacker ? war.main_defender : war.main_attacker;
             List<PeaceTerm> terms = deal.terms.Where(term => term.by_attacker == byAttacker).ToList();
             string hex = byAttacker ? WarDisplay.AttackText : WarDisplay.DefendText;
-            var card = columns.BeginColumnCard(ColumnWidth, string.Format(LM.Get("peace_gives"), giver.GetKingdomName()), hex,
+            var card = columns.BeginColumnCard(ColumnWidth, string.Format(LM.Get("peace_gives"), taker.GetKingdomName(), giver.GetKingdomName()), hex,
                 string.Format(LM.Get("peace_items"), terms.Count));
             int row = 0;
             if (terms.Count == 0)
-                card.AddParagraph(ColumnWidth, string.Format(LM.Get("peace_gives_none"), giver.GetKingdomName()), 7, WideKit.Muted);
+                card.AddParagraph(ColumnWidth, string.Format(LM.Get("peace_gives_none"), taker.GetKingdomName(), giver.GetKingdomName()), 7, WideKit.Muted);
             foreach (PeaceTerm term in terms)
             {
                 (string label, string tag, string tagHex) = PeaceTable.Label(war, term);
@@ -347,7 +373,7 @@ namespace EmpireCraft.Scripts.UI.Windows
                 });
             }
             bool open = _peaceAdding == (byAttacker ? 1 : 0);
-            card.AddActionRow(ColumnWidth - 12f, (string.Format(LM.Get("peace_add"), giver.GetKingdomName()),
+            card.AddActionRow(ColumnWidth - 12f, (string.Format(LM.Get("peace_add"), taker.GetKingdomName(), giver.GetKingdomName()),
                 open ? WideKit.Gold : WideKit.Cyan, true, () =>
                 {
                     _peaceAdding = open ? -1 : byAttacker ? 1 : 0;
@@ -361,7 +387,8 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void DrawPicker(AutoVertLayoutGroup page, War war, PeaceDeal deal, PeaceBasis basis, bool byAttacker)
         {
             Kingdom giver = byAttacker ? war.main_attacker : war.main_defender;
-            var card = page.BeginCard(PageWidth, string.Format(LM.Get("peace_pick_title"), giver.GetKingdomName()), WideKit.Cyan,
+            Kingdom taker = byAttacker ? war.main_defender : war.main_attacker;
+            var card = page.BeginCard(PageWidth, string.Format(LM.Get("peace_pick_title"), taker.GetKingdomName(), giver.GetKingdomName()), WideKit.Cyan,
                 LM.Get("peace_pick_hint"));
             card.AddChipRow(PageWidth - 12f,
                 (LM.Get("peace_cat_all"), _peaceFilter == 0, () => SetPeaceFilter(0)),

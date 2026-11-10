@@ -10002,12 +10002,12 @@
   "peace_kpi_wear": "Weariness att / def",
   "peace_kpi_offer": "Goal terms",
   "peace_offer_count": "{0} terms",
-  "peace_gives": "{0} gives",
+  "peace_gives": "{1}'s price for peace",
   "peace_items": "{0} items",
-  "peace_gives_none": "(empty) {0} gives nothing",
-  "peace_add": "+ Add terms from {0}",
+  "peace_gives_none": "(empty) {1} pays nothing and only asks for peace",
+  "peace_add": "+ Add to {1}'s price for peace",
   "peace_sum": "Total value",
-  "peace_pick_title": "What {0} can give",
+  "peace_pick_title": "What {1} can pay for peace",
   "peace_pick_hint": "Tap to put on the table · tap again to take off",
   "peace_cat_all": "All",
   "peace_cat_city": "Cities",
@@ -11633,5 +11633,7 @@
   "kov_puppets": "Puppets",
   "kov_puppet_master": "Installed by",
   "kov_puppet_years": "Years",
-  "kov_puppet_row": "{0} cities · {1} years"
+  "kov_puppet_row": "{0} cities · {1} years",
+  "peace_card_goal": "{0}'s war goal",
+  "peace_goal_hint": "\"Goal terms\" prices from this"
 }
