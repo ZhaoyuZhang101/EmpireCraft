@@ -26,7 +26,7 @@
 用法：
   python -I build_earth.py <数据目录> <输出 earth.bytes> [预览.png]
       原来的路子：数据目录里要有 etopo_z.dods、etopo_south.dods、ne/ne_10m_*.shp(.dbf)、kg/Koeppen-Geiger-ASCII.txt；
-      顺带重出 rivers.bytes。
+      顺带重出 rivers.bytes(只有 0~5 级；之后再跑 rivers_source.py 把史上作分界的名河补回去)。
   python -I build_earth.py fetch-terrarium <数据目录>
       下 Terrarium z6 瓦片，重采样成 <数据目录>/terrarium_z6.npz。
   python -I build_earth.py terrarium <数据目录> <旧 earth.bytes> <输出 earth.bytes> [预览.png]

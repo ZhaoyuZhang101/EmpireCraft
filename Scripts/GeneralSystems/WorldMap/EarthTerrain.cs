@@ -327,7 +327,9 @@ public static class EarthTerrain
         }
     }
 
-    // 大河折线(WorldMaps/rivers.bytes，Natural Earth 等级 0~5)：按地图大小画成水道——等级 0~3 两格宽、其余一格；
+    // 大河折线(WorldMaps/rivers.bytes，Natural Earth 等级 0~5 加史上作分界的名河，见 Tools/WorldMap/rivers_source.py)：
+    // 按地图大小画成两格宽的水道——一格宽的河(以前等级 4 以下)加上渡口只占区块一成出头，够不上"河流"地形(水面一成五，见 TerrainSystem)，
+    // 扩张、分地、无人区分界都当它不存在，国界不顺河走(用户 2026-11-11 "为什么不沿着河流分成两个")；
     // 每走 14 格留 2 格原地表作渡口：水道画实了会把大陆切成两岛，原版和本模组都按岛算陆路、开战够不够得着(见 WarReach)，
     // 留渡口两岸仍连成一片，军队要绕到渡口过河；河道所在区块水多，按本模组算"河流"地形(过河加阻力)
     private const int FordEvery = 14, FordWidth = 2;
@@ -394,9 +396,9 @@ public static class EarthTerrain
     {
         if (visit == null || !EnsureRivers()) return;
         frame.Bounds(size, out float bottom, out float degrees);
-        foreach ((int rank, Vector2[] points) in _rivers)
+        foreach ((int _, Vector2[] points) in _rivers)
         {
-            int thickness = rank <= 3 ? 2 : 1;
+            const int thickness = 2;
             int walked = 0;
             for (int i = 1; i < points.Length; i++)
             {

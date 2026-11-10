@@ -852,11 +852,26 @@ public static partial class SmoothBorders
         if (slot != 0)
         {
             int owner = WildFillAt(x, y, slot, _zoneFill);
-            if (owner != 0) return owner;
+            // B 样条把这格判给这片里没并进的一方：照样留空。整块补上的话并进的地块永远涂满，
+            // 和没并进的无人区之间成了方格台阶(部落、石器时代远近受限时一小片孤岛尤其明显)
+            if (owner != 0 || SlotNearby(x, y, slot)) return owner;
         }
         // 城的轮廓已让出这格，不能再因无人区外沿／山间谷地的形状为空而丢掉已知归属。
         // 真正中立的地块 _zoneFill 本来就是 0；水面由调用方排除。
         return _zoneFill[zoneId];
+    }
+
+    // 周围 3×3 块里有没有这片无人区的地块(有的话 WildFillAt 是比出来的；没有的是轮廓外沿伸进别的块，按本块兜底)
+    private static bool SlotNearby(int x, int y, int slot)
+    {
+        int zx = x / ZoneSize, zy = y / ZoneSize;
+        for (int j = -1; j <= 1; j++)
+        for (int i = -1; i <= 1; i++)
+        {
+            int nx = zx + i, ny = zy + j;
+            if (nx >= 0 && nx < _zonesX && ny >= 0 && ny < _zonesY && WildernessShape.ZoneSlot(ny * _zonesX + nx) == slot) return true;
+        }
+        return false;
     }
 
     // 同 ShadeAt，只看这片无人区的地块，候选是各块补的归属

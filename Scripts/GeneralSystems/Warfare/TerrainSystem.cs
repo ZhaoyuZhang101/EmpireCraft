@@ -76,6 +76,7 @@ public static class TerrainSystem
     {
         Edges.Clear();
         MountainZones.Clear();
+        RiverZones.Clear();
         _cache = new Entry[0];
         CityLivable.Clear();
         _marks = new int[0];
@@ -89,6 +90,35 @@ public static class TerrainSystem
         // 交界的路口跟着重判(地形难得改，整表清掉)
         Edges.Clear();
         MountainZones.Clear();
+        RiverZones.Clear();
+    }
+
+    // 河上的地块(城市扩张不越过大河，见 CityExpansionPatch.Bordering)：水面占一成二以上，且水都是小水体。
+    // 世界地图上的河每 14 格留渡口(见 EarthTerrain.RiverTiles)，一段段只有几十格；海、大湖连成一大片，
+    // 沿海、湖边的地块不算(FrontTerrain.River 把这些也算进去了，那里照常沿岸领地)。原版随机地图的长河连成一片，也不算
+    private const float RiverShare = 0.12f;
+    private const int BigWater = 160;
+    private static readonly Dictionary<int, bool> RiverZones = new();
+
+    public static bool RiverZone(TileZone zone)
+    {
+        if (zone?.tiles == null) return false;
+        if (RiverZones.TryGetValue(zone.id, out bool cached)) return cached;
+        int total = 0, water = 0;
+        bool big = false;
+        foreach (WorldTile tile in zone.tiles)
+        {
+            TileTypeBase type = tile?.Type;
+            if (type == null) continue;
+            total++;
+            if ((Marks(type) & MarkWater) == 0) continue;
+            water++;
+            if (!big && (tile.region?.island?.getTileCount() ?? 0) >= BigWater) big = true;
+        }
+        bool result = !big && total > 0 && water >= total * RiverShare;
+        if (RiverZones.Count > 100_000) RiverZones.Clear();
+        RiverZones[zone.id] = result;
+        return result;
     }
 
     // 山地区块：原版山地、山巅格占两成以上(同 WorldMapZones.Classify 的 mountainous)。城市扩张进这种地块要更严(见 CityExpansionPatch.Bordering)

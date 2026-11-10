@@ -122,7 +122,7 @@ def sample(root, frame, size):
     shallow = types.index("shallow_waters")
     liquid = np.array([type_marks(t.split(":")[-1]) & WATER != 0 for t in types])
     for rank, pts in read_rivers(os.path.join(root, "WorldMaps", "rivers.bytes")):
-        thickness = 2 if rank <= 3 else 1
+        thickness = 2  # 同 EarthTerrain.RiverTiles：都画两格宽
         walked = 0
         for i in range(1, len(pts)):
             x0 = math.floor((pts[i - 1][0] - frame["west"]) / dpt)

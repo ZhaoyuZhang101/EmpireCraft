@@ -279,14 +279,41 @@ public class CityExpansionPatch : GamePatch
     {
         if (city == null || zone?.neighbours == null) return false;
         bool mountainous = GeneralSystems.TerrainSystem.Mountainous(zone);
+        bool shore = !GeneralSystems.TerrainSystem.RiverZone(zone);
         TileZone seat = city.getTile()?.zone;
         foreach (TileZone neighbour in zone.neighbours)
         {
             if (neighbour?.city != city) continue;
             if (mountainous && neighbour != seat && GeneralSystems.TerrainSystem.Mountainous(neighbour)) continue;
+            if (shore && !RiverOpen(neighbour, seat)) continue;
             if (GeneralSystems.TerrainSystem.Crossable(neighbour, zone, seatOpen: false)) return true;
         }
         return false;
+    }
+
+    // 大河不越过(用户 2026-11-11 "改成不越过"：要黑龙江、乌苏里江、鸭绿江、松花江自然成界，"按地势建城和拓展地块"长出雄鸡的样子)：
+    // 河上的地块(见 TerrainSystem.RiverZone)从岸上照领，但岸上的地不从河上那块领过去——只挨着本城河上地块的岸是对岸，不领。
+    // 城就在河上的(城心那块)两岸都领；河上那块修了路(架了桥)的照通。神力手动划地、剧本开局铺地不走这里
+    private static bool RiverOpen(TileZone own, TileZone seat) =>
+        own == seat || !GeneralSystems.TerrainSystem.RiverZone(own) || RoadNetwork.IsRoad(own);
+
+    // 这块岸上的地挨着本城的只有河上地块(隔河)：村镇划地、开发无人区划给城时也不越过(同 Bordering)。斜挨着的要旁边两块里有一块不在河上
+    public static bool AcrossRiver(City city, TileZone zone)
+    {
+        if (city == null || zone == null || GeneralSystems.TerrainSystem.RiverZone(zone)) return false;
+        TileZone seat = city.getTile()?.zone;
+        ZoneCalculator calc = World.world?.zone_calculator;
+        bool touches = false;
+        foreach (TileZone own in zone.neighbours_all ?? zone.neighbours ?? global::System.Array.Empty<TileZone>())
+        {
+            if (own?.city != city) continue;
+            touches = true;
+            if (!RiverOpen(own, seat)) continue;
+            if (own.x == zone.x || own.y == zone.y || calc == null) return false;
+            TileZone a = calc.getZone(zone.x, own.y), b = calc.getZone(own.x, zone.y);
+            if (a != null && !GeneralSystems.TerrainSystem.RiverZone(a) || b != null && !GeneralSystems.TerrainSystem.RiverZone(b)) return false;
+        }
+        return touches;
     }
 
     public static bool Reachable(TileZone zone, City city)
@@ -350,11 +377,13 @@ public class CityExpansionPatch : GamePatch
         FrontTerrain terrain = GeneralSystems.TerrainSystem.Of(zone);
         bool mountain = GeneralSystems.TerrainSystem.Mountainous(zone);
         TileZone seat = city.getTile()?.zone;
+        bool shore = !GeneralSystems.TerrainSystem.RiverZone(zone);
         int contacts = 0;
         float entry = float.PositiveInfinity;
         foreach (TileZone own in zone.neighbours ?? global::System.Array.Empty<TileZone>())
         {
             if (own?.city != city || mountain && own != seat && GeneralSystems.TerrainSystem.Mountainous(own) ||
+                shore && !RiverOpen(own, seat) ||
                 !GeneralSystems.TerrainSystem.Crossable(own, zone, seatOpen: false)) continue;
             contacts++;
             FrontTerrain from = GeneralSystems.TerrainSystem.Of(own);

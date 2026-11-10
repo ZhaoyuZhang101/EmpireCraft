@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 // 剩下离谁都远的空地补立随机小国(Gaps)，最后把山地、荒漠、沿海零碎地块也分给走得到的最近的城(FillAll)，开局整片陆地铺满。
 // 国界要顺着地形走(用户 2026-10-29："你这个国土怎么完全没按照地形来")：
 //   · 区块在"弹出"时才定归属(真正的多源最短路；以前一推进队列就归先到的那家，同代价的大漠、高原分成横平竖直、45 度的直线)；
-//   · 走一步的代价按要进的那块算，越往山里越贵(山脉腹地 ×2)，过河(河湖占一成多的内陆区块)另加；
+//   · 走一步的代价按要进的那块算，越往山里越贵(山脉腹地 ×2)，过河(河湖占一成多的内陆区块)下河、上岸各加一次；
 //   · 代价上叠一层平滑起伏(几块区块一个起伏，±25%)，均匀的大漠、高原上国界也弯弯曲曲；
 //   · 铺满分两轮：头一轮山脉只领不越，两边都有城时山脊就是国界，第二轮再把剩下的分完
 // 铺满也守地形(用户 2026-10-29："预设地图的地形完全没有对国土造成限制"，开局按地形铺了两千块，铺满又不论地形分了一万多块，
@@ -43,7 +43,7 @@ internal static class WorldMapZones
     private static readonly (int dx, int dy)[] HalfNeighbours = { (1, 0), (0, 1), (1, 1), (1, -1) };
 
     public const float SeaCost = 6f;
-    private const float Mountain = 6f, RiverCost = 1.5f, NoiseCell = 4f, NoiseAmplitude = 0.25f;
+    private const float Mountain = 6f, RiverCost = TerrainResistance.RiverCrossing, NoiseCell = 4f, NoiseAmplitude = 0.25f;
 
     public static void Build()
     {
@@ -313,7 +313,8 @@ internal static class WorldMapZones
         if (travel >= Mountain && _travel[a] >= Mountain) travel *= 2f;
         else if (!_claimable[b] && !_claimable[a]) travel *= 1.4f;
         float step = (travel * 0.7f + _travel[a] * 0.3f) * (Diagonal(a, b) ? 1.414f : 1f);
-        if (_river[b] && !_river[a]) step += RiverCost;
+        // 下河、上岸各加一次(同 CityExpansionPatch)：以前只算下河，从河上那块走到对岸不加，河挡不住对岸的城
+        if (_river[b] != _river[a]) step += RiverCost;
         return step * (b < _noise.Length ? _noise[b] : 1f);
     }
 

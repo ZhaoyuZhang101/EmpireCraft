@@ -202,7 +202,8 @@ public static class RuralSettlementSystem
     // 这块无主之地本城领不领得到(原版的规矩)
     public static bool CanClaim(City city, TileZone zone) =>
         zone != null && zone.city == null && zone.tiles_with_ground > 0 && zone.canBeClaimedByCity(city) &&
-        GamePatches.CityExpansionPatch.Reachable(zone, city) && !GamePatches.CityExpansionPatch.AtLimit(city);
+        GamePatches.CityExpansionPatch.Reachable(zone, city) && !GamePatches.CityExpansionPatch.AtLimit(city) &&
+        !GamePatches.CityExpansionPatch.AcrossRiver(city, zone);
 
     // 在城外新建了一处镇村：记下，等着划地
     public static void Found(City city, RuralSettlement settlement, int gateX, int gateY, float far)

@@ -502,6 +502,8 @@ public static class WildernessDevelopmentSystem
                 // 隔水、翻山走不到的城不领(同原版扩张；以前只看挨着，河对岸的城也领过去，城跨河连片——用户 2026-11-05 转群友
                 // "城市跨水自动断开失效")
                 if (!CityExpansionPatch.Reachable(zone, city)) continue;
+                // 大河对岸的城不领(见 CityExpansionPatch.Bordering)：没别的城领就照下面另立新城
+                if (CityExpansionPatch.AcrossRiver(city, zone)) continue;
                 if (CityExpansionPatch.AtLimit(city))
                 {
                     full ??= city;
