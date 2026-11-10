@@ -81,7 +81,7 @@ public static class ScenarioEditorScreen
     private const int BigMapChunks = 1024;
     private const int WildClass = -10, SkipClass = int.MinValue;
 
-    // 刷地形的十八种地表：写法、图标(原版 ui/icons，高原两种是本模组的)、文本键
+    // 刷地形的十九种地表：写法、图标(原版 ui/icons，高原三种是本模组的)、文本键
     private static readonly (string type, string icon, string name)[] TerrainPalette =
     {
         ("deep_ocean", "iconTileDeepOcean", "deep_ocean"), ("close_ocean", "iconTileCloseOcean", "close_ocean"),
@@ -93,7 +93,8 @@ public static class ScenarioEditorScreen
         ("hills", "iconTileHills", "hills"), ("mountains", "iconTileMountains", "mountains"),
         ("hills:snow_hills", "iconSnow", "snow_hills"), ("mountains:snow_block", "iconTileSummit", "snow_mountains"),
         // 高原(2026-11-10)：刷出来的高原生成世界时自动围山脊、留山口(见 PlateauShaper)
-        (PlateauTerrain.AlpineId, "iconTileAlpinePlateau", "alpine_plateau"), (PlateauTerrain.LoessId, "iconTileLoessPlateau", "loess_plateau")
+        (PlateauTerrain.AlpineId, "iconTileAlpinePlateau", "alpine_plateau"), (PlateauTerrain.LoessId, "iconTileLoessPlateau", "loess_plateau"),
+        (PlateauTerrain.SteppeId, "iconTileSteppePlateau", "steppe_plateau")
     };
 
     // 工具、图层按钮的图标(原版 ui/icons 与本模组 GameResources)

@@ -230,7 +230,8 @@ public static class EarthTerrain
             case "hills:snow_hills": return 7;
             // 模组的两种高原格(见 PlateauTerrain)：同高地一类
             case PlateauTerrain.AlpineId:
-            case PlateauTerrain.LoessId: return 2;
+            case PlateauTerrain.LoessId:
+            case PlateauTerrain.SteppeId: return 2;
         }
         if (type.Contains("desert") || type.Contains("permafrost")) return 6;
         return type.EndsWith("_high") ? (byte)2 : (byte)1;
@@ -267,6 +268,7 @@ public static class EarthTerrain
             case "hills:snow_hills": return new Color32(215, 220, 230, 255);
             case PlateauTerrain.AlpineId: return new Color32(143, 144, 112, 255);
             case PlateauTerrain.LoessId: return new Color32(185, 154, 104, 255);
+            case PlateauTerrain.SteppeId: return new Color32(157, 164, 85, 255);
         }
         bool high = type.EndsWith("_high");
         string biome = type.Contains(":") ? type.Substring(type.IndexOf(':') + 1) : type;

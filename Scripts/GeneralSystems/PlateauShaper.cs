@@ -10,7 +10,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // "至少得让国家能通行吧""玩家可以通过擦除山地来留口")。生成地图时铺一次(随机图见 PlateauGenerator，世界地图见 WorldMapGenerator)：
 //   高原面 → 外缘山脊(在高原一侧，宽 2~7.5 格，大小两层噪声起伏，夹着山巅，高寒高原的山顶多半积雪；有山嘴伸进高原)
 //          → 坡地(平原一侧 2~4.5 格，铺成丘陵：能走、行军慢；里头零星几座孤山) → 平原；
-//   山脊只沿"挨着能走的地"的边铺：外面本来就是厚山(喜马拉雅、太行)的地方不再加；山脊至少两格宽，八方向都翻不过去；
+//   山脊只沿"挨着能走的地"的边铺：外面本来就是厚山(喜马拉雅、太行)的地方不再加；荒漠、沙地也不算(蒙古高原上的戈壁、
+//   黄土高原西北的腾格里都是高原连着的荒漠，不在高原与荒漠之间起山)；山脊至少两格宽，八方向都翻不过去；
 //   山口：给定的路线(世界地图按史实，见 WorldMaps/plateau_passes.json)沿最省的路开出 3~5 格宽的谷道，从高原一直通到平原
 //         (路线朝高原那头没落在高原上的——川藏、滇藏的终点在横断山里——接着找到最近的高原格，Enter 为假的路线不接)，
 //         谷道里不铺山脊、不铺坡地，原有的山改成丘陵；一片高原没有路线经过的，自动挑 2~5 处(挑山最薄的边，彼此隔得远)，
@@ -139,7 +140,7 @@ public static class PlateauShaper
         for (int i = 0; i < n; i++)
             if (_region[i] && _sizes[_comp[i]] < MinRegion) _region[i] = false;
         var passable = new bool[n];
-        for (int i = 0; i < n; i++) passable[i] = !_region[i] && _walk[i];
+        for (int i = 0; i < n; i++) passable[i] = !_region[i] && _walk[i] && !Desert(_tiles[i]);
         // 被山、高原围住的小块谷地不算外面(不对着它铺山脊)
         int[] pocket = Label(passable, out List<int> pocketSizes);
         var open = new bool[pocketSizes.Count];
@@ -157,6 +158,13 @@ public static class PlateauShaper
         _corridor = new bool[n];
         _opened = new bool[n];
         return true;
+    }
+
+    // 荒漠、沙地(地表是荒漠，或地面是沙)：不对着它铺山脊
+    private static bool Desert(WorldTile tile)
+    {
+        TileTypeBase type = tile?.Type;
+        return type != null && (type.biome_id == "biome_desert" || type.sand || tile.main_type != null && tile.main_type.sand);
     }
 
     // 窄水面：5×5 里陆地占 NarrowLand 以上
@@ -592,7 +600,8 @@ public static class PlateauShaper
                 }
                 continue;
             }
-            if (_walk[i] && SoftLand(tile.main_type))
+            // 荒漠一侧不铺坡地(同山脊，见 Desert)
+            if (_walk[i] && SoftLand(tile.main_type) && !Desert(tile))
             {
                 float width = SlopeWidth(x, y);
                 if (_dOut[i] > width) continue;

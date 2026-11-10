@@ -142,8 +142,9 @@ public static class AnimalHusbandrySystem
 
     private static float Grazing(TileTypeBase type)
     {
-        // 高寒草甸六成，黄土高原八成
-        if (PlateauTerrain.IsPlateau(type)) return ReferenceEquals(type, PlateauTerrain.Alpine) ? 0.6f : 0.8f;
+        // 高寒草甸六成，黄土高原八成，草原高原一整格
+        if (PlateauTerrain.IsPlateau(type))
+            return ReferenceEquals(type, PlateauTerrain.Alpine) ? 0.6f : ReferenceEquals(type, PlateauTerrain.Steppe) ? 1f : 0.8f;
         switch (type.biome_id)
         {
             case "biome_desert": return 0.15f;

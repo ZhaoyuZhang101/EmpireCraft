@@ -16,6 +16,7 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 // 用的地方：开局铺地(WorldMapZones)、设行政区与按法理划行政区(WorldMapScenario.Divide/Reorganize)、行政区重组
 // (AdministrationReorganizationSystem)、按法理补齐行政区(Empire.AutoEstablishTerritorialDivisions)、国内划界(InternalBoundarySystem)：
 // 同一王国法理里隔着长城的城分设行政区(行政区共用这个法理)，城只归长城这一侧的行政区；无人区跟着这一侧的城(WildernessSystem.OriginOf)。
+// 高原外缘同样算(用户 2026-11-10，见 PlateauSides)：两城、城与地块一边在高原上一边不在，照隔着长城办；这一条随机图也算。
 public static class FrontierWalls
 {
     private const float OnWall = 2f, JoinTiles = 4f, DetourRatio = 1.3f;
@@ -192,7 +193,9 @@ public static class FrontierWalls
     // 两城隔着长城(见 Separates)
     public static bool Separates(City a, City b)
     {
-        if (a == null || b == null || a == b || !Any) return false;
+        if (a == null || b == null || a == b) return false;
+        if (PlateauSides.Differ(a, b)) return true;
+        if (!Any) return false;
         Vector2? p = Seat(a), q = Seat(b);
         return p != null && q != null && Separates(_lines, p.Value, q.Value);
     }
@@ -200,7 +203,9 @@ public static class FrontierWalls
     // 这块地在城的墙后(见 Behind)
     public static bool Behind(City city, TileZone zone)
     {
-        if (zone?.centerTile == null || !Any) return false;
+        if (zone?.centerTile == null) return false;
+        if (PlateauSides.Differ(city, zone)) return true;
+        if (!Any) return false;
         Vector2? p = Seat(city);
         return p != null && Behind(_lines, p.Value, new Vector2(zone.centerTile.x, zone.centerTile.y));
     }
@@ -213,7 +218,7 @@ public static class FrontierWalls
         foreach (City city in cities ?? Enumerable.Empty<City>())
         {
             if (city == null) continue;
-            List<City> home = Any ? groups.FirstOrDefault(group => group.All(other => !Separates(city, other))) : groups.FirstOrDefault();
+            List<City> home = groups.FirstOrDefault(group => group.All(other => !Separates(city, other)));
             if (home == null) groups.Add(home = new List<City>());
             home.Add(city);
         }

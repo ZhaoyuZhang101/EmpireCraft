@@ -9,13 +9,13 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 旱地：荒漠、稀树草原、荒原；海滩沙地(连同雪滩)另记，算海岸，不放牧；
 //   · 湿地：沼泽、丛林；地狱：地狱地貌与岩浆；
 //   · 宜农：能耕的格子里除去山石、旱地、沙地；
-//   · 高原(模组的地面格，见 PlateauTerrain)：高寒高原算旱地(牧地：村镇放牧、游牧在上面不算离草、毡帐立得住，见 ShuiTuSystem)，
-//     另记 Alpine；黄土高原宜农，另记 Loess。
+//   · 高原(模组的地面格，见 PlateauTerrain)：高寒高原、草原高原算旱地(牧地：村镇放牧、游牧在上面不算离草、毡帐立得住，见 ShuiTuSystem)，
+//     另记 Alpine、Steppe(草原高原能少量耕，收成另算，见 TerrainSystem)；黄土高原宜农，另记 Loess。
 // 纯净地图没有树，林地只能看生物群系。战线地形(TerrainSystem)另有一套，不走这里
 public static class LandKinds
 {
     public const int Water = 1, Lava = 2, Rough = 4, Forest = 8, Woodland = 16, Grass = 32, Dry = 64, Sand = 128, Wet = 256,
-        Infernal = 512, Arable = 1024, Alpine = 2048, Loess = 4096;
+        Infernal = 512, Arable = 1024, Alpine = 2048, Loess = 4096, Steppe = 8192;
 
     private static int[] _kinds = new int[0];
     private static TileTypeBase[] _types = new TileTypeBase[0];
@@ -45,7 +45,8 @@ public static class LandKinds
     {
         if (type.lava) return Lava | Infernal;
         if (type.liquid) return Water;
-        if (PlateauTerrain.IsPlateau(type)) return ReferenceEquals(type, PlateauTerrain.Alpine) ? Alpine | Dry : Loess | Arable;
+        if (PlateauTerrain.IsPlateau(type))
+            return ReferenceEquals(type, PlateauTerrain.Alpine) ? Alpine | Dry : ReferenceEquals(type, PlateauTerrain.Steppe) ? Steppe | Dry : Loess | Arable;
         string id = type.id ?? "";
         string biome = type.biome_id ?? "";
         int kinds = 0;

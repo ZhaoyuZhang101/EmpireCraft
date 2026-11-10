@@ -376,8 +376,8 @@ public static class FarmlandSystem
     // 可耕地的多少：看田在哪——各完好农村所在的地块连同本城的四邻地块，加上城郊(城心地块连同四邻)；这些地里可耕格占到六成以上照常收，
     // 越少收得越少，最少三成(沙漠、荒原的城靠绿洲、河谷一点地)。以前按全城陆地算，城一扩张多了山林，所有农村的收成都被拉低
     // (用户 2026-10-28 转群友"三个农田村的城市只有个位数人口")。
-    // 黄土高原上的可耕格收成打八折(用户 2026-11-10 定"能耕、收成打八折"，见 PlateauTerrain)：按可耕格里黄土高原的比例折
-    private const float LoessYield = 0.8f;
+    // 黄土高原上的可耕格收成打八折、草原高原五折(用户 2026-11-10，见 PlateauTerrain)：按可耕格里两种高原的比例折
+    private const float LoessYield = 0.8f, SteppeYield = 0.5f;
 
     private static float ArableFactor(City city)
     {
@@ -394,17 +394,21 @@ public static class FarmlandSystem
         foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
             if (settlement.ruined_at < 0d && !settlement.fort && LivelihoodSystem.Of(settlement) == LivelihoodSystem.Farm)
                 Around(World.world.GetTile(settlement.x, settlement.y)?.zone);
-        int land = 0, arable = 0, loess = 0;
+        int land = 0, arable = 0, loess = 0, steppe = 0;
         foreach (TileZone zone in fields)
         {
             (int zoneLand, int zoneArable) = TerrainSystem.ArableCounts(zone);
             land += zoneLand;
             arable += zoneArable;
-            loess += TerrainSystem.LoessArable(zone);
+            (int zoneLoess, int zoneSteppe) = TerrainSystem.PlateauArable(zone);
+            loess += zoneLoess;
+            steppe += zoneSteppe;
         }
         if (land <= 0) return 1f;
         float factor = Mathf.Clamp(arable / (land * 0.6f), 0.3f, 1f);
-        return arable <= 0 ? factor : factor * (1f - (1f - LoessYield) * Mathf.Clamp01(loess / (float)arable));
+        if (arable <= 0) return factor;
+        float loss = (1f - LoessYield) * loess + (1f - SteppeYield) * steppe;
+        return factor * (1f - Mathf.Clamp01(loss / arable));
     }
 
     // 旧存档里划的农耕区(AI 缺粮时划的、原来规划笔刷刷的)一并退掉(纯净地图的田是农村的田)

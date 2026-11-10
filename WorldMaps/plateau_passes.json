@@ -18,6 +18,16 @@
     { "id": "tongguan", "zh": "潼关(关中东出)", "en": "Tong Pass (Guanzhong to the east)", "from": [112.45, 34.62], "to": [108.94, 34.34], "enter": false },
     { "id": "jingxing", "zh": "井陉(太行)", "en": "Jingxing Pass (Taihang)", "from": [114.51, 38.04], "to": [112.55, 37.87] },
     { "id": "fukou", "zh": "滏口陉(太行)", "en": "Fukou Pass (Taihang)", "from": [114.49, 36.61], "to": [113.12, 36.20] },
-    { "id": "taihangxing", "zh": "太行陉(太行)", "en": "Taihang Pass", "from": [113.90, 35.30], "to": [112.85, 35.49] }
+    { "id": "taihangxing", "zh": "太行陉(太行)", "en": "Taihang Pass", "from": [113.90, 35.30], "to": [112.85, 35.49] },
+    { "id": "khingan", "zh": "大兴安岭(齐齐哈尔—海拉尔)", "en": "Greater Khingan (Qiqihar-Hailar)", "from": [123.90, 47.30], "to": [119.70, 49.20] },
+    { "id": "xilamulun", "zh": "西拉木伦河谷(辽上京)", "en": "Xar Moron Valley (Liao Shangjing)", "from": [119.38, 43.95], "to": [117.40, 43.60] },
+    { "id": "juyong", "zh": "居庸关", "en": "Juyong Pass", "from": [116.40, 39.90], "to": [115.50, 40.40], "enter": false },
+    { "id": "gubeikou", "zh": "古北口", "en": "Gubeikou", "from": [116.40, 39.90], "to": [117.40, 41.00] },
+    { "id": "xifengkou", "zh": "喜峰口", "en": "Xifengkou", "from": [117.96, 40.19], "to": [118.55, 40.90] },
+    { "id": "shanhaiguan", "zh": "辽西走廊(山海关)", "en": "Liaoxi Corridor (Shanhai Pass)", "from": [121.13, 41.10], "to": [118.18, 39.63], "enter": false },
+    { "id": "baidao", "zh": "阴山白道(呼和浩特—武川)", "en": "Baidao through the Yin Mountains (Hohhot-Wuchuan)", "from": [111.65, 40.82], "to": [111.45, 41.25] },
+    { "id": "zhangjiakou", "zh": "张家口(张家口—张北)", "en": "Zhangjiakou (to Zhangbei)", "from": [114.88, 40.82], "to": [114.70, 41.20] },
+    { "id": "kyakhta", "zh": "恰克图(色楞格河谷)", "en": "Kyakhta (Selenga Valley)", "from": [107.60, 51.83], "to": [106.90, 47.90] },
+    { "id": "khovd", "zh": "科布多(阿尔泰)", "en": "Khovd (Altai)", "from": [88.13, 47.85], "to": [91.64, 48.00] }
   ]
 }

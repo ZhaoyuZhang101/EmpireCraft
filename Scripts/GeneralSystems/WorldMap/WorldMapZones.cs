@@ -122,13 +122,13 @@ internal static class WorldMapZones
         _blocked.Clear();
     }
 
-    // 从 seat(城心)看这块地在墙后：城不领它(见 FrontierWalls.Behind)
+    // 从 seat(城心)看这块地在墙后，或隔着高原外缘(见 PlateauSides)：城不领它(见 FrontierWalls.Behind)
     public static bool Behind(Vector2Int seat, int index) =>
-        _lines.Count > 0 && index >= 0 && FrontierWalls.Behind(_lines, seat, new Vector2(index % Width * 8 + 4, index / Width * 8 + 4));
+        index >= 0 && (_lines.Count > 0 && FrontierWalls.Behind(_lines, seat, new Vector2(index % Width * 8 + 4, index / Width * 8 + 4)) ||
+                       PlateauSides.Differ(World.world?.GetTile(seat.x, seat.y)?.zone, Zone(index)));
 
     private static bool Behind(City city, int index)
     {
-        if (_lines.Count == 0) return false;
         WorldTile seat = city?.getTile();
         return seat != null && Behind(new Vector2Int(seat.x, seat.y), index);
     }

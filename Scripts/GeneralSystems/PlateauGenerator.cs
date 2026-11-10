@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 挑地：离水(海、湖)至少 CoastGap 格的陆地，按周围 SmoothRadius 格的平均高度从高往低取，取到约占陆地 TargetShare 时连片，
 //     最大的一片(大图再加第二片)够 MinShare 才做；一片里的山、山巅照留(高原里的山岭)，其余陆地(连同丘陵)抬成高原，
 //     高原里被围住的小块低地一并抬起(不留一圈山围着的坑)；
-//   · 哪一种：最高的那片原来平均高度到 AlpineHeight 的是高寒高原，否则黄土高原；第二片总是黄土高原(两片不全是牧区)；
+//   · 哪一种：最大的那片原来平均高度到 AlpineHeight 的是高寒高原，不到的是草原高原；第二片是黄土高原(两片不全是牧区)；
 //   · 特殊模板(蚁穴、棋盘、隔间)、去山模板、陆地太少的图不做。只在新开随机图时做一次，之后神力随便改。
 public static class PlateauGenerator
 {
@@ -20,7 +20,7 @@ public static class PlateauGenerator
 
     public static void Generate()
     {
-        if (!Enabled || World.world == null || PlateauTerrain.Alpine == null || PlateauTerrain.Loess == null) return;
+        if (!Enabled || World.world == null || PlateauTerrain.Alpine == null || PlateauTerrain.Loess == null || PlateauTerrain.Steppe == null) return;
         MapGenTemplate template = MapGenerator.template;
         if (template == null || template.special_anthill || template.special_checkerboard || template.special_cubicles ||
             template.values == null || template.values.remove_mountains) return;
@@ -71,7 +71,7 @@ public static class PlateauGenerator
             float mean = 0f;
             foreach (int i in piece) mean += heights[i];
             mean /= piece.Count;
-            TileType kind = k == 0 && mean >= AlpineHeight ? PlateauTerrain.Alpine : PlateauTerrain.Loess;
+            TileType kind = k > 0 ? PlateauTerrain.Loess : mean >= AlpineHeight ? PlateauTerrain.Alpine : PlateauTerrain.Steppe;
             var inside = new bool[n];
             foreach (int i in piece) inside[i] = true;
             FillHoles(inside, land, w, h);
@@ -84,7 +84,8 @@ public static class PlateauGenerator
                 tiles[i].Height = kind.height_min;
                 made++;
             }
-            LogService.LogInfo($"[EmpireCraft][高原] 随机图第 {k + 1} 片高原：{(kind == PlateauTerrain.Alpine ? "高寒" : "黄土")}，原平均高度 {mean:0}，{piece.Count} 格");
+            string name = kind == PlateauTerrain.Alpine ? "高寒" : kind == PlateauTerrain.Steppe ? "草原" : "黄土";
+            LogService.LogInfo($"[EmpireCraft][高原] 随机图第 {k + 1} 片高原：{name}，原平均高度 {mean:0}，{piece.Count} 格");
         }
         if (made > 0) PlateauShaper.Shape(null, Randy.randomInt(1, 1 << 30));
     }

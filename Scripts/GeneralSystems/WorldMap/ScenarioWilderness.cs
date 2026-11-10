@@ -172,7 +172,7 @@ public static class ScenarioWilderness
         if (type.Contains("lava")) return (byte)(LavaGround << GroundShift);
         // 高寒高原(模组的地面格)：同 WildernessSystem 的高原；黄土高原是农地(草木平地)
         if (type == PlateauTerrain.AlpineId) return (byte)(PlateauGround << GroundShift);
-        if (type == PlateauTerrain.LoessId) return (byte)(GreenGround << GroundShift);
+        if (type == PlateauTerrain.LoessId || type == PlateauTerrain.SteppeId) return (byte)(GreenGround << GroundShift);
         int split = type.IndexOf(':');
         string main = split < 0 ? type : type.Substring(0, split), top = split < 0 ? type : type.Substring(split + 1);
         int relief = main == "mountains" || top == "mountains" || top.Contains("summit") ? RockRelief

@@ -4,8 +4,9 @@
 最下一排不透明的(第 7 行)压暗一档当地坎；sprites.json 里每单位 1 像素、轴心居中(同原版 soil_high 的 tile_*.png)。
 配色：
   高寒高原 alpine_plateau：高寒草甸的灰橄榄(比原版草地灰、比丘陵亮)；
-  黄土高原 loess_plateau：黄土的暗土黄(比原版荒漠暗、不偏橙)。
-远看的像素色写在 PlateauTerrain.cs(Alpine #8F9070、Loess #B99A68)，与这里的中间色一致。
+  黄土高原 loess_plateau：黄土的暗土黄(比原版荒漠暗、不偏橙)；
+  草原高原 steppe_plateau：蒙古高原的黄绿草原色(比高寒高原绿、比原版稀树草原偏绿)。
+远看的像素色写在 PlateauTerrain.cs(Alpine #8F9070、Loess #B99A68、Steppe #9DA455)，与这里的中间色一致。
 
 用法: python Tools/IconForge/tile_forge.py [--preview]
 输出: GameResources/tiles/<id>/tile_0..2.png + sprites.json；--preview 另出 tile_preview.png(16 倍放大)
@@ -36,6 +37,7 @@ MASK = [
 PALETTES = {
     "alpine_plateau": [(156, 157, 124), (143, 144, 112), (130, 131, 101), (112, 112, 86)],
     "loess_plateau": [(196, 166, 116), (185, 154, 104), (171, 141, 94), (150, 122, 80)],
+    "steppe_plateau": [(170, 176, 96), (157, 164, 85), (142, 150, 76), (120, 126, 64)],
 }
 
 
@@ -57,12 +59,12 @@ def tile(palette, seed):
 
 
 ICON_OUT = os.path.join(ROOT, "GameResources", "ui", "icons")
-ICONS = {"alpine_plateau": "iconTileAlpinePlateau", "loess_plateau": "iconTileLoessPlateau"}
+ICONS = {"alpine_plateau": "iconTileAlpinePlateau", "loess_plateau": "iconTileLoessPlateau", "steppe_plateau": "iconTileSteppePlateau"}
 
 
 def icon(name, palette):
     """剧本编辑器刷地形的按钮图标(28×28，同原版地形图标大小)：平顶台地，顶面亮、崖面暗；
-    高寒高原台地边上两座积雪小峰，黄土高原崖面上几道横的梯田沟坎。1 像素纯黑描边、右下投影(同本模组图标)。"""
+    高寒高原台地边上两座积雪小峰，黄土高原崖面上几道横的梯田沟坎，草原高原顶面几簇深色草丛。1 像素纯黑描边、右下投影(同本模组图标)。"""
     light, mid, dark, lip = palette
     img = Image.new("RGBA", (28, 28), (0, 0, 0, 0))
     px = img.load()
@@ -87,6 +89,10 @@ def icon(name, palette):
             for k in range(h):
                 for x in range(cx - k, cx + k + 1):
                     put(x, 10 - h + k, snow if k < 2 else rock)
+    elif name == "steppe_plateau":
+        for x, y in ((7, 10), (11, 11), (15, 10), (19, 11), (9, 12), (17, 12)):
+            put(x, y, lip)
+            put(x, y - 1, dark)
     else:
         for y in (15, 18):
             for x in range(6, 22):

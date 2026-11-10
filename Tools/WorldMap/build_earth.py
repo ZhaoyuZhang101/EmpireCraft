@@ -33,7 +33,7 @@
       数据目录里要有 terrarium_z6.npz、ne/ne_10m_rivers_lake_centerlines.shp(.dbf)，ne/ne_10m_geography_regions_polys.shp(.dbf)
       可缺；海陆湖泊与气候取旧网格。河道数据没变，rivers.bytes 不重出。
   python -I build_earth.py plateau <旧 earth.bytes> <输出 earth.bytes> [预览.png]
-      只补高寒高原、黄土高原两种地面格(见 apply_plateaus；整套重烘时 compose 末尾也会做)。
+      只补高寒高原、黄土高原、草原高原三种地面格(见 apply_plateaus；整套重烘时 compose 末尾也会做)。旧网格编号表短的在末尾追加。
   python -I build_earth.py beaches <旧 earth.bytes> <输出 earth.bytes> [预览.png]
       只改沙地：离水 BEACH_REACH 格以外的沙地(以前画的大漠沙丘)改成荒漠(高低照最近的荒漠格)，海边湖边的留作沙滩。
 
@@ -244,8 +244,8 @@ BIOMES = ["grass", "savanna", "jungle", "desert", "permafrost", "birch", "maple"
 for b in BIOMES:
     TYPES.append("soil_low:%s_low" % b)
     TYPES.append("soil_high:%s_high" % b)
-# 模组自己的两种高原地面格(见 Scripts/GeneralSystems/PlateauTerrain.cs、apply_plateaus)：排在最后，旧网格的编号不变
-TYPES += ["alpine_plateau", "loess_plateau"]
+# 模组自己的三种高原地面格(见 Scripts/GeneralSystems/PlateauTerrain.cs、apply_plateaus)：排在最后，旧网格的编号不变
+TYPES += ["alpine_plateau", "loess_plateau", "steppe_plateau"]
 CODE = {t: i for i, t in enumerate(TYPES)}
 # 平地的地表：沙地(沙丘、旱区海滩)另记一种，其余按生物群系分高低
 SURFACES = ["sand"] + BIOMES
@@ -758,6 +758,20 @@ LOESS = [(102.8, 36.3), (102.8, 37.0), (103.6, 37.3), (104.5, 37.4), (105.3, 37.
          (103.5, 35.0), (102.9, 35.6)]
 
 
+# 蒙古高原(用户 2026-11-10 "这样子就能模拟蒙古高原""不然东北这一块一点屏障都没有")：东沿大兴安岭脊线(呼伦贝尔在里，
+# 嫩江平原、科尔沁、西拉木伦河谷的辽上京在外)，南沿坝上与阴山脊线(呼和浩特、包头、河套、张家口、大同在外)，东南沿燕山脊线
+# 把承德一带山地包进来(北京、辽西走廊、赤峰在外)，西到阿尔泰东麓，北到色楞格河、肯特山一线。里面的草地、稀树草原、丘陵改成草原高原，
+# 戈壁荒漠、林地、山照旧
+MONGOLIA = [(119.6, 40.35), (118.9, 40.38), (118.4, 40.45), (117.6, 40.55), (117.1, 40.65), (116.6, 40.75), (116.2, 40.95),
+            (115.6, 41.0), (114.9, 41.0), (114.2, 40.95), (113.6, 41.0), (112.9, 41.05), (112.2, 40.98), (111.6, 40.95),
+            (110.8, 41.0), (110.0, 40.95), (109.0, 41.05), (108.0, 41.1), (107.0, 41.3), (106.2, 41.5), (105.0, 41.8),
+            (103.0, 42.2), (100.0, 42.6), (97.5, 43.2), (95.5, 44.3), (94.0, 45.5), (93.0, 47.0), (93.5, 48.5), (95.0, 49.8),
+            (97.5, 50.2), (100.0, 50.0), (102.5, 50.3), (105.0, 50.3), (107.5, 50.2), (110.0, 49.9), (112.5, 49.9),
+            (115.0, 50.0), (117.5, 50.3), (119.0, 51.0), (120.0, 51.6), (121.0, 50.6), (121.4, 49.5), (121.6, 48.6),
+            (121.1, 47.5), (120.6, 46.6), (120.0, 45.8), (119.4, 45.0), (118.8, 44.4), (118.3, 43.8), (117.9, 43.2),
+            (117.8, 42.5), (118.3, 41.9), (118.9, 41.4), (119.5, 40.9)]
+
+
 def polygon_mask(points):
     """经纬度多边形里的格(射线法)。"""
     lon2 = LONS[None, :]
@@ -776,8 +790,9 @@ def polygon_mask(points):
 
 
 def apply_plateaus(out):
-    """两种高原(用户 2026-11-10)：青藏、帕米尔的高原面(3800 米以上，网格里的雪丘连片)连同里面的谷地、丘陵改成高寒高原；
-    黄土高原多边形里的平地、丘陵改成黄土高原。山、水不动；外缘山脊、坡地、山口在游戏里生成世界时铺(PlateauShaper)。"""
+    """三种高原(用户 2026-11-10)：青藏、帕米尔的高原面(3800 米以上，网格里的雪丘连片)连同里面的谷地、丘陵改成高寒高原；
+    黄土高原多边形里的平地、丘陵改成黄土高原；蒙古高原多边形里的草地、稀树草原、丘陵改成草原高原(戈壁照旧)。
+    山、水不动；外缘山脊、坡地、山口在游戏里生成世界时铺(PlateauShaper)。"""
     out = out.copy()
     land = ~np.isin(out, [CODE["deep_ocean"], CODE["close_ocean"], CODE["shallow_waters"]])
     rock = np.isin(out, [CODE["mountains"], CODE["mountains:snow_block"]])
@@ -803,14 +818,24 @@ def apply_plateaus(out):
     out[alpine] = CODE["alpine_plateau"]
     # 黄土高原：多边形的边按噪声起伏(约 ±0.2 度)，不是直线；北纬 35.45 度以南的低地(关中、渭河谷)留在外面
     rng = np.random.default_rng(1110)
-    wobble = ndimage.gaussian_filter(rng.standard_normal(out.shape), 8) * 0.7 +         ndimage.gaussian_filter(rng.standard_normal(out.shape), 2.5) * 0.3
+    wobble = (ndimage.gaussian_filter(rng.standard_normal(out.shape), 8) * 0.7 +
+              ndimage.gaussian_filter(rng.standard_normal(out.shape), 2.5) * 0.3)
     wobble /= wobble.std() + 1e-9
-    inside = polygon_mask(LOESS)
-    signed = (ndimage.distance_transform_edt(inside) - ndimage.distance_transform_edt(~inside)) * STEP
+
+    def wobbly(points):
+        inside = polygon_mask(points)
+        signed = (ndimage.distance_transform_edt(inside) - ndimage.distance_transform_edt(~inside)) * STEP
+        return signed + 0.2 * wobble > 0
+
     lowland = np.isin(out, [CODE["soil_low:%s_low" % b] for b in BIOMES]) & (lat2 < 35.45)
-    loess = (signed + 0.2 * wobble > 0) & land & ~rock & ~alpine & ~lowland & (out != CODE["sand"])
+    loess = wobbly(LOESS) & land & ~rock & ~alpine & ~lowland & (out != CODE["sand"])
     out[loess] = CODE["loess_plateau"]
-    print("高寒高原 %d 格(雪丘 %d 片)，黄土高原 %d 格" % (alpine.sum(), merged, loess.sum()))
+    # 蒙古高原：草地、稀树草原(高低两种)与丘陵改成草原高原
+    grassy = np.isin(out, [CODE["soil_%s:%s_%s" % (lv, b, lv)] for b in ("grass", "savanna") for lv in ("low", "high")] +
+                     [CODE["hills"]])
+    steppe = wobbly(MONGOLIA) & grassy & ~alpine & ~loess
+    out[steppe] = CODE["steppe_plateau"]
+    print("高寒高原 %d 格(雪丘 %d 片)，黄土高原 %d 格，草原高原 %d 格" % (alpine.sum(), merged, loess.sum(), steppe.sum()))
     return out
 
 
@@ -1109,7 +1134,7 @@ PREVIEW = {
     "jungle": ((40, 120, 40), (30, 100, 30)), "desert": ((245, 225, 150), (225, 195, 110)),
     "permafrost": ((200, 215, 225), (180, 195, 210)), "birch": ((110, 150, 90), (90, 130, 75)),
     "maple": ((130, 160, 70), (110, 140, 60)), "swamp": ((90, 110, 60), (80, 100, 50)),
-    "alpine_plateau": (143, 144, 112), "loess_plateau": (185, 154, 104),
+    "alpine_plateau": (143, 144, 112), "loess_plateau": (185, 154, 104), "steppe_plateau": (157, 164, 85),
 }
 
 
