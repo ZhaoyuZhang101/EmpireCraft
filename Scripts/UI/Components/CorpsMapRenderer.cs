@@ -37,7 +37,7 @@ public static class CorpsMapRenderer
 {
     // 以屏幕像素计(镜头远近再乘 0.85~1.15)；框的九宫格边距 6，见 frame_forge.py
     private const float CounterWidth = 74f, CounterHeight = 26f;
-    private const float MarkerWidth = 64f, MarkerHeight = 18f;
+    private const float MarkerWidth = 84f, MarkerHeight = 26f;   // 两行：上行战役名，下行胜算与已占地块
     private const float FrameBorder = 6f;
     private const float HoverScale = 1.4f;
     private const float LineWidth = 2.5f;
@@ -101,8 +101,8 @@ public static class CorpsMapRenderer
     {
         public RectTransform Root;
         public Image Frame, Attacker, Defender;
-        public Text Label;
-        public float LabelWidth;
+        public Text Title, Label;
+        public float TitleWidth, LabelWidth;
     }
 
     private struct Hit
@@ -533,7 +533,8 @@ public static class CorpsMapRenderer
         return Counters[index];
     }
 
-    // 交战标记：框 64×18(字长时加宽)；两侧国色小旗 (5,5)-(10,13)，中间字
+    // 交战标记：框 84×26(字长时加宽)；两侧国色小旗 (5,9)-(10,17)，中间两行——上行战役名(金)，下行胜算与已占地块
+    // (用户 2026-11-09"牌子也可以改一下变得大一点再细节点""加上交战的战役名称")
     private static Marker GetMarker(int index)
     {
         while (Markers.Count <= index)
@@ -544,17 +545,21 @@ public static class CorpsMapRenderer
             marker.Root.sizeDelta = new Vector2(MarkerWidth, MarkerHeight);
             marker.Frame = NewFrame(go.transform, Frame("CorpsBattle"));
             Image leftEdge = NewImage(go.transform, "AttackerEdge", InkColor);
-            Place(leftEdge.rectTransform, Vector2.zero, Vector2.zero, new Vector2(4f, 4f), new Vector2(11f, 14f));
+            Place(leftEdge.rectTransform, Vector2.zero, Vector2.zero, new Vector2(4f, 8f), new Vector2(11f, 18f));
             marker.Attacker = NewImage(go.transform, "Attacker", Color.gray);
-            Place(marker.Attacker.rectTransform, Vector2.zero, Vector2.zero, new Vector2(5f, 5f), new Vector2(10f, 13f));
+            Place(marker.Attacker.rectTransform, Vector2.zero, Vector2.zero, new Vector2(5f, 9f), new Vector2(10f, 17f));
             Image rightEdge = NewImage(go.transform, "DefenderEdge", InkColor);
-            Place(rightEdge.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-11f, 4f), new Vector2(-4f, 14f));
+            Place(rightEdge.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-11f, 8f), new Vector2(-4f, 18f));
             marker.Defender = NewImage(go.transform, "Defender", Color.gray);
-            Place(marker.Defender.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 5f), new Vector2(-5f, 13f));
+            Place(marker.Defender.rectTransform, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-10f, 9f), new Vector2(-5f, 17f));
+            marker.Title = NewText(go.transform, 9);
+            marker.Title.alignment = TextAnchor.MiddleCenter;
+            marker.Title.color = new Color32(243, 195, 74, 255);
+            Place(marker.Title.rectTransform, new Vector2(0f, 0.5f), Vector2.one, new Vector2(11f, 0f), new Vector2(-11f, -1f));
             marker.Label = NewText(go.transform, 10);
             marker.Label.alignment = TextAnchor.MiddleCenter;
             marker.Label.color = new Color32(255, 222, 204, 255);
-            Place(marker.Label.rectTransform, Vector2.zero, Vector2.one, new Vector2(11f, 0f), new Vector2(-11f, 1f));
+            Place(marker.Label.rectTransform, Vector2.zero, new Vector2(1f, 0.5f), new Vector2(11f, 1f), new Vector2(-11f, 0f));
             Markers.Add(marker);
         }
         return Markers[index];
@@ -911,15 +916,30 @@ public static class CorpsMapRenderer
                 marker.Root.gameObject.SetActive(true);
                 marker.Root.localScale = pixelScale;
                 SetFrame(marker.Frame, Frame("CorpsBattle"));
+                // 上行：战役名(辽阳之战 / 辽阳登陆战)
+                City seat = World.world.cities.get(battle.city_id);
+                string title = seat?.data == null ? ""
+                    : string.Format(LM.Get(battle.landing ? "corps_battle_name_landing" : "corps_battle_name"),
+                        seat.GetCityName());
+                if (marker.Title.text != title)
+                {
+                    marker.Title.text = title;
+                    marker.TitleWidth = marker.Title.preferredWidth;
+                }
+                // 下行：攻方胜算 + 已占地块(同提示里的那两行，不必悬停也看得见)
                 // 渡海登陆的一仗标"登陆"，画在抢滩的那块地(见 FrontSystem.Record)
+                int zones = seat?.zones?.Count ?? 0;
+                int held = zones == 0 ? 0
+                    : seat.zones.Count(z => FrontSystem.Hostile(seat.kingdom, FrontSystem.Controller(z)));
                 string label = string.Format(LM.Get(battle.landing ? "corps_battle_marker_landing" : "corps_battle_marker"),
-                    Mathf.RoundToInt(battle.ratio * 100f));
+                                   Mathf.RoundToInt(battle.ratio * 100f)) +
+                               string.Format(LM.Get("corps_battle_marker_tiles"), held, zones);
                 if (marker.Label.text != label)
                 {
                     marker.Label.text = label;
                     marker.LabelWidth = marker.Label.preferredWidth;
                 }
-                float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
+                float width = Mathf.Max(MarkerWidth, 26f + Mathf.Max(marker.TitleWidth, marker.LabelWidth));
                 marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
                 marker.Attacker.color = KingdomColor(battle.attacker_id);
                 marker.Defender.color = KingdomColor(battle.defender_id);
@@ -1047,13 +1067,22 @@ public static class CorpsMapRenderer
                 marker.Root.gameObject.SetActive(true);
                 marker.Root.localScale = pixelScale;
                 SetFrame(marker.Frame, Frame("CorpsBattle"));
+                // 上行：交战两国
+                string title = string.Format(LM.Get("navy_battle_name"),
+                    World.world.kingdoms.get(battle.attacker_id)?.GetKingdomName() ?? "?",
+                    World.world.kingdoms.get(battle.defender_id)?.GetKingdomName() ?? "?");
+                if (marker.Title.text != title)
+                {
+                    marker.Title.text = title;
+                    marker.TitleWidth = marker.Title.preferredWidth;
+                }
                 string label = string.Format(LM.Get("navy_battle_marker"), Mathf.RoundToInt(battle.ratio * 100f));
                 if (marker.Label.text != label)
                 {
                     marker.Label.text = label;
                     marker.LabelWidth = marker.Label.preferredWidth;
                 }
-                float width = Mathf.Max(MarkerWidth, 26f + marker.LabelWidth);
+                float width = Mathf.Max(MarkerWidth, 26f + Mathf.Max(marker.TitleWidth, marker.LabelWidth));
                 marker.Root.sizeDelta = new Vector2(width, MarkerHeight);
                 marker.Attacker.color = KingdomColor(battle.attacker_id);
                 marker.Defender.color = KingdomColor(battle.defender_id);
@@ -1207,10 +1236,12 @@ public static class CorpsMapRenderer
             });
     }
 
-    // 点击(原版"点一下查看"的时机，见 CorpsPatch)：打开悬停的兵牌或交战所属国的军事页
+    // 点击(原版"点一下查看"的时机，见 CorpsPatch)：兵牌开军事页；交战牌子(陆上攻城、海战)开这场仗的战争页
+    // (用户 2026-11-09"我说的牌子是前线的交战牌子"——以前点交战牌子开的是军事页，对不上)
     public static bool TryClick()
     {
         Kingdom kingdom;
+        War war = null;
         List<long> corps = null;
         long city = -1L;
         if (_hoverKind == HoverCounter)
@@ -1230,6 +1261,7 @@ public static class CorpsMapRenderer
         {
             kingdom = PickSide(naval.attacker_id, naval.defender_id);
             if (kingdom == null) return false;
+            war = FindWar(naval.attacker_id, naval.defender_id);
         }
         else if (_hoverKind == HoverMarker && FrontSystem.Battles.TryGetValue(_hoverA, out var battle))
         {
@@ -1242,13 +1274,24 @@ public static class CorpsMapRenderer
                 ? attacker : defenderAlive ? defender : null;
             if (kingdom == null) return false;
             city = battle.city_id;
+            war = FindWar(battle.attacker_id, battle.defender_id);
         }
         else return false;
         ClearHover();
+        if (war != null) { WarInfoWindow.Open(war, WarInfoWindow.Page.Fronts); return true; }
         Empire empire = kingdom.GetEmpire();
         if (empire?.CoreKingdom != null && !empire.isRekt()) EmpireWindow.OpenMilitary(empire, corps, city);
         else KingdomMilitaryWindow.Open(kingdom, corps, city);
         return true;
+    }
+
+    // 这两国正在打的那场仗(交战牌子点进去的战争页)；找不到就退回军事页
+    private static War FindWar(long attackerId, long defenderId)
+    {
+        Kingdom attacker = World.world.kingdoms.get(attackerId);
+        Kingdom defender = World.world.kingdoms.get(defenderId);
+        if (attacker?.data == null || defender?.data == null) return null;
+        return WarChronicle.Between(attacker, defender).FirstOrDefault(WarDisplay.Alive);
     }
 
     // 攻方优先；攻方不在帝国里而守方在，就开守方帝国的军事页
@@ -1444,7 +1487,7 @@ public static class CorpsMapRenderer
         int odds = Mathf.RoundToInt(battle.ratio * 100f);
         tooltip.addLineText(LM.Get("navy_tip_odds"), odds + "%", odds >= 50 ? "#FFB3A8" : "#A8CCFF", pPercent: false,
             pLocalize: false);
-        tooltip.addBottomDescription(LM.Get("navy_tip_battle_hint") + "\n" + LM.Get("corps_tip_click"));
+        tooltip.addBottomDescription(LM.Get("navy_tip_battle_hint") + "\n" + LM.Get("corps_tip_click_war"));
     }
 
     // 交战：攻守双方、攻方胜算、兵力对比、参战军数、已占地块
@@ -1496,7 +1539,7 @@ public static class CorpsMapRenderer
                 FrontSystem.WallPaceFactor(battle.wall_breach).ToString("0.##")) + "\n";
         }
         tooltip.addBottomDescription(wall + TerrainSystem.Describe(battle.terrain) + "\n" + LM.Get("corps_tip_battle_hint") +
-                                     "\n" + LM.Get("corps_tip_click"));
+                                     "\n" + LM.Get("corps_tip_click_war"));
     }
 
     #endregion
