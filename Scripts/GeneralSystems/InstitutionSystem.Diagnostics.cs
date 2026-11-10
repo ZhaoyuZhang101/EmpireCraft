@@ -26,6 +26,8 @@ public static partial class InstitutionSystem
     private const string ReasonSupportMargin = "support_margin";
     private const string ReasonTechUninvented = "tech_uninvented";
     private const string ReasonTechUnadopted = "tech_unadopted";
+    // 用户 2026-11-10：核心繁荣不过门槛，不自主推开放党禁(party_politics)
+    private const string ReasonProsperityGate = "prosperity_gate";
 
     private enum AiSkip
     {

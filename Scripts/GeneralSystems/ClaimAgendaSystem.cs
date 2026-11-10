@@ -95,6 +95,9 @@ public static class ClaimAgendaSystem
         {
             if (context.PartyOpening?.HasChallenge != true)
                 view.Blocker = "agenda_party_ban_requires_challenge";
+            // 用户 2026-11-10：核心繁荣不过发展门槛，自主开放党禁一律不触发(穷/贫瘠守封建、一党)。
+            else if (!PartyBanSystem.PassesModernizationGate(empire))
+                view.Blocker = "agenda_party_ban_requires_prosperity";
             else
             {
                 view.PopulationShare = context.PartyOpening.Population > 0

@@ -452,34 +452,69 @@ public static class ConstitutionalEconomySystem
             ? "constitution_revoked_feudal_history" : "constitution_revoked_era_history");
     }
 
+    // 一党君主国的君主在革命压力下妥协、和平开放党禁时随之确立君主立宪(保王朝，见 PartyBanSystem.UpdateReopenPressure)。
+    // 用户 2026-11-10：这是"君主妥协"自主路的立宪环节；受分封制与时代门槛限制(与随文化立宪一致)，
+    // 不够格则只开放党禁、暂不立宪。
+    public static bool ConcedeConstitutionalMonarchy(Empire empire)
+    {
+        ConstitutionalEconomyState state = Ensure(empire);
+        if (state == null || World.world == null || empire?.CoreKingdom == null ||
+            state.constitutional_monarchy || !IsMonarchy(empire) ||
+            !InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null) return false;
+        CancelReform(state);
+        state.constitutional_monarchy = true;
+        MarkCultureConstitutional(empire);
+        Record(empire, "constitution_monarch_concession_history");
+        return true;
+    }
+
     // 被迫现代化(如战败后被战胜国改造)：大败于立宪、共和或现代国家之手，丢了都城或四分之一以上的城，
-    // 战胜国就强行替它立宪、开放党禁——不受分封制与时代门槛限制，也不算本文化首开立宪
+    // 战胜国就强行替它开放党禁——不受分封制与时代门槛、核心繁荣门槛限制，也不算本文化首开立宪。
+    // 用户 2026-11-10：这是三条路里的"外部战争强迫"，外力能让穷地方现代化。
+    // 败方是君主国则连带确立君主立宪；败方是一党闭关的共和国则直接逼开多党。
     public static bool ImposeModernization(Empire loser, Kingdom victor, int lostCities, bool lostCapital)
     {
         ConstitutionalEconomyState state = Ensure(loser);
-        if (state == null || World.world == null || loser.CoreKingdom == null || victor?.data == null || victor.isRekt() ||
-            state.constitutional_monarchy || state.forced_modernization || !IsMonarchy(loser) ||
-            !InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(loser))) return false;
+        if (state == null || World.world == null || loser.CoreKingdom == null || victor?.data == null || victor.isRekt())
+            return false;
+        bool monarchy = IsMonarchy(loser);
+        // 君主国：还没立宪、没被迫改造过、本线支持立宪，才谈得上被逼立宪(连带开放党禁)。
+        bool imposeMonarchy = monarchy && !state.constitutional_monarchy && !state.forced_modernization &&
+                              InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(loser));
+        // 共和国：一党闭关的被逼开放党禁(多党)。
+        bool forceOpenRepublic = !monarchy && PartySystem.IsActive(loser) && PartyBanSystem.IsClosed(loser);
+        if (!imposeMonarchy && !forceOpenRepublic) return false;
         int cities = loser.CoreKingdom.cities?.Count ?? 0;
         if (!lostCapital && (lostCities <= 0 || lostCities * 4 < cities + lostCities)) return false;
         Empire master = victor.GetEmpire();
         Kingdom core = master?.CoreKingdom ?? victor;
         string culture = master != null ? InstitutionSystem.GetPrimaryCulture(master) : TechnologySystem.GetCultureOf(core);
         if (TechnologySystem.GetEraTier(culture) < ConstitutionEraTier) return false;
+        // 战胜方须是先进国(立宪、共和或现代国家，即已有政党政治)
         bool modern = ModernStability.IsModern(core) ||
                       master != null && (HasConstitution(master) || RepublicSystem.IsRepublic(master));
         if (!modern) return false;
+        string imposerName = master?.GetEmpireName() ?? core.GetKingdomName();
         CancelReform(state);
-        state.constitutional_monarchy = true;
-        state.forced_modernization = true;
-        state.forced_by_name = master?.GetEmpireName() ?? core.GetKingdomName();
-        state.forced_by_culture = culture ?? "";
-        state.forced_at = World.world.getCurWorldTime();
+        if (imposeMonarchy)
+        {
+            state.constitutional_monarchy = true;
+            state.forced_modernization = true;
+            state.forced_by_name = imposerName;
+            state.forced_by_culture = culture ?? "";
+            state.forced_at = World.world.getCurWorldTime();
+        }
+        // 被迫开放党禁：一党闭关(君主国或共和国)的败方由战胜国逼开多党，绕过发展门槛。
+        if (PartySystem.IsActive(loser) && PartyBanSystem.IsClosed(loser))
+            PartyBanSystem.Open(loser, "party_ban_reopened_imposed_history");
         ParliamentSystem.Update(loser);
-        loser.RecordHistory(directContent: string.Format(LM.Get("constitution_imposed_history"), state.forced_by_name),
-            actorId: loser.Emperor?.id ?? -1L, kingdomId: loser.CoreKingdom.id);
-        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
-            string.Format(LM.Get("constitution_imposed_log"), state.forced_by_name, loser.GetEmpireName()), loser.CoreKingdom);
+        if (imposeMonarchy)
+        {
+            loser.RecordHistory(directContent: string.Format(LM.Get("constitution_imposed_history"), imposerName),
+                actorId: loser.Emperor?.id ?? -1L, kingdomId: loser.CoreKingdom.id);
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(
+                string.Format(LM.Get("constitution_imposed_log"), imposerName, loser.GetEmpireName()), loser.CoreKingdom);
+        }
         return true;
     }
 

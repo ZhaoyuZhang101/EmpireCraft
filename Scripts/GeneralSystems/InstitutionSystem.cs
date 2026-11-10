@@ -1631,6 +1631,17 @@ public static partial class InstitutionSystem
         !realm.IsEmpire && realm.Kingdom?.cities != null && realm.Kingdom.cities.Count >= EmpireFormationService.MinimumCities &&
         node.features != null && node.features.TryGetValue(EmpireFormationService.ImperialFeature, out float value) && value > 0f;
 
+    // 自主现代化(开放党禁)的硬发展门槛(用户 2026-11-10)：帝国用法理核心繁荣(PartyBanSystem.PassesModernizationGate)，
+    // 独立王国/部落用自身城邑繁荣均值，阈值同 PartyBanSystem.ModernizationProsperityFloor。
+    private static bool ReformRealmProsperousEnough(InstitutionRealm realm)
+    {
+        if (realm == null) return false;
+        if (realm.IsEmpire) return PartyBanSystem.PassesModernizationGate(realm.Empire);
+        List<City> cities = realm.Core?.cities?.Where(city => city != null && !city.isRekt()).ToList();
+        return cities != null && cities.Count > 0 &&
+               cities.Average(IdeologyPopulationSystem.CityProsperity) >= PartyBanSystem.ModernizationProsperityFloor;
+    }
+
     private static void TryStartAiReform(InstitutionRealm realm, Dictionary<SocialClass, float> shares = null)
     {
         if (!InstitutionDefinitionRegistry.Global.ai_enabled) return;
@@ -1669,6 +1680,13 @@ public static partial class InstitutionSystem
             if (takenElsewhere != null && takenElsewhere.Contains(node.id))
             {
                 NoteCandidateBlock(realm, primaryCulture, node, ReasonTakenElsewhere);
+                continue;
+            }
+            // 用户 2026-11-10：开放党禁(party_politics)是自主现代化的门槛节点——核心繁荣不足的穷/贫瘠政权
+            // 不走常规改革自行推开，只能等外力(战败和约，见 ConstitutionalEconomySystem.ImposeModernization)来逼。
+            if (node.features.ContainsKey(PartySystem.FeaturePartyPolitics) && !ReformRealmProsperousEnough(realm))
+            {
+                NoteCandidateBlock(realm, primaryCulture, node, ReasonProsperityGate);
                 continue;
             }
             InstitutionPoliticalBalance balance = CalculatePoliticalBalance(realm, node, shares);
