@@ -127,6 +127,25 @@ public class LawImprisonment
     public bool notable;
 }
 
+// 神力加在量刑天平上的一个砝码(见 EmpireLawSystem.Divine)：名目(law_custom_ 后半)、哪一边、倍数
+public class LawCustomWeight
+{
+    public string key = "";
+    public bool guilt;
+    public float factor = 1f;
+}
+
+// 保释(见 EmpireLawSystem.Divine)：条件(bond 保金 / guarantor 担保人 / house 软禁 / redeem 戴罪立功)、担保人(族谱身份)、保金；
+// revoked：保释期间再犯，取保作废
+public class LawBail
+{
+    public double since = -1d;
+    public List<string> conditions = new();
+    public long guarantor = -1L;
+    public int bond;
+    public bool revoked;
+}
+
 // —— 给界面的只读快照 ——
 
 // 一项构成：Key 为本地化键(可带一个 {0} 参数 Arg)，Value 为数值(倍数或加减)

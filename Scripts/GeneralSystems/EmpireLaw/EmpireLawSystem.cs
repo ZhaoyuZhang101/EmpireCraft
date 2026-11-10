@@ -673,6 +673,8 @@ public static partial class EmpireLawSystem
         actor.CheckSpecificClan(false);
         PersonalClanIdentity identity = actor.GetPersonalIdentity();
         if (identity == null) return false;
+        // 保释期间再犯：取保作废(见 EmpireLawSystem.Divine)
+        BreakBail(actor, identity);
 
         CleanupCrimeRecords(identity);
         List<CrimeRecord> records = identity.crime_records;

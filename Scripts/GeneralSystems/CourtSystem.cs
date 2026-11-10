@@ -64,6 +64,7 @@ public static partial class CourtSystem
         if (!state.factions.TryGetValue(faction.GetID(), out CourtFactionState data) || data == null)
             state.factions[faction.GetID()] = data = new CourtFactionState();
         data.cooldowns ??= new Dictionary<string, double>();
+        data.owed ??= new Dictionary<string, int>();
         return data;
     }
 
@@ -356,27 +357,25 @@ public static partial class CourtSystem
             }
             memorial.drafted_by_ally = setterFaction != null && setterFaction.GetID() == data.ally;
         }
+        // 票拟过了、廷议之前：私下串联(收人情、换票，见 CourtSystem.Bargain)
+        Bargain(empire, state, memorial, claim, proposer);
         memorial.stage = 1;
         memorial.stage_time = now;
     }
 
-    // 廷议各派表态与权重：上奏一派赞成；盟友、学说朋党的靠山观望时转赞成；罢朝的一律反对。
-    // 廷议与诉求天平页的预估共用(用户 2026-11-10 "推动诉求也要加天平页面""这样才能知道成功还是没成功")
+    // 廷议各派表态与权重：上奏一派赞成；盟友、学说朋党的靠山观望时转赞成；罢朝的一律反对；廷议前谈成的交换照换来的表态
+    // (见 CourtSystem.Bargain)。廷议与诉求天平页的预估共用(用户 2026-11-10 "推动诉求也要加天平页面""这样才能知道成功还是没成功")
     public static List<(FixedFaction faction, int stance, float weight)> DebateStances(Empire empire, TemporaryFaction claim,
-        FixedFaction proposer)
+        FixedFaction proposer, CourtMemorial memorial = null)
     {
         List<FixedFaction> factions = Factions(empire);
         Dictionary<FixedFaction, float> weights = Weights(empire, factions);
-        CourtFactionState proposerData = FactionState(empire, proposer);
         var result = new List<(FixedFaction faction, int stance, float weight)>();
         foreach (FixedFaction faction in factions)
         {
-            CourtFactionState data = FactionState(empire, faction);
-            int stance = faction == proposer ? 1 : CourtIssues.StanceLevel(faction, claim);
-            if (faction != proposer && faction.GetID() == proposerData.ally && stance == 0) stance = 1;
-            // 学说朋党与它投靠的阶级派系互相声援(见 CliqueSystem.Patron)
-            if (faction != proposer && stance == 0 && CliqueSystem.Patronage(empire, faction, proposer)) stance = 1;
-            if (faction != proposer && IsBoycotting(data)) stance = -1;
+            int stance = BaseStance(empire, claim, proposer, faction);
+            CourtDeal deal = faction == proposer ? null : DealOf(memorial, faction);
+            if (deal != null) stance = Math.Max(stance, deal.after);
             result.Add((faction, stance, weights[faction]));
         }
         return result;
@@ -401,7 +400,7 @@ public static partial class CourtSystem
     private static void Debate(Empire empire, CourtState state, CourtMemorial memorial, TemporaryFaction claim,
         FixedFaction proposer, double now)
     {
-        List<(FixedFaction faction, int stance, float weight)> stances = DebateStances(empire, claim, proposer);
+        List<(FixedFaction faction, int stance, float weight)> stances = DebateStances(empire, claim, proposer, memorial);
         memorial.stances.Clear();
         memorial.weights.Clear();
         foreach ((FixedFaction faction, int stance, float weight) in stances)
@@ -748,6 +747,7 @@ public static partial class CourtSystem
         string text = Log(state, logKey, args);
         Archive(empire, state, logKey, text);
         state.memorial = null;
+        ClearDraft(empire);
     }
 
     // 奏议收场时记入往期：走到哪一步、怎么收场、廷议与批红的读数(用户 2026-11-10 "推动诉求也要加天平页面""这样才能知道成功还是没成功")
@@ -764,7 +764,8 @@ public static partial class CourtSystem
             decision = memorial.decision ?? "", decider_name = memorial.decider_name ?? "", bid = memorial.bid,
             stances = new Dictionary<string, int>(memorial.stances ?? new Dictionary<string, int>()),
             weights = new Dictionary<string, float>(memorial.weights ?? new Dictionary<string, float>()),
-            factors = memorial.factors?.ToList() ?? new List<CourtScaleFactor>()
+            factors = memorial.factors?.ToList() ?? new List<CourtScaleFactor>(),
+            deals = memorial.deals?.ToList() ?? new List<CourtDeal>()
         };
         foreach (string id in record.stances.Keys) record.names[id] = FindFaction(empire, id)?.Name ?? id;
         state.history.Insert(0, record);

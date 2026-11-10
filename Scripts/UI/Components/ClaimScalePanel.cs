@@ -24,13 +24,18 @@ public static class ClaimScalePanel
 {
     private const float CardPadding = 12f;
 
-    public static void Render(AutoVertLayoutGroup page, Empire empire, float width)
+    // refresh：交换台上的按钮点完重画本页
+    public static void Render(AutoVertLayoutGroup page, Empire empire, float width, Action refresh = null)
     {
         if (page == null || empire?.data == null || empire.isRekt()) return;
         bool court = CourtSystem.Applies(empire);
         var intro = page.BeginCard(width, "claim_scale_title", WideKit.Gold, null, "ui/icons/iconKingdom");
         intro.AddParagraph(width, LM.Get(court ? "claim_scale_intro_court" : "claim_scale_intro_other"), 7, WideKit.Soft);
-        if (court) RenderMemorial(page, empire, width);
+        if (court)
+        {
+            RenderMemorial(page, empire, width, refresh);
+            RenderTable(page, empire, width, refresh);
+        }
         else if (ParliamentBillSystem.Applies(empire)) RenderNextBill(page, empire, width);
         RenderRunning(page, empire, width, court);
         RenderLocalPushes(page, empire, width);
@@ -113,7 +118,7 @@ public static class ClaimScalePanel
 
     #region 当前奏议
 
-    private static void RenderMemorial(AutoVertLayoutGroup page, Empire empire, float width)
+    private static void RenderMemorial(AutoVertLayoutGroup page, Empire empire, float width, Action refresh)
     {
         CourtState state = CourtSystem.State(empire);
         CourtMemorial memorial = state?.memorial;
@@ -138,7 +143,7 @@ public static class ClaimScalePanel
         List<(string name, int stance, float weight)> stances = memorial.stage >= 2 && memorial.stances.Count > 0
             ? memorial.stances.Select(pair => (CourtSystem.FindFaction(empire, pair.Key)?.Name ?? pair.Key, pair.Value,
                 memorial.weights.TryGetValue(pair.Key, out float weight) ? weight : 0f)).ToList()
-            : CourtSystem.DebateStances(empire, claim, proposer).Select(item => (item.faction.Name, item.stance, item.weight)).ToList();
+            : CourtSystem.DebateStances(empire, claim, proposer, memorial).Select(item => (item.faction.Name, item.stance, item.weight)).ToList();
         float support = memorial.stage >= 2 && memorial.support >= 0f ? memorial.support : Share(stances);
         bool contest = CourtSystem.CanContest(empire, proposer);
         // 批红：议过的用实际赞成率，没议的拿预估的赞成率估
@@ -189,9 +194,220 @@ public static class ClaimScalePanel
         }
         else
         {
+            // 施行中也照样列出廷议表态与批红砝码(用户 2026-11-10 "砝码呢")
+            Heading(card, width, "claim_scale_debate_done",
+                string.Format(LM.Get("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
+            DrawStances(card, width, stances);
+            if (memorial.factors != null && memorial.factors.Count > 0)
+            {
+                Heading(card, width, "claim_scale_decide_recorded", Percent(memorial.approval));
+                DrawApproval(card, width, memorial.factors);
+            }
             if (memorial.roll >= 0f)
                 card.AddParagraph(width, RollText(memorial.approval, memorial.roll, "approve"), 6, WideKit.Soft);
+            else card.AddParagraph(width, LM.Get("claim_scale_reading_divine"), 6, WideKit.Soft);
             DrawExecution(card, width, claim);
+        }
+        DrawDeals(card, width, empire, memorial, refresh);
+    }
+
+    // 廷议前谈成的交换：对方、筹码、表态从几换到几；还能撤的给"撤"按钮
+    private static void DrawDeals(AutoVertLayoutGroup card, float width, Empire empire, CourtMemorial memorial, Action refresh)
+    {
+        List<CourtDeal> deals = memorial.deals ?? new List<CourtDeal>();
+        if (deals.Count == 0) return;
+        Heading(card, width, "claim_scale_deals", string.Format(LM.Get("claim_scale_deals_count"), deals.Count));
+        bool editable = CourtSystem.CanBargain(empire, out _, out _, out _);
+        for (int i = 0; i < deals.Count; i++)
+        {
+            CourtDeal deal = deals[i];
+            string text = string.Format(LM.Get("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
+                CourtSystem.StanceName(deal.after), DealTerms(deal));
+            string hex = deal.kind == "reneged" ? WideKit.Red : deal.kind == "divine" ? WideKit.Gold : WideKit.Green;
+            string partner = deal.partner;
+            card.AddTermRow(width, i, null, text, LM.Get("claim_scale_deal_kind_" + deal.kind), hex, "",
+                editable && deal.kind != "reneged" ? () =>
+                {
+                    CourtSystem.Cancel(empire, partner);
+                    refresh?.Invoke();
+                } : null);
+        }
+    }
+
+    private static string DealTerms(CourtDeal deal)
+    {
+        if (deal.kind is "repay" or "reneged" or "divine") return LM.Get("claim_scale_deal_kind_" + deal.kind);
+        return deal.terms.Count == 0 ? LM.Get("label_none") : string.Join("、", deal.terms.Select(TermLabel));
+    }
+
+    private static string TermLabel(CourtTerm term) => term.kind switch
+    {
+        "office" => string.Format(LM.Get("claim_scale_term_office"),
+            OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office) ? office.GetName() : ""),
+        _ => string.Format(LM.Get("claim_scale_term_" + term.kind), term.amount)
+    };
+
+    #endregion
+
+    #region 交换台(见 CourtSystem.Bargain；用户 2026-11-10 "开始前的利益交换呢""玩家也可以自定义""就像战争一样")
+
+    private static string _partner;
+    private static bool _picking;
+
+    private static void RenderTable(AutoVertLayoutGroup page, Empire empire, float width, Action refresh)
+    {
+        if (!CourtSystem.CanBargain(empire, out CourtMemorial memorial, out TemporaryFaction claim, out FixedFaction proposer)) return;
+        CourtFactionState mine = CourtSystem.FactionState(empire, proposer);
+        Actor leader = proposer.GetLeader();
+        var card = page.BeginCard(width, "claim_scale_table", WideKit.Gold,
+            string.Format(LM.Get("claim_scale_table_header"), proposer.Name, Mathf.RoundToInt(mine.capital), leader?.money ?? 0,
+                mine.owed.Values.Sum(), CourtSystem.MaxPromises), "ui/icons/iconFamily");
+        card.AddParagraph(width, LM.Get("claim_scale_table_rule"), 6, WideKit.Muted);
+        var ledger = CourtSystem.Ledger(empire);
+        if (ledger.Count > 0)
+            card.AddParagraph(width, string.Format(LM.Get("claim_scale_ledger"), string.Join("、", ledger.Select(item =>
+                string.Format(LM.Get("claim_scale_ledger_item"), item.debtor, item.creditor, item.count)))), 6, WideKit.Soft);
+        List<(FixedFaction faction, int stance, float weight)> stances = CourtSystem.DebateStances(empire, claim, proposer, memorial);
+        var partners = stances.Where(item => item.faction != proposer &&
+                                             !CourtSystem.IsBoycotting(CourtSystem.FactionState(empire, item.faction)) &&
+                                             CourtSystem.BaseStance(empire, claim, proposer, item.faction) < 1).ToList();
+        if (partners.Count == 0)
+        {
+            card.AddParagraph(width, LM.Get("claim_scale_table_none"), 7, WideKit.Muted);
+            return;
+        }
+        if (_partner == null || partners.All(item => item.faction.GetID() != _partner)) _partner = partners[0].faction.GetID();
+        var chips = new List<(string label, bool on, UnityEngine.Events.UnityAction action)>();
+        foreach ((FixedFaction faction, int stance, float weight) in partners)
+        {
+            string id = faction.GetID();
+            chips.Add(($"{faction.Name} {CourtSystem.StanceName(stance)}", id == _partner, () =>
+            {
+                _partner = id;
+                _picking = false;
+                refresh?.Invoke();
+            }));
+        }
+        card.AddChipRow(width - CardPadding, chips.ToArray());
+
+        FixedFaction partner = CourtSystem.FindFaction(empire, _partner);
+        if (partner == null) return;
+        int before = CourtSystem.BaseStance(empire, claim, proposer, partner);
+        CourtSystem.DealDraft draft = CourtSystem.Draft(empire, _partner);
+        if (draft.after <= before) draft.after = before + 1;
+        float column = (width - UIHelper.CardGap) / 2f;
+        var columns = page.BeginColumns(width);
+        // 左：上奏一派出的筹码
+        var left = columns.BeginColumnCard(column, string.Format(LM.Get("claim_scale_table_gives"), proposer.Name), WideKit.Gold,
+            string.Format(LM.Get("claim_scale_table_items"), draft.terms.Count));
+        int row = 0;
+        if (draft.terms.Count == 0) left.AddParagraph(column, LM.Get("claim_scale_table_gives_none"), 7, WideKit.Muted);
+        foreach (CourtTerm term in draft.terms.ToList())
+        {
+            string reason = CourtSystem.CannotPay(empire, proposer, partner, term, draft.terms);
+            left.AddTermRow(column, row++, null, TermLabel(term), reason == null ? "" : LM.Get(reason), WideKit.Red,
+                $"+{CourtSystem.TermValue(empire, proposer, partner, term)}", () =>
+                {
+                    CourtSystem.Toggle(empire, _partner, term);
+                    refresh?.Invoke();
+                });
+        }
+        left.AddActionRow(column - CardPadding, (LM.Get("claim_scale_table_add"), _picking ? WideKit.Gold : WideKit.Cyan, true, () =>
+        {
+            _picking = !_picking;
+            refresh?.Invoke();
+        }));
+        // 右：要对方改投成什么
+        float score = CourtIssues.Stance(partner, claim);
+        var right = columns.BeginColumnCard(column, string.Format(LM.Get("claim_scale_table_wants"), partner.Name), WideKit.Cyan,
+            string.Format(LM.Get("claim_scale_table_now"), CourtSystem.StanceName(before), Mathf.RoundToInt(score)));
+        int option = 0;
+        foreach (int after in new[] { 1, 0 })
+        {
+            if (after <= before) continue;
+            bool on = draft.after == after;
+            int cost = CourtSystem.SwitchCost(before, after, score);
+            right.AddValueRow(column, option++, LM.Get(after > 0 ? "claim_scale_table_to_support" : "claim_scale_table_to_abstain"),
+                (on ? "● " : "○ ") + $"-{cost}", on ? WideKit.Gold : WideKit.Soft, () =>
+                {
+                    draft.after = after;
+                    refresh?.Invoke();
+                });
+        }
+        right.AddParagraph(column, LM.Get("claim_scale_table_switch_rule"), 6, WideKit.Muted);
+
+        if (_picking) DrawPicker(page, empire, width, proposer, partner, draft, refresh);
+
+        // 对方肯不肯(以 0 为中线的条，悬停看明细)、本派付不付得起
+        CourtSystem.DealOpinion opinion = CourtSystem.Evaluate(empire, memorial, claim, proposer, partner, draft.terms, draft.after);
+        bool affordable = draft.terms.All(term => CourtSystem.CannotPay(empire, proposer, partner, term, draft.terms) == null);
+        var will = page.BeginCard(width, "claim_scale_table_will", WideKit.Gold, null, "ui/icons/iconKingdom");
+        float meterScale = Mathf.Max(10f, Mathf.Abs(opinion.Total) * 1.15f, opinion.gain, opinion.loss);
+        string verdict = $"{(opinion.Total > 0 ? "+" : "")}{opinion.Total} · {LM.Get(opinion.Accepts ? "peace_accept" : "peace_refuse")}";
+        var meter = will.AddMeterRow(width, 0, partner.Name, WideKit.Cyan, opinion.Total, meterScale, verdict,
+            opinion.Accepts ? WideKit.Green : WideKit.Red);
+        Tip(meter.gameObject, $"claim_scale_will_{empire.id}", string.Format(LM.Get("claim_scale_will_title"), partner.Name, verdict),
+            string.Join("\n", opinion.items.Select(item => $"{DealItemLabel(item.key, item.arg)} {(item.value > 0 ? "+" : "")}{item.value}")));
+        will.AddValueRow(width, 1, LM.Get("claim_scale_table_afford"), LM.Get(affordable ? "claim_scale_table_afford_yes" : "claim_scale_table_afford_no"),
+            affordable ? WideKit.Green : WideKit.Red);
+        will.AddActionRow(width - CardPadding,
+            (LM.Get("peace_btn_mediate"), WideKit.Value, true, () =>
+            {
+                CourtSystem.Mediate(empire, _partner);
+                refresh?.Invoke();
+            }),
+            (LM.Get("peace_btn_clear"), WideKit.Value, true, () =>
+            {
+                CourtSystem.ClearDraft(empire);
+                refresh?.Invoke();
+            }),
+            (LM.Get("claim_scale_table_sign"), WideKit.Green, opinion.Accepts && affordable, () =>
+            {
+                CourtSystem.Sign(empire, _partner, false);
+                _picking = false;
+                refresh?.Invoke();
+            }),
+            (LM.Get("claim_scale_table_force"), WideKit.Gold, true, () =>
+            {
+                CourtSystem.Sign(empire, _partner, true);
+                _picking = false;
+                refresh?.Invoke();
+            }));
+    }
+
+    // 加筹码：各档资本与钱、人情、结盟、本派在中枢的官；拿不出的灰着写原因，已在台上的点了撤下
+    private static void DrawPicker(AutoVertLayoutGroup page, Empire empire, float width, FixedFaction proposer, FixedFaction partner,
+        CourtSystem.DealDraft draft, Action refresh)
+    {
+        var card = page.BeginCard(width, string.Format(LM.Get("claim_scale_table_pick"), proposer.Name), WideKit.Cyan,
+            LM.Get("claim_scale_table_pick_hint"));
+        int row = 0;
+        foreach ((CourtTerm term, string reason) in CourtSystem.Options(empire, proposer, partner, draft.terms))
+        {
+            bool on = draft.terms.Any(item => item.Key == term.Key);
+            string value = reason != null ? LM.Get(reason) : on ? LM.Get("claim_scale_table_on")
+                : $"+{CourtSystem.TermValue(empire, proposer, partner, term)}";
+            CourtTerm target = term;
+            card.AddValueRow(width, row++, TermLabel(term).ColorString(reason != null ? WideKit.Muted : on ? WideKit.Gold : WideKit.Value),
+                value, reason != null ? WideKit.Muted : on ? WideKit.Gold : WideKit.Soft, reason == null || on ? () =>
+                {
+                    CourtSystem.Toggle(empire, _partner, target);
+                    refresh?.Invoke();
+                } : null, (width - 20f) * 0.62f);
+        }
+    }
+
+    private static string DealItemLabel(string key, string arg)
+    {
+        string format = LM.Get(key);
+        if (string.IsNullOrEmpty(arg)) return format;
+        try
+        {
+            return string.Format(format, arg.Split('|').Cast<object>().ToArray());
+        }
+        catch (FormatException)
+        {
+            return format;
         }
     }
 
@@ -379,6 +595,13 @@ public static class ClaimScalePanel
                 string mark = LM.Get(pair.Value > 0 ? "court_stance_support" : pair.Value < 0 ? "court_stance_oppose" : "court_stance_neutral");
                 lines.Add($"  {name} {mark} {weight:0.#}");
             }
+        }
+        if (record.deals != null && record.deals.Count > 0)
+        {
+            lines.Add(LM.Get("claim_scale_deals").ColorString(WideKit.Gold));
+            foreach (CourtDeal deal in record.deals)
+                lines.Add("  " + string.Format(LM.Get("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
+                    CourtSystem.StanceName(deal.after), DealTerms(deal)));
         }
         if (record.factors.Count > 0)
         {

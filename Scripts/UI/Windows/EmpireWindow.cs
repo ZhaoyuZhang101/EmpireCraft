@@ -160,19 +160,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 lawTab.Setup("empire_law", this.TabsWindow, action: ShowLaw,
                     sprite: SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"));
             }
-            // 量刑天平：本朝要人若论罪的天平读数(见 EmpireWindow.Law、LawPanel.RenderScaleBoard)
-            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_law_scale"))
+            // 天平：量刑天平与诉求天平合一个页签，页内切换(用户 2026-11-10 "左侧按钮已经要超出了怎么办"，问答选"两个天平合成一页"；
+            // 见 EmpireWindow.ClaimScale)
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_scales"))
             {
-                var scaleTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                scaleTab.Setup("empire_law_scale", this.TabsWindow, action: ShowLawScale,
+                var scalesTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                scalesTab.Setup("empire_scales", this.TabsWindow, action: ShowScales,
                     sprite: SpriteTextureLoader.getSprite("TabSentencing"));
-            }
-            // 诉求天平：奏议四步的读数、施行与地方推动的进度、往期奏议成没成(见 EmpireWindow.ClaimScale、ClaimScalePanel)
-            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_claim_scale"))
-            {
-                var claimScaleTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
-                claimScaleTab.Setup("empire_claim_scale", this.TabsWindow, action: ShowClaimScale,
-                    sprite: SpriteTextureLoader.getSprite("TabClaimScale"));
             }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_institutions"))
             {

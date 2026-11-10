@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -449,7 +450,7 @@ public static class LawPanel
     // 人物生平的「量刑天平」卡(用户 2026-11-10 选"人物页加天平卡")：在世、受律法管的人才画。
     // 页头写"若论罪：减三等"；指标行罪责 · 情面 · 天平；两栏表列两边的砝码；末尾写十恶、暴君、宗人府的规矩。
     // 预览按寻常罪名(不是十恶)、未发之罪的赃额、没有告发者算(见 EmpireLawSystem.GetScale)
-    public static void RenderScale(AutoVertLayoutGroup page, PersonalClanIdentity person, float width)
+    public static void RenderScale(AutoVertLayoutGroup page, PersonalClanIdentity person, float width, Action refresh = null)
     {
         Actor actor = person?._actor;
         if (page == null || actor?.data == null || actor.isRekt() || !actor.isAlive() || !EmpireLawSystem.Enabled) return;
@@ -476,7 +477,101 @@ public static class LawPanel
         if (info.Royal) rules.Add(LM.Get(info.Heir ? "law_scale_rule_heir" : "law_scale_rule_royal"));
         rules.Add(LM.Get("law_scale_rule_general"));
         card.AddParagraph(width, string.Join("\n", rules), 6, WideKit.Muted);
+        RenderDivine(page, actor, width, refresh);
     }
+
+    private static bool _addingCrime;
+
+    // 神力添加(用户 2026-11-10 "量刑玩家也要能添加，比如添加罪名、添加保释条件什么的"，见 EmpireLawSystem.Divine)：
+    // 添罪名、保释、自定砝码、当场开审；点完 refresh 重画
+    private static void RenderDivine(AutoVertLayoutGroup page, Actor actor, float width, Action refresh)
+    {
+        List<CrimeRecord> pending = EmpireLawSystem.PendingCrimes(actor);
+        var card = page.BeginCard(width, "law_divine_title", WideKit.Gold,
+            string.Format(LM.Get("law_divine_pending"), pending.Count), "ui/icons/iconWorldLaws");
+        card.AddParagraph(width, LM.Get("law_divine_hint"), 6, WideKit.Muted);
+        if (pending.Count > 0)
+            card.AddParagraph(width, string.Format(LM.Get("law_divine_pending_list"), string.Join(Separator, pending.Select(record =>
+                EmpireLawSystem.GetLawName((LawType)record.law_type) + (record.amount > 0 ? $"({record.amount})" : "")))), 6, WideKit.Soft);
+        card.AddActionRow(width - CardPadding,
+            (LM.Get("law_divine_add_crime"), _addingCrime ? WideKit.Gold : WideKit.Cyan, true, () =>
+            {
+                _addingCrime = !_addingCrime;
+                refresh?.Invoke();
+            }),
+            (string.Format(LM.Get("law_divine_trial"), pending.Count), WideKit.Red, pending.Count > 0, () =>
+            {
+                EmpireLawSystem.GodTrial(actor);
+                refresh?.Invoke();
+            }));
+        if (_addingCrime)
+        {
+            card.AddParagraph(width, LM.Get("law_divine_crime_pick"), 6, WideKit.Muted);
+            List<LawType> crimes = EmpireLawSystem.AddableCrimes(actor);
+            for (int start = 0; start < crimes.Count; start += 6)
+                card.AddChipRow(width - CardPadding, crimes.Skip(start).Take(6).Select(type =>
+                    (EmpireLawSystem.GetLawName(type), pending.Any(record => record.law_type == (int)type), (UnityAction)(() =>
+                    {
+                        EmpireLawSystem.GodAddCrime(actor, type);
+                        refresh?.Invoke();
+                    }))).ToArray());
+        }
+
+        // 保释
+        LawBail bail = actor.GetPersonalIdentity()?.law_bail;
+        string state = bail == null ? LM.Get("law_divine_bail_none") : bail.revoked ? LM.Get("law_divine_bail_revoked")
+            : string.Join(Separator, bail.conditions.Select(condition => BailText(actor, bail, condition)));
+        card.AddValueRow(width, 0, LM.Get("law_divine_bail"), state, bail?.revoked == true ? WideKit.Red : WideKit.Soft);
+        var bailChips = EmpireLawSystem.BailConditions.Select(condition =>
+        {
+            bool on = bail?.conditions?.Contains(condition) == true;
+            string reason = on ? null : EmpireLawSystem.CannotBail(actor, condition);
+            string label = BailText(actor, bail, condition) + (reason == null ? "" : $"({LM.Get(reason)})");
+            return (label, on, (UnityAction)(() =>
+            {
+                EmpireLawSystem.GodBail(actor, condition);
+                refresh?.Invoke();
+            }));
+        }).ToList();
+        if (bail != null)
+            bailChips.Add((LM.Get("law_bail_revoke"), false, (UnityAction)(() =>
+            {
+                EmpireLawSystem.GodRevokeBail(actor);
+                refresh?.Invoke();
+            })));
+        card.AddChipRow(width - CardPadding, bailChips.ToArray());
+
+        // 自定砝码：点一下换一档(×1.25 → ×1.5 → ×2 → 去掉)
+        card.AddParagraph(width, LM.Get("law_divine_custom"), 6, WideKit.Muted);
+        card.AddChipRow(width - CardPadding, CustomChips(actor, EmpireLawSystem.CustomGuiltKeys, true, refresh));
+        card.AddChipRow(width - CardPadding, CustomChips(actor, EmpireLawSystem.CustomMercyKeys, false, refresh));
+    }
+
+    private static (string label, bool on, UnityAction action)[] CustomChips(Actor actor, string[] keys, bool guilt, Action refresh) =>
+        keys.Select(key =>
+        {
+            float current = EmpireLawSystem.CustomWeight(actor, key);
+            bool on = Mathf.Abs(current - 1f) > 0.001f;
+            string label = LM.Get("law_custom_" + key) + (on ? $" ×{current:0.##}" : "");
+            return (label, on, (UnityAction)(() =>
+            {
+                float[] tiers = EmpireLawSystem.CustomFactors;
+                int index = Array.FindIndex(tiers, tier => Mathf.Abs(tier - current) < 0.001f);
+                // 没加的上第一档，已到最高档的再点去掉(同一档再点即去掉)
+                float next = index < 0 ? tiers[0] : index + 1 < tiers.Length ? tiers[index + 1] : current;
+                EmpireLawSystem.GodCustomWeight(actor, key, guilt, next);
+                refresh?.Invoke();
+            }));
+        }).ToArray();
+
+    private static string BailText(Actor actor, LawBail bail, string condition) => condition switch
+    {
+        "bond" => string.Format(LM.Get("law_bail_bond"), bail?.bond > 0 ? bail.bond : EmpireLawSystem.BailBond),
+        "guarantor" => string.Format(LM.Get("law_bail_guarantor"), bail != null && bail.guarantor >= 0
+            ? SpecificClanManager.getPerson(bail.guarantor)?.name ?? ""
+            : EmpireLawSystem.FindGuarantor(actor)?.name ?? ""),
+        _ => LM.Get("law_bail_" + condition)
+    };
 
     // 指标行(罪责 · 情面 · 天平) + 两栏表(左罪责、右情面，一行一个砝码)
     private static void DrawScaleBody(AutoVertLayoutGroup card, float width, List<LawFactor> guilt, List<LawFactor> mercy,

@@ -1467,6 +1467,11 @@ public class PersonalClanIdentity
     public bool stripped_royal;
     public bool ShouldSerializedisinherited() => disinherited;
     public bool ShouldSerializestripped_royal() => stripped_royal;
+    // 神力加在量刑天平上的砝码与保释(见 EmpireLawSystem.Divine(用户 2026-11-10 "量刑玩家也要能添加，比如添加罪名、添加保释条件什么的"))
+    public List<LawCustomWeight> law_custom_weights;
+    public LawBail law_bail;
+    public bool ShouldSerializelaw_custom_weights() => law_custom_weights != null && law_custom_weights.Count > 0;
+    public bool ShouldSerializelaw_bail() => law_bail != null;
     public List<PersonalHistoryRecord> personal_history = new List<PersonalHistoryRecord>();
     // 个人恩怨(恩主、门生、宿敌，至多三条，见 PersonalTieSystem)
     public List<PersonalTie> ties { get; set; }

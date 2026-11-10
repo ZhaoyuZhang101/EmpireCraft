@@ -49,7 +49,7 @@ public partial class SpecificClanWindow
         // 刑狱：在押(余下刑期)与前科(时间、国、罪名、刑罚)，没有就不画(见 LawPanel.RenderPerson)
         LawPanel.RenderPerson(page, person, PageWidth);
         // 量刑天平：在世的人若论罪，罪责与情面两边的砝码(见 LawPanel.RenderScale)
-        LawPanel.RenderScale(page, person, PageWidth);
+        LawPanel.RenderScale(page, person, PageWidth, () => Refresh(resetScroll: false));
 
         List<PersonalHistoryRecord> records = (person.personal_history ?? new List<PersonalHistoryRecord>())
             .Where(record => record != null).OrderBy(record => record.timestamp).ToList();

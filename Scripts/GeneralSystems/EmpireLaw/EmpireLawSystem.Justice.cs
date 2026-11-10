@@ -640,6 +640,8 @@ public static partial class EmpireLawSystem
         if (ruler != null && ruler != actor && PersonalTieSystem.AreRivals(ruler, actor))
             Weigh(info.Guilt, "law_scale_rival", SentencingScale.RulerRival, ruler.getName());
         if (info.Tyrant) Weigh(info.Guilt, "law_scale_tyrant", SentencingScale.TyrantGuilt, ruler.getName());
+        // 神力加的砝码与保释(见 EmpireLawSystem.Divine)：各朝各政体都算
+        AddDivineWeights(identity, info.Guilt, info.Mercy);
 
         RoyalRank royal = RoyalRankOf(actor, kingdom);
         info.RoyalKey = royal switch

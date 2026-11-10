@@ -81,6 +81,30 @@ public sealed class CourtFactionState
     public string last_action_detail = "";
     // 议题冷却：议题名 → 可再次上奏的时间
     public Dictionary<string, double> cooldowns = new();
+    // 人情账(见 CourtSystem.Bargain)：本派欠哪一派几回赞成(许诺回报换来的票，对方日后上奏时还)；背约的次数(信用越差越难换到票)
+    public Dictionary<string, int> owed = new();
+    public int reneged;
+}
+
+// 廷议前的一笔交换(见 CourtSystem.Bargain)：上奏一派给对方什么、对方表态从几换到几
+public sealed class CourtDeal
+{
+    public string partner = "";
+    public string partner_name = "";
+    public List<CourtTerm> terms = new();
+    // 表态(1 赞成 / 0 观望 / -1 反对)
+    public int before, after;
+    // deal 换票 / divine 神力强令 / repay 还人情 / reneged 背约
+    public string kind = "deal";
+}
+
+// 交换的一项筹码：capital 政治资本(点) / money 首领私财(两) / promise 人情(日后回投一次) / ally 结盟 / office 让官(官职 id)
+public sealed class CourtTerm
+{
+    public string kind = "";
+    public int amount;
+    public long office = -1L;
+    public string Key => $"{kind}:{amount}:{office}";
 }
 
 public sealed class CourtMemorial
@@ -109,6 +133,8 @@ public sealed class CourtMemorial
     public float roll = -1f;
     public string decider_name = "";
     public List<CourtScaleFactor> factors = new();
+    // 廷议前谈成的交换(廷议按换来的表态算)
+    public List<CourtDeal> deals = new();
 }
 
 // 天平上的一项砝码：key 是语言键，value 是这一项加减的值(准奏率按百分点，施行速度按倍数)，arg 填进语言键
@@ -143,6 +169,7 @@ public sealed class CourtMemorialRecord
     public Dictionary<string, float> weights = new();
     public Dictionary<string, string> names = new();
     public List<CourtScaleFactor> factors = new();
+    public List<CourtDeal> deals = new();
 }
 
 public sealed class CourtLogEntry

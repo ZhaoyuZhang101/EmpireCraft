@@ -35,22 +35,6 @@ namespace EmpireCraft.Scripts.UI.Windows
             StartCoroutine(RefreshScrollLayout(resetToTop: true));
         }
 
-        // 量刑天平页(用户 2026-11-10 选"律法页加天平分页")：本朝要人若论寻常罪名的天平读数
-        public void ShowLawScale(WindowMetaTab pArg0)
-        {
-            Clear();
-            Kingdom core = _empire?.CoreKingdom;
-            if (core == null || core.isRekt()) return;
-            AutoVertLayoutGroup page = BeginPage("empire_law_scale", LawPanel.Chips(core));
-            try
-            {
-                LawPanel.RenderScaleBoard(page, core, MainWidth);
-            }
-            catch (global::System.Exception exception)
-            {
-                NeoModLoader.services.LogService.LogError($"帝国窗口量刑天平页绘制失败({_empire?.data?.name}): {exception}");
-            }
-            StartCoroutine(RefreshScrollLayout(resetToTop: true));
-        }
+        // 量刑天平页并进「天平」页签(见 EmpireWindow.ClaimScale.ShowScales)
     }
 }
