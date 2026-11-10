@@ -21,8 +21,11 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       - 执政党独裁度拉满(见 GetAutocracy)；
 //       - 社会主义政党掌握军队后发动政变、修改宪法；
 //       - 社会主义、共产主义、法西斯立国时宪法即规定一党专政(RepublicSystem.ApplyFoundingPartyRule)。
-//   · 重开党禁：党禁关闭期间每年累积压力，满 100 即开放。压力主要看帝国核心的民心——
+//   · 重开党禁：党禁关闭期间每年累积压力。压力主要看帝国核心的民心——
 //     核心法理内城市对执政理念(统一战线含友党理念)的支持率低、核心城市失守都会让压力快速上升；民意差也会加压。
+//     用户 2026-11-10：压力满了不再无声翻多党(旧逻辑)，只导进三条路——核心繁荣不过门槛的穷/贫瘠国家守一党、
+//     压力搁置，等外力(战败和约)来逼；过门槛的君主国由肯让步的君主妥协(和平开放、转君主立宪、保王朝)，
+//     君主强硬或已是一党制共和则交由人民革命(TempFac_开放党禁)推动、取胜才开。见 UpdateReopenPressure。
 //   · 选举制度：普选(按行政区直选) / 民主集中制(代表大会逐级推选：议席按党组织实力分配，领导党保有三分之二)。
 //     关闭党禁时自动改行民主集中制，重开时恢复普选；玩家也可以在制度窗口手动切换。
 public static class PartyBanSystem
@@ -228,6 +231,31 @@ public static class PartyBanSystem
         }
         return (population == 0 ? 1f : (float)supporters / population, lost);
     }
+
+    // 自主现代化(开放党禁)的硬发展门槛(用户 2026-11-10："贫瘠穷地方不该自己革命现代化")：
+    // 核心繁荣低于此值的穷/贫瘠国家守封建、一党，自主的两条路(人民革命、君主妥协)都开不了党禁，
+    // 只有外力(战败和约，见 ConstitutionalEconomySystem.ImposeModernization)能逼其现代化。
+    // 繁荣度 = 核心法理内各城 IdeologyPopulationSystem.CityProsperity 均值(0~1)。
+    // 阈值校准：城市繁荣度 ≈ 0.7×工商市民比(占成年人三成即满) + 0.3×有高级民居。典型发达核心(工商市民近三成、
+    // 有高级民居)在 0.5 以上，轻度城市化(工商两成、无高级民居)约 0.14，纯农/游牧核心约 0.05~0.1；
+    // 取 0.35：把"有像样工商阶层的发达核心"放行、"贫瘠草原/纯农穷核心"挡在门外。
+    public const float ModernizationProsperityFloor = 0.35f;
+
+    // 帝国核心的繁荣度(0~1)：核心法理内仍归本帝国的城市繁荣度均值；没有核心城市时退回核心王国自己的城。
+    public static float CoreProsperity(Empire empire)
+    {
+        if (empire?.CoreKingdom == null) return 0f;
+        EmpireCore core = EmpireCoreManager.Get(empire);
+        List<City> cities = core == null ? new List<City>() : EmpireCoreControl.HeldCities(empire, core);
+        if (cities.Count == 0)
+            cities = empire.CoreKingdom.cities?.Where(city => city != null && !city.isRekt()).ToList() ?? new List<City>();
+        return cities.Count == 0 ? 0f : cities.Average(IdeologyPopulationSystem.CityProsperity);
+    }
+
+    // 能否走自主路(人民革命 / 君主妥协)开放党禁：核心繁荣须过发展门槛。
+    // 只拦"新的自主开放"，已经开放/现代化的国家不经过这里，不会被打回封建。
+    public static bool PassesModernizationGate(Empire empire) =>
+        CoreProsperity(empire) >= ModernizationProsperityFloor;
 
     #endregion
 
@@ -523,6 +551,29 @@ public static class PartyBanSystem
         Close(empire, party, DefaultAllies(empire, party), "party_ban_socialist_coup_history");
     }
 
+    // 君主在革命压力下会不会让步、和平开放党禁(类明治立宪)：改革派(明君)、弱势之君(庸弱、冲龄、昏聩)让步；
+    // 暴君强压到底；中主、荒淫之君守成恋权，只有正统低(自身难保)时才被迫让步。
+    private const float ConcedeLegitimacyFloor = 35f;
+
+    private static bool MonarchWouldConcede(Empire empire)
+    {
+        Actor ruler = empire?.Emperor;
+        if (ruler == null) return true; // 无主/摄政：朝廷无力弹压，被迫让步
+        switch (RulerQualitySystem.Of(ruler))
+        {
+            case RulerQualitySystem.Grade.Wise:    // 明君顺势立宪
+            case RulerQualitySystem.Grade.Weak:    // 庸弱之君无力弹压
+            case RulerQualitySystem.Grade.Minor:   // 冲龄之主/摄政
+            case RulerQualitySystem.Grade.Fatuous: // 昏聩不理，朝局失控
+                return true;
+            case RulerQualitySystem.Grade.Tyrant:  // 暴君强压到底，绝不妥协
+                return false;
+            default:                               // 中主、荒淫之君：守成恋权，正统低时才被迫让步
+                return empire.Legitimacy < ConcedeLegitimacyFloor;
+        }
+    }
+
+    // 用户 2026-11-10：压力满了不再无声 Open()，只导进三条路之一(见本文件头注释)。
     private static void UpdateReopenPressure(Empire empire, ConstitutionalEconomyState state)
     {
         (float support, float lost) = GetCoreSupport(empire);
@@ -537,8 +588,18 @@ public static class PartyBanSystem
         if (challenge.HasChallenge) delta = Mathf.Max(delta, 12f + challenge.LeadShare * 40f);
         state.party_ban_reopen_pressure = Mathf.Clamp(state.party_ban_reopen_pressure + delta, 0f, 100f);
         if (state.party_ban_reopen_pressure < 100f) return;
-        Open(empire, challenge.HasChallenge ? "party_ban_reopened_ideology_history" :
-            lost >= CoreLossCrisis ? "party_ban_reopened_core_lost_history" : "party_ban_reopened_core_history");
+        // 没过发展门槛：穷/贫瘠核心守一党，压力搁置、维持现状，等外力(战败和约)来逼。
+        if (!PassesModernizationGate(empire)) return;
+        // 君主制 + 君主肯让步：君主妥协，和平开放党禁、随之确立君主立宪(保王朝)。
+        if (!RepublicSystem.IsRepublic(empire) && MonarchWouldConcede(empire))
+        {
+            Open(empire, "party_ban_reopened_monarch_concession_history");
+            ConstitutionalEconomySystem.ConcedeConstitutionalMonarchy(empire);
+            ParliamentSystem.Update(empire);
+            return;
+        }
+        // 君主强硬、或已是一党制共和：不自上而下开放，交由人民革命(TempFac_开放党禁)推动、取胜才 Open。
+        // 压力保持满格，让革命诉求持续获得最高优先级；革命成功按现有流程记史(君主国可能亡朝)。
     }
 
     #endregion
