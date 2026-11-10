@@ -307,7 +307,15 @@ public class OfficeObject
         if (is_local && meta_object is Kingdom constitutionalCore && constitutionalCore.IsEmpire() &&
             ConstitutionalSuccessionSystem.ThroneBound(constitutionalCore.GetEmpire()) &&
             !ConstitutionalSuccessionSystem.CanInherit(constitutionalCore.GetEmpire(), actor)) return false;
-        if (actor == null || !actor.CanServeOffice(GetOfficeKingdom(actor))) return false;
+        if (actor == null) return false;
+        // 世袭君位按血统传给继承人，不是任官：罢官禁锢(本人连同子孙不得出仕，见 EmpireLawSystem)管不着即位，只看活着、没在押。
+        // 用户 2026-11-10 "继任者不当皇帝"：储君早年贪污被罢官禁锢，先帝驾崩后任他为帝在这里被拒，继承人又不换，皇位一直空着
+        if (InheritsThrone(actor))
+        {
+            if (actor.isRekt() || !actor.isAlive() || actor.IsWarMachine() ||
+                EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.IsImprisoned(actor)) return false;
+        }
+        else if (!actor.CanServeOffice(GetOfficeKingdom(actor))) return false;
         // 君主之位以外的官职(城主、朝官)只任成年人；君主可以是幼主(用户 2026-10-17 选"国君可以是幼主，城主不行")
         if (!actor.isAdult() && !(meta_object is Kingdom ruler && ruler.GetOffice() == this)) return false;
         // 后宫以外的官职不任用妃嫔与在位君主的配偶；君主之位(本国的君主官职)不受影响
@@ -317,6 +325,11 @@ public class OfficeObject
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(meta_object)) return false;
         return true;
     }
+
+    // 这是世袭国家本国的君主之位，来的是本国的继承人
+    private bool InheritsThrone(Actor actor) =>
+        meta_object is Kingdom seat && seat.GetOffice() == this && seat.HasHeir() && seat.GetHeir() == actor &&
+        seat.GetRegime()?.GetLeaderSelectMethod() == LeaderSelectMethod.Succession;
 
     public void SetActor (Actor actor)
     {

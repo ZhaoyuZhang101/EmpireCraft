@@ -20,7 +20,14 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
     // 帝国核心帝位虚悬起始的时间(不存档：读档、换世界时清掉重新计满一年，见 ResetWorldState)
     private static readonly global::System.Collections.Generic.Dictionary<long, double> VacantSince = new();
 
-    public static void ResetWorldState() => VacantSince.Clear();
+    // 立继承人没立成、已记过日志的(国，继承人)：不存档
+    private static readonly global::System.Collections.Generic.HashSet<(long kingdom, long heir)> FailedInstalls = new();
+
+    public static void ResetWorldState()
+    {
+        VacantSince.Clear();
+        FailedInstalls.Clear();
+    }
     private const double VacantYears = 1d;
 
     private static bool VacantLongEnough(Kingdom kingdom)
@@ -235,6 +242,11 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             office.meta_object = pKingdom;
             office.SetActor(heir);
         }
+        // 立不上(任官被拒)时继承人不换、君位一直空着，以前一声不响(见 OfficeObject.Accepts)：同一国同一继承人只记一次
+        if (pKingdom.king != heir && FailedInstalls.Add((pKingdom.id, heir.getID())))
+            LogService.LogWarning($"[EmpireCraft][继承] {pKingdom.GetKingdomName()} 立继承人 {heir.getName()} 没成：" +
+                                  $"君主之位{(office == null ? "没有官职" : office.Accepts(heir) ? "收下了但没坐上" : "不收")}，" +
+                                  $"本人是 {heir.kingdom?.GetKingdomName() ?? "无国"} 的{(heir.isKing() ? "君主" : "人")}");
 
         // 帝国换皇帝后的即位分封统一在 KingdomPatch 的 setKing 补丁里处理(EnfeoffmentHelper.OnEmperorSucceeded)，
         // 这样选举、拥立等不经过这里的即位方式也会分封。
