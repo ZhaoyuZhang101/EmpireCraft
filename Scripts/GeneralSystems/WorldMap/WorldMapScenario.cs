@@ -1821,7 +1821,7 @@ public static class WorldMapScenario
         foreach (PlannedPolity polity in _polities.Where(polity => polity.data != null && !polity.data.empire && polity.kingdom != null &&
                                                                   polity.capital?.city != null && !polity.capital.city.isRekt()))
         {
-            if (polity.kingdom.GetMainTitle() != null) continue;
+            if (polity.kingdom.GetMainTitle() != null || IsFanzhen(polity)) continue;
             City capital = polity.capital.city;
             KingdomTitle regional = _titleByRegion.TryGetValue(polity.capital.region.id, out KingdomTitle found) ? found : null;
             KingdomTitle own = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(capital);
@@ -1873,8 +1873,11 @@ public static class WorldMapScenario
                 foreach (PlannedCity city in group.Where(city => city != seat)) title.addCity(city.city);
                 // 剧本国家(不是帝国)以都城所在地区的王国法理为主法理时，法理叫国名(东吁、阿瑜陀耶、朝鲜……)：
                 // 国名照主法理定(见 EmpireCraftKingdomBehCheckKingdomType)，不然显示成地区法理名(骠国、堕罗钵底、辰韩)
+                // 藩镇不算：它不是一国，地区法理照旧叫地区法理名(河北叫赵，不叫魏博)
                 PlannedPolity realm = seat.owner;
-                title.data.name = realm?.data != null && !realm.data.empire && realm.capital == seat ? realm.name : seat.region.TitleName;
+                title.data.name = realm?.data != null && !realm.data.empire && realm.capital == seat && !IsFanzhen(realm)
+                    ? realm.name
+                    : seat.region.TitleName;
                 title.data.province_name = seat.region.Name;
                 if (CultureService.IsValidCulture(seat.culture)) CultureService.SetTitleCulture(title, seat.culture, true, false);
                 Kingdom kingdom = seat.city.kingdom;
@@ -1912,7 +1915,7 @@ public static class WorldMapScenario
                 EmpireCore core = EmpireCoreManager.CreateCoreFromTitle(first);
                 if (core == null) continue;
                 foreach (KingdomTitle title in titles.Where(title => title != first)) EmpireCoreManager.AddTitleToCore(core, title);
-                core.name = data.Name;
+                core.name = data.NameIn(_era.year);
                 // 帝国法理的文化取本时代辖下城的主流文化(同一块地，罗马时代的西班牙是罗马文化，十字军时代南边是阿拉伯)，天下按它归属
                 string culture = members.GroupBy(city => city.culture).OrderByDescending(g => g.Count()).Select(g => g.Key)
                     .FirstOrDefault(CultureService.IsValidCulture) ?? data.culture;
@@ -2051,6 +2054,7 @@ public static class WorldMapScenario
             {
                 lord.empire.join(polity.kingdom, true, true);
                 polity.kingdom.SetKingdomName(polity.name);
+                if (IsFanzhen(polity)) MakeFanzhen(polity, lord);
             }
             catch (Exception exception)
             {
@@ -2078,6 +2082,47 @@ public static class WorldMapScenario
                 LogService.LogWarning($"[EmpireCraft][世界地图] 周室入战国失败: {exception.Message}");
             }
         }
+    }
+
+    // 藩镇：律令制帝国底下的剧本节度使(唐末河朔三镇：卢龙、魏博、成德)。用户 2026-11-10 转来群友反馈"为了凑卢龙和魏博
+    // 把河北拆成两块分别叫河北和河北"：以前没法理的封国按都城另立一块王国法理、省名照地区，河北劈成两块同名的。
+    // 藩镇不是一国：不另立法理、不拿镇名当法理名，河北仍是一块；称呼照剧本镇名(见 MakeFanzhen)
+    private static bool IsFanzhen(PlannedPolity polity)
+    {
+        if (polity?.data == null || polity.data.empire || polity.data.king || string.IsNullOrEmpty(polity.data.overlord)) return false;
+        PlannedPolity lord = _polities.FirstOrDefault(other => other.data?.id == polity.data.overlord);
+        if (lord?.data == null || !lord.data.empire || !string.IsNullOrEmpty(lord.data.zhou)) return false;
+        RegimeType? regime = lord.kingdom?.GetRegime()?.type;
+        if (regime == null && InstitutionSystem.TryResolveCultureRegime(lord.culture, out RegimeType resolved)) regime = resolved;
+        return regime == RegimeType.LvLing;
+    }
+
+    // 开局即是世袭藩镇：先照"转军府"改成军府(自主外交、拥兵、自收自支)，再改父死子继——世袭以后照旧是军府、不改封国
+    // (同南明诸镇，见 SouthernGarrisonSystem.Enfeoff)。名字记作行政区名(魏博军、成德军、卢龙军)，离了这个帝国照自己握的法理改名
+    // (见 KingdomExtension.AdministrativeFront)
+    private static void MakeFanzhen(PlannedPolity polity, PlannedPolity lord)
+    {
+        Kingdom kingdom = polity.kingdom;
+        Regime regime = kingdom?.GetRegime();
+        if (regime == null || regime.type != RegimeType.LvLing || lord.empire == null) return;
+        WorldMapPolity data = polity.data;
+        KingdomExtension.KingdomExtraData extra = kingdom.GetOrCreate();
+        extra.admin_name = $"{data.zh}|{(string.IsNullOrEmpty(data.en) ? data.zh : data.en)}|{(string.IsNullOrEmpty(data.tw) ? data.zh : data.tw)}";
+        extra.admin_back = "";
+        extra.admin_empire = lord.empire.id;
+        regime.SetAllowDiplomacy(true);
+        regime.SetAllowArmy(true);
+        regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
+        TreasurySystem.EnsureCollectsTax(regime);
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        if (kingdom.GetKingdomType() != KingdomType.LvLing_jiedushi)
+        {
+            LogService.LogWarning($"[EmpireCraft][世界地图] {polity.name} 没改成藩镇({kingdom.GetKingdomType()})");
+            return;
+        }
+        regime.SetLeaderSelectMethod(LeaderSelectMethod.Succession);
+        EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
+        LogService.LogInfo($"[EmpireCraft][世界地图] {polity.name} 开局为 {lord.name} 的世袭藩镇：{kingdom.GetKingdomName()}");
     }
 
     // 剧本定下的入主(用户 10-29 "剧本里面让后金入关后走中华体制百分百叫大清")：记在本国上，据有那座城(北京)即算入关，

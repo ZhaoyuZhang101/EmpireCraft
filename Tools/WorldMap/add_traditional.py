@@ -58,6 +58,9 @@ def fix_cities(path):
             city["alt"] = alts
     for core in data.get("cores", []):
         core["tw"] = tw(core["zh"])
+        # 按时代的旧称(东北那块：遼、金、满洲)，同城的 alt
+        if core.get("alt"):
+            core["alt"] = ["|".join(entry.split("|")[:3] + [tw(entry.split("|")[1])]) for entry in core["alt"]]
     data["tianxia"] = {key: triple(value) for key, value in data.get("tianxia", {}).items()}
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("{\n")

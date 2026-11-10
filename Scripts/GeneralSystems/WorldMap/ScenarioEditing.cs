@@ -1195,7 +1195,7 @@ public static class ScenarioEditing
         core.regions ??= new List<string>();
         core.regions.Add(regionId);
         Changed();
-        return string.Format(LM.Get("scenario_editor_core_added"), Region(regionId).TitleName, core.Name);
+        return string.Format(LM.Get("scenario_editor_core_added"), Region(regionId).TitleName, CoreName(core));
     }
 
     // 王国法理退出它所在的帝国法理
@@ -1207,16 +1207,18 @@ public static class ScenarioEditing
         EnsureOwnWorld();
         foreach (WorldMapCore core in Era.cores) core.regions?.Remove(regionId);
         Changed();
-        return string.Format(LM.Get("scenario_editor_core_removed"), Region(regionId)?.TitleName ?? regionId, owner.Name);
+        return string.Format(LM.Get("scenario_editor_core_removed"), Region(regionId)?.TitleName ?? regionId, CoreName(owner));
     }
 
     public static void RenameCore(string id, string name)
     {
-        if (string.IsNullOrWhiteSpace(name) || Core(id) == null || Core(id).Name == name.Trim()) return;
+        if (string.IsNullOrWhiteSpace(name) || Core(id) == null || CoreName(Core(id)) == name.Trim()) return;
         Before();
         EnsureOwnWorld();
         WorldMapCore core = Core(id);
         core.zh = core.tw = core.en = name.Trim();
+        // 改过的名各时代都用，不再按时代换旧称
+        core.alt = new List<string>();
         Changed();
     }
 
@@ -1227,13 +1229,16 @@ public static class ScenarioEditing
         WorldMapCity city = City(cityId);
         if (core == null || city == null) return null;
         if (core.regions?.Contains(city.region) != true)
-            return string.Format(LM.Get("scenario_editor_not_in_core"), CityName(city), core.Name);
+            return string.Format(LM.Get("scenario_editor_not_in_core"), CityName(city), CoreName(core));
         Before();
         EnsureOwnWorld();
         Core(coreId).capital = cityId;
         Changed();
-        return string.Format(LM.Get("scenario_editor_core_capital_set"), Core(coreId).Name, CityName(city));
+        return string.Format(LM.Get("scenario_editor_core_capital_set"), CoreName(Core(coreId)), CityName(city));
     }
+
+    // 帝国法理在本剧本年份的名字(东北那块按时代叫遼、金、满洲，见 WorldMapCore.alt)
+    public static string CoreName(WorldMapCore core) => core == null ? "" : Era == null ? core.Name : core.NameIn(Era.year);
 
     public static string CoreCapitalName(WorldMapCore core)
     {
@@ -1265,7 +1270,7 @@ public static class ScenarioEditing
         int n = Tianxia.Count + 1;
         string id = "tx" + n;
         while (Tianxia.ContainsKey(id)) id = "tx" + ++n;
-        Tianxia[id] = core.Name;
+        Tianxia[id] = CoreName(core);
         core.group = id;
         Changed();
         return id;

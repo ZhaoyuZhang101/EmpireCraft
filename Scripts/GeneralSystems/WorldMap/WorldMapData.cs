@@ -70,8 +70,22 @@ public sealed class WorldMapCore
     public List<string> tianxia = new();
     // 所在的联合天下(天下标识：华夏七个法理同属中华，欧洲拉丁诸法理同属罗马……)；不写的自成一个天下
     [JsonProperty("tx")] public string group = "";
+    // 按时代的旧称(同城的 alt："到某年为止|简体|英文|繁体"，从早到晚排)：东北那块 1114 年以前叫遼、1634 年以前叫金、以后叫满洲
+    // (用户 2026-11-10 "辽东才是金或者遼或者满洲，总之依据时代来变更")
+    public List<string> alt = new();
 
     public string Name => WorldMapData.Pick(zh, tw, en);
+
+    public string NameIn(int year)
+    {
+        foreach (string entry in alt ?? new List<string>())
+        {
+            string[] parts = entry.Split('|');
+            if (parts.Length < 3 || !int.TryParse(parts[0], out int until) || year > until) continue;
+            return WorldMapData.Pick(parts[1], parts.Length > 3 ? parts[3] : parts[1], parts[2]);
+        }
+        return Name;
+    }
 }
 
 // 剧本人物：姓、名为"简体|英文|繁体"(姓为空串表示无姓，只称名；不写姓则按本国文化起)；

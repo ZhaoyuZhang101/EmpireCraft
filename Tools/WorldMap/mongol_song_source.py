@@ -29,7 +29,7 @@ DROP = {"jin", "xixia", "dali", "keraites", "khamag", "tatars", "naimans", "leon
         "mapungubwe"}
 
 SONG_CITIES = ["hangzhou", "suzhou", "shaoxing", "nanjing", "nanchang", "ganzhou", "yangzhou", "shouchun", "xiangyang", "jiangling", "wuchang",
-               "changsha", "fuzhou", "quanzhou", "guangzhou", "guilin", "qiongzhou", "danzhou", "yazhou", "lingao", "chongqing", "diaoyu", "langzhong", "guiyang"]
+               "changsha", "fuzhou", "quanzhou", "guangzhou", "guilin", "qiongzhou", "danzhou", "yazhou", "lingao", "nanning", "wuzhou", "hepu", "leizhou", "chongqing", "diaoyu", "langzhong", "guiyang"]
 
 MONGOL_KIN = [
     person("孛儿只斤|Borjigin", "忽必烈|Kublai", 43, rel="brother"),
@@ -182,7 +182,7 @@ PEOPLE = {
     "salghurid": dict(ruler=person("", "阿布·伯克尔|Abu Bakr", 50)),
     "qocho": dict(of=None, ruler=person("", "撒连的斤|Salindi", 30)),
     "song": dict(
-        r=["jiangdong", "jiangxi", "jingchu", "minyue", "lingnan", "bashu"], cities=["shouchun", "yangzhou", "diaoyu", "guiyang", "langzhong"],
+        r=["jiangdong", "jiangxi", "jingchu", "minyue", "lingnan", "guangxi", "qiongya", "bashu"], cities=["shouchun", "yangzhou", "diaoyu", "guiyang", "langzhong"],
         era_name="宝祐|Baoyou", era_year=6,
         ruler=person("赵|Zhao", "昀|Yun", 53, f="sg_xilu"),
         kin=[person("谢|Xie", "道清|Daoqing", 48, rel="wife"), person("赵|Zhao", "禥|Qi", 18, rel="son", heir=True)],
