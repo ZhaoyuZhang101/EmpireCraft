@@ -85,7 +85,7 @@ public static partial class CourtSystem
             RebellionSystem.Record(leader, war, cause);
             string places = string.Join("、", risen.Select(province => province.GetKingdomName()));
             Log(state, "court_log_coalition", places);
-            empire.RecordHistory(directContent: string.Format(LM.Get("court_history_coalition"),
+            empire.RecordHistory(directContent: string.Format(ModernWording.Get(empire, "court_history_coalition"),
                 string.Join("、", coalition.Select(faction => faction.Name)), places), kingdomId: core.id);
             SettleCoalition(state, coalition, "mutiny", places, now);
             return true;

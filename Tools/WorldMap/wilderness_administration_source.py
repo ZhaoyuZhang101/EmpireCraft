@@ -38,8 +38,19 @@ def defaults(base, era):
     cities, owners, problems = check_eras.plan(base, era)
     if problems:
         raise ValueError('; '.join(problems))
+    # 剧本自带法理(1937 省为王国法理)：原地区改看它的城多半去了哪一块
+    alias = {}
+    if era.get('titles'):
+        votes = {}
+        for city in base['cities']:
+            moved = cities.get(city['id'])
+            if moved and moved['r'] != city['r']:
+                votes.setdefault(city['r'], {}).setdefault(moved['r'], 0)
+                votes[city['r']][moved['r']] += 1
+        alias = {r: max(v, key=v.get) for r, v in votes.items()}
     result = {}
     for unit, region in REGIONS.items():
+        region = alias.get(region, region)
         polity = era.get('wilderness', {}).get(unit)
         local = [city for city in cities.values() if city['r'] == region]
         if polity and local and all(owners.get(city['id']) == polity for city in local) and any(

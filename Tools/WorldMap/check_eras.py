@@ -43,6 +43,9 @@ def dist(a, b):
 def plan(base, era):
     year = era["year"]
     regions = {r["id"]: r for r in base["regions"]}
+    # 剧本自带的王国法理也算地区(见 WorldMapScenario.ApplyEraTitles)
+    for t in era.get("titles", []):
+        regions[t["id"]] = {"id": t["id"], "zh": t.get("zh", "")}
     cities = {c["id"]: c for c in base["cities"] if active(c, year)}
     owner = {}
     problems = []
@@ -88,6 +91,11 @@ def plan(base, era):
                     best, best_d = p["id"], d
         if best:
             owner[cid] = best
+    # 归属定完以后，写进剧本自带法理的城改归那一块(与游戏里立法理时一样)
+    for t in era.get("titles", []):
+        for cid in t.get("cities", []):
+            if cid in cities:
+                cities[cid] = dict(cities[cid], r=t["id"])
     return cities, owner, problems
 
 

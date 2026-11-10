@@ -363,7 +363,7 @@ public static partial class CourtSystem
             state.last_escalation = now;
             Act(data, "mutiny", rebel.GetKingdomName());
             Log(state, "court_log_mutiny", faction.Name, rebel.GetKingdomName());
-            empire.RecordHistory(directContent: string.Format(LM.Get("court_history_mutiny"), faction.Name,
+            empire.RecordHistory(directContent: string.Format(ModernWording.Get(empire, "court_history_mutiny"), faction.Name,
                 rebel.GetKingdomName()), kingdomId: core.id);
             return;
         }

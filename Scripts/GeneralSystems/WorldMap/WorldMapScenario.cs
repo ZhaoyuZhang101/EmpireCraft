@@ -2016,6 +2016,47 @@ public static class WorldMapScenario
     // 一地区一王国法理：法理名是国名(华夏单字，如关中=雍、巴蜀=蜀)，地区名记作省份名；首府取地区内的都城(没有就取最大的城)，
     // 归首府所在国的君主。之后城的兼属(历史上两属的城另算进邻区法理)、帝国法理(时代文件另写的优先，其余用通用的)、
     // 法理兼收(争议法理)
+    // 剧本自带的王国法理(WorldMapEra.titles；1937 照玩家的帝盒法理地图，用户 2026-11-10"主要是法理划分")：
+    // 写明本属的城改归这一块(地区换成这块法理，名照法理名、省份名照它的 zh)；没写明的城(补空并进来的、剧本新加的)，
+    // 原来所在的地区有城改归了别处的，跟走同一原地区里最近的那座的法理；兼属的城立完法理后挂上(_eraShares)
+    private static readonly HashSet<string> _eraTitleIds = new();
+    private static readonly List<(string city, string title)> _eraShares = new();
+
+    private static void ApplyEraTitles()
+    {
+        _eraTitleIds.Clear();
+        _eraShares.Clear();
+        if (_era?.titles == null || _era.titles.Count == 0) return;
+        var regionOf = new Dictionary<string, WorldMapRegion>();
+        foreach (WorldMapTitle data in _era.titles)
+        {
+            if (string.IsNullOrEmpty(data?.id) || data.cities == null || data.cities.Count == 0) continue;
+            var region = new WorldMapRegion { id = data.id, zh = data.zh, tw = data.tw, en = data.en, title = data.title, capital = data.capital };
+            _eraTitleIds.Add(data.id);
+            foreach (string id in data.cities) regionOf.TryAdd(id, region);
+            foreach (string id in data.share ?? new List<string>()) _eraShares.Add((id, data.id));
+        }
+        List<PlannedCity> live = _cities.Where(city => city.city != null && !city.city.isRekt() && city.data != null).ToList();
+        var moved = new Dictionary<string, List<PlannedCity>>();
+        foreach (PlannedCity planned in live)
+        {
+            if (!regionOf.TryGetValue(planned.data.id, out WorldMapRegion region)) continue;
+            string original = planned.region?.id ?? planned.data.region ?? "";
+            if (string.IsNullOrEmpty(region.culture)) region.culture = planned.region?.culture ?? planned.culture;
+            if (!moved.TryGetValue(original, out List<PlannedCity> list)) moved[original] = list = new List<PlannedCity>();
+            list.Add(planned);
+            planned.region = region;
+        }
+        int followed = 0;
+        foreach (PlannedCity planned in live)
+        {
+            if (regionOf.ContainsKey(planned.data.id) || planned.region == null || !moved.TryGetValue(planned.region.id, out List<PlannedCity> list)) continue;
+            planned.region = list.OrderBy(city => (city.tile - planned.tile).sqrMagnitude).First().region;
+            followed++;
+        }
+        LogService.LogInfo($"[EmpireCraft][世界地图] 剧本自带法理：{_eraTitleIds.Count} 块，写明 {moved.Values.Sum(list => list.Count)} 城，跟走 {followed} 城，兼属 {_eraShares.Count} 处");
+    }
+
     private static void BuildTitles()
     {
         _titleByRegion.Clear();
@@ -2023,6 +2064,7 @@ public static class WorldMapScenario
         _coreByRegion.Clear();
         _cores.Clear();
         if (ModClass.KINGDOM_TITLE_MANAGER == null) return;
+        ApplyEraTitles();
         foreach (IGrouping<string, PlannedCity> group in _cities.Where(city => city.city != null && !city.city.isRekt())
                      .GroupBy(city => city.region.id))
         {
@@ -2040,7 +2082,9 @@ public static class WorldMapScenario
                 // 国名照主法理定(见 EmpireCraftKingdomBehCheckKingdomType)，不然显示成地区法理名(骠国、堕罗钵底、辰韩)
                 // 藩镇不算：它不是一国，地区法理照旧叫地区法理名(河北叫赵，不叫魏博)
                 PlannedPolity realm = seat.owner;
-                title.data.name = realm?.data != null && !realm.data.empire && realm.capital == seat && !IsFanzhen(realm)
+                // 剧本自带的王国法理照它的名(陕、晋……)，不改叫都城在那儿的剧本国名(太原绥靖公署)
+                title.data.name = realm?.data != null && !realm.data.empire && realm.capital == seat && !IsFanzhen(realm) &&
+                                  !_eraTitleIds.Contains(seat.region.id)
                     ? realm.name
                     : seat.region.TitleName;
                 title.data.province_name = seat.region.Name;
@@ -2063,6 +2107,13 @@ public static class WorldMapScenario
             foreach (string region in planned.data.share)
                 if (_titleByRegion.TryGetValue(region, out KingdomTitle shared))
                     Guard($"城 {planned.name} 兼属 {region}", () => DeJureShareSystem.ShareTitle(planned.city, shared, true));
+        // 剧本自带法理的兼属(甘兼河西、川兼汉中、冀兼冀南……)
+        foreach ((string cityId, string titleId) in _eraShares)
+        {
+            PlannedCity planned = _cities.FirstOrDefault(city => city.data?.id == cityId && city.city != null && !city.city.isRekt());
+            if (planned != null && _titleByRegion.TryGetValue(titleId, out KingdomTitle shared) && planned.city.GetTitle() != shared)
+                Guard($"城 {planned.name} 兼属 {titleId}", () => DeJureShareSystem.ShareTitle(planned.city, shared, true));
+        }
         Guard("封国法理", OwnTitles);
 
         var taken = new HashSet<string>();

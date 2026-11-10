@@ -25,6 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from preset_tools import T, death, event, famous, person, polity, rel_step, relation, update_cities, write_era  # noqa: E402
+import sino_japanese_dejure  # noqa: E402
 
 YEAR = 1937
 
@@ -263,36 +264,36 @@ ROC = polity(
 
 # 地方实力派：民国的成员(of roc，autonomy)，留兵、留财政、随中央出征
 WARLORDS = [
-    polity("jinsui", "太原绥靖公署", "Taiyuan Pacification Office", "China", "taiyuan", r=["hedong"], cities=["baotou", "hohhot"],
+    polity("jinsui", "晋系军阀", "Shanxi Clique", "China", "taiyuan", r=["hedong"], cities=["baotou", "hohhot"],
            of="roc", autonomy=True, ruler=person("阎|Yan", "锡山|Xishan", 54),
            famous=[famous("傅|Fu", "作义|Zuoyi", 42, "general", 1, "hohhot")]),
-    polity("jicha", "冀察政务委员会", "Hebei-Chahar Political Council", "China", "beijing", r=["hebei"],
+    polity("jicha", "西北军", "Northwest Army", "China", "beijing", r=["hebei"],
            cities=["beijing", "tianjin", "zhuozhou", "zhangjiakou"], of="roc", autonomy=True,
            ruler=person("宋|Song", "哲元|Zheyuan", 52),
            famous=[famous("张|Zhang", "自忠|Zizhong", 46, "general", 2, "tianjin"),
                    famous("佟|Tong", "麟阁|Linge", 45, "general", 0, "beijing"),
                    famous("赵|Zhao", "登禹|Dengyu", 39, "general", 0, "general"),
                    famous("冯|Feng", "治安|Zhi'an", 41, "general", 0, "general")]),
-    polity("shandong", "山东省政府", "Shandong Provincial Government", "China", "jinan", r=["qilu"], of="roc", autonomy=True,
+    polity("shandong", "鲁系军阀", "Shandong Clique", "China", "jinan", r=["qilu"], of="roc", autonomy=True,
            ruler=person("韩|Han", "复榘|Fuju", 47)),
-    polity("sichuan", "四川省政府", "Sichuan Provincial Government", "China", "chengdu", r=["bashu"], of="roc", autonomy=True,
+    polity("sichuan", "川系军阀", "Sichuan Clique", "China", "chengdu", r=["bashu"], of="roc", autonomy=True,
            ruler=person("刘|Liu", "湘|Xiang", 47),
            famous=[famous("刘|Liu", "文辉|Wenhui", 42, "general", 0, "general"),
                    famous("王|Wang", "缵绪|Zuanxu", 52, "general", 0, "general"),
                    famous("杨|Yang", "森|Sen", 53, "general", 0, "general")]),
-    polity("yunnan", "云南省政府", "Yunnan Provincial Government", "China", "kunming", cities=["kunming", "dali"], of="roc", autonomy=True,
+    polity("yunnan", "滇系军阀", "Yunnan Clique", "China", "kunming", cities=["kunming", "dali"], of="roc", autonomy=True,
            ruler=person("龙|Long", "云|Yun", 53),
            famous=[famous("卢|Lu", "汉|Han", 42, "general", 0, "general")]),
-    polity("guangxi", "广西省政府", "Guangxi Provincial Government", "China", "guilin", r=["guangxi"], of="roc", autonomy=True,
+    polity("guangxi", "桂系军阀", "Guangxi Clique", "China", "guilin", r=["guangxi"], of="roc", autonomy=True,
            ruler=person("李|Li", "宗仁|Zongren", 46),
            famous=[famous("白|Bai", "崇禧|Chongxi", 44, "general", 2, "general"),
                    famous("黄|Huang", "绍竑|Shaohong", 42, "minister", 0, "nanning")]),
-    polity("ningxia", "宁夏省政府", "Ningxia Provincial Government", "China", "yinchuan", cities=["yinchuan"], of="roc", autonomy=True,
+    polity("ningxia", "宁马系军阀", "Ningxia Ma Clique", "China", "yinchuan", cities=["yinchuan"], of="roc", autonomy=True,
            ruler=person("马|Ma", "鸿逵|Hongkui", 45)),
-    polity("qinghai", "青海省政府", "Qinghai Provincial Government", "China", "xining", r=["qinghai", "hexi"], of="roc", autonomy=True,
+    polity("qinghai", "青马系军阀", "Qinghai Ma Clique", "China", "xining", r=["qinghai", "hexi"], of="roc", autonomy=True,
            ruler=person("马|Ma", "步芳|Bufang", 34),
            famous=[famous("马|Ma", "步青|Buqing", 36, "general", 0, "wuwei")]),
-    polity("xinjiang", "新疆省政府", "Xinjiang Provincial Government", "China", "urumqi", r=["xiyu", "dzungaria"], of="roc", autonomy=True,
+    polity("xinjiang", "新疆军阀", "Xinjiang Warlord", "China", "urumqi", r=["xiyu", "dzungaria"], of="roc", autonomy=True,
            ruler=person("盛|Sheng", "世才|Shicai", 40)),
 ]
 
@@ -648,7 +649,10 @@ RELATIONS = [
 # ---------------------------------------------------------------- 剧情事件
 
 # 战后献还：日本连同殖民地、傀儡在这些地区手里的城归民国(见 ScenarioEventSystem.Controls)
-RETURN_TO_CHINA = CHINA_REGIONS + ["hetao", "monan", "qinghai", "xiyu", "dzungaria"]
+# 日本投降献还的地区：剧本自带的中国各省王国法理(见 sino_japanese_dejure，港澳另算)
+RETURN_TO_CHINA = [t["id"] for t in sino_japanese_dejure.TITLES
+                   if t["id"] in {r for c in sino_japanese_dejure.CORES if c["tx"] == "Huaxia" and c["id"] != "dj_korea" for r in c["r"]}
+                   and t["id"] not in ("dj_gang", "dj_ao")] + ["dj_tibet", "dj_qinghai", "dj_monan"]
 # 日本在南洋打下的城还给原来的殖民地
 RETURN_SOUTH = [("malaya", "malaya"), ("burma", "burma"), ("dutch_east_indies", "java"), ("dutch_east_indies", "sumatra"),
                 ("philippines", "luzon"), ("indochina", "jiaozhi"), ("indochina", "champa"), ("indochina", "khmer")]
@@ -816,7 +820,7 @@ EVENTS = [
           [rel_step("japan", "roc", "truce"), rel_step("japan", "ccp", "truce"), rel_step("japan", "ussr", "truce"),
            rel_step("japan", "mpr", "truce"), rel_step("japan", "uk", "truce"), rel_step("japan", "netherlands", "truce")]
           + [cede("japan", "roc", region=region) for region in RETURN_TO_CHINA]
-          + [cede("japan", "ussr", region="korea_n"), cede("japan", "korea", region="korea_s")]
+          + [cede("japan", "ussr", region="dj_joseon"), cede("japan", "korea", region="dj_jinhan")]
           + [cede("japan", colony, region=region) for colony, region in RETURN_SOUTH]
           + [cede("japan", "hongkong", city="hongkong"), cede("japan", "roc", city="dalian")]),
     event("希特勒自杀", T("苏军攻入柏林，希特勒自杀", "Soviet troops storm Berlin; Hitler takes his own life"), 8,
@@ -833,7 +837,7 @@ EVENTS = [
     event("朝鲜民主主义人民共和国", T("朝鲜民主主义人民共和国成立", "The Democratic People's Republic of Korea is proclaimed"), 11,
           [holds("ussr", "pyongyang")],
           [puppet_step("ussr", "dprk", ("朝鲜民主主义人民共和国", "Democratic People's Republic of Korea"), "金日成", "pyongyang",
-                       region="korea_n")]),
+                       region="dj_joseon")]),
     event("中华人民共和国", T("中华人民共和国成立，定都北京", "The People's Republic of China is founded with Beijing as its capital"), 12,
           [holds("ccp", "beijing")],
           [rename("ccp", ("中华人民共和国", "People's Republic of China")), move("ccp", "beijing")]),
@@ -871,7 +875,7 @@ WILDERNESS = {
     "stanovoy": "ussr", "pripet": "poland",
 }
 # 当地法理默认(由 wilderness_administration_source.py 算出：地区里的城全归同一个认领这片无人区的国)
-WILDERNESS_REGIONS = {"luliang": "hedong", "taebaek": "korea_s", "simien": "aksum", "scottish_highlands": "britain_n",
+WILDERNESS_REGIONS = {"luliang": "dj_jin", "taebaek": "dj_jinhan", "simien": "aksum", "scottish_highlands": "britain_n",
                       "massif_central": "gaul_s"}
 
 
@@ -936,7 +940,13 @@ def main():
                "Spanish Civil War rages and Germany prepares to swallow Austria and Czechoslovakia and to strike Poland and Russia.",
         "tech": TECH, "techExtra": TECH_EXTRA, "techSkip": TECH_SKIP, "inst": INST, "culture": CULTURE, "ranks": RANKS,
         "relations": RELATIONS, "events": EVENTS, "wilderness": WILDERNESS, "wilderness_regions": WILDERNESS_REGIONS,
-        "cores": [], "polities": polities,
+        # 王国法理与帝国法理照玩家的帝盒法理地图(见 sino_japanese_dejure)
+        "titles": [{"id": t["id"], "zh": t["prov"], "en": t["prov_en"], "tw": T(t["prov"], t["prov_en"]).split("|")[2],
+                    "t": T(t["zh"], t["en"]), "cap": t["cap"], "cities": t["cities"], "share": t["share"]}
+                   for t in sino_japanese_dejure.TITLES if t["cities"]],
+        "cores": [{"id": c["id"], "zh": c["zh"], "en": c["en"], "tw": T(c["zh"], c["en"]).split("|")[2], "cap": c["cap"],
+                   "r": c["r"], "tx": c["tx"]} for c in sino_japanese_dejure.CORES],
+        "polities": polities,
     }
     write_era(root, era)
     print("sino_japanese", era["year"], len(polities), "国", len(EVENTS), "件事", len(NEW_CITIES), "座新城", len(renamed), "城改名")

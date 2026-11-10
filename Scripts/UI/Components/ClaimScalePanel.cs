@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Data;
@@ -22,15 +22,21 @@ namespace EmpireCraft.Scripts.UI.Components;
 //   ④ 往期奏议：每件成没成、卡在哪一步、廷议与批红的读数，悬停看当时各派表态与砝码。
 public static class ClaimScalePanel
 {
+    // 这回画的是哪一国：近代政权的文本照 "<键>_modern"(议案、审议、元首裁决……见 ModernWording)
+    [ThreadStatic] private static Empire _words;
+
+    private static string L(string key) => ModernWording.Get(_words, key);
+
     private const float CardPadding = 12f;
 
     // refresh：交换台上的按钮点完重画本页
     public static void Render(AutoVertLayoutGroup page, Empire empire, float width, Action refresh = null)
     {
+        _words = empire;
         if (page == null || empire?.data == null || empire.isRekt()) return;
         bool court = CourtSystem.Applies(empire);
         var intro = page.BeginCard(width, "claim_scale_title", WideKit.Gold, null, "ui/icons/iconKingdom");
-        intro.AddParagraph(width, LM.Get(court ? "claim_scale_intro_court" : "claim_scale_intro_other"), 7, WideKit.Soft);
+        intro.AddParagraph(width, L(court ? "claim_scale_intro_court" : "claim_scale_intro_other"), 7, WideKit.Soft);
         if (court)
         {
             RenderMemorial(page, empire, width, refresh);
@@ -53,30 +59,30 @@ public static class ClaimScalePanel
         int seats = state.parliament_seats?.Count ?? 0;
         (FixedFaction sponsor, TemporaryFaction claim, ParliamentBillSystem.Tally tally) = ParliamentBillSystem.Preview(empire);
         var card = page.BeginCard(width, "claim_scale_bill_next", WideKit.Gold,
-            sponsor == null ? null : string.Format(LM.Get("claim_scale_bill_sponsor"), sponsor.Name), "ui/icons/iconKingdom");
+            sponsor == null ? null : string.Format(L("claim_scale_bill_sponsor"), sponsor.Name), "ui/icons/iconKingdom");
         card.AddMetricRow(width,
-            (LM.Get("claim_scale_approval"), Mathf.RoundToInt(approval).ToString(), approval >= 50f ? WideKit.Green : approval >= 35f ? WideKit.Gold : WideKit.Red),
-            (LM.Get("claim_scale_government_seats"), $"{state.government_seats}/{seats}", state.government_seats * 2 > seats ? WideKit.Green : WideKit.Orange),
-            (LM.Get("claim_scale_bill_pause"), ParliamentBillSystem.Paused(empire) ? LM.Get("claim_scale_bill_paused") : LM.Get("claim_scale_bill_ready"),
+            (L("claim_scale_approval"), Mathf.RoundToInt(approval).ToString(), approval >= 50f ? WideKit.Green : approval >= 35f ? WideKit.Gold : WideKit.Red),
+            (L("claim_scale_government_seats"), $"{state.government_seats}/{seats}", state.government_seats * 2 > seats ? WideKit.Green : WideKit.Orange),
+            (L("claim_scale_bill_pause"), ParliamentBillSystem.Paused(empire) ? L("claim_scale_bill_paused") : L("claim_scale_bill_ready"),
                 ParliamentBillSystem.Paused(empire) ? WideKit.Orange : WideKit.Green));
         if (state.government_approval_parts != null && state.government_approval_parts.Count > 0)
-            card.AddParagraph(width, string.Format(LM.Get("claim_scale_approval_parts"), string.Join("  ", state.government_approval_parts
+            card.AddParagraph(width, string.Format(L("claim_scale_approval_parts"), string.Join("  ", state.government_approval_parts
                 .Where(pair => Mathf.Abs(pair.Value) >= 0.5f)
-                .Select(pair => $"{LM.Get(pair.Key)} {Points(pair.Value / 100f)}"))), 6, WideKit.Muted);
-        card.AddParagraph(width, LM.Get("claim_scale_bill_rule"), 6, WideKit.Muted);
+                .Select(pair => $"{L(pair.Key)} {Points(pair.Value / 100f)}"))), 6, WideKit.Muted);
+        card.AddParagraph(width, L("claim_scale_bill_rule"), 6, WideKit.Muted);
         if (claim == null || tally == null)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_bill_none"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_bill_none"), 7, WideKit.Muted);
             return;
         }
-        Heading(card, width, "claim_scale_bill_preview", string.Format(LM.Get("claim_scale_bill_tally"),
+        Heading(card, width, "claim_scale_bill_preview", string.Format(L("claim_scale_bill_tally"),
             CourtSystem.IssueName(claim.type, empire), tally.Yes, tally.No, tally.Abstain,
-            LM.Get(tally.Passed ? "claim_scale_bill_would_pass" : "claim_scale_bill_would_fail")));
+            L(tally.Passed ? "claim_scale_bill_would_pass" : "claim_scale_bill_would_fail")));
         int index = 0;
         foreach ((FixedFaction party, int partySeats, int vote, float stance) in tally.Parties.OrderByDescending(item => item.seats))
         {
-            string mark = LM.Get(vote > 0 ? "claim_scale_vote_yes" : vote < 0 ? "claim_scale_vote_no" : "claim_scale_vote_abstain");
-            string detail = string.Format(LM.Get("claim_scale_vote_detail"), partySeats, Mathf.RoundToInt(stance),
+            string mark = L(vote > 0 ? "claim_scale_vote_yes" : vote < 0 ? "claim_scale_vote_no" : "claim_scale_vote_abstain");
+            string detail = string.Format(L("claim_scale_vote_detail"), partySeats, Mathf.RoundToInt(stance),
                 Mathf.RoundToInt(PartyRelations.Relation(party, sponsor)));
             card.AddValueRow(width, index++, party.Name, $"{mark} · {detail}", vote > 0 ? WideKit.Green : vote < 0 ? WideKit.Red : WideKit.Muted,
                 labelWidth: (width - CardPadding) * 0.4f);
@@ -87,28 +93,28 @@ public static class ClaimScalePanel
     {
         List<ParliamentBillRecord> bills = empire.data.constitutional_economy.parliament_bills ?? new List<ParliamentBillRecord>();
         var card = page.BeginCard(width, "claim_scale_bills", WideKit.Gold,
-            string.Format(LM.Get("claim_scale_bills_header"), bills.Count(bill => bill.outcome == "completed"), bills.Count), "ui/icons/iconBooks");
+            string.Format(L("claim_scale_bills_header"), bills.Count(bill => bill.outcome == "completed"), bills.Count), "ui/icons/iconBooks");
         if (bills.Count == 0)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_bills_none"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_bills_none"), 7, WideKit.Muted);
             return;
         }
         for (int i = 0; i < bills.Count; i++)
         {
             ParliamentBillRecord bill = bills[i];
             int years = Date.getYearsSince(bill.proposed);
-            string when = years <= 0 ? LM.Get("court_log_this_year") : string.Format(LM.Get("court_log_years_ago"), years);
+            string when = years <= 0 ? L("court_log_this_year") : string.Format(L("court_log_years_ago"), years);
             bool good = bill.outcome is "completed" or "running";
-            string outcome = LM.Get("claim_scale_bill_outcome_" + (string.IsNullOrEmpty(bill.outcome) ? "rejected" : bill.outcome));
+            string outcome = L("claim_scale_bill_outcome_" + (string.IsNullOrEmpty(bill.outcome) ? "rejected" : bill.outcome));
             string text = $"{CourtSystem.IssueName(bill.claim, empire)}({bill.sponsor_name}) — " +
                           outcome.ColorString(good ? WideKit.Green : WideKit.Red) +
-                          ("  " + string.Format(LM.Get("claim_scale_bill_votes"), bill.yes, bill.no, bill.abstain)).ColorString(WideKit.Muted);
+                          ("  " + string.Format(L("claim_scale_bill_votes"), bill.yes, bill.no, bill.abstain)).ColorString(WideKit.Muted);
             var row = card.AddTimelineRow(width, i, when, text, WideKit.Soft);
             var lines = bill.votes.OrderByDescending(pair => bill.seats.TryGetValue(pair.Key, out int s) ? s : 0).Select(pair =>
             {
                 string name = bill.names.TryGetValue(pair.Key, out string found) ? found : pair.Key;
                 int partySeats = bill.seats.TryGetValue(pair.Key, out int s) ? s : 0;
-                return $"{name} {partySeats} · {LM.Get(pair.Value > 0 ? "claim_scale_vote_yes" : pair.Value < 0 ? "claim_scale_vote_no" : "claim_scale_vote_abstain")}";
+                return $"{name} {partySeats} · {L(pair.Value > 0 ? "claim_scale_vote_yes" : pair.Value < 0 ? "claim_scale_vote_no" : "claim_scale_vote_abstain")}";
             });
             Tip(row.gameObject, $"claim_scale_bill_{empire.id}_{i}", CourtSystem.IssueName(bill.claim, empire), string.Join("\n", lines));
         }
@@ -130,12 +136,12 @@ public static class ClaimScalePanel
         TemporaryFaction claim = CourtSystem.FindClaim(empire, memorial);
         FixedFaction proposer = CourtSystem.FindFaction(empire, memorial.proposer);
         string issue = CourtSystem.IssueName(memorial.claim, empire);
-        var card = page.BeginCard(width, string.Format(LM.Get("court_memorial_title"), issue), WideKit.Gold,
-            string.Format(LM.Get("court_memorial_header"), proposer?.Name ?? "", LM.Get("court_status_" + memorial.stage)),
+        var card = page.BeginCard(width, string.Format(L("court_memorial_title"), issue), WideKit.Gold,
+            string.Format(L("court_memorial_header"), proposer?.Name ?? "", L("court_status_" + memorial.stage)),
             "ui/icons/iconKingdom");
         if (claim == null || proposer == null)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_void"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_void"), 7, WideKit.Muted);
             return;
         }
 
@@ -154,16 +160,16 @@ public static class ClaimScalePanel
         float pass = draft?.Aggregate(1f, (product, factor) => product * factor.value) ?? 1f;
 
         // 主指标：四步各一格
-        string draftText = memorial.stage == 0 ? Percent(pass) : LM.Get("claim_scale_passed");
+        string draftText = memorial.stage == 0 ? Percent(pass) : L("claim_scale_passed");
         string debateText = $"{Mathf.RoundToInt(support)}%/{CourtSystem.DebateThreshold:0}%";
-        string decideText = memorial.stage >= 4 ? LM.Get("claim_scale_approved") : Percent(chance);
+        string decideText = memorial.stage >= 4 ? L("claim_scale_approved") : Percent(chance);
         string runText = memorial.stage >= 4 ? Percent(claim.progressMax <= 0f ? 0f : claim.progress / claim.progressMax) : "—";
         card.AddMetricRow(width,
-            (LM.Get("claim_scale_step_draft"), draftText, memorial.stage == 0 ? Hex(pass) : WideKit.Green),
-            (LM.Get("claim_scale_step_debate"), debateText,
+            (L("claim_scale_step_draft"), draftText, memorial.stage == 0 ? Hex(pass) : WideKit.Green),
+            (L("claim_scale_step_debate"), debateText,
                 support >= CourtSystem.DebateThreshold ? WideKit.Green : contest ? WideKit.Orange : WideKit.Red),
-            (LM.Get("claim_scale_step_decide"), decideText, memorial.stage >= 4 ? WideKit.Green : Hex(chance)),
-            (LM.Get("claim_scale_step_run"), runText, memorial.stage >= 4 ? WideKit.Cyan : WideKit.Muted));
+            (L("claim_scale_step_decide"), decideText, memorial.stage >= 4 ? WideKit.Green : Hex(chance)),
+            (L("claim_scale_step_run"), runText, memorial.stage >= 4 ? WideKit.Cyan : WideKit.Muted));
 
         if (draft != null)
         {
@@ -175,10 +181,10 @@ public static class ClaimScalePanel
         if (memorial.stage <= 2 || memorial.stage == 3)
         {
             Heading(card, width, memorial.stage >= 2 ? "claim_scale_debate_done" : "claim_scale_debate_heading",
-                string.Format(LM.Get("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
+                string.Format(L("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
             DrawStances(card, width, stances);
             if (support < CourtSystem.DebateThreshold)
-                card.AddParagraph(width, LM.Get(contest ? "claim_scale_debate_contest" : "claim_scale_debate_fail"), 6,
+                card.AddParagraph(width, L(contest ? "claim_scale_debate_contest" : "claim_scale_debate_fail"), 6,
                     contest ? WideKit.Orange : WideKit.Red);
         }
 
@@ -187,8 +193,8 @@ public static class ClaimScalePanel
             Heading(card, width, memorial.stage >= 2 ? "claim_scale_decide_heading" : "claim_scale_decide_preview", Percent(chance));
             DrawApproval(card, width, approval);
             (Actor decider, string role) = CourtSystem.Decider(empire);
-            card.AddParagraph(width, string.Format(LM.Get("claim_scale_decider"), LM.Get("court_decider_" + role),
-                decider?.getName() ?? LM.Get("label_none")), 6, WideKit.Muted);
+            card.AddParagraph(width, string.Format(L("claim_scale_decider"), L("court_decider_" + role),
+                decider?.getName() ?? L("label_none")), 6, WideKit.Muted);
             if (memorial.stage == 3 && memorial.roll >= 0f)
                 card.AddParagraph(width, RollText(memorial.approval, memorial.roll, memorial.decision), 6, WideKit.Soft);
         }
@@ -196,7 +202,7 @@ public static class ClaimScalePanel
         {
             // 施行中也照样列出廷议表态与批红砝码(用户 2026-11-10 "砝码呢")
             Heading(card, width, "claim_scale_debate_done",
-                string.Format(LM.Get("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
+                string.Format(L("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
             DrawStances(card, width, stances);
             if (memorial.factors != null && memorial.factors.Count > 0)
             {
@@ -205,7 +211,7 @@ public static class ClaimScalePanel
             }
             if (memorial.roll >= 0f)
                 card.AddParagraph(width, RollText(memorial.approval, memorial.roll, "approve"), 6, WideKit.Soft);
-            else card.AddParagraph(width, LM.Get("claim_scale_reading_divine"), 6, WideKit.Soft);
+            else card.AddParagraph(width, L("claim_scale_reading_divine"), 6, WideKit.Soft);
             DrawExecution(card, width, claim);
         }
         DrawDeals(card, width, empire, memorial, refresh);
@@ -216,16 +222,16 @@ public static class ClaimScalePanel
     {
         List<CourtDeal> deals = memorial.deals ?? new List<CourtDeal>();
         if (deals.Count == 0) return;
-        Heading(card, width, "claim_scale_deals", string.Format(LM.Get("claim_scale_deals_count"), deals.Count));
+        Heading(card, width, "claim_scale_deals", string.Format(L("claim_scale_deals_count"), deals.Count));
         bool editable = CourtSystem.CanBargain(empire, out _, out _, out _);
         for (int i = 0; i < deals.Count; i++)
         {
             CourtDeal deal = deals[i];
-            string text = string.Format(LM.Get("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
+            string text = string.Format(L("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
                 CourtSystem.StanceName(deal.after), DealTerms(deal));
             string hex = deal.kind == "reneged" ? WideKit.Red : deal.kind == "divine" ? WideKit.Gold : WideKit.Green;
             string partner = deal.partner;
-            card.AddTermRow(width, i, null, text, LM.Get("claim_scale_deal_kind_" + deal.kind), hex, "",
+            card.AddTermRow(width, i, null, text, L("claim_scale_deal_kind_" + deal.kind), hex, "",
                 editable && deal.kind != "reneged" ? () =>
                 {
                     CourtSystem.Cancel(empire, partner);
@@ -236,15 +242,15 @@ public static class ClaimScalePanel
 
     private static string DealTerms(CourtDeal deal)
     {
-        if (deal.kind is "repay" or "reneged" or "divine") return LM.Get("claim_scale_deal_kind_" + deal.kind);
-        return deal.terms.Count == 0 ? LM.Get("label_none") : string.Join("、", deal.terms.Select(TermLabel));
+        if (deal.kind is "repay" or "reneged" or "divine") return L("claim_scale_deal_kind_" + deal.kind);
+        return deal.terms.Count == 0 ? L("label_none") : string.Join("、", deal.terms.Select(TermLabel));
     }
 
     private static string TermLabel(CourtTerm term) => term.kind switch
     {
-        "office" => string.Format(LM.Get("claim_scale_term_office"),
+        "office" => string.Format(L("claim_scale_term_office"),
             OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office) ? office.GetName() : ""),
-        _ => string.Format(LM.Get("claim_scale_term_" + term.kind), term.amount)
+        _ => string.Format(L("claim_scale_term_" + term.kind), term.amount)
     };
 
     #endregion
@@ -260,20 +266,20 @@ public static class ClaimScalePanel
         CourtFactionState mine = CourtSystem.FactionState(empire, proposer);
         Actor leader = proposer.GetLeader();
         var card = page.BeginCard(width, "claim_scale_table", WideKit.Gold,
-            string.Format(LM.Get("claim_scale_table_header"), proposer.Name, Mathf.RoundToInt(mine.capital), leader?.money ?? 0,
+            string.Format(L("claim_scale_table_header"), proposer.Name, Mathf.RoundToInt(mine.capital), leader?.money ?? 0,
                 mine.owed.Values.Sum(), CourtSystem.MaxPromises), "ui/icons/iconFamily");
-        card.AddParagraph(width, LM.Get("claim_scale_table_rule"), 6, WideKit.Muted);
+        card.AddParagraph(width, L("claim_scale_table_rule"), 6, WideKit.Muted);
         var ledger = CourtSystem.Ledger(empire);
         if (ledger.Count > 0)
-            card.AddParagraph(width, string.Format(LM.Get("claim_scale_ledger"), string.Join("、", ledger.Select(item =>
-                string.Format(LM.Get("claim_scale_ledger_item"), item.debtor, item.creditor, item.count)))), 6, WideKit.Soft);
+            card.AddParagraph(width, string.Format(L("claim_scale_ledger"), string.Join("、", ledger.Select(item =>
+                string.Format(L("claim_scale_ledger_item"), item.debtor, item.creditor, item.count)))), 6, WideKit.Soft);
         List<(FixedFaction faction, int stance, float weight)> stances = CourtSystem.DebateStances(empire, claim, proposer, memorial);
         var partners = stances.Where(item => item.faction != proposer &&
                                              !CourtSystem.IsBoycotting(CourtSystem.FactionState(empire, item.faction)) &&
                                              CourtSystem.BaseStance(empire, claim, proposer, item.faction) < 1).ToList();
         if (partners.Count == 0)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_table_none"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_table_none"), 7, WideKit.Muted);
             return;
         }
         if (_partner == null || partners.All(item => item.faction.GetID() != _partner)) _partner = partners[0].faction.GetID();
@@ -298,43 +304,43 @@ public static class ClaimScalePanel
         float column = (width - UIHelper.CardGap) / 2f;
         var columns = page.BeginColumns(width);
         // 左：上奏一派出的筹码
-        var left = columns.BeginColumnCard(column, string.Format(LM.Get("claim_scale_table_gives"), proposer.Name), WideKit.Gold,
-            string.Format(LM.Get("claim_scale_table_items"), draft.terms.Count));
+        var left = columns.BeginColumnCard(column, string.Format(L("claim_scale_table_gives"), proposer.Name), WideKit.Gold,
+            string.Format(L("claim_scale_table_items"), draft.terms.Count));
         int row = 0;
-        if (draft.terms.Count == 0) left.AddParagraph(column, LM.Get("claim_scale_table_gives_none"), 7, WideKit.Muted);
+        if (draft.terms.Count == 0) left.AddParagraph(column, L("claim_scale_table_gives_none"), 7, WideKit.Muted);
         foreach (CourtTerm term in draft.terms.ToList())
         {
             string reason = CourtSystem.CannotPay(empire, proposer, partner, term, draft.terms);
-            left.AddTermRow(column, row++, null, TermLabel(term), reason == null ? "" : LM.Get(reason), WideKit.Red,
+            left.AddTermRow(column, row++, null, TermLabel(term), reason == null ? "" : L(reason), WideKit.Red,
                 $"+{CourtSystem.TermValue(empire, proposer, partner, term)}", () =>
                 {
                     CourtSystem.Toggle(empire, _partner, term);
                     refresh?.Invoke();
                 });
         }
-        left.AddActionRow(column - CardPadding, (LM.Get("claim_scale_table_add"), _picking ? WideKit.Gold : WideKit.Cyan, true, () =>
+        left.AddActionRow(column - CardPadding, (L("claim_scale_table_add"), _picking ? WideKit.Gold : WideKit.Cyan, true, () =>
         {
             _picking = !_picking;
             refresh?.Invoke();
         }));
         // 右：要对方改投成什么
         float score = CourtIssues.Stance(partner, claim);
-        var right = columns.BeginColumnCard(column, string.Format(LM.Get("claim_scale_table_wants"), partner.Name), WideKit.Cyan,
-            string.Format(LM.Get("claim_scale_table_now"), CourtSystem.StanceName(before), Mathf.RoundToInt(score)));
+        var right = columns.BeginColumnCard(column, string.Format(L("claim_scale_table_wants"), partner.Name), WideKit.Cyan,
+            string.Format(L("claim_scale_table_now"), CourtSystem.StanceName(before), Mathf.RoundToInt(score)));
         int option = 0;
         foreach (int after in new[] { 1, 0 })
         {
             if (after <= before) continue;
             bool on = draft.after == after;
             int cost = CourtSystem.SwitchCost(before, after, score);
-            right.AddValueRow(column, option++, LM.Get(after > 0 ? "claim_scale_table_to_support" : "claim_scale_table_to_abstain"),
+            right.AddValueRow(column, option++, L(after > 0 ? "claim_scale_table_to_support" : "claim_scale_table_to_abstain"),
                 (on ? "● " : "○ ") + $"-{cost}", on ? WideKit.Gold : WideKit.Soft, () =>
                 {
                     draft.after = after;
                     refresh?.Invoke();
                 });
         }
-        right.AddParagraph(column, LM.Get("claim_scale_table_switch_rule"), 6, WideKit.Muted);
+        right.AddParagraph(column, L("claim_scale_table_switch_rule"), 6, WideKit.Muted);
 
         if (_picking) DrawPicker(page, empire, width, proposer, partner, draft, refresh);
 
@@ -343,31 +349,31 @@ public static class ClaimScalePanel
         bool affordable = draft.terms.All(term => CourtSystem.CannotPay(empire, proposer, partner, term, draft.terms) == null);
         var will = page.BeginCard(width, "claim_scale_table_will", WideKit.Gold, null, "ui/icons/iconKingdom");
         float meterScale = Mathf.Max(10f, Mathf.Abs(opinion.Total) * 1.15f, opinion.gain, opinion.loss);
-        string verdict = $"{(opinion.Total > 0 ? "+" : "")}{opinion.Total} · {LM.Get(opinion.Accepts ? "peace_accept" : "peace_refuse")}";
+        string verdict = $"{(opinion.Total > 0 ? "+" : "")}{opinion.Total} · {L(opinion.Accepts ? "peace_accept" : "peace_refuse")}";
         var meter = will.AddMeterRow(width, 0, partner.Name, WideKit.Cyan, opinion.Total, meterScale, verdict,
             opinion.Accepts ? WideKit.Green : WideKit.Red);
-        Tip(meter.gameObject, $"claim_scale_will_{empire.id}", string.Format(LM.Get("claim_scale_will_title"), partner.Name, verdict),
+        Tip(meter.gameObject, $"claim_scale_will_{empire.id}", string.Format(L("claim_scale_will_title"), partner.Name, verdict),
             string.Join("\n", opinion.items.Select(item => $"{DealItemLabel(item.key, item.arg)} {(item.value > 0 ? "+" : "")}{item.value}")));
-        will.AddValueRow(width, 1, LM.Get("claim_scale_table_afford"), LM.Get(affordable ? "claim_scale_table_afford_yes" : "claim_scale_table_afford_no"),
+        will.AddValueRow(width, 1, L("claim_scale_table_afford"), L(affordable ? "claim_scale_table_afford_yes" : "claim_scale_table_afford_no"),
             affordable ? WideKit.Green : WideKit.Red);
         will.AddActionRow(width - CardPadding,
-            (LM.Get("peace_btn_mediate"), WideKit.Value, true, () =>
+            (L("peace_btn_mediate"), WideKit.Value, true, () =>
             {
                 CourtSystem.Mediate(empire, _partner);
                 refresh?.Invoke();
             }),
-            (LM.Get("peace_btn_clear"), WideKit.Value, true, () =>
+            (L("peace_btn_clear"), WideKit.Value, true, () =>
             {
                 CourtSystem.ClearDraft(empire);
                 refresh?.Invoke();
             }),
-            (LM.Get("claim_scale_table_sign"), WideKit.Green, opinion.Accepts && affordable, () =>
+            (L("claim_scale_table_sign"), WideKit.Green, opinion.Accepts && affordable, () =>
             {
                 CourtSystem.Sign(empire, _partner, false);
                 _picking = false;
                 refresh?.Invoke();
             }),
-            (LM.Get("claim_scale_table_force"), WideKit.Gold, true, () =>
+            (L("claim_scale_table_force"), WideKit.Gold, true, () =>
             {
                 CourtSystem.Sign(empire, _partner, true);
                 _picking = false;
@@ -379,13 +385,13 @@ public static class ClaimScalePanel
     private static void DrawPicker(AutoVertLayoutGroup page, Empire empire, float width, FixedFaction proposer, FixedFaction partner,
         CourtSystem.DealDraft draft, Action refresh)
     {
-        var card = page.BeginCard(width, string.Format(LM.Get("claim_scale_table_pick"), proposer.Name), WideKit.Cyan,
-            LM.Get("claim_scale_table_pick_hint"));
+        var card = page.BeginCard(width, string.Format(L("claim_scale_table_pick"), proposer.Name), WideKit.Cyan,
+            L("claim_scale_table_pick_hint"));
         int row = 0;
         foreach ((CourtTerm term, string reason) in CourtSystem.Options(empire, proposer, partner, draft.terms))
         {
             bool on = draft.terms.Any(item => item.Key == term.Key);
-            string value = reason != null ? LM.Get(reason) : on ? LM.Get("claim_scale_table_on")
+            string value = reason != null ? L(reason) : on ? L("claim_scale_table_on")
                 : $"+{CourtSystem.TermValue(empire, proposer, partner, term)}";
             CourtTerm target = term;
             card.AddValueRow(width, row++, TermLabel(term).ColorString(reason != null ? WideKit.Muted : on ? WideKit.Gold : WideKit.Value),
@@ -399,7 +405,7 @@ public static class ClaimScalePanel
 
     private static string DealItemLabel(string key, string arg)
     {
-        string format = LM.Get(key);
+        string format = L(key);
         if (string.IsNullOrEmpty(arg)) return format;
         try
         {
@@ -424,7 +430,7 @@ public static class ClaimScalePanel
         int index = 0;
         foreach ((string name, int stance, float weight) in stances.OrderByDescending(item => item.stance).ThenByDescending(item => item.weight))
         {
-            string mark = LM.Get(stance > 0 ? "court_stance_support" : stance < 0 ? "court_stance_oppose" : "court_stance_neutral");
+            string mark = L(stance > 0 ? "court_stance_support" : stance < 0 ? "court_stance_oppose" : "court_stance_neutral");
             card.AddValueRow(width, index++, name, $"{mark} · {weight:0.#}",
                 stance > 0 ? WideKit.Green : stance < 0 ? WideKit.Red : WideKit.Muted);
         }
@@ -442,8 +448,8 @@ public static class ClaimScalePanel
                 factor.value > 0f ? WideKit.Green : WideKit.Red, labelWidth: labelWidth);
         }
         float sum = factors.Sum(factor => factor.value);
-        card.AddValueRow(width, index, LM.Get("claim_scale_decide_total"),
-            string.Format(LM.Get("claim_scale_decide_total_value"), Mathf.RoundToInt(sum * 100f), Percent(CourtSystem.Chance(factors))),
+        card.AddValueRow(width, index, L("claim_scale_decide_total"),
+            string.Format(L("claim_scale_decide_total_value"), Mathf.RoundToInt(sum * 100f), Percent(CourtSystem.Chance(factors))),
             WideKit.Gold, labelWidth: labelWidth);
     }
 
@@ -453,11 +459,11 @@ public static class ClaimScalePanel
         var factors = new List<CourtScaleFactor>();
         float rate = claim.MonthlyRate(factors, out bool blocked);
         float left = Mathf.Max(0f, claim.progressMax - claim.progress);
-        string months = blocked ? LM.Get("claim_scale_run_blocked")
-            : rate <= 0f ? "—" : string.Format(LM.Get("claim_scale_run_months"), Mathf.CeilToInt(left / rate));
+        string months = blocked ? L("claim_scale_run_blocked")
+            : rate <= 0f ? "—" : string.Format(L("claim_scale_run_months"), Mathf.CeilToInt(left / rate));
         Heading(card, width, "claim_scale_run_heading",
-            string.Format(LM.Get("claim_scale_run_value"), Mathf.RoundToInt(claim.progress), Mathf.RoundToInt(claim.progressMax), rate.ToString("0.00"), months));
-        card.AddBarRow(width, 1, LM.Get("claim_scale_step_run"), claim.progressMax <= 0f ? 0f : claim.progress / claim.progressMax,
+            string.Format(L("claim_scale_run_value"), Mathf.RoundToInt(claim.progress), Mathf.RoundToInt(claim.progressMax), rate.ToString("0.00"), months));
+        card.AddBarRow(width, 1, L("claim_scale_step_run"), claim.progressMax <= 0f ? 0f : claim.progress / claim.progressMax,
             months, blocked ? WideKit.Red : WideKit.Cyan, WideKit.Cyan, "#3A4048", barWidth: (width - CardPadding) * 0.45f);
         float labelWidth = (width - CardPadding) * 0.75f;
         for (int i = 0; i < factors.Count; i++)
@@ -478,9 +484,9 @@ public static class ClaimScalePanel
             return;
         }
         FixedFaction faction = CourtSystem.FindFaction(empire, run.factionID);
-        string how = run.IsLocallyPushed ? string.Format(LM.Get("claim_scale_running_local"), run.GetKingdom()?.data?.name ?? "")
-            : court ? LM.Get("claim_scale_running_direct") : LM.Get("claim_scale_running_government");
-        var card = page.BeginCard(width, string.Format(LM.Get("claim_scale_running_title"), CourtSystem.IssueName(run.type, empire)),
+        string how = run.IsLocallyPushed ? string.Format(L("claim_scale_running_local"), run.GetKingdom()?.data?.name ?? "")
+            : court ? L("claim_scale_running_direct") : L("claim_scale_running_government");
+        var card = page.BeginCard(width, string.Format(L("claim_scale_running_title"), CourtSystem.IssueName(run.type, empire)),
             WideKit.Gold, $"{faction?.Name ?? ""} · {how}", "ui/icons/iconKingdom");
         DrawExecution(card, width, run);
     }
@@ -495,11 +501,11 @@ public static class ClaimScalePanel
             if (push?.StartedToPushTf == true) pushes.Add((kingdom, push));
         }
         var card = page.BeginCard(width, "claim_scale_local", WideKit.Gold,
-            string.Format(LM.Get("claim_scale_local_header"), pushes.Count, TemporaryPushProgress.InfluenceCostPerMonth), "ui/icons/iconKingdom");
-        card.AddParagraph(width, LM.Get("claim_scale_local_rule"), 6, WideKit.Muted);
+            string.Format(L("claim_scale_local_header"), pushes.Count, TemporaryPushProgress.InfluenceCostPerMonth), "ui/icons/iconKingdom");
+        card.AddParagraph(width, L("claim_scale_local_rule"), 6, WideKit.Muted);
         if (pushes.Count == 0)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_local_none"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_local_none"), 7, WideKit.Muted);
             return;
         }
         bool busy = empire.RunningTemporaryFaction?.IsStarted() == true;
@@ -509,16 +515,16 @@ public static class ClaimScalePanel
             (int add, int performance, bool affordable, int months) = push.Outlook();
             Actor pusher = push.GetPusher();
             string value = push.Progress >= 100
-                ? LM.Get(busy ? "claim_scale_local_waiting" : "claim_scale_local_ready")
-                : !affordable ? LM.Get("claim_scale_local_broke")
-                : string.Format(LM.Get(months < 0 ? "claim_scale_local_value_short" : "claim_scale_local_value"), add,
+                ? L(busy ? "claim_scale_local_waiting" : "claim_scale_local_ready")
+                : !affordable ? L("claim_scale_local_broke")
+                : string.Format(L(months < 0 ? "claim_scale_local_value_short" : "claim_scale_local_value"), add,
                     pusher?.renown ?? 0, months);
             string label = $"{kingdom.data.name} · {CourtSystem.IssueName(push.TfType, empire)}";
             var row = card.AddBarRow(width, i, label, push.Progress / 100f, value,
                 !affordable || months < 0 ? WideKit.Red : WideKit.Soft, WideKit.Gold, "#3A4048",
                 labelWidth: (width - CardPadding) * 0.36f, barWidth: (width - CardPadding) * 0.24f);
             Tip(row.gameObject, $"claim_scale_local_{kingdom.id}", label,
-                string.Format(LM.Get("claim_scale_local_tip"), pusher?.getName() ?? "", performance, add, push.Progress));
+                string.Format(L("claim_scale_local_tip"), pusher?.getName() ?? "", performance, add, push.Progress));
         }
     }
 
@@ -530,18 +536,18 @@ public static class ClaimScalePanel
     {
         List<CourtMemorialRecord> history = CourtSystem.State(empire)?.history ?? new List<CourtMemorialRecord>();
         var card = page.BeginCard(width, "claim_scale_history", WideKit.Gold,
-            string.Format(LM.Get("claim_scale_history_header"), history.Count(Succeeded), history.Count), "ui/icons/iconBooks");
+            string.Format(L("claim_scale_history_header"), history.Count(Succeeded), history.Count), "ui/icons/iconBooks");
         if (history.Count == 0)
         {
-            card.AddParagraph(width, LM.Get("claim_scale_history_none"), 7, WideKit.Muted);
+            card.AddParagraph(width, L("claim_scale_history_none"), 7, WideKit.Muted);
             return;
         }
         for (int i = 0; i < history.Count; i++)
         {
             CourtMemorialRecord record = history[i];
             int years = Date.getYearsSince(record.closed);
-            string when = years <= 0 ? LM.Get("court_log_this_year") : string.Format(LM.Get("court_log_years_ago"), years);
-            string outcome = LM.Get("claim_scale_outcome_" + OutcomeKind(record.outcome));
+            string when = years <= 0 ? L("court_log_this_year") : string.Format(L("court_log_years_ago"), years);
+            string outcome = L("claim_scale_outcome_" + OutcomeKind(record.outcome));
             string text = $"{CourtSystem.IssueName(record.claim, empire)}({record.proposer_name}) — " +
                           outcome.ColorString(Succeeded(record) ? WideKit.Green : OutcomeKind(record.outcome) == "void" ? WideKit.Muted : WideKit.Red) +
                           ReadingText(record);
@@ -570,11 +576,11 @@ public static class ClaimScalePanel
     {
         var parts = new List<string>();
         if (record.support >= 0f && record.stances.Count > 0)
-            parts.Add(string.Format(LM.Get("claim_scale_reading_debate"), Mathf.RoundToInt(record.support), CourtSystem.DebateThreshold));
+            parts.Add(string.Format(L("claim_scale_reading_debate"), Mathf.RoundToInt(record.support), CourtSystem.DebateThreshold));
         if (record.approval >= 0f && record.roll >= 0f)
-            parts.Add(string.Format(LM.Get("claim_scale_reading_decide"), Percent(record.approval), Mathf.RoundToInt(record.roll * 100f)));
+            parts.Add(string.Format(L("claim_scale_reading_decide"), Percent(record.approval), Mathf.RoundToInt(record.roll * 100f)));
         else if (!string.IsNullOrEmpty(record.decision) && record.approval < 0f && record.stage >= 2)
-            parts.Add(LM.Get("claim_scale_reading_divine"));
+            parts.Add(L("claim_scale_reading_divine"));
         return parts.Count == 0 ? "" : ("  " + string.Join(" · ", parts)).ColorString(WideKit.Muted);
     }
 
@@ -584,32 +590,32 @@ public static class ClaimScalePanel
         var lines = new List<string>();
         if (!string.IsNullOrEmpty(record.text)) lines.Add(record.text);
         if (record.proposed >= 0d)
-            lines.Add(string.Format(LM.Get("claim_scale_tip_span"), Date.getYearsSince(record.proposed) - Date.getYearsSince(record.closed)));
+            lines.Add(string.Format(L("claim_scale_tip_span"), Date.getYearsSince(record.proposed) - Date.getYearsSince(record.closed)));
         if (record.stances.Count > 0)
         {
-            lines.Add(LM.Get("claim_scale_tip_debate").ColorString(WideKit.Gold));
+            lines.Add(L("claim_scale_tip_debate").ColorString(WideKit.Gold));
             foreach (KeyValuePair<string, int> pair in record.stances.OrderByDescending(pair => pair.Value))
             {
                 string name = record.names.TryGetValue(pair.Key, out string found) ? found : pair.Key;
                 float weight = record.weights.TryGetValue(pair.Key, out float value) ? value : 0f;
-                string mark = LM.Get(pair.Value > 0 ? "court_stance_support" : pair.Value < 0 ? "court_stance_oppose" : "court_stance_neutral");
+                string mark = L(pair.Value > 0 ? "court_stance_support" : pair.Value < 0 ? "court_stance_oppose" : "court_stance_neutral");
                 lines.Add($"  {name} {mark} {weight:0.#}");
             }
         }
         if (record.deals != null && record.deals.Count > 0)
         {
-            lines.Add(LM.Get("claim_scale_deals").ColorString(WideKit.Gold));
+            lines.Add(L("claim_scale_deals").ColorString(WideKit.Gold));
             foreach (CourtDeal deal in record.deals)
-                lines.Add("  " + string.Format(LM.Get("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
+                lines.Add("  " + string.Format(L("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
                     CourtSystem.StanceName(deal.after), DealTerms(deal)));
         }
         if (record.factors.Count > 0)
         {
-            lines.Add(LM.Get("claim_scale_tip_decide").ColorString(WideKit.Gold));
+            lines.Add(L("claim_scale_tip_decide").ColorString(WideKit.Gold));
             foreach (CourtScaleFactor factor in record.factors.Where(factor => Mathf.Abs(factor.value) >= 0.005f || factor.key == "court_scale_base"))
                 lines.Add($"  {FactorLabel(factor)} {Points(factor.value)}");
             if (record.roll >= 0f) lines.Add(RollText(record.approval, record.roll, record.decision));
-            if (!string.IsNullOrEmpty(record.decider_name)) lines.Add(string.Format(LM.Get("claim_scale_tip_decider"), record.decider_name));
+            if (!string.IsNullOrEmpty(record.decider_name)) lines.Add(string.Format(L("claim_scale_tip_decider"), record.decider_name));
         }
         return string.Join("\n", lines);
     }
@@ -620,7 +626,7 @@ public static class ClaimScalePanel
 
     private static string FactorLabel(CourtScaleFactor factor)
     {
-        string format = LM.Get(factor.key);
+        string format = L(factor.key);
         if (string.IsNullOrEmpty(factor.arg)) return format;
         try
         {
@@ -633,8 +639,8 @@ public static class ClaimScalePanel
     }
 
     private static string RollText(float approval, float roll, string decision) =>
-        string.Format(LM.Get("claim_scale_roll"), Percent(approval), Mathf.RoundToInt(roll * 100f),
-            LM.Get("claim_scale_decision_" + (string.IsNullOrEmpty(decision) ? "reject" : decision)));
+        string.Format(L("claim_scale_roll"), Percent(approval), Mathf.RoundToInt(roll * 100f),
+            L("claim_scale_decision_" + (string.IsNullOrEmpty(decision) ? "reject" : decision)));
 
     private static string Percent(float share) => $"{Mathf.RoundToInt(share * 100f)}%";
 
@@ -651,7 +657,7 @@ public static class ClaimScalePanel
     {
         float inner = width - CardPadding;
         var row = card.BeginHoriGroup(new Vector2(inner, 13f), TextAnchor.MiddleLeft, 2, new RectOffset(1, 3, 2, 0));
-        var left = row.AddTextIntoHoriLayout(LM.Get(key).ColorString(WideKit.Gold), true, TextAnchor.MiddleLeft,
+        var left = row.AddTextIntoHoriLayout(L(key).ColorString(WideKit.Gold), true, TextAnchor.MiddleLeft,
             new Vector2(inner * 0.6f, 12f));
         left.UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         var right = row.AddTextIntoHoriLayout((value ?? "").ColorString(WideKit.Value), true, TextAnchor.MiddleRight,

@@ -54,6 +54,7 @@ public static partial class CourtSystem
         state.factions ??= new Dictionary<string, CourtFactionState>();
         state.log ??= new List<CourtLogEntry>();
         state.history ??= new List<CourtMemorialRecord>();
+        state.modern = ModernWording.Applies(empire);
         return state;
     }
 
@@ -446,7 +447,7 @@ public static partial class CourtSystem
             memorial.roll = -1f;
             memorial.decider_name = "";
         }
-        string who = decider?.getName() ?? LM.Get("court_decider_" + role);
+        string who = decider?.getName() ?? ModernWording.Get(empire, "court_decider_" + role);
         // 三省六部：皇帝画敕后门下省审核，门下侍中所属派系反对时可能封驳，奏议退回重议(只封驳一次；神力直批不受封驳)
         if (decision == "approve" && godDecision == null && !memorial.reviewed &&
             CouncilKind(empire) == CourtCouncilKind.ThreeDepartments)
@@ -537,7 +538,7 @@ public static partial class CourtSystem
             memorial.shelved_once = true;
             memorial.stage = 3;
             memorial.stage_time = World.world.getCurWorldTime();
-            Log(state, "court_log_shelved", LM.Get("court_decider_emperor"), IssueName(claim.type, empire));
+            Log(state, "court_log_shelved", ModernWording.Get(empire, "court_decider_emperor"), IssueName(claim.type, empire));
             return true;
         }
         Decide(empire, state, memorial, claim, proposer, World.world.getCurWorldTime(), decision);
@@ -775,6 +776,7 @@ public static partial class CourtSystem
     public static string Log(CourtState state, string key, params object[] args)
     {
         if (state == null) return null;
+        key = ModernWording.Key(state.modern, key);
         string text;
         try
         {

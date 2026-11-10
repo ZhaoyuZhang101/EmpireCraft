@@ -9,7 +9,7 @@ import os
 import sys
 
 TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "author", "tech", "techExtra", "techSkip", "inst",
-       "culture", "ranks", "transmigrant", "relations", "walls", "passes", "wilderness", "silk", "events", "cores", "polities",
+       "culture", "ranks", "transmigrant", "relations", "walls", "passes", "wilderness", "silk", "events", "cores", "titles", "polities",
        "regions", "cities", "tianxia", "map", "paint", "terrain", "tribes", "frame", "wilderness_regions",
        "exact", "own_wilderness", "paint_base", "base_stale", "size", "own_cities", "independent", "develop", "base"}
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "hero", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
@@ -157,6 +157,16 @@ def main():
     own = bool(era.get("cities")) or bool(era.get("map"))
     cities = {c["id"]: c for c in (era.get("cities") or [] if own else base["cities"])}
     regions = {r["id"] for r in (era.get("regions") or [] if own else base["regions"])}
+    # 剧本自带的王国法理也能当地区用(帝国法理的 r、事件的 region、无人区挂靠)
+    base_cities = {c["id"] for c in (era.get("cities") or [] if own else base["cities"])}
+    for t in era.get("titles", []):
+        if not t.get("id") or not t.get("cities"):
+            err("titles：法理要写 id 与本属的城")
+            continue
+        regions.add(t["id"])
+        for cid in t.get("cities", []) + t.get("share", []):
+            if cid not in base_cities:
+                err("titles：法理 %s 的城 %s 不在城表里" % (t["id"], cid))
     cores = {c["id"] for c in (era.get("cores") or [])} | ({c["id"] for c in base.get("cores", [])} if not own else set())
     year = era.get("year")
     if not isinstance(year, int):

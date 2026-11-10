@@ -25,6 +25,20 @@ public sealed class WorldMapRegion
     public string TitleName => string.IsNullOrEmpty(title) ? Name : WorldMapData.PickParts(title);
 }
 
+// 剧本自带的王国法理(WorldMapEra.titles)：不照城表的地区分，写明哪些城本属这一块、哪些城兼属(1937 照玩家的帝盒法理地图，省为王国法理)。
+// zh/en/tw 为省份名，t 为法理名(陕、甘、凉……)，id 也能当地区用(帝国法理的 r、剧情事件的 region、无人区的挂靠)
+public sealed class WorldMapTitle
+{
+    public string id = "";
+    public string zh = "";
+    public string tw = "";
+    public string en = "";
+    [JsonProperty("t")] public string title = "";
+    [JsonProperty("cap")] public string capital = "";
+    public List<string> cities = new();
+    public List<string> share = new();
+}
+
 public sealed class WorldMapCity
 {
     public string id = "";
@@ -460,6 +474,8 @@ public sealed class WorldMapEra
     // 地区 → 本时代的文化(覆盖地区默认文化)
     public Dictionary<string, string> culture = new();
     public List<WorldMapCore> cores = new();
+    // 剧本自带的王国法理(见 WorldMapTitle、WorldMapScenario.ApplyEraTitles)；不写的照城表地区立法理
+    public List<WorldMapTitle> titles = new();
     public List<WorldMapPolity> polities = new();
     // 本时代另给的城市等级(城市 id → 等级)
     public Dictionary<string, int> ranks = new();
