@@ -705,12 +705,19 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
             new Vector2(PanelWidth - 12f, 10)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
 
         var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+        // 顺应民意：能让步时才给按钮；十年冷却、执政的已是民意所向、没有那一理念的政党时写明为什么不能
         if (hasPreferred && !_browsing)
-            buttons.AddButtonIntoHoriLayout("public_opinion_accept", LM.Get("public_opinion_accept"), () =>
-            {
-                PublicOpinionSystem.AcceptPreferred(_empire);
-                Rebuild();
-            }, size: new Vector2(90, 11));
+        {
+            if (PublicOpinionSystem.CanAccept(_empire, out string acceptBlocked))
+                buttons.AddButtonIntoHoriLayout("public_opinion_accept", LM.Get("public_opinion_accept"), () =>
+                {
+                    PublicOpinionSystem.AcceptPreferred(_empire);
+                    Rebuild();
+                }, size: new Vector2(90, 11));
+            else if (!string.IsNullOrEmpty(acceptBlocked))
+                buttons.AddTextIntoHoriLayout(LM.Get(acceptBlocked).ColorString("#8FA0A8"), true, TextAnchor.MiddleCenter,
+                    new Vector2(90, 11)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        }
         if (parliament.Exists && !RepublicSystem.IsOneParty(_empire) && !_browsing)
             buttons.AddButtonIntoHoriLayout("public_opinion_snap_election", LM.Get("public_opinion_snap_election"), () =>
             {

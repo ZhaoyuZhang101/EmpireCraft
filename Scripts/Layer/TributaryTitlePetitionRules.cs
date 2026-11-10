@@ -4,7 +4,8 @@ namespace EmpireCraft.Scripts.Layer;
 
 public static class TributaryTitlePetitionRules
 {
-    public const int PetitionInfluenceCost = 300;
+    // 朝贡国君请封花的名望(以前 300；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百))
+    public const int PetitionInfluenceCost = 200;
 
     public static bool CanPetition(bool isTributaryOfEmpire, bool hasMainTitle, int overlordOpinion)
     {

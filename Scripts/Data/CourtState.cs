@@ -8,6 +8,9 @@ public sealed class CourtState
     public Dictionary<string, CourtFactionState> factions = new();
     public CourtMemorial memorial;
     public List<CourtLogEntry> log = new();
+    // 往期奏议(新的在前，至多 CourtSystem.HistorySize 条)：诉求天平页据此列出每件奏议走到哪一步、成没成、为什么
+    // (用户 2026-11-10 "推动诉求也要加天平页面""这样才能知道成功还是没成功")
+    public List<CourtMemorialRecord> history = new();
     // 皇帝方略：balance 制衡 / favorite 偏宠 / suppress 打压 / personal 亲政 / regency 摄政(幼主、傀儡)
     public string strategy = "";
     public string strategy_target = "";
@@ -100,6 +103,46 @@ public sealed class CourtMemorial
     public bool drafted_by_ally;
     // 争奏时上奏一派投入的影响力(政治资本 + 首领的钱折算)，批红时加分(见 CourtSystem.TryPropose)
     public float bid;
+    // 上奏的时间；批红时的准奏率、掷出的数与各项砝码、批红者(诉求天平页用，见 CourtSystem.Decide)
+    public double proposed = -1d;
+    public float approval = -1f;
+    public float roll = -1f;
+    public string decider_name = "";
+    public List<CourtScaleFactor> factors = new();
+}
+
+// 天平上的一项砝码：key 是语言键，value 是这一项加减的值(准奏率按百分点，施行速度按倍数)，arg 填进语言键
+public sealed class CourtScaleFactor
+{
+    public string key = "";
+    public float value;
+    public string arg = "";
+}
+
+// 一件办完的奏议：走到哪一步、怎么收场(logKey)、廷议与批红时的读数
+public sealed class CourtMemorialRecord
+{
+    public string claim = "";
+    public string proposer = "";
+    public string proposer_name = "";
+    public double proposed = -1d;
+    public double closed = -1d;
+    // 收场时所在的一步(0 上奏 1 票拟 2 廷议 3 批红 4 施行)
+    public int stage;
+    // 收场的纪事键(court_log_rejected、court_log_completed……)与纪事原文
+    public string outcome = "";
+    public string text = "";
+    public float support = -1f;
+    public float approval = -1f;
+    public float roll = -1f;
+    public string decision = "";
+    public string decider_name = "";
+    public float bid;
+    // 廷议时各派表态与权重，派系名照当时记下(派系日后改名或解散也能看)
+    public Dictionary<string, int> stances = new();
+    public Dictionary<string, float> weights = new();
+    public Dictionary<string, string> names = new();
+    public List<CourtScaleFactor> factors = new();
 }
 
 public sealed class CourtLogEntry

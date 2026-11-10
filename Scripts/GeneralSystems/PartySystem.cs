@@ -186,6 +186,10 @@ public static class PartySystem
         { PartyIdeology.MilitaryMerit, FactionType.攘夷 }
     };
 
+    // 政党按理念的诉求清单(FactionEditor 手改政党理念时也用这一份)
+    public static List<TemporaryFactionType> ClaimsOf(PartyIdeology ideology) =>
+        IdeologyClaims.TryGetValue(ideology, out TemporaryFactionType[] claims) ? claims.ToList() : null;
+
     // 各理念的诉求：沿用原派系诉求，另加推行普选/土地改革
     private static readonly Dictionary<PartyIdeology, TemporaryFactionType[]> IdeologyClaims = new()
     {
@@ -445,6 +449,10 @@ public static class PartySystem
         if (RepublicSystem.IsTransitioning(empire) || RepublicSystem.HasActiveRevolutionWar(empire)) return;
         if (state.last_party_update >= 0d && Date.getYearsSince(state.last_party_update) < 1) return;
         state.last_party_update = World.world.getCurWorldTime();
+        // 党产与执政表现、民调；党代会、两翼、党纪；党际好感与街头(用户 2026-11-10 "政党总感觉是空壳")
+        PartyFinanceSystem.Yearly(empire);
+        PartyInnerSystem.Yearly(empire);
+        PartyRelations.Yearly(empire);
 
         // 一党制：不再有建党、流动、分合，只看执政党领袖有没有换人
         if (RepublicSystem.IsOneParty(empire))
@@ -744,15 +752,18 @@ public static class PartySystem
     private static void TrySplit(Empire empire, Regime regime, ConstitutionalEconomyState state)
     {
         List<FixedFaction> parties = GetParties(empire);
-        if (parties.Count >= MaxParties || Random.value > SplitChance) return;
+        if (parties.Count >= MaxParties) return;
         FixedFaction big = parties.Where(party => Share(empire, state, party) >= SplitSeatShare)
             .OrderByDescending(party => Share(empire, state, party)).FirstOrDefault();
         if (big == null) return;
+        // 党内一翼坐大、大选失利、党纪松弛都更易分裂；出走的多是那一翼的人(见 PartyInnerSystem)
+        if (Random.value > SplitChance * PartyInnerSystem.SplitFactor(big)) return;
         Actor rebel = big.AllMembers
             .Where(actor => actor != null && !actor.isRekt() && actor != big.GetLeader())
             .Where(actor => IdeologyPopulationSystem.Get(actor) != big.Ideology &&
                             Distance(IdeologyPopulationSystem.Get(actor), big.Ideology) >= SplitDistance)
-            .OrderByDescending(actor => actor.renown).FirstOrDefault();
+            .OrderByDescending(actor => IdeologyPopulationSystem.Get(actor).ToString() == big.WingIdeology)
+            .ThenByDescending(actor => actor.renown).FirstOrDefault();
         if (rebel == null) return;
         PartyIdeology ideology = IdeologyPopulationSystem.Get(rebel);
         if (parties.Any(party => party.Ideology == ideology)) return;
@@ -907,9 +918,14 @@ public static class PartySystem
     #region 选举(由 ParliamentSystem 调用)
 
     // 各党得票：有选举权的各阶层人口按理念接近程度分票，再加一点党组织本身的动员力
-    public static Dictionary<FixedFaction, float> CountVotes(Empire empire, List<FixedFaction> parties) =>
-        ApplyOpinionSwing(empire, CountVotes(parties, GetCitizens(empire), HasUniversalSuffrage(empire),
-            InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(empire.kingdoms_list)));
+    public static Dictionary<FixedFaction, float> CountVotes(Empire empire, List<FixedFaction> parties)
+    {
+        Dictionary<FixedFaction, float> votes = ApplyOpinionSwing(empire, CountVotes(parties, GetCitizens(empire),
+            HasUniversalSuffrage(empire), InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(empire.kingdoms_list)));
+        // 全国得票：地方执政多的党多得(见 PartyFinanceSystem.ProvinceFactor；用户 2026-11-10 "政党总感觉是空壳")
+        foreach (FixedFaction party in votes.Keys.ToList()) votes[party] *= PartyFinanceSystem.ProvinceFactor(empire, party);
+        return votes;
+    }
 
     // 一个行政区里各党的得票(地方选举、省级政治倾向)：只算住在本省的选民
     public static Dictionary<FixedFaction, float> CountProvinceVotes(Empire empire, Kingdom province,
@@ -937,6 +953,8 @@ public static class PartySystem
             factor *= 1f + Mathf.Min(0.2f, PublicOpinionSystem.GetPressure(empire, party.Ideology) / 100f);
             // 民族情绪高涨时，民族主义色彩浓的政党多拿票(见 NationalSentimentSystem)
             factor *= NationalSentimentSystem.VoteFactor(empire, party.Ideology);
+            // 竞选花费、地方执政、执政表现(见 PartyFinanceSystem)
+            factor *= PartyFinanceSystem.VoteFactor(empire, party);
             votes[party] *= factor;
         }
         return votes;
@@ -1082,6 +1100,7 @@ public static class PartySystem
             if (count <= 0) continue;
             Dictionary<FixedFaction, float> votes = ApplyOpinionSwing(empire, CountVotes(parties, district.voters,
                 true, InstitutionSystem.GetPrimaryCulture(empire), CityPopulationSystem.CitiesOf(new[] { district.kingdom })));
+            foreach (FixedFaction party in parties) votes[party] *= PartyFinanceSystem.DistrictFactor(empire, party, district.kingdom.id);
             // 顿特法：每次把一席给"得票 / (已得席位 + 1)"最大的党
             var won = parties.ToDictionary(party => party, _ => 0);
             for (int i = 0; i < count; i++)
@@ -1127,6 +1146,8 @@ public static class PartySystem
             Record(empire, string.Format(LM.Get("party_dissolved_history"), party.Name), null);
             RemoveParty(empire, regime, party);
         }
+        // 丢了三成以上议席的党临时开党代会追责(见 PartyInnerSystem)
+        PartyInnerSystem.AfterElection(empire, allocation, empire.data?.constitutional_economy?.previous_seat_counts);
     }
 
     #endregion

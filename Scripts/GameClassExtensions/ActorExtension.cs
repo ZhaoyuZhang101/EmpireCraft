@@ -1232,7 +1232,9 @@ public static class ActorExtension
 
     public static int CalculateAnnualInfluenceGain(double annualPerformance)
     {
-        return Math.Max(0, Math.Min(100, (int)Math.Floor(annualPerformance)));
+        // 年终政绩折名望：政绩的一半、每年至多 30(以前整份、至多 100；名望改身份年入、每年衰减一成后，
+        // 整份折算会让内阁大员稳态多出上千、压过皇帝，见 RenownSystem)
+        return Math.Max(0, Math.Min(30, (int)Math.Floor(annualPerformance / 2d)));
     }
     public static void AddOfficeExamLevel(this Actor actor, EmpireExamLevel level)
     {

@@ -1191,7 +1191,7 @@ public static class RepublicSystem
     {
         Empire empire = kingdom?.GetEmpire();
         if (empire == null || empire.CoreKingdom != kingdom || !IsRepublic(empire)) return null;
-        if (!Bureaus.TryGetValue(State(empire).republic_ideology.ToString(), out IdeologyBureau bureau) ||
+        if (!Bureaus.TryGetValue(BureauIdeology(empire).ToString(), out IdeologyBureau bureau) ||
             bureau?.cores == null || bureau.division == null) return null;
         return new BureauConfig
         {
@@ -1204,12 +1204,25 @@ public static class RepublicSystem
         };
     }
 
-    // 执政理念变了(改制共和、切换路线、复辟……)就把中央机构重建一次
+    // 中央机构跟执政党的理念走(用户 2026-11-10 "政党机制也完善下"，问答选"一并修")：以前一直按建国时的理念，换了执政党也不改组。
+    // 有议会的，新政府上台满一年才改组(频繁倒阁时不反复改)；没有执政党就按建国理念
+    public static PartyIdeology BureauIdeology(Empire empire)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        FixedFaction governing = PartySystem.GetGovernmentParty(empire);
+        if (state == null || governing == null) return state?.republic_ideology ?? PartyIdeology.Centrism;
+        bool settled = !ParliamentSystem.HasParliament(empire) || state.government_formed_at < 0d ||
+                       Date.getYearsSince(state.government_formed_at) >= 1;
+        if (settled) return governing.Ideology;
+        return Enum.TryParse(state.bureau_ideology, out PartyIdeology current) ? current : state.republic_ideology;
+    }
+
+    // 执政理念变了(改制共和、换了执政党、复辟……)就把中央机构重建一次
     public static void EnsureIdeologyBureau(Empire empire)
     {
         ConstitutionalEconomyState state = State(empire);
         if (state == null || empire.CoreKingdom == null || empire.CoreKingdom.GetRegime()?.bureau_config == null) return;
-        string wanted = IsRepublic(empire) ? state.republic_ideology.ToString() : "";
+        string wanted = IsRepublic(empire) ? BureauIdeology(empire).ToString() : "";
         if ((state.bureau_ideology ?? "") == wanted) return;
         state.bureau_ideology = wanted;
         empire.data.centerOffice ??= new CenterOffice();

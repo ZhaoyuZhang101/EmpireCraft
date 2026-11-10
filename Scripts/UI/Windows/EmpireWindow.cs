@@ -167,6 +167,13 @@ namespace EmpireCraft.Scripts.UI.Windows
                 scaleTab.Setup("empire_law_scale", this.TabsWindow, action: ShowLawScale,
                     sprite: SpriteTextureLoader.getSprite("TabSentencing"));
             }
+            // 诉求天平：奏议四步的读数、施行与地方推动的进度、往期奏议成没成(见 EmpireWindow.ClaimScale、ClaimScalePanel)
+            if (TabsWindow.tabs._tabs.All(p => p.name != "empire_claim_scale"))
+            {
+                var claimScaleTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+                claimScaleTab.Setup("empire_claim_scale", this.TabsWindow, action: ShowClaimScale,
+                    sprite: SpriteTextureLoader.getSprite("TabClaimScale"));
+            }
             if (TabsWindow.tabs._tabs.All(p => p.name != "empire_institutions"))
             {
                 var institutionTab = GameObject.Instantiate(SimpleWindowTab.Prefab);

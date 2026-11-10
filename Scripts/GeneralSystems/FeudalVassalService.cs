@@ -17,7 +17,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // Direct fealty is separate from both imperial membership and a personal-union alliance.
 public static class FeudalVassalService
 {
-    public const int AnnualControlCost = 300;
+    // 宗主每年加强控制花的名望(以前 300，封君、皇帝年入只有五十到一百，付不起；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百))
+    public const int AnnualControlCost = 100;
     public const int ProgressPerLevel = 5;
 
     private static bool IsFeudal(Kingdom kingdom) => kingdom != null && !kingdom.isRekt() &&

@@ -187,6 +187,8 @@ public static class BiographySystem
             major: true);
         // 死者的子与兄弟与凶手结下杀亲之仇(见 PersonalTieSystem)
         PersonalTieSystem.OnKinKilled(victim, killer);
+        // 同朝相杀、又不在交战：记未发之罪(杀人；杀了君主记谋反，见 EmpireLawSystem.OnNotableKilled)
+        EmpireLaw.EmpireLawSystem.OnNotableKilled(victim, killer);
     }
 
     // 一句生平(大事)，人不在、没族谱身份的跳过

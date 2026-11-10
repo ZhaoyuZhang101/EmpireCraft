@@ -213,9 +213,12 @@ public static class FactionEditor
         faction.Ideology = ideology;
         if (!faction.IsParty && !faction.IsClique) faction.IdeologyChosen = true;
         faction.Type = PartySystem.FactionTypeOf(ideology);
-        faction.TemporaryFactionTypesRecord = FactionManager.FactionConfig.TryGetValue(faction.Type, out var catalog)
-            ? new List<TemporaryFactionType>(catalog)
-            : new List<TemporaryFactionType>();
+        // 政党的诉求按理念(同 PartySystem.ConvertToParty)；以前一律按派系类型的清单，政党改了理念就拿到别的诉求(用户 2026-11-10 "政党机制也完善下"，问答选"一并修")
+        List<TemporaryFactionType> partyClaims = faction.IsParty ? PartySystem.ClaimsOf(ideology) : null;
+        faction.TemporaryFactionTypesRecord = partyClaims ??
+            (FactionManager.FactionConfig.TryGetValue(faction.Type, out var catalog)
+                ? new List<TemporaryFactionType>(catalog)
+                : new List<TemporaryFactionType>());
         faction.ClaimCatalogVersion = FixedFaction.CurrentClaimCatalogVersion;
         FactionClassSystem.EnsureProfile(faction);
         foreach (SocialClass socialClass in Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())

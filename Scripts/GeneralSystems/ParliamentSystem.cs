@@ -347,6 +347,8 @@ public static partial class ParliamentSystem
         List<FixedFaction> factions = partyPolitics
             ? PartySystem.GetParties(empire).Where(party => PartyBanSystem.IsAllowedParty(empire, party)).ToList()
             : GetSeatedFactions(empire);
+        // 大选前各党拿出党产的一半拉票(见 PartyFinanceSystem)(用户 2026-11-10 "政党总感觉是空壳")
+        if (partyPolitics) PartyFinanceSystem.Campaign(empire, factions);
         Dictionary<FixedFaction, float> votes = partyPolitics ? PartySystem.CountVotes(empire, factions) : null;
         // 普选后按行政区选举(区内按比例)；此前全国统一按得票/中央占比分
         List<(FixedFaction faction, long district)> slots;

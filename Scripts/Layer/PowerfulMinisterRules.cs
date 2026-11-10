@@ -6,7 +6,8 @@ namespace EmpireCraft.Scripts.Layer
     public static class PowerfulMinisterRules
     {
         public const int EntryInfluence = 300;
-        public const int MonthlyCost = 10;
+        // 权臣每推进一个月花的名望(以前 10，一年 120；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百)，一品大员每月年入四五点)
+        public const int MonthlyCost = 4;
         // 掌控朝廷 → 封公 → 九锡 → 篡位，每一步至少隔六年，从掌控朝廷到篡位至少十八年(王莽、曹氏代汉都是十几二十年)。
         // 以前六个月、后来三年，不到十年就篡位，一个王朝动辄被权臣夺走
         public const int StageIntervalMonths = 72;

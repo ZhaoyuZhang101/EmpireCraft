@@ -590,6 +590,39 @@ def obj_sentencing(img):
     over(img, shade(rrect([188, 120, 236, 140], 6), BONE, bevel=4, grain=0.2))
 
 
+def obj_claim_scale(img):
+    """诉求天平(帝国页签)：下方一份展开的四折奏章(骨白纸面、乌漆竖行)，右下角一点朱批；上方旧铜天平，
+    横梁微倾，两只铜盘一高一低——一件诉求这回的赞成与反对。量刑用的是 obj_sentencing"""
+    for k in range(4):
+        x = 34 + k * 47
+        over(img, shade(rrect([x, 116, x + 45, 230], 3), PARCH, bevel=8, grain=0.35))
+        for j in range(2):
+            lx = x + 13 + j * 16
+            over(img, shade(lines([[(lx, 130), (lx, 212)]], 5), LACQ, bevel=2, flat=True))
+    over(img, shade(ellipse([176, 190, 212, 226]), RED, bevel=6, grain=0.2))
+    over(img, shade(rrect([121, 30, 135, 104], 4), BRASS, bevel=5))
+    over(img, shade(lines([[(50, 50), (206, 38)]], 10), BRASS, bevel=5, gloss=0.9))
+    over(img, shade(ellipse([114, 18, 142, 46]), BRASS, bevel=6, gloss=1.0))
+    over(img, shade(lines([[(54, 52), (34, 96)], [(54, 52), (74, 96)], [(202, 40), (182, 80)], [(202, 40), (222, 80)]], 4),
+                    STEEL, bevel=2))
+    over(img, shade(poly([(20, 96), (88, 96), (80, 112), (28, 112)]), BRASS, bevel=6, gloss=0.8))
+    over(img, shade(poly([(168, 80), (236, 80), (228, 96), (176, 96)]), BRASS, bevel=6, gloss=0.8))
+
+
+def obj_party_affairs(img):
+    """党务(派系窗口页签)：乌木投票箱，乌漆箱盖上一道铁口，一张骨白选票正投进去；箱身一道朱红封条，
+    箱旁一摞铜钱(党产)"""
+    over(img, shade(rrect([40, 112, 182, 226], 6), WOOD, bevel=10, grain=0.35))
+    over(img, shade(rrect([32, 96, 190, 118], 5), LACQ, bevel=6))
+    over(img, shade(rrect([82, 102, 140, 110], 3), IRON, bevel=2, flat=True))
+    over(img, shade(poly([(88, 30), (146, 22), (148, 106), (90, 106)]), BONE, bevel=6, grain=0.25))
+    over(img, shade(lines([[(100, 46), (134, 42)], [(100, 62), (136, 58)], [(100, 78), (128, 75)]], 4), LACQ, bevel=1, flat=True))
+    over(img, shade(rrect([40, 150, 182, 172], 3), RED, bevel=5, grain=0.2))
+    for k in range(4):
+        y = 220 - k * 15
+        over(img, shade(ellipse([188, y - 9, 240, y + 7]), BRASS, bevel=5, gloss=0.9))
+
+
 TABS = {
     "TabMilitary": obj_military,
     "TabGentry": obj_gentry,
@@ -602,6 +635,8 @@ TABS = {
     "TabInstitutions": obj_bamboo,
     "TabDiet": obj_diet,
     "TabSentencing": obj_sentencing,
+    "TabClaimScale": obj_claim_scale,
+    "TabPartyAffairs": obj_party_affairs,
 }
 
 

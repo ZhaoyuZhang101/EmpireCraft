@@ -375,6 +375,18 @@ public static class PartyBanSystem
         return true;
     }
 
+    // 禁党诉求(TempFac_禁党)：本派是执政党、议席过半(无议会按势力)，开放党禁且宪法没手定政党制度时才能推
+    public static bool CanBanByClaim(Empire empire, FixedFaction faction)
+    {
+        if (faction == null || !faction.IsParty || faction.Ban || !PartySystem.IsActive(empire) || IsClosed(empire) ||
+            RepublicSystem.IsTransitioning(empire) || ConstitutionSystem.IsPlayerLocked(empire, ConstitutionSystem.ClausePartySystem))
+            return false;
+        return PartySystem.GetGovernmentParty(empire) == faction && SeatShare(empire, party => party == faction) > 0.5f;
+    }
+
+    public static void CloseByClaim(Empire empire, FixedFaction faction) =>
+        Close(empire, faction, DefaultAllies(empire, faction), "party_ban_claim_history");
+
     public static bool CloseManually(Empire empire)
     {
         if (!CanCloseManually(empire, out FixedFaction leader, out List<FixedFaction> allies)) return false;

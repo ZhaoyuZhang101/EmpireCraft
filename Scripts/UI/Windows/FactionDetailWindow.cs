@@ -222,6 +222,29 @@ public class FactionDetailWindow : AbstractWideWindow<FactionDetailWindow>
             classTab.Setup("show_faction_class_base", ScrollWindowComponent, action: ShowClassBase,
                 sprite: SpriteTextureLoader.getSprite("ui/icons/actor_traits/iconJingshi"));
         }
+        // 党务：党产、民调、党内、党际(用户 2026-11-10 "政党总感觉是空壳"，见 PartyAffairsPanel)
+        if (ScrollWindowComponent.tabs._tabs.All(p => p.name != "show_party_affairs"))
+        {
+            var affairsTab = GameObject.Instantiate(SimpleWindowTab.Prefab);
+            affairsTab.Setup("show_party_affairs", ScrollWindowComponent, action: ShowPartyAffairs,
+                sprite: SpriteTextureLoader.getSprite("TabPartyAffairs"));
+        }
+    }
+
+    public void ShowPartyAffairs(WindowMetaTab window = null)
+    {
+        Clear();
+        InitialTopPart();
+        Empire empire = _faction?.Empire ?? _kingdom?.GetEmpire();
+        var content = _root.BeginVertGroup(pSpacing: 2, pAlignment: TextAnchor.UpperCenter);
+        try
+        {
+            PartyAffairsPanel.Render(content, empire, _faction, ContentWidth);
+        }
+        catch (Exception exception)
+        {
+            NeoModLoader.services.LogService.LogError($"派系窗口党务页绘制失败({_faction?.Name}): {exception}");
+        }
     }
 
     [Hotfixable]

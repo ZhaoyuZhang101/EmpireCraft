@@ -26,7 +26,10 @@ namespace EmpireCraft.Scripts.AI
 {
     public static class EmpireCraftPlotsAddition
     {
-        private const int FactionLeaderLocalInfluenceCost = 50;
+        // 派系首领插手地方、国君邀别国入派花的名望(以前 50，邀人门槛 300；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百))
+        private const int FactionLeaderLocalInfluenceCost = 30;
+        private const int InviteToFactionCost = 30;
+        private const int InviteToFactionMinRenown = 200;
         private static readonly HashSet<string> FailedPlotExecutions = new();
         public static PlotAsset Rebellion;
         private static readonly HashSet<string> s_guardedPlotIds = new HashSet<string>();
@@ -34,7 +37,7 @@ namespace EmpireCraft.Scripts.AI
         private static Kingdom FindLocalFactionInfluenceTarget(Actor actor)
         {
             if (actor == null || actor.isRekt() || !actor.isKing() || !actor.HasFaction() ||
-                actor.data.renown < 50) return null;
+                actor.data.renown < InviteToFactionCost) return null;
             Kingdom source = actor.kingdom;
             Empire empire = source?.GetEmpire();
             if (empire == null || empire.IsArchived() || source == empire.CoreKingdom ||
@@ -840,7 +843,7 @@ namespace EmpireCraft.Scripts.AI
                 is_basic_plot = true,
                 min_level = 5,
                 progress_needed = 15f,
-                min_renown_actor = 300,
+                min_renown_actor = InviteToFactionMinRenown,
                 can_be_done_by_king = true,
                 check_is_possible = delegate (Actor pActor)
                 {
@@ -858,7 +861,7 @@ namespace EmpireCraft.Scripts.AI
                     Kingdom kingdom = pActor.kingdom;
                     Kingdom target = FindLocalFactionInfluenceTarget(pActor);
                     if (target == null || !target.TryIncreaseFactionRatio(pActor.GetFaction(), 1)) return false;
-                    pActor.data.renown -= 50;
+                    pActor.data.renown -= InviteToFactionCost;
                     TranslateHelper.LogInviteIntoFaction(kingdom, target, pActor.GetFaction());
                     return true;
                 }

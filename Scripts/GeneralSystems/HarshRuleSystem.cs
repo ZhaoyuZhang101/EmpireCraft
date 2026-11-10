@@ -394,7 +394,9 @@ public static class HarshRuleSystem
 
     private static void UpdateStreetUnrest(Empire empire, ConstitutionalEconomyState state)
     {
-        float pressure = state.harsh_burden * (ParliamentSystem.HasParliament(empire) ? 0.85f : 1f);
+        // 在野党组织的示威、罢工也加压(见 PartyRelations)(用户 2026-11-10 "政党总感觉是空壳")
+        float pressure = state.harsh_burden * (ParliamentSystem.HasParliament(empire) ? 0.85f : 1f) +
+                         PartyRelations.StreetPressure(empire);
         int target = pressure >= 70f ? Riots : pressure >= 50f ? Clashes : pressure >= 30f ? Demonstrations : Calm;
         int previous = state.street_unrest_stage;
         if (target > previous) state.street_unrest_stage = previous + 1;

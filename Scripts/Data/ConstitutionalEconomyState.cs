@@ -11,6 +11,26 @@ public sealed class CompletedTradeVoyage
     public int delivered_gold;
 }
 
+// 一件议会表决过的诉求(见 ParliamentBillSystem)：谁提的、各党怎么投、结局
+// (outcome：running 施行中 / completed 办成 / aborted 中途作罢 / rejected 否决 / failed 通过了却没能施行)
+public sealed class ParliamentBillRecord
+{
+    public string claim = "";
+    public string sponsor = "";
+    public string sponsor_name = "";
+    public double proposed = -1d;
+    public double closed = -1d;
+    public int yes, no, abstain;
+    public bool passed;
+    // 执政一方提的(有党纪)
+    public bool government;
+    public string outcome = "";
+    // 党 id → 投票(1 赞成 / 0 弃权 / -1 反对)、席位、当时的党名
+    public Dictionary<string, int> votes = new();
+    public Dictionary<string, int> seats = new();
+    public Dictionary<string, string> names = new();
+}
+
 // 议会的一个议席：属于哪个派系、由谁出任。actor_id < 0 表示空缺（该派系没有合适人选）。
 public sealed class ParliamentSeat
 {
@@ -99,6 +119,9 @@ public sealed class ConstitutionalEconomyState
     public double restoration_failed_at = -1d;
     public float opinion_support;
     public float opinion_dissent;
+    // 顺应民意(见 PublicOpinionSystem.AcceptPreferred)：让步换来的异见减免(逐年消退)与上次让步的时间。旧档 0 / -1
+    public float opinion_concession;
+    public double opinion_accepted_at = -1d;
     // 诉求立下的国策(见 ClaimPolicySystem)：移民 -1 驱逐 / 0 常态 / 1 开放；金融 -1 缩减 / 0 常态 / 1 霸权
     public int migration_policy;
     public int finance_policy;
@@ -219,6 +242,16 @@ public sealed class ConstitutionalEconomyState
     // 政党分肥制下换了执政党的时间：之后两年官员大换血，宪政合法性下降(见 ModernLegitimacy)
     public double spoils_turnover_at = -1d;
     public GovernmentAgenda government_agenda;
+    // 议会表决过的诉求(新的在前，见 ParliamentBillSystem)与政府被否决一案后再提案的时间。旧档空 / -1
+    public List<ParliamentBillRecord> parliament_bills = new();
+    public double next_bill_at = -1d;
+    // 执政表现(0~100，见 PartyFinanceSystem)与它记的是哪一党的政府(换了首相党就从 55 重来)、今年的加减项。旧档 -1 / 空
+    public float government_approval = -1f;
+    public string government_approval_party = "";
+    public Dictionary<string, float> government_approval_parts = new();
+    public double last_party_street = -1d;
+    // 在野党示威、罢工给街头抗争加的压(见 PartyRelations.Street)
+    public float party_street_pressure;
     // —— 地方政治(见 ProvincialPoliticsSystem)——键为行政区(帝国内的国家)id
     public Dictionary<long, ProvincePolitics> provinces = new();
     // 地方选举在哪一届议会的中期办过(每届一次)

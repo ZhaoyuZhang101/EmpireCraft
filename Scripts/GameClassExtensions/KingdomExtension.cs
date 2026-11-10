@@ -25,7 +25,10 @@ namespace EmpireCraft.Scripts.GameClassExtensions;
 
 public class TemporaryPushProgress
 {
-    public const int InfluenceCostPerYear = 50;
+    // 地方推诉求花的名望：按月扣，每月 2、一年 24。以前每月整扣 50(常量名写着每年，实际每月扣，一年 600)，推满 100 点
+    // 要二十到一百个月，名望改身份年入(君主一年二十到一百)后根本推不动(用户 2026-11-10 "名望开销也可以调整")
+    public const int InfluenceCostPerMonth = 2;
+    public const int InfluenceCostPerYear = InfluenceCostPerMonth * 12;
     public const int SupportBaseMoneyCost = 50;
     public bool StartedToPushTf = false;
     public TemporaryFactionType TfType = TemporaryFactionType.供养宗室;
@@ -119,8 +122,8 @@ public class TemporaryPushProgress
     public int ConsumeInfluenceAndCalcAdd(Actor actor)
     {
         if (actor == null || actor.isRekt()) return 0;
-        if (actor.data == null || actor.data.renown < InfluenceCostPerYear) return 0;
-        actor.data.renown -= InfluenceCostPerYear;
+        if (actor.data == null || actor.data.renown < InfluenceCostPerMonth) return 0;
+        actor.data.renown -= InfluenceCostPerMonth;
         return CalcPolicyProgressAdd(actor.GetIdentity()?.TotalPerformance ?? 0, Progress);
     }
 
@@ -186,6 +189,25 @@ public class TemporaryPushProgress
         claim.TargetType = PendingClaim.TargetType;
         claim.Start();
         if (claim.IsStarted()) Stop();
+    }
+
+    // 诉求天平页(用户 2026-11-10 "推动诉求也要加天平页面")：推动者这个月能加几点(按政绩分档，近满减速)、
+    // 名望够不够付这个月、照眼下的名望还要几个月推满(不计以后的年入；推不满时 months = -1)
+    public (int add, int performance, bool affordable, int months) Outlook()
+    {
+        Actor actor = GetPusher();
+        if (!StartedToPushTf || actor?.data == null || actor.isRekt()) return (0, 0, false, -1);
+        double performance = actor.GetIdentity()?.TotalPerformance ?? 0;
+        int add = CalcPolicyProgressAdd(performance, Progress);
+        int renown = actor.data.renown, progress = Progress, months = 0;
+        while (progress < 100 && months < 1200)
+        {
+            if (renown < InfluenceCostPerMonth) { months = -1; break; }
+            renown -= InfluenceCostPerMonth;
+            progress += CalcPolicyProgressAdd(performance, progress);
+            months++;
+        }
+        return (add, (int)performance, actor.data.renown >= InfluenceCostPerMonth, months);
     }
 
     public static bool IsLocalPusher(Actor actor)
@@ -720,7 +742,8 @@ public static class KingdomExtension
         kingdom.ClampFactionRatio();
     }
 
-    public const float FactionLeaderInfluenceForMaximumGrowth = 1000f;
+    // 派系首领名望到这么多，派系份额增长到满速(以前 1000；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百)，首领多是大员，六百上下)
+    public const float FactionLeaderInfluenceForMaximumGrowth = 600f;
     public const int MaximumAnnualFactionRatioGrowth = 3;
 
     public static float CalculateAnnualFactionRatioGrowth(int leaderInfluence, float classPower = 0f)

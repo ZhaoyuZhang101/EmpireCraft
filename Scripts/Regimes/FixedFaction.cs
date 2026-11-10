@@ -342,6 +342,24 @@ public class FixedFaction
     public long PartyFounderId { get; set; } = -1L;
     public double PartyFoundedAt { get; set; } = -1d;
     public int ZeroSeatElections { get; set; }
+    // —— 党产、民调、党内与党际(用户 2026-11-10 "政党总感觉是空壳"，见 PartyFinanceSystem、PartyInnerSystem、PartyRelations)。旧档 0 / 空 / -1 ——
+    public float PartyFunds { get; set; }
+    public float PartyIncome { get; set; }
+    public Dictionary<string, float> PartyIncomeParts { get; set; } = new();
+    public float CampaignSpend { get; set; }
+    public double CampaignAt { get; set; } = -1d;
+    // 民调：最近十年每年估一次的全国得票率(%)，新的在后
+    public List<float> PollHistory { get; set; } = new();
+    // 党代会选出的党魁与当选时间；党纪(0~100)；党内最大的一翼(理念与本党不同的党员按理念聚成的一群)及其占比
+    public long ElectedLeaderId { get; set; } = -1L;
+    public double LeaderElectedAt { get; set; } = -1d;
+    public float Discipline { get; set; } = 50f;
+    public string WingIdeology { get; set; } = "";
+    public float WingShare { get; set; }
+    // 上一届大选比再上一届少了几成议席(0~1)，党内追责与分裂用
+    public float LastSeatLoss { get; set; }
+    // 对别党的好感记忆(党 id → 加减)，与理念远近合成好感(见 PartyRelations.Relation)
+    public Dictionary<string, float> PartyMemory { get; set; } = new();
     // —— 朋党(党禁前的华夏朝堂派系像政党一样兴衰，见 CliqueSystem)：理念记在 Ideology ——
     public bool IsClique { get; set; }
     public double CliqueFoundedAt { get; set; } = -1d;
@@ -739,6 +757,8 @@ public class FixedFaction
         Actor currentLeader = GetLeader();
         if (currentLeader != null)
         {
+            // 党代会选出的党魁任内不因官职高低被换掉，等下届党代会(见 PartyInnerSystem)
+            if (IsParty && ElectedLeaderId == currentLeader.id) return;
             if (!OfficeSelector.IsPreferredOfficeCandidate(currentLeader, Empire.CoreKingdom))
             {
                 Actor preferredMember = Members.Select(id => World.world.units.get(id))

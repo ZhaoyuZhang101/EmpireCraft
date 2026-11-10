@@ -61,6 +61,9 @@ public static class SentencingScale
     // 告发者至少要有这么多名望才上秤
     public const int MinRenown = 30;
 
+    // 血债宗室：手上沾着本朝皇亲的血，每人加五成罪责，至多四人(×3)(用户 2026-11-10 "都杀了皇室的亲人了这罪名呢")
+    public static float RoyalBloodFactor(int kills) => 1f + 0.5f * Clamp(kills, 0, 4);
+
     // 赃额：每 200 两加五成罪责，至多 ×1.5(未发之赃按每回贪墨累计，见 EmpireLawSystem.RecordCrime)
     public static float LootFactor(int amount) => 1f + 0.5f * Math.Min(1f, Math.Max(0, amount) / 200f);
 

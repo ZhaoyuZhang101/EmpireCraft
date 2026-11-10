@@ -169,9 +169,11 @@ public static partial class ParliamentSystem
             Formateur = formateur, Members = { (formateur, formateurSeats) }, Type = GovernmentCoalition,
             Seats = formateurSeats
         };
+        // 党际好感太差的不肯入阁(见 PartyRelations)(用户 2026-11-10 "政党总感觉是空壳")
         foreach ((FixedFaction faction, int seats) in blocs
                      .Where(item => item.faction != formateur &&
-                                    PoliticalDistance(formateur, item.faction, budding) <= MaxCoalitionDistance)
+                                    PoliticalDistance(formateur, item.faction, budding) <= MaxCoalitionDistance &&
+                                    !PartyRelations.RefusesCoalition(formateur, item.faction))
                      .OrderBy(item => PoliticalDistance(formateur, item.faction, budding))
                      .ThenByDescending(item => item.seats))
         {
@@ -245,6 +247,27 @@ public static partial class ParliamentSystem
         if (newGovernment || announce != null) AssignMinisters(empire, state, announce: true);
         if (announce != null || primeMinister.id == previous) return;
         RecordPrimeMinister(empire, primeMinister, plan.Formateur, plan.Type, plan.Seats, total);
+    }
+
+    // 顺应民意(PublicOpinionSystem.AcceptPreferred)：把民意所向之党邀入执政联盟——它在议会有席位、不在执政一方、
+    // 理念与首相党相距不超过 MaxCoalitionDistance；邀入后按新联盟重分部长(用户 2026-11-10 "政党机制也完善下"，问答选"一并修")
+    public static bool InviteIntoGovernment(Empire empire, FixedFaction party)
+    {
+        ConstitutionalEconomyState state = GetState(empire);
+        if (state?.parliament_seats == null || party == null || !HasParliament(empire) || RepublicSystem.IsOneParty(empire)) return false;
+        FixedFaction leader = FindFaction(empire, state.prime_minister_faction_id);
+        state.coalition_faction_ids ??= new List<string>();
+        if (leader == null || leader == party || state.coalition_faction_ids.Contains(party.GetID())) return false;
+        if (PoliticalDistance(leader, party, state.capitalist_budding) > MaxCoalitionDistance) return false;
+        int seats = state.parliament_seats.Count(seat => seat.faction_id == party.GetID());
+        if (seats <= 0) return false;
+        if (state.coalition_faction_ids.Count == 0) state.coalition_faction_ids.Add(leader.GetID());
+        state.coalition_faction_ids.Add(party.GetID());
+        state.government_seats += seats;
+        state.government_type = state.government_seats * 2 > state.parliament_seats.Count ? GovernmentCoalition : GovernmentMinority;
+        state.government_formed_at = World.world.getCurWorldTime();
+        AssignMinisters(empire, state, announce: true);
+        return true;
     }
 
     private static bool TryKeepGovernment(Empire empire, ConstitutionalEconomyState state,
@@ -483,6 +506,13 @@ public static partial class ParliamentSystem
             pressure += 0.15f;
             reasons.Add(LM.Get("parliament_nc_reason_bankrupt"));
         }
+        // 执政表现低于 35(见 PartyFinanceSystem)(用户 2026-11-10 "政党总感觉是空壳")
+        float approval = PartyFinanceSystem.Approval(empire);
+        if (approval < 35f)
+        {
+            pressure += (35f - approval) / 100f;
+            reasons.Add(string.Format(LM.Get("parliament_nc_reason_approval"), Mathf.RoundToInt(approval)));
+        }
         if (pressure < 0.2f || UnityEngine.Random.value >= Mathf.Min(0.6f, pressure - 0.1f)) return false;
 
         // 表决：在野党多半投赞成(理念接近执政党的可能弃权)，联盟小党视分歧与丑闻倒戈
@@ -492,7 +522,8 @@ public static partial class ParliamentSystem
             if (faction == leaderParty) continue;
             float distance = PoliticalDistance(leaderParty, faction, budding);
             float chance = coalition.Contains(faction.GetID())
-                ? Mathf.Clamp01((distance - 30f) / 150f + (scandal ? 0.15f : 0f) + pressure * 0.2f)
+                ? Mathf.Clamp01((distance - 30f) / 150f + (scandal ? 0.15f : 0f) + pressure * 0.2f +
+                                PartyRelations.NoConfidenceBias(faction, leaderParty))
                 : distance > 40f ? 0.85f : 0.5f;
             if (UnityEngine.Random.value < chance) yes += seats;
         }

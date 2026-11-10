@@ -629,6 +629,8 @@ public static partial class EmpireLawSystem
 
         Weigh(info.Guilt, "law_scale_priors", SentencingScale.PriorFactor(identity?.law_convictions?.Count ?? 0));
         Weigh(info.Guilt, "law_scale_defiance", SentencingScale.DefianceFactor(DefianceCount(identity, context?.ReasonKey)));
+        int royalKills = RoyalBloodDebt(actor, kingdom);
+        Weigh(info.Guilt, "law_scale_royal_blood", SentencingScale.RoyalBloodFactor(royalKills), royalKills.ToString());
         int loot = context != null ? context.Loot : PendingLoot(identity);
         Weigh(info.Guilt, "law_scale_loot", SentencingScale.LootFactor(loot), loot.ToString());
         Actor accuser = context?.Accuser;
@@ -858,6 +860,48 @@ public static partial class EmpireLawSystem
             realm?.AddCorruptionRate(0.005d);
             AddNote(context.Notes, "law_note_cost_lenient");
             LogService.LogInfo($"[律法][量刑] 放过 {context.ActorName}：罪责 ×{info.GuiltWeight:0.00} 仍减 {-info.Shift} 等，吏治败坏 +2");
+        }
+    }
+
+    // 血债宗室：这人亲手杀过几个本朝皇亲(与本朝君主同一宗，含支系)。按他生平里"手刃某某"那几笔回查——死者的死因记录写着
+    // 凶手就是他，旧档里早先杀的也算得上(用户 2026-11-10 "都杀了皇室的亲人了这罪名呢")
+    public static int RoyalBloodDebt(Actor actor, Kingdom kingdom)
+    {
+        PersonalClanIdentity identity = actor?.GetPersonalIdentity();
+        SpecificClan royal = RealmRuler(kingdom)?.GetSpecificClan();
+        if (identity?.personal_history == null || royal == null) return 0;
+        var victims = new HashSet<long>();
+        foreach (PersonalHistoryRecord record in identity.personal_history)
+        {
+            if (record == null || record.related_actor_id < 0 || victims.Contains(record.related_actor_id)) continue;
+            PersonalClanIdentity victim = SpecificClanManager.PersonByActorId(record.related_actor_id);
+            if (victim == null || victim.is_alive || victim.id == identity.id ||
+                !SpecificClanManager.SameLineage(victim._specificClan, royal)) continue;
+            bool killedByHim = victim.personal_history?.Any(death => death != null && death.event_key == BiographySystem.DeathKey &&
+                                                                     death.related_actor_id == actor.id) == true;
+            if (killedByHim) victims.Add(record.related_actor_id);
+        }
+        return victims.Count;
+    }
+
+    // 要人死于人手(BiographySystem.RecordKiller)：同一朝的人、两边又不在交战，下手的人记一桩未发之罪——杀了本朝君主记谋反，
+    // 别的记杀人(十恶)，日后年审查出来按律论处；打仗阵前杀的不算(用户 2026-11-10 "都杀了皇室的亲人了这罪名呢")
+    public static void OnNotableKilled(Actor victim, Actor killer)
+    {
+        if (!Enabled || victim?.data == null || killer?.data == null || killer.isRekt() || !killer.isAlive() || killer == victim) return;
+        Kingdom realm = killer.kingdom, home = victim.kingdom;
+        if (realm?.data == null || home?.data == null || realm.isRekt() || home.isRekt()) return;
+        bool sameRealm = realm == home || realm.IsInEmpire() && home.IsInEmpire() && realm.GetEmpire() == home.GetEmpire();
+        if (!sameRealm || realm.isInWarWith(home)) return;
+        LawType crime = RealmRuler(home) == victim ? LawType.谋反 : LawType.杀人;
+        try
+        {
+            if (killer.RecordCrime(crime))
+                LogService.LogInfo($"[律法][实事] {killer.getName()} 杀 {victim.getName()}(同朝、未交战)，记{crime}");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[律法][实事] 给 {killer.getName()} 记{crime}失败: {exception.Message}");
         }
     }
 

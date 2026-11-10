@@ -120,7 +120,10 @@ public static class PublicOpinionSystem
         float backlash = Backlash(empire);
         // 意识形态疲劳带来的犬儒：满疲劳时异见 +0.1(见 IdeologyDynamicsSystem)
         float cynicism = IdeologyDynamicsSystem.GetFatigue(empire) / 1000f;
-        float dissent = Mathf.Clamp01(far + middle * 0.5f + cynicism + Mathf.Min(0.25f, hostilePressure / 200f) +
+        // 顺应民意的让步：异见减免，每年消退三个百分点(见 AcceptPreferred)
+        float concession = Mathf.Max(0f, state.opinion_concession);
+        state.opinion_concession = Mathf.Max(0f, concession - ConcessionDecay);
+        float dissent = Mathf.Clamp01(-concession + far + middle * 0.5f + cynicism + Mathf.Min(0.25f, hostilePressure / 200f) +
                                       HarshRuleSystem.DissentBonus(empire) -
                                       (PartyBanSystem.HasConsultation(empire) ? PartyBanSystem.ConsultationDissent : 0f) +
                                       (grievance * 0.15f + strikeShare * 0.5f + demonstrationShare * 0.15f) * backlash);
@@ -399,11 +402,60 @@ public static class PublicOpinionSystem
         Announce(empire, string.Format(LM.Get("public_opinion_election_log"), empire.GetEmpireName(), ideologyName));
     }
 
-    // 玩家顺应民意：理念路线切到百姓想要的理念所在路线
+    // 顺应民意(用户 2026-11-10 "政党机制也完善下"，问答选"一并修")：以前是切换理念路线，那个开关已经作废(不许靠一纸命令改写政党、换政府)，按钮点了没反应。
+    // 改成朝廷向民意所向的理念让步：该理念最大的合法政党得势(势力 +10)、执政一方失势(-5)；有议会、不是一党制的，
+    // 它在议会有席位且理念与首相党不远就邀入联合政府，否则提前大选交给百姓投票；异见减免 15 个百分点(每年消退 3)，
+    // 革命浪潮的倒计时清零。十年一次
+    public const int AcceptCooldownYears = 10;
+    private const float ConcessionRelief = 0.15f, ConcessionDecay = 0.03f;
+
+    public static FixedFaction PreferredParty(Empire empire) =>
+        TryGetPreferred(empire, out PartyIdeology preferred)
+            ? PartySystem.GetParties(empire).Where(party => !party.Ban && party.Ideology == preferred)
+                .OrderByDescending(party => party.CentralRatio).FirstOrDefault()
+            : null;
+
+    public static bool CanAccept(Empire empire, out string reason)
+    {
+        ConstitutionalEconomyState state = State(empire);
+        reason = "";
+        if (state == null || !TryGetPreferred(empire, out PartyIdeology preferred)) return false;
+        if (GetGoverning(empire) == preferred) { reason = "public_opinion_accept_already"; return false; }
+        if (PreferredParty(empire) == null) { reason = "public_opinion_accept_no_party"; return false; }
+        if (state.opinion_accepted_at >= 0d && Date.getYearsSince(state.opinion_accepted_at) < AcceptCooldownYears)
+        {
+            reason = "public_opinion_accept_cooldown";
+            return false;
+        }
+        return true;
+    }
+
     public static bool AcceptPreferred(Empire empire)
     {
-        if (!TryGetPreferred(empire, out PartyIdeology preferred)) return false;
-        return PartySystem.SwitchRoute(InstitutionSystem.GetPrimaryCulture(empire), PartySystem.RouteOf(preferred));
+        ConstitutionalEconomyState state = State(empire);
+        if (!CanAccept(empire, out _)) return false;
+        FixedFaction party = PreferredParty(empire);
+        FixedFaction governing = PartySystem.GetGovernmentParty(empire);
+        empire.CoreKingdom.TryIncreaseFactionRatio(party, 10);
+        if (governing != null && governing != party) empire.CoreKingdom.TryIncreaseFactionRatio(governing, -5);
+        string key = "public_opinion_accept_favor_log";
+        bool election = false;
+        if (ParliamentSystem.HasParliament(empire) && !RepublicSystem.IsOneParty(empire))
+        {
+            if (ParliamentSystem.InviteIntoGovernment(empire, party)) key = "public_opinion_accept_coalition_log";
+            else if (ParliamentSystem.CanCallSnapElection(state))
+            {
+                state.last_parliament_election = -1d;
+                key = "public_opinion_accept_election_log";
+                election = true;
+            }
+        }
+        state.opinion_concession = Mathf.Max(state.opinion_concession, ConcessionRelief);
+        state.opinion_wave_years = 0;
+        state.opinion_accepted_at = World.world.getCurWorldTime();
+        Announce(empire, string.Format(LM.Get(key), empire.GetEmpireName(), PartySystem.GetIdeologyName(party.Ideology), party.Name));
+        if (election) ParliamentSystem.Update(empire);
+        return true;
     }
 
     // 玩家下令提前大选(有议会、不是一党制时)

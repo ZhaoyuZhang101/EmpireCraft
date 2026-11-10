@@ -61,6 +61,8 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             {
                 var tf = tfs[j];
                 if (tf == null) continue;
+                // 议会表决通过的议案(提案的可能是执政联盟里的友党，不一定是势力最大的派系)照常施行
+                if (!court && tf.IsStarted() && ParliamentBillSystem.IsPassedBill(empire, tf)) continue;
                 if (tf.IsLocallyPushed && tf.Active && tf.CheckLocalContinue(tf.GetKingdom())) continue;
                 if (tf.IsStarted() && tf.CanProceedOutsideGovernment && !ff.Ban && tf.CheckContinue()) continue;
                 // 朝堂模式：皇帝准奏的奏议、挑战皇权的直接行动照常进行；其余未经朝议开跑的一律叫停
@@ -90,6 +92,7 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
         }
         // 朝堂模式：奏议的上奏、票拟、廷议、批红、施行与年度博弈都在这里推进
         if (court) CourtSystem.Tick(empire);
+        else if (ParliamentBillSystem.Applies(empire)) ParliamentBillSystem.Tick(empire);
         if (run?.IsStarted() == true) return;
         TemporaryPushProgress.TrySubmitReadyRequests(empire);
         if (empire.RunningTemporaryFaction?.IsStarted() == true) return;
@@ -120,13 +123,21 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             TryStartDirectAction(empire, dominateFaction);
             return;
         }
+        // 议会：由执政一方提案、议会表决(见 ParliamentBillSystem；用户 2026-11-10 选「议会表决诉求」)。
+        // 以前由势力最大的派系提，它不在执政一方就谁也提不了
+        bool parliament = ParliamentBillSystem.Applies(empire);
+        if (parliament)
+        {
+            if (ParliamentBillSystem.Paused(empire)) return;
+            dominateFaction = ParliamentBillSystem.Sponsor(empire, regime);
+        }
         if (dominateFaction == null || dominateFaction.Ban || dominateFaction.TemporaryFactions == null) return;
         if (dominateFaction.GetLeader() == null && regime.type!= RegimeType.Feudalism) return;
-        if (ParliamentSystem.HasParliament(pKingdom.GetEmpire()))
+        if (parliament)
         {
             // 责任政府下只有执政一方(联合政府时为整个执政联盟)可以发起诉求
-            if (ParliamentSystem.HasResponsibleGovernment(pKingdom.GetEmpire()) &&
-                !ParliamentSystem.IsGoverningFaction(pKingdom.GetEmpire(), dominateFaction.GetID())) return;
+            if (ParliamentSystem.HasResponsibleGovernment(empire) &&
+                !ParliamentSystem.IsGoverningFaction(empire, dominateFaction.GetID())) return;
         }
         else if (regime.has_cabinet)
         {
@@ -147,6 +158,11 @@ public class EmpireCraftKingdomBehCheckTemporaryFaction: GameAIKingdomBase
             var tf = agenda[i].claim;
             if (tf.CanAffordBudget() && tf.CheckCondition() && tf.CheckTarget())
             {
+                if (parliament)
+                {
+                    ParliamentBillSystem.Propose(empire, dominateFaction, tf);
+                    return;
+                }
                 tf.pusherType = MetaType.None;
                 tf.Start();
                 return;

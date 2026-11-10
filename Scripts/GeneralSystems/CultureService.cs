@@ -1867,8 +1867,9 @@ public static class CultureService
 
     public const float CulturalAssimilationDutyPush = 5f;
     public const float CulturalAssimilationCompletionShare = 65f;
-    public const int CulturalAssimilationDutyInfluenceCost = 50;
-    public const int RegimeConversionInfluenceCost = 50;
+    // 以前都是 50；名望开销按身份年入的新名望重定(用户 2026-11-10 "名望开销也可以调整"；稳态皇帝八九百、一品大员五百上下、封君五百、五品一两百)
+    public const int CulturalAssimilationDutyInfluenceCost = 20;
+    public const int RegimeConversionInfluenceCost = 20;
 
     public static void SyncActorToCityMainCulture(Actor actor, City city, bool createIfMissing = true)
     {

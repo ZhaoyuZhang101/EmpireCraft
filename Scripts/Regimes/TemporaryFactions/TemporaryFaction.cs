@@ -671,20 +671,12 @@ public abstract class TemporaryFaction
             }
             if (!ShowAsPlot)
             {
-                float progressRate = 1 + ((acceleration < 0 ? 0 : acceleration) / 5);
-                FixedFaction faction = GetFaction();
-                if (faction?.IsParty == true || CanProceedOutsideGovernment)
+                float progressRate = MonthlyRate(null, out bool blocked);
+                if (blocked)
                 {
-                    ClaimAgendaView agenda = ClaimAgendaSystem.Evaluate(
-                        ClaimAgendaSystem.BuildContext(GetEmpire()), faction, this);
-                    if (!agenda.CanPropose)
-                    {
-                        End();
-                        return;
-                    }
-                    progressRate *= agenda.ProgressMultiplier;
+                    End();
+                    return;
                 }
-                if (!IsLocallyPushed) progressRate *= GeneralSystems.CourtSystem.ProgressMultiplier(GetEmpire(), this);
                 progress += progressRate;
                 if (progress >= progressMax) RunExecute();
             }
@@ -693,6 +685,30 @@ public abstract class TemporaryFaction
         {
             End();
         }
+    }
+
+    // 每月进度 = 基础(审核加速) × 议程(政党、体制外的诉求) × 朝堂施行(议事会支持、掣肘)。议程判定已不能推进时 blocked。
+    // factors 不为空时记下各项倍数，诉求天平页逐项列出(用户 2026-11-10 "推动诉求也要加天平页面")
+    public float MonthlyRate(List<Data.CourtScaleFactor> factors, out bool blocked)
+    {
+        blocked = false;
+        float progressRate = 1 + ((acceleration < 0 ? 0 : acceleration) / 5);
+        factors?.Add(new Data.CourtScaleFactor { key = "claim_rate_base", value = progressRate, arg = (acceleration < 0 ? 0 : acceleration).ToString("0") });
+        FixedFaction faction = GetFaction();
+        if (faction?.IsParty == true || CanProceedOutsideGovernment)
+        {
+            ClaimAgendaView agenda = ClaimAgendaSystem.Evaluate(
+                ClaimAgendaSystem.BuildContext(GetEmpire()), faction, this);
+            if (!agenda.CanPropose)
+            {
+                blocked = true;
+                return 0f;
+            }
+            progressRate *= agenda.ProgressMultiplier;
+            factors?.Add(new Data.CourtScaleFactor { key = "claim_rate_agenda", value = agenda.ProgressMultiplier });
+        }
+        if (!IsLocallyPushed) progressRate *= GeneralSystems.CourtSystem.ProgressMultiplier(GetEmpire(), this, factors);
+        return progressRate;
     }
 
     public bool CheckTarget()
