@@ -82,6 +82,9 @@ public static class PeaceTermRules
     //   · 立傀儡的战胜一方只得城价的 PuppetGainShare(间接统治)；
     //   · 占领：打仗时直接军管着他国本土，按城价 × 城中民族情绪 × 大小之比的 OccupationShare 记进占领方的疲敝(封顶全境的 OccupationCap)
     public const double NationAnnexFactor = 1d, NationPuppetFactor = 0.4d, PuppetGainShare = 0.7d;
+    // 属地条款(见 ColonySystem)：立为保护国按出的一方全境的几成；租借按城价的几成；移交殖民地(委任统治)按那块殖民地全境的几成；
+    // 立保护国的民族意识按全境的几成算(本地君主照旧，比割地轻)
+    public const double ProtectorateShare = 0.4d, LeaseShare = 0.5d, MandateShare = 0.6d, ProtectorateNationFactor = 0.3d;
     public const float NationSizeMin = 0.5f, NationSizeMax = 2.5f;
     // 民族情绪的底：本文化有了民族主义(科技)的，城里情绪再低也按这么多算
     public const float NationFloor = 0.3f;

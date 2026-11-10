@@ -2370,9 +2370,15 @@ public static class WorldMapScenario
     private static readonly List<(string what, Action action)> _afterLoad = new();
     private static object _afterLoadWorld;
 
+    // 剧本国 id → 国家(进世界后的安排用，如租借地的出租国)
+    private static readonly Dictionary<string, Kingdom> _scenarioRealms = new();
+
     private static void QueueAfterLoad()
     {
         _afterLoad.Clear();
+        _scenarioRealms.Clear();
+        foreach (PlannedPolity polity in _polities.Where(polity => !string.IsNullOrEmpty(polity.data?.id) && polity.kingdom?.data != null))
+            _scenarioRealms[polity.data.id] = polity.kingdom;
         _afterLoadWorld = World.world;
         _afterLoadQueued = true;
         _afterLoadQueuedAt = Time.realtimeSinceStartup;
@@ -2791,22 +2797,43 @@ public static class WorldMapScenario
         LogService.LogInfo($"[EmpireCraft][世界地图] {empire.GetEmpireName()} 按王国法理划出 {made} 块(行政区或封国)，直辖留 {core.cities.Count} 城");
     }
 
-    // 自成一国的殖民地设为宗主国的殖民地：国号照剧本(不改成"某某总督府")，剧本写了总督的仍由他当总督
+    // 自成一国的殖民地设为宗主国的属地：类型照 dependency，国号"某属某地"(地名照 place，不写的从国名"某属"后面取)；
+    // 派总督的属地，剧本写了总督的仍由他当总督
     private static void AnnexColony(PlannedPolity colony, PlannedPolity metropole)
     {
         Kingdom kingdom = colony.kingdom;
         if (kingdom?.data == null || kingdom.isRekt() || metropole.kingdom?.data == null || metropole.kingdom.isRekt() ||
             ColonySystem.IsColony(kingdom)) return;
         Actor governor = colony.data.ruler != null ? colony.founder : null;
-        ColonySystem.Annex(metropole.kingdom, kingdom, colony.data.company);
-        kingdom.SetCustomCountryName(colony.name);
-        kingdom.SetCustomCountrySuffix("");
-        if (governor?.data != null && !governor.isRekt() && governor.isAlive() && governor.kingdom == kingdom && !colony.data.company &&
+        int kind = DependencyKind(colony.data);
+        Kingdom lessor = kind == ColonyState.Lease
+            ? _scenarioRealms.TryGetValue(colony.data.lessor ?? "", out Kingdom found) ? found : null
+            : null;
+        ColonySystem.Annex(metropole.kingdom, kingdom, kind, PlaceOf(colony.data), lessor, colony.data.leaseYears);
+        if (governor?.data != null && !governor.isRekt() && governor.isAlive() && governor.kingdom == kingdom && ColonySystem.HasGovernor(kind) &&
             ColonySystem.Of(kingdom) is { } state)
         {
             TransmigrantSystem.InstallRuler(kingdom, governor);
             state.governor_id = governor.data.id;
         }
+    }
+
+    private static int DependencyKind(WorldMapPolity data) => (data.dependency ?? "").Trim().ToLowerInvariant() switch
+    {
+        "company" => ColonyState.Company,
+        "protectorate" => ColonyState.Protectorate,
+        "dominion" => ColonyState.Dominion,
+        "mandate" => ColonyState.Mandate,
+        "lease" => ColonyState.Lease,
+        _ => data.company ? ColonyState.Company : ColonyState.Governorate
+    };
+
+    // 地名：剧本写了 place 照它；国名是"某属某地"的取"某属"后面那段(简体、英文、繁体各取各的)
+    private static string PlaceOf(WorldMapPolity data)
+    {
+        if (!string.IsNullOrWhiteSpace(data.place)) return data.place;
+        static string Strip(string name) => !string.IsNullOrEmpty(name) && name.Length > 2 && (name[1] == '属' || name[1] == '屬') ? name.Substring(2) : name;
+        return $"{Strip(data.zh)}|{data.en}|{Strip(string.IsNullOrEmpty(data.tw) ? data.zh : data.tw)}";
     }
 
     private static void FoundColony(Kingdom metropole, WorldMapColony data, List<City> cities)

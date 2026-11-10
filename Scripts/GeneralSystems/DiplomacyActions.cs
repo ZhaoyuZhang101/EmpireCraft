@@ -41,8 +41,8 @@ public static class DiplomacyActions
 
     public static readonly WarGoal[] Goals =
     {
-        WarGoal.夺城, WarGoal.侵略, WarGoal.吞并, WarGoal.迫使附庸, WarGoal.赔款, WarGoal.劫掠, WarGoal.扶立, WarGoal.争法理,
-        WarGoal.通商, WarGoal.改宗
+        WarGoal.夺城, WarGoal.侵略, WarGoal.吞并, WarGoal.迫使附庸, WarGoal.保护国, WarGoal.租借, WarGoal.赔款, WarGoal.劫掠, WarGoal.扶立,
+        WarGoal.争法理, WarGoal.通商, WarGoal.改宗
     };
 
     public static string GoalName(WarGoal goal) => WarGoalSystem.Name(goal);

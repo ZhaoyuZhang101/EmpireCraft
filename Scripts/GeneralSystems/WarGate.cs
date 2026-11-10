@@ -20,8 +20,9 @@ public static class WarGate
             return false;
         // 世界法则「禁止AI宣战」(见 DiplomacyLaws)：玩家强制的不经这里，不受此限
         if (DiplomacyLaws.WarBlocked) return false;
-        // 傀儡不自行宣战，随主国参战(见 PuppetStateSystem)；流亡政府没有城，不开新仗
-        if (PuppetStateSystem.IsPuppet(attacker) || ExileGovernmentSystem.IsExiled(attacker)) return false;
+        // 傀儡不自行宣战，随主国参战(见 PuppetStateSystem)；流亡政府没有城，不开新仗；保护国、托管地、租借地外交归宗主(见 ColonySystem)
+        if (PuppetStateSystem.IsPuppet(attacker) || ExileGovernmentSystem.IsExiled(attacker) ||
+            ColonySystem.ForeignAffairsByMetropole(attacker)) return false;
         if (Forbidden(attacker, target, ownTributary)) return false;
         double lastWarEnded = World.world?.diplomacy?.getRelation(attacker, target)?.data?.timestamp_last_war_ended ?? -1d;
         if (lastWarEnded >= 0d && Date.getYearsSince(lastWarEnded) < SimGlobals.m.minimum_years_between_wars) return false;

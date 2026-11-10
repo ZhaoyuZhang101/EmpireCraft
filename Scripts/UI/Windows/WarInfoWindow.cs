@@ -488,6 +488,9 @@ namespace EmpireCraft.Scripts.UI.Windows
         {
             PeaceTermKind.City => Icon("iconCity"),
             PeaceTermKind.Puppet => Icon("iconKings", "iconCity"),
+            PeaceTermKind.Lease => Icon("iconCity"),
+            PeaceTermKind.Protectorate => Icon("iconCrown"),
+            PeaceTermKind.Mandate => Icon("iconKings", "iconCrown"),
             PeaceTermKind.Indemnity => Icon("iconMoney"),
             PeaceTermKind.Tribute => Icon("iconGold", "iconMoney"),
             PeaceTermKind.Vassal => Icon("iconCrown"),

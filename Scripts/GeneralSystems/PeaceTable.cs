@@ -10,7 +10,8 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.GeneralSystems;
 
 // Puppet：割地立傀儡(近代割他国本土，城交给战胜国这一片的傀儡政府，见 OccupationPuppetSystem)；追加在末尾
-public enum PeaceTermKind { City, Indemnity, Tribute, Vassal, Install, Trade, Convert, Puppet }
+// Protectorate 立为保护国、Lease 租借某城、Mandate 移交殖民地(委任统治，city_id 记那块殖民地的首府)：属地条款，见 ColonySystem
+public enum PeaceTermKind { City, Indemnity, Tribute, Vassal, Install, Trade, Convert, Puppet, Protectorate, Lease, Mandate }
 
 // 和约里的一项：谁出(by_attacker = 攻方出)、出什么
 public sealed class PeaceTerm
@@ -26,9 +27,11 @@ public sealed class PeaceTerm
     public string Key => $"{(int)kind}:{(by_attacker ? 1 : 0)}:{city_id}:{tier}:{resource}";
 
     // 同一方出的同类条款只能有一项(赔款换档、岁供换矿都是替换)；城各算各的，同一座城割让、立傀儡二者取一
-    public string Slot => IsCity ? $"city:{(by_attacker ? 1 : 0)}:{city_id}" : $"{(int)kind}:{(by_attacker ? 1 : 0)}";
+    public string Slot => IsCity ? $"city:{(by_attacker ? 1 : 0)}:{city_id}"
+        : kind == PeaceTermKind.Mandate ? Key : $"{(int)kind}:{(by_attacker ? 1 : 0)}";
 
-    public bool IsCity => kind is PeaceTermKind.City or PeaceTermKind.Puppet;
+    // 关于一座城的条款：割让、立傀儡、租借，同一座城三者取一
+    public bool IsCity => kind is PeaceTermKind.City or PeaceTermKind.Puppet or PeaceTermKind.Lease;
 
     public PeaceTerm Copy() => (PeaceTerm)MemberwiseClone();
 }
@@ -224,6 +227,14 @@ public static class PeaceTable
             case WarGoal.改宗:
                 Give(PeaceTermKind.Convert);
                 break;
+            case WarGoal.保护国:
+                Give(PeaceTermKind.Protectorate);
+                break;
+            case WarGoal.租借:
+                foreach (City city in WarObjective.Targets(war, data))
+                    if (city?.data != null && !city.isRekt() && city.kingdom == defender)
+                        deal.terms.Add(new PeaceTerm { kind = PeaceTermKind.Lease, city_id = city.id });
+                break;
             case WarGoal.通商:
                 Give(PeaceTermKind.Trade);
                 break;
@@ -267,7 +278,14 @@ public static class PeaceTable
             // 他国本土另有"割地立傀儡"一项
             if (OccupationPuppetSystem.NationalLand(city, giver, receiver))
                 list.Add((new PeaceTerm { kind = PeaceTermKind.Puppet, by_attacker = byAttacker, city_id = city.id }, null));
+            // 近代殖民列强另可租借港口城
+            if (ColonySystem.ColonialPower(receiver) && city != giver.capital && ColonySystem.Port(city))
+                list.Add((new PeaceTerm { kind = PeaceTermKind.Lease, by_attacker = byAttacker, city_id = city.id }, null));
         }
+        Add(new PeaceTerm { kind = PeaceTermKind.Protectorate, by_attacker = byAttacker });
+        // 出的一方名下的殖民地移交收的一方，改为委任统治地
+        foreach (Kingdom colony in ColonySystem.ColoniesOf(giver).Where(colony => colony.capital != null).ToList())
+            Add(new PeaceTerm { kind = PeaceTermKind.Mandate, by_attacker = byAttacker, city_id = colony.capital.id });
         for (int tier = 0; tier < PeaceTermRules.IndemnityTiers.Length; tier++)
             Add(new PeaceTerm { kind = PeaceTermKind.Indemnity, by_attacker = byAttacker, tier = tier });
         List<string> minerals = TributeResources(giver, receiver);
@@ -335,6 +353,17 @@ public static class PeaceTable
                 City land = World.world.cities.get(term.city_id);
                 if (land?.data == null || land.isRekt() || land.kingdom != giver) return "peace_reason_gone";
                 return OccupationPuppetSystem.NationalLand(land, giver, receiver) ? null : "peace_reason_not_national";
+            case PeaceTermKind.Lease:
+                City port = World.world.cities.get(term.city_id);
+                if (port?.data == null || port.isRekt() || port.kingdom != giver) return "peace_reason_gone";
+                return port == giver.capital || !ColonySystem.Port(port) ? "peace_reason_no_port" : null;
+            case PeaceTermKind.Protectorate:
+                if (giver.IsEmpire() && giver.GetEmpire()?.kingdoms_list?.Count > 1) return "peace_reason_empire_vassal";
+                return ColonySystem.IsColony(giver) || PuppetStateSystem.IsPuppet(giver) || ColonySystem.IsColony(receiver) ||
+                       PuppetStateSystem.IsPuppet(receiver) ? "peace_reason_dependent" : null;
+            case PeaceTermKind.Mandate:
+                City seat = World.world.cities.get(term.city_id);
+                return seat?.kingdom != null && ColonySystem.MetropoleOf(seat.kingdom) == giver ? null : "peace_reason_gone";
             case PeaceTermKind.Indemnity:
                 return TreasurySystem.Enabled(giver) && TreasurySystem.Enabled(receiver) ? null : "peace_reason_treasury";
             case PeaceTermKind.Tribute:
@@ -395,6 +424,14 @@ public static class PeaceTable
             case PeaceTermKind.Puppet:
                 City city = World.world.cities.get(term.city_id);
                 return city?.kingdom == giver ? PeaceTermRules.CityValue(city) : 0;
+            case PeaceTermKind.Lease:
+                City port = World.world.cities.get(term.city_id);
+                return port?.kingdom == giver ? (int)Math.Round(PeaceTermRules.CityValue(port) * PeaceTermRules.LeaseShare) : 0;
+            case PeaceTermKind.Protectorate:
+                return (int)Math.Round(realm * PeaceTermRules.ProtectorateShare);
+            case PeaceTermKind.Mandate:
+                City seat = World.world.cities.get(term.city_id);
+                return seat?.kingdom == null ? 0 : (int)Math.Round(PeaceTermRules.RealmValue(seat.kingdom) * PeaceTermRules.MandateShare);
             case PeaceTermKind.Indemnity:
                 return PeaceTermRules.MoneyValue(giver, PeaceTermRules.IndemnityAmount(giver, term.tier));
             case PeaceTermKind.Tribute:
@@ -425,12 +462,15 @@ public static class PeaceTable
     // 民族意识(失地一方另记)：割让、立傀儡他国本土(见 OccupationPuppetSystem.Resistance)
     private static int Nation(War war, PeaceTerm term, PeaceBasis basis)
     {
-        if (!term.IsCity) return 0;
+        if (!term.IsCity && term.kind != PeaceTermKind.Protectorate) return 0;
         string key = "nation:" + term.Key;
         if (basis != null && basis.values.TryGetValue(key, out int cached)) return cached;
-        City city = World.world.cities.get(term.city_id);
-        int value = city?.data == null ? 0
-            : OccupationPuppetSystem.Resistance(city, Giver(war, term), Receiver(war, term), term.kind == PeaceTermKind.Puppet);
+        City city = term.IsCity ? World.world.cities.get(term.city_id) : null;
+        // 立保护国按全境算；租借与立傀儡同按四成
+        int value = term.kind == PeaceTermKind.Protectorate
+            ? OccupationPuppetSystem.RealmResistance(Giver(war, term), Receiver(war, term), PeaceTermRules.ProtectorateNationFactor)
+            : city?.data == null ? 0
+            : OccupationPuppetSystem.Resistance(city, Giver(war, term), Receiver(war, term), term.kind != PeaceTermKind.City);
         if (basis != null) basis.values[key] = value;
         return value;
     }
@@ -655,6 +695,27 @@ public static class PeaceTable
                         OccupationPuppetSystem.QueueCession(land, receiver);
                         ceded[term.by_attacker].Add(land);
                         break;
+                    case PeaceTermKind.Lease:
+                    {
+                        City port = World.world.cities.get(term.city_id);
+                        if (port?.data == null || port.isRekt() || port.kingdom != giver) break;
+                        Kingdom lessee = receiver, lessor = giver;
+                        ColonySystem.Defer(() => ColonySystem.Lease(lessee, lessor, new List<City> { port }));
+                        break;
+                    }
+                    case PeaceTermKind.Protectorate:
+                    {
+                        Kingdom lord = receiver, ward = giver;
+                        ColonySystem.Defer(() => ColonySystem.MakeProtectorate(lord, ward));
+                        break;
+                    }
+                    case PeaceTermKind.Mandate:
+                    {
+                        Kingdom colony = World.world.cities.get(term.city_id)?.kingdom, trustee = receiver;
+                        if (colony != null && ColonySystem.MetropoleOf(colony) == giver)
+                            ColonySystem.Defer(() => ColonySystem.TransferAsMandate(colony, trustee));
+                        break;
+                    }
                     case PeaceTermKind.Indemnity:
                         (double share, bool installments) = PeaceTermRules.IndemnityTiers[
                             Math.Max(0, Math.Min(PeaceTermRules.IndemnityTiers.Length - 1, term.tier))];
@@ -739,6 +800,19 @@ public static class PeaceTable
                 return city?.data == null ? ("—", null, null)
                     : (string.Format(LM.Get("peace_term_puppet"), city.GetCityName()), LM.Get("peace_tag_puppet"), "#C58BE0");
             }
+            case PeaceTermKind.Lease:
+            {
+                City city = World.world.cities.get(term.city_id);
+                return city?.data == null ? ("—", null, null)
+                    : (string.Format(LM.Get("peace_term_lease"), city.GetCityName(), ColonySystem.LeaseYears), LM.Get("peace_tag_lease"), "#5FB8D6");
+            }
+            case PeaceTermKind.Protectorate:
+                return (string.Format(LM.Get("peace_term_protectorate"), receiver?.GetKingdomName() ?? ""), null, null);
+            case PeaceTermKind.Mandate:
+            {
+                Kingdom colony = World.world.cities.get(term.city_id)?.kingdom;
+                return (string.Format(LM.Get("peace_term_mandate"), colony?.GetKingdomFullName() ?? "—"), null, null);
+            }
             case PeaceTermKind.Indemnity:
                 return (string.Format(LM.Get("peace_term_indemnity"), MoneyDisplay.Format(PeaceTermRules.IndemnityAmount(giver, term.tier))),
                     LM.Get("peace_tier_" + term.tier), "#8FA0A8");
@@ -767,7 +841,8 @@ public static class PeaceTable
     // 议和页"添加条件"的分类：1 城池、2 财货、3 臣属、4 宗教通商
     public static int Category(PeaceTerm term) => term.kind switch
     {
-        PeaceTermKind.City or PeaceTermKind.Puppet => 1,
+        PeaceTermKind.City or PeaceTermKind.Puppet or PeaceTermKind.Lease => 1,
+        PeaceTermKind.Protectorate or PeaceTermKind.Mandate => 3,
         PeaceTermKind.Indemnity or PeaceTermKind.Tribute => 2,
         PeaceTermKind.Vassal or PeaceTermKind.Install => 3,
         _ => 4

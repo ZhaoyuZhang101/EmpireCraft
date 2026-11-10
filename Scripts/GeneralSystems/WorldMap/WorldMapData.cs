@@ -339,6 +339,14 @@ public sealed class WorldMapPolity
     // 和宗主国的 colonies 不同：殖民地自有首府，只开东亚半幅、宗主国不在图上时照样自成一国(见 WorldMapScenario.AnnexColony)
     [JsonProperty("colony_of")] public string colonyOf = "";
     public bool company;
+    // 属地类型(和 colony_of 一起写，见 ColonySystem)：governorate 直辖殖民地(默认) / company 特许公司 / protectorate 保护国 /
+    // dominion 自治领 / mandate 委任统治地 / lease 租借地
+    public string dependency = "";
+    // 属地的地名("简体|英文|繁体")：国号"某属某地"的后半(某是宗主国名的头一个字)；不写的从国名"某属"后面取
+    public string place = "";
+    // 租借地：出租国(本剧本的国 id)与开局时租期还剩几年(不写 99)
+    public string lessor = "";
+    [JsonProperty("lease_years")] public int leaseYears;
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }

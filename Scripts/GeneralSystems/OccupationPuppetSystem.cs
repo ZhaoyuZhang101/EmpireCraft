@@ -67,6 +67,18 @@ public static class OccupationPuppetSystem
         return PeaceTermRules.NationResistance(PeaceTermRules.CityValue(city), Sentiment(city), size, puppet);
     }
 
+    // 一国整个立为保护国的民族意识：他国本土各城的城价 × 民族情绪，乘大小之比与倍数(PeaceTermRules.ProtectorateNationFactor)
+    public static int RealmResistance(Kingdom giver, Kingdom receiver, double factor)
+    {
+        if (giver?.cities == null || receiver?.data == null) return 0;
+        double weighted = 0d;
+        foreach (City city in giver.cities)
+            if (NationalLand(city, giver, receiver)) weighted += PeaceTermRules.CityValue(city) * Sentiment(city);
+        if (weighted <= 0d) return 0;
+        float size = PeaceTermRules.SizeFactor(PeaceTermRules.NationValue(giver), PeaceTermRules.NationValue(receiver));
+        return (int)Math.Round(weighted * size * factor);
+    }
+
     // 占领成本(打仗时记进占领方的疲敝)：realm 一方(连同帝国成员)直接管着的他国本土；大小之比按被占的一方(foe)连同已丢的城
     public static (int wear, int cities) OccupationCost(Kingdom realm, Kingdom foe)
     {
@@ -170,15 +182,18 @@ public static class OccupationPuppetSystem
         return puppet;
     }
 
-    // 领头的本地人：城里本族的成年名人(声望高的先)；没有就从城里推举一位读书人(无小人模式)
+    // 领头的本地人：城里本族的成年名人，奉行主国执政理念的先(见 PuppetStateSystem.MasterIdeology)，再按声望；
+    // 没有就从城里推举一位读书人(无小人模式)。立了傀儡以后领头人的理念照主国改(见 PuppetStateSystem.SyncIdeology)
     private static Actor Collaborator(City seat, Kingdom occupier)
     {
         string culture = CultureService.GetMainCulture(seat, initialize: false);
+        PartyIdeology ideology = PuppetStateSystem.MasterIdeology(occupier);
         Actor local = (seat.units ?? new List<Actor>())
             .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.isKing() &&
                             actor.CanFoundCivKingdom() &&
                             CultureService.SameKin(CultureService.GetActorCulture(actor), culture))
-            .OrderByDescending(actor => CityPopulationSystem.IsNotable(actor) ? 1 : 0).ThenByDescending(actor => actor.renown)
+            .OrderByDescending(actor => IdeologyPopulationSystem.Get(actor) == ideology ? 1 : 0)
+            .ThenByDescending(actor => CityPopulationSystem.IsNotable(actor) ? 1 : 0).ThenByDescending(actor => actor.renown)
             .FirstOrDefault();
         return local ?? (CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.SpawnScholar(seat) : null);
     }

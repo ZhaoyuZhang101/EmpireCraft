@@ -16,7 +16,9 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 主国与傀儡、同一主国的傀儡之间互不开战(WarGate.Forbidden)；
 //   · 傀儡不卷入现代建政、军阀时期与和平统一(ModernStateFormationSystem、NationalUnificationSystem)，政体照立国时定下的，
 //     不随本文化的废君、建政改走(满洲国称帝、汪伪称国民政府)；
-//   · 主国亡了就不再是傀儡(记一笔"失去依附")；剧情事件可把傀儡的城献给别国(cede)了结它。
+//   · 主国亡了就不再是傀儡(记一笔"失去依附")；剧情事件可把傀儡的城献给别国(cede)了结它；
+//   · 理念跟主国(用户 2026-11-10 "扶持傀儡政权只能扶持自己国家主导政党的同理念政府")：傀儡的元首与要员奉行主国执政党的理念，
+//     主国执政理念变了(日本 1940 改大政翼赞会)傀儡跟着变；近代占领挑领头人先挑当地同理念的(见 OccupationPuppetSystem)。
 // 只由剧本(关系 puppet)或剧情事件(puppet)扶立，AI 不自行扶植傀儡。
 public static class PuppetStateSystem
 {
@@ -71,6 +73,7 @@ public static class PuppetStateSystem
         // 政体照立国时的：不随本文化的政体同步、废君、建政改走(见 InstitutionSystem、RepublicSystem.CanAbolish)
         data.regime_manually_selected = true;
         data.scenario_monarchy = true;
+        SyncIdeology(puppet, master);
         JoinWars(puppet, master);
         if (record)
         {
@@ -118,6 +121,39 @@ public static class PuppetStateSystem
         if (failed != null) LogService.LogWarning($"[EmpireCraft][傀儡] {name} 立为 {master.GetKingdomName()} 的傀儡失败({failed})");
         if (CorpsSystem.Enabled) CorpsSystem.Prefill(puppet);
         return puppet;
+    }
+
+    // 主国执政党的理念：有执政党按执政党；共和国按建国理念；君主国没有政党的按国家主理念；都没有按君主本人的
+    public static PartyIdeology MasterIdeology(Kingdom master)
+    {
+        Empire empire = master?.GetEmpire();
+        if (empire != null && !empire.isRekt())
+        {
+            FixedFaction party = PartySystem.GetGovernmentParty(empire);
+            if (party != null) return party.Ideology;
+            return WarlordEraSystem.GovernmentIdeology(empire);
+        }
+        return master?.king != null ? IdeologyPopulationSystem.Get(master.king) : PartyIdeology.Centrism;
+    }
+
+    // 傀儡奉行主国的理念：元首与京城的官员、名人随之改；傀儡自己有政党的，由这一理念的党一党执政
+    public static void SyncIdeology(Kingdom puppet, Kingdom master)
+    {
+        if (puppet?.data == null || master?.data == null) return;
+        PartyIdeology ideology = MasterIdeology(master);
+        KingdomExtension.KingdomExtraData data = puppet.GetOrCreate();
+        if (data.puppet_ideology == ideology.ToString() && (puppet.king == null || IdeologyPopulationSystem.Get(puppet.king) == ideology)) return;
+        data.puppet_ideology = ideology.ToString();
+        if (puppet.king != null) IdeologyPopulationSystem.Set(puppet.king, ideology);
+        foreach (Actor actor in puppet.capital?.units?.ToList() ?? new List<Actor>())
+            if (actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.kingdom == puppet && CityPopulationSystem.IsNotable(actor))
+                IdeologyPopulationSystem.Set(actor, ideology);
+        Empire empire = puppet.GetEmpire();
+        if (empire != null && empire.CoreKingdom == puppet && PartySystem.IsActive(empire))
+        {
+            FixedFaction ruling = PartySystem.ScenarioFoundParty(empire, ideology, puppet.king, null);
+            if (ruling != null) PartyBanSystem.Close(empire, ruling, Enumerable.Empty<FixedFaction>(), "party_ban_one_party_history");
+        }
     }
 
     // 离了原来的官职、城主之位
@@ -200,7 +236,11 @@ public static class PuppetStateSystem
                 if (master == null) Release(kingdom, "puppet_master_gone_history");
                 // 城都交出去了(并进别的傀儡、战后献城)：只剩个空名，不再随主国参战
                 else if ((kingdom.cities?.Count ?? 0) == 0) Release(kingdom, null);
-                else JoinWars(kingdom, master);
+                else
+                {
+                    SyncIdeology(kingdom, master);
+                    JoinWars(kingdom, master);
+                }
             }
             catch (Exception exception)
             {

@@ -327,6 +327,8 @@ public static class KingdomExtension
         // 傀儡国(见 PuppetStateSystem)：主国编号、立为傀儡的时间；-1 = 不是傀儡
         public long puppet_master_id = -1L;
         public double puppet_since = -1d;
+        // 傀儡政权奉行的理念(PartyIdeology 的名字)：跟着主国执政党走(见 PuppetStateSystem.MasterIdeology)
+        public string puppet_ideology = "";
         // 流亡政府(见 ExileGovernmentSystem)：东道国、流亡起始、占领者；待收复的旧城(城编号)；
         // 还都的时间(exile_returned_at，还都后的收复期内盟友打回来的旧城照样交还)
         public long exile_host_id = -1L;

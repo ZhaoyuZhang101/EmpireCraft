@@ -325,7 +325,7 @@ TIBET = polity("tibet", "西藏", "Tibet", "Xizang", "lhasa", r=["tibet"],
 
 JAPAN = polity(
     "japan", "日本", "Japan", "Japan", "edo",
-    r=["japan_kyushu", "japan_kinai", "japan_kanto", "japan_tohoku", "ryukyu"], cities=["dalian"], emp=True, grand=True,
+    r=["japan_kyushu", "japan_kinai", "japan_kanto", "japan_tohoku", "ryukyu"], emp=True, grand=True,
     old_capital="kyoto", era_name="昭和|Showa", era_year=12,
     modern=M("constitutional", "Authoritarianism", ("立宪政友会", "Rikken Seiyukai"),
              parties=[("ConservativeLiberalism", "立宪民政党", "Rikken Minseito", ""),
@@ -353,10 +353,13 @@ JAPAN = polity(
         famous("土肥原|Doihara", "贤二|Kenji", 54, "general", 0, "general"),
     ],
 )
-KOREA_COLONY = polity("chosen", "朝鲜总督府", "Government-General of Korea", "Japan", "hanseong", r=["korea_n", "korea_s"],
-                      colony_of="japan", ruler=person("南|Minami", "次郎|Jiro", 62))
-TAIWAN_COLONY = polity("taiwan_gg", "台湾总督府", "Government-General of Taiwan", "Japan", "keelung", r=["taiwan"],
-                       colony_of="japan", ruler=person("小林|Kobayashi", "跻造|Seizo", 60))
+KOREA_COLONY = polity("chosen", "日属朝鲜", "Japanese Korea", "Japan", "hanseong", r=["korea_n", "korea_s"],
+                      colony_of="japan", place="朝鲜|Korea", ruler=person("南|Minami", "次郎|Jiro", 62))
+TAIWAN_COLONY = polity("taiwan_gg", "日属台湾", "Japanese Taiwan", "Japan", "keelung", r=["taiwan"],
+                       colony_of="japan", place="台湾|Taiwan", ruler=person("小林|Kobayashi", "跻造|Seizo", 60))
+# 关东州：日本向民国租借的旅大(1898 俄租、1905 转日，1915 延到 1997)
+KWANTUNG = polity("kwantung", "日属关东州", "Kwantung Leased Territory", "Japan", "dalian", cities=["dalian"],
+                  colony_of="japan", place="关东州|Kwantung", dependency="lease", lessor="roc", lease_years=60)
 MANCHUKUO = polity(
     "manchukuo", "满洲国", "Manchukuo", "Huaxia", "fuyu", r=["manchuria", "liaodong"], cities=["chengde", "chaghan"], emp=True,
     era_name="康德|Kangde", era_year=4, modern=M("monarchy"),
@@ -429,39 +432,39 @@ IRAN = polity("iran", "伊朗", "Iran", "Persepolis", "rayy", r=["persis", "medi
 COLONIES = [
     polity("british_india", "英属印度", "British India", "India", "delhi",
            r=["gandhara", "punjab", "sindh", "hindustan", "magadha", "bengal", "gujarat", "malwa", "deccan", "kalinga", "tamil"],
-           colony_of="uk", ruler=person("", "林利思戈|Lord Linlithgow", 50)),
-    polity("burma", "缅甸", "Burma", "India", "rangoon", r=["burma"], colony_of="uk"),
-    polity("ceylon", "锡兰", "Ceylon", "India", "colombo", r=["lanka"], colony_of="uk"),
-    polity("malaya", "英属马来亚", "British Malaya", "India", "singapore", cities=["singapore", "malacca", "kedah"], colony_of="uk"),
-    polity("hongkong", "香港", "Hong Kong", "China", "hongkong", cities=["hongkong"], colony_of="uk"),
-    polity("aden", "亚丁", "Aden", "Arab", "aden", cities=["aden"], colony_of="uk"),
-    polity("palestine", "巴勒斯坦", "Mandatory Palestine", "Kosher", "jerusalem", cities=["jerusalem", "acre"], colony_of="uk"),
-    polity("cyprus", "塞浦路斯", "Cyprus", "Roma", "cyprus", cities=["cyprus"], colony_of="uk"),
-    polity("sudan", "英埃苏丹", "Anglo-Egyptian Sudan", "Egypt", "khartoum", r=["nubia"], colony_of="uk"),
+           colony_of="uk", place="印度|India", ruler=person("", "林利思戈|Lord Linlithgow", 50)),
+    polity("burma", "英属缅甸", "British Burma", "India", "rangoon", r=["burma"], colony_of="uk", place="缅甸|Burma"),
+    polity("ceylon", "英属锡兰", "British Ceylon", "India", "colombo", r=["lanka"], colony_of="uk", place="锡兰|Ceylon"),
+    polity("malaya", "英属马来亚", "British Malaya", "India", "singapore", cities=["singapore", "malacca", "kedah"], colony_of="uk", place="马来亚|Malaya"),
+    polity("hongkong", "英属香港", "British Hong Kong", "China", "hongkong", cities=["hongkong"], colony_of="uk", place="香港|Hong Kong"),
+    polity("aden", "英属亚丁", "British Aden", "Arab", "aden", cities=["aden"], colony_of="uk", place="亚丁|Aden"),
+    polity("palestine", "英属巴勒斯坦", "Mandatory Palestine", "Kosher", "jerusalem", cities=["jerusalem", "acre"], colony_of="uk", place="巴勒斯坦|Palestine", dependency="mandate"),
+    polity("cyprus", "英属塞浦路斯", "British Cyprus", "Roma", "cyprus", cities=["cyprus"], colony_of="uk", place="塞浦路斯|Cyprus"),
+    polity("sudan", "英属苏丹", "Anglo-Egyptian Sudan", "Egypt", "khartoum", r=["nubia"], colony_of="uk", place="苏丹|Sudan"),
     polity("british_east_africa", "英属东非", "British East Africa", "Swahili", "mombasa",
-           cities=["mombasa", "malindi", "kilwa", "zanzibar", "pate", "mubende", "buddo"], colony_of="uk"),
-    polity("nigeria", "尼日利亚", "Nigeria", "Bantu", "lagos", r=["hausa", "kanem", "benin"], cities=["lagos", "ile_ife"], colony_of="uk"),
-    polity("rhodesia", "南罗得西亚", "Southern Rhodesia", "Bantu", "mutapa", r=["zimbabwe"], colony_of="uk"),
+           cities=["mombasa", "malindi", "kilwa", "zanzibar", "pate", "mubende", "buddo"], colony_of="uk", place="东非|East Africa"),
+    polity("nigeria", "英属尼日利亚", "British Nigeria", "Bantu", "lagos", r=["hausa", "kanem", "benin"], cities=["lagos", "ile_ife"], colony_of="uk", place="尼日利亚|Nigeria"),
+    polity("rhodesia", "英属南罗得西亚", "Southern Rhodesia", "Bantu", "mutapa", r=["zimbabwe"], colony_of="uk", place="南罗得西亚|Southern Rhodesia"),
     polity("indochina", "法属印度支那", "French Indochina", "India", "hanoi", r=["jiaozhi", "champa", "khmer"], cities=["vientiane"],
-           colony_of="france", ruler=person("", "布雷维|Jules Brévié", 57)),
-    polity("syria", "叙利亚", "French Syria", "Arab", "damascus", cities=["damascus", "aleppo", "antioch", "tyre", "tripoli_lb"],
-           colony_of="france"),
-    polity("algeria", "阿尔及利亚", "French Algeria", "Arab", "algiers", r=["numidia"], cities=["tlemcen"], colony_of="france"),
-    polity("tunisia", "突尼斯", "French Tunisia", "Arab", "carthage", cities=["carthage", "kairouan"], colony_of="france"),
-    polity("morocco", "摩洛哥", "French Morocco", "Arab", "fez", cities=["fez", "marrakesh"], colony_of="france"),
-    polity("french_west_africa", "法属西非", "French West Africa", "Swahili", "timbuktu", r=["sahel"], cities=["allada"], colony_of="france"),
-    polity("french_equatorial_africa", "法属赤道非洲", "French Equatorial Africa", "Bantu", "loango", cities=["loango"], colony_of="france"),
-    polity("dutch_east_indies", "荷属东印度", "Dutch East Indies", "India", "batavia", r=["java", "sumatra"], colony_of="netherlands",
+           colony_of="france", place="印度支那|Indochina", ruler=person("", "布雷维|Jules Brévié", 57)),
+    polity("syria", "法属叙利亚", "Mandatory Syria", "Arab", "damascus", cities=["damascus", "aleppo", "antioch", "tyre", "tripoli_lb"],
+           colony_of="france", place="叙利亚|Syria", dependency="mandate"),
+    polity("algeria", "法属阿尔及利亚", "French Algeria", "Arab", "algiers", r=["numidia"], cities=["tlemcen"], colony_of="france", place="阿尔及利亚|Algeria"),
+    polity("tunisia", "法属突尼斯", "French Tunisia", "Arab", "carthage", cities=["carthage", "kairouan"], colony_of="france", place="突尼斯|Tunisia", dependency="protectorate"),
+    polity("morocco", "法属摩洛哥", "French Morocco", "Arab", "fez", cities=["fez", "marrakesh"], colony_of="france", place="摩洛哥|Morocco", dependency="protectorate"),
+    polity("french_west_africa", "法属西非", "French West Africa", "Swahili", "timbuktu", r=["sahel"], cities=["allada"], colony_of="france", place="西非|West Africa"),
+    polity("french_equatorial_africa", "法属赤道非洲", "French Equatorial Africa", "Bantu", "loango", cities=["loango"], colony_of="france", place="赤道非洲|Equatorial Africa"),
+    polity("dutch_east_indies", "荷属东印度", "Dutch East Indies", "India", "batavia", r=["java", "sumatra"], colony_of="netherlands", place="东印度|East Indies",
            ruler=person("", "斯塔肯伯格|Tjarda van Starkenborgh", 49)),
     polity("belgian_congo", "比属刚果", "Belgian Congo", "Bantu", "leopoldville", r=["luba", "lunda"],
-           cities=["leopoldville", "gasabo"], colony_of="belgium"),
-    polity("angola", "安哥拉", "Portuguese Angola", "Bantu", "luanda", r=["ndongo"], cities=["mbanza_kongo", "soyo"], colony_of="portugal"),
-    polity("mozambique", "莫桑比克", "Portuguese Mozambique", "Bantu", "sofala", cities=["sofala"], colony_of="portugal"),
-    polity("macau", "澳门", "Macau", "China", "macau", cities=["macau"], colony_of="portugal"),
-    polity("goa", "葡属印度", "Portuguese India", "India", "goa", cities=["goa"], colony_of="portugal"),
-    polity("libya", "利比亚", "Italian Libya", "Arab", "tripoli", r=["cyrenaica"], cities=["tripoli"], colony_of="italy"),
+           cities=["leopoldville", "gasabo"], colony_of="belgium", place="刚果|Congo"),
+    polity("angola", "葡属安哥拉", "Portuguese Angola", "Bantu", "luanda", r=["ndongo"], cities=["mbanza_kongo", "soyo"], colony_of="portugal", place="安哥拉|Angola"),
+    polity("mozambique", "葡属莫桑比克", "Portuguese Mozambique", "Bantu", "sofala", cities=["sofala"], colony_of="portugal", place="莫桑比克|Mozambique"),
+    polity("macau", "葡属澳门", "Portuguese Macau", "China", "macau", cities=["macau"], colony_of="portugal", place="澳门|Macau"),
+    polity("goa", "葡属印度", "Portuguese India", "India", "goa", cities=["goa"], colony_of="portugal", place="印度|India"),
+    polity("libya", "意属利比亚", "Italian Libya", "Arab", "tripoli", r=["cyrenaica"], cities=["tripoli"], colony_of="italy", place="利比亚|Libya"),
     polity("italian_east_africa", "意属东非", "Italian East Africa", "Egypt", "addis_ababa", r=["aksum"], cities=["mogadishu"],
-           colony_of="italy", ruler=person("", "阿梅迪奥·迪萨伏依|Prince Amedeo, Duke of Aosta", 39)),
+           colony_of="italy", place="东非|East Africa", ruler=person("", "阿梅迪奥·迪萨伏依|Prince Amedeo, Duke of Aosta", 39)),
 ]
 # 埃塞俄比亚皇帝 1936 年流亡英国
 ETHIOPIA_EXILE = polity("ethiopia", "埃塞俄比亚", "Ethiopia", "Egypt", "addis_ababa", r=["aksum"], exile="uk",
@@ -488,8 +491,8 @@ MIDEAST = [
            ruler=person("", "赛义德·本·泰穆尔|Said bin Taimur", 27)),
     polity("egypt", "埃及", "Egypt", "Egypt", "cairo", r=["egypt"], modern=M("monarchy"),
            ruler=person("", "法鲁克|Farouk", 17)),
-    polity("south_africa", "南非联邦", "Union of South Africa", "Frankish", "johannesburg", r=["nguni"], emp=True,
-           modern=M("constitutional", "ConservativeLiberalism", ("联合党", "United Party")),
+    polity("south_africa", "南非联邦", "Union of South Africa", "Frankish", "johannesburg", r=["nguni"],
+           colony_of="uk", place="南非|South Africa", dependency="dominion",
            ruler=person("", "赫尔佐格|J. B. M. Hertzog", 71)),
 ]
 
@@ -815,7 +818,7 @@ EVENTS = [
           + [cede("japan", "roc", region=region) for region in RETURN_TO_CHINA]
           + [cede("japan", "ussr", region="korea_n"), cede("japan", "korea", region="korea_s")]
           + [cede("japan", colony, region=region) for colony, region in RETURN_SOUTH]
-          + [cede("japan", "hongkong", city="hongkong")]),
+          + [cede("japan", "hongkong", city="hongkong"), cede("japan", "roc", city="dalian")]),
     event("希特勒自杀", T("苏军攻入柏林，希特勒自杀", "Soviet troops storm Berlin; Hitler takes his own life"), 8,
           [holds("ussr", "berlin")], [{"kind": "dies", "a": "germany", "person": "阿道夫·希特勒", "name": T("自杀", "Suicide")}]),
     # —— 战后
@@ -888,10 +891,13 @@ def main():
         data = update_cities(root, renamed, {})
     active = {c["id"] for c in data["cities"] if c.get("from", -99999) <= YEAR <= c.get("to", 99999)}
 
-    polities = ([ROC] + WARLORDS + [CCP, TIBET, JAPAN, KOREA_COLONY, TAIWAN_COLONY, MANCHUKUO, MENGJIANG, JIDONG, KOREA_EXILE,
+    polities = ([ROC] + WARLORDS + [CCP, TIBET, JAPAN, KOREA_COLONY, TAIWAN_COLONY, KWANTUNG, MANCHUKUO, MENGJIANG, JIDONG, KOREA_EXILE,
                                    USSR, MPR, SIAM, PHILIPPINES, AFGHANISTAN, IRAN] + COLONIES + [ETHIOPIA_EXILE] + MIDEAST + EUROPE)
     ids = set()
     for item in polities:
+        # 属地地名补繁体
+        if item.get("place") and item["place"].count("|") == 1:
+            item["place"] = T(*item["place"].split("|"))
         assert item["id"] not in ids, item["id"]
         ids.add(item["id"])
         missing = [cid for cid in item.get("cities", []) + [item["cap"]] if cid not in active]

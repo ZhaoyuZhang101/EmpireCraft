@@ -1301,7 +1301,7 @@ public static class ScenarioEditing
     // 关系种类(DiplomacyActions.ApplyScenario 认的)；交战另选战争目标
     public static readonly string[] RelationKinds =
         { "war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud" };
-    public static readonly string[] WarGoals = { "夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸" };
+    public static readonly string[] WarGoals = { "夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸", "保护国", "租借" };
     // 不分先后的(两国之间只记一条)
     private static readonly HashSet<string> Mutual = new() { "truce", "alliance", "marriage", "pact", "friend", "feud" };
 

@@ -32,7 +32,8 @@ public class WarTargetPatch : GamePatch
             return;
         }
         // 傀儡不自行宣战、流亡政府不开新仗(见 PuppetStateSystem、ExileGovernmentSystem)
-        if (GeneralSystems.PuppetStateSystem.IsPuppet(pInitiatorKingdom) || GeneralSystems.ExileGovernmentSystem.IsExiled(pInitiatorKingdom))
+        if (GeneralSystems.PuppetStateSystem.IsPuppet(pInitiatorKingdom) || GeneralSystems.ExileGovernmentSystem.IsExiled(pInitiatorKingdom) ||
+            GeneralSystems.ColonySystem.ForeignAffairsByMetropole(pInitiatorKingdom))
         {
             __result = null;
             return;

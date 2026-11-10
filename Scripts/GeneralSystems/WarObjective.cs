@@ -48,7 +48,8 @@ public static class WarObjective
 
     // 有主城池、攻下即胜的目标
     public static bool Achievable(WarGoal goal) => goal is WarGoal.夺城 or WarGoal.侵略 or WarGoal.争法理 or WarGoal.争夺资源 or
-        WarGoal.吞并 or WarGoal.收复 or WarGoal.迫使附庸 or WarGoal.羁縻 or WarGoal.继承 or WarGoal.扶立 or WarGoal.改宗;
+        WarGoal.吞并 or WarGoal.收复 or WarGoal.迫使附庸 or WarGoal.羁縻 or WarGoal.继承 or WarGoal.扶立 or WarGoal.改宗 or
+        WarGoal.保护国 or WarGoal.租借;
 
     #region 定目标
 
@@ -97,6 +98,21 @@ public static class WarObjective
                 SetMain(data, defender.capital, add: true);
                 data.goal_claimant_id = attacker.king?.id ?? -1L;
                 break;
+            case WarGoal.保护国:
+                SetMain(data, defender.capital, add: true);
+                break;
+            case WarGoal.租借:
+            {
+                // 要租的那座港口城就是主城池；没有港口可租的改求赔款
+                City port = ColonySystem.LeaseTarget(defender);
+                if (port == null)
+                {
+                    data.war_goal = WarGoal.赔款;
+                    break;
+                }
+                SetMain(data, port, add: true);
+                break;
+            }
         }
         // 主城池开战时就已被攻方一边占了过半(别的仗留下的占领)：换目标里还没占的一座，免得开打当月就收场
         if (Main(data) is City main && Held(war, main))
@@ -363,7 +379,8 @@ public static class WarObjective
     {
         City next = (data.goal_city_ids ?? new List<long>()).Select(id => World.world.cities.get(id))
             .Where(city => city?.data != null && !city.isRekt() && OnDefenderSide(war, city)).OrderByDescending(Size).FirstOrDefault();
-        if (next == null && data.war_goal is WarGoal.吞并 or WarGoal.迫使附庸 or WarGoal.羁縻 or WarGoal.继承 or WarGoal.扶立 or WarGoal.改宗)
+        if (next == null && data.war_goal is WarGoal.吞并 or WarGoal.迫使附庸 or WarGoal.羁縻 or WarGoal.继承 or WarGoal.扶立 or WarGoal.改宗 or
+                WarGoal.保护国)
             next = war.main_defender?.capital;
         if (next?.data != null && !next.isRekt())
         {

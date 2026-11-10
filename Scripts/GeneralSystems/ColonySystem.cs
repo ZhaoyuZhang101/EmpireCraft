@@ -26,6 +26,16 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 特许公司：董事会选总督(同投票)，自己养兵、开战；国库超出储备的余钱每年一半分红给宗主国；做到 NationalizeCities 座城，
 //     或亏空成债，就被宗主国收归国有、改设总督府；
 //   · 离心：路远、立得久、宗主不如自己强、宗主在打仗就涨，满了起兵独立(复用"附庸独立"这类战争)，打赢就脱离，打输压回去。
+// 属地(殖民地的延伸，用户 2026-11-10 "还有那种美属, 英属 这种属国前缀和属国机制要做""应该算殖民地的延申"
+// "x属的x只取国名的第一个字""战争要求里面也可以把这几种属国类型加进去")：
+//   · 国号"某属某地"：某是宗主国国名的头一个字(英属印度、法属印度支那、日属朝鲜)；地名剧本给的(place)或首府所在的法理名；
+//     自治领叫"某地自治领"，特许公司照旧"宗主某地公司"；宗主改了国号，下一年随之改；
+//   · 直辖殖民地(总督府)：宗主派总督、改殖民政体与宗主文化、解送三成；本族移民为主又成了规模的，离心满了不起兵，和平改为自治领；
+//   · 保护国：本地君主与政体、文化照旧，外交归宗主(不自行宣战)，解送一成半，离心慢；
+//   · 自治领：自有政体、自有元首，不解送，随宗主出征；满 DominionYears 年、离心满了和平取得完全独立；
+//   · 委任统治地：宗主派总督托管(文化不改)，解送一成；满 MandateYears 年、离心过半又不在打仗，托管期满和平独立；
+//   · 租借地：宗主派总督，解送三成；租期满了把城交还出租国(出租国亡了就留着)；
+//   · 战争要求：战争目标"保护国""租借"，议和台"立为保护国""租借某城""移交殖民地(委任统治)"(见 WarGoalSystem、PeaceTable)。
 public static class ColonySystem
 {
     public const string OceanTech = "ocean_navigation", CompanyTech = "banking";
@@ -37,6 +47,46 @@ public static class ColonySystem
     private const float VoyageChance = 0.35f, CompanyChance = 0.6f;
     private const int RiseMinYears = 30, RiseCooldownYears = 10;
     private const int StartingGrant = 200;
+    // 属地：解送几成；自治领几年后可和平独立；委任统治几年期满；租借默认几年；本族移民殖民地至少几城才改自治领
+    private const float ProtectorateRemit = 0.15f, MandateRemit = 0.1f;
+    private const int DominionYears = 30, MandateYears = 25, DominionMinCities = 3;
+    public const int LeaseYears = 99;
+
+    // 由宗主派总督的：总督府、委任统治地、租借地
+    public static bool HasGovernor(int kind) => kind is ColonyState.Governorate or ColonyState.Mandate or ColonyState.Lease;
+
+    // 改用宗主文化的：总督府、特许公司(殖民与移民)；保护国、自治领、委任统治、租借照本地文化
+    private static bool TakesMetropoleCulture(int kind) => kind is ColonyState.Governorate or ColonyState.Company;
+
+    // 近代殖民列强：能当宗主国(远洋航海)，又是近代国家(见 StateModernization.IsModernPower)；立保护国、租借港口的战争要求只有它们提
+    public static bool ColonialPower(Kingdom kingdom) => CanColonize(kingdom) && StateModernization.IsModernPower(kingdom);
+
+    // 可租的港口城：有船坞或临海、不是都城，挑户数最多的
+    public static City LeaseTarget(Kingdom kingdom) =>
+        kingdom?.cities?.Where(city => city?.data != null && !city.isRekt() && city != kingdom.capital && Port(city))
+            .OrderByDescending(PeaceTermRules.CityValue).FirstOrDefault();
+
+    public static bool Port(City city)
+    {
+        if (city?.data == null || city.isRekt()) return false;
+        if (city.getBuildingOfType("type_docks", pCountOnlyFinished: true, pRandom: false) != null) return true;
+        foreach (TileZone zone in city.zones ?? new List<TileZone>())
+            foreach (WorldTile tile in zone?.tiles ?? Array.Empty<WorldTile>())
+                if (tile?.Type?.ocean == true) return true;
+        return false;
+    }
+
+    // 战争收场时的属地安排(立保护国、租借、移交殖民地)：过几帧再做，不在原版结束战争的同一帧里改归属、关系
+    private static readonly Queue<Action> Deferred = new();
+
+    public static void Defer(Action action)
+    {
+        if (action != null) Deferred.Enqueue(action);
+    }
+
+    // 外交归宗主、不自行宣战的：保护国、委任统治地、租借地(见 WarGate)
+    public static bool ForeignAffairsByMetropole(Kingdom kingdom) =>
+        Of(kingdom)?.kind is ColonyState.Protectorate or ColonyState.Mandate or ColonyState.Lease && MetropoleOf(kingdom) != null;
 
     // 建殖民城时挡住建城后的钩子(见 CityPatch.CityBuilt)；殖民地起兵独立时放行开战闸(见 WarReach.MayDeclare)
     public static bool Founding { get; private set; }
@@ -105,8 +155,18 @@ public static class ColonySystem
             _world = World.world;
             _year = year;
             Pending.Clear();
+            Deferred.Clear();
             return;
         }
+        if (Deferred.Count > 0)
+            try
+            {
+                Deferred.Dequeue()();
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][殖民] 属地安排失败: {exception.Message}");
+            }
         if (year != _year)
         {
             _year = year;
@@ -189,17 +249,78 @@ public static class ColonySystem
         }
     }
 
-    // 剧本开局直接设的殖民地(世界地图：荷兰东印度公司、菲律宾总督府……)；给了名字用它作国号，后缀照总督府、公司
+    // 剧本开局直接设的殖民地(世界地图：荷兰东印度公司、菲律宾总督府……)；给了名字的作地名，国号照"某属某地"、公司
     public static Kingdom Establish(Kingdom metropole, List<City> cities, bool company, string name)
     {
         Kingdom colony = Found(metropole, cities, company ? ColonyState.Company : ColonyState.Governorate);
-        if (colony != null && !string.IsNullOrWhiteSpace(name)) colony.SetCustomCountryName(name);
+        if (colony != null && !string.IsNullOrWhiteSpace(name) && Of(colony) is ColonyState state)
+        {
+            state.place = name;
+            Name(colony, metropole, state.kind);
+        }
         return colony;
     }
 
     // 外交界面(见 DiplomacyActions)：把现成的一国设为殖民地；立即改派总督；特许公司立即收归国有
     public static void Annex(Kingdom metropole, Kingdom kingdom, bool company) =>
         Setup(kingdom, metropole, company ? ColonyState.Company : ColonyState.Governorate);
+
+    // 把现成的一国设为某种属地(剧本 colony_of、战争要求)；place 地名("简体|英文|繁体"，空的取首府法理名)
+    public static string Annex(Kingdom metropole, Kingdom kingdom, int kind, string place, Kingdom lessor = null, int leaseYears = 0)
+    {
+        if (kingdom?.data == null || metropole?.data == null || kingdom == metropole) return null;
+        if (Of(kingdom) != null) kingdom.GetOrCreate().colony = null;
+        string result = Setup(kingdom, metropole, kind, place);
+        if (kind == ColonyState.Lease && Of(kingdom) is ColonyState state)
+        {
+            state.lessor_id = lessor?.data?.id ?? -1L;
+            state.lease_until = World.world.getCurWorldTime() + Math.Max(1, leaseYears > 0 ? leaseYears : LeaseYears) * 60d;
+        }
+        return result;
+    }
+
+    // 战败一方立为保护国(战争目标"保护国"、议和"立为保护国")：本地君主照旧，外交归宗主
+    public static bool MakeProtectorate(Kingdom metropole, Kingdom kingdom)
+    {
+        if (kingdom?.data == null || metropole?.data == null || kingdom.isRekt() || metropole.isRekt() || kingdom == metropole) return false;
+        if (kingdom.IsEmpire() && kingdom.GetEmpire()?.kingdoms_list?.Count > 1) return false;
+        if (IsColony(kingdom) || PuppetStateSystem.IsPuppet(kingdom)) return false;
+        if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) kingdom.GetEmpire()?.leave(kingdom, true, true);
+        DiplomacyActions.EndWars(metropole, kingdom);
+        Annex(metropole, kingdom, ColonyState.Protectorate, "");
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_protectorate_imposed"), metropole.GetKingdomFullName(),
+            kingdom.GetKingdomFullName()), metropole);
+        return true;
+    }
+
+    // 租借(战争目标"租借"、议和"租借某城")：出租国的这些城另设租借地，归 lessee，租期满交还
+    public static Kingdom Lease(Kingdom lessee, Kingdom lessor, List<City> cities, int years = LeaseYears)
+    {
+        cities = cities?.Where(city => city?.data != null && !city.isRekt() && city.kingdom == lessor && city != lessor.capital).ToList();
+        if (lessee?.data == null || lessor?.data == null || cities == null || cities.Count == 0) return null;
+        Kingdom lease = AdministrativeControlSystem.ReleaseToLocal(lessor, cities,
+            colony => Setup(colony, lessee, ColonyState.Lease, ""), out _);
+        if (lease != null && Of(lease) is ColonyState state)
+        {
+            state.lessor_id = lessor.data.id;
+            state.lease_until = World.world.getCurWorldTime() + Math.Max(1, years) * 60d;
+            TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_lease_signed"), lessor.GetKingdomFullName(),
+                string.Join(LM.Get("list_separator"), cities.Select(city => city.GetCityName())), lessee.GetKingdomFullName(), years), lessee);
+        }
+        return lease;
+    }
+
+    // 战败一方的殖民地移交战胜国、改为委任统治地(议和"移交殖民地")
+    public static bool TransferAsMandate(Kingdom colony, Kingdom receiver)
+    {
+        if (colony?.data == null || receiver?.data == null || colony.isRekt() || receiver.isRekt() || Of(colony) is not ColonyState old) return false;
+        string place = old.place;
+        Kingdom former = MetropoleOf(colony);
+        colony.GetOrCreate().colony = null;
+        if (former != null) DiplomacyActions.EndWars(former, colony);
+        Setup(colony, receiver, ColonyState.Mandate, place);
+        return true;
+    }
 
     public static bool RotateGovernor(Kingdom colony)
     {
@@ -230,15 +351,16 @@ public static class ColonySystem
     private static Kingdom Found(Kingdom metropole, List<City> cities, int kind) =>
         AdministrativeControlSystem.ReleaseToLocal(metropole, cities, colony => Setup(colony, metropole, kind), out _);
 
-    private static string Setup(Kingdom colony, Kingdom metropole, int kind)
+    private static string Setup(Kingdom colony, Kingdom metropole, int kind, string place = "")
     {
         double now = World.world.getCurWorldTime();
-        var state = new ColonyState { metropole_id = metropole.id, kind = kind, founded_at = now, remitted_at = now };
+        var state = new ColonyState { metropole_id = metropole.id, kind = kind, founded_at = now, remitted_at = now, place = place ?? "" };
         colony.GetOrCreate().colony = state;
         string culture = CultureService.GetRealmCulture(metropole);
-        if (CultureService.IsValidCulture(culture))
+        if (TakesMetropoleCulture(kind) && CultureService.IsValidCulture(culture))
             CultureService.SetRealmCulture(colony, culture, updatePoliticalSystem: false, allowLegacyInstitutions: false);
-        ApplyRegime(colony, kind);
+        // 保护国、自治领留着本地的政体与君主
+        if (HasGovernor(kind) || kind == ColonyState.Company) ApplyRegime(colony, kind);
         Name(colony, metropole, kind);
         VassalColorService.Apply(colony, metropole);
         if (metropole.GetMoney() > StartingGrant * 2)
@@ -247,7 +369,7 @@ public static class ColonySystem
             colony.AddMoney(StartingGrant, TreasuryCategory.InternalTransfer);
         }
         string ruler;
-        if (kind == ColonyState.Governorate)
+        if (HasGovernor(kind))
         {
             Actor governor = AppointGovernor(colony, metropole);
             TransmigrantSystem.InstallRuler(colony, governor);
@@ -263,27 +385,59 @@ public static class ColonySystem
 
     private static void ApplyRegime(Kingdom colony, int kind)
     {
+        if (!HasGovernor(kind) && kind != ColonyState.Company) return;
         colony.SetRegimeType(kind == ColonyState.Company ? RegimeType.Company : RegimeType.Colonial);
         colony.LoadRegime();
         colony.GetOrCreate().regime_manually_selected = true;
     }
 
-    // 总督府叫"<首府>总督府"；特许公司叫"<宗主国><首府>公司"
+    // 国号：特许公司叫"<宗主国><首府>公司"；自治领"<地名>自治领"；别的"<宗主国名头一个字>属<地名>"，
+    // 委任统治地、租借地另加后缀(英属巴勒斯坦托管地、日属关东州租借地)
     private static void Name(Kingdom colony, Kingdom metropole, int kind)
     {
-        string seat = colony.capital?.GetCityName() ?? colony.GetKingdomName();
-        string core = colony.capital?.GetOrCreate().core_name;
-        if (!string.IsNullOrEmpty(core)) seat = core;
         if (kind == ColonyState.Company)
         {
+            string seat = colony.capital?.GetCityName() ?? colony.GetKingdomName();
+            string core = colony.capital?.GetOrCreate().core_name;
+            if (!string.IsNullOrEmpty(core)) seat = core;
             colony.SetCustomCountryName(metropole.GetKingdomName() + seat);
             colony.SetCustomCountrySuffix(LM.Get("colony_company_suffix"));
+            return;
         }
-        else
+        string place = Place(colony, Of(colony));
+        if (kind == ColonyState.Dominion)
         {
-            colony.SetCustomCountryName(seat);
-            colony.SetCustomCountrySuffix(LM.Get("colony_governorate_suffix"));
+            colony.SetCustomCountryName(place);
+            colony.SetCustomCountrySuffix(LM.Get("colony_dominion_suffix"));
+            return;
         }
+        colony.SetCustomCountryName(string.Format(LM.Get("colony_prefix_name"), Abbrev(metropole), place, metropole.GetKingdomName()));
+        colony.SetCustomCountrySuffix(kind switch
+        {
+            ColonyState.Mandate => LM.Get("colony_mandate_suffix"),
+            ColonyState.Lease => LM.Get("colony_lease_suffix"),
+            _ => ""
+        });
+    }
+
+    // 宗主国名的头一个字(英国 → 英、荷兰 → 荷)；美号"大"(大日本、大清)不算
+    public static string Abbrev(Kingdom metropole)
+    {
+        string name = metropole?.GetKingdomName() ?? "";
+        string grand = RealmNamingSystem.GrandPrefix;
+        if (!string.IsNullOrEmpty(grand) && name.Length > grand.Length && name.StartsWith(grand, StringComparison.Ordinal) &&
+            metropole.GetEmpire()?.data?.directPre == grand)
+            name = name.Substring(grand.Length);
+        global::System.Globalization.TextElementEnumerator elements = global::System.Globalization.StringInfo.GetTextElementEnumerator(name);
+        return elements.MoveNext() ? elements.GetTextElement() : "";
+    }
+
+    // 地名：剧本给的、或首府所在的王国法理名，都没有用首府城名
+    private static string Place(Kingdom colony, ColonyState state)
+    {
+        if (!string.IsNullOrWhiteSpace(state?.place)) return WorldMap.WorldMapData.PickParts(state.place);
+        string title = colony.capital?.GetTitle()?.data?.name;
+        return !string.IsNullOrWhiteSpace(title) ? title : colony.capital?.GetCityName() ?? colony.GetKingdomName();
     }
 
     #endregion
@@ -295,7 +449,7 @@ public static class ColonySystem
     {
         ColonyState state = Of(colony);
         Kingdom metropole = MetropoleOf(colony);
-        if (state == null || metropole == null || state.kind != ColonyState.Governorate) return null;
+        if (state == null || metropole == null || !HasGovernor(state.kind)) return null;
         Actor governor = AppointGovernor(colony, metropole);
         if (governor == null) return null;
         state.governor_id = governor.id;
@@ -330,7 +484,15 @@ public static class ColonySystem
         }
         double now = World.world.getCurWorldTime();
         VassalColorService.Apply(colony, metropole);
-        if (state.kind == ColonyState.Governorate)
+        // 宗主改了国号："某属"跟着改(公司照旧)
+        if (state.kind != ColonyState.Company) Name(colony, metropole, state.kind);
+        // 租借地：租期满交还出租国
+        if (state.kind == ColonyState.Lease && state.lease_until >= 0d && now >= state.lease_until)
+        {
+            ReturnLease(colony, metropole, state);
+            return;
+        }
+        if (HasGovernor(state.kind))
         {
             if (state.governor_since >= 0d && now - state.governor_since >= GovernorTermYears * 60d && !colony.hasEnemies())
             {
@@ -345,14 +507,10 @@ public static class ColonySystem
                         next.getName(), former), metropole);
                 }
             }
-            int remit = Mathf.Min(Mathf.Max(0, colony.GetMoney()),
-                (int)(StateDebtSystem.AnnualStableIncome(colony) * RemitShare));
-            if (remit > 0)
-            {
-                colony.SubMoney(remit, TreasuryCategory.Tribute);
-                metropole.AddMoney(remit, TreasuryCategory.Tribute);
-            }
+            Remit(colony, metropole, state.kind == ColonyState.Mandate ? MandateRemit : RemitShare);
         }
+        else if (state.kind == ColonyState.Protectorate) Remit(colony, metropole, ProtectorateRemit);
+        else if (state.kind == ColonyState.Dominion) { }
         else
         {
             long surplus = TreasuryHoardSystem.Surplus(colony);
@@ -371,6 +529,32 @@ public static class ColonySystem
         }
         state.remitted_at = now;
         Drift(colony, metropole, state, now);
+    }
+
+    // 把经常收入的几成解送宗主国
+    private static void Remit(Kingdom colony, Kingdom metropole, float share)
+    {
+        int remit = Mathf.Min(Mathf.Max(0, colony.GetMoney()), (int)(StateDebtSystem.AnnualStableIncome(colony) * share));
+        if (remit <= 0) return;
+        colony.SubMoney(remit, TreasuryCategory.Tribute);
+        metropole.AddMoney(remit, TreasuryCategory.Tribute);
+    }
+
+    // 租期届满：城交还出租国(出租国亡了，租借地就此留给宗主，改为直辖殖民地)
+    private static void ReturnLease(Kingdom colony, Kingdom metropole, ColonyState state)
+    {
+        Kingdom lessor = state.lessor_id < 0 ? null : World.world.kingdoms.get(state.lessor_id);
+        if (lessor?.data == null || lessor.isRekt())
+        {
+            state.kind = ColonyState.Governorate;
+            state.lease_until = -1d;
+            Name(colony, metropole, state.kind);
+            return;
+        }
+        string name = colony.GetKingdomFullName();
+        foreach (City city in colony.cities.ToList()) city.joinAnotherKingdom(lessor);
+        colony.GetOrCreate().colony = null;
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_lease_returned"), name, lessor.GetKingdomFullName()), lessor);
     }
 
     // 特许公司收归国有，改设总督府
@@ -394,8 +578,39 @@ public static class ColonySystem
         double own = colony.GetNationalPower(), lord = metropole.GetNationalPower();
         if (lord < own * 1.5d) gain += 4f;
         if (metropole.hasEnemies()) gain += 3f;
-        if (state.kind == ColonyState.Company) gain *= 0.7f;
+        gain *= state.kind switch
+        {
+            ColonyState.Company => 0.7f,
+            ColonyState.Protectorate => 0.6f,
+            ColonyState.Lease => 0.5f,
+            ColonyState.Dominion => 1.2f,
+            _ => 1f
+        };
         state.autonomy = Mathf.Clamp(state.autonomy + gain, 0f, 100f);
+        float years = (float)((now - state.founded_at) / 60d);
+        // 自治领：立满 DominionYears 年、离心满了，和平取得完全独立
+        if (state.kind == ColonyState.Dominion)
+        {
+            if (state.autonomy >= 100f && years >= DominionYears)
+                Release(colony, string.Format(LM.Get("colony_dominion_independent"), colony.GetKingdomFullName(), metropole.GetKingdomFullName()),
+                    friendly: metropole);
+            return;
+        }
+        // 委任统治：托管满 MandateYears 年、离心过半又不在打仗，期满独立
+        if (state.kind == ColonyState.Mandate && years >= MandateYears && state.autonomy >= 50f && !colony.hasEnemies() && !metropole.hasEnemies())
+        {
+            Release(colony, string.Format(LM.Get("colony_mandate_ended"), colony.GetKingdomFullName(), metropole.GetKingdomFullName()),
+                friendly: metropole);
+            return;
+        }
+        // 本族移民为主、成了规模的直辖殖民地：离心满了不起兵，和平改为自治领(近代以后)
+        if (state.kind == ColonyState.Governorate && state.autonomy >= 100f && colony.cities.Count >= DominionMinCities &&
+            StateModernization.IsModernPower(metropole) && colony.capital != null &&
+            CultureService.SameKin(CultureService.GetMainCulture(colony.capital, initialize: false), CultureService.GetRealmCulture(metropole)))
+        {
+            BecomeDominion(colony, metropole, state);
+            return;
+        }
         if (state.autonomy < 100f || now - state.founded_at < RiseMinYears * 60d || colony.hasEnemies() || !colony.hasKing() ||
             state.rising_at >= 0d && now - state.rising_at < RiseCooldownYears * 60d) return;
         // 宗主强过自己三倍又不在打仗的，不敢起兵
@@ -417,6 +632,22 @@ public static class ColonySystem
             metropole);
     }
 
+    // 直辖殖民地和平改为自治领：总督卸任，本地推出自己的元首，政体照本地文化定
+    private static void BecomeDominion(Kingdom colony, Kingdom metropole, ColonyState state)
+    {
+        state.kind = ColonyState.Dominion;
+        state.autonomy = 40f;
+        state.founded_at = World.world.getCurWorldTime();
+        state.governor_id = -1L;
+        colony.GetOrCreate().regime_manually_selected = false;
+        string culture = CultureService.GetRealmCulture(colony);
+        if (CultureService.IsValidCulture(culture))
+            CultureService.SetRealmCulture(colony, culture, updatePoliticalSystem: true, allowLegacyInstitutions: false);
+        Name(colony, metropole, state.kind);
+        TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_became_dominion"), colony.GetKingdomFullName(), metropole.GetKingdomFullName()),
+            metropole);
+    }
+
     // 独立战争结束(见 FeudalVassalService.ResolveIndependenceWar)：殖民地胜则脱离，败则离心压回去
     public static void ResolveIndependenceWar(War war, WarWinner winner)
     {
@@ -427,10 +658,11 @@ public static class ColonySystem
         else if (Of(colony) is ColonyState state) state.autonomy = 30f;
     }
 
-    // 殖民地脱离宗主：按本文化重定政体、去掉殖民地名号与合成色
-    public static void Release(Kingdom colony, string reason)
+    // 殖民地脱离宗主：按本文化重定政体、去掉殖民地名号与合成色；friendly 和平独立的(自治领、委任统治期满)与旧宗主交好
+    public static void Release(Kingdom colony, string reason, Kingdom friendly = null)
     {
         if (colony?.data == null || Of(colony) == null) return;
+        int kind = Of(colony).kind;
         colony.GetOrCreate().colony = null;
         colony.GetOrCreate().regime_manually_selected = false;
         string culture = CultureService.GetRealmCulture(colony);
@@ -439,6 +671,7 @@ public static class ColonySystem
         colony.SetCustomCountryName("");
         colony.SetCustomCountrySuffix("");
         VassalColorService.Clear(colony);
+        if (friendly?.data != null && !friendly.isRekt()) DiplomacyActions.ApplyScenario("friend", colony, friendly, value: 40);
         if (!string.IsNullOrEmpty(reason)) TranslateHelper.LogEventMessage(reason, colony);
     }
 

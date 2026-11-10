@@ -46,7 +46,7 @@ public static class WarGoalSystem
     private const float ZhouVassalStrength = 1.5f;
     // 战争窗口里轮换的顺序(劫掠不参与)
     private static readonly WarGoal[] Cycle =
-        { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.扶立, WarGoal.改宗, WarGoal.通商, WarGoal.赔款 };
+        { WarGoal.吞并, WarGoal.割地, WarGoal.收复, WarGoal.迫使附庸, WarGoal.保护国, WarGoal.租借, WarGoal.扶立, WarGoal.改宗, WarGoal.通商, WarGoal.赔款 };
 
     // 战争窗口上可供玩家点名的目标(同 Cycle，界面只读)
     public static IReadOnlyList<WarGoal> PlayerGoals => Cycle;
@@ -154,6 +154,10 @@ public static class WarGoalSystem
                     LogService.LogInfo($"[EmpireCraft][扩张上限] {attacker.GetKingdomName()} 伐 {defender.GetKingdomName()}：{generation}，不谋土地");
             }
         }
+        // 近代殖民列强对异族之国：不收作附庸，立为保护国(见 ColonySystem)
+        if (goal == WarGoal.迫使附庸 && ColonySystem.ColonialPower(attacker) && !defender.IsEmpire() &&
+            !CultureService.SameKin(CultureService.GetRealmCulture(attacker), CultureService.GetRealmCulture(defender)))
+            goal = WarGoal.保护国;
         // 圣战且两边宗教不同：要对方改宗
         if (war.GetEmpireWarType() == EmpireWarType.神圣 && Convertible(attacker, defender)) goal = WarGoal.改宗;
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
@@ -211,7 +215,9 @@ public static class WarGoalSystem
         WarGoal.吞并 => 4,
         WarGoal.割地 => 3,
         WarGoal.迫使附庸 => 2,
+        WarGoal.保护国 => 2,
         WarGoal.通商 => 1,
+        WarGoal.租借 => 1,
         _ => 0
     };
 
@@ -282,8 +288,11 @@ public static class WarGoalSystem
     }
 
     // 跨海打不下城：兵力够、两边都有港口，对方锁国或攻方兵力两倍以上的，逼对方开港通商；否则赔款
+    // 近代殖民列强隔海打大国：吞不下、割不动，兵力两倍以上的租借一座港口城(见 ColonySystem.LeaseTarget)
     private static WarGoal OverseasFallback(Kingdom attacker, Kingdom defender, float strength) =>
-        strength >= ConquestStrength && TradeRouteSystem.HasPort(attacker) && TradeRouteSystem.HasPort(defender) &&
+        strength >= AnnexStrength && ColonySystem.ColonialPower(attacker) && ColonySystem.LeaseTarget(defender) != null
+            ? WarGoal.租借
+            : strength >= ConquestStrength && TradeRouteSystem.HasPort(attacker) && TradeRouteSystem.HasPort(defender) &&
         (TradeRouteSystem.Closed(defender) || strength >= AnnexStrength)
             ? WarGoal.通商
             : WarGoal.赔款;
@@ -603,6 +612,26 @@ public static class WarGoalSystem
                         if (defender.IsEmpire()) WarReparationsSystem.Impose(defender, attacker);
                         else PendingVassals.Add((attacker.id, defender.id));
                         break;
+                    case WarGoal.保护国:
+                    {
+                        // 立为保护国(过几帧再做，不在原版结束战争的同一帧里改关系)；立不成退回赔款
+                        Kingdom lord = attacker, ward = defender;
+                        ColonySystem.Defer(() =>
+                        {
+                            if (!ColonySystem.MakeProtectorate(lord, ward)) WarReparationsSystem.Impose(ward, lord);
+                        });
+                        break;
+                    }
+                    case WarGoal.租借:
+                    {
+                        Kingdom lessee = attacker, lessor = defender;
+                        List<City> leased = WarObjective.Targets(war, war.GetOrCreate()).Where(city => city.kingdom == defender).ToList();
+                        ColonySystem.Defer(() =>
+                        {
+                            if (ColonySystem.Lease(lessee, lessor, leased) == null) WarReparationsSystem.Impose(lessor, lessee);
+                        });
+                        break;
+                    }
                     case WarGoal.改宗:
                         if (!Convert(defender, attacker)) WarReparationsSystem.Impose(defender, attacker);
                         break;

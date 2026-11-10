@@ -27,7 +27,10 @@ namespace EmpireCraft.Scripts.Enums
         争法理,
         争夺资源,
         羁縻,
-        继承
+        继承,
+        // 属地(殖民地的延伸，见 ColonySystem)：立为保护国、租借港口城；追加在末尾，旧值不变
+        保护国,
+        租借
     }
 
     public enum EmpireWarType

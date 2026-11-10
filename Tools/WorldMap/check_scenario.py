@@ -14,7 +14,9 @@ TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "a
        "exact", "own_wilderness", "paint_base", "base_stale", "size", "own_cities", "independent", "develop", "base"}
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "hero", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
-          "conquest_city", "decline", "modern", "autonomy", "exile", "colony_of", "company"}
+          "conquest_city", "decline", "modern", "autonomy", "exile", "colony_of", "company", "dependency", "place", "lessor",
+          "lease_years"}
+DEPENDENCIES = {"governorate", "company", "protectorate", "dominion", "mandate", "lease"}
 MODERN = {"regime", "ideology", "party", "one_party", "parties"}
 REGIMES = {"republic", "constitutional", "monarchy"}
 IDEOLOGIES = {"Anarchism", "SocialDemocracy", "Libertarianism", "SocialLiberalism", "Capitalism", "ConservativeLiberalism", "Centrism",
@@ -25,7 +27,7 @@ RELS = {"son", "daughter", "grandson", "granddaughter", "brother", "sister", "ne
 CULTURES = {"Huaxia", "China", "Youmu", "Japan", "Roma", "Frankish", "Germanic", "Viking", "Slavonic", "Arab", "Persepolis", "India", "Egypt",
             "Kosher", "Manzhou", "Xizang", "Swahili", "Bantu", "Zulu", "Aztec", "Ojibwe"}
 RELATIONS = {"war", "truce", "alliance", "marriage", "pact", "protect", "tribute", "vassal", "union", "friend", "feud", "puppet"}
-GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸"}
+GOALS = {"夺城", "收复", "争法理", "劫掠", "侵略", "争夺资源", "吞并", "迫使附庸", "保护国", "租借"}
 DECLINE = {"strain", "graft", "annexation", "bloat", "military", "factionalism", "levies", "age"}
 CONDITIONS = {"holds_city": ("a", "city"), "holds_region": ("a", "region"), "gone": ("a",), "alive": ("a",), "empire": ("a",),
               "at_war": ("a", "b"), "strain_above": ("a", "value"), "before": ("value",), "dead": ("person",)}
@@ -233,6 +235,15 @@ def main():
         for key in ("exile", "colony_of"):
             if p.get(key) and p[key] not in by_id:
                 err("国 %s：%s=%s 不是本剧本的国" % (p.get("id"), key, p[key]))
+        if p.get("dependency"):
+            if p["dependency"] not in DEPENDENCIES:
+                err("国 %s：dependency=%s 只能是 %s" % (p.get("id"), p["dependency"], "、".join(sorted(DEPENDENCIES))))
+            if not p.get("colony_of"):
+                err("国 %s：dependency 要和 colony_of 一起写" % p.get("id"))
+        if p.get("dependency") == "lease" and p.get("lessor") not in by_id:
+            err("国 %s：租借地的出租国 lessor=%s 不是本剧本的国" % (p.get("id"), p.get("lessor")))
+        if p.get("lease_years") is not None and (not isinstance(p["lease_years"], int) or p["lease_years"] < 0):
+            err("国 %s：lease_years 写非负整数" % p.get("id"))
         if p.get("autonomy") and not p.get("of"):
             note("国 %s：autonomy 只对写了 of 的现代国家成员有用" % p.get("id"))
         if p.get("of") and p["of"] not in by_id:
