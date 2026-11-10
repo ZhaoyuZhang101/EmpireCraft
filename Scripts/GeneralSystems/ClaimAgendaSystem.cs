@@ -215,6 +215,15 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.册立储君 => empire.Emperor == null ? 0f
                 : Mathf.Clamp((empire.Emperor.getAge() - 30) * 0.5f, 0f, 20f),
             TemporaryFactionType.谋求统一 => UnificationUrgency(empire),
+            // 新议题(用户 2026-11-11 "增加更多的议题，比如开战，或者其他的符合利益的"，问答全选)
+            TemporaryFactionType.兴兵讨伐 => 8f,
+            TemporaryFactionType.罢兵议和 => 12f + Peasantry() * 0.1f,
+            TemporaryFactionType.整军经武 => 6f + Grievance(SocialClass.Army) * 0.1f,
+            TemporaryFactionType.修筑城防 => 6f,
+            TemporaryFactionType.开放互市 or TemporaryFactionType.通商减税 => 4f + Grievance(SocialClass.Merchant) * 0.15f,
+            TemporaryFactionType.营建宫室 => 3f,
+            TemporaryFactionType.和亲 => 6f,
+            TemporaryFactionType.增设官署 => 4f + Grievance(SocialClass.Officer) * 0.15f,
             _ => 0f
         };
     }

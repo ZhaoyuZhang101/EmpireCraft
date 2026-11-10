@@ -26,6 +26,7 @@ public static partial class CourtSystem
 {
     public const float DealTargetShare = 60f;
     public const int MaxPromises = 2;
+    public const int WithdrawYears = 5;
     private const int MaxAiDeals = 3;
     private const float HardOpposition = -20f;
     public static readonly int[] CapitalTiers = { 5, 10, 20 };
@@ -145,6 +146,8 @@ public static partial class CourtSystem
         "promise" => 8 + Mathf.RoundToInt(Weight(empire, proposer) * 0.3f),
         "ally" => 12 + Mathf.RoundToInt(Mathf.Max(0f, Similarity(proposer, partner)) * 15f),
         "office" => 10 + 3 * (8 - OfficeTier(term.office)),
+        // 撤回本派一条对方反对的诉求：对方越反对它越值钱(用户 2026-11-11 "然后玩家能选择提议开启，然后通过加入代价和条件交换来达到党派自己的目的""当然ai自己也可以")
+        "withdraw" => 6 + Mathf.RoundToInt(Mathf.Max(0f, -CourtIssues.Stance(partner, (TemporaryFactionType)term.amount))),
         _ => 0
     };
 
@@ -161,6 +164,7 @@ public static partial class CourtSystem
     private static string TermArg(CourtTerm term) => term.kind switch
     {
         "office" => OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office) ? office.GetName() : "",
+        "withdraw" => EmpireCraft.Scripts.HelperFunc.TranslateHelper.GetTemporaryFactionClaimText((TemporaryFactionType)term.amount),
         _ => term.amount.ToString()
     };
 
@@ -192,6 +196,9 @@ public static partial class CourtSystem
             case "office":
                 return OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office) && office.GetActor()?.GetFaction() == proposer &&
                        Successor(partner, office) != null ? null : "deal_no_office";
+            case "withdraw":
+                TemporaryFaction own = WithdrawableClaim(empire, proposer, (TemporaryFactionType)term.amount);
+                return own == null ? "deal_no_withdraw" : null;
         }
         return "deal_unknown";
     }
@@ -211,12 +218,24 @@ public static partial class CourtSystem
         foreach (int amount in MoneyTiers) Add(new CourtTerm { kind = "money", amount = amount });
         Add(new CourtTerm { kind = "promise", amount = 1 });
         Add(new CourtTerm { kind = "ally", amount = 1 });
+        // 撤回本派的诉求(条件交换)：对方反对的、没在施行、不是眼下这件奏议的
+        foreach (TemporaryFaction own in proposer.TemporaryFactions ?? new List<TemporaryFaction>())
+            if (own != null && WithdrawableClaim(empire, proposer, own.type) != null && CourtIssues.StanceLevel(partner, own) < 0)
+                Add(new CourtTerm { kind = "withdraw", amount = (int)own.type });
         foreach (long id in CentralOffices(empire))
         {
             if (!OfficeManager.Offices.TryGetValue(id, out OfficeObject office) || office.GetActor()?.GetFaction() != proposer) continue;
             Add(new CourtTerm { kind = "office", office = id });
         }
         return result;
+    }
+
+    private static TemporaryFaction WithdrawableClaim(Empire empire, FixedFaction proposer, TemporaryFactionType type)
+    {
+        TemporaryFaction own = proposer?.TemporaryFactions?.FirstOrDefault(claim => claim != null && claim.type == type);
+        CourtMemorial memorial = State(empire)?.memorial;
+        bool current = memorial != null && memorial.proposer == proposer?.GetID() && memorial.claim == type.ToString();
+        return own == null || own.IsStarted() || current ? null : own;
     }
 
     private static IEnumerable<long> CentralOffices(Empire empire) =>
@@ -243,6 +262,11 @@ public static partial class CourtSystem
                 case "ally":
                     mine.ally = partner.GetID();
                     theirs.ally = proposer.GetID();
+                    break;
+                case "withdraw":
+                    // 本派五年内不再提这一条
+                    TemporaryFaction own = WithdrawableClaim(empire, proposer, (TemporaryFactionType)term.amount);
+                    if (own != null) own.CountDown = Math.Max(own.CountDown, WithdrawYears);
                     break;
                 case "office":
                     if (!OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office)) break;

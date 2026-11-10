@@ -137,6 +137,10 @@ public sealed class CourtMemorial
     public List<CourtScaleFactor> factors = new();
     // 廷议前谈成的交换(廷议按换来的表态算)
     public List<CourtDeal> deals = new();
+    // 神力(见 CourtSystem.Divine)：按神意改的表态(派系 id → 1/0/-1)、批红另加的神意砝码、施行快慢倍数
+    public Dictionary<string, int> stance_overrides = new();
+    public List<CourtScaleFactor> god_factors = new();
+    public float rate_factor = 1f;
 }
 
 // 天平上的一项砝码：key 是语言键，value 是这一项加减的值(准奏率按百分点，施行速度按倍数)，arg 填进语言键

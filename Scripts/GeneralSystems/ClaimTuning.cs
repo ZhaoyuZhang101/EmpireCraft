@@ -21,7 +21,7 @@ public static class ClaimTuning
 
     public static bool IsCourtWar(TemporaryFactionType type) =>
         type is TemporaryFactionType.谋求统一 or TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡 or
-            TemporaryFactionType.逼冕;
+            TemporaryFactionType.逼冕 or TemporaryFactionType.兴兵讨伐;
 
     public static float Duration(TemporaryFactionType type) => type switch
     {
@@ -38,7 +38,9 @@ public static class ClaimTuning
             TemporaryFactionType.开放党禁 or TemporaryFactionType.索取皇位 or TemporaryFactionType.诛宦官 or
             TemporaryFactionType.党锢 or TemporaryFactionType.大赦天下 or TemporaryFactionType.盐铁专营 or
             TemporaryFactionType.重农抑商 or TemporaryFactionType.封禅 or TemporaryFactionType.裁省用度 or
-            TemporaryFactionType.独尊官学 or TemporaryFactionType.国语骑射 => LightMonths,
+            TemporaryFactionType.独尊官学 or TemporaryFactionType.国语骑射 or TemporaryFactionType.罢兵议和 or
+            TemporaryFactionType.和亲 or TemporaryFactionType.通商减税 or TemporaryFactionType.开放互市 or
+            TemporaryFactionType.增设官署 => LightMonths,
         TemporaryFactionType.土地改革 or TemporaryFactionType.游牧化 or TemporaryFactionType.颁布金玺诏书 or
             TemporaryFactionType.恢复世袭皇权 or TemporaryFactionType.建立共和 or TemporaryFactionType.复辟帝制 or
             TemporaryFactionType.转周制 => HeavyMonths,
@@ -48,7 +50,10 @@ public static class ClaimTuning
     // 经费份数
     public static float BudgetShares(TemporaryFactionType type) => type switch
     {
-        TemporaryFactionType.对外扩张 or TemporaryFactionType.游牧扩张 or TemporaryFactionType.谋求统一 => 4f,
+        TemporaryFactionType.对外扩张 or TemporaryFactionType.游牧扩张 or TemporaryFactionType.谋求统一 or
+            TemporaryFactionType.兴兵讨伐 => 4f,
+        TemporaryFactionType.整军经武 or TemporaryFactionType.营建宫室 => 3f,
+        TemporaryFactionType.修筑城防 or TemporaryFactionType.和亲 or TemporaryFactionType.增设官署 => 2f,
         TemporaryFactionType.迫使朝贡 or TemporaryFactionType.逼冕 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.转天朝制度 or TemporaryFactionType.土地改革 or TemporaryFactionType.赈济灾荒 or
             TemporaryFactionType.恢复圣地 or TemporaryFactionType.复辟帝制 or TemporaryFactionType.兴修水利 or

@@ -64,9 +64,11 @@ public static partial class NomadRaidSystem
     private static bool Steadfast(City city)
     {
         Empire empire = city?.kingdom?.GetEmpire();
-        if (empire?.data?.claim_done_at == null ||
-            !empire.data.claim_done_at.TryGetValue(TemporaryFactionType.屯田实边.ToString(), out double at) ||
-            YearsSince(at) >= TuntianYears) return false;
+        // 修筑城防同屯田实边(见 TempFac_修筑城防)(用户 2026-11-11 "增加更多的议题，比如开战，或者其他的符合利益的"，问答全选)
+        bool Recent(TemporaryFactionType type) => empire.data.claim_done_at.TryGetValue(type.ToString(), out double at) &&
+                                                  YearsSince(at) < TuntianYears;
+        if (empire?.data?.claim_done_at == null || !Recent(TemporaryFactionType.屯田实边) && !Recent(TemporaryFactionType.修筑城防))
+            return false;
         return city.neighbours_cities?.Any(other => other?.kingdom != null && other.kingdom.GetEmpire() != empire) == true;
     }
 

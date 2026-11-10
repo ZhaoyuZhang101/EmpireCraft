@@ -185,6 +185,13 @@ public static partial class CourtSystem
             if (multiplier < floor) factors?.Add(new CourtScaleFactor { key = "claim_rate_war_floor", value = floor });
             multiplier = Mathf.Max(multiplier, floor);
         }
+        // 神力定的快慢(见 CourtSystem.Divine)
+        float divine = state.memorial.rate_factor <= 0f ? 1f : state.memorial.rate_factor;
+        if (Mathf.Abs(divine - 1f) > 0.001f)
+        {
+            factors?.Add(new CourtScaleFactor { key = "claim_rate_divine", value = divine });
+            multiplier *= divine;
+        }
         return multiplier;
     }
 
@@ -377,6 +384,9 @@ public static partial class CourtSystem
             int stance = BaseStance(empire, claim, proposer, faction);
             CourtDeal deal = faction == proposer ? null : DealOf(memorial, faction);
             if (deal != null) stance = Math.Max(stance, deal.after);
+            // 神意改的表态(见 CourtSystem.Divine)
+            if (faction != proposer && memorial?.stance_overrides != null &&
+                memorial.stance_overrides.TryGetValue(faction.GetID(), out int forced)) stance = forced;
             result.Add((faction, stance, weights[faction]));
         }
         return result;
@@ -591,6 +601,8 @@ public static partial class CourtSystem
                 Add("court_scale_decider_stance", CourtIssues.StanceLevel(deciderFaction, issue) * 0.2f, deciderFaction.Name);
             Add("court_scale_lobby", Lobbying(memorial), bid);
             Add("court_scale_malady", -MaladySystem.ApprovalMalus(empire));
+            foreach (CourtScaleFactor divine in memorial?.god_factors ?? new List<CourtScaleFactor>())
+                if (divine != null) Add(divine.key, divine.value, divine.arg);
             return factors;
         }
         float authority = Mathf.Clamp01(empire.Legitimacy / 100f);
@@ -624,7 +636,15 @@ public static partial class CourtSystem
         // 党争(见 MaladySystem)
         Add("court_scale_malady", -MaladySystem.ApprovalMalus(empire));
         Add("court_scale_lobby", Lobbying(memorial), bid);
+        AddDivine();
         return factors;
+
+        // 神意砝码(见 CourtSystem.Divine)
+        void AddDivine()
+        {
+            foreach (CourtScaleFactor divine in memorial?.god_factors ?? new List<CourtScaleFactor>())
+                if (divine != null) Add(divine.key, divine.value, divine.arg);
+        }
     }
 
     // 票拟这一步的预估(诉求天平页)：各项是过关的概率，乘起来是上达廷议的把握。不在议事会又没有盟友坐席的只有六成上达；
@@ -668,8 +688,10 @@ public static partial class CourtSystem
         if (emperor?.data == null) return 0f;
         float stance = emperor.GetFaction() == null ? 0f : CourtIssues.StanceLevel(emperor.GetFaction(), issue);
         bool expansion = issue is TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡 or
-            TemporaryFactionType.扩张地盘 or TemporaryFactionType.谋求统一;
-        bool appeasement = issue is TemporaryFactionType.提供岁币 or TemporaryFactionType.割让城池;
+            TemporaryFactionType.扩张地盘 or TemporaryFactionType.谋求统一 or TemporaryFactionType.兴兵讨伐 or
+            TemporaryFactionType.整军经武;
+        bool appeasement = issue is TemporaryFactionType.提供岁币 or TemporaryFactionType.割让城池 or
+            TemporaryFactionType.罢兵议和 or TemporaryFactionType.和亲;
         bool devolution = issue is TemporaryFactionType.分封 or TemporaryFactionType.确认诸侯特权 or
             TemporaryFactionType.允许诸侯自由开战 or TemporaryFactionType.颁布金玺诏书;
         bool centralise = issue is TemporaryFactionType.削藩 or TemporaryFactionType.夺取诸侯开战权 or

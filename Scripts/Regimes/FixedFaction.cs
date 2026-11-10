@@ -526,6 +526,14 @@ public class FixedFaction
                 TemporaryFactionTypesRecord.Add(issue);
                 catalogChanged = true;
             }
+        // 政党按理念补上后来加进纲领的诉求(用户 2026-11-11 新增议题，见 PartySystem.IdeologyClaims)；手改理念的照新理念
+        if (IsParty)
+            foreach (TemporaryFactionType issue in GeneralSystems.PartySystem.ClaimsOf(Ideology) ?? new List<TemporaryFactionType>())
+            {
+                if (TemporaryFactionTypesRecord.Contains(issue)) continue;
+                TemporaryFactionTypesRecord.Add(issue);
+                catalogChanged = true;
+            }
         if (ClaimCatalogVersion < CurrentClaimCatalogVersion && Empire?.CoreKingdom != null)
         {
             if (ClaimCatalogVersion < 2 && !IsParty) catalogChanged |= MigrateClaimCatalogV2();

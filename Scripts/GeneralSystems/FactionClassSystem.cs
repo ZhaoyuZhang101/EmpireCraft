@@ -314,6 +314,16 @@ public static class FactionClassSystem
             TemporaryFactionType.重农抑商 => Effects((SocialClass.Peasant, 8), (SocialClass.Merchant, -14), (SocialClass.Landlord, 4)),
             TemporaryFactionType.诛宦官 => Effects((SocialClass.Officer, 6)),
             TemporaryFactionType.党锢 => Effects((SocialClass.Officer, -6)),
+            // 新议题(用户 2026-11-11 "增加更多的议题，比如开战，或者其他的符合利益的"，问答全选)
+            TemporaryFactionType.兴兵讨伐 => Effects((SocialClass.Army, 16), (SocialClass.Noble, 6), (SocialClass.Peasant, -8), (SocialClass.Merchant, -8)),
+            TemporaryFactionType.罢兵议和 => Effects((SocialClass.Peasant, 10), (SocialClass.Merchant, 10), (SocialClass.Army, -12)),
+            TemporaryFactionType.整军经武 => Effects((SocialClass.Army, 16), (SocialClass.Officer, 4), (SocialClass.Peasant, -8)),
+            TemporaryFactionType.修筑城防 => Effects((SocialClass.Army, 8), (SocialClass.Landlord, 4), (SocialClass.Peasant, -6)),
+            TemporaryFactionType.开放互市 => Effects((SocialClass.Merchant, 14), (SocialClass.Citizen, 4), (SocialClass.Army, -4)),
+            TemporaryFactionType.通商减税 => Effects((SocialClass.Merchant, 14), (SocialClass.Citizen, 6), (SocialClass.Landlord, -6), (SocialClass.Officer, -4)),
+            TemporaryFactionType.营建宫室 => Effects((SocialClass.Noble, 10), (SocialClass.Officer, 2), (SocialClass.Peasant, -10), (SocialClass.Labour, -4)),
+            TemporaryFactionType.和亲 => Effects((SocialClass.Officer, 6), (SocialClass.Merchant, 6), (SocialClass.Army, -10)),
+            TemporaryFactionType.增设官署 => Effects((SocialClass.Officer, 14), (SocialClass.Landlord, 2), (SocialClass.Peasant, -8), (SocialClass.Merchant, -4)),
             _ => new Dictionary<SocialClass, float>()
         };
     }

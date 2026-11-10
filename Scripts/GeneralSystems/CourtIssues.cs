@@ -19,7 +19,11 @@ public static class CourtIssues
     {
         TemporaryFactionType.提高赋税, TemporaryFactionType.降低赋税, TemporaryFactionType.对外扩张,
         TemporaryFactionType.提供岁币, TemporaryFactionType.开科取士, TemporaryFactionType.册立储君,
-        TemporaryFactionType.整顿吏治, TemporaryFactionType.赈济灾荒
+        TemporaryFactionType.整顿吏治, TemporaryFactionType.赈济灾荒,
+        // 战和与各为其利的议题(用户 2026-11-11 "增加更多的议题，比如开战，或者其他的符合利益的"，问答全选)
+        TemporaryFactionType.兴兵讨伐, TemporaryFactionType.罢兵议和, TemporaryFactionType.整军经武, TemporaryFactionType.修筑城防,
+        TemporaryFactionType.开放互市, TemporaryFactionType.通商减税, TemporaryFactionType.营建宫室, TemporaryFactionType.和亲,
+        TemporaryFactionType.增设官署
     };
 
     // 朋党朝廷里也是国是的议题(用户 2026-10-20 定)：谋求统一以前只有派系类型带它的几派(天子派、变法派、武官派)能上奏，
@@ -69,7 +73,14 @@ public static class CourtIssues
         (TemporaryFactionType.诛宦官, TemporaryFactionType.宦官掌兵),
         (TemporaryFactionType.党锢, TemporaryFactionType.大赦天下),
         (TemporaryFactionType.封禅, TemporaryFactionType.裁省用度),
-        (TemporaryFactionType.供养宗室, TemporaryFactionType.裁省用度)
+        (TemporaryFactionType.供养宗室, TemporaryFactionType.裁省用度),
+        (TemporaryFactionType.兴兵讨伐, TemporaryFactionType.罢兵议和),
+        (TemporaryFactionType.兴兵讨伐, TemporaryFactionType.和亲),
+        (TemporaryFactionType.对外扩张, TemporaryFactionType.罢兵议和),
+        (TemporaryFactionType.整军经武, TemporaryFactionType.裁省用度),
+        (TemporaryFactionType.营建宫室, TemporaryFactionType.裁省用度),
+        (TemporaryFactionType.增设官署, TemporaryFactionType.裁省用度),
+        (TemporaryFactionType.通商减税, TemporaryFactionType.重农抑商)
     };
 
     public const float SupportThreshold = 5f;
@@ -116,6 +127,33 @@ public static class CourtIssues
         if (OppositesOf(issue).Any(opposite => faction.TemporaryFactionTypes?.Contains(opposite) == true))
             score -= 12f;
         return Math.Max(-30f, Math.Min(30f, score));
+    }
+
+    // 立场的来由(诉求天平页逐项列出；用户 2026-11-11 "得写清楚为什么要这个议题谁同意谁不同意，是如何让他们同意的")：
+    // 各阶层的利弊(本派对该阶层的亲疏 × 议题对该阶层的利弊；朋党按学说/利害表态时这部分折半)、学说/利害、本派诉求、
+    // 与本派诉求相悖、针对的目标。各项加起来(夹在 ±30)就是 Stance；key 是语言键，arg 填进去
+    public static List<(string key, string arg, float value)> Explain(FixedFaction faction, TemporaryFaction claim)
+    {
+        var parts = new List<(string key, string arg, float value)>();
+        if (faction == null || claim == null) return parts;
+        TemporaryFactionType issue = claim.type;
+        FactionClassSystem.EnsureProfile(faction);
+        int? weigh = CourtDoctrine.Weigh(faction, issue);
+        float classScale = weigh != null ? 0.5f : 1f;
+        foreach (KeyValuePair<SocialClass, float> pair in faction.ClassAffinities)
+        {
+            float value = pair.Value / 100f * FactionClassSystem.GetClaimClassEffect(issue, pair.Key) * classScale;
+            if (Math.Abs(value) >= 0.5f)
+                parts.Add((value > 0f ? "stance_part_class_gain" : "stance_part_class_loss", pair.Key.ToTranslate(), value));
+        }
+        if (weigh != null && weigh.Value != 0) parts.Add(("stance_part_doctrine", "", weigh.Value * 1.5f));
+        if (Holds(faction, issue) && (!IsPublic(faction, issue) || faction.TemporaryFactionTypes?.Contains(issue) == true))
+            parts.Add(("stance_part_own", "", 12f));
+        foreach (TemporaryFactionType opposite in OppositesOf(issue).Where(opposite => faction.TemporaryFactionTypes?.Contains(opposite) == true).Take(1))
+            parts.Add(("stance_part_opposite", EmpireCraft.Scripts.HelperFunc.TranslateHelper.GetTemporaryFactionClaimText(opposite), -12f));
+        float target = claim.TargetStance(faction);
+        if (Math.Abs(target) >= 0.5f) parts.Add(("stance_part_target", "", target));
+        return parts.OrderByDescending(part => Math.Abs(part.value)).ToList();
     }
 
     public static int StanceLevel(float score) =>

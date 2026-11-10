@@ -146,10 +146,12 @@ public static class ClaimScalePanel
         }
 
         // 廷议：已议过的照当时的表态，没议的按眼下预估
-        List<(string name, int stance, float weight)> stances = memorial.stage >= 2 && memorial.stances.Count > 0
-            ? memorial.stances.Select(pair => (CourtSystem.FindFaction(empire, pair.Key)?.Name ?? pair.Key, pair.Value,
+        List<(string id, string name, int stance, float weight)> rows = memorial.stage >= 2 && memorial.stances.Count > 0
+            ? memorial.stances.Select(pair => (pair.Key, CourtSystem.FindFaction(empire, pair.Key)?.Name ?? pair.Key, pair.Value,
                 memorial.weights.TryGetValue(pair.Key, out float weight) ? weight : 0f)).ToList()
-            : CourtSystem.DebateStances(empire, claim, proposer, memorial).Select(item => (item.faction.Name, item.stance, item.weight)).ToList();
+            : CourtSystem.DebateStances(empire, claim, proposer, memorial)
+                .Select(item => (item.faction.GetID(), item.faction.Name, item.stance, item.weight)).ToList();
+        List<(string name, int stance, float weight)> stances = rows.Select(row => (row.name, row.stance, row.weight)).ToList();
         float support = memorial.stage >= 2 && memorial.support >= 0f ? memorial.support : Share(stances);
         bool contest = CourtSystem.CanContest(empire, proposer);
         // 批红：议过的用实际赞成率，没议的拿预估的赞成率估
@@ -170,6 +172,7 @@ public static class ClaimScalePanel
                 support >= CourtSystem.DebateThreshold ? WideKit.Green : contest ? WideKit.Orange : WideKit.Red),
             (L("claim_scale_step_decide"), decideText, memorial.stage >= 4 ? WideKit.Green : Hex(chance)),
             (L("claim_scale_step_run"), runText, memorial.stage >= 4 ? WideKit.Cyan : WideKit.Muted));
+        DrawWhy(card, width, claim, proposer);
 
         if (draft != null)
         {
@@ -182,7 +185,7 @@ public static class ClaimScalePanel
         {
             Heading(card, width, memorial.stage >= 2 ? "claim_scale_debate_done" : "claim_scale_debate_heading",
                 string.Format(L("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
-            DrawStances(card, width, stances);
+            DrawStanceRows(card, width, empire, memorial, claim, proposer, rows, refresh);
             if (support < CourtSystem.DebateThreshold)
                 card.AddParagraph(width, L(contest ? "claim_scale_debate_contest" : "claim_scale_debate_fail"), 6,
                     contest ? WideKit.Orange : WideKit.Red);
@@ -192,6 +195,18 @@ public static class ClaimScalePanel
         {
             Heading(card, width, memorial.stage >= 2 ? "claim_scale_decide_heading" : "claim_scale_decide_preview", Percent(chance));
             DrawApproval(card, width, approval);
+            // 神意砝码：点一下换一档(见 CourtSystem.Divine；用户 2026-11-11 "这里玩家为什么不能自己加砝码""和编辑")
+            if (refresh != null && CourtSystem.CanEditDebate(empire, out _))
+                card.AddChipRow(width - CardPadding, CourtSystem.DivinePositive.Concat(CourtSystem.DivineNegative).Select(key =>
+                {
+                    int value = CourtSystem.DivineApproval(memorial, key);
+                    string label = LM.Get("court_scale_divine_" + key) + (value != 0 ? $" {(value > 0 ? "+" : "")}{value}" : "");
+                    return (label, value != 0, (UnityEngine.Events.UnityAction)(() =>
+                    {
+                        CourtSystem.CycleDivineApproval(empire, key);
+                        refresh();
+                    }));
+                }).ToArray());
             (Actor decider, string role) = CourtSystem.Decider(empire);
             card.AddParagraph(width, string.Format(L("claim_scale_decider"), L("court_decider_" + role),
                 decider?.getName() ?? L("label_none")), 6, WideKit.Muted);
@@ -203,7 +218,7 @@ public static class ClaimScalePanel
             // 施行中也照样列出廷议表态与批红砝码(用户 2026-11-10 "砝码呢")
             Heading(card, width, "claim_scale_debate_done",
                 string.Format(L("claim_scale_debate_value"), Mathf.RoundToInt(support), CourtSystem.DebateThreshold));
-            DrawStances(card, width, stances);
+            DrawStanceRows(card, width, empire, memorial, claim, proposer, rows, refresh);
             if (memorial.factors != null && memorial.factors.Count > 0)
             {
                 Heading(card, width, "claim_scale_decide_recorded", Percent(memorial.approval));
@@ -213,6 +228,14 @@ public static class ClaimScalePanel
                 card.AddParagraph(width, RollText(memorial.approval, memorial.roll, "approve"), 6, WideKit.Soft);
             else card.AddParagraph(width, L("claim_scale_reading_divine"), 6, WideKit.Soft);
             DrawExecution(card, width, claim);
+            // 神力定施行快慢
+            if (refresh != null)
+                card.AddChipRow(width - CardPadding, (string.Format(L("claim_scale_rate_chip"), memorial.rate_factor.ToString("0.#")),
+                    Mathf.Abs(memorial.rate_factor - 1f) > 0.001f, (UnityEngine.Events.UnityAction)(() =>
+                    {
+                        CourtSystem.CycleRate(empire);
+                        refresh();
+                    })));
         }
         DrawDeals(card, width, empire, memorial, refresh);
     }
@@ -240,14 +263,110 @@ public static class ClaimScalePanel
         }
     }
 
-    private static string DealTerms(CourtDeal deal)
+    internal static string DealTerms(CourtDeal deal)
     {
         if (deal.kind is "repay" or "reneged" or "divine") return L("claim_scale_deal_kind_" + deal.kind);
-        return deal.terms.Count == 0 ? L("label_none") : string.Join("、", deal.terms.Select(TermLabel));
+        return deal.terms.Count == 0 ? L("claim_scale_deal_free") : string.Join("、", deal.terms.Select(TermLabel));
     }
+
+    // 缘由(用户 2026-11-11 "得写清楚为什么要这个议题谁同意谁不同意，是如何让他们同意的，使用了什么利益交换""就和战争天平类似的逻辑")：
+    // 议题让哪些阶层得利、哪些受损；上奏一派为什么要它(立场的来由，见 CourtIssues.Explain)
+    private static void DrawWhy(AutoVertLayoutGroup card, float width, TemporaryFaction claim, FixedFaction proposer)
+    {
+        var gains = new List<string>();
+        var losses = new List<string>();
+        foreach (SocialClass socialClass in Enum.GetValues(typeof(SocialClass)).Cast<SocialClass>())
+        {
+            float effect = FactionClassSystem.GetClaimClassEffect(claim.type, socialClass);
+            if (effect >= 1f) gains.Add($"{socialClass.ToTranslate()}+{effect:0}");
+            else if (effect <= -1f) losses.Add($"{socialClass.ToTranslate()}{effect:0}");
+        }
+        Heading(card, width, "claim_scale_why", "");
+        float label = (width - CardPadding) * 0.28f;
+        card.AddValueRow(width, 0, L("claim_scale_why_gain"), gains.Count == 0 ? L("label_none") : string.Join("、", gains), WideKit.Green,
+            labelWidth: label);
+        card.AddValueRow(width, 1, L("claim_scale_why_loss"), losses.Count == 0 ? L("label_none") : string.Join("、", losses), WideKit.Red,
+            labelWidth: label);
+        List<(string key, string arg, float value)> parts = CourtIssues.Explain(proposer, claim);
+        string why = parts.Count == 0 ? L("stance_reason_indifferent")
+            : string.Join("、", parts.Take(3).Select(part => $"{PartLabel(part)} {SignedValue(part.value)}"));
+        card.AddValueRow(width, 2, string.Format(L("claim_scale_why_proposer"), proposer.Name), why, WideKit.Soft, labelWidth: label);
+    }
+
+    // 各派表态：赞成在前；每行写主因(阶层利弊、本派诉求、盟友、换票、神意……)，悬停看立场的全部来由；
+    // 还没批红的可以点一行按神意改表态(赞成 → 观望 → 反对 → 原样)
+    private static void DrawStanceRows(AutoVertLayoutGroup card, float width, Empire empire, CourtMemorial memorial, TemporaryFaction claim,
+        FixedFaction proposer, List<(string id, string name, int stance, float weight)> rows, Action refresh)
+    {
+        bool editable = refresh != null && CourtSystem.CanEditDebate(empire, out _);
+        int index = 0;
+        foreach ((string id, string name, int stance, float weight) in rows.OrderByDescending(row => row.stance).ThenByDescending(row => row.weight))
+        {
+            FixedFaction faction = CourtSystem.FindFaction(empire, id);
+            (string reason, string tip) = StanceReason(empire, memorial, claim, proposer, faction, stance);
+            string mark = L(stance > 0 ? "court_stance_support" : stance < 0 ? "court_stance_oppose" : "court_stance_neutral");
+            string factionId = id;
+            var line = card.AddValueRow(width, index++, name, $"{mark} · {weight:0.#} · {reason}",
+                stance > 0 ? WideKit.Green : stance < 0 ? WideKit.Red : WideKit.Muted,
+                editable && faction != proposer ? () =>
+                {
+                    CourtSystem.CycleStance(empire, factionId);
+                    refresh();
+                } : null, (width - CardPadding) * 0.3f);
+            Tip(line.gameObject, $"claim_scale_stance_{empire.id}_{id}", name, tip);
+        }
+        if (editable) card.AddParagraph(width, L("claim_scale_stance_edit_hint"), 6, WideKit.Muted);
+    }
+
+    // 一派表态的主因与全部来由
+    private static (string reason, string tip) StanceReason(Empire empire, CourtMemorial memorial, TemporaryFaction claim, FixedFaction proposer,
+        FixedFaction faction, int stance)
+    {
+        if (faction == null) return ("", "");
+        List<(string key, string arg, float value)> parts = CourtIssues.Explain(faction, claim);
+        float score = CourtIssues.Stance(faction, claim);
+        var lines = parts.Select(part => $"{PartLabel(part)} {SignedValue(part.value)}").ToList();
+        lines.Add(string.Format(L("stance_total"), Mathf.RoundToInt(score)));
+        CourtDeal deal = CourtSystem.DealOf(memorial, faction);
+        if (deal != null)
+            lines.Add(string.Format(L("claim_scale_deal_line"), deal.partner_name, CourtSystem.StanceName(deal.before),
+                CourtSystem.StanceName(deal.after), DealTerms(deal)));
+        int natural = CourtIssues.StanceLevel(score);
+        string reason;
+        if (faction == proposer) reason = L("stance_reason_proposer");
+        else if (CourtSystem.StanceOverridden(memorial, faction.GetID())) reason = L("stance_reason_divine");
+        else if (deal != null && deal.kind != "reneged" && stance == deal.after && deal.after > natural)
+            reason = deal.kind == "repay" ? L("stance_reason_repay") : string.Format(L("stance_reason_deal"), DealTerms(deal));
+        else if (CourtSystem.IsBoycotting(CourtSystem.FactionState(empire, faction))) reason = L("stance_reason_boycott");
+        else if (natural == 0 && stance > 0 && CourtSystem.FactionState(empire, proposer).ally == faction.GetID()) reason = L("stance_reason_ally");
+        else if (natural == 0 && stance > 0 && CliqueSystem.Patronage(empire, faction, proposer)) reason = L("stance_reason_patron");
+        else
+        {
+            (string key, string arg, float value) main = parts.FirstOrDefault(part => stance == 0 || Math.Sign(part.value) == Math.Sign(stance));
+            reason = main.key == null ? L("stance_reason_indifferent") : PartLabel(main);
+        }
+        return (reason, string.Join("\n", lines));
+    }
+
+    internal static string PartLabel((string key, string arg, float value) part)
+    {
+        string format = LM.Get(part.key);
+        try
+        {
+            return string.IsNullOrEmpty(part.arg) ? format : string.Format(format, part.arg);
+        }
+        catch (FormatException)
+        {
+            return format;
+        }
+    }
+
+    private static string SignedValue(float value) => value >= 0f ? $"+{value:0.#}" : $"{value:0.#}";
 
     private static string TermLabel(CourtTerm term) => term.kind switch
     {
+        "withdraw" => string.Format(L("claim_scale_term_withdraw"),
+            EmpireCraft.Scripts.HelperFunc.TranslateHelper.GetTemporaryFactionClaimText((TemporaryFactionType)term.amount), CourtSystem.WithdrawYears),
         "office" => string.Format(L("claim_scale_term_office"),
             OfficeManager.Offices.TryGetValue(term.office, out OfficeObject office) ? office.GetName() : ""),
         _ => string.Format(L("claim_scale_term_" + term.kind), term.amount)
@@ -556,9 +675,9 @@ public static class ClaimScalePanel
         }
     }
 
-    private static bool Succeeded(CourtMemorialRecord record) => record.outcome is "court_log_completed" or "court_log_completed_outcome";
+    internal static bool Succeeded(CourtMemorialRecord record) => record.outcome is "court_log_completed" or "court_log_completed_outcome";
 
-    private static string OutcomeKind(string logKey) => logKey switch
+    internal static string OutcomeKind(string logKey) => logKey switch
     {
         "court_log_completed" or "court_log_completed_outcome" => "done",
         "court_log_aborted" => "aborted",

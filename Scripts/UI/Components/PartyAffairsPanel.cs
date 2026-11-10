@@ -23,7 +23,7 @@ public static class PartyAffairsPanel
         if (page == null || party == null) return;
         if (!party.IsParty || empire == null)
         {
-            page.AddEmptyCard(width, "party_affairs_title", "party_affairs_not_party");
+            page.AddEmptyCard(width, "party_affairs_title", LM.Get("party_affairs_not_party"));
             return;
         }
         RenderFunds(page, empire, party, width);
