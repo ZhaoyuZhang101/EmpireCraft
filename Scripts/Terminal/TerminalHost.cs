@@ -34,6 +34,10 @@ namespace EmpireCraft.Scripts.Terminal;
 public static partial class TerminalHost
 {
     public static bool Enabled;
+    // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
+    // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
+    // 加了网页用得着的新命令、新字段就加一
+    public const int Version = 8;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -76,8 +80,18 @@ public static partial class TerminalHost
         internal bool Abdicated;
         // 委首辅代批(奏议、案子都不等手机)、这件奏议上用过的筹码
         internal bool Delegated;
+        // 受理过几道命令(下了令、当场办了、回了话都算；一道命令进来这个数没动就是没受理)
+        internal int Acks;
         internal int DelegateMonth;
         internal readonly HashSet<string> Chips = new();
+        // 暗探(见 TerminalHost.Intrigue.cs)：派出去的、拿获别人的、各国已探到的几项、彻查到哪个月；传闻之国也派得了暗探
+        // 别的席位递来、等着裁的外交提议(见 TerminalHost.Scale.cs)
+        internal readonly List<Offer> Offers = new();
+        internal readonly List<Spy> Spies = new();
+        internal readonly List<CaughtSpy> Caught = new();
+        internal readonly Dictionary<long, Dictionary<string, string>> Dossiers = new();
+        internal readonly HashSet<long> Rumoured = new();
+        internal int SweepUntil;
         internal float HoldSince, NextDecrees;
         internal JObject DecreesCache;
         internal long LastClientTicks;
@@ -94,6 +108,12 @@ public static partial class TerminalHost
             Lost = 0;
             Orders.Clear();
             Chips.Clear();
+            Spies.Clear();
+            Offers.Clear();
+            Caught.Clear();
+            Dossiers.Clear();
+            Rumoured.Clear();
+            SweepUntil = 0;
             Delegated = false;
             Cases.Clear();
             Judged.Clear();
@@ -116,6 +136,8 @@ public static partial class TerminalHost
     }
 
     private static TerminalServer _server;
+    // 局域网里的固定名字(empirecraft.local)，见 TerminalMdns
+    private static TerminalMdns _mdns;
     private static readonly TerminalPairing Pairing = new();
     private static readonly ConcurrentDictionary<string, Seat> SeatByToken = new();
     private static readonly ConcurrentQueue<Action> Commands = new();
@@ -130,6 +152,9 @@ public static partial class TerminalHost
     public static bool Lan => _server?.Lan == true;
     public static string Error => _server?.Error;
     public static string Code => Pairing.Code;
+    // 不随电脑的地址变的那个地址；FixedReady 为真是正在局域网里应答这个名字
+    public static string FixedAddress => TerminalMdns.FullName + ":" + Port;
+    public static bool FixedReady => _mdns?.Running == true && _mdns.Listening > 0;
 
     // 世界流速的倍数(见 TerminalPatch)：有席位领着君主时放慢
     public static float SpeedFactor => Enabled && _anyRuler ? Mathf.Clamp(SpeedPercent, 1, 100) / 100f : 1f;
@@ -179,7 +204,18 @@ public static partial class TerminalHost
     }
 
     // 扫码用的整条地址(带配对码，扫了直接进)
-    public static string PairUrl() => "http://" + PrimaryAddress() + "/?c=" + Code;
+    public static string PairUrl() => (PublicUrl.Length > 0 ? PublicUrl : "http://" + PrimaryAddress()) + "/?c=" + Code;
+
+    // 外网地址(用户 2026-11-11 "那还是考虑第三方的吧")：模组只在本机开端口；不在同一个网络时，由第三方隧道工具(组网、内网穿透)
+    // 把这个端口引出去，它给一个固定网址。把网址填在终端窗口里，二维码、手机桌面图标就都用它，手机不用知道电脑的地址
+    public static string PublicUrl = "";
+
+    public static string CleanUrl(string text)
+    {
+        string url = (text ?? "").Trim().TrimEnd('/');
+        bool web = url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        return web && url.Length <= 90 && url.IndexOfAny(new[] { ' ', '<', '>', '"' }) < 0 ? url : "";
+    }
 
     // 窗口上显示的东西变了没有(配对码、席位、谁领着谁、在不在线)：变了窗口自己重画
     private static string _signature;
@@ -235,6 +271,7 @@ public static partial class TerminalHost
             seat.FormerRuler = seat.FormerRealm = "";
             seat.StateJson = null;
         }
+        RulerPacts.Clear();
         _anyRuler = false;
     }
 
@@ -267,6 +304,7 @@ public static partial class TerminalHost
             {
                 _server.Stop();
                 _server = null;
+                _mdns?.Stop();
                 _anyRuler = false;
             }
             return;
@@ -309,6 +347,8 @@ public static partial class TerminalHost
                     Deliver(seat);
                     RunOrders(seat);
                     RunCases(seat);
+                    RunSpies(seat);
+                    RunOffers(seat);
                 }
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
@@ -330,6 +370,7 @@ public static partial class TerminalHost
             }
         }
         _anyRuler = any;
+        if (ready) RunPacts();
         NotifyWindows();
     }
 
@@ -345,7 +386,14 @@ public static partial class TerminalHost
         foreach (KeyValuePair<string, string> paired in Pairing.Seats())
             SeatByToken.GetOrAdd(paired.Key, token => new Seat { Token = token, Name = paired.Value });
         if (_server.Start(Port))
+        {
             LogService.LogInfo($"[EmpireCraft][终端] 已开在 {Port} 端口" + (_server.Lan ? "" : "(只听本机)"));
+            if (_server.Lan)
+            {
+                _mdns ??= new TerminalMdns();
+                _mdns.Start();
+            }
+        }
         else
             LogService.LogWarning($"[EmpireCraft][终端] {Port} 端口开不了: {_server.Error}");
     }
@@ -417,7 +465,9 @@ public static partial class TerminalHost
     private static readonly Dictionary<string, string> StaticTypes = new()
     {
         ["/manifest.json"] = "application/manifest+json", ["/icon-192.png"] = "image/png", ["/icon-512.png"] = "image/png",
-        ["/apple-touch-icon.png"] = "image/png"
+        ["/apple-touch-icon.png"] = "image/png",
+        // 卡片的像素框(GameResources/ui 里那两张的副本，网页卡片用同一张图)
+        ["/FactionFrame.png"] = "image/png", ["/FactionFrame_dominate.png"] = "image/png"
     };
 
     private static readonly ConcurrentDictionary<string, byte[]> StaticFiles = new();
@@ -497,6 +547,9 @@ public static partial class TerminalHost
     {
         public long Id;
         public string Ruler, Realm, Kind, TakenBy;
+        // 归在哪个天下、哪个帝国之下(独立的国 Empire 为空；不在任何天下里 Tianxia 为空)
+        public string Tianxia, Empire;
+        internal int GroupCities, WorldCities;
         public int Cities, Age;
     }
 
@@ -509,15 +562,56 @@ public static partial class TerminalHost
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || !Eligible(kingdom.king)) continue;
             Seat taken = TakenBy(kingdom.king.getID());
+            // 天下按都城所在的帝国核心算；帝国里的行政区跟着中央归同一个天下
+            Empire empire = kingdom.GetEmpire();
+            City heart = (empire?.CoreKingdom ?? kingdom).capital;
+            var lead = heart == null ? null : TianxiaSystem.LeadOf(heart);
             rulers.Add(new RulerInfo
             {
                 Id = kingdom.king.getID(), Ruler = kingdom.king.getName(), Realm = kingdom.data.name, Kind = Role(kingdom),
-                Cities = kingdom.cities?.Count ?? 0, Age = kingdom.king.getAge(), TakenBy = taken == null ? null : SeatLabel(taken)
+                Cities = kingdom.cities?.Count ?? 0, Age = kingdom.king.getAge(), TakenBy = taken == null ? null : SeatLabel(taken),
+                Tianxia = lead == null ? "" : TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), Empire = empire?.data?.name ?? ""
             });
         }
-        rulers.Sort((a, b) => b.Cities.CompareTo(a.Cities));
+        // 排成 天下 → 帝国或王国 → 行政区(用户 2026-11-11 "请按照天下->帝国/王国->行政区做归类，不然太乱了")：
+        // 天下大的在前、不在任何天下里的垫后；一个天下里帝国、王国按城数排；帝国里中央在前、行政区在后
+        var worldCities = new Dictionary<string, int>();
+        var groupCities = new Dictionary<string, int>();
+        string Group(RulerInfo info) => info.Tianxia + "/" + (info.Empire.Length > 0 ? "e:" + info.Empire : "k:" + info.Id);
+        foreach (RulerInfo info in rulers)
+        {
+            worldCities[info.Tianxia] = (worldCities.TryGetValue(info.Tianxia, out int world) ? world : 0) + info.Cities;
+            groupCities[Group(info)] = (groupCities.TryGetValue(Group(info), out int group) ? group : 0) + info.Cities;
+        }
+        for (int i = 0; i < rulers.Count; i++)
+        {
+            RulerInfo info = rulers[i];
+            info.WorldCities = worldCities[info.Tianxia];
+            info.GroupCities = groupCities[Group(info)];
+            rulers[i] = info;
+        }
+        rulers.Sort((a, b) =>
+        {
+            int order = (a.Tianxia.Length == 0).CompareTo(b.Tianxia.Length == 0);
+            if (order == 0) order = b.WorldCities.CompareTo(a.WorldCities);
+            if (order == 0) order = string.CompareOrdinal(a.Tianxia, b.Tianxia);
+            if (order == 0) order = b.GroupCities.CompareTo(a.GroupCities);
+            if (order == 0) order = string.CompareOrdinal(Group(a), Group(b));
+            if (order == 0) order = (a.Kind == "member").CompareTo(b.Kind == "member");
+            return order != 0 ? order : b.Cities.CompareTo(a.Cities);
+        });
         if (rulers.Count > MaxRulers) rulers.RemoveRange(MaxRulers, rulers.Count - MaxRulers);
         return rulers;
+    }
+
+    // 一国归在哪个天下、哪个帝国之下(凡是列国家的地方都按 天下 → 帝国或王国 → 行政区 归类，
+    // 用户 2026-11-11 "凡是涉及到国家列表的都应该分类")。天下按都城所在的帝国核心算，帝国里的行政区跟着中央
+    internal static (string tianxia, string empire) Belong(Kingdom kingdom)
+    {
+        Empire empire = kingdom.GetEmpire();
+        City heart = (empire?.CoreKingdom ?? kingdom).capital;
+        var lead = heart == null ? null : TianxiaSystem.LeadOf(heart);
+        return (lead == null ? "" : TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), empire?.data?.name ?? "");
     }
 
     public static string SeatLabel(Seat seat) =>
@@ -526,8 +620,13 @@ public static partial class TerminalHost
     private static string Role(Kingdom kingdom)
     {
         Empire empire = kingdom.GetEmpire();
-        return empire == null ? "king" : empire.CoreKingdom == kingdom ? "emperor" : "member";
+        return empire == null ? "king" : empire.CoreKingdom == kingdom ? "emperor" : Hereditary(kingdom) ? "member" : "official";
     }
+
+    // 这国的君位是世袭的(不是朝廷任命、考选、推举出来的)。帝国里的行政区多是流官：位子是朝廷的，不是他家的
+    // (用户 2026-11-11 进游戏后："南直隶任官是只能立太子吧，怎么把普通官员也算上了")
+    private static bool Hereditary(Kingdom kingdom) =>
+        kingdom?.GetRegime()?.GetLeaderSelectMethod() == EmpireCraft.Scripts.Regimes.LeaderSelectMethod.Succession;
 
     // ───────── 奏报 ─────────
     private static int MonthNow() => (int)(World.world.getCurWorldTime() / 5.0);
@@ -547,13 +646,29 @@ public static partial class TerminalHost
                   id.StartsWith("worldlog_disaster_", StringComparison.Ordinal) || id.Contains("emperor") || id.Contains("empire");
             string text = TerminalIntel.Strip(message.GetEmpireHistoryFormatedText());
             if (string.IsNullOrWhiteSpace(text)) return;
+            bool publicNews = ScreenFeedPatch.PublicNews(message);
             foreach (Seat seat in SeatByToken.Values)
             {
                 if (seat.Ruler == null || seat.Realm?.data == null) continue;
                 string realmName = seat.Realm.data.name;
                 bool own = about == seat.Realm || !string.IsNullOrEmpty(realmName) && text.Contains(realmName);
+                // 皇帝治下各行政区的事也算本国的，照吏治迟报、缺报；只是小事另丢一半(皇权不下乡)
+                if (!own && about != null && OwnEmpire(seat) is { } court && about.GetEmpire() == court)
+                {
+                    if (!major && TerminalIntel.Unit(TerminalIntel.Hash(_seq + 1, about.getID(), 7)) < 0.5d)
+                    {
+                        seat.Lost++;
+                        continue;
+                    }
+                    own = true;
+                }
                 if (!own)
                 {
+                    // 别国的事只听得到军国大事(开战、议和、换君、称帝、亡国这类)；国库、吏治、任免这些内情没有暗探不该知道
+                    // (用户 2026-11-11 进游戏后："邻国的信息也太详细了""我连暗探都没派呢就直接知道了国库亏空?")
+                    // 再收紧(群里看了截图："这情报还是太详细了""皇上还是上帝""得再加强迷雾")：进了史书的也不够，
+                    // 得是别国也听得到的事(ScreenFeedPatch.PublicNews)。别国判了谁的罪、朝里议什么、派系涨落都不报
+                    if (!publicNews) continue;
                     bool known = about != null && seat.Known.Contains(about.getID());
                     for (int i = 0; !known && i < seat.KnownNames.Count; i++) known = text.Contains(seat.KnownNames[i]);
                     if (!known) continue;
@@ -620,10 +735,23 @@ public static partial class TerminalHost
         if (seat.LedgerYear != int.MinValue)
             Add(seat, string.Format(LM.Get("terminal_ledger"), treasury, Signed(treasury - seat.LedgerTreasury), people,
                 Signed(people - seat.LedgerPeople), army, Signed(army - seat.LedgerArmy)), true, false, "ledger");
+        if (seat.LedgerYear != int.MinValue) FalseReport(seat, year);
         seat.LedgerYear = year;
         seat.LedgerTreasury = treasury;
         seat.LedgerPeople = people;
         seat.LedgerArmy = army;
+    }
+
+    // 假奏报(群里定的："也可能有假情报""所以玩家要积极反腐，不然收不到情报两眼一抹黑")：吏治坏到一定地步，
+    // 地方上每年可能递一道报喜的假奏报上来(境内安靖、剿寇大捷、岁稔足额、河工告成)，和真的混在一起、不作标记
+    private static void FalseReport(Seat seat, int year)
+    {
+        if (seat.Corruption <= 0.4d || seat.Realm.cities == null || seat.Realm.cities.Count == 0) return;
+        uint roll = TerminalIntel.Hash(seat.Realm.getID(), 11, year);
+        if (TerminalIntel.Unit(roll) >= (seat.Corruption - 0.4d) * 1.5d) return;
+        City city = seat.Realm.cities[(int)(TerminalIntel.Hash(seat.Realm.getID(), 12, year) % (uint)seat.Realm.cities.Count)];
+        if (city?.data == null) return;
+        Add(seat, string.Format(LM.Get("terminal_false_" + (1 + roll % 4)), city.data.name), true, false, "event");
     }
 
     private static string Signed(long value) => value > 0 ? "+" + value : value.ToString();
@@ -637,7 +765,7 @@ public static partial class TerminalHost
     {
         var state = new JObject
         {
-            ["loaded"] = true, ["lang"] = LocalizedTextManager.instance?.language ?? "en", ["seat"] = SeatLabel(seat),
+            ["loaded"] = true, ["v"] = Version, ["lang"] = LocalizedTextManager.instance?.language ?? "en", ["seat"] = SeatLabel(seat),
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent,
             ["paused"] = global::Config.paused
         };
@@ -651,7 +779,8 @@ public static partial class TerminalHost
                 rulers.Add(new JObject
                 {
                     ["id"] = info.Id.ToString(), ["ruler"] = info.Ruler, ["realm"] = info.Realm, ["kind"] = info.Kind,
-                    ["cities"] = info.Cities, ["age"] = info.Age, ["taken"] = info.TakenBy
+                    ["cities"] = info.Cities, ["age"] = info.Age, ["taken"] = info.TakenBy, ["tianxia"] = info.Tianxia,
+                    ["empire"] = info.Empire
                 });
             state["rulers"] = rulers;
             return state;
@@ -680,7 +809,15 @@ public static partial class TerminalHost
         if (seat.DecreesCache == null || Time.realtimeSinceStartup >= seat.NextDecrees)
         {
             seat.NextDecrees = Time.realtimeSinceStartup + DecreeSeconds;
-            seat.DecreesCache = Decrees(seat);
+            // 政令清单要问好几个系统，哪一处出了错不该连奏报、国势一起拖垮：出错就先用上一份
+            try
+            {
+                seat.DecreesCache = Decrees(seat);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][终端] 备政令清单出错: {exception.Message}");
+            }
         }
         state["decrees"] = seat.DecreesCache;
         state["wars"] = Wars(realm);
@@ -799,6 +936,7 @@ public static partial class TerminalHost
         }
         seat.Known.Clear();
         seat.KnownNames.Clear();
+        seat.Rumoured.Clear();
         for (int i = 0; i < map.Kingdoms.Count; i++)
         {
             Kingdom kingdom = map.Kingdoms[i];
@@ -810,6 +948,7 @@ public static partial class TerminalHost
                 tier[i] = ConnectivitySystem.CanContact(realm, kingdom) == true ? 1
                     : ConnectivitySystem.ContactStrength(realm, kingdom) > 0f ? 2 : 3;
             else tier[i] = 3;
+            if (tier[i] == 2) seat.Rumoured.Add(kingdom.getID());
             if (tier[i] != 1) continue;
             seat.Known.Add(kingdom.getID());
             if (!string.IsNullOrEmpty(kingdom.data.name)) seat.KnownNames.Add(kingdom.data.name);

@@ -230,6 +230,15 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
     };
 
     // 别的窗口改开关项(终端窗口开关终端模式)：当场调回调并存盘
+    // 别的窗口改文字项(终端窗口填外网地址)
+    public static void SetText(string id, string text)
+    {
+        ModConfigItem item = Item(id);
+        if (item == null) return;
+        item.SetValue(text ?? "");
+        Save();
+    }
+
     public static void SetSwitch(string id, bool on)
     {
         ModConfigItem item = Item(id);

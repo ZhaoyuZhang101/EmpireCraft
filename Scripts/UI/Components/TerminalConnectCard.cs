@@ -30,10 +30,16 @@ public static class TerminalConnectCard
         if (!TerminalHost.Lan) card.AddParagraph(width, LM.Get("terminal_connect_local"), 7, WideKit.Orange);
         Texture2D code = Code(TerminalHost.PairUrl());
         if (code != null) AddCode(card.transform, code);
-        card.AddParagraph(width, LM.Get("terminal_connect_scan"));
+        bool outside = TerminalHost.PublicUrl.Length > 0;
+        card.AddParagraph(width, LM.Get(outside ? "terminal_connect_public" : "terminal_connect_scan"));
+        if (outside) card.AddValueRow(width, 3, LM.Get("terminal_public_url"), TerminalHost.PublicUrl, WideKit.Gold);
         card.AddValueRow(width, 0, LM.Get("terminal_address"), "http://" + TerminalHost.PrimaryAddress(), WideKit.Cyan);
         card.AddValueRow(width, 1, LM.Get("terminal_code"), TerminalHost.Code, WideKit.Gold);
+        // 固定地址：电脑的地址变了、换台电脑开游戏都还是它(加到手机桌面用这个)
+        if (TerminalHost.FixedReady)
+            card.AddValueRow(width, 2, LM.Get("terminal_fixed"), "http://" + TerminalHost.FixedAddress, WideKit.Green);
         card.AddParagraph(width, LM.Get("terminal_connect_manual"), 6, WideKit.Muted);
+        if (TerminalHost.FixedReady) card.AddParagraph(width, LM.Get("terminal_connect_fixed"), 6, WideKit.Muted);
         card.AddParagraph(width, LM.Get("terminal_connect_firewall"), 6, WideKit.Muted);
     }
 

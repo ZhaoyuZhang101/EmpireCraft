@@ -40,7 +40,9 @@ public static partial class TerminalHost
         public string Kind, Arg, Text, State = "sent", Note = "";
         public long Target;
         public double At;
-        public int Due, Gift;
+        public int Due;
+        // 走天平的外交带的条件(条件的编号用逗号连着，见 TerminalHost.Scale.cs)
+        public string Extra = "";
     }
 
     // 开放给终端的外交动作(DiplomacyActions 里 key 的结尾) → 对方的好感至少多少才答应；int.MinValue = 单方面的事，不用对方答应
@@ -227,9 +229,14 @@ public static partial class TerminalHost
         }
         var heirItem = new JObject { ["id"] = "heir", ["ok"] = heirs.Count > 0, ["targets"] = heirs };
         if (heir != null && heir.isAlive()) heirItem["current"] = heir.getName();
-        palace.Add(heirItem);
-        palace.Add(new JObject { ["id"] = "abdicate", ["ok"] = heirs.Count > 0, ["targets"] = heirs.DeepClone() });
-        palace.Add(new JObject
+        // 君位世袭的才谈得上立储、禅让；流官的位子是朝廷的。国号也只有一国之主改得了
+        bool hereditary = Hereditary(realm);
+        if (hereditary)
+        {
+            palace.Add(heirItem);
+            palace.Add(new JObject { ["id"] = "abdicate", ["ok"] = heirs.Count > 0, ["targets"] = heirs.DeepClone() });
+        }
+        if (realm.GetEmpire() == null || empire != null) palace.Add(new JObject
         {
             ["id"] = "rename_realm", ["ok"] = true, ["text"] = true, ["current"] = realm.data.name,
             ["chance"] = Mathf.RoundToInt(ScaleChance(realm, RealmNameBase, RealmNameSlope) * 100f)
@@ -247,7 +254,8 @@ public static partial class TerminalHost
             tiers.Add(new JObject { ["id"] = (i + 1).ToString(), ["share"] = PurgeShare[i] / 10, ["drop"] = Mathf.RoundToInt((float)PurgeDrop[i] * 100f) });
         groups.Add(new JObject
         {
-            ["id"] = "home", ["items"] = new JArray(new JObject { ["id"] = "purge", ["ok"] = realm.GetTreasuryBalance() > 0, ["tiers"] = tiers })
+            ["id"] = "home", ["items"] = new JArray(new JObject { ["id"] = "purge", ["ok"] = realm.GetTreasuryBalance() > 0, ["tiers"] = tiers },
+                RecruitItem(realm))
         });
 
         // 外交：已知之国各能办什么
@@ -264,21 +272,30 @@ public static partial class TerminalHost
             var cannot = new JObject();
             foreach (DiplomacyActions.Action action in actions)
             {
-                string reason = DiplomacyActions.Check(action, realm, other);
+                // 对面是真人：结盟不看游戏里的条件(他应允就成)；有盟约在，随时可以背盟
+                string suffix = Suffix(action.key);
+                bool free = suffix == "ally" && HostOf(other, seat) != null && !Allied(realm, other) || suffix == "leave_alliance" && Allied(realm, other);
+                string reason = free ? null : DiplomacyActions.Check(action, realm, other);
                 if (reason == null) can.Add(Suffix(action.key));
                 else cannot[Suffix(action.key)] = Words(reason);
             }
+            (string tianxia, string inEmpire) = Belong(other);
             realms.Add(new JObject
             {
                 ["id"] = id.ToString(), ["name"] = other.data.name, ["opinion"] = Opinion(other, realm), ["can"] = can, ["cannot"] = cannot,
-                ["months"] = EnvoyMonths(seat, other)
+                ["months"] = EnvoyMonths(seat, other), ["tianxia"] = tianxia, ["empire"] = inEmpire, ["kind"] = Role(other),
+                ["cities"] = other.cities?.Count ?? 0, ["dossier"] = Dossier(seat, id),
+                ["scale"] = ScaleJson(seat, other), ["pact"] = Allied(realm, other)
             });
         }
         groups.Add(new JObject
         {
             ["id"] = "diplomacy", ["names"] = names, ["realms"] = realms,
-            ["consent"] = new JArray(DiplomacyNeeds.Where(pair => pair.Value != int.MinValue).Select(pair => pair.Key).ToArray())
+            ["consent"] = new JArray(ScaleDeals.Keys.ToArray())
         });
+
+        AddOffers(seat, pending);
+        AddIntrigue(seat, groups, pending);
 
         var orders = new JArray();
         for (int i = seat.Orders.Count - 1; i >= 0; i--)
@@ -315,7 +332,16 @@ public static partial class TerminalHost
     }
 
     // ───────── 下令(网络线程排进队列，主线程办) ─────────
+    // 手机发来一道命令。受理不受理都得有回音(用户 2026-11-11 进游戏后："为什么修官道点了没反应")：
+    // 受理的进"已下政令"或当场回一条奏报；条件变了、办不了的回一条"未受理"
     private static void Issue(Seat seat, string id, string target, string choice)
+    {
+        int before = seat.Acks;
+        IssueCore(seat, id, target, choice);
+        if (seat.Acks == before && seat.Ruler != null && WorldReady()) Notify(seat, LM.Get("terminal_order_rejected"));
+    }
+
+    private static void IssueCore(Seat seat, string id, string target, string choice)
     {
         if (seat.Ruler == null || !WorldReady() || string.IsNullOrEmpty(id)) return;
         Kingdom realm = seat.Realm;
@@ -346,6 +372,13 @@ public static partial class TerminalHost
             Notify(seat, LM.Get(seat.Delegated ? "terminal_delegate_on" : "terminal_delegate_off"));
             return;
         }
+        if (id.StartsWith("offer:", StringComparison.Ordinal))
+        {
+            Offer offer = seat.Offers.FirstOrDefault(found => "offer:" + found.Id == id);
+            if (offer != null && (choice == "accept" || choice == "refuse")) Answer(seat, offer, choice == "accept");
+            return;
+        }
+        if (Intrigue(seat, id, target, choice)) return;
         if (id.StartsWith("case:", StringComparison.Ordinal))
         {
             Case held = seat.Cases.FirstOrDefault(c => "case:" + c.Id == id);
@@ -373,7 +406,7 @@ public static partial class TerminalHost
             made.Kind = "empire";
             made.Text = LM.Get("terminal_order_empire");
         }
-        else if (id == "heir" && long.TryParse(target, out long heirId))
+        else if (id == "heir" && Hereditary(realm) && long.TryParse(target, out long heirId))
         {
             Actor heir = World.world.units.get(heirId);
             if (heir == null || !heir.isAlive()) return;
@@ -381,7 +414,7 @@ public static partial class TerminalHost
             made.Target = heirId;
             made.Text = string.Format(LM.Get("terminal_order_heir"), heir.getName());
         }
-        else if (id == "abdicate" && long.TryParse(target, out long successorId))
+        else if (id == "abdicate" && Hereditary(realm) && long.TryParse(target, out long successorId))
         {
             Actor successor = World.world.units.get(successorId);
             if (successor == null || !successor.isAlive() || successor == seat.Ruler) return;
@@ -389,7 +422,7 @@ public static partial class TerminalHost
             made.Target = successorId;
             made.Text = string.Format(LM.Get("terminal_order_abdicate"), successor.getName());
         }
-        else if (id == "rename_realm" || id == "rename_ruler")
+        else if (id == "rename_ruler" || id == "rename_realm" && (realm.GetEmpire() == null || OwnEmpire(seat) != null))
         {
             string name = CleanText(choice);
             if (name == null) return;
@@ -427,6 +460,14 @@ public static partial class TerminalHost
                     : string.Format(LM.Get("terminal_order_dismiss"), office);
             }
         }
+        else if (id == "recruit" && long.TryParse(target, out long homeId))
+        {
+            City home = World.world.cities.get(homeId);
+            if (home?.data == null || home.isRekt() || home.kingdom != realm) return;
+            made.Kind = "recruit";
+            made.Target = homeId;
+            made.Text = string.Format(LM.Get("terminal_order_recruit"), home.data.name);
+        }
         else if (id == "road" && long.TryParse(target, out long cityId))
         {
             City city = World.world.cities.get(cityId);
@@ -445,13 +486,20 @@ public static partial class TerminalHost
             made.Arg = Suffix(action.key);
             made.Target = otherId;
             made.Due = MonthNow() + EnvoyMonths(seat, other);
-            // 要对方答应的事可以带礼(用户 2026-11-11 "能否结盟之类的也得有利益交换""比如国库")
-            made.Gift = DiplomacyNeeds[made.Arg] != int.MinValue && (choice == "1" || choice == "2") ? int.Parse(choice) : 0;
-            made.Text = string.Format(LM.Get("terminal_order_diplo"), other.data.name, Words(action.key)) +
-                        (made.Gift > 0 ? LM.Get("terminal_order_gift" + made.Gift) : "");
+            // 走天平的事(结盟、和亲、通好)带上摆在台上的条件
+            if (ScaleDeals.ContainsKey(made.Arg)) made.Extra = string.Join(",", ParseTerms(choice, realm, other).Select(term => term.Id));
+            string terms = made.Extra.Length > 0 ? Describe(ParseTerms(made.Extra, realm, other)) : "";
+            made.Text = string.Format(LM.Get("terminal_order_diplo"), other.data.name, Words(action.key)) + (terms.Length > 0 ? "（" + terms + "）" : "");
         }
         else return;
+        // 同一道令已经在办，不再下第二遍
+        if (seat.Orders.Any(order => order.State == "sent" && order.Kind == made.Kind && order.Target == made.Target && order.Arg == made.Arg))
+        {
+            Notify(seat, string.Format(LM.Get("terminal_order_dup"), made.Text));
+            return;
+        }
         seat.Orders.Add(made);
+        seat.Acks++;
         if (seat.Orders.Count > MaxOrders) seat.Orders.RemoveAt(0);
     }
 
@@ -465,9 +513,10 @@ public static partial class TerminalHost
     }
 
     // 办结(成不成都算)直接回一条奏报，不再另算迟报：来回的日子已经算在命令里
-    private static void Notify(Seat seat, string text)
+    private static void Notify(Seat seat, string text, string kind = "order")
     {
-        seat.Reports.Add(new Report { Id = ++_seq, Text = text, Kind = "order", At = World.world.getCurWorldTime(), Late = 0, Own = true });
+        seat.Acks++;
+        seat.Reports.Add(new Report { Id = ++_seq, Text = text, Kind = kind, At = World.world.getCurWorldTime(), Late = 0, Own = true });
         if (seat.Reports.Count > MaxReports) seat.Reports.RemoveRange(0, seat.Reports.Count - MaxReports);
         seat.NextState = seat.NextDecrees = 0f;
     }
@@ -498,6 +547,14 @@ public static partial class TerminalHost
             {
                 failure = LM.Get("terminal_fail_generic");
                 LogService.LogWarning($"[EmpireCraft][终端] 政令 {order.Kind} 没办成: {exception.Message}");
+            }
+            if (failure == Waiting)
+            {
+                // 提议递到对面真人手里了：这道令算送到，成不成等他回话
+                order.State = "done";
+                order.Note = LM.Get("terminal_offer_waiting_note");
+                Notify(seat, string.Format(LM.Get("terminal_offer_waiting"), order.Text));
+                continue;
             }
             order.State = failure == null ? "done" : "failed";
             order.Note = failure ?? "";
@@ -583,8 +640,7 @@ public static partial class TerminalHost
     private static readonly int[] PurgeShare = { 100, 250, 500 };
     private static readonly double[] PurgeDrop = { 0.02d, 0.05d, 0.10d };
 
-    // 带礼：库银的千分之几、抵多少好感；修官道：工期几个月、每段多少库银
-    private static readonly int[] GiftShare = { 0, 50, 150 }, GiftBonus = { 0, 15, 30 };
+    // 修官道：工期几个月、每段多少库银
     private const int RoadMonths = 6, RoadCost = 15;
 
     private static float ScaleChance(Kingdom realm, float floor, float slope) =>
@@ -725,6 +781,13 @@ public static partial class TerminalHost
                 if (court == null || person == null || !person.isAlive()) return LM.Get("terminal_fail_generic");
                 return court.SetCabinetLeader(person) ? null : LM.Get("terminal_fail_chief");
             }
+            case "recruit":
+            {
+                // 招募新军：和军事页"组建新军"同一个入口，钱从国库出；没成时带上它给的缘由
+                City home = World.world.cities.get(order.Target);
+                if (home?.data == null || home.isRekt() || home.kingdom != realm) return LM.Get("terminal_fail_generic");
+                return CorpsSystem.RaiseManual(realm, home, true) != null ? null : Words(CorpsSystem.LastManualFailure ?? "terminal_fail_generic");
+            }
             case "road":
             {
                 // 加强对一座城的管控(用户 2026-11-11 "政令到达不了的地方可以采取什么政策加强管控")：行政控制力按从都城出发的路程算，
@@ -732,7 +795,8 @@ public static partial class TerminalHost
                 City city = World.world.cities.get(order.Target);
                 if (city?.data == null || city.isRekt() || city.kingdom != realm || realm.capital == null) return LM.Get("terminal_fail_generic");
                 if (RoadBuildingSystem.ConnectByPower(realm.capital, city, out int built) < 0) return LM.Get("terminal_fail_road");
-                if (built > 0) realm.AddMoney(-built * RoadCost);
+                if (built <= 0) return LM.Get("terminal_fail_road_done");
+                realm.AddMoney(-built * RoadCost);
                 AdministrativeControlSystem.Refresh(realm);
                 return null;
             }
@@ -741,31 +805,10 @@ public static partial class TerminalHost
                 Kingdom other = World.world.kingdoms.get(order.Target);
                 DiplomacyActions.Action action = OpenActions().FirstOrDefault(a => Suffix(a.key) == order.Arg);
                 if (other?.data == null || other.isRekt() || action == null) return LM.Get("terminal_fail_gone");
-                string reason = DiplomacyActions.Check(action, realm, other);
+                bool free = order.Arg == "ally" && HostOf(other, seat) != null || order.Arg == "leave_alliance" && Allied(realm, other);
+                string reason = free ? null : DiplomacyActions.Check(action, realm, other);
                 if (reason != null) return Words(reason);
-                if (order.Arg == "peace")
-                {
-                    War war = realm.getWars().FirstOrDefault(w => w?.data != null && !w.hasEnded() && (w.isAttacker(other) || w.isDefender(other) ||
-                                                                 w.main_attacker == other || w.main_defender == other));
-                    if (war == null) return LM.Get("terminal_fail_gone");
-                    PeaceTable.Mediate(war);
-                    return PeaceTable.Sign(war, false) ? null : string.Format(LM.Get("terminal_fail_refused"), other.data.name);
-                }
-                int need = DiplomacyNeeds[order.Arg];
-                // 带的礼：库银的几成，抵对方好感的不足；谈成了才付，银子进对方国库
-                long gift = order.Gift > 0 ? Math.Max(0L, realm.GetTreasuryBalance()) * GiftShare[order.Gift] / 1000 : 0L;
-                int sweetener = gift > 0 ? GiftBonus[order.Gift] : 0;
-                if (need != int.MinValue && Opinion(other, realm) + sweetener < need)
-                    return string.Format(LM.Get("terminal_fail_refused"), other.data.name);
-                string result = DiplomacyActions.Do(action, realm, other, DiplomacyActions.Goals[0]);
-                if (result != null) return Words(result);
-                if (gift > 0)
-                {
-                    int paid = (int)Math.Min(int.MaxValue, gift);
-                    realm.AddMoney(-paid);
-                    other.AddMoney(paid);
-                }
-                return null;
+                return Negotiate(seat, order, other, action);
             }
         }
         return LM.Get("terminal_fail_generic");

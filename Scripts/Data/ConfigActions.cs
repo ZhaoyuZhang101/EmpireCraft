@@ -153,6 +153,11 @@ namespace EmpireCraft.Scripts.Data
             EmpireCraft.Scripts.Terminal.TerminalHost.Port = SettlementValue(text, 8765, 1024, 65535);
             EmpireCraft.Scripts.Terminal.TerminalHost.Kick();
         }
+        // 外网地址：第三方隧道给的固定网址(手机不在同一个网络时用)，填了二维码就用它
+        public static void TerminalPublicUrlCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.PublicUrl = EmpireCraft.Scripts.Terminal.TerminalHost.CleanUrl(text);
+        }
         public static void TerminalSpeedCallBack(string text)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, 100);

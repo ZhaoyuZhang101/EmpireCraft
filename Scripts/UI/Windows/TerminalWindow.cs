@@ -49,6 +49,16 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             link.AddRailRow(width, LM.Get("terminal_code"), TerminalHost.Code, WideKit.Gold, row);
         }
 
+        if (on)
+        {
+            // 外网地址：第三方隧道给的固定网址，填了二维码就用它(留空就是只在同一个网络里用)
+            var outside = rail.BeginRailCard();
+            outside.AddRailInput(LM.Get("terminal_public_url"), TerminalHost.PublicUrl, value =>
+            {
+                ModSettingsWindow.SetText("Terminal_Public_Url_Text", value ?? "");
+                Refresh();
+            });
+        }
         var notes = rail.BeginRailCard();
         RailNote(notes, LM.Get(on ? "terminal_hint_on" : "terminal_hint_off"));
         // 不在同一网络怎么连(用户 2026-11-11 "远程也可以允许"，问答选"先用自备隧道")：模组只管在本机开端口，引出去靠玩家自己的工具
@@ -130,16 +140,28 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             page.AddEmptyCard(PageWidth, LM.Get("terminal_empty_rulers"));
             return;
         }
-        var rulerCard = page.BeginCard(PageWidth, "terminal_card_rulers", WideKit.Gold,
+        string firstWorld = string.IsNullOrEmpty(rulers[0].Tianxia) ? LM.Get("terminal_no_tianxia") : rulers[0].Tianxia;
+        var rulerCard = page.BeginCard(PageWidth, firstWorld, WideKit.Gold,
             string.Format(LM.Get("terminal_ruler_for"), TerminalHost.SeatLabel(selected)));
+        int line = 0;
         for (int i = 0; i < rulers.Count && i < MaxListed; i++)
         {
             TerminalHost.RulerInfo info = rulers[i];
+            // 一个天下一张卡(名单已排成 天下 → 帝国或王国 → 行政区)；行政区的行缩进
+            if (i > 0 && info.Tianxia != rulers[i - 1].Tianxia)
+            {
+                rulerCard = page.BeginCard(PageWidth, string.IsNullOrEmpty(info.Tianxia) ? LM.Get("terminal_no_tianxia") : info.Tianxia, WideKit.Gold);
+                line = 0;
+            }
+            bool province = info.Kind == "member" || info.Kind == "official";
             bool mine = selected.RulerId == info.Id, taken = !mine && info.TakenBy != null;
-            string detail = string.Format(LM.Get("terminal_ruler_detail"), LM.Get("terminal_role_" + info.Kind), info.Cities, info.Age);
+            // 名单已按 天下 → 帝国或王国 → 行政区 排好(见 TerminalHost.Rulers)，行里写明归属
+            string detail = string.Format(LM.Get("terminal_ruler_detail"), LM.Get("terminal_role_" + info.Kind), info.Cities, info.Age) +
+                            (info.Kind == "member" && !string.IsNullOrEmpty(info.Empire) ? " · " + info.Empire : "") +
+                            (string.IsNullOrEmpty(info.Tianxia) ? "" : " · " + info.Tianxia);
             string state = mine ? LM.Get("terminal_ruler_mine")
                 : taken ? string.Format(LM.Get("terminal_ruler_taken"), info.TakenBy) : LM.Get("terminal_ruler_pick");
-            rulerCard.AddToggleRow(PageWidth, i, info.Realm + " · " + info.Ruler, detail, mine, state, () =>
+            rulerCard.AddToggleRow(PageWidth, line++, (province ? "└ " : "") + info.Realm + " · " + info.Ruler, detail, mine, state, () =>
             {
                 if (taken) return;
                 TerminalHost.Assign(selected, mine ? -1 : info.Id);

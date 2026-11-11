@@ -80,6 +80,17 @@ public class ScreenFeedPatch : GamePatch
         return __exception;
     }
 
+    // 别国也听得到的事(终端的外讯只收这些，见 TerminalHost.Feed)：开战议和、换君、立国亡国、模组的大事种类(称帝、篡位、
+    // 帝国崩溃这类)，以及按"不论哪国都上屏"发的大事。别国的判案、朝议、派系、官署这些内情不算
+    public static bool PublicNews(WorldLogMessage message)
+    {
+        string id = message?.asset_id;
+        if (string.IsNullOrEmpty(id)) return false;
+        if (id == EmpireCraftWorldLogLibrary.empirecraft_event_log?.id) return Pending == Level.Major;
+        return VanillaWars.Contains(id) || VanillaKings.Contains(id) || VanillaAlways.Contains(id) || id == "kingdom_new" ||
+               id == "kingdom_destroyed" || Major().Contains(id);
+    }
+
     // 模组自己的提示种类里算大事的
     private static HashSet<string> Major()
     {
