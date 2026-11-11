@@ -27,7 +27,7 @@ public class WindmillRequirementPatch : GamePatch
         if (!CityPopulationSystem.AbstractPopulationEnabled || pBuildAsset == null || pCity?.status == null ||
             AncientWarfareCompatibility.OwnsObject(pCity)) return;
         if (pCity.status.population <= 0 || pCity.status.population >= pBuildAsset.required_pop) return;
-        if (pBuildAsset.getBuildingAsset(pCity)?.type != "type_windmill") return;
+        if (CityBuildSafetyPatch.ResolveOrderBuilding(pCity, pBuildAsset.id)?.type != "type_windmill") return;
         __state = pCity.status.population;
         pCity.status.population = pBuildAsset.required_pop;
     }

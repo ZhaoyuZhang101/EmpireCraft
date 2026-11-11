@@ -553,7 +553,7 @@ public static class CityConstructionSystem
         }
         catch (Exception exception)
         {
-            LogService.LogWarning($"[EmpireCraft][城市建设] 开工失败({city.data?.name}): {exception.Message}");
+            LogService.LogWarning($"[EmpireCraft][城市建设] 开工失败({city.data?.name}): {exception}");
         }
     }
 

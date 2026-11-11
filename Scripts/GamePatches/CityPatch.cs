@@ -211,13 +211,13 @@ public class CityPatch : GamePatch
     {
         using var timing = FrameProfiler.Measure("建造钩子·能否建造");
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(pCity)) return true;
-        // 科技树：本文化还没研究出来的建筑等级不能建/升
-        if (!TechnologyPatch.CanUseBuildOrder(pBuildAsset, pCity))
+        BuildingAsset buildingAsset = CityBuildSafetyPatch.ResolveOrderBuilding(pCity, pBuildAsset?.id);
+        // 没有资源定义的订单直接略过；其余仍按本文化的科技解锁建造或升级。
+        if (buildingAsset?.cost == null || pCity?.status == null || !TechnologyPatch.CanUseBuildOrder(pBuildAsset, pCity))
         {
             __result = false;
             return false;
         }
-        BuildingAsset buildingAsset = pBuildAsset.getBuildingAsset(pCity);
         // 纯净地图：矿场、伐木场、牧场、屠宰场改为城外村镇的生计(见 LivelihoodSystem)，不再建、不再升
         if (EmpireCraft.Scripts.GeneralSystems.LivelihoodSystem.Replaces(buildingAsset))
         {
@@ -256,7 +256,7 @@ public class CityPatch : GamePatch
         }
         if (limitOfBuildingsType != 0 && num >= limitOfBuildingsType ||
             pBuildAsset.check_full_village && pCity.status.housing_free != 0 ||
-            !CityBehBuild.haveRequiredBuildings(pBuildAsset, pCity) ||
+            !HasRequiredBuildings(pBuildAsset, pCity) ||
             !CityBehBuild.haveRequiredBuildingTypes(pBuildAsset.requirements_types, pCity))
         {
             __result = false;
@@ -279,6 +279,27 @@ public class CityPatch : GamePatch
         __result = true;
         return false;
     }
+
+    // 原版允许用升级后的建筑满足前置条件，逐级检查时也可能碰到缺失的模组建筑。
+    private static bool HasRequiredBuildings(BuildOrder order, City city)
+    {
+        if (order.requirements_orders == null) return true;
+        foreach (string id in order.requirements_orders)
+        {
+            BuildingAsset asset = CityBuildSafetyPatch.ResolveOrderBuilding(city, string.IsNullOrEmpty(id) ? order.id : id);
+            if (asset == null) return false;
+            if (asset.id == asset.upgrade_to) continue;
+            int remaining = AssetManager.buildings.dict.Count;
+            while (city.countBuildingsOfID(asset.id) == 0)
+            {
+                if (!asset.can_be_upgraded || remaining-- == 0) return false;
+                asset = CityLedger.Asset(asset.upgrade_to);
+                if (asset == null) return false;
+            }
+        }
+        return true;
+    }
+
     public static bool GetHouseLimit(City __instance, ref int __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;

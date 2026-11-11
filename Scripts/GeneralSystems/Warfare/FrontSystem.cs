@@ -915,7 +915,8 @@ public static partial class FrontSystem
     private static Dictionary<long, int> Stations(Kingdom kingdom, List<CorpsData> corps)
     {
         var result = new Dictionary<long, int>();
-        List<City> cities = kingdom.cities?.Where(city => city?.data != null && !city.isRekt() && city.getTile()?.zone != null)
+        // 城池易主时旧国的城表可能还没更新。按实际归属筛选，和 StationPieces 的分组口径一致。
+        List<City> cities = kingdom.cities?.Where(city => city?.data != null && city.kingdom == kingdom && !city.isRekt() && city.getTile()?.zone != null)
             .ToList() ?? new List<City>();
         if (cities.Count == 0) return result;
         bool Frontier(City city) => city.zones.Any(zone => (zone?.neighbours_all ?? Array.Empty<TileZone>())

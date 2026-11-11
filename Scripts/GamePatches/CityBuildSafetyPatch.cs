@@ -68,6 +68,14 @@ public class CityBuildSafetyPatch : GamePatch
         asset != null && !string.IsNullOrEmpty(asset.build_order_template_id) &&
         AssetManager.city_build_orders?.get(asset.build_order_template_id)?.list != null;
 
+    // 自定义种族的建筑风格可能只实现了部分建造订单。
+    internal static BuildingAsset ResolveOrderBuilding(City city, string orderId)
+    {
+        var orders = city?.getActorAsset()?.architecture_asset?.building_ids_for_construction;
+        return !string.IsNullOrEmpty(orderId) && orders != null && orders.TryGetValue(orderId, out string id)
+            ? CityLedger.Asset(id) : null;
+    }
+
     public static void AfterGetActorAsset(City __instance, ref ActorAsset __result)
     {
         if (!CityPopulationSystem.AbstractPopulationEnabled || HasBuildTemplate(__result) ||
