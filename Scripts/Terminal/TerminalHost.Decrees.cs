@@ -295,6 +295,8 @@ public static partial class TerminalHost
             ["consent"] = new JArray(ScaleDeals.Keys.ToArray())
         });
 
+        // 附庸博弈与招安(见 TerminalHost.Vassal.cs)
+        AddVassals(seat, groups);
         AddOffers(seat, pending);
         AddIntrigue(seat, groups, pending);
 
@@ -386,6 +388,7 @@ public static partial class TerminalHost
             return;
         }
         if (Journey(seat, id, target)) return;
+        if (FieldDecree(seat, id, target, choice)) return;
         if (Intrigue(seat, id, target, choice)) return;
         if (id.StartsWith("case:", StringComparison.Ordinal))
         {
@@ -498,6 +501,10 @@ public static partial class TerminalHost
             if (ScaleDeals.ContainsKey(made.Arg)) made.Extra = string.Join(",", ParseTerms(choice, realm, other).Select(term => term.Id));
             string terms = made.Extra.Length > 0 ? Describe(ParseTerms(made.Extra, realm, other)) : "";
             made.Text = string.Format(LM.Get("terminal_order_diplo"), other.data.name, Words(action.key)) + (terms.Length > 0 ? "（" + terms + "）" : "");
+        }
+        else if (id == "vassal")
+        {
+            if (!VassalOrder(seat, made, target, choice)) return;
         }
         else return;
         // 同一道令已经在办，不再下第二遍
@@ -808,6 +815,8 @@ public static partial class TerminalHost
                 AdministrativeControlSystem.Refresh(realm);
                 return null;
             }
+            case "vassal":
+                return ExecuteVassal(seat, order);
             case "diplo":
             {
                 Kingdom other = World.world.kingdoms.get(order.Target);

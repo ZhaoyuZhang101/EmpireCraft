@@ -37,7 +37,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 10;
+    public const int Version = 11;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -103,6 +103,19 @@ public static partial class TerminalHost
         internal JObject DecreesCache;
         internal long LastClientTicks;
         internal float NextState, NextSight;
+        // 舆图(见 TerminalHost.Field.cs)：上回备的总图(格、各国在图上的编号与几等)、手机要的细节那一片、
+        // 上回报来的军情(哪个月的)、还在路上的手令
+        internal byte[] MapCells;
+        internal int MapW, MapH, MapTile = 1;
+        internal readonly Dictionary<long, int> Slots = new();
+        internal int[] SlotTier = new int[0];
+        internal volatile string ViewWant, ViewKey, ViewJson, ArmyJson;
+        internal JArray ArmySeen;
+        internal string ArmySeenText;
+        internal int ArmyMonth, ArmyStamp;
+        internal float NextArmy;
+        internal bool ArmyDirty;
+        internal readonly List<Writ> Writs = new();
 
         public bool Watched => DateTime.UtcNow.Ticks - Interlocked.Read(ref LastClientTicks) < TimeSpan.FromSeconds(ClientSeconds).Ticks;
 
@@ -134,10 +147,18 @@ public static partial class TerminalHost
             LedgerYear = int.MinValue;
             NextSight = NextState = 0f;
             MapJson = null;
+            MapCells = null;
+            Slots.Clear();
+            ViewWant = ViewKey = ViewJson = ArmyJson = null;
+            ArmySeen = null;
+            ArmyDirty = false;
+            Writs.Clear();
         }
 
         internal void Vacate(string reason)
         {
+            // 君主不在位了：点名调过的军交还朝廷自己调度(见 CorpsDirectOrders)
+            if (Realm != null) CorpsDirectOrders.ClearKingdom(Realm);
             RulerId = -1;
             Ruler = null;
             Realm = null;
@@ -363,6 +384,7 @@ public static partial class TerminalHost
                 LogService.LogWarning($"[EmpireCraft][终端] 命令没办成: {exception.Message}");
             }
         }
+        RunViews(now);
         if (now < _nextTick) return;
         _nextTick = now + 1f;
         bool ready = WorldReady();
@@ -390,6 +412,7 @@ public static partial class TerminalHost
                     RunSpies(seat);
                     RunOffers(seat);
                     RunJourney(seat);
+                    RunWrits(seat);
                 }
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
@@ -399,12 +422,16 @@ public static partial class TerminalHost
                     BuildMap(seat);
                     mapped = true;
                 }
+                if (seat.Ruler != null) RunArmies(seat, now);
                 if (now >= seat.NextState && (watched || seat.StateJson == null))
                 {
                     seat.NextState = now + StateSeconds;
                     JObject built = BuildState(seat);
                     // 流速之议(见 TerminalHost.Speed)：各席位都看得到
                     AddSpeed(built, seat);
+                    // 军情有没有新的(见 TerminalHost.Field)：手机见这个数变了才去取
+                    built["armyStamp"] = seat.ArmyStamp;
+                    built["monthNo"] = MonthNow();
                     seat.StateJson = built.ToString(Newtonsoft.Json.Formatting.None);
                 }
             }
@@ -475,6 +502,8 @@ public static partial class TerminalHost
         Interlocked.Exchange(ref mine.LastClientTicks, DateTime.UtcNow.Ticks);
         if (method == "GET" && path == "/api/state") return TerminalServer.Reply.Json(mine.StateJson ?? "{\"loaded\":false}");
         if (method == "GET" && path == "/api/map") return TerminalServer.Reply.Json(mine.MapJson ?? "{\"ready\":false}");
+        if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(mine.ArmyJson ?? "{\"ready\":false}");
+        if (method == "POST" && path == "/api/view") return ViewReply(mine, body);
         if (method == "POST" && path == "/api/choose")
         {
             if (!long.TryParse(Field(body, "id"), out long id)) return TerminalServer.Reply.Error(400, "bad_request");
@@ -1043,6 +1072,17 @@ public static partial class TerminalHost
             sumY.Add(0f);
             count.Add(0);
         }
+        // 细节图、军情都按这回的编号与几等认国(见 TerminalHost.Field)；朝廷还不知道的叛军算在本国头上
+        seat.Slots.Clear();
+        seat.SlotTier = new int[realms.Count];
+        for (int i = 0; i < slot.Length; i++)
+        {
+            if (slot[i] < 0) continue;
+            seat.Slots[map.Kingdoms[i].getID()] = slot[i];
+            seat.SlotTier[slot[i]] = tier[i];
+        }
+        if (self >= 0 && slot[self] >= 0)
+            foreach (long hiddenId in seat.Hidden) seat.Slots[hiddenId] = slot[self];
         var cells = new byte[width * height];
         var keep = new bool[cells.Length];
         var reach = new int[cells.Length];
@@ -1081,10 +1121,15 @@ public static partial class TerminalHost
             realms[i]["x"] = Math.Round(sumX[i] / count[i], 1);
             realms[i]["y"] = Math.Round(sumY[i] / count[i], 1);
         }
+        seat.MapCells = cells;
+        seat.MapW = width;
+        seat.MapH = height;
+        seat.MapTile = Mathf.Max(1, map.Step * factor);
         var json = new JObject
         {
             ["ready"] = true, ["w"] = width, ["h"] = height, ["sight"] = (int)seat.Sight,
-            ["cells"] = Convert.ToBase64String(TerminalIntel.Rle(cells)), ["realms"] = realms
+            ["cells"] = Convert.ToBase64String(TerminalIntel.Rle(cells)), ["realms"] = realms,
+            ["tile"] = seat.MapTile, ["cities"] = MapCities(seat, map)
         };
         City capital = realm.capital;
         if (capital?.data != null && !capital.isRekt())

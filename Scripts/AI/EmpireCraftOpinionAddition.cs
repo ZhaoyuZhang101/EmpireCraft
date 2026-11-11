@@ -347,6 +347,13 @@ public static class EmpireCraftOpinionAddition
                 return pTarget.GetEmpire()?.GetMinisterOppositionPenalty() ?? 0;
             }
         });
+        // 藩属自危：朝廷把别的藩属改设成行政区(见 VassalReduction)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_vassal_alarm",
+            translation_key_negative = "opinion_vassal_alarm",
+            calc = (pMain, pTarget) => EmpireCraft.Scripts.GeneralSystems.VassalReduction.AlarmOpinion(pMain, pTarget)
+        });
         opl.add(new OpinionAsset
         {
             id = "opinion_local_claim_failed",

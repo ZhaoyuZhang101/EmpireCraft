@@ -253,6 +253,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.RoadTreatySystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.MilitaryAccessSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.CorpsCommandSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.CorpsDirectOrders.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ShanrangSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.EmirateSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.FrontierRelations.ResetWorldState();

@@ -635,6 +635,10 @@ public static class KingdomExtension
         // 清代朝制(见 LateImperialSystem)：秘密立储上次暗定储君、改土归流上次改设流官(记在帝国核心上)
         public double secret_heir_at = -1d;
         public double tusi_reform_at = -1d;
+        // 藩属自危(见 VassalReduction.Alarm)：朝廷把别的藩属改设成行政区，这一国对朝廷添的不满(正数)、哪年添的、是哪个帝国
+        public int vassal_alarm;
+        public double vassal_alarm_at = -1d;
+        public long vassal_alarm_empire = -1L;
         public bool is_peasant_revolutionary_government = false;
         public bool is_peasant_land_rebellion = false;
         public long peasant_land_rebellion_war_id = -1L;

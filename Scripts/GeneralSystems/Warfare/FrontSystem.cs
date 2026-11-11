@@ -608,8 +608,10 @@ public static partial class FrontSystem
         // 出征(决议或奉诏)与举国总动员时全军可以开往任何战线；其余留守驻地
         bool unbounded = WarScopeSystem.Unbounded(kingdom);
         // 地方军听地方的：举国总动员、出征也不抽调到动员范围以外(见 FormationSystem)
+        // 奉着手令的军(见 CorpsDirectOrders)是君主点名调的，不看动员范围
         bool Eligible(CorpsData corps) => unbounded && !FormationSystem.LocalCommand(corps) || corps.militia ||
-                                          corps.task is "attack" or "defend" || WarScopeSystem.InScope(CorpsSystem.Home(corps));
+                                          corps.task is "attack" or "defend" || WarScopeSystem.InScope(CorpsSystem.Home(corps)) ||
+                                          CorpsDirectOrders.Has(corps);
         var ready = list.Where(corps => (insurgent || corps.task != "retreat" && corps.org >= ReadyOrg) && corps.strength >= 1f &&
                                         corps.pocket_months <= 0 && Eligible(corps)).ToList();
         if (!war)
@@ -624,6 +626,13 @@ public static partial class FrontSystem
             {
                 corps.sector_city_id = -1L;
                 if (corps.task == "retreat") { corps.target_zone_id = HomeZone(corps); continue; }
+                // 手令：太平时开到指的那座城驻着(见 CorpsDirectOrders)
+                if (CorpsDirectOrders.Target(kingdom, corps) is City post && post.kingdom == kingdom && post.getTile()?.zone is TileZone postZone)
+                {
+                    corps.task = "reserve";
+                    corps.target_zone_id = postZone.id;
+                    continue;
+                }
                 bool marching = border.Count > 0 && WarScopeSystem.InScope(CorpsSystem.Home(corps));
                 corps.task = marching ? "march" : "reserve";
                 TileZone at = CorpsSystem.Zone(corps);
@@ -666,6 +675,33 @@ public static partial class FrontSystem
         // 以前一并算登陆，同一块大陆上的远征也挂"登陆"、吃登陆折扣(用户 2026-10-27 截图莱昂帝国遍地"登陆 100%")
         foreach (Sector sector in sectors.Where(sector => sector.Landing && !sector.Overland)) landingSectors[sector.City.id] = true;
         var assigned = new HashSet<CorpsData>();
+        // 手令在先(见 CorpsDirectOrders)：点名去守本国某城的当场定下；点名去打敌城的记下那一段，到 ② 里照登船、运力的规矩走
+        var orderedAttack = new Dictionary<CorpsData, Sector>();
+        var orderedLoad = new Dictionary<long, Dictionary<int, int>>();
+        if (CorpsDirectOrders.Count(kingdom) > 0)
+            foreach (CorpsData corps in ready)
+            {
+                City goal = CorpsDirectOrders.Target(kingdom, corps);
+                if (goal == null) continue;
+                if (goal.kingdom == kingdom)
+                {
+                    TileZone anchor = DefenseZone(kingdom, goal);
+                    if (!Walkable(kingdom, corps, anchor)) continue;
+                    if (corps.task != "defend" || corps.sector_city_id != goal.id) corps.entrench = 0f;
+                    corps.task = "defend";
+                    corps.sector_city_id = goal.id;
+                    List<TileZone> line = DefenseLine(kingdom, goal);
+                    if (!orderedLoad.TryGetValue(goal.id, out Dictionary<int, int> load)) orderedLoad[goal.id] = load = new Dictionary<int, int>();
+                    corps.target_zone_id = (line.Count > 0 ? Spread(corps, line, load)?.id : anchor?.id) ?? HomeZone(corps);
+                    assigned.Add(corps);
+                    continue;
+                }
+                if (sectors.Count == 0) continue;
+                TileZone far = goal.getTile()?.zone;
+                Sector sector = sectors.FirstOrDefault(found => found.City == goal) ?? sectors.OrderBy(found =>
+                    far == null || found.City.getTile()?.zone == null ? 0f : CorpsSystem.ZoneDistance(found.City.getTile().zone, far)).First();
+                orderedAttack[corps] = sector;
+            }
         // ① 守城：本国受攻的城按攻势分兵(就近)
         var threatened = (kingdom.cities ?? new List<City>())
             .Where(city => city?.data != null && !city.isRekt() && Threat(city) > 0f)
@@ -695,7 +731,8 @@ public static partial class FrontSystem
             List<TileZone> line = DefenseLine(kingdom, city);
             var lineLoad = new Dictionary<int, int>();
             bool surprised = Surprised(city);
-            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && Walkable(kingdom, corps, anchor) &&
+            foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && !orderedAttack.ContainsKey(corps) &&
+                                                             Walkable(kingdom, corps, anchor) &&
                                                              (!surprised || corps.task == "defend" && corps.sector_city_id == city.id ||
                                                               CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor) <= MusterSystem.LocalZones))
                          .OrderBy(corps => corps.task == "defend" && corps.sector_city_id == city.id ? -1f
@@ -730,7 +767,8 @@ public static partial class FrontSystem
         var attackLoad = new Dictionary<int, int>();
         // 渡海登陆先抽兵(守城不吃紧、有航线与运力时，见 FrontSystem.Landing)，余下的再按胜算挑陆上攻势
         // 守备军不渡海(见 FormationSystem.MayEmbark)
-        CommitLandings(kingdom, sectors, ready.Where(FormationSystem.MayEmbark).ToList(), assigned, attackOn, attackLoad, focus,
+        CommitLandings(kingdom, sectors, ready.Where(corps => FormationSystem.MayEmbark(corps) && !orderedAttack.ContainsKey(corps)).ToList(),
+            assigned, attackOn, attackLoad, focus,
             needTotal > 0f && haveTotal < needTotal * DefenseShortfall, ref shipping);
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
         // 野战军先走，守备军最后，且只打驻地附近的(见 FormationSystem)；受攻的城上面已经分过守军，守城不受这道限制
@@ -750,7 +788,10 @@ public static partial class FrontSystem
                 return corps.embarked || FormationSystem.MayEmbark(corps) && Shippable(corps, shipping) > 0f && EmbarkPoint(kingdom, corps) != null;
             }
             if (keep != null && (!Boardable(keep) || focus != null && keep != focus)) keep = null;
-            Sector choice = keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
+            // 奉手令去打某城的：那一段去得了就去那一段
+            orderedAttack.TryGetValue(whole, out Sector ordered);
+            if (ordered != null && !Boardable(ordered)) ordered = null;
+            Sector choice = ordered ?? keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
                 // 三路攻势只算陆上的，登陆战线(每月至多两路)不占名额
                 .Where(sector => (attackOn.ContainsKey(sector) || sector.Landing || LandOffensives(attackOn) < MaxOffensives) &&
                                  Boardable(sector))

@@ -243,7 +243,8 @@ public static partial class TerminalHost
         foreach (Offer offer in seat.Offers)
         {
             Kingdom from = World.world.kingdoms.get(offer.FromRealm);
-            string detail = from?.data == null || from.isRekt() ? "" : Describe(ParseTerms(offer.Terms, from, seat.Realm), true);
+            string detail = VassalOffer(offer) ? VassalOfferDetail(seat, offer, from)
+                : from?.data == null || from.isRekt() ? "" : Describe(ParseTerms(offer.Terms, from, seat.Realm), true);
             pending.Add(new JObject
             {
                 ["id"] = "offer:" + offer.Id, ["kind"] = "offer",
@@ -257,6 +258,12 @@ public static partial class TerminalHost
     // 真人裁了：应允就照提议办，回绝(或搁太久)就回对方一句不许
     private static void Answer(Seat seat, Offer offer, bool accept)
     {
+        if (VassalOffer(offer))
+        {
+            // 改设行政区、招安(见 TerminalHost.Vassal.cs)
+            AnswerVassal(seat, offer, accept);
+            return;
+        }
         seat.Offers.Remove(offer);
         seat.NextDecrees = seat.NextState = 0f;
         Kingdom from = World.world.kingdoms.get(offer.FromRealm);
