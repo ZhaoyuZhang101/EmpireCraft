@@ -140,6 +140,13 @@ public static class WorldMapWilderness
     // 这些地块地形够无人区的，划走后挂这座城的法理、跟着这座城(同州府锚点，见 AnchorCity)
     public static void SetCityClaims(Dictionary<int, long> claims) => _cityClaims = claims is { Count: > 0 } ? claims : null;
 
+    // 玩家在剧本编辑器里刷给城的地块(见 SetCityClaims)：城市边界固定开着时锁定，无人区不划走、划走了的还回去(见 WildernessSystem.RestoreClaims)；
+    // 不论法则，划成无人区的也照样归那座城的国，不受版图远近限制(见 WildernessSystem.Assigned)
+    internal static bool CityClaim(TileZone zone) => zone != null && _cityClaims?.ContainsKey(zone.id) == true;
+    internal static bool HasCityClaims => _cityClaims is { Count: > 0 };
+    internal static IEnumerable<KeyValuePair<int, long>> CityClaims =>
+        _cityClaims ?? (IEnumerable<KeyValuePair<int, long>>)Array.Empty<KeyValuePair<int, long>>();
+
     // 照原图分地的剧本开局(WorldMapScenario.Finish)：记下归城的地块
     public static void Keep(IEnumerable<int> zones)
     {
