@@ -9,7 +9,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     木头改由伐木场按产能直接产出(见 IndustryBuildingSystem.HarvestTrees)，粮食按田里的种植位折算(见 FarmlandSystem)；
 //   · 除船以外不画任何人物(血条、头像、物品、旗帜、状态图标也不画)，人物要去哪里直接到位、不走路，鼠标也不再选中人物
 //     (见 PureMapPatch)；君主、官员、家族、谋划照常作为数据运作。船照常显示、航行，海军旗舰不随统领实体开关撤掉；
-//   · 不画任何建筑(建筑本体、仓库堆货、建筑阴影、城墙)，建筑照常作为数据运作(仓储、住房、岗位、码头、寺庙……)；
+//   · 不画任何建筑(建筑本体、仓库堆货、建筑阴影、城墙)；民居、仓库、风车、市集、寺庙、兵营、瞭望塔、水井、篝火只记在各城的
+//     建筑台账里(见 CityLedger，2026-11-11)，不再有原版的建筑实体；码头、带藏书的公所与图书馆仍是实体、照常作为数据运作；
 //     雕像、训练木桩、花园、喷泉等纯装饰建筑清掉、不再建造(见 PureMapPatch)，野外粪便一并清掉；
 //   · 国家色块任何缩放都填满，颜色、透明度同原版图层(半透明，露出原版地形)，水面不涂国色；
 //     城市平面图另成一层铺在色块之下(见 CityPlanOverlay)；
@@ -73,6 +74,8 @@ public static class PureMapMode
             EnsureSpritesOff();
         }
         Sweep();
+        // 可记账的建筑实体(民居、仓库、市集……)并进各城的建筑台账、拆掉实体(见 CityLedger)
+        using (FrameProfiler.Measure("建筑台账·并入")) CityLedger.Tick();
         Purge();
     }
 

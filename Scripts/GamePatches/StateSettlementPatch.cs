@@ -123,8 +123,13 @@ public class StateSettlementPatch : GamePatch
         }
         if (supplies == null) return;
         supplies.TryGetValue(pResourceID, out int have);
-        supplies[pResourceID] = have + pAmount;
-        __result = have + pAmount;
+        // 建筑台账(见 CityLedger)：仓库只是账上的数，每种货照原版封顶(单库上限 × 仓库座数)；已经超出的不削
+        int added = pAmount;
+        if (CityLedger.Uses(__instance))
+            added = global::System.Math.Max(0, global::System.Math.Min(pAmount, CityLedger.StockCap(__instance, pResourceID) - have));
+        __result = have + added;
+        if (added <= 0) return;
+        supplies[pResourceID] = have + added;
         __instance._storage_version++;
     }
 
@@ -169,7 +174,7 @@ public class StateSettlementPatch : GamePatch
         float population = CityPopulationSystem.VanillaScale ? CityPopulationSystem.Households(pCity)
             : CityPopulationSystem.GetTotal(pCity);
         bool housing = Supplies(pCity) != null && pCity.getPopulationMaximum() < population;
-        bool farming = Supplies(pCity) != null && pCity.getBuildingOfType("type_windmill") == null;
+        bool farming = Supplies(pCity) != null && !pCity.hasBuildingType("type_windmill");
         bool port = StateSettlementSystem.WantsPort(pCity);
         if (!housing && !farming && !port) return;
         var orders = CityBehBuild._possible_buildings;

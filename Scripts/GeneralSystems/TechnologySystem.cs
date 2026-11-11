@@ -1712,11 +1712,19 @@ public static class TechnologySystem
     {
         var needed = new HashSet<string>(StringComparer.Ordinal);
         foreach (City city in cities)
+        {
             foreach (Building building in city.buildings)
             {
                 string tech = GetRequiredTechForBuilding(building?.asset?.id);
                 if (tech != null && !HasTech(culture, tech)) needed.Add(tech);
             }
+            // 记在建筑台账里的(见 CityLedger)一样算
+            foreach (EmpireCraft.Scripts.Data.WorkLot lot in CityLedger.Lots(city))
+            {
+                string tech = lot == null || lot.n <= 0 ? null : GetRequiredTechForBuilding(lot.id);
+                if (tech != null && !HasTech(culture, tech)) needed.Add(tech);
+            }
+        }
         foreach (string tech in needed) ForceResearch(culture, tech);
     }
 
@@ -1731,6 +1739,11 @@ public static class TechnologySystem
             foreach (Building building in city.buildings)
             {
                 string tech = GetRequiredTechForBuilding(building?.asset?.id);
+                if (tech != null) needed.Add(tech);
+            }
+            foreach (EmpireCraft.Scripts.Data.WorkLot lot in CityLedger.Lots(city))
+            {
+                string tech = lot == null || lot.n <= 0 ? null : GetRequiredTechForBuilding(lot.id);
                 if (tech != null) needed.Add(tech);
             }
         }

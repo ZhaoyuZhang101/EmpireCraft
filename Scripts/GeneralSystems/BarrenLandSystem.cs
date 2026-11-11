@@ -84,6 +84,18 @@ public static class BarrenLandSystem
                 building.startDestroyBuilding();
                 budget--;
             }
+            // 建筑台账里记在这种地块上的(手动城区，见 CityLedger)一并销掉；没定地块的不管，由民居上限按宜居度管着
+            List<(string id, int zone, int n)> gone = null;
+            foreach (EmpireCraft.Scripts.Data.WorkLot lot in CityLedger.Lots(city))
+                if (lot != null && lot.n > 0 && lot.zone >= 0 && World.world.zone_calculator.getZoneByID(lot.zone) is TileZone zone && Barren(zone))
+                    (gone ??= new List<(string id, int zone, int n)>()).Add((lot.id, lot.zone, lot.n));
+            if (gone == null) continue;
+            foreach ((string id, int zone, int n) in gone)
+            {
+                if (budget <= 0) break;
+                budget -= CityLedger.Remove(city, id, zone, Math.Min(n, budget));
+            }
+            redraw.Add(city);
         }
     }
 }

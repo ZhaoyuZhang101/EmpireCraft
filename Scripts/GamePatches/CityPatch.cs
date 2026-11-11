@@ -248,7 +248,7 @@ public class CityPatch : GamePatch
         if (!pCity.HasBeenCombined())
         {
             if (pCity.status.population < pBuildAsset.required_pop ||
-                pCity.buildings.Count < pBuildAsset.required_buildings)
+                CityLedger.Buildings(pCity) < pBuildAsset.required_buildings)
             {
                 __result = false;
                 return false;
@@ -264,8 +264,8 @@ public class CityPatch : GamePatch
         }
         if (pBuildAsset.upgrade)
         {
-            List<Building> buildingListOfId = pCity.getBuildingListOfID(buildingAsset.id);
-            if (buildingListOfId == null || buildingListOfId.Count == 0)
+            // 记在建筑台账里的也算(见 CityLedger；countBuildingsOfID 已把台账的数加上)
+            if (pCity.countBuildingsOfID(buildingAsset.id) == 0)
             {
                 __result = false;
                 return false;

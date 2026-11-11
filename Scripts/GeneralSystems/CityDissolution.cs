@@ -67,6 +67,7 @@ public static class CityDissolution
         if (EmpireCraftWorldLawLibrary.empirecraft_law_prevent_city_destroy?.isEnabled() == true) return false;
         if (city.getPopulationMaximum() > 0 || Date.getYearsSince(city.data.created_time) < 3) return false;
         if (city.buildings?.Any(building => building != null && building.isUnderConstruction()) == true) return false;
+        if (CityLedger.Pending(city) != null) return false;
         if (StateSettlementSystem.AwaitingPopulation(city)) return false;
         City destination = Nearest(city);
         if (destination == null) return false;

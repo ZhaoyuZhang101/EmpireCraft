@@ -32,7 +32,7 @@ public static class UrbanEmploymentSystem
         if (city == null || city.isRekt()) return report;
         List<Actor> residents = GetAdults(city);
         report.Stage = GetStage(city);
-        report.Buildings = city.buildings?.Count ?? 0;
+        report.Buildings = CityLedger.Buildings(city);
         report.Merchants = residents.Count(actor => actor.GetOrCreate().is_economic_merchant);
         report.RecentVoyages = GetRecentVoyages(city);
         report.Factories = CountFactories(city);
@@ -155,7 +155,8 @@ public static class UrbanEmploymentSystem
             float cap = Math.Min(0.6f, 0.08f + TechnologySystem.GetEmploymentCapBonus(TechnologySystem.GetCultureOf(city)));
             return Math.Min(jobs, Math.Max(1, (int)Math.Ceiling(adults * cap)));
         }
-        int buildings = city.buildings?.Count ?? 0;
+        // 实体连同建筑台账里的(见 CityLedger)
+        int buildings = CityLedger.Buildings(city);
         int voyages = GetRecentVoyages(city);
         // 工厂(WarBox 的工厂/钢铁厂/火药厂等，类型在科技树 industry.factory_types 里配置)是最大的雇主
         int factoryJobs = CountFactories(city) * TechnologySystem.Config.industry.jobs_per_factory * stage;

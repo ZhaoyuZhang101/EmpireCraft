@@ -20,6 +20,8 @@ public class EmpireCraftCityCombineHouses: GameAICityBase
     {
         if (pCity?.kingdom == null) return BehResult.Continue;
         if (!pCity.kingdom.hasEnemies()) pCity.ClearOccupiedStatus();
+        // 建筑台账(见 CityLedger)：民居只是账上的数，没有实体可并成城池
+        if (EmpireCraft.Scripts.GeneralSystems.CityLedger.Uses(pCity)) return BehResult.Continue;
         // 无小人模式下城里实体单位很少，按户数判断(一户占一个住房位)
         int population = CityPopulationSystem.AbstractPopulationEnabled
             ? CityPopulationSystem.Households(pCity)

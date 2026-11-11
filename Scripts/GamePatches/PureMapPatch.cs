@@ -780,12 +780,15 @@ public partial class PureMapPatch : GamePatch
         // 各类建筑数(按数据；正在拆的不算)；没装工厂模组时的虚拟工厂也算
         var counts = new Dictionary<Kind, int>();
         foreach (Kind kind in Enum.GetValues(typeof(Kind))) counts[kind] = 0;
-        var standing = new List<Building>();
-        foreach (Building building in city.buildings ?? new List<Building>())
+        // 实体连同建筑台账里的(见 CityLedger)：记账的民居、市集之类没有实体，照账上的座数画
+        var standing = new List<CityLedger.Item>();
+        var all = new List<CityLedger.Item>();
+        CityLedger.Collect(city, all);
+        foreach (CityLedger.Item item in all)
         {
-            if (!Drawn(building)) continue;
-            counts[KindOf(building.asset)]++;
-            standing.Add(building);
+            if (item.real != null && !Drawn(item.real)) continue;
+            counts[KindOf(item.asset)]++;
+            standing.Add(item);
         }
         counts[Kind.Industry] += VirtualIndustrySystem.Factories(city);
         // 官署至多画两座；手动城区的城每座都占一个建筑位，照实画
@@ -1020,23 +1023,23 @@ public partial class PureMapPatch : GamePatch
     // 手动城区的城(见 CityZoningSystem)：各建筑按实际所在的地块放进那块地的建筑位，离城心近的先放(民居照排好的代数由高到低)；
     // 不在城区的、不占建筑位的(仓库、矿场之类，见 CityZoningSystem.Managed)、没有实际位置的(虚拟工厂)放进离它最近、还有空位的城区地块，
     // 都满了就不画。城区地块整块算城区(见 ApplyManual)，没有建筑的城区地块也画成城区
-    private static void PlaceActual(CityPlan plan, List<Building> standing, Dictionary<Kind, Queue<string>> queues, List<TileZone> zones,
+    private static void PlaceActual(CityPlan plan, List<CityLedger.Item> standing, Dictionary<Kind, Queue<string>> queues, List<TileZone> zones,
         HashSet<int> urban, TileZone centerZone)
     {
         var rank = new Dictionary<int, int>();
         for (int i = 0; i < zones.Count; i++) rank[zones[i].id] = i;
-        int RankOf(Building building) =>
-            building.current_tile?.zone is TileZone zone && rank.TryGetValue(zone.id, out int r) ? r : int.MaxValue;
+        int RankOf(CityLedger.Item item) => rank.TryGetValue(item.zone, out int r) ? r : int.MaxValue;
         standing.Sort((a, b) => RankOf(a).CompareTo(RankOf(b)));
         var spill = new List<(string icon, TileZone near)>();
-        foreach (Building building in standing)
+        foreach (CityLedger.Item item in standing)
         {
-            Queue<string> queue = queues[KindOf(building.asset)];
+            Queue<string> queue = queues[KindOf(item.asset)];
             if (queue.Count == 0) continue;
             string icon = queue.Dequeue();
-            TileZone zone = building.current_tile?.zone;
-            if (zone != null && urban.Contains(zone.id) && CityZoningSystem.Managed(building) && PutSlot(plan, zone.id, icon)) continue;
-            spill.Add((icon, zone));
+            // 建筑台账里的(real 为空)按记的地块放；仓库不占建筑位(同 CityZoningSystem.Managed)
+            bool managed = item.real != null ? CityZoningSystem.Managed(item.real) : item.asset.type != CityLedger.StockpileType;
+            if (item.zone >= 0 && urban.Contains(item.zone) && managed && PutSlot(plan, item.zone, icon)) continue;
+            spill.Add((icon, item.zone >= 0 ? World.world?.zone_calculator?.getZoneByID(item.zone) : null));
         }
         // 没有实际位置的(虚拟工厂)
         foreach (Queue<string> queue in queues.Values)

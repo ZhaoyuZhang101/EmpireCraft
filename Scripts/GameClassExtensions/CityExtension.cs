@@ -281,6 +281,9 @@ public static class CityExtension
         public float national_sentiment;
         // 城市人口数据层：按阶层/文化/物种/理念分组的居民人数(见 CityPopulationSystem)
         public CityPopulationData population = new CityPopulationData();
+        // 建筑台账(见 CityLedger)：纯净地图下民居、仓库、市集等只记账、不落成原版建筑；null = 没有
+        public CityWorks works;
+        public bool ShouldSerializeworks() => works != null && (works.lots.Count > 0 || works.building != null);
     }
     
     private static int GetZoneId(TileZone zone)

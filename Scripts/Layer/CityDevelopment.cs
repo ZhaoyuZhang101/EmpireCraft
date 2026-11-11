@@ -43,11 +43,13 @@ public static class CityDevelopment
         float now = Time.unscaledTime;
         if (Cache.TryGetValue(city.data.id, out Stats cached) && now - cached.at < CacheSeconds) return cached;
         var stats = new Stats { at = now };
-        if (city.buildings != null)
-            foreach (Building building in city.buildings)
+        // 建成的建筑：实体连同建筑台账里的(见 CityLedger)
+        var built = new Dictionary<BuildingAsset, int>();
+        EmpireCraft.Scripts.GeneralSystems.CityLedger.CollectCounts(city, built);
+        {
+            foreach (KeyValuePair<BuildingAsset, int> pair in built)
             {
-                BuildingAsset asset = building?.asset;
-                if (asset == null || building.isUnderConstruction()) continue;
+                BuildingAsset asset = pair.Key;
                 switch (asset.type)
                 {
                     case "type_house":
@@ -66,8 +68,9 @@ public static class CityDevelopment
                         stats.temple = true;
                         break;
                 }
-                if (TechnologySystem.IsFactory(asset)) stats.factories++;
+                if (TechnologySystem.IsFactory(asset)) stats.factories += pair.Value;
             }
+        }
         if (Cache.Count > 4000) Cache.Clear();
         Cache[city.data.id] = stats;
         return stats;

@@ -247,6 +247,8 @@ public class NoCommonersPatch : GamePatch
         float houses = Mathf.Max(1f, livable) * perZone;
         foreach (Building building in __instance.buildings)
             if (building?.asset != null) houses += building.asset.max_houses;
+        // 记在建筑台账里的篝火、水井之类(见 CityLedger)
+        houses += CityLedger.MaxHouses(__instance);
         __instance.status.houses_max = Mathf.RoundToInt(houses * (1f + CityConstructionSystem.Wealth(__instance) +
                                                                   CityConstructionSystem.SeatBonus(__instance)));
     }

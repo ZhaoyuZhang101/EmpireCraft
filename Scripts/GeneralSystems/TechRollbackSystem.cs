@@ -323,7 +323,53 @@ public static class TechRollbackSystem
         _cityJob = job;
         _buildings = new List<Building>(city.buildings);
         _index = 0;
+        try
+        {
+            DowngradeLedger(city, culture, job);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][科技回退] {city.data?.name} 的建筑台账降级失败: {exception.Message}");
+        }
         return true;
+    }
+
+    // 建筑台账里的(见 CityLedger)同一套规矩：要的科技没有了，换成升级链上能建的最高一级；民居没有更低的就留着，篝火不动，别的销掉。
+    // 账上的建筑没有位置，当场换完，不用找地方补盖
+    private static void DowngradeLedger(City city, string culture, Job job)
+    {
+        var lots = new List<(BuildingAsset asset, int zone, int n)>();
+        foreach (EmpireCraft.Scripts.Data.WorkLot lot in CityLedger.Lots(city))
+            if (lot != null && lot.n > 0 && CityLedger.Asset(lot.id) is BuildingAsset asset) lots.Add((asset, lot.zone, lot.n));
+        foreach ((BuildingAsset asset, int zone, int n) in lots)
+        {
+            string tech = TechnologySystem.GetRequiredTechForBuilding(asset.id);
+            if (tech == null || TechnologySystem.HasTech(culture, tech)) continue;
+            if (asset.type == BonfireType)
+            {
+                job.Kept += n;
+                continue;
+            }
+            bool house = CityZoningSystem.IsHouse(asset);
+            BuildingAsset lower = Lower(culture, asset);
+            if (lower == null && house)
+            {
+                lower = CityZoningSystem.BestAsset(city, CityZoningSystem.HouseType);
+                if (lower != null && lower.id == asset.id) lower = null;
+            }
+            if (lower == null && house)
+            {
+                job.Kept += n;
+                continue;
+            }
+            if (lower == null)
+            {
+                job.Removed += CityLedger.Remove(city, asset.id, zone, n);
+                continue;
+            }
+            for (int i = 0; i < n; i++)
+                if (CityLedger.Swap(city, asset.id, lower, zone)) job.Downgraded++;
+        }
     }
 
     private static void StepCity(global::System.Diagnostics.Stopwatch watch)

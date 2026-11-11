@@ -510,12 +510,12 @@ public static class CityPlanEditing
         if (!Editable(city, out string reason)) return reason;
         if (zone == null || zone.city != city) return NotOwn();
         bool any = false;
-        foreach (Building building in CityZoningSystem.InZone(city, zone))
-            if (!CityZoningSystem.IsHouse(building.asset) && building.asset.type != "type_hall" && building.asset.type != "type_bonfire")
+        foreach (BuildingAsset asset in CityZoningSystem.AssetsIn(city, zone))
+            if (!CityZoningSystem.IsHouse(asset) && asset.type != "type_hall" && asset.type != "type_bonfire")
                 any = true;
         if (!any) return LM.Get("city_plan_demolish_none");
         bool entered = EnterManual(city);
-        List<Building> removed = CityZoningSystem.Demolish(city, zone);
+        List<BuildingAsset> removed = CityZoningSystem.Demolish(city, zone);
         if (entered) CityZoningSystem.Sync(city);
         Touch(city);
         if (removed.Count == 0) return WithManualNote(LM.Get("city_plan_demolish_none"), entered);
@@ -536,12 +536,12 @@ public static class CityPlanEditing
         _ => "other"
     };
 
-    private static string Contents(List<Building> buildings)
+    private static string Contents(List<BuildingAsset> buildings)
     {
         var counts = new Dictionary<string, int>();
-        foreach (Building building in buildings)
+        foreach (BuildingAsset asset in buildings)
         {
-            string kind = InfoKind(building?.asset);
+            string kind = InfoKind(asset);
             counts[kind] = counts.TryGetValue(kind, out int n) ? n + 1 : 1;
         }
         var parts = new List<string>();
@@ -557,7 +557,7 @@ public static class CityPlanEditing
         if (!Alive(city) || zone == null) return null;
         if (zone.city == null) return LM.Get("city_plan_info_wild");
         if (zone.city != city) return string.Format(LM.Get("city_plan_info_other_city"), zone.city.GetCityName());
-        List<Building> here = CityZoningSystem.InZone(city, zone);
+        List<BuildingAsset> here = CityZoningSystem.AssetsIn(city, zone);
         string contents = here.Count > 0 ? Contents(here) : null;
         if (PureMapMode.Enabled && PureMapPatch.ZoneInTown(city, zone))
         {

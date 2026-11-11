@@ -512,7 +512,8 @@ public class EmpireManager : MetaSystemManager<Empire, EmpireData>
         if (kingdom.hasCapital() && kingdom.capital.isAlive()) return true;
         City seat = null;
         foreach (City city in kingdom.getCities())
-            if (seat == null || city.buildings.Count > seat.buildings.Count) seat = city;
+            if (seat == null || EmpireCraft.Scripts.GeneralSystems.CityLedger.Buildings(city) >
+                EmpireCraft.Scripts.GeneralSystems.CityLedger.Buildings(seat)) seat = city;
         if (seat == null) return false;
         kingdom.setCapital(seat);
         return true;

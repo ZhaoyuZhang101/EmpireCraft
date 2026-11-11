@@ -165,6 +165,7 @@ public static class CityConstructionSystem
     {
         if (city.status == null || UnityEngine.Random.value >= 0.25f) return;
         if (city.countBuildingsType("type_house", false) <= city.status.houses_max + 1) return;
+        if (AbandonLedgerHouse(city)) return;
         Building worst = null;
         float worstWeight = TerrainSystem.BarrenWeight;
         foreach (Building building in city.buildings)
@@ -183,6 +184,21 @@ public static class CityConstructionSystem
         worst?.startDestroyBuilding();
     }
 
+    // 建筑台账里的民居没有位置(见 CityLedger)：整座城多半是薄地(每块地的宜居度平均不到一半)时，超出上限就销掉一座等级最低的
+    private static bool AbandonLedgerHouse(City city)
+    {
+        if (!CityLedger.Uses(city) || city.zones == null || city.zones.Count == 0) return false;
+        if (TerrainSystem.CityLivability(city) / city.zones.Count >= 0.5f) return false;
+        BuildingAsset lowest = null;
+        foreach (WorkLot lot in CityLedger.Lots(city))
+        {
+            BuildingAsset asset = lot == null || lot.n <= 0 ? null : CityLedger.Asset(lot.id);
+            if (asset?.type != CityLedger.HouseType) continue;
+            if (lowest == null || asset.upgrade_level < lowest.upgrade_level) lowest = asset;
+        }
+        return lowest != null && CityLedger.Remove(city, lowest.id) > 0;
+    }
+
     // ---- 拓荒 ----
     // 民居(含在建)不到 PioneerHouses 座时，仓库里的木头、石头每次结算各补到 PioneerWood / PioneerStone 为止(每次最多补 10 / 5)；
     // 还没有仓库就先等原版把仓库盖起来(仓库不要材料)
@@ -193,8 +209,9 @@ public static class CityConstructionSystem
         try
         {
             if (city.countBuildingsType("type_house", pCountOnlyFinished: false) >= PioneerHouses) return;
+            // 建筑台账下仓库只是账上的数，没有仓库实体也存得住(见 Gather)
             Building storage = city.getRandomStockpile();
-            if (storage == null) return;
+            if (storage == null && !CityLedger.Uses(city)) return;
             Gather(city, storage, "wood", PioneerWood, 10);
             Gather(city, storage, "stone", PioneerStone, 5);
         }
@@ -209,7 +226,9 @@ public static class CityConstructionSystem
         if (AssetManager.resources?.get(resource) == null) return;
         int have = city.getResourcesAmount(resource);
         if (have >= target) return;
-        storage.addResources(resource, Mathf.Min(step, target - have));
+        if (storage != null) storage.addResources(resource, Mathf.Min(step, target - have));
+        // 没有仓库实体：记进账面库存(见 StateSettlementPatch.StoreOverflow)
+        else city.addResourcesToRandomStockpile(resource, Mathf.Min(step, target - have));
     }
 
     // ---- 民居跟上科技 ----
@@ -228,34 +247,79 @@ public static class CityConstructionSystem
             if (target == null || !TechnologySystem.CanBuild(city, target.id)) continue;
             houses.Add(building);
         }
-        if (houses.Count == 0) return;
         houses.Sort((a, b) => a.asset.upgrade_level.CompareTo(b.asset.upgrade_level));
-        Kingdom kingdom = city.kingdom;
         foreach (Building house in houses)
         {
             if (limit <= 0) break;
             BuildingAsset target = AssetManager.buildings.get(house.asset.upgrade_to);
-            // 建材按房屋等级：木屋用木头，砖石房用石头，楼房用铁(金属)加石头；取原版造价和等级造价的大者。
-            // 仓库里不够就先不升(建材靠伐木场、矿场和市场)
-            (int wood, int stone, int metal) need = HousingMaterials(target);
-            if (city.getResourcesAmount("wood") < need.wood || city.getResourcesAmount("stone") < need.stone ||
-                city.getResourcesAmount("common_metals") < need.metal) continue;
-            int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
-            if (!EnterpriseSystem.CanPay(city, cost, privateFirst: true)) break;
-            if (!house.upgradeBuilding()) continue;
-            // 民居是百姓自己的房子：建材是私用，不由国库向百姓买
-            using (PopulationEconomySystem.PrivateUse())
+            if (!CanAffordHousing(city, target, out (int wood, int stone, int metal) need, out int cost, out bool broke))
             {
-                if (need.wood > 0) city.takeResource("wood", need.wood);
-                if (need.stone > 0) city.takeResource("stone", need.stone);
-                if (need.metal > 0) city.takeResource("common_metals", need.metal);
+                if (broke) return;
+                continue;
             }
-            GoodsLedger.Used(city, "wood", need.wood);
-            GoodsLedger.Used(city, "stone", need.stone);
-            GoodsLedger.Used(city, "common_metals", need.metal);
-            EnterpriseSystem.PayPrivateFirst(city, cost);
+            if (!house.upgradeBuilding()) continue;
+            ChargeHousing(city, need, cost);
             limit--;
         }
+        if (limit > 0) UpgradeLedgerHousing(city, limit);
+    }
+
+    // 建材按房屋等级：木屋用木头，砖石房用石头，楼房用铁(金属)加石头；取原版造价和等级造价的大者。
+    // 仓库里不够就先不升(建材靠伐木场、矿场和市场)；broke = 钱不够(后面的也不用看了)
+    private static bool CanAffordHousing(City city, BuildingAsset target, out (int wood, int stone, int metal) need, out int cost,
+        out bool broke)
+    {
+        broke = false;
+        need = HousingMaterials(target);
+        cost = UpgradeBaseCost + target.construction_progress_needed / 2;
+        if (city.getResourcesAmount("wood") < need.wood || city.getResourcesAmount("stone") < need.stone ||
+            city.getResourcesAmount("common_metals") < need.metal) return false;
+        if (EnterpriseSystem.CanPay(city, cost, privateFirst: true)) return true;
+        broke = true;
+        return false;
+    }
+
+    private static void ChargeHousing(City city, (int wood, int stone, int metal) need, int cost)
+    {
+        // 民居是百姓自己的房子：建材是私用，不由国库向百姓买
+        using (PopulationEconomySystem.PrivateUse())
+        {
+            if (need.wood > 0) city.takeResource("wood", need.wood);
+            if (need.stone > 0) city.takeResource("stone", need.stone);
+            if (need.metal > 0) city.takeResource("common_metals", need.metal);
+        }
+        GoodsLedger.Used(city, "wood", need.wood);
+        GoodsLedger.Used(city, "stone", need.stone);
+        GoodsLedger.Used(city, "common_metals", need.metal);
+        EnterpriseSystem.PayPrivateFirst(city, cost);
+    }
+
+    // 建筑台账里的民居(见 CityLedger)同样跟上科技：等级低的先升，规矩、花费同上
+    private static void UpgradeLedgerHousing(City city, int limit)
+    {
+        var houses = new List<(BuildingAsset from, BuildingAsset to, int zone, int n)>();
+        foreach (WorkLot lot in CityLedger.Lots(city))
+        {
+            BuildingAsset from = lot == null || lot.n <= 0 ? null : CityLedger.Asset(lot.id);
+            if (from == null || !from.hasHousingSlots()) continue;
+            BuildingAsset to = CityLedger.UpgradeTarget(city, from);
+            if (to != null) houses.Add((from, to, lot.zone, lot.n));
+        }
+        if (houses.Count == 0) return;
+        houses.Sort((a, b) => a.from.upgrade_level.CompareTo(b.from.upgrade_level));
+        foreach ((BuildingAsset from, BuildingAsset to, int zone, int n) in houses)
+            for (int i = 0; i < n; i++)
+            {
+                if (limit <= 0) return;
+                if (!CanAffordHousing(city, to, out (int wood, int stone, int metal) need, out int cost, out bool broke))
+                {
+                    if (broke) return;
+                    break;
+                }
+                if (!CityLedger.Swap(city, from.id, to, zone)) break;
+                ChargeHousing(city, need, cost);
+                limit--;
+            }
     }
 
     // 升到 target 这一级民居要的建材(木头, 石头, 金属)：
@@ -439,6 +503,7 @@ public static class CityConstructionSystem
 
     private static bool HasConstruction(City city)
     {
+        if (CityLedger.Pending(city) != null) return true;
         if (city.buildings == null) return false;
         foreach (Building building in city.buildings)
             if (building?.asset != null && building.isUnderConstruction()) return true;
@@ -448,8 +513,10 @@ public static class CityConstructionSystem
     // 推进在建建筑，返回用掉的施工点；建完的建筑从"在建"里清掉
     private static int Advance(City city, int points)
     {
-        if (points <= 0 || city.buildings == null) return 0;
-        int used = 0;
+        if (points <= 0) return 0;
+        // 建筑台账里的工地(见 CityLedger)先推，剩下的点数给实体工地
+        int used = CityLedger.Advance(city, points);
+        if (city.buildings == null) return used;
         try
         {
             foreach (Building building in new List<Building>(city.buildings))
@@ -481,7 +548,7 @@ public static class CityConstructionSystem
             bool homesFirst = city.status != null && city.countBuildingsType("type_house", false) < city.status.houses_max &&
                               CityPopulationSystem.GetTotal(city) >= city.getPopulationMaximum() * HomesFirstShare;
             if (!homesFirst && UnityEngine.Random.value < 0.3f + 0.6f * Wealth(city) + SeatBonus(city) && TryUpgrade(city)) return;
-            CityBehBuild.buildTick(city);
+            CityLedger.BuildTick(city);
             EnterpriseSystem.OnConstructionStarted(city, city.under_construction_building);
         }
         catch (Exception exception)
@@ -516,13 +583,13 @@ public static class CityConstructionSystem
             for (int i = 0; i < FlourishBuilds; i++)
             {
                 Building storage = city.getRandomStockpile();
-                if (storage != null)
+                if (storage != null || CityLedger.Uses(city))
                 {
                     Gather(city, storage, "wood", FlourishWood, FlourishWood);
                     Gather(city, storage, "stone", FlourishStone, FlourishStone);
                     Gather(city, storage, "common_metals", FlourishMetal, FlourishMetal);
                 }
-                CityBehBuild.buildTick(city);
+                CityLedger.BuildTick(city);
                 if (!HasConstruction(city)) break;
                 Advance(city, int.MaxValue / 4);
                 city.under_construction_building = null;
@@ -534,6 +601,17 @@ public static class CityConstructionSystem
                 BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to ?? "");
                 if (target == null || !TechnologySystem.CanBuild(city, target.id)) continue;
                 if (building.upgradeBuilding()) upgraded++;
+            }
+            // 建筑台账里的各升一级(见 CityLedger)
+            var lots = new List<(BuildingAsset from, int zone, int n)>();
+            foreach (WorkLot lot in CityLedger.Lots(city))
+                if (lot != null && lot.n > 0 && CityLedger.Asset(lot.id) is BuildingAsset from) lots.Add((from, lot.zone, lot.n));
+            foreach ((BuildingAsset from, int zone, int n) in lots)
+            {
+                BuildingAsset to = CityLedger.UpgradeTarget(city, from);
+                if (to == null) continue;
+                for (int i = 0; i < n; i++)
+                    if (CityLedger.Swap(city, from.id, to, zone)) upgraded++;
             }
         }
         catch (Exception exception)
@@ -558,8 +636,12 @@ public static class CityConstructionSystem
         }
         if (candidates.Count == 0) return false;
         BuildOrder chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-        List<Building> buildings = city.getBuildingListOfID(chosen.getBuildingAsset(city).id);
-        if (buildings == null || buildings.Count == 0) return false;
+        string id = chosen.getBuildingAsset(city).id;
+        List<Building> buildings = city.getBuildingListOfID(id);
+        // 实体与建筑台账里的(见 CityLedger)按座数随机挑一座
+        int real = buildings?.Count ?? 0, ledger = CityLedger.CountId(city, id);
+        if (real + ledger <= 0) return false;
+        if (UnityEngine.Random.Range(0, real + ledger) >= real) return TryUpgradeLot(city, id);
         Building building = buildings[UnityEngine.Random.Range(0, buildings.Count)];
         if (building == null || !building.canBeUpgraded()) return false;
         BuildingAsset target = AssetManager.buildings.get(building.asset.upgrade_to);
@@ -569,6 +651,21 @@ public static class CityConstructionSystem
                             EnterpriseSystem.IsEnterprise(building.asset) && !EnterpriseSystem.IsPublic(city, building);
         if (!EnterpriseSystem.CanPay(city, cost, privateOwned)) return false;
         if (!CityBehBuild.upgradeBuilding(building, city)) return false;
+        if (privateOwned) EnterpriseSystem.PayPrivateFirst(city, cost);
+        else EnterpriseSystem.PayPublicFirst(city, cost);
+        return true;
+    }
+
+    // 升建筑台账里的一座：花费同上(原版造价加钱)；记账的没有产业建筑，民居算百姓自己的、其余算公家的
+    private static bool TryUpgradeLot(City city, string id)
+    {
+        BuildingAsset from = CityLedger.Asset(id), target = CityLedger.UpgradeTarget(city, from);
+        if (target == null) return false;
+        int cost = UpgradeBaseCost + target.construction_progress_needed / 2;
+        bool privateOwned = from.hasHousingSlots();
+        if (!EnterpriseSystem.CanPay(city, cost, privateOwned) || !city.hasEnoughResourcesFor(target.cost)) return false;
+        if (!CityLedger.Swap(city, id, target)) return false;
+        city.spendResourcesForBuildingAsset(target.cost);
         if (privateOwned) EnterpriseSystem.PayPrivateFirst(city, cost);
         else EnterpriseSystem.PayPublicFirst(city, cost);
         return true;

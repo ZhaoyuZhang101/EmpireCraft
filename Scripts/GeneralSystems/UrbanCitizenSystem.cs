@@ -49,10 +49,13 @@ public static class UrbanCitizenSystem
     public static int GetCapacity(City city, int adultPopulation)
     {
         if (city?.buildings == null || adultPopulation <= 0) return 0;
-        int housing = city.buildings.Where(building => building?.asset != null &&
-                !building.isUnderConstruction() && building.asset.type == "type_house" &&
-                building.asset.upgrade_level >= MinimumHouseLevel)
-            .Sum(building => building.asset.upgrade_level - MinimumHouseLevel + 1);
+        // 高级民居：实体连同建筑台账里的(见 CityLedger)
+        var built = new Dictionary<BuildingAsset, int>();
+        CityLedger.CollectCounts(city, built);
+        int housing = 0;
+        foreach (KeyValuePair<BuildingAsset, int> pair in built)
+            if (pair.Key.type == "type_house" && pair.Key.upgrade_level >= MinimumHouseLevel)
+                housing += (pair.Key.upgrade_level - MinimumHouseLevel + 1) * pair.Value;
         if (housing <= 0) return 0;
         int stage = Math.Max(0, Math.Min(3, (int)InstitutionSystem.GetFeature(
             CultureService.GetMainCulture(city), InstitutionFeatures.UrbanProductionStage)));
