@@ -232,14 +232,8 @@ public static partial class SmoothBorders
             CanvasScan(calc, layer, option);
             CanvasProcess(calc, layer, option);
         }
-        float now = Time.unscaledTime;
-        if (calc._dirty && (_uploadNow || now < _uploadAt || now - _uploadAt >= UploadInterval))
-        {
-            calc._dirty = false;
-            _uploadNow = false;
-            _uploadAt = now;
-            calc.updatePixels();
-        }
+        // 有改动且过了上传间隔才传；改的块不多时只传脏块(见 SmoothBorders.Upload)
+        CanvasUpload(calc, Time.unscaledTime, UploadInterval);
         return true;
     }
 
@@ -1136,7 +1130,7 @@ public static partial class SmoothBorders
             _hasBase[t] = true;
             _outline[t] = edge;
             _foreign[t] = owner != native;
-            pixels[t] = owner == 0 ? color : Lifted(t);
+            pixels[t] = Marked(t, owner == 0 ? color : Lifted(t));
         }
     }
 

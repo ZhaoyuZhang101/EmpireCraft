@@ -179,11 +179,11 @@ public static partial class SmoothBorders
             _owner[id] = image.owner[id];
             if (!has)
             {
-                pixels[id] = image.face[id];
+                pixels[id] = Marked(id, image.face[id]);
                 continue;
             }
             _base[id] = image.face[id];
-            pixels[id] = Lifted(id);
+            pixels[id] = Marked(id, Lifted(id));
         }
         int stale = 0;
         QuietResets++;

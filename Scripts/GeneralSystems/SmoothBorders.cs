@@ -446,7 +446,7 @@ public static partial class SmoothBorders
             {
                 int pixel = ids[i];
                 if (pixel < 0 || !_hasBase[pixel] || pixels[pixel].a == 0) continue;
-                pixels[pixel] = Lifted(pixel);
+                pixels[pixel] = Marked(pixel, Lifted(pixel));
                 changed = true;
             }
         }
@@ -660,7 +660,7 @@ public static partial class SmoothBorders
             if (edge && frontLayer && (AtWar(owner, x + 1, y, width, height) || AtWar(owner, x - 1, y, width, height) ||
                                        AtWar(owner, x, y + 1, width, height) || AtWar(owner, x, y - 1, width, height)))
             {
-                pixels[id] = FrontRed;
+                pixels[id] = Marked(id, FrontRed);
                 continue;
             }
             // 纯净地图的国家图层：帝国与外界的边界描金(原版只沿地块边描，见 PureMapPatch.AfterApplyColors)
@@ -668,7 +668,7 @@ public static partial class SmoothBorders
                 (EmpireDiffers(empire, x + 1, y, width, height) || EmpireDiffers(empire, x - 1, y, width, height) ||
                  EmpireDiffers(empire, x, y + 1, width, height) || EmpireDiffers(empire, x, y - 1, width, height)))
                 color = EmpireGold;
-            pixels[id] = color;
+            pixels[id] = Marked(id, color);
         }
         _paintedZone = zone.id;
         calc.setDirty();
@@ -678,6 +678,8 @@ public static partial class SmoothBorders
     // 这块地画完(地形调色、城市平面图之后)：记下底色，再按当前高亮提亮；不是这里逐像素画的(原版画的)就作废底色
     public static void Finish(Color32[] pixels, TileZone zone)
     {
+        // 原版刚给这块地上过色(colorZone、applyMetaColorsToZone[Full] 之后都调这里)：记下所在的块(地块 8×8 落在一个上传块里，见 SmoothBorders.Upload)
+        if (zone?.tiles != null && zone.tiles.Length > 0 && zone.tiles[0]?.data != null) MarkPixel(zone.tiles[0].data.tile_id);
         if (Enabled && zone?.tiles != null && pixels != null && _paintedZone != zone.id &&
             Transitions.TryGetValue(zone.id, out Transition raw) && raw.raw)
             ApplyRaw(pixels, zone, raw);
@@ -696,7 +698,7 @@ public static partial class SmoothBorders
             if (id < 0) continue;
             _base[id] = pixels[id];
             _hasBase[id] = true;
-            pixels[id] = Lifted(id);
+            pixels[id] = Marked(id, Lifted(id));
         }
         if (_pendingKey != 0L) Store(zone, _pendingKey);
         ApplyTransition(pixels, zone);
@@ -734,7 +736,7 @@ public static partial class SmoothBorders
                     }
             }
             if (!runHit) continue;
-            pixels[id] = Lifted(id);
+            pixels[id] = Marked(id, Lifted(id));
             changed = true;
         }
         if (changed) calc.setDirty();
@@ -872,11 +874,11 @@ public static partial class SmoothBorders
                 if (id < 0 || id >= pixels.Length) continue;
                 if (transition.raw || id >= _base.Length)
                 {
-                    pixels[id] = face[i];
+                    pixels[id] = Marked(id, face[i]);
                     continue;
                 }
                 _base[id] = face[i];
-                pixels[id] = Lifted(id);
+                pixels[id] = Marked(id, Lifted(id));
             }
             wrote = true;
         }
@@ -1243,7 +1245,7 @@ public static partial class SmoothBorders
             int id = ids[i];
             if (id < 0) continue;
             _base[id] = transition.newPixels[i];
-            pixels[id] = Lifted(id);
+            pixels[id] = Marked(id, Lifted(id));
         }
         calc.setDirty();
     }
@@ -1335,11 +1337,11 @@ public static partial class SmoothBorders
             if (id < 0 || id >= pixels.Length) continue;
             if (transition.raw || id >= _base.Length)
             {
-                pixels[id] = slot ? Slot(source[i]) : source[i];
+                pixels[id] = Marked(id, slot ? Slot(source[i]) : source[i]);
                 continue;
             }
             _base[id] = slot ? Slot(source[i]) : source[i];
-            pixels[id] = Lifted(id);
+            pixels[id] = Marked(id, Lifted(id));
         }
         return true;
     }
@@ -1932,7 +1934,7 @@ public static partial class SmoothBorders
                 _foreign[id] = shot.foreign[i];
                 _base[id] = shot.pixels[i];
                 _hasBase[id] = true;
-                pixels[id] = Lifted(id);
+                pixels[id] = Marked(id, Lifted(id));
             }
             // 记下画成谁要同重画一样按显示的一方(悬停的省按本省)：以前记实际归属，悬停的省从缓存拷回时
             // 记下的没变，四邻不跟着重画，省界留在邻块上成了残线(图层诊断"多余的边框"，修过仍在)
