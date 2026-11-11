@@ -242,7 +242,7 @@ public static partial class TerminalHost
 
     private static int RebelMonths(Kingdom rebel, Kingdom court)
     {
-        if (TechnologySystem.RealmHasTech(court, "telegraph")) return RebelTelegraphMonths;
+        if (HasTelegraph(court)) return RebelTelegraphMonths;
         float span = Mathf.Max(MapBox.width, MapBox.height, 1);
         float distance = rebel.capital != null && court.capital != null
             ? Vector2.Distance(rebel.capital.city_center, court.capital.city_center) : span * 0.25f;

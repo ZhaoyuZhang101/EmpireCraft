@@ -144,6 +144,7 @@ canvas{border-radius:0;border:2px solid var(--edge)}
   </div>
 
   <div id="p-reports">
+    <div class="banner" id="vote-banner" hidden style="cursor:pointer"></div>
     <div class="banner" id="pending-banner" hidden></div>
     <div class="card">
       <div class="sub" id="since"></div>
@@ -212,7 +213,7 @@ e_wrong_code:"配对码不对",e_locked:"连错太多，稍后再试",e_full:"�
 wait_world:"世界尚未载入",wait_world_hint:"电脑上进入一个世界后，这里自动接上。",
 vacant_title:"再择一君",why_none:"这个席位还没有领君主。",why_dead:"{0}的{1}已驾崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
 taken:"{0} 已领",pick:"领此君",role_emperor:"帝国之主",role_king:"一国之君",role_member:"帝国封臣",ruler_detail:"{0} · {1} 城 · {2} 岁",
-date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 岁",pace:"世界流速 {0}%",paused:"世界已暂停",offline:"连不上终端，正在重试",
+date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 岁",pace:"世界流速 {0}%",vote_banner:"流速之议：{0}提议改为 {1}% · 赞成 {2}、反对 {3}，共 {4} 位 · 点此表态",vote_title:"世界流速改为 {0}%",vote_note:"{0}提议。在位诸君一致同意才改，有一位反对就作罢，还剩 {1} 秒。眼下赞成 {2}、反对 {3}，共 {4} 位有票。",vote_mine_yes:"已表态：赞成（还可以改）",vote_mine_no:"已表态：反对",vote_yes:"赞成",vote_no:"反对",vote_sent:"已表态：{0}",pace_sent:"已提议改为 {0}，等诸君表态。",pace_title:"提议改世界流速",pace_note:"现为 {0}%。提出后在位诸君都会收到，一致同意才改。",paused:"世界已暂停",offline:"连不上终端，正在重试",
 tab_reports:"奏报",tab_map:"地图",tab_realm:"国势",
 since_first:"奏报按送达先后排列，最新在上。",since:"上次查看至今 {0}，世上过了 {1}。",
 span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小时 {1} 分",real_m:"{0} 分",
@@ -231,7 +232,7 @@ e_wrong_code:"配對碼不對",e_locked:"連錯太多，稍後再試",e_full:"�
 wait_world:"世界尚未載入",wait_world_hint:"電腦上進入一個世界後，這裡自動接上。",
 vacant_title:"再擇一君",why_none:"這個席位還沒有領君主。",why_dead:"{0}的{1}已駕崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
 taken:"{0} 已領",pick:"領此君",role_emperor:"帝國之主",role_king:"一國之君",role_member:"帝國封臣",ruler_detail:"{0} · {1} 城 · {2} 歲",
-date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 歲",pace:"世界流速 {0}%",paused:"世界已暫停",offline:"連不上終端，正在重試",
+date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 歲",pace:"世界流速 {0}%",vote_banner:"流速之議：{0}提議改為 {1}% · 贊成 {2}、反對 {3}，共 {4} 位 · 點此表態",vote_title:"世界流速改為 {0}%",vote_note:"{0}提議。在位諸君一致同意才改，有一位反對就作罷，還剩 {1} 秒。眼下贊成 {2}、反對 {3}，共 {4} 位有票。",vote_mine_yes:"已表態：贊成（還可以改）",vote_mine_no:"已表態：反對",vote_yes:"贊成",vote_no:"反對",vote_sent:"已表態：{0}",pace_sent:"已提議改為 {0}，等諸君表態。",pace_title:"提議改世界流速",pace_note:"現為 {0}%。提出後在位諸君都會收到，一致同意才改。",paused:"世界已暫停",offline:"連不上終端，正在重試",
 tab_reports:"奏報",tab_map:"地圖",tab_realm:"國勢",
 since_first:"奏報按送達先後排列，最新在上。",since:"上次查看至今 {0}，世上過了 {1}。",
 span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小時 {1} 分",real_m:"{0} 分",
@@ -250,7 +251,7 @@ e_wrong_code:"That code doesn't match",e_locked:"Too many attempts. Try again sh
 wait_world:"No world is loaded",wait_world_hint:"This connects by itself once a world is open on the computer.",
 vacant_title:"Choose a ruler",why_none:"This seat has no ruler yet.",why_dead:"{1} of {0} has died.",why_deposed:"{1} has lost the throne of {0}.",why_fallen:"{0} has fallen.",
 taken:"Held by {0}",pick:"Take",role_emperor:"Emperor",role_king:"King",role_member:"Imperial vassal",ruler_detail:"{0} · {1} cities · age {2}",
-date:"Year {0}, month {1}",ruler:"{0} · age {1}",pace:"World speed {0}%",paused:"World paused",offline:"Can't reach the terminal. Retrying",
+date:"Year {0}, month {1}",ruler:"{0} · age {1}",pace:"World speed {0}%",vote_banner:"Speed vote: {0} proposes {1}% · {2} for, {3} against, {4} voting · tap to vote",vote_title:"World speed to {0}%",vote_note:"Proposed by {0}. It changes only if every ruler present agrees; one vote against ends it. {1}s left. So far {2} for, {3} against, {4} voting.",vote_mine_yes:"You voted for (you can still change it)",vote_mine_no:"You voted against",vote_yes:"For",vote_no:"Against",vote_sent:"Voted: {0}",pace_sent:"Proposed {0}. Waiting for the other rulers.",pace_title:"Propose a new world speed",pace_note:"Currently {0}%. Every ruler present is asked; it changes only if all agree.",paused:"World paused",offline:"Can't reach the terminal. Retrying",
 tab_reports:"Reports",tab_map:"Map",tab_realm:"Realm",
 since_first:"Reports are listed as they arrive, newest first.",since:"{0} since the last look; {1} have passed in the world.",
 span_y:"{0} y {1} m",span_m:"{0} months",real_h:"{0} h {1} min",real_m:"{0} min",
@@ -282,7 +283,7 @@ function short(v){
 }
 
 // 这份网页要游戏里的终端至少是第几版(见 TerminalHost.Version)
-var NEED=9;
+var NEED=10;
 // 网页所在的路径：直连时是空的；经联机大厅进来是 /r/房间号。接口都接在它后面，令牌也按它分开存(一个大厅域名下有许多房间)
 var BASE=location.pathname.replace(/\/[^\/]*$/,""),TOKEN_KEY="ec_token"+(BASE?":"+BASE:"");
 var token=store(TOKEN_KEY),state=null,map=null,page="reports",fails=0,openReport=null,openCity=null,lastMapAt=0;
@@ -309,9 +310,9 @@ $("code").oninput=function(){$("pair-err").textContent=""};
 
 // 轮询
 function poll(){
-  if(!token){show("s-pair");return}
+  if(!token){show("s-pair");autoPair();return}
   api("GET","/api/state").then(function(r){
-    if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");return}
+    if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");autoPair();return}
     fails=0;$("warn").style.display="none";
     state=r.json;
     if(state.lang&&T[state.lang]&&state.lang!==lang){lang=state.lang;applyLang()}
@@ -332,6 +333,7 @@ function render(){
   $("date").textContent=t("date",state.year,state.month);
   $("ruler").textContent=t("ruler",state.ruler.name,state.ruler.age)+" · "+t("role_"+state.realm.role);
   $("pace").textContent=state.paused?t("paused"):t("pace",state.speed);
+  renderVote();
   $("stale").hidden=(state.v||0)>=NEED;
   $("away").hidden=!state.away;
   if(state.away)$("away").textContent=state.away.kind==="campaign"?t("away_campaign"):t("away_tour",state.away.city,state.away.left);
@@ -502,9 +504,9 @@ function renderSheet(){
       if(it.next){it.next();return}
       if(sheet.armed!==i){sheet.armed=i;renderSheet();return}
       var body=typeof it.payload==="function"?it.payload():it.payload;if(!body)return;
-      var label=(sheet.prefix||"")+it.label;closeSheet();
+      var label=(sheet.prefix||"")+it.label,sent=sheet.sent||"sent_ok";closeSheet();
       api("POST","/api/decree",body).then(function(r){
-        toast(r.status===200?t("sent_ok",label):t("sent_fail"),r.status!==200);setTimeout(poll,600);
+        toast(r.status===200?t(sent,label):t("sent_fail"),r.status!==200);setTimeout(poll,600);
       },function(){toast(t("e_net"),true)});
     };
     box.appendChild(b);
@@ -569,6 +571,32 @@ function scaleSheet(g,r,k){
   }});
 }
 function goDecrees(){for(var i=0;i<tabs.length;i++)if(tabs[i].getAttribute("data-p")==="decrees")tabs[i].onclick()}
+// 流速之议：有议时奏报页顶上一条横幅(几人赞成、几人反对)，点进去表态；点右上的"世界流速"可以提议
+function voteNote(v){return t("vote_note",v.by,v.left,v.yes,v.no,v.need)+(v.mine?" "+t("vote_mine_"+v.mine):"")}
+function openVote(){
+  var v=state&&state.speedVote;if(!v)return;
+  openSheet({vote:v.id,sent:"vote_sent",title:t("vote_title",v.percent),note:voteNote(v),items:[
+    {label:t("vote_yes"),payload:{id:"speed_vote",target:String(v.id),choice:"yes"}},
+    {label:t("vote_no"),payload:{id:"speed_vote",target:String(v.id),choice:"no"}}]});
+}
+function openPace(){
+  if(!state||!state.loaded||state.vacant)return;
+  if(state.speedVote){openVote();return}
+  var choices=(state.speedChoices||[]).filter(function(p){return p!==state.speed});
+  openSheet({sent:"pace_sent",title:t("pace_title"),note:t("pace_note",state.speed),items:choices.map(function(p){
+    return{label:p+"%",payload:{id:"speed_propose",choice:String(p)}}})});
+}
+function renderVote(){
+  var v=state.speedVote,banner=$("vote-banner");
+  banner.hidden=!v;
+  if(v){banner.textContent=t("vote_banner",v.by,v.percent,v.yes,v.no,v.need);banner.onclick=openVote}
+  $("pace").style.cursor="pointer";$("pace").style.textDecoration="underline dotted";$("pace").onclick=openPace;
+  // 表态的弹出层开着：数字跟着变；这桩议了结了就关掉
+  if(sheet&&sheet.vote){
+    if(!v||v.id!==sheet.vote)closeSheet();
+    else{sheet.note=voteNote(v);renderSheet()}
+  }
+}
 function toast(text,bad){
   var box=$("toast");box.textContent=text;box.style.borderColor=bad?"var(--red)":"var(--gold)";box.hidden=false;
   clearTimeout(toast.timer);toast.timer=setTimeout(function(){box.hidden=true},4000);
@@ -898,16 +926,29 @@ var FIXED="empirecraft.local";
   probe.src=base+"/icon-192.png?"+Date.now();
   $("fixed-go").onclick=function(){location.href=base+"/"+(token?"?k="+token:"")};
 })();
-// 扫码进来：地址里带着配对码(?c=)，没配过就直接配；用完把它从地址栏去掉
+// 扫码进来：地址里带着配对码(?c=)，记下，用完把它从地址栏去掉。没配过就拿它直接配(见 autoPair)；
+// 手机里留着旧令牌的先照旧令牌试，作废了(被除名、房主换了存档)再拿这个码配——以前有旧令牌就把码丢了，
+// 公开的房间进去还得手填(用户 2026-11-11 "终端的公开模式是不是搞错了怎么还需要我填配对码")
+var scanned=null,triedScan=false,triedLobby=false;
 (function(){
   var m=/[?&]c=(\d{6})(?:&|$)/.exec(location.search);
   if(!m)return;
   try{history.replaceState(null,"",location.pathname)}catch(e){}
-  if(token)return;
-  $("code").value=m[1];
-  show("s-pair");
-  $("pair-go").onclick();
+  scanned=m[1];
 })();
+// 没配对时自己配：先用地址里带来的码；没有码、又是在联机大厅的房间里(/r/房间号)，就问大厅这间是不是公开的，是就拿它给的码配。
+// 各试一回，不成就留在配对页等手填
+function autoPair(){
+  if(token)return;
+  if(scanned&&!triedScan){triedScan=true;$("code").value=scanned;$("pair-go").onclick();return}
+  var room=/^\/r\/([0-9a-f]{16})$/.exec(BASE);
+  if(!room||triedLobby)return;
+  triedLobby=true;
+  fetch("/api/join?room="+room[1],{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+    if(token||!j||!j.open||!j.code)return;
+    $("code").value=j.code;$("pair-go").onclick();
+  },function(){});
+}
 $("purge-go").onclick=function(){goDecrees()};
 $("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches));
 $("sheet-close").onclick=closeSheet;$("sheet-back").onclick=closeSheet;

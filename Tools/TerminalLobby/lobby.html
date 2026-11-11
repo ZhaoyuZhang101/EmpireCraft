@@ -4,80 +4,179 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#4c5143">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>EmpireCraft</title>
 <style>
-:root{--bg:#4c5143;--card:#2c312a;--line:#1d201b;--text:#e8e4d4;--muted:#a9ad9c;--gold:#d8b45a;--cyan:#7fd8ea;--green:#9bd17a}
+/* 同手机终端页(Terminal/index.html)一套风格：橄榄灰的窗底、深色卡片套像素框 FactionFrame，要紧的套金框，一律方角 */
+:root{--bg:#4c5143;--card:#2c312a;--card2:#3d4036;--line:#565b4c;--edge:#14160f;--ink:#f2eee2;--soft:#c8c2b4;--mute:#8fa0a8;
+  --gold:#f3c34a;--cyan:#7fd8ea;--green:#65d66e;--red:#ff6666;--amber:#e9a85b}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
-  padding:calc(12px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom))}
-main{max-width:640px;margin:0 auto}
-h1{font-size:20px;margin:6px 2px 2px;color:var(--gold)}
-.sub{color:var(--muted);font-size:13px;margin:0 2px 12px}
-.bar{display:flex;align-items:center;justify-content:space-between;margin:0 2px 8px;color:var(--muted);font-size:13px}
-button{font:inherit;color:var(--text);background:var(--card);border:2px solid var(--line);padding:6px 12px;cursor:pointer}
-button:active{border-color:var(--gold)}
-.room{display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);padding:10px 12px;margin-bottom:8px;cursor:pointer}
-.room:active{border-color:var(--gold)}
-.room.full{opacity:.55;cursor:default}
-.name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tag{font-size:12px;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
-.open{color:var(--green)}.code{color:var(--cyan)}.seats{color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
-.empty,.note{background:var(--card);border:2px solid var(--line);padding:14px 12px;color:var(--muted);font-size:14px}
-.note{margin-top:14px;font-size:13px}
-.err{color:#e8a04c}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh}
+#app{max-width:520px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;gap:12px;padding-bottom:10px;border-bottom:2px solid var(--edge)}
+header img{width:44px;height:44px;image-rendering:pixelated;border:2px solid var(--edge);flex:none}
+h1{font-size:19px;font-weight:600;margin:0;color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.45)}
+h2{font-size:14px;font-weight:600;margin:0;color:var(--gold);text-shadow:0 1px 0 rgba(0,0,0,.45)}
+.sub{font-size:12.5px;color:var(--mute)}
+.card,.banner{border:12px solid transparent;background:var(--card);margin-top:10px;
+  border-image:url(FactionFrame.png) 12 fill / 12px stretch;image-rendering:pixelated}
+.card{padding:4px 6px}
+.banner{border-image-source:url(FactionFrame_dominate.png);padding:2px 6px;color:var(--gold)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.kpi{background:var(--card2);border:1px solid var(--edge);padding:8px 10px;min-width:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.kpi b{display:block;font-size:18px;font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums}
+button{font:inherit;color:var(--ink);border:2px solid var(--edge);background:#3a4039;box-shadow:inset 0 2px 0 #50584e;padding:8px 14px;min-height:40px;cursor:pointer}
+button:active{box-shadow:inset 0 2px 0 var(--edge);transform:translateY(1px)}
+button.primary{background:#4f9442;color:#fff;box-shadow:inset 0 2px 0 #73b862}
+button[disabled]{opacity:.45;cursor:default}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+.rooms>.room{padding:11px 0;border-top:1px solid var(--line)}
+.rooms>.room:first-child{border-top:0;padding-top:4px}
+.rooms>.room:last-child{padding-bottom:4px}
+.room{display:flex;align-items:center;gap:10px}
+.room .info{flex:1;min-width:0}
+.room .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.room.full .name{color:var(--soft)}
+.tag{font-size:11.5px;padding:1px 8px;border:1px solid var(--edge);background:#1d201a;color:var(--soft);white-space:nowrap;flex:none}
+.tag.green{color:var(--green);border-color:#35693a}.tag.cyan{color:var(--cyan);border-color:#33636d}.tag.red{color:var(--red);border-color:#7a3232}
+.seats{display:inline-flex;align-items:center;gap:3px}
+.seats i{width:8px;height:8px;border:1px solid var(--edge);background:#161812;display:block}
+.seats i.on{background:var(--gold)}
+.seats span{font-size:12px;color:var(--mute);margin-left:4px;font-variant-numeric:tabular-nums}
+.empty{text-align:center;padding:18px 8px;color:var(--soft)}
+.empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:4px}
+ol{margin:8px 0 2px;padding-left:20px;color:var(--soft);font-size:13.5px}
+ol li{margin:3px 0}
+.lines{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.lines a{display:block;text-align:center;text-decoration:none;color:var(--soft);border:2px solid var(--edge);background:#3a4039;
+  box-shadow:inset 0 2px 0 #50584e;padding:8px 6px;min-height:40px}
+.lines a.on{color:var(--gold);background:var(--card);box-shadow:inset 0 3px 0 var(--gold)}
+.foot{margin-top:14px;text-align:center}
+.err{color:var(--red)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){button:active{transform:none}}
 </style>
 </head>
 <body>
-<main>
-  <h1 id="title"></h1>
-  <p class="sub" id="sub"></p>
-  <div class="bar"><span id="count"></span><button id="refresh"></button></div>
-  <div id="rooms"></div>
-  <div class="note" id="howto"></div>
-</main>
+<div id="app">
+  <header>
+    <img src="icon-192.png" alt="">
+    <div style="min-width:0"><h1 id="title"></h1><div class="sub" id="sub"></div></div>
+  </header>
+
+  <div class="lines" id="lines"></div>
+
+  <div class="grid">
+    <div class="kpi"><span class="sub" id="k-rooms-label"></span><b id="k-rooms">–</b></div>
+    <div class="kpi"><span class="sub" id="k-open-label"></span><b id="k-open">–</b></div>
+    <div class="kpi"><span class="sub" id="k-free-label"></span><b id="k-free">–</b></div>
+  </div>
+
+  <div class="banner" id="problem" hidden></div>
+
+  <div class="card">
+    <div class="row"><h2 id="rooms-title"></h2><button id="refresh"></button></div>
+    <div class="rooms" id="rooms" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="host-title"></h2>
+    <ol><li id="host-1"></li><li id="host-2"></li><li id="host-3"></li></ol>
+  </div>
+
+  <div class="card" id="a2hs" hidden>
+    <h2 id="a2hs-title"></h2>
+    <div class="sub" id="a2hs-ios" style="margin-top:6px"></div>
+    <div class="sub" id="a2hs-android" style="margin-top:4px"></div>
+  </div>
+
+  <div class="sub foot" id="foot"></div>
+</div>
 <script>
 var L={
-  "zh-Hans":{title:"EmpireCraft 联机大厅",sub:"挑一个房间进去，领一位君主。世界在房主的电脑上运行。",refresh:"刷新",count:"{0} 个房间",none:"眼下没有开着的房间。",
-    open:"公开",code:"凭配对码",full:"已满",seats:"{0}/{1} 席",old:"终端第 {0} 版",fail:"读不到房间列表，稍后再试。",gone:"这个房间刚刚关了。",
-    howto:"开房间：在游戏的模组设置里开启「终端模式」，再接入「联机大厅」。凭配对码的房间，配对码由房主另给。"},
-  "zh-Hant":{title:"EmpireCraft 聯機大廳",sub:"挑一個房間進去，領一位君主。世界在房主的電腦上運行。",refresh:"重新整理",count:"{0} 個房間",none:"眼下沒有開著的房間。",
-    open:"公開",code:"憑配對碼",full:"已滿",seats:"{0}/{1} 席",old:"終端第 {0} 版",fail:"讀不到房間列表，稍後再試。",gone:"這個房間剛剛關了。",
-    howto:"開房間：在遊戲的模組設定裡開啟「終端模式」，再接入「聯機大廳」。憑配對碼的房間，配對碼由房主另給。"},
-  "en":{title:"EmpireCraft Online Lobby",sub:"Pick a room and take a ruler. The world runs on the host's computer.",refresh:"Refresh",count:"{0} rooms",none:"No rooms are open right now.",
-    open:"Open",code:"Pairing code",full:"Full",seats:"{0}/{1} seats",old:"Terminal v{0}",fail:"Could not load the room list. Try again shortly.",gone:"That room has just closed.",
-    howto:"To host: turn on Terminal mode in the mod settings, then join the online lobby. Rooms that need a pairing code get it from the host."}
+  cz:{title:"EmpireCraft 联机大厅",sub:"挑一个房间进去，领一位君主",rooms:"房间",k_rooms:"开着的房间",k_open:"公开的",k_free:"空着的席位",refresh:"刷新",
+    none:"眼下没有开着的房间",none_sub:"有人开了房间，这里隔十几秒自己会刷出来。",open:"公开",code:"凭配对码",full:"已满",enter:"进入",
+    fail:"读不到房间列表，稍后再试。",gone:"这个房间刚刚关了。",
+    host:"怎么开房间",host_1:"在游戏的模组设置里开启「终端模式」。",host_2:"打开终端窗口，点「接入联机大厅」。",host_3:"公开的房间谁都能进；凭配对码的房间，配对码由房主另给。",
+    a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",
+    foot:"世界在房主的电脑上运行，大厅只管牵线和转送。两条线路各有各的房间。",line_global:"国际线路",line_china:"国内线路"},
+  ch:{title:"EmpireCraft 聯機大廳",sub:"挑一個房間進去，領一位君主",rooms:"房間",k_rooms:"開著的房間",k_open:"公開的",k_free:"空著的席位",refresh:"重新整理",
+    none:"眼下沒有開著的房間",none_sub:"有人開了房間，這裡隔十幾秒自己會刷出來。",open:"公開",code:"憑配對碼",full:"已滿",enter:"進入",
+    fail:"讀不到房間列表，稍後再試。",gone:"這個房間剛剛關了。",
+    host:"怎麼開房間",host_1:"在遊戲的模組設定裡開啟「終端模式」。",host_2:"打開終端視窗，點「接入聯機大廳」。",host_3:"公開的房間誰都能進；憑配對碼的房間，配對碼由房主另給。",
+    a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",
+    foot:"世界在房主的電腦上運行，大廳只管牽線和轉送。兩條線路各有各的房間。",line_global:"國際線路",line_china:"國內線路"},
+  en:{title:"EmpireCraft Online Lobby",sub:"Pick a room and take a ruler",rooms:"Rooms",k_rooms:"Rooms open",k_open:"Open to all",k_free:"Free seats",refresh:"Refresh",
+    none:"No rooms are open right now",none_sub:"When someone opens one it shows up here within seconds.",open:"Open",code:"Pairing code",full:"Full",enter:"Enter",
+    fail:"Could not load the room list. Try again shortly.",gone:"That room has just closed.",
+    host:"How to host a room",host_1:"Turn on Terminal mode in the mod settings.",host_2:"Open the terminal window and join the online lobby.",host_3:"Open rooms accept anyone; rooms that need a pairing code get it from the host.",
+    a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",
+    foot:"The world runs on the host's computer. The lobby only introduces and relays. Each route has its own rooms.",line_global:"Global",line_china:"China"}
 };
-var lang=(navigator.language||"zh").toLowerCase();
-var T=L[/^zh-(tw|hk|mo|hant)/.test(lang)?"zh-Hant":/^zh/.test(lang)?"zh-Hans":"en"];
-function t(key){var s=T[key]||key;for(var i=1;i<arguments.length;i++)s=s.replace("{"+(i-1)+"}",arguments[i]);return s}
+var lang=/^zh/i.test(navigator.language||"")?(/tw|hk|mo|hant/i.test(navigator.language)?"ch":"cz"):"en",T=L[lang];
 function $(id){return document.getElementById(id)}
-document.title=T.title;$("title").textContent=T.title;$("sub").textContent=T.sub;$("refresh").textContent=T.refresh;$("howto").textContent=T.howto;
-
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
-function render(rooms){
-  var box=$("rooms");box.textContent="";
-  $("count").textContent=t("count",rooms.length);
-  if(!rooms.length){box.appendChild(el("div","empty",T.none));return}
-  rooms.forEach(function(room){
-    var full=room.used>=room.max,row=el("div","room"+(full?" full":""));
-    row.appendChild(el("span","name",room.name));
-    row.appendChild(el("span","tag "+(room.open?"open":"code"),full?T.full:room.open?T.open:T.code));
-    row.appendChild(el("span","seats",t("seats",room.used,room.max)));
-    if(!full)row.onclick=function(){join(room)};
-    box.appendChild(row);
+document.documentElement.lang=lang==="en"?"en":"zh";
+document.title=T.title;
+[["title","title"],["sub","sub"],["rooms-title","rooms"],["k-rooms-label","k_rooms"],["k-open-label","k_open"],["k-free-label","k_free"],["refresh","refresh"],
+ ["host-title","host"],["host-1","host_1"],["host-2","host_2"],["host-3","host_3"],["a2hs-title","a2hs"],["a2hs-ios","a2hs_ios"],["a2hs-android","a2hs_android"],
+ ["foot","foot"]].forEach(function(p){$(p[0]).textContent=T[p[1]]});
+// 已经是从桌面图标打开的就不再提示
+$("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches));
+
+// 两条线路各是各的大厅(同 TerminalHost.Lobbies)：顶上两个页签，眼下这条亮着，点另一条过去
+var LINES=[{key:"global",url:"https://lobby.cmhgamedev.dpdns.org/"},{key:"china",url:"http://8.159.129.136:8765/"}];
+(function(){
+  var box=$("lines"),here=LINES.filter(function(line){return line.url.indexOf("//"+location.host+"/")>=0})[0];
+  if(!here){box.hidden=true;return}
+  LINES.forEach(function(line){
+    var a=el("a",line===here?"on":"",T["line_"+line.key]);
+    if(line!==here)a.href=line.url;
+    box.appendChild(a);
   });
+})();
+function problem(text){var box=$("problem");box.hidden=!text;box.textContent=text||""}
+function seats(used,max){
+  var box=el("span","seats"),shown=Math.min(max,12);
+  for(var i=0;i<shown;i++)box.appendChild(el("i",i<used?"on":""));
+  box.appendChild(el("span",null,used+"/"+max));
+  return box;
 }
-function fail(text){var box=$("rooms");box.textContent="";box.appendChild(el("div","empty err",text))}
+function render(rooms){
+  var box=$("rooms"),free=0,open=0;box.textContent="";
+  rooms.forEach(function(room){
+    var full=room.used>=room.max;
+    if(!full)free+=room.max-room.used;
+    if(room.open&&!full)open++;
+    var row=el("div","room"+(full?" full":"")),info=el("div","info"),meta=el("div","meta");
+    info.appendChild(el("div","name",room.name));
+    meta.appendChild(el("span","tag "+(full?"red":room.open?"green":"cyan"),full?T.full:room.open?T.open:T.code));
+    meta.appendChild(seats(room.used,room.max));
+    info.appendChild(meta);row.appendChild(info);
+    var go=el("button",room.open&&!full?"primary":"",T.enter);
+    go.disabled=full;go.onclick=function(){join(room)};
+    row.appendChild(go);box.appendChild(row);
+  });
+  if(!rooms.length){var none=el("div","empty");none.appendChild(el("b",null,T.none));none.appendChild(el("span","sub",T.none_sub));box.appendChild(none)}
+  $("k-rooms").textContent=rooms.length;$("k-open").textContent=open;$("k-free").textContent=free;
+}
 function load(){
-  fetch("api/rooms",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){render(j.rooms||[])},function(){fail(T.fail)});
+  fetch("api/rooms",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){problem("");render(j.rooms||[])},function(){problem(T.fail)});
 }
 // 公开的房间由大厅替来人填上配对码；凭码的房间进去以后自己填
 function join(room){
   if(!room.open){location.href="r/"+room.id+"/";return}
   fetch("api/join?room="+room.id,{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
-    if(j.error){fail(T.gone);setTimeout(load,1500);return}
+    if(j.error){problem(T.gone);setTimeout(load,1500);return}
     location.href="r/"+room.id+"/"+(j.code?"?c="+j.code:"");
-  },function(){fail(T.fail)});
+  },function(){problem(T.fail)});
 }
 $("refresh").onclick=load;
 load();

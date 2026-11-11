@@ -37,7 +37,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 9;
+    public const int Version = 10;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -249,6 +249,7 @@ public static partial class TerminalHost
     {
         var signature = new global::System.Text.StringBuilder();
         signature.Append(Running ? Code : "-").Append(Lan ? 'L' : 'l').Append(Port).Append(LobbyState).Append(RoomOpen ? 'O' : 'o');
+        signature.Append(SpeedPercent).Append(VoteLine() ?? "");
         foreach (Seat seat in Seats()) signature.Append('|').Append(seat.Token, 0, 4).Append(seat.RulerId).Append(seat.Watched ? '+' : '-');
         string now = signature.ToString();
         if (now == _signature) return;
@@ -268,12 +269,22 @@ public static partial class TerminalHost
         return seats;
     }
 
-    // 除名：这部手机要重新配对才进得来
+    // 这一国真有电报：科技树对它的文化生效、又采纳了电报。科技树没开时 TechnologySystem.RealmHasTech 一律回"有"(别处拿它当
+    // "不设限"用)，眼界不能照这个算——用户 2026-11-11 "还有我的迷雾呢""怎么我进了一个存档全世界都是亮的"：
+    // 没开科技树的存档里人人都算有电报，地图全亮、各国全知。没开科技树时按没有电报、时代第一档算(只知接壤)
+    internal static bool HasTelegraph(Kingdom realm) =>
+        realm != null && TechnologySystem.IsActiveFor(TechnologySystem.GetCultureOf(realm)) && TechnologySystem.RealmHasTech(realm, "telegraph");
+
+    // 除名(房主踢人，用户 2026-11-11 "房主可以踢出成员")：这部手机要重新配对才进得来。
+    // 配对码当场换掉；接着联机大厅、房间又是公开的，同时改为凭配对码——不然被除名的人从大厅点一下又进来了
     public static void Remove(Seat seat)
     {
         if (seat == null) return;
         Pairing.Remove(seat.Token);
         SeatByToken.TryRemove(seat.Token, out _);
+        DropBallot(seat.Token);
+        Pairing.NewCodeNow();
+        if (LobbyEnabled && RoomOpen) EmpireCraft.Scripts.UI.Windows.ModSettingsWindow.SetSwitch("terminal_room_open_toggle", false);
     }
 
     // 电脑上给席位指定君主(随时能换；actorId < 0 是收回)。同一位君主不能两个席位领
@@ -371,8 +382,7 @@ public static partial class TerminalHost
                 {
                     any = true;
                     seat.Corruption = CorruptionSystem.GetRate(seat.Realm);
-                    seat.Sight = TerminalIntel.SightOf(EmpireLawSystem.GetEraTier(seat.Realm),
-                        TechnologySystem.RealmHasTech(seat.Realm, "telegraph"));
+                    seat.Sight = TerminalIntel.SightOf(EmpireLawSystem.GetEraTier(seat.Realm), HasTelegraph(seat.Realm));
                     Ledger(seat);
                     Deliver(seat);
                     RunOrders(seat);
@@ -392,7 +402,10 @@ public static partial class TerminalHost
                 if (now >= seat.NextState && (watched || seat.StateJson == null))
                 {
                     seat.NextState = now + StateSeconds;
-                    seat.StateJson = BuildState(seat).ToString(Newtonsoft.Json.Formatting.None);
+                    JObject built = BuildState(seat);
+                    // 流速之议(见 TerminalHost.Speed)：各席位都看得到
+                    AddSpeed(built, seat);
+                    seat.StateJson = built.ToString(Newtonsoft.Json.Formatting.None);
                 }
             }
             catch (Exception exception)
@@ -402,6 +415,7 @@ public static partial class TerminalHost
         }
         _anyRuler = any;
         if (ready) RunPacts();
+        if (ready) RunSpeedVote(now);
         if (ready) RunRebellions();
         NotifyWindows();
     }

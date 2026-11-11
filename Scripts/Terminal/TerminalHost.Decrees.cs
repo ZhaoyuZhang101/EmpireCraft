@@ -347,6 +347,12 @@ public static partial class TerminalHost
         if (seat.Ruler == null || !WorldReady() || string.IsNullOrEmpty(id)) return;
         Kingdom realm = seat.Realm;
         seat.NextDecrees = seat.NextState = 0f;
+        if (id == "speed_propose" || id == "speed_vote")
+        {
+            // 流速之议(见 TerminalHost.Speed)
+            SpeedDecree(seat, id, target, choice);
+            return;
+        }
         if (id == "memorial")
         {
             // 批红：皇帝就在宫里，当场生效

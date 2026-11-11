@@ -14,11 +14,43 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 房间号与钥匙头一回随机生成、存在设置目录(EmpireCraft.terminal.lobby)，以后一直用它：房间网址不变，手机桌面图标、
 //     已配好的令牌下回还能用；钥匙只有本机知道，别人拿着房间号也顶替不了；
 //   · 报给大厅的只有：房间名、公开与否、已配几部手机 / 至多几部、终端版本；公开的房间另报当前配对码(大厅替来人填上)；
-//   · 大厅地址内置(DefaultLobby)，设置里另填了就用填的(换服务器不用等模组更新)。
+//   · 大厅有几条线路(Lobbies，用户 2026-11-11 "终端可以选择公开至哪一个服务器")：国际线路在 Cloudflare 上，国内线路是国内的
+//     一台服务器。各是各的大厅、各有各的房间列表，房主接哪条，房间就出现在哪条的网页上；房间号与钥匙两边通用；
+//   · 设置里另填了大厅地址(LobbyText)就用填的，不看线路(换服务器、自己架大厅不用等模组更新)。
 // 手机版游戏上不启用(同终端)
 public static partial class TerminalHost
 {
-    public const string DefaultLobby = "wss://lobby.cmhgamedev.dpdns.org";
+    // 线路：键(存在设置里、也是文字的键 terminal_line_键) → 游戏连大厅用的地址
+    public static readonly (string key, string socket)[] Lobbies =
+    {
+        ("global", "wss://lobby.cmhgamedev.dpdns.org"),
+        ("china", "ws://8.159.129.136:8765")
+    };
+    // 选的线路(设置 Terminal_Lobby_Line_Text 里存的键；认不出的按头一条)
+    public static string LobbyLine = "global";
+
+    public static string LineKey
+    {
+        get
+        {
+            foreach ((string key, string _) in Lobbies)
+                if (key == LobbyLine) return key;
+            return Lobbies[0].key;
+        }
+    }
+
+    public static string DefaultLobby
+    {
+        get
+        {
+            foreach ((string key, string socket) in Lobbies)
+                if (key == LobbyLine) return socket;
+            return Lobbies[0].socket;
+        }
+    }
+
+    // 设置里另填了大厅地址：线路不作数
+    public static bool LobbyCustom => LobbySocket != DefaultLobby;
     private const int MaxRoomName = 24;
     private const float RoomInfoSeconds = 240f;
 

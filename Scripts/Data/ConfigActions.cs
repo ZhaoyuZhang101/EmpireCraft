@@ -171,6 +171,10 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.RoomName = text ?? "";
         }
+        public static void TerminalLobbyLineCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.LobbyLine = string.IsNullOrWhiteSpace(text) ? "global" : text.Trim();
+        }
         public static void TerminalLobbyUrlCallBack(string text)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.LobbyText = text ?? "";

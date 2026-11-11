@@ -75,8 +75,10 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         if (on)
         {
             var lobby = rail.BeginRailCard();
+            // 走的哪条线路(设置里另填了大厅地址的写"自定")
+            string line = LM.Get(TerminalHost.LobbyCustom ? "terminal_line_custom" : "terminal_line_" + TerminalHost.LineKey);
             string lobbyStatus = !joined ? LM.Get("terminal_lobby_off")
-                : TerminalHost.LobbyOnline ? LM.Get("terminal_lobby_online")
+                : TerminalHost.LobbyOnline ? string.Format(LM.Get("terminal_lobby_online_line"), line)
                 : string.IsNullOrEmpty(TerminalHost.LobbyError) ? LM.Get("terminal_lobby_connecting")
                 : string.Format(LM.Get("terminal_lobby_failed"), TerminalHost.LobbyError);
             if (joined)
@@ -102,12 +104,30 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             ModSettingsWindow.SetSwitch("terminal_mode_toggle", !on);
             Refresh();
         });
-        if (on)
-            rail.AddRailButton("terminal_lobby_toggle", LM.Get(joined ? "terminal_lobby_leave" : "terminal_lobby_join"), () =>
+        // 接入联机大厅：一条线路一个按钮(国际、国内各是各的大厅，要换线路先退出再接另一条)；另填了大厅地址的只有一个
+        if (on && joined)
+            rail.AddRailButton("terminal_lobby_toggle", LM.Get("terminal_lobby_leave"), () =>
             {
-                ModSettingsWindow.SetSwitch("terminal_lobby_toggle", !joined);
+                ModSettingsWindow.SetSwitch("terminal_lobby_toggle", false);
                 Refresh();
             });
+        else if (on && TerminalHost.LobbyCustom)
+            rail.AddRailButton("terminal_lobby_toggle", LM.Get("terminal_lobby_join"), () =>
+            {
+                ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
+                Refresh();
+            });
+        else if (on)
+            foreach ((string key, string _) in TerminalHost.Lobbies)
+            {
+                string lineKey = key;
+                rail.AddRailButton("terminal_lobby_join_" + lineKey, string.Format(LM.Get("terminal_lobby_join_line"), LM.Get("terminal_line_" + lineKey)), () =>
+                {
+                    ModSettingsWindow.SetText("Terminal_Lobby_Line_Text", lineKey);
+                    ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
+                    Refresh();
+                });
+            }
         if (joined)
             rail.AddRailButton("terminal_room_open_toggle", LM.Get(TerminalHost.RoomOpen ? "terminal_room_make_private" : "terminal_room_make_open"), () =>
             {
@@ -151,6 +171,9 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         }
 
         var seatCard = page.BeginCard(PageWidth, "terminal_card_seats", WideKit.Gold);
+        // 各席位正在议改流速(见 TerminalHost.Speed)
+        string voting = TerminalHost.VoteLine();
+        if (voting != null) seatCard.AddParagraph(PageWidth, voting, 7, WideKit.Orange);
         for (int i = 0; i < seats.Count; i++)
         {
             TerminalHost.Seat seat = seats[i];
@@ -178,6 +201,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
                     _seat = null;
                     Refresh();
                 }));
+        if (selected != null) seatCard.AddParagraph(PageWidth, LM.Get("terminal_seat_remove_hint"), 6, WideKit.Muted);
 
         List<TerminalHost.RulerInfo> rulers = TerminalHost.Rulers();
         if (rulers.Count == 0)

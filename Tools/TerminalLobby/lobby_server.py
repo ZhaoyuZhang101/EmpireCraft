@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """EmpireCraft 终端模式的联机大厅(自己架服务器用的那一版；只用标准库，python3 lobby_server.py 就能跑)。
+要 Python 3.6 或更高(Alibaba Cloud Linux 3、CentOS 8 自带的 python3 是 3.6，所以不用 3.7 才有的写法)。
 
 一个端口同时做三件事：
   · 网页入口：GET / 是大厅页(同目录的 lobby.html)，GET /api/rooms 是房间列表；
@@ -33,6 +34,11 @@ RATE_PER_SECOND, RATE_BURST = 30.0, 90.0
 KEY_KEEP_SECONDS = 60 * 86400
 # 房主那边不常变的几个文件：每个房间各存一份，省得每个来人都穿一趟
 STATIC = {'/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/FactionFrame.png', '/FactionFrame_dominate.png'}
+# 大厅页自己的图标、像素框、桌面清单(同目录里的文件)
+LOBBY_FILES = {'/icon-192.png': ('icon-192.png', 'image/png'), '/icon-512.png': ('icon-512.png', 'image/png'),
+               '/apple-touch-icon.png': ('apple-touch-icon.png', 'image/png'), '/favicon.ico': ('icon-192.png', 'image/png'),
+               '/FactionFrame.png': ('FactionFrame.png', 'image/png'), '/FactionFrame_dominate.png': ('FactionFrame_dominate.png', 'image/png'),
+               '/manifest.json': ('manifest.json', 'application/manifest+json')}
 COMPRESSIBLE = ('text/', 'application/json', 'application/manifest+json', 'application/javascript')
 
 rooms = {}
@@ -182,6 +188,13 @@ async def route(method, path, query, headers, body, address):
     if method == 'GET' and path in ('/', '/index.html'):
         page = lobby_page()
         return (200, 'text/html; charset=utf-8', page, {}) if page else error(404, 'no_page')
+    if method == 'GET' and path in LOBBY_FILES:
+        name, content_type = LOBBY_FILES[path]
+        try:
+            with open(os.path.join(HERE, name), 'rb') as handle:
+                return 200, content_type, handle.read(), {'Cache-Control': 'public, max-age=86400'}
+        except OSError:
+            return error(404, 'not_found')
     if method == 'GET' and path == '/api/rooms':
         return 200, 'application/json; charset=utf-8', json_bytes({'rooms': room_list()}), {}
     if method == 'GET' and path == '/api/join':
@@ -214,7 +227,7 @@ async def relay(room, method, path, token, body):
         return status, content_type, payload, {'Cache-Control': 'public, max-age=3600'}
     room.seq += 1
     request_id = str(room.seq)
-    future = asyncio.get_running_loop().create_future()
+    future = asyncio.get_event_loop().create_future()
     room.pending[request_id] = future
     try:
         text = '\n'.join(('REQ', request_id, method, path, token, body.decode('utf-8', 'replace')))
@@ -412,20 +425,18 @@ async def main():
     parser.add_argument('--data', default=HERE, help='folder for lobby_keys.json')
     options = parser.parse_args()
     load_keys(os.path.join(options.data, 'lobby_keys.json'))
-    server = await asyncio.start_server(handle, options.host, options.port, limit=MAX_HEAD)
+    await asyncio.start_server(handle, options.host, options.port, limit=MAX_HEAD)
     log('lobby listening on %s:%d' % (options.host, options.port))
-    saver = asyncio.ensure_future(keys_loop())
-    try:
-        async with server:
-            await server.serve_forever()
-    finally:
-        saver.cancel()
-        state['keys_dirty'] = True
-        save_keys()
+    asyncio.ensure_future(keys_loop())
 
 
 if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
     try:
-        asyncio.run(main())
+        loop.run_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        state['keys_dirty'] = True
+        save_keys()

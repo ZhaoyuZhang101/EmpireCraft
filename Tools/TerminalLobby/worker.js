@@ -8,6 +8,18 @@
 //   · Room：一个房间一个实例，握着房主那条连接(可休眠，闲着不计时长)，记着钥匙(别人拿着房间号顶替不了房主)；
 //   · Lobby：全站一个实例，一张房间表(SQLite)，每个地址至多 MAX_PER_IP 间，久不报到的自动撤下。
 import LOBBY_PAGE from "./lobby.html";
+// 大厅页自己的图标、像素框、桌面清单(房间里的那几样由房主那头给，见 STATIC)
+import ICON_192 from "./icon-192.png";
+import ICON_512 from "./icon-512.png";
+import ICON_APPLE from "./apple-touch-icon.png";
+import FRAME from "./FactionFrame.png";
+import FRAME_GOLD from "./FactionFrame_dominate.png";
+import MANIFEST from "./manifest.json";
+
+const LOBBY_FILES = {
+  "/icon-192.png": ICON_192, "/icon-512.png": ICON_512, "/apple-touch-icon.png": ICON_APPLE, "/favicon.ico": ICON_192,
+  "/FactionFrame.png": FRAME, "/FactionFrame_dominate.png": FRAME_GOLD,
+};
 
 const ROOM = /^[0-9a-f]{16}$/, KEY = /^[0-9a-f]{32}$/, TOKEN = /^[0-9a-f]{0,64}$/;
 const RELAY = /^\/r\/([0-9a-f]{16})(\/.*)?$/;
@@ -36,6 +48,10 @@ export default {
       }
       if (method === "GET" && (path === "/" || path === "/index.html"))
         return new Response(LOBBY_PAGE, { headers: { ...BASE_HEADERS, "content-type": "text/html; charset=utf-8" } });
+      if (method === "GET" && LOBBY_FILES[path])
+        return new Response(LOBBY_FILES[path], { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" } });
+      if (method === "GET" && path === "/manifest.json")
+        return new Response(JSON.stringify(MANIFEST), { headers: { "content-type": "application/manifest+json", "cache-control": "public, max-age=3600" } });
       if (method === "GET" && path === "/api/rooms") return rooms(url, env, ctx);
       if (method === "GET" && path === "/api/join") {
         const room = url.searchParams.get("room") || "";
