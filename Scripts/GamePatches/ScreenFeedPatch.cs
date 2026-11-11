@@ -148,6 +148,8 @@ public class ScreenFeedPatch : GamePatch
 
     public static bool BeforeNewHistory(HistoryHud __instance, WorldLogMessage pMessage)
     {
+        // 终端模式的奏报也从这里取(上不上屏都收，见 TerminalHost.Feed)
+        EmpireCraft.Scripts.Terminal.TerminalHost.Feed(pMessage);
         try
         {
             if (!Show(pMessage)) return false;

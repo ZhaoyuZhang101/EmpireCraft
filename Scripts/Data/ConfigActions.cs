@@ -142,6 +142,20 @@ namespace EmpireCraft.Scripts.Data
             EmpireCraft.Scripts.GeneralSystems.StableFrameRate.Set(on);
         }
 
+        // 终端模式(见 TerminalHost)：开关、端口、领着君主时的世界流速(百分比)
+        public static void TerminalModeCallBack(bool on)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.Enabled = on;
+        }
+        public static void TerminalPortCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.Port = SettlementValue(text, 8765, 1024, 65535);
+        }
+        public static void TerminalSpeedCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, 100);
+        }
+
         // 纯净地图模式(见 PureMapMode)下次启动生效：启动读设置时定下本次是否开启，游戏中切换只存下来、提示重启
         private static bool _pureMapLoaded;
         public static void PureMapCallBack(bool on)

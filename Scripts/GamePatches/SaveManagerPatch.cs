@@ -218,6 +218,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.CultureRadiation.ResetWorldState();
         // 通达层不存档：读档后从头算(算好之前各机制照旧)
         EmpireCraft.Scripts.GeneralSystems.ConnectivitySystem.ResetWorldState();
+        EmpireCraft.Scripts.Terminal.TerminalHost.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.TerrainResistance.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.SmoothBorders.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WarReach.ResetWorldState();

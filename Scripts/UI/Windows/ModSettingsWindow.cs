@@ -209,7 +209,34 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                 },
             }
         },
+        // 终端模式(手机网页接着管一国，见 TerminalHost)；配对码、各席位领哪位君主在终端窗口里(左栏按钮)
+        new()
+        {
+            Key = "mod_settings_cat_terminal", Icon = "ui/icons/iconClock",
+            Headline = new[] { "terminal_mode_toggle", "Terminal_Speed_Text", "Terminal_Port_Text" },
+            Cards = new[]
+            {
+                new Card
+                {
+                    Key = "mod_settings_card_terminal", Icon = "ui/icons/iconClock", Items = new[]
+                    {
+                        Switch("terminal_mode_toggle", false),
+                        Number("Terminal_Speed_Text", 10, 1, 100, 5, "mod_settings_unit_percent"),
+                        Number("Terminal_Port_Text", 8765, 1024, 65535, 1),
+                    }
+                },
+            }
+        },
     };
+
+    // 别的窗口改开关项(终端窗口开关终端模式)：当场调回调并存盘
+    public static void SetSwitch(string id, bool on)
+    {
+        ModConfigItem item = Item(id);
+        if (item == null) return;
+        item.SetValue(on);
+        Save();
+    }
 
     private int _category;
     // 恢复默认要点两下：第一下按钮变成"再点一次确认"
@@ -275,6 +302,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
         if (Present(Current).Any(setting => setting.HasDefault))
             rail.AddRailButton("mod_settings_reset", LM.Get(_confirmReset ? "mod_settings_reset_confirm" : "mod_settings_reset"),
                 ResetCategory);
+        rail.AddRailButton("terminal_open", LM.Get("terminal_open"), () => ScrollWindow.showWindow(nameof(TerminalWindow)));
         rail.AddRailButton("online_update_button", LM.Get("online_update_button"),
             () => ScrollWindow.showWindow(nameof(OnlineUpdateWindow)));
     }

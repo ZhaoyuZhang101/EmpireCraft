@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14150f">
+<title>EmpireCraft Terminal</title>
+<style>
+:root{--bg:#14150f;--card:#1e2018;--line:#3a3d2e;--ink:#e8e2cf;--soft:#b9b39d;--mute:#8a8f80;--gold:#f3c34a;--cyan:#7fd8ea;--green:#65d66e;--red:#e2675a;--amber:#e9a85b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh}
+#app{max-width:520px;margin:0 auto;padding:12px 14px calc(76px + env(safe-area-inset-bottom))}
+h1{font-size:19px;font-weight:600;margin:0;color:var(--gold)}
+h2{font-size:14px;font-weight:600;margin:0 0 8px;color:var(--gold)}
+.sub{font-size:12.5px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.rows>div{padding:9px 0;border-top:1px solid var(--line)}
+.rows>div:first-child{border-top:0;padding-top:2px}
+.tag{font-size:11.5px;padding:1px 8px;border-radius:9px;border:1px solid var(--line);color:var(--soft);white-space:nowrap;flex:none}
+.tag.gold{color:var(--gold);border-color:#6b5a26}.tag.amber{color:var(--amber);border-color:#6b4f2a}
+.tag.red{color:var(--red);border-color:#6b322c}.tag.green{color:var(--green);border-color:#2f5f33}.tag.cyan{color:var(--cyan);border-color:#2f5a63}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kpi{background:#191b14;border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.kpi b{display:block;font-size:18px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+button,input{font:inherit;color:var(--ink)}
+button{background:#2a2c20;border:1px solid #5a5a40;border-radius:8px;padding:10px 14px;min-height:44px}
+button.primary{background:#5a4a1c;border-color:var(--gold);color:#fff3cf}
+button:active{transform:scale(.98)}
+input{background:#101109;border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;min-height:44px}
+input:focus,button:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+#code{font-size:26px;letter-spacing:.35em;text-align:center}
+.err{color:var(--red);font-size:13px;min-height:20px;margin-top:6px}
+#bar{position:sticky;top:0;z-index:3;background:var(--bg);padding:6px 0 8px;border-bottom:1px solid var(--line)}
+#warn{display:none;background:#4a2320;color:#ffd9d2;font-size:13px;padding:6px 10px;border-radius:8px;margin-top:8px}
+nav{position:fixed;left:0;right:0;bottom:0;background:#191b14;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:4}
+nav div{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav button{border:0;border-radius:0;background:none;color:var(--mute);min-height:56px;font-size:14px}
+nav button.on{color:var(--gold);box-shadow:inset 0 2px 0 var(--gold)}
+.bar{height:6px;border-radius:3px;background:#101109;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:6px;border-radius:3px}
+canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);background:#0e0f0c;touch-action:manipulation}
+.pick{width:100%;text-align:left;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pick[disabled]{opacity:.5}
+.detail{display:none;font-size:13px;color:var(--soft);margin-top:6px}
+.open .detail{display:block}
+.report{cursor:pointer}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+
+<section id="s-pair" hidden>
+  <h1 data-t="pair_title"></h1>
+  <p class="sub" data-t="pair_hint"></p>
+  <div class="card">
+    <label class="sub" for="name" data-t="pair_name"></label>
+    <input id="name" maxlength="16" autocomplete="nickname" style="margin:4px 0 12px">
+    <label class="sub" for="code" data-t="pair_code"></label>
+    <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" style="margin-top:4px">
+    <div class="err" id="pair-err"></div>
+    <button class="primary" id="pair-go" style="width:100%" data-t="pair_go"></button>
+  </div>
+</section>
+
+<section id="s-wait" hidden>
+  <h1 data-t="app_title"></h1>
+  <div class="card"><div data-t="wait_world"></div><div class="sub" data-t="wait_world_hint"></div></div>
+</section>
+
+<section id="s-vacant" hidden>
+  <h1 data-t="vacant_title"></h1>
+  <p class="sub" id="vacant-why"></p>
+  <div id="rulers"></div>
+</section>
+
+<section id="s-main" hidden>
+  <div id="bar">
+    <div class="row"><h1 id="realm"></h1><span class="sub" id="date"></span></div>
+    <div class="row"><span class="sub" id="ruler"></span><span class="sub" id="pace"></span></div>
+    <div id="warn" data-t="offline"></div>
+  </div>
+
+  <div id="p-reports">
+    <div class="card">
+      <div class="sub" id="since"></div>
+      <div class="grid" style="margin-top:8px">
+        <div class="kpi"><span class="sub" data-t="kpi_wars"></span><b id="k-wars">0</b></div>
+        <div class="kpi"><span class="sub" data-t="kpi_new"></span><b id="k-new">0</b></div>
+        <div class="kpi"><span class="sub" data-t="kpi_trust"></span><b id="k-trust"></b></div>
+      </div>
+    </div>
+    <div class="card"><h2 data-t="reports"></h2><div class="rows" id="reports"></div></div>
+  </div>
+
+  <div id="p-map" hidden>
+    <div class="card" style="padding:10px">
+      <canvas id="map" width="600" height="360"></canvas>
+      <div class="row" style="margin-top:8px"><span id="map-pick" class="sub" data-t="map_tap"></span><span class="tag cyan" id="sight"></span></div>
+    </div>
+    <div class="card">
+      <div class="sub" id="sight-note"></div>
+      <div style="margin-top:8px;font-size:13px;color:var(--soft)">
+        <div><span class="sw" style="background:var(--gold)"></span><span data-t="lg_own"></span></div>
+        <div><span class="sw" style="background:#7a8f6a"></span><span data-t="lg_known"></span></div>
+        <div><span class="sw" style="background:repeating-linear-gradient(45deg,#7a8f6a 0 3px,#34392e 3px 6px)"></span><span data-t="lg_rumour"></span></div>
+        <div><span class="sw" style="background:#0e0f0c;border:1px solid var(--line)"></span><span data-t="lg_fog"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="p-realm" hidden>
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="officials"></h2><span class="tag amber" id="corr"></span></div>
+      <div class="bar"><i id="corr-bar" style="background:var(--amber)"></i></div>
+      <div class="sub" id="trust-note" style="margin-top:6px"></div>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div class="kpi"><span class="sub" data-t="f_treasury"></span><b id="f-treasury"></b><span class="sub" id="f-treasury-n"></span></div>
+      <div class="kpi"><span class="sub" data-t="f_army"></span><b id="f-army"></b><span class="sub" id="f-army-n"></span></div>
+      <div class="kpi"><span class="sub" data-t="f_people"></span><b id="f-people"></b><span class="sub" id="f-people-n"></span></div>
+    </div>
+    <div class="card"><h2 data-t="wars"></h2><div class="rows" id="wars"></div></div>
+    <div class="card"><h2 data-t="cities"></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
+  </div>
+</section>
+</div>
+
+<nav id="nav" hidden><div>
+  <button data-p="reports" data-t="tab_reports" class="on"></button>
+  <button data-p="map" data-t="tab_map"></button>
+  <button data-p="realm" data-t="tab_realm"></button>
+</div></nav>
+
+<script>
+(function(){
+"use strict";
+var T={
+cz:{app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
+e_wrong_code:"配对码不对",e_locked:"连错太多，稍后再试",e_full:"席位已满",e_net:"连不上终端",e_code:"填六位数字",
+wait_world:"世界尚未载入",wait_world_hint:"电脑上进入一个世界后，这里自动接上。",
+vacant_title:"再择一君",why_none:"这个席位还没有领君主。",why_dead:"{0}的{1}已驾崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
+taken:"{0} 已领",pick:"领此君",role_emperor:"帝国之主",role_king:"一国之君",role_member:"帝国封臣",ruler_detail:"{0} · {1} 城 · {2} 岁",
+date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 岁",pace:"世界流速 {0}%",paused:"世界已暂停",offline:"连不上终端，正在重试",
+tab_reports:"奏报",tab_map:"地图",tab_realm:"国势",
+since_first:"奏报按送达先后排列，最新在上。",since:"上次查看至今 {0}，世上过了 {1}。",
+span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小时 {1} 分",real_m:"{0} 分",
+kpi_wars:"战事",kpi_new:"新到",kpi_trust:"奏报",trust0:"可信",trust1:"参差",trust2:"不足信",
+reports:"奏报",no_reports:"尚无奏报送达。",k_major:"急报",k_ledger:"岁计",k_foreign:"外讯",late:"迟 {0} 月",lost:"另有若干奏报未达。",
+d_when:"事在第 {0} 年 {1} 月。",d_late:"历 {0} 月方达。",d_prompt:"当月即达。",d_foreign:"得自邻国往来，未必确实。",d_ledger:"此为地方奏销之数，非实查。",
+map_tap:"点地图看是哪一国",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
+note0:"眼下只知道接壤的国家。再远的地方，要有商路与航海之术才通消息。",note1:"使节到得了的国家都知道；更远的只有传闻。",note2:"消息即时可达，天下都看得见。",
+lg_own:"本国",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
+officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上下有出入，奏报常迟。",tn2:"数字多有虚报，小事常报不上来。",
+f_treasury:"库银",f_army:"兵额",f_people:"丁口",approx:"约 {0}",n_book:"账面",n_roll:"在册",n_hidden:"隐户未计",n_true:"实数",
+wars:"战事",no_wars:"眼下没有战事。",w_att:"伐{0}",w_def:"御{0}",
+cities:"各城",cities_note:"政令到得了的城才有确数。",capital:"都城",c0:"{0} 口 · 村镇 {1}",c1:"约 {0} 口",c2:"不详",ctl:"政令 {0}%"},
+ch:{app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
+e_wrong_code:"配對碼不對",e_locked:"連錯太多，稍後再試",e_full:"席位已滿",e_net:"連不上終端",e_code:"填六位數字",
+wait_world:"世界尚未載入",wait_world_hint:"電腦上進入一個世界後，這裡自動接上。",
+vacant_title:"再擇一君",why_none:"這個席位還沒有領君主。",why_dead:"{0}的{1}已駕崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
+taken:"{0} 已領",pick:"領此君",role_emperor:"帝國之主",role_king:"一國之君",role_member:"帝國封臣",ruler_detail:"{0} · {1} 城 · {2} 歲",
+date:"第 {0} 年 {1} 月",ruler:"{0} · {1} 歲",pace:"世界流速 {0}%",paused:"世界已暫停",offline:"連不上終端，正在重試",
+tab_reports:"奏報",tab_map:"地圖",tab_realm:"國勢",
+since_first:"奏報按送達先後排列，最新在上。",since:"上次查看至今 {0}，世上過了 {1}。",
+span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小時 {1} 分",real_m:"{0} 分",
+kpi_wars:"戰事",kpi_new:"新到",kpi_trust:"奏報",trust0:"可信",trust1:"參差",trust2:"不足信",
+reports:"奏報",no_reports:"尚無奏報送達。",k_major:"急報",k_ledger:"歲計",k_foreign:"外訊",late:"遲 {0} 月",lost:"另有若干奏報未達。",
+d_when:"事在第 {0} 年 {1} 月。",d_late:"歷 {0} 月方達。",d_prompt:"當月即達。",d_foreign:"得自鄰國往來，未必確實。",d_ledger:"此為地方奏銷之數，非實查。",
+map_tap:"點地圖看是哪一國",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
+note0:"眼下只知道接壤的國家。再遠的地方，要有商路與航海之術才通消息。",note1:"使節到得了的國家都知道；更遠的只有傳聞。",note2:"消息即時可達，天下都看得見。",
+lg_own:"本國",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
+officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上下有出入，奏報常遲。",tn2:"數字多有虛報，小事常報不上來。",
+f_treasury:"庫銀",f_army:"兵額",f_people:"丁口",approx:"約 {0}",n_book:"帳面",n_roll:"在冊",n_hidden:"隱戶未計",n_true:"實數",
+wars:"戰事",no_wars:"眼下沒有戰事。",w_att:"伐{0}",w_def:"禦{0}",
+cities:"各城",cities_note:"政令到得了的城才有確數。",capital:"都城",c0:"{0} 口 · 村鎮 {1}",c1:"約 {0} 口",c2:"不詳",ctl:"政令 {0}%"},
+en:{app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
+e_wrong_code:"That code doesn't match",e_locked:"Too many attempts. Try again shortly",e_full:"All seats are taken",e_net:"Can't reach the terminal",e_code:"Enter six digits",
+wait_world:"No world is loaded",wait_world_hint:"This connects by itself once a world is open on the computer.",
+vacant_title:"Choose a ruler",why_none:"This seat has no ruler yet.",why_dead:"{1} of {0} has died.",why_deposed:"{1} has lost the throne of {0}.",why_fallen:"{0} has fallen.",
+taken:"Held by {0}",pick:"Take",role_emperor:"Emperor",role_king:"King",role_member:"Imperial vassal",ruler_detail:"{0} · {1} cities · age {2}",
+date:"Year {0}, month {1}",ruler:"{0} · age {1}",pace:"World speed {0}%",paused:"World paused",offline:"Can't reach the terminal. Retrying",
+tab_reports:"Reports",tab_map:"Map",tab_realm:"Realm",
+since_first:"Reports are listed as they arrive, newest first.",since:"{0} since the last look; {1} have passed in the world.",
+span_y:"{0} y {1} m",span_m:"{0} months",real_h:"{0} h {1} min",real_m:"{0} min",
+kpi_wars:"Wars",kpi_new:"New",kpi_trust:"Reports",trust0:"Reliable",trust1:"Uneven",trust2:"Doubtful",
+reports:"Reports",no_reports:"No reports have arrived yet.",k_major:"Urgent",k_ledger:"Accounts",k_foreign:"Abroad",late:"{0} mo late",lost:"Some reports never arrived.",
+d_when:"Happened in year {0}, month {1}.",d_late:"Took {0} months to arrive.",d_prompt:"Arrived the same month.",d_foreign:"Heard through neighbours; may not be accurate.",d_ledger:"Figures as filed by local officials, not audited.",
+map_tap:"Tap the map to see whose land it is",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
+note0:"Only bordering realms are known. Word from farther away needs trade roads and seafaring.",note1:"Realms that envoys can reach are known; beyond them there are only rumours.",note2:"News travels at once and the whole world is visible.",
+lg_own:"This realm",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
+officials:"Officials",corr:"Corruption {0}%",tn0:"Reports are broadly reliable.",tn1:"Figures drift and reports often run late.",tn2:"Figures are padded and small matters often go unreported.",
+f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on the books",n_roll:"on the rolls",n_hidden:"hidden households uncounted",n_true:"actual",
+wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
+cities:"Cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%"}
+};
+var lang=/^zh/i.test(navigator.language||"")?(/tw|hk|hant/i.test(navigator.language)?"ch":"cz"):"en";
+function t(key){var s=(T[lang]||T.en)[key];if(s==null)s=T.en[key]||key;for(var i=1;i<arguments.length;i++)s=s.split("{"+(i-1)+"}").join(arguments[i]);return s}
+function $(id){return document.getElementById(id)}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function applyLang(){document.documentElement.lang=lang==="en"?"en":"zh";var n=document.querySelectorAll("[data-t]");for(var i=0;i<n.length;i++)n[i].textContent=t(n[i].getAttribute("data-t"))}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
+function num(v){return Number(v).toLocaleString(lang==="en"?"en-US":"zh-CN")}
+// 大数缩写(卡片里放得下)：中文按万、亿，英文按 K、M
+function trim1(x){var s=x.toFixed(x>=100?0:1);return s.replace(/\.0$/,"")}
+function short(v){
+  v=Number(v);var a=Math.abs(v);
+  if(lang==="en")return a>=1e9?trim1(v/1e9)+"B":a>=1e6?trim1(v/1e6)+"M":a>=1e4?trim1(v/1e3)+"K":num(v);
+  var wan=lang==="ch"?"萬":"万",yi=lang==="ch"?"億":"亿";
+  return a>=1e8?trim1(v/1e8)+" "+yi:a>=1e4?trim1(v/1e4)+" "+wan:num(v);
+}
+
+var token=store("ec_token"),state=null,map=null,page="reports",fails=0,openReport=null,lastMapAt=0;
+
+function api(method,path,body){
+  var opt={method:method,headers:{},cache:"no-store"};
+  if(token)opt.headers["X-Terminal-Token"]=token;
+  if(body){opt.body=JSON.stringify(body);opt.headers["Content-Type"]="application/json"}
+  return fetch(path,opt).then(function(r){return r.json().then(function(j){return{status:r.status,json:j}},function(){return{status:r.status,json:{}}})});
+}
+function show(id){["s-pair","s-wait","s-vacant","s-main"].forEach(function(s){$(s).hidden=s!==id});$("nav").hidden=id!=="s-main"}
+
+// 配对
+$("pair-go").onclick=function(){
+  var code=$("code").value.replace(/\D/g,"");
+  if(code.length!==6){$("pair-err").textContent=t("e_code");return}
+  $("pair-err").textContent="";
+  api("POST","/api/pair",{code:code,name:$("name").value}).then(function(r){
+    if(r.status===200&&r.json.token){token=r.json.token;store("ec_token",token);$("code").value="";poll()}
+    else $("pair-err").textContent=t("e_"+(r.json.error||"net"));
+  },function(){$("pair-err").textContent=t("e_net")});
+};
+$("code").oninput=function(){$("pair-err").textContent=""};
+
+// 轮询
+function poll(){
+  if(!token){show("s-pair");return}
+  api("GET","/api/state").then(function(r){
+    if(r.status===401){token=null;store("ec_token",null);show("s-pair");return}
+    fails=0;$("warn").style.display="none";
+    state=r.json;
+    if(state.lang&&T[state.lang]&&state.lang!==lang){lang=state.lang;applyLang()}
+    render();
+    if(state.loaded&&!state.vacant&&(page==="map"||!map)&&Date.now()-lastMapAt>15000)loadMap();
+  },function(){if(++fails>=2)$("warn").style.display="block"});
+}
+function loadMap(){
+  lastMapAt=Date.now();
+  api("GET","/api/map").then(function(r){if(r.status===200&&r.json.ready){map=decodeMap(r.json);drawMap()}},function(){});
+}
+
+function render(){
+  if(!state.loaded){show("s-wait");return}
+  if(state.vacant){renderVacant();return}
+  show("s-main");
+  $("realm").textContent=state.realm.name;
+  $("date").textContent=t("date",state.year,state.month);
+  $("ruler").textContent=t("ruler",state.ruler.name,state.ruler.age)+" · "+t("role_"+state.realm.role);
+  $("pace").textContent=state.paused?t("paused"):t("pace",state.speed);
+  renderReports();renderRealm();renderSight();
+}
+
+function renderVacant(){
+  show("s-vacant");map=null;
+  var f=state.former||{},why=state.reason||"none";
+  $("vacant-why").textContent=why==="none"||!f.realm?t("why_none"):t("why_"+why,f.realm,f.ruler);
+  var box=$("rulers");box.textContent="";
+  (state.rulers||[]).forEach(function(r){
+    var b=el("button","pick"),left=el("span"),right=el("span","tag "+(r.taken?"":"gold"),r.taken?t("taken",r.taken):t("pick"));
+    left.appendChild(el("div",null,r.realm+" · "+r.ruler));
+    left.appendChild(el("div","sub",t("ruler_detail",t("role_"+r.kind),r.cities,r.age)));
+    b.appendChild(left);b.appendChild(right);
+    if(r.taken)b.disabled=true;
+    b.onclick=function(){b.disabled=true;api("POST","/api/choose",{id:r.id}).then(function(){setTimeout(poll,600)},function(){b.disabled=false})};
+    box.appendChild(b);
+  });
+}
+
+function span(months){months=Math.max(0,months);return months>=12?t("span_y",Math.floor(months/12),months%12):t("span_m",months)}
+
+function renderReports(){
+  var key="ec_seen_"+state.realm.name,seen=null;
+  try{seen=JSON.parse(store(key)||"null")}catch(e){}
+  var nowMonths=state.year*12+state.month,reports=state.reports||[],fresh=0;
+  if(seen){
+    var mins=Math.max(0,Math.round((Date.now()-seen.at)/60000));
+    $("since").textContent=t("since",mins>=60?t("real_h",Math.floor(mins/60),mins%60):t("real_m",mins),span(nowMonths-seen.m));
+    reports.forEach(function(r){if(r.id>seen.id)fresh++});
+  }else{$("since").textContent=t("since_first");fresh=reports.length}
+  $("k-wars").textContent=(state.wars||[]).length;
+  $("k-new").textContent=fresh;
+  $("k-trust").textContent=t("trust"+state.intel.trust);
+  var box=$("reports");box.textContent="";
+  if(!reports.length)box.appendChild(el("div","sub",t("no_reports")));
+  reports.forEach(function(r){
+    var item=el("div","report"+(openReport===r.id?" open":"")),head=el("div","row"),left=el("div");
+    left.appendChild(el("div",null,r.text));
+    left.appendChild(el("div","sub",t("date",r.year,r.month)));
+    head.appendChild(left);
+    var tags=el("div");tags.style.cssText="display:flex;flex-direction:column;gap:4px;align-items:flex-end";
+    if(r.kind==="major")tags.appendChild(el("span","tag red",t("k_major")));
+    else if(r.kind==="ledger")tags.appendChild(el("span","tag gold",t("k_ledger")));
+    else if(!r.own)tags.appendChild(el("span","tag cyan",t("k_foreign")));
+    if(r.late>0)tags.appendChild(el("span","tag amber",t("late",r.late)));
+    head.appendChild(tags);item.appendChild(head);
+    var d=t("d_when",r.year,r.month)+(r.late>0?t("d_late",r.late):t("d_prompt"));
+    if(r.kind==="ledger")d+=t("d_ledger");else if(!r.own)d+=t("d_foreign");
+    item.appendChild(el("div","detail",d));
+    item.onclick=function(){openReport=openReport===r.id?null:r.id;renderReports()};
+    box.appendChild(item);
+  });
+  if(state.intel.lost>0)box.appendChild(el("div","sub",t("lost")));
+  // 看过了：记下这回看到哪(换页、离开时才记，免得"新到"立刻归零)
+  pendingSeen={key:key,value:JSON.stringify({at:Date.now(),m:nowMonths,id:reports.length?reports[0].id:(seen?seen.id:0)})};
+}
+var pendingSeen=null;
+function commitSeen(){if(pendingSeen){store(pendingSeen.key,pendingSeen.value);pendingSeen=null}}
+window.addEventListener("pagehide",commitSeen);
+document.addEventListener("visibilitychange",function(){if(document.hidden)commitSeen();else poll()});
+
+function figure(id,f,noteVague,noteTrue){
+  $(id).textContent=f.vague?t("approx",short(f.v)):short(f.v);
+  $(id+"-n").textContent=t(f.vague?noteVague:noteTrue);
+}
+function renderRealm(){
+  var c=Math.round(state.intel.corruption*100);
+  $("corr").textContent=t("corr",c);$("corr-bar").style.width=Math.min(100,c)+"%";
+  $("trust-note").textContent=t("tn"+state.intel.trust);
+  figure("f-treasury",state.figures.treasury,"n_book","n_true");
+  figure("f-army",state.figures.army,"n_roll","n_true");
+  figure("f-people",state.figures.people,"n_hidden","n_true");
+  var wars=$("wars");wars.textContent="";
+  if(!(state.wars||[]).length)wars.appendChild(el("div","sub",t("no_wars")));
+  (state.wars||[]).forEach(function(w){
+    var row=el("div","row"),name=el("span");
+    var sw=el("span","sw");sw.style.background=w.color||"#888";name.appendChild(sw);
+    name.appendChild(document.createTextNode(t(w.attacker?"w_att":"w_def",w.enemy)));
+    row.appendChild(name);row.appendChild(el("span","sub",span(w.months)));wars.appendChild(row);
+  });
+  var cities=$("cities");cities.textContent="";
+  (state.cities||[]).forEach(function(c){
+    var row=el("div","row"),left=el("div");
+    var title=el("div",null,c.name);if(c.capital){title.appendChild(document.createTextNode(" "));title.appendChild(el("span","tag gold",t("capital")))}
+    left.appendChild(title);
+    left.appendChild(el("div","sub",c.clarity===0?t("c0",short(c.people),c.villages):c.clarity===1?t("c1",short(c.people)):t("c2")));
+    row.appendChild(left);
+    row.appendChild(el("span","tag "+(c.clarity===0?"green":c.clarity===1?"amber":"red"),t("ctl",Math.round(c.control*100))));
+    cities.appendChild(row);
+  });
+}
+function renderSight(){$("sight").textContent=t("sight"+state.realm.sight);$("sight-note").textContent=t("note"+state.realm.sight)}
+
+// 地图
+var FOG=254,WATER=253,WILD=252;
+function decodeMap(j){
+  var bin=atob(j.cells),cells=new Uint8Array(j.w*j.h),at=0;
+  for(var i=0;i+1<bin.length;i+=2){var v=bin.charCodeAt(i),n=bin.charCodeAt(i+1);for(var k=0;k<n&&at<cells.length;k++)cells[at++]=v}
+  var x0=j.w,y0=j.h,x1=-1,y1=-1;
+  for(var y=0;y<j.h;y++)for(var x=0;x<j.w;x++)if(cells[y*j.w+x]!==FOG){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+  if(x1<0){x0=0;y0=0;x1=j.w-1;y1=j.h-1}
+  x0=Math.max(0,x0-3);y0=Math.max(0,y0-3);x1=Math.min(j.w-1,x1+3);y1=Math.min(j.h-1,y1+3);
+  j.grid=cells;j.view={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
+  j.realms.forEach(function(r){var c=r.color||"#888888";r.rgb=[parseInt(c.substr(1,2),16),parseInt(c.substr(3,2),16),parseInt(c.substr(5,2),16)]});
+  return j;
+}
+function drawMap(){
+  if(!map)return;
+  var cv=$("map"),v=map.view,dpr=Math.min(3,window.devicePixelRatio||1),cssW=cv.clientWidth||320;
+  var scale=cssW/v.w,cssH=Math.max(120,Math.min(cssW*1.2,v.h*scale));scale=Math.min(scale,cssH/v.h);
+  cv.width=Math.round(cssW*dpr);cv.height=Math.round(v.h*scale*dpr);cv.style.height=(v.h*scale)+"px";
+  var off=document.createElement("canvas");off.width=v.w;off.height=v.h;
+  var octx=off.getContext("2d"),img=octx.createImageData(v.w,v.h),d=img.data,g=map.grid,W=map.w;
+  function cell(x,y){return x<0||y<0||x>=map.w||y>=map.h?FOG:g[y*W+x]}
+  for(var y=0;y<v.h;y++)for(var x=0;x<v.w;x++){
+    var gx=v.x+x,gy=v.y+y,c=g[gy*W+gx],r,gg,b;
+    if(c===FOG){var s=((gx+gy)%4===0)?22:14;r=s;gg=s+1;b=s-2}
+    else if(c===WATER){r=28;gg=38;b=44}
+    else if(c===WILD){r=52;gg=57;b=46}
+    else{var realm=map.realms[c],rgb=realm?realm.rgb:[136,136,136];r=rgb[0];gg=rgb[1];b=rgb[2];
+      if(realm&&realm.tier===2){if((gx+gy)%3!==0){r=(r+52*2)/3;gg=(gg+57*2)/3;b=(b+46*2)/3}}
+      var edge=cell(gx+1,gy)!==c||cell(gx,gy+1)!==c;
+      if(edge){if(realm&&realm.tier===0){r=243;gg=195;b=74}else{r*=.5;gg*=.5;b*=.5}}}
+    var p=(y*v.w+x)*4;d[p]=r;d[p+1]=gg;d[p+2]=b;d[p+3]=255;
+  }
+  octx.putImageData(img,0,0);
+  var ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;ctx.drawImage(off,0,0,cv.width,cv.height);
+  var k=cv.width/v.w;
+  if(map.capital){var cx=(map.capital[0]-v.x+.5)*k,cy=(map.capital[1]-v.y+.5)*k,q=4*dpr;ctx.fillStyle="#fff3cf";ctx.strokeStyle="#14150f";ctx.lineWidth=dpr;ctx.fillRect(cx-q,cy-q,q*2,q*2);ctx.strokeRect(cx-q,cy-q,q*2,q*2)}
+  ctx.font="600 "+(12*dpr)+"px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
+  map.realms.forEach(function(r){
+    if(r.x==null||!r.name)return;
+    var w=ctx.measureText(r.name).width;
+    if(r.tier!==0&&Math.sqrt(r.n)*k<w*.6)return;
+    var x=(r.x-v.x+.5)*k,y=(r.y-v.y+.5)*k;
+    if(x<0||y<0||x>cv.width||y>cv.height)return;
+    ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(r.name,x,y);
+    ctx.fillStyle=r.tier===0?"#f3c34a":r.tier===2?"#b9b39d":"#e8e2cf";ctx.fillText(r.name,x,y);
+  });
+}
+$("map").addEventListener("click",function(e){
+  if(!map)return;
+  var rect=this.getBoundingClientRect(),v=map.view;
+  var x=v.x+Math.floor((e.clientX-rect.left)/rect.width*v.w),y=v.y+Math.floor((e.clientY-rect.top)/rect.height*v.h);
+  if(x<0||y<0||x>=map.w||y>=map.h)return;
+  var c=map.grid[y*map.w+x],r=map.realms[c];
+  $("map-pick").textContent=c===FOG?t("m_fog"):c===WATER?t("m_water"):c===WILD||!r?t("m_wild"):r.tier===2?t("m_rumour",r.name):r.name;
+});
+window.addEventListener("resize",drawMap);
+
+// 页签
+var tabs=document.querySelectorAll("nav button");
+for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
+  commitSeen();page=this.getAttribute("data-p");
+  for(var j=0;j<tabs.length;j++)tabs[j].className=tabs[j]===this?"on":"";
+  ["reports","map","realm"].forEach(function(p){$("p-"+p).hidden=p!==page});
+  window.scrollTo(0,0);
+  if(page==="map"){drawMap();if(Date.now()-lastMapAt>5000)loadMap()}
+  if(page==="reports"&&state&&state.loaded&&!state.vacant)renderReports();
+};
+
+applyLang();
+poll();
+setInterval(function(){if(!document.hidden)poll()},3000);
+})();
+</script>
+</body>
+</html>
