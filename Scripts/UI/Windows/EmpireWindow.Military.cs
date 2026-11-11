@@ -388,12 +388,18 @@ namespace EmpireCraft.Scripts.UI.Windows
             foreach (City city in seats)
             {
                 City seat = city;
-                string blocker = CorpsSystem.ManualBlocker(kingdom, seat);
+                // 亲手组建可动用整个国库(见 CorpsSystem.ManualBlocker)；没成就提示原因，不再点了没反应
+                string blocker = CorpsSystem.ManualBlocker(kingdom, seat, true);
                 AdvancedButton button = null;
                 button = row.AddButtonIntoHoriLayout($"corps_raise_{kingdom.id}_{seat.id}", seat.GetCityName(), () =>
                 {
-                    CorpsData raised = CorpsSystem.RaiseManual(kingdom, seat);
-                    if (raised == null || button == null) return;
+                    CorpsData raised = CorpsSystem.RaiseManual(kingdom, seat, true);
+                    if (raised == null)
+                    {
+                        ActionLibrary.showWhisperTip(CorpsSystem.LastManualFailure ?? "corps_manual_unavailable");
+                        return;
+                    }
+                    if (button == null) return;
                     button.Text.text = string.Format(LM.Get("corps_manual_done"), CorpsSystem.Name(raised));
                     button.Button.interactable = false;
                 }, size: new Vector2(buttonWidth, 10f));

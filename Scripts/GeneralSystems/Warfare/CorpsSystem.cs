@@ -850,27 +850,39 @@ public static class CorpsSystem
             : kingdom.cities.Where(city => city?.data != null && !city.isRekt())
                 .OrderByDescending(CityPopulationSystem.LevyBackground).Take(count).ToList();
 
-    // 不能组建的原因(本地化键)，能组建返回空
-    public static string ManualBlocker(Kingdom kingdom, City home)
+    // 不能组建的原因(本地化键)，能组建返回空。fromTreasury：玩家在军事页亲手组建，可动用整个国库(连同保底储备)；
+    // AI 只用可支配的钱。以前这里看国库总额、扣钱却只认可支配的钱，国库看着充足、点了没反应(群友 2026-11-11 报"国库充足都点了招募没有用")
+    public static string ManualBlocker(Kingdom kingdom, City home, bool fromTreasury = false)
     {
         if (!Enabled || kingdom?.data == null || kingdom.isRekt() || home?.data == null || home.kingdom != kingdom)
             return "corps_manual_unavailable";
         if (ManualCount(kingdom) >= ManualLimit(kingdom)) return "corps_manual_limit";
-        if (kingdom.GetMoney() < ManualCost(kingdom, home)) return "corps_manual_no_money";
+        int funds = fromTreasury ? Math.Max(0, kingdom.GetMoney()) : StateSettlementSystem.DiscretionaryFunds(kingdom);
+        if (funds < ManualCost(kingdom, home)) return fromTreasury ? "corps_manual_no_money" : "corps_manual_no_discretionary";
         if (CityPopulationSystem.LevyBackground(home) < ManualMin) return "corps_manual_no_people";
         return null;
     }
 
-    public static CorpsData RaiseManual(Kingdom kingdom, City home)
+    // 上回组建没成的原因(本地化键)，军事页点了没成时提示
+    public static string LastManualFailure { get; private set; }
+
+    public static CorpsData RaiseManual(Kingdom kingdom, City home, bool fromTreasury = false)
     {
-        if (ManualBlocker(kingdom, home) != null) return null;
+        LastManualFailure = ManualBlocker(kingdom, home, fromTreasury);
+        if (LastManualFailure != null) return null;
         float size = ManualSize(kingdom, home);
         int cost = ManualCost(kingdom, home);
-        if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) return null;
+        if (!TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military, !fromTreasury))
+        {
+            LastManualFailure = "corps_manual_no_money";
+            return null;
+        }
         CorpsData corps = Raise(kingdom, home, LegionsPerCorps, size, World.world.getCurWorldTime(), manual: true);
         if (corps == null)
         {
+            // 附近几座城招不到合格的兵(族群等第、旗民、奴隶不得为兵等)，钱退回
             kingdom.AddMoney(cost, TreasuryCategory.Military);
+            LastManualFailure = "corps_manual_no_recruits";
             return null;
         }
         FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_raised"), Name(corps), home.GetCityName(),

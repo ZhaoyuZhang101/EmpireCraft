@@ -2418,6 +2418,8 @@
   "corps_manual_no_money": "Not enough treasury",
   "corps_manual_limit": "Manual corps limit reached (one, plus one per four cities)",
   "corps_manual_unavailable": "Cannot raise now",
+  "corps_manual_no_discretionary": "Not enough spare funds (the treasury keeps a reserve)",
+  "corps_manual_no_recruits": "No eligible recruits nearby; the money was returned",
   "corps_manual_disbanded": "Disbanded",
   "corps_manual_disband": "Disband",
   "corps_manual_done": "Raised {0}",

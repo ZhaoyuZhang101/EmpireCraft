@@ -2420,6 +2420,8 @@
   "corps_manual_no_money": "國庫不足",
   "corps_manual_limit": "手動組建的軍已達上限：基礎一支，每有四座城再加一支",
   "corps_manual_unavailable": "現在不能組建",
+  "corps_manual_no_discretionary": "可支配的錢不足(國庫要留儲備)",
+  "corps_manual_no_recruits": "附近幾座城招不到合格的兵，錢已退回",
   "corps_manual_disbanded": "已解散",
   "corps_manual_disband": "解散",
   "corps_manual_done": "已建{0}",
