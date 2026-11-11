@@ -70,6 +70,29 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
                     Refresh();
                 });
         }
+        // 联机大厅(见 TerminalHost.Lobby)：接入后别人在大厅网页上看得到这个房间，不用自己引端口
+        bool joined = on && TerminalHost.LobbyEnabled;
+        if (on)
+        {
+            var lobby = rail.BeginRailCard();
+            string lobbyStatus = !joined ? LM.Get("terminal_lobby_off")
+                : TerminalHost.LobbyOnline ? LM.Get("terminal_lobby_online")
+                : string.IsNullOrEmpty(TerminalHost.LobbyError) ? LM.Get("terminal_lobby_connecting")
+                : string.Format(LM.Get("terminal_lobby_failed"), TerminalHost.LobbyError);
+            lobby.AddRailRow(width, LM.Get("terminal_lobby_title"), lobbyStatus, TerminalHost.LobbyOnline ? WideKit.Gold : WideKit.Cyan, 0);
+            if (joined)
+            {
+                lobby.AddRailRow(width, LM.Get("terminal_room_mode"),
+                    LM.Get(TerminalHost.RoomOpen ? "terminal_room_open" : "terminal_room_private"), WideKit.Cyan, 1);
+                lobby.AddRailInput(LM.Get("terminal_room_name"), TerminalHost.RoomName, value =>
+                {
+                    ModSettingsWindow.SetText("Terminal_Room_Name_Text", value ?? "");
+                    Refresh();
+                });
+                if (TerminalHost.LobbyOnline) RailNote(lobby, TerminalHost.LobbyWeb);
+            }
+            RailNote(lobby, LM.Get(joined ? "terminal_lobby_hint_on" : "terminal_lobby_hint_off"));
+        }
         var notes = rail.BeginRailCard();
         RailNote(notes, LM.Get(on ? "terminal_hint_on" : "terminal_hint_off"));
         // 不在同一网络怎么连(用户 2026-11-11 "远程也可以允许"，问答选"先用自备隧道")：模组只管在本机开端口，引出去靠玩家自己的工具
@@ -80,6 +103,18 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             ModSettingsWindow.SetSwitch("terminal_mode_toggle", !on);
             Refresh();
         });
+        if (on)
+            rail.AddRailButton("terminal_lobby_toggle", LM.Get(joined ? "terminal_lobby_leave" : "terminal_lobby_join"), () =>
+            {
+                ModSettingsWindow.SetSwitch("terminal_lobby_toggle", !joined);
+                Refresh();
+            });
+        if (joined)
+            rail.AddRailButton("terminal_room_open_toggle", LM.Get(TerminalHost.RoomOpen ? "terminal_room_make_private" : "terminal_room_make_open"), () =>
+            {
+                ModSettingsWindow.SetSwitch("terminal_room_open_toggle", !TerminalHost.RoomOpen);
+                Refresh();
+            });
         if (on)
             rail.AddRailButton("terminal_new_code", LM.Get("terminal_new_code"), () =>
             {

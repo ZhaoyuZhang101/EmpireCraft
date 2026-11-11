@@ -223,6 +223,9 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                         Switch("terminal_mode_toggle", false),
                         Number("Terminal_Speed_Text", 10, 1, 100, 5, "mod_settings_unit_percent"),
                         Number("Terminal_Port_Text", 8765, 1024, 65535, 1),
+                        // 联机大厅(房间名、另填的大厅地址在终端窗口里填)
+                        Switch("terminal_lobby_toggle", false),
+                        Switch("terminal_room_open_toggle", false),
                     }
                 },
             }

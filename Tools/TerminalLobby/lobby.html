@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4c5143">
+<title>EmpireCraft</title>
+<style>
+:root{--bg:#4c5143;--card:#2c312a;--line:#1d201b;--text:#e8e4d4;--muted:#a9ad9c;--gold:#d8b45a;--cyan:#7fd8ea;--green:#9bd17a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  padding:calc(12px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto}
+h1{font-size:20px;margin:6px 2px 2px;color:var(--gold)}
+.sub{color:var(--muted);font-size:13px;margin:0 2px 12px}
+.bar{display:flex;align-items:center;justify-content:space-between;margin:0 2px 8px;color:var(--muted);font-size:13px}
+button{font:inherit;color:var(--text);background:var(--card);border:2px solid var(--line);padding:6px 12px;cursor:pointer}
+button:active{border-color:var(--gold)}
+.room{display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.room:active{border-color:var(--gold)}
+.room.full{opacity:.55;cursor:default}
+.name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:12px;padding:1px 6px;border:1px solid currentColor;white-space:nowrap}
+.open{color:var(--green)}.code{color:var(--cyan)}.seats{color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+.empty,.note{background:var(--card);border:2px solid var(--line);padding:14px 12px;color:var(--muted);font-size:14px}
+.note{margin-top:14px;font-size:13px}
+.err{color:#e8a04c}
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="sub" id="sub"></p>
+  <div class="bar"><span id="count"></span><button id="refresh"></button></div>
+  <div id="rooms"></div>
+  <div class="note" id="howto"></div>
+</main>
+<script>
+var L={
+  "zh-Hans":{title:"EmpireCraft 联机大厅",sub:"挑一个房间进去，领一位君主。世界在房主的电脑上运行。",refresh:"刷新",count:"{0} 个房间",none:"眼下没有开着的房间。",
+    open:"公开",code:"凭配对码",full:"已满",seats:"{0}/{1} 席",old:"终端第 {0} 版",fail:"读不到房间列表，稍后再试。",gone:"这个房间刚刚关了。",
+    howto:"开房间：在游戏的模组设置里开启「终端模式」，再接入「联机大厅」。凭配对码的房间，配对码由房主另给。"},
+  "zh-Hant":{title:"EmpireCraft 聯機大廳",sub:"挑一個房間進去，領一位君主。世界在房主的電腦上運行。",refresh:"重新整理",count:"{0} 個房間",none:"眼下沒有開著的房間。",
+    open:"公開",code:"憑配對碼",full:"已滿",seats:"{0}/{1} 席",old:"終端第 {0} 版",fail:"讀不到房間列表，稍後再試。",gone:"這個房間剛剛關了。",
+    howto:"開房間：在遊戲的模組設定裡開啟「終端模式」，再接入「聯機大廳」。憑配對碼的房間，配對碼由房主另給。"},
+  "en":{title:"EmpireCraft Online Lobby",sub:"Pick a room and take a ruler. The world runs on the host's computer.",refresh:"Refresh",count:"{0} rooms",none:"No rooms are open right now.",
+    open:"Open",code:"Pairing code",full:"Full",seats:"{0}/{1} seats",old:"Terminal v{0}",fail:"Could not load the room list. Try again shortly.",gone:"That room has just closed.",
+    howto:"To host: turn on Terminal mode in the mod settings, then join the online lobby. Rooms that need a pairing code get it from the host."}
+};
+var lang=(navigator.language||"zh").toLowerCase();
+var T=L[/^zh-(tw|hk|mo|hant)/.test(lang)?"zh-Hant":/^zh/.test(lang)?"zh-Hans":"en"];
+function t(key){var s=T[key]||key;for(var i=1;i<arguments.length;i++)s=s.replace("{"+(i-1)+"}",arguments[i]);return s}
+function $(id){return document.getElementById(id)}
+document.title=T.title;$("title").textContent=T.title;$("sub").textContent=T.sub;$("refresh").textContent=T.refresh;$("howto").textContent=T.howto;
+
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function render(rooms){
+  var box=$("rooms");box.textContent="";
+  $("count").textContent=t("count",rooms.length);
+  if(!rooms.length){box.appendChild(el("div","empty",T.none));return}
+  rooms.forEach(function(room){
+    var full=room.used>=room.max,row=el("div","room"+(full?" full":""));
+    row.appendChild(el("span","name",room.name));
+    row.appendChild(el("span","tag "+(room.open?"open":"code"),full?T.full:room.open?T.open:T.code));
+    row.appendChild(el("span","seats",t("seats",room.used,room.max)));
+    if(!full)row.onclick=function(){join(room)};
+    box.appendChild(row);
+  });
+}
+function fail(text){var box=$("rooms");box.textContent="";box.appendChild(el("div","empty err",text))}
+function load(){
+  fetch("api/rooms",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){render(j.rooms||[])},function(){fail(T.fail)});
+}
+// 公开的房间由大厅替来人填上配对码；凭码的房间进去以后自己填
+function join(room){
+  if(!room.open){location.href="r/"+room.id+"/";return}
+  fetch("api/join?room="+room.id,{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+    if(j.error){fail(T.gone);setTimeout(load,1500);return}
+    location.href="r/"+room.id+"/"+(j.code?"?c="+j.code:"");
+  },function(){fail(T.fail)});
+}
+$("refresh").onclick=load;
+load();
+setInterval(function(){if(!document.hidden)load()},15000);
+</script>
+</body>
+</html>

@@ -215,7 +215,9 @@ public static partial class TerminalHost
     }
 
     // 扫码用的整条地址(带配对码，扫了直接进)
-    public static string PairUrl() => (PublicUrl.Length > 0 ? PublicUrl : "http://" + PrimaryAddress()) + "/?c=" + Code;
+    // 没填外网地址、又接着联机大厅时用大厅里本机的房间地址(不在同一个网络也扫得进来)
+    public static string PairUrl() =>
+        (PublicUrl.Length > 0 ? PublicUrl : LobbyOnline ? RoomUrl : "http://" + PrimaryAddress()) + "/?c=" + Code;
 
     // 外网地址(用户 2026-11-11 "那还是考虑第三方的吧")：模组只在本机开端口；不在同一个网络时，由第三方隧道工具(组网、内网穿透)
     // 把这个端口引出去，它给一个固定网址。把网址填在终端窗口里，二维码、手机桌面图标就都用它，手机不用知道电脑的地址
@@ -245,7 +247,7 @@ public static partial class TerminalHost
     private static void NotifyWindows()
     {
         var signature = new global::System.Text.StringBuilder();
-        signature.Append(Running ? Code : "-").Append(Lan ? 'L' : 'l').Append(Port);
+        signature.Append(Running ? Code : "-").Append(Lan ? 'L' : 'l').Append(Port).Append(LobbyState).Append(RoomOpen ? 'O' : 'o');
         foreach (Seat seat in Seats()) signature.Append('|').Append(seat.Token, 0, 4).Append(seat.RulerId).Append(seat.Watched ? '+' : '-');
         string now = signature.ToString();
         if (now == _signature) return;
@@ -331,10 +333,13 @@ public static partial class TerminalHost
                 _mdns?.Stop();
                 _anyRuler = false;
             }
+            StopLobby();
             return;
         }
         float now = Time.realtimeSinceStartup;
         EnsureServer(now);
+        // 联机大厅(见 TerminalHost.Lobby)：端口开着才连
+        TickLobby(now);
         while (Commands.TryDequeue(out Action command))
         {
             try

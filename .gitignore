@@ -427,3 +427,6 @@ EmpireCraft.debug.log
 # 游戏运行时写的性能日志
 EmpireCraft.performance.log
 EmpireCraft.performance.log.previous
+
+# 联机大厅自架版运行时记的房间钥匙
+Tools/TerminalLobby/lobby_keys.json

@@ -158,6 +158,23 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.PublicText = text ?? "";
         }
+        // 联机大厅(见 TerminalHost.Lobby)：接不接入、房间公开与否、房间名、另填的大厅地址
+        public static void TerminalLobbyCallBack(bool on)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.LobbyEnabled = on;
+        }
+        public static void TerminalRoomOpenCallBack(bool on)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.RoomOpen = on;
+        }
+        public static void TerminalRoomNameCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.RoomName = text ?? "";
+        }
+        public static void TerminalLobbyUrlCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalHost.LobbyText = text ?? "";
+        }
         public static void TerminalSpeedCallBack(string text)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, 100);

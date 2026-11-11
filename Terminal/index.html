@@ -283,13 +283,15 @@ function short(v){
 
 // 这份网页要游戏里的终端至少是第几版(见 TerminalHost.Version)
 var NEED=9;
-var token=store("ec_token"),state=null,map=null,page="reports",fails=0,openReport=null,openCity=null,lastMapAt=0;
+// 网页所在的路径：直连时是空的；经联机大厅进来是 /r/房间号。接口都接在它后面，令牌也按它分开存(一个大厅域名下有许多房间)
+var BASE=location.pathname.replace(/\/[^\/]*$/,""),TOKEN_KEY="ec_token"+(BASE?":"+BASE:"");
+var token=store(TOKEN_KEY),state=null,map=null,page="reports",fails=0,openReport=null,openCity=null,lastMapAt=0;
 
 function api(method,path,body){
   var opt={method:method,headers:{},cache:"no-store"};
   if(token)opt.headers["X-Terminal-Token"]=token;
   if(body){opt.body=JSON.stringify(body);opt.headers["Content-Type"]="application/json"}
-  return fetch(path,opt).then(function(r){return r.json().then(function(j){return{status:r.status,json:j}},function(){return{status:r.status,json:{}}})});
+  return fetch(BASE+path,opt).then(function(r){return r.json().then(function(j){return{status:r.status,json:j}},function(){return{status:r.status,json:{}}})});
 }
 function show(id){["s-pair","s-wait","s-vacant","s-main"].forEach(function(s){$(s).hidden=s!==id});$("nav").hidden=id!=="s-main"}
 
@@ -299,7 +301,7 @@ $("pair-go").onclick=function(){
   if(code.length!==6){$("pair-err").textContent=t("e_code");return}
   $("pair-err").textContent="";
   api("POST","/api/pair",{code:code,name:$("name").value}).then(function(r){
-    if(r.status===200&&r.json.token){token=r.json.token;store("ec_token",token);$("code").value="";poll()}
+    if(r.status===200&&r.json.token){token=r.json.token;store(TOKEN_KEY,token);$("code").value="";poll()}
     else $("pair-err").textContent=t("e_"+(r.json.error||"net"));
   },function(){$("pair-err").textContent=t("e_net")});
 };
@@ -309,7 +311,7 @@ $("code").oninput=function(){$("pair-err").textContent=""};
 function poll(){
   if(!token){show("s-pair");return}
   api("GET","/api/state").then(function(r){
-    if(r.status===401){token=null;store("ec_token",null);show("s-pair");return}
+    if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");return}
     fails=0;$("warn").style.display="none";
     state=r.json;
     if(state.lang&&T[state.lang]&&state.lang!==lang){lang=state.lang;applyLang()}
@@ -884,7 +886,7 @@ for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
 (function(){
   var m=/[?&]k=([0-9a-f]{32})(?:&|$)/.exec(location.search);
   if(!m)return;
-  token=m[1];store("ec_token",token);
+  token=m[1];store(TOKEN_KEY,token);
   try{history.replaceState(null,"",location.pathname)}catch(e){}
 })();
 // 固定地址：电脑的地址变了、换台电脑开游戏都还是它。这部手机认得出这个名字才给按钮(拿图标试一下)；跳过去时把配对带上
