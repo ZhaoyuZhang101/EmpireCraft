@@ -78,6 +78,7 @@ public partial class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
         _pendingFocus = _pendingOther = -1L;
         _pendingMarket = false;
         RealmMiniMap.Invalidate();
+        ClaimTargetMap.ForgetViews();
         _filter = Filter.All;
         _search = "";
         _listPage = _historyPage = 0;

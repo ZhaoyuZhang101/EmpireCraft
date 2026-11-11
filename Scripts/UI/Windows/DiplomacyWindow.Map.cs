@@ -13,6 +13,7 @@ using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using NeoModLoader.services;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
@@ -22,11 +23,15 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //     势力(帝国或宗主连同附属一个颜色)；左栏的筛选、搜索同图联动，筛掉的压暗；点一国进两国的双边页；
 //   · 双边「两国位置」：本国金、本国一系淡金，对方国色加白框、对方一系压暗的国色，其余压暗；卡头写接不接壤；点别的国家换对方；
 //   · 体系图「宗主一系」：按身份上色(宗主、帝国成员、朝贡国、附庸、殖民地)，一系之外压暗；点一国把它设为焦点。
-// 指着图上哪一国，图例那一行换成它的名字、态度、关系
+// 指着图上哪一国，图例那一行换成它的名字、态度、关系。
+// 图一开始对准相关的国家(总览：本国一系与邻国；双边：两国；体系图：这一系)，滚轮放大缩小、按住拖动(见 ClaimTargetMap)，
+// 每换一片按新的范围重新取样重画——放大以后国界更细、小国与城都标出来(用户 2026-11-11 "这个图我希望能放大""看更多细节""还有缩小")；
+// 图上方的小签「对准」回到一开始那一片，「全图」退到整张地图
 public partial class DiplomacyWindow
 {
-    private const float MapWidth = PageWidth - 12f, MapMaxHeight = 150f;
-    private const int MaxLabels = 16;
+    private const float MapWidth = PageWidth - 12f, MapHeight = 190f;
+    // 图上至多标几个国名、几个城名；一格不超过几块地时才标城
+    private const int MaxLabels = 16, MaxCityLabels = 24, CityStep = 2;
 
     // 总览关系图的上色：0 关系、1 态度、2 势力
     private int _mapMode;
@@ -92,59 +97,109 @@ public partial class DiplomacyWindow
         Refresh();
     }
 
-    // 往卡片里画一张按国上色的简图，下面一行图例(指着图上一国时换成它的说明)。styleOf 给每国的画法；legend 在各国画法算完后取
-    private void DrawRealmMap(AutoVertLayoutGroup card, Func<Kingdom, MapStyle> styleOf, Func<string> legend, Action<Kingdom> onClick)
+    // 往卡片里画一张按国上色的简图：上面一行小签(调用方给的 chips，后面跟「对准」「全图」)，下面一行图例(指着图上一国时换成它的说明)。
+    // inFocus 定一开始对准哪些国家；styleOf 给每国的画法；legend 在各国画法算完后取；viewKey 用来记住看到哪一片(窗口重画后还在原处)
+    private void DrawRealmMap(AutoVertLayoutGroup card, string viewKey, Func<Kingdom, bool> inFocus, Func<Kingdom, MapStyle> styleOf,
+        Func<string> legend, Action<Kingdom> onClick, params (string label, bool on, UnityAction action)[] chips)
     {
-        RealmMiniMap.MapData map;
+        float aspect = MapWidth / MapHeight;
+        RectInt home;
         try
         {
-            map = RealmMiniMap.Snapshot();
+            RealmMiniMap.MapData full = RealmMiniMap.Snapshot();
+            home = RealmMiniMap.Region(full, full.Kingdoms.Where(inFocus), aspect);
         }
         catch (Exception exception)
         {
             LogService.LogWarning($"[EmpireCraft][外交] 简化地图没画成: {exception.Message}");
             return;
         }
-        int kingdoms = map.Kingdoms.Count;
-        var styles = new MapStyle[kingdoms];
-        var color = new Color32[kingdoms];
-        var group = new int[kingdoms];
-        var white = new bool[kingdoms];
-        for (int i = 0; i < kingdoms; i++)
+        ClaimTargetMap view = null;
+        var row = new List<(string label, bool on, UnityAction action)>(chips)
         {
-            styles[i] = styleOf(map.Kingdoms[i]);
-            color[i] = styles[i].Color;
-            group[i] = styles[i].Group != null && map.KingdomIndex.TryGetValue(styles[i].Group.id, out int at) ? at : i;
-        }
-        for (int i = 0; i < kingdoms; i++)
-            if (styles[i].White) white[group[i]] = true;
-        RealmMiniMap.Painted painted = RealmMiniMap.Paint(map, color, group, white);
-        string legendText = legend();
-        float scale = Mathf.Min(MapWidth / map.Width, MapMaxHeight / map.Height);
-        ClaimTargetMap view = ClaimTargetMap.Create(card.transform, map.Width * scale, map.Height * scale, map.Width, map.Height, painted.Pixels,
-            (x, y) =>
+            (LM.Get("mini_map_home"), false, (UnityAction)(() => view?.Home())),
+            (LM.Get("mini_map_whole"), false, (UnityAction)(() => view?.Whole()))
+        };
+        card.AddChipRow(PageWidth - 12f, row.ToArray());
+        // 各国的画法只算一回(放大、缩小、拖动重画时照用)
+        var styleCache = new Dictionary<Kingdom, MapStyle>();
+        string hint = LM.Get("mini_map_zoom_hint").ColorString(WideKit.Muted), legendText = "";
+
+        // 按图上现在看的这一片(地块坐标)画一帧
+        ClaimTargetMap.Frame Draw(RectInt tiles)
+        {
+            RealmMiniMap.MapData map = RealmMiniMap.Snapshot(tiles);
+            int kingdoms = map.Kingdoms.Count;
+            var styles = new MapStyle[kingdoms];
+            var color = new Color32[kingdoms];
+            var group = new int[kingdoms];
+            var white = new bool[kingdoms];
+            for (int i = 0; i < kingdoms; i++)
+            {
+                Kingdom kingdom = map.Kingdoms[i];
+                if (!styleCache.TryGetValue(kingdom, out MapStyle style)) styleCache[kingdom] = style = styleOf(kingdom);
+                styles[i] = style;
+                color[i] = style.Color;
+                group[i] = style.Group != null && map.KingdomIndex.TryGetValue(style.Group.id, out int at) ? at : i;
+            }
+            for (int i = 0; i < kingdoms; i++)
+                if (styles[i].White) white[group[i]] = true;
+            RealmMiniMap.Painted painted = RealmMiniMap.Paint(map, color, group, white);
+            var frame = new ClaimTargetMap.Frame { Width = map.Width, Height = map.Height, Pixels = painted.Pixels };
+            legendText = legend() + "  " + hint;
+            string resting = legendText;
+            frame.OnClick = (x, y) =>
             {
                 int owner = map.Owner[y * map.Width + x];
                 if (owner >= 0 && styles[owner].Clickable) onClick(map.Kingdoms[owner]);
-            },
-            (x, y) =>
+            };
+            frame.OnHover = (x, y) =>
             {
                 if (_mapHover?.text == null) return;
                 int owner = x < 0 ? -1 : map.Owner[y * map.Width + x];
                 string text = owner >= 0 ? styles[owner].Hover : null;
-                _mapHover.text.text = string.IsNullOrEmpty(text) ? legendText : text;
-            });
-        // 图上的名字：加粗的(本国、对方、一系之主)必标，其余按占的格数从大到小取前几个，太小的不标
-        int minimum = Mathf.Max(12, painted.Pixels.Length / 260), shown = 0;
-        foreach (int i in Enumerable.Range(0, kingdoms).Where(i => painted.Count[i] > 0 && !string.IsNullOrEmpty(styles[i].Label))
-                     .OrderByDescending(i => styles[i].Bold).ThenByDescending(i => painted.Count[i]))
-        {
-            if (!styles[i].Bold && (painted.Count[i] < minimum || shown >= MaxLabels)) continue;
-            shown++;
-            view.AddLabel(painted.SumX[i] / painted.Count[i], painted.SumY[i] / painted.Count[i], styles[i].Label, styles[i].LabelColor,
-                styles[i].Bold ? 7 : 6);
+                _mapHover.text.text = string.IsNullOrEmpty(text) ? resting : text;
+            };
+            // 图上的名字：加粗的(本国、对方、一系之主)必标，其余按占的格数从大到小取前几个，太小的不标
+            int minimum = Mathf.Max(12, painted.Pixels.Length / 260), shown = 0;
+            foreach (int i in Enumerable.Range(0, kingdoms).Where(i => painted.Count[i] > 0 && !string.IsNullOrEmpty(styles[i].Label))
+                         .OrderByDescending(i => styles[i].Bold).ThenByDescending(i => painted.Count[i]))
+            {
+                if (!styles[i].Bold && (painted.Count[i] < minimum || shown >= MaxLabels)) continue;
+                shown++;
+                frame.AddLabel(painted.SumX[i] / painted.Count[i], painted.SumY[i] / painted.Count[i], styles[i].Label, styles[i].LabelColor,
+                    styles[i].Bold ? 7 : 6);
+            }
+            // 放得够大(一格只有一两块地)：把城标出来
+            if (map.Step <= CityStep) MarkCities(map, frame);
+            if (_mapHover?.text != null) _mapHover.text.text = legendText;
+            return frame;
         }
+
+        view = ClaimTargetMap.Create(card.transform, MapWidth, MapHeight, home, Draw, "diplomacy:" + viewKey);
         _mapHover = card.AddParagraph(PageWidth, legendText, 6, WideKit.Soft);
+    }
+
+    // 城：一个白点描黑边；城不多时写上名字(都城、人多的先写)
+    private static void MarkCities(RealmMiniMap.MapData map, ClaimTargetMap.Frame frame)
+    {
+        int width = map.Width, height = map.Height, named = 0;
+        foreach (City city in map.Cities.Where(city => city?.data != null && !city.isRekt())
+                     .OrderByDescending(city => city.isCapitalCity()).ThenByDescending(city => city.getPopulationPeople()))
+        {
+            WorldTile tile = city.getTile();
+            if (tile == null || tile.x < map.X0 || tile.y < map.Y0) continue;
+            int x = (tile.x - map.X0) / map.Step, y = (tile.y - map.Y0) / map.Step;
+            if (x >= width || y >= height) continue;
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int px = x + dx, py = y + dy;
+                if (px < 0 || py < 0 || px >= width || py >= height) continue;
+                frame.Pixels[py * width + px] = dx == 0 && dy == 0 ? RealmMiniMap.White : RealmMiniMap.Ink;
+            }
+            if (named++ < MaxCityLabels) frame.AddLabel(x, y + 4, city.GetCityName(), LabelSoft, 6);
+        }
     }
 
     // 指着一国时的说明：名字 · 态度 · 关系标签 · 点了做什么
@@ -176,10 +231,6 @@ public partial class DiplomacyWindow
     private void DrawOverviewMap(AutoVertLayoutGroup page)
     {
         var card = page.BeginCard(PageWidth, "diplomacy_map_title", WideKit.Gold, LM.Get("diplomacy_map_hint"), "ui/icons/iconKingdom");
-        card.AddChipRow(PageWidth - 12f,
-            (LM.Get("diplomacy_map_mode_ties"), _mapMode == 0, () => SetMapMode(0)),
-            (LM.Get("diplomacy_map_mode_opinion"), _mapMode == 1, () => SetMapMode(1)),
-            (LM.Get("diplomacy_map_mode_bloc"), _mapMode == 2, () => SetMapMode(2)));
 
         var realms = new HashSet<Kingdom>(DiplomacyLedger.Realms());
         // 左栏筛选、搜索之后还在名单里的；不在的压暗
@@ -288,7 +339,14 @@ public partial class DiplomacyWindow
             return string.Join("  ", items);
         }
 
-        DrawRealmMap(card, StyleOf, LegendText, kingdom => Go(Page.Bilateral, kingdom));
+        // 一开始对准本国这一系连同邻国
+        HashSet<Kingdom> near = DiplomacyLedger.NeighboursOf(_focus);
+        DrawRealmMap(card, $"overview:{_focusId}",
+            kingdom => kingdom == _focus || near.Contains(kingdom) || DiplomacyLedger.SameBloc(_focus, kingdom),
+            StyleOf, LegendText, kingdom => Go(Page.Bilateral, kingdom),
+            (LM.Get("diplomacy_map_mode_ties"), _mapMode == 0, () => SetMapMode(0)),
+            (LM.Get("diplomacy_map_mode_opinion"), _mapMode == 1, () => SetMapMode(1)),
+            (LM.Get("diplomacy_map_mode_bloc"), _mapMode == 2, () => SetMapMode(2)));
     }
 
     #endregion
@@ -348,7 +406,8 @@ public partial class DiplomacyWindow
             Legend("diplomacy_map_rest", MapDim),
             string.Format(LM.Get("diplomacy_map_sides_count"), ourCount, theirCount).ColorString(WideKit.Muted));
 
-        DrawRealmMap(card, StyleOf, LegendText, kingdom => Go(Page.Bilateral, kingdom));
+        DrawRealmMap(card, $"pair:{_focusId}:{_otherId}", kingdom => kingdom == _focus || kingdom == _other,
+            StyleOf, LegendText, kingdom => Go(Page.Bilateral, kingdom));
     }
 
     #endregion
@@ -403,7 +462,7 @@ public partial class DiplomacyWindow
             return string.Join("  ", items);
         }
 
-        DrawRealmMap(card, StyleOf, LegendText, Focus);
+        DrawRealmMap(card, $"system:{root.id}", roles.ContainsKey, StyleOf, LegendText, Focus);
     }
 
     #endregion

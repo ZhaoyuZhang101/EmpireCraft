@@ -5,25 +5,60 @@ using UnityEngine;
 
 namespace EmpireCraft.Scripts.UI.Components;
 
-// 天下简图的底子：整张图按格取样成一张小图(每格归哪国、哪座城)，宽窗口里按国上色的简化地图都从这里取
+// 天下简图的底子：把地图按格取样成一张小图(每格归哪国、哪座城)，宽窗口里按国上色的简化地图都从这里取
 // (发起诉求选目标 ClaimTargetWindow；外交界面的关系图、两国位置、宗主一系，用户 2026-11-11 "对了外交界面也可以加这个缩略图模式"
-// "这样会很清晰")。画到界面上用 ClaimTargetMap(点采样的小图，点哪一格、指着哪一格回调给窗口)。
-// 快照打开窗口时取一回，过 Seconds 秒再用就重取；取样只读地块的归属，不碰原版的地图图层
+// "这样会很清晰")。画到界面上用 ClaimTargetMap(点采样的小图，点哪一格、指着哪一格回调给窗口，滚轮放大、拖动平移)。
+// 可以取整张图，也可以只取一片(Snapshot(区域))：世界地图上两个小国在整图里只有几格，看不清(用户 2026-11-11 "这个图我希望能放大"
+// "看更多细节""还有缩小")——窗口里的图先对准相关国家所在的那一片(Region)，滚轮每放大、缩小一档就按新的范围重新取样
+// (同样大的图上格子更细，小国、城都显出来)，最远退到包住整张图的那一片(Whole)；区域伸出地图之外的部分当水。
+// 快照过 Seconds 秒再用就重取；取样只读地块的归属，不碰原版的地图图层
 public static class RealmMiniMap
 {
     public const int MaxWidth = 592, MaxHeight = 300;
     private const float Seconds = 20f;
+    // 对准相关国家：它们的范围四周留的边(占范围的比例、至少几格地)
+    private const float RegionMargin = 0.3f;
+    private const int RegionMinMargin = 24;
 
-    // 每格归哪国(-1 无主陆地、-2 水)、哪座城(-1 没有)；Kingdoms / Cities 是图上出现的国与城，Owner / City 里存的是它们的下标
+    // 每格归哪国(-1 无主陆地、-2 水)、哪座城(-1 没有)；Kingdoms / Cities 是图上出现的国与城，Owner / City 里存的是它们的下标。
+    // 第 (x, y) 格取的是地图上 (X0 + x × Step, Y0 + y × Step) 起的那一小块
     public sealed class MapData
     {
         public MapBox World;
         public float At;
-        public int Width, Height, Step;
+        public int Width, Height, Step, X0, Y0;
+        public RectInt Tiles;
         public int[] Owner, City;
         public readonly List<Kingdom> Kingdoms = new();
         public readonly List<City> Cities = new();
         public readonly Dictionary<long, int> KingdomIndex = new(), CityIndex = new();
+        // 各国在图上占的范围(格)：第 i 国是 [4i] 最左、[4i+1] 最下、[4i+2] 最右、[4i+3] 最上；一格都没有的最左大于最右
+        private int[] _bounds;
+
+        public int[] Bounds
+        {
+            get
+            {
+                if (_bounds != null) return _bounds;
+                var bounds = new int[Kingdoms.Count * 4];
+                for (int i = 0; i < Kingdoms.Count; i++)
+                {
+                    bounds[i * 4] = bounds[i * 4 + 1] = int.MaxValue;
+                    bounds[i * 4 + 2] = bounds[i * 4 + 3] = int.MinValue;
+                }
+                for (int at = 0; at < Owner.Length; at++)
+                {
+                    int owner = Owner[at];
+                    if (owner < 0) continue;
+                    int x = at % Width, y = at / Width, k = owner * 4;
+                    if (x < bounds[k]) bounds[k] = x;
+                    if (y < bounds[k + 1]) bounds[k + 1] = y;
+                    if (x > bounds[k + 2]) bounds[k + 2] = x;
+                    if (y > bounds[k + 3]) bounds[k + 3] = y;
+                }
+                return _bounds = bounds;
+            }
+        }
     }
 
     // 按国上色的结果：像素，各国在图上占的格数与格坐标之和(放名字用：Sum ÷ Count = 重心)
@@ -34,18 +69,48 @@ public static class RealmMiniMap
         public int[] Count;
     }
 
-    private static MapData _map;
+    private static MapData _map, _region;
 
     // 下回 Snapshot 重取(窗口刚打开时)
-    public static void Invalidate() => _map = null;
+    public static void Invalidate() => _map = _region = null;
 
+    private static bool Fresh(MapData map, MapBox world, float now) =>
+        map != null && ReferenceEquals(map.World, world) && now - map.At < Seconds && now >= map.At;
+
+    // 整张图
     public static MapData Snapshot()
     {
         MapBox world = World.world;
         float now = Time.realtimeSinceStartup;
-        if (_map != null && ReferenceEquals(_map.World, world) && now - _map.At < Seconds && now >= _map.At) return _map;
-        int step = Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(MapBox.width / (float)MaxWidth, MapBox.height / (float)MaxHeight)));
-        var map = new MapData { World = world, At = now, Step = step, Width = Mathf.Max(1, MapBox.width / step), Height = Mathf.Max(1, MapBox.height / step) };
+        if (Fresh(_map, world, now)) return _map;
+        return _map = Build(world, now, new RectInt(0, 0, MapBox.width, MapBox.height));
+    }
+
+    // 只取一片(地块坐标，可以伸出地图之外)；同一片在 Seconds 秒内复用
+    public static MapData Snapshot(RectInt tiles)
+    {
+        MapBox world = World.world;
+        float now = Time.realtimeSinceStartup;
+        tiles = new RectInt(tiles.x, tiles.y, Mathf.Max(1, tiles.width), Mathf.Max(1, tiles.height));
+        if (Fresh(_region, world, now) && _region.Tiles.Equals(tiles)) return _region;
+        return _region = Build(world, now, tiles);
+    }
+
+    // 形状是 aspect(宽 ÷ 高)、包得住整张地图的那一片：缩到最小时的视野
+    public static RectInt Whole(float aspect)
+    {
+        int width = Mathf.Max(MapBox.width, Mathf.CeilToInt(MapBox.height * aspect)), height = Mathf.Max(MapBox.height, Mathf.CeilToInt(width / aspect));
+        return new RectInt((MapBox.width - width) / 2, (MapBox.height - height) / 2, width, height);
+    }
+
+    private static MapData Build(MapBox world, float now, RectInt tiles)
+    {
+        int step = Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(tiles.width / (float)MaxWidth, tiles.height / (float)MaxHeight)));
+        var map = new MapData
+        {
+            World = world, At = now, Step = step, X0 = tiles.x, Y0 = tiles.y, Tiles = tiles,
+            Width = Mathf.Max(1, tiles.width / step), Height = Mathf.Max(1, tiles.height / step)
+        };
         map.Owner = new int[map.Width * map.Height];
         map.City = new int[map.Width * map.Height];
         // 每块地归哪国、哪座城只判一回(城的地块按城，并进国土的无人区按主人)
@@ -54,7 +119,8 @@ public static class RealmMiniMap
         for (int x = 0; x < map.Width; x++)
         {
             int at = y * map.Width + x;
-            WorldTile tile = world.GetTile(Mathf.Min(MapBox.width - 1, x * step + step / 2), Mathf.Min(MapBox.height - 1, y * step + step / 2));
+            int tileX = tiles.x + x * step + step / 2, tileY = tiles.y + y * step + step / 2;
+            WorldTile tile = tileX < 0 || tileY < 0 || tileX >= MapBox.width || tileY >= MapBox.height ? null : world.GetTile(tileX, tileY);
             map.City[at] = -1;
             if (tile?.Type == null || tile.Type.liquid || tile.zone == null)
             {
@@ -83,7 +149,37 @@ public static class RealmMiniMap
             map.Owner[at] = owner.kingdom;
             map.City[at] = owner.city;
         }
-        return _map = map;
+        return map;
+    }
+
+    // 这些国家在整张图(full)上占的那一片，四周留边、凑成 aspect(宽 ÷ 高)的形状，换成地块坐标。
+    // 它们不在图上、或这一片比整张图还大：给 Whole
+    public static RectInt Region(MapData full, IEnumerable<Kingdom> kingdoms, float aspect)
+    {
+        RectInt whole = Whole(aspect);
+        if (full == null || kingdoms == null) return whole;
+        int[] bounds = full.Bounds;
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+        foreach (Kingdom kingdom in kingdoms)
+        {
+            if (kingdom == null || !full.KingdomIndex.TryGetValue(kingdom.id, out int index) || bounds[index * 4] > bounds[index * 4 + 2]) continue;
+            minX = Math.Min(minX, bounds[index * 4]);
+            minY = Math.Min(minY, bounds[index * 4 + 1]);
+            maxX = Math.Max(maxX, bounds[index * 4 + 2]);
+            maxY = Math.Max(maxY, bounds[index * 4 + 3]);
+        }
+        if (minX > maxX) return whole;
+        float width = (maxX - minX + 1) * full.Step, height = (maxY - minY + 1) * full.Step;
+        float centerX = full.X0 + minX * full.Step + width / 2f, centerY = full.Y0 + minY * full.Step + height / 2f;
+        width += Mathf.Max(width * RegionMargin, RegionMinMargin) * 2f;
+        height += Mathf.Max(height * RegionMargin, RegionMinMargin) * 2f;
+        if (width / height < aspect) width = height * aspect;
+        else height = width / aspect;
+        if (width >= whole.width) return whole;
+        int w = Mathf.Max(1, Mathf.RoundToInt(width)), h = Mathf.Max(1, Mathf.RoundToInt(height));
+        int x0 = Mathf.Clamp(Mathf.RoundToInt(centerX - width / 2f), whole.x, whole.xMax - w);
+        int y0 = Mathf.Clamp(Mathf.RoundToInt(centerY - height / 2f), whole.y, whole.yMax - h);
+        return new RectInt(x0, y0, w, h);
     }
 
     public static readonly Color32 Water = new(28, 38, 44, 255), Wild = new(52, 57, 46, 255), Grey = new(98, 104, 96, 255),

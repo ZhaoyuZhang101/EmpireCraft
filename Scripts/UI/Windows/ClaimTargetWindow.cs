@@ -42,7 +42,7 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
 
     private const float Pad = 12f;
     private const int ListRows = 10, NameList = 8;
-    private const float MapWidth = PageWidth - Pad, MapMaxHeight = 150f;
+    private const float MapWidth = PageWidth - Pad, MapHeight = 190f;
     private static long _pendingEmpire = -1L;
     private static string _pendingFaction = "";
     private static TemporaryFactionType _pendingClaim;
@@ -83,6 +83,7 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
         _selected = -1L;
         _grouping = 0;
         RealmMiniMap.Invalidate();
+        ClaimTargetMap.ForgetViews();
         Resolve();
         if (_claim == null) return;
         _options = _claim.TargetOptions() ?? new List<ClaimTargetOption>();
@@ -411,196 +412,236 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
     // 地图的快照(每格归哪国、哪座城)、配色、国色都在 RealmMiniMap(外交界面的简图也用它)，这里只管选目标的画法
     private void DrawMap(AutoVertLayoutGroup page, List<ClaimTargetOption> listed)
     {
-        MapData map;
+        bool cityLevel = ByCity;
+        var card = page.BeginCard(PageWidth, cityLevel ? "claim_target_card_map_own" : "claim_target_card_map", WideKit.Gold, LevelName(_level),
+            "ui/icons/iconKingdom");
+        // 图一开始对准本朝连同可选的目标；滚轮放大缩小、按住拖动(见 ClaimTargetMap)，每换一片按新的范围重新取样重画
+        // (用户 2026-11-11 "这个图我希望能放大""看更多细节""还有缩小")
+        RectInt home;
         try
         {
-            map = Snapshot();
+            home = Region(Snapshot(), FocusKingdoms(listed), MapWidth / MapHeight);
         }
         catch (Exception exception)
         {
             NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][选目标] 简化地图没画成: {exception.Message}");
             return;
         }
-        bool cityLevel = ByCity;
-        var card = page.BeginCard(PageWidth, cityLevel ? "claim_target_card_map_own" : "claim_target_card_map", WideKit.Gold, LevelName(_level),
-            "ui/icons/iconKingdom");
-        int kingdoms = map.Kingdoms.Count, cities = map.Cities.Count;
-        // 每国：算哪一组(帝国层级同一帝国一组)、什么颜色；每组对着哪个候选
-        var group = new int[kingdoms];
-        var color = new Color32[kingdoms];
-        var optionOf = new ClaimTargetOption[kingdoms];
-        var own = new bool[kingdoms];
-        var byKingdom = new Dictionary<long, ClaimTargetOption>();
-        foreach (ClaimTargetOption option in listed)
-            if (option.Type == MetaType.Kingdom && option.Kingdom != null) byKingdom[option.Kingdom.id] = option;
-        for (int i = 0; i < kingdoms; i++)
+        ClaimTargetMap shown = null;
+        card.AddChipRow(PageWidth - Pad,
+            (LM.Get("mini_map_home"), false, (UnityAction)(() => shown?.Home())),
+            (LM.Get("mini_map_whole"), false, (UnityAction)(() => shown?.Whole())));
+
+        // 按图上现在看的这一片(地块坐标)画一帧
+        ClaimTargetMap.Frame Draw(RectInt tiles)
         {
-            Kingdom kingdom = map.Kingdoms[i];
-            Empire empire = kingdom.GetEmpire();
-            group[i] = i;
-            ClaimTargetOption option = null;
-            if (!cityLevel)
-            {
-                if (_level == Level.Empire)
-                {
-                    Kingdom court = empire != null && !empire.isRekt() && empire != _empire ? empire.CoreKingdom : null;
-                    if (court != null)
-                    {
-                        byKingdom.TryGetValue(court.id, out option);
-                        if (map.KingdomIndex.TryGetValue(court.id, out int courtIndex)) group[i] = courtIndex;
-                    }
-                }
-                else byKingdom.TryGetValue(kingdom.id, out option);
-            }
-            optionOf[i] = option;
-            own[i] = kingdom == _empire.CoreKingdom || empire == _empire;
-            if (option != null && option.Selectable)
-                color[i] = KingdomColor(_level == Level.Empire ? option.Kingdom : kingdom);
-            else if (own[i]) color[i] = cityLevel ? Mix(i % 2 == 0 ? OwnGold : OwnGoldDark, Wild, 0.45f) : i % 2 == 0 ? OwnGold : OwnGoldDark;
-            else color[i] = cityLevel ? Dim : Mix(KingdomColor(kingdom), Grey, 0.82f);
-        }
-        // 城(城、法理头衔层级)：能选的城的地块染青；法理头衔辖下各城都算它的，画边线时合成一块(cityGroup)
-        var cityOption = new ClaimTargetOption[cities];
-        var cityGroup = new int[cities];
-        for (int i = 0; i < cities; i++) cityGroup[i] = i;
-        if (cityLevel)
+            MapData map = Snapshot(tiles);
+            int kingdoms = map.Kingdoms.Count, cities = map.Cities.Count;
+            // 每国：算哪一组(帝国层级同一帝国一组)、什么颜色；每组对着哪个候选
+            var group = new int[kingdoms];
+            var color = new Color32[kingdoms];
+            var optionOf = new ClaimTargetOption[kingdoms];
+            var own = new bool[kingdoms];
+            var byKingdom = new Dictionary<long, ClaimTargetOption>();
             foreach (ClaimTargetOption option in listed)
-            {
-                if (option.City != null && map.CityIndex.TryGetValue(option.City.id, out int cityIndex)) cityOption[cityIndex] = option;
-                if (option.Title?.city_list == null) continue;
-                int first = -1;
-                foreach (City city in option.Title.city_list)
-                {
-                    if (city == null || !map.CityIndex.TryGetValue(city.id, out int titleCity)) continue;
-                    if (first < 0) first = titleCity;
-                    cityOption[titleCity] = option;
-                    cityGroup[titleCity] = first;
-                }
-            }
-        ClaimTargetOption selected = Selected;
-        int selectedGroup = -3, selectedCity = -1;
-        if (selected != null)
-        {
-            if (cityLevel)
-            {
-                City anchor = selected.City ?? selected.Title?.city_list?.FirstOrDefault(city => city != null && map.CityIndex.ContainsKey(city.id));
-                selectedCity = anchor != null && map.CityIndex.TryGetValue(anchor.id, out int index) ? cityGroup[index] : -1;
-            }
-            else if (selected.Kingdom != null && map.KingdomIndex.TryGetValue(selected.Kingdom.id, out int kingdomAt)) selectedGroup = group[kingdomAt];
-        }
-
-        int width = map.Width, height = map.Height;
-        var pixels = new Color32[width * height];
-        var cell = new int[width * height];   // 画边线用的分组：水 -2、无主 -1、其余按国(城层级本朝按城)
-        var sumX = new float[kingdoms];
-        var sumY = new float[kingdoms];
-        var count = new int[kingdoms];
-        for (int at = 0; at < pixels.Length; at++)
-        {
-            int owner = map.Owner[at];
-            if (owner < 0)
-            {
-                pixels[at] = owner == -2 ? Water : Wild;
-                cell[at] = owner;
-                continue;
-            }
-            Color32 c = color[owner];
-            int g = group[owner];
-            if (cityLevel)
-            {
-                int city = map.City[at];
-                ClaimTargetOption option = city >= 0 ? cityOption[city] : null;
-                if (option != null && option.Selectable) c = Mix(c, Cyan, option == selected ? 0.75f : 0.4f);
-                g = own[owner] && city >= 0 ? kingdoms + cityGroup[city] : owner;
-            }
-            pixels[at] = c;
-            cell[at] = g;
-            int labelGroup = cityLevel ? owner : group[owner];
-            sumX[labelGroup] += at % width;
-            sumY[labelGroup] += at / width;
-            count[labelGroup]++;
-        }
-        int chosen = cityLevel ? selectedCity >= 0 ? kingdoms + selectedCity : -3 : selectedGroup;
-        for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
-        {
-            int at = y * width + x, g = cell[at];
-            for (int side = 0; side < 2; side++)
-            {
-                int other = side == 0 ? (x + 1 < width ? at + 1 : -1) : (y + 1 < height ? at + width : -1);
-                if (other < 0 || cell[other] == g) continue;
-                int h = cell[other];
-                if (g == chosen || h == chosen)
-                {
-                    pixels[at] = White;
-                    pixels[other] = White;
-                }
-                else if ((g >= 0 || h >= 0) && pixels[at].r != 255) pixels[at] = Mix(pixels[at], Ink, 0.55f);
-            }
-        }
-        // 城的标记(城层级；法理头衔标在首府)
-        var markers = new List<(int x, int y, ClaimTargetOption option)>();
-        if (cityLevel)
-            foreach (ClaimTargetOption option in listed)
-            {
-                WorldTile tile = (option.City ?? option.Title?.title_capital)?.getTile();
-                if (tile == null) continue;
-                int mx = Mathf.Clamp(tile.x / map.Step, 0, width - 1), my = Mathf.Clamp(tile.y / map.Step, 0, height - 1);
-                markers.Add((mx, my, option));
-                Color32 fill = option.Id == _selected ? White : option.Selectable ? Cyan : MarkerGrey;
-                for (int dy = -3; dy <= 3; dy++)
-                for (int dx = -3; dx <= 3; dx++)
-                {
-                    int px = mx + dx, py = my + dy;
-                    if (px < 0 || py < 0 || px >= width || py >= height) continue;
-                    pixels[py * width + px] = Math.Abs(dx) == 3 || Math.Abs(dy) == 3 ? Ink : fill;
-                }
-            }
-
-        float scale = Mathf.Min(MapWidth / width, MapMaxHeight / height);
-        ClaimTargetMap view = ClaimTargetMap.Create(card.transform, width * scale, height * scale, width, height, pixels,
-            (x, y) => ClickMap(map, group, optionOf, cityOption, markers, x, y),
-            (x, y) => HoverMap(map, group, optionOf, cityOption, own, x, y));
-
-        // 图上的名字：本朝、已选、可选的(按大小取前几个)、不可选里大的
-        int minimum = Mathf.Max(12, pixels.Length / 260);
-        if (cityLevel)
-        {
-            foreach ((int x, int y, ClaimTargetOption option) in markers.Where(marker => marker.option.Selectable || marker.option.Id == _selected).Take(16))
-                view.AddLabel(x, y + 6, option.Name, option.Id == _selected ? Color.white : (Color)Cyan, 6);
-        }
-        else
-        {
-            var labelled = new HashSet<int>();
-            IEnumerable<int> order = Enumerable.Range(0, kingdoms).Where(i => group[i] == i && count[i] >= minimum && (!own[i] || optionOf[i] != null))
-                .OrderByDescending(i => i == selectedGroup).ThenByDescending(i => optionOf[i]?.Selectable == true).ThenByDescending(i => count[i]);
-            int open = 0, closed = 0;
-            foreach (int i in order)
-            {
-                ClaimTargetOption option = optionOf[i];
-                bool can = option?.Selectable == true;
-                if (i != selectedGroup && (can ? open++ >= 12 : closed++ >= 6)) continue;
-                if (!labelled.Add(i)) continue;
-                string name = _level == Level.Empire ? map.Kingdoms[i].GetEmpire()?.GetEmpireName() ?? map.Kingdoms[i].GetKingdomName()
-                    : map.Kingdoms[i].GetKingdomName();
-                view.AddLabel(sumX[i] / count[i], sumY[i] / count[i], name,
-                    i == selectedGroup ? Color.white : can ? new Color(0.95f, 0.93f, 0.89f) : new Color(0.6f, 0.64f, 0.6f), i == selectedGroup ? 7 : 6);
-            }
-            // 本朝：各成员合起来标一个名字
-            float ownX = 0f, ownY = 0f;
-            int ownCount = 0;
+                if (option.Type == MetaType.Kingdom && option.Kingdom != null) byKingdom[option.Kingdom.id] = option;
             for (int i = 0; i < kingdoms; i++)
             {
-                if (!own[i] || optionOf[i]?.Selectable == true) continue;
-                ownX += sumX[i];
-                ownY += sumY[i];
-                ownCount += count[i];
+                Kingdom kingdom = map.Kingdoms[i];
+                Empire empire = kingdom.GetEmpire();
+                group[i] = i;
+                ClaimTargetOption option = null;
+                if (!cityLevel)
+                {
+                    if (_level == Level.Empire)
+                    {
+                        Kingdom court = empire != null && !empire.isRekt() && empire != _empire ? empire.CoreKingdom : null;
+                        if (court != null)
+                        {
+                            byKingdom.TryGetValue(court.id, out option);
+                            if (map.KingdomIndex.TryGetValue(court.id, out int courtIndex)) group[i] = courtIndex;
+                        }
+                    }
+                    else byKingdom.TryGetValue(kingdom.id, out option);
+                }
+                optionOf[i] = option;
+                own[i] = kingdom == _empire.CoreKingdom || empire == _empire;
+                if (option != null && option.Selectable)
+                    color[i] = KingdomColor(_level == Level.Empire ? option.Kingdom : kingdom);
+                else if (own[i]) color[i] = cityLevel ? Mix(i % 2 == 0 ? OwnGold : OwnGoldDark, Wild, 0.45f) : i % 2 == 0 ? OwnGold : OwnGoldDark;
+                else color[i] = cityLevel ? Dim : Mix(KingdomColor(kingdom), Grey, 0.82f);
             }
-            if (ownCount >= minimum)
-                view.AddLabel(ownX / ownCount, ownY / ownCount, _empire.GetEmpireName(), new Color(0.95f, 0.76f, 0.29f), 7);
+            // 城(城、法理头衔层级)：能选的城的地块染青；法理头衔辖下各城都算它的，画边线时合成一块(cityGroup)
+            var cityOption = new ClaimTargetOption[cities];
+            var cityGroup = new int[cities];
+            for (int i = 0; i < cities; i++) cityGroup[i] = i;
+            if (cityLevel)
+                foreach (ClaimTargetOption option in listed)
+                {
+                    if (option.City != null && map.CityIndex.TryGetValue(option.City.id, out int cityIndex)) cityOption[cityIndex] = option;
+                    if (option.Title?.city_list == null) continue;
+                    int first = -1;
+                    foreach (City city in option.Title.city_list)
+                    {
+                        if (city == null || !map.CityIndex.TryGetValue(city.id, out int titleCity)) continue;
+                        if (first < 0) first = titleCity;
+                        cityOption[titleCity] = option;
+                        cityGroup[titleCity] = first;
+                    }
+                }
+            ClaimTargetOption selected = Selected;
+            int selectedGroup = -3, selectedCity = -1;
+            if (selected != null)
+            {
+                if (cityLevel)
+                {
+                    City anchor = selected.City ?? selected.Title?.city_list?.FirstOrDefault(city => city != null && map.CityIndex.ContainsKey(city.id));
+                    selectedCity = anchor != null && map.CityIndex.TryGetValue(anchor.id, out int index) ? cityGroup[index] : -1;
+                }
+                else if (selected.Kingdom != null && map.KingdomIndex.TryGetValue(selected.Kingdom.id, out int kingdomAt)) selectedGroup = group[kingdomAt];
+            }
+
+            int width = map.Width, height = map.Height;
+            var pixels = new Color32[width * height];
+            var cell = new int[width * height];   // 画边线用的分组：水 -2、无主 -1、其余按国(城层级本朝按城)
+            var sumX = new float[kingdoms];
+            var sumY = new float[kingdoms];
+            var count = new int[kingdoms];
+            for (int at = 0; at < pixels.Length; at++)
+            {
+                int owner = map.Owner[at];
+                if (owner < 0)
+                {
+                    pixels[at] = owner == -2 ? Water : Wild;
+                    cell[at] = owner;
+                    continue;
+                }
+                Color32 c = color[owner];
+                int g = group[owner];
+                if (cityLevel)
+                {
+                    int city = map.City[at];
+                    ClaimTargetOption option = city >= 0 ? cityOption[city] : null;
+                    if (option != null && option.Selectable) c = Mix(c, Cyan, option == selected ? 0.75f : 0.4f);
+                    g = own[owner] && city >= 0 ? kingdoms + cityGroup[city] : owner;
+                }
+                pixels[at] = c;
+                cell[at] = g;
+                int labelGroup = cityLevel ? owner : group[owner];
+                sumX[labelGroup] += at % width;
+                sumY[labelGroup] += at / width;
+                count[labelGroup]++;
+            }
+            int chosen = cityLevel ? selectedCity >= 0 ? kingdoms + selectedCity : -3 : selectedGroup;
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                int at = y * width + x, g = cell[at];
+                for (int side = 0; side < 2; side++)
+                {
+                    int other = side == 0 ? (x + 1 < width ? at + 1 : -1) : (y + 1 < height ? at + width : -1);
+                    if (other < 0 || cell[other] == g) continue;
+                    int h = cell[other];
+                    if (g == chosen || h == chosen)
+                    {
+                        pixels[at] = White;
+                        pixels[other] = White;
+                    }
+                    else if ((g >= 0 || h >= 0) && pixels[at].r != 255) pixels[at] = Mix(pixels[at], Ink, 0.55f);
+                }
+            }
+            // 城的标记(城层级；法理头衔标在首府)
+            var markers = new List<(int x, int y, ClaimTargetOption option)>();
+            if (cityLevel)
+                foreach (ClaimTargetOption option in listed)
+                {
+                    WorldTile tile = (option.City ?? option.Title?.title_capital)?.getTile();
+                    if (tile == null) continue;
+                    // 不在图上这一片里的不标
+                    if (tile.x < map.X0 || tile.y < map.Y0) continue;
+                    int mx = (tile.x - map.X0) / map.Step, my = (tile.y - map.Y0) / map.Step;
+                    if (mx >= width || my >= height) continue;
+                    markers.Add((mx, my, option));
+                    Color32 fill = option.Id == _selected ? White : option.Selectable ? Cyan : MarkerGrey;
+                    for (int dy = -3; dy <= 3; dy++)
+                    for (int dx = -3; dx <= 3; dx++)
+                    {
+                        int px = mx + dx, py = my + dy;
+                        if (px < 0 || py < 0 || px >= width || py >= height) continue;
+                        pixels[py * width + px] = Math.Abs(dx) == 3 || Math.Abs(dy) == 3 ? Ink : fill;
+                    }
+                }
+
+            var view = new ClaimTargetMap.Frame
+            {
+                Width = width, Height = height, Pixels = pixels,
+                OnClick = (x, y) => ClickMap(map, group, optionOf, cityOption, markers, x, y),
+                OnHover = (x, y) => HoverMap(map, group, optionOf, cityOption, own, x, y)
+            };
+
+            // 图上的名字：本朝、已选、可选的(按大小取前几个)、不可选里大的
+            int minimum = Mathf.Max(12, pixels.Length / 260);
+            if (cityLevel)
+            {
+                foreach ((int x, int y, ClaimTargetOption option) in markers.Where(marker => marker.option.Selectable || marker.option.Id == _selected).Take(16))
+                    view.AddLabel(x, y + 6, option.Name, option.Id == _selected ? Color.white : (Color)Cyan, 6);
+            }
+            else
+            {
+                var labelled = new HashSet<int>();
+                IEnumerable<int> order = Enumerable.Range(0, kingdoms).Where(i => group[i] == i && count[i] >= minimum && (!own[i] || optionOf[i] != null))
+                    .OrderByDescending(i => i == selectedGroup).ThenByDescending(i => optionOf[i]?.Selectable == true).ThenByDescending(i => count[i]);
+                int open = 0, closed = 0;
+                foreach (int i in order)
+                {
+                    ClaimTargetOption option = optionOf[i];
+                    bool can = option?.Selectable == true;
+                    if (i != selectedGroup && (can ? open++ >= 12 : closed++ >= 6)) continue;
+                    if (!labelled.Add(i)) continue;
+                    string name = _level == Level.Empire ? map.Kingdoms[i].GetEmpire()?.GetEmpireName() ?? map.Kingdoms[i].GetKingdomName()
+                        : map.Kingdoms[i].GetKingdomName();
+                    view.AddLabel(sumX[i] / count[i], sumY[i] / count[i], name,
+                        i == selectedGroup ? Color.white : can ? new Color(0.95f, 0.93f, 0.89f) : new Color(0.6f, 0.64f, 0.6f), i == selectedGroup ? 7 : 6);
+                }
+                // 本朝：各成员合起来标一个名字
+                float ownX = 0f, ownY = 0f;
+                int ownCount = 0;
+                for (int i = 0; i < kingdoms; i++)
+                {
+                    if (!own[i] || optionOf[i]?.Selectable == true) continue;
+                    ownX += sumX[i];
+                    ownY += sumY[i];
+                    ownCount += count[i];
+                }
+                if (ownCount >= minimum)
+                    view.AddLabel(ownX / ownCount, ownY / ownCount, _empire.GetEmpireName(), new Color(0.95f, 0.76f, 0.29f), 7);
+            }
+            return view;
         }
 
+        shown = ClaimTargetMap.Create(card.transform, MapWidth, MapHeight, home, Draw, $"claim:{_empireId}:{_claimType}:{_level}");
         _hoverText = card.AddParagraph(PageWidth, LegendText(), 6, WideKit.Soft);
+    }
+
+    // 图一开始对准哪些国家：本朝各国，连同可选的目标(帝国层级连它的成员)；城、法理头衔只看本朝
+    private IEnumerable<Kingdom> FocusKingdoms(List<ClaimTargetOption> listed)
+    {
+        var focus = new HashSet<Kingdom>();
+        if (_empire.CoreKingdom != null) focus.Add(_empire.CoreKingdom);
+        if (_empire.kingdoms_list != null)
+            foreach (Kingdom member in _empire.kingdoms_list)
+                if (member != null) focus.Add(member);
+        if (ByCity) return focus;
+        foreach (ClaimTargetOption option in listed)
+        {
+            if (!option.Selectable || option.Kingdom == null) continue;
+            focus.Add(option.Kingdom);
+            Empire theirs = _level == Level.Empire ? option.Kingdom.GetEmpire() : null;
+            if (theirs?.kingdoms_list == null) continue;
+            foreach (Kingdom member in theirs.kingdoms_list)
+                if (member != null) focus.Add(member);
+        }
+        return focus;
     }
 
     // 图例(字色即图上的颜色)
@@ -610,7 +651,8 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
             : "claim_target_legend_open").ColorString(WideKit.Cyan),
         LM.Get("claim_target_legend_closed").ColorString("#8A8F80"),
         LM.Get("claim_target_legend_picked").ColorString("#FFFFFF"),
-        LM.Get("claim_target_legend_click").ColorString(WideKit.Muted));
+        LM.Get("claim_target_legend_click").ColorString(WideKit.Muted),
+        LM.Get("mini_map_zoom_hint").ColorString(WideKit.Muted));
 
     // 指着图上哪一格：图例那行换成它是谁、能不能选、为什么
     private void HoverMap(MapData map, int[] group, ClaimTargetOption[] optionOf, ClaimTargetOption[] cityOption, bool[] own, int x, int y)
