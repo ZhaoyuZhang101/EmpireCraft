@@ -104,8 +104,8 @@ public class RenderThrottlePatch : GamePatch
         return true;
     }
 
-    // 细分计时仍只在无小人模式下记
-    private static bool Profiling => FrameProfiler.Enabled && CityPopulationSystem.AbstractPopulationEnabled && Active && !Config.paused;
+    // 细分计时：开着性能诊断就记(以前只在无小人模式下记)
+    private static bool Profiling => FrameProfiler.Enabled && Active && !Config.paused;
 
     public static void BeforeStep(MethodBase __originalMethod, out FrameProfiler.Scope? __state) =>
         __state = Profiling ? FrameProfiler.Measure($"原版·{__originalMethod.DeclaringType?.Name}.{__originalMethod.Name}") : null;

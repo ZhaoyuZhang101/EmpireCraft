@@ -33,8 +33,8 @@ public class NativeWorldOptimizationPatch : GamePatch
     private static volatile bool _recordBuildingThreads;
     private static int _mainThread;
     public static int LastBuildingBackgroundThreads { get; private set; }
-    private static bool Profiling => FrameProfiler.Enabled && CityPopulationSystem.AbstractPopulationEnabled &&
-        Config.game_loaded && !Config.paused && !SmoothLoader.isLoading();
+    // 原版分项计时：开着性能诊断就记(以前只在无小人模式下记，平常模式的尖峰帧分不出原版主循环与主循环外)
+    private static bool Profiling => FrameProfiler.Enabled && Config.game_loaded && !Config.paused && !SmoothLoader.isLoading();
     // 原版随地图大小涨的整图开销(小地图、地形边缘、地块重绘、各图层贴图上传，见 RenderThrottlePatch)：以前只在无小人模式下省，
     // 巨大及以上的地图(边长 384 格起)不开无小人也省(用户 2026-10-27 反馈什么都不放、地图够大也掉帧)；小图照原版
     private const int LargeMapTiles = 384 * 384;
@@ -80,6 +80,8 @@ public class NativeWorldOptimizationPatch : GamePatch
         Profile(harmony, typeof(MapBox), "checkEventHouses");
         Profile(harmony, typeof(BatchActors), "u4_deadCheck");
         Profile(harmony, typeof(BatchActors), "u10_checkSmoothMovement");
+        // 原版图层整张上传贴图(SetPixels32 + Apply)：单列计时，贴图上传计数也归在它名下(见 TextureUploadCounter)
+        Profile(harmony, typeof(MapLayer), "updatePixels");
         // 原版·updateCities 偶有几百毫秒的尖峰：城市自身的几步与城市 AI 各行为(原版与模组的)分别计时，尖峰帧里直接点名
         harmony.Patch(AccessTools.Method(typeof(MapBox), "Update"),
             prefix: new HarmonyMethod(typeof(NativeWorldOptimizationPatch), nameof(BeforeMainLoop)) { priority = Priority.First },
