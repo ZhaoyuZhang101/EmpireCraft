@@ -44,7 +44,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 开发(见 WildernessDevelopmentSystem)：雨林、大泽的地块按开发度一批批改成草地；开发中的照开发时的类型留在无人区(Reclassify)，
 //     开满的留给城(同城心、村镇，见 Regroup 的 anchored)，城照常扩张领进去；山脉、沙漠、冻原、熔岩固定不开发；
 //     雨林、大泽按地形预划县址(见 WildernessPlotSystem，每次划区后维护)，开满的只归这一县的县城；
-//   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假；已划出来的地块不还给城，城照常再扩回去)；
+//   · 模组设置「无人区」(默认开)：关掉时没有无人区(Regions 为空、IsWild 全为假)；开着时从城里划出来的地块当场还给原来那座城，
+//     划区时交给别城的城地碎块也还回去(用户 2026-11-12 转群友"关掉中立区之后一瞬间恢复成我画的图了，然后就变成这种情况了"：
+//     以前划出来的不还，原版扩张又不进山，山地永远空着成了一片灰；问答选"还给原来的城""碎块一起还""旧档按挂接的城补一次")。
+//     哪块从哪座城划出的随存档(WildRegionData.carved)；旧档没记的，仍空着、不是永久中立的按跟着的城补记一次(见 CarveRule)；
 //     世界地图预设剧本(真实地球，见 WorldMap.WorldMapWilderness.ForcesWild，随存档)不看这个设置，一直开着——剧本的史实归属、地名、
 //     各时代开发度都靠无人区；玩家自己的图按设置开关(用户 2026-10-30 "预设剧本是强制开的，但是玩家自己的图可以选择开关")，
 //     地球地图上的自定剧本(手做的、从当前世界导入的)也算自己的图(用户 2026-11-04 选"自定剧本也听设置")；
@@ -106,6 +109,12 @@ public class WildRegionData
     // 按第几版分地规矩挂的(见 WildernessSystem.AttachRule)；旧档 0，读档后按新规矩重分一次
     public int rule;
     public bool ShouldSerializerule() => rule > 0;
+    // 与 zones 一一对应：这块是从哪座城里划出来的(城编号，本来就不归城的为 -1)；关掉设置时还给那座城(见 WildernessSystem.SetEnabled)
+    public List<long> carved;
+    public bool ShouldSerializecarved() => carved != null && carved.Exists(id => id >= 0);
+    // 记划出来源的版本(见 WildernessSystem.CarveRule)；旧档 0：没记过，仍空着的地块按跟着的城补记一次
+    public int carve;
+    public bool ShouldSerializecarve() => carve > 0;
 }
 
 public static class WildernessSystem
@@ -165,6 +174,8 @@ public static class WildernessSystem
     private static bool[] _neutralZones = new bool[0];
     // 各块跟着的城；随无人区存档，避免重载后从邻城重新推算行政归属。
     private static City[] _parents = new City[0];
+    // 各块是从哪座城里划出来的(见 Regroup 收地；本来就不归城的为 null)：关掉设置时还给它(见 SetEnabled)，随无人区存档
+    private static City[] _carved = new City[0];
     // 压着长城(城墙格)、不归城的地块：挂法理往外走、连城都到此为止，长城那边的无人区不从这边挂(见 WallZones)
     private static bool[] _walled = new bool[0];
     private static bool _attachPending;
@@ -402,6 +413,7 @@ public static class WildernessSystem
         _regions[index].Zones.Remove(zone.id);
         if (zone.id < _titles.Length) _titles[zone.id] = null;
         if (zone.id < _painted.Length) _painted[zone.id] = false;
+        if (zone.id < _carved.Length) _carved[zone.id] = null;
         _regroup = true;
         Pending();
         Version++;
@@ -454,10 +466,129 @@ public static class WildernessSystem
     #region 开关、存读档
 
     // 模组设置「无人区」(见 ConfigActions.WildernessCallBack)：世界地图预设剧本不受它管
+    // 关掉时(设置管得着的图，见 ForcesWild)开着时从城里划出来的地块当场还给原来那座城，城地碎块还回原城(见类头)
     public static void SetEnabled(bool on)
     {
+        bool releasing = !on && _enabled && _built && !WorldMap.WorldMapWilderness.ForcesWild && InWorld();
         _setting = on;
+        List<(TileZone zone, City city)> back = releasing ? CarvedBack() : null;
         Apply();
+        if (back == null) return;
+        // 存起来的(Apply 里刚存的)已还过：再读这一局时不再还(见 ReleaseSaved)
+        if (_saved != null) MarkReleased(_saved);
+        try
+        {
+            int zones = GiveBack(back);
+            int fragments = CityFragmentSystem.RestoreAll();
+            LogService.LogInfo($"[EmpireCraft][无人区] 关掉无人区：{zones} 块还给原来的城，{fragments} 块城地碎块还回原城");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][无人区] 关掉时还地出错: {exception}");
+        }
+    }
+
+    // 世界加载完、不在建图开局里(还地、补记都只在这时做)
+    private static bool InWorld()
+    {
+        MapBox world = World.world;
+        return world?.zone_calculator?.zones != null && world.cities != null && Config.game_loaded && !SmoothLoader.isLoading() &&
+               !ModClass.IS_CLEAR && !WorldMap.WorldMapGenerator.Generating && !WorldMap.WorldMapScenario.AfterLoadPending;
+    }
+
+    // 眼下的无人区里记着划出来源的地块
+    private static List<(TileZone zone, City city)> CarvedBack()
+    {
+        var back = new List<(TileZone zone, City city)>();
+        foreach (WildRegion region in _regions)
+            foreach (int id in region.Zones)
+                if (id >= 0 && id < _carved.Length && _carved[id] != null && id < _zones.Length && _zones[id] != null)
+                    back.Add((_zones[id], _carved[id]));
+        return back;
+    }
+
+    // 还地：地块仍空着、那座城还在才还(按神力手动划地，不受每城上限、边界固定挡)；返回还了几块
+    private static int GiveBack(List<(TileZone zone, City city)> back)
+    {
+        var touched = new HashSet<City>();
+        int count = 0;
+        foreach ((TileZone zone, City city) in back)
+        {
+            if (!ShouldGiveBack(zone?.city != null, city?.data != null && !city.isRekt())) continue;
+            using (GamePatches.CityExpansionPatch.Manual()) city.addZone(zone);
+            if (zone.city != city) continue;
+            touched.Add(city);
+            count++;
+        }
+        if (touched.Count == 0) return 0;
+        CityDistricts.Reset();
+        foreach (City city in touched) PureMapPatch.Redraw(city);
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        return count;
+    }
+
+    // 还不还：地块又归了城的(城照常扩进去了)、原城没了的不还
+    internal static bool ShouldGiveBack(bool zoneHasCity, bool cityAlive) => !zoneHasCity && cityAlive;
+
+    // 划区后这块记的划出来源：这回从城里划出来的记那座城；本来就空着的沿用上回记的(那座城还在)；
+    // 旧档没记过的(legacy，见 CarveRule)、不是永久中立的记跟着的城；都不是为 null(本来就不归城，关掉时照旧空着)
+    internal static T CarvedSource<T>(T carvedNow, T before, bool beforeAlive, bool legacy, bool neutral, T origin) where T : class =>
+        carvedNow ?? (before != null && beforeAlive ? before : legacy && !neutral ? origin : null);
+
+    // 关着无人区读进来的档里还记着没还的(开着时存的、或在别处关掉设置后才读的档没经过 SetEnabled；旧档没记来源，见 CarveRule)：
+    // 记着的地块仍空着就还给划出它的城，旧档的、不是永久中立的还给跟着的城；交出去的城地碎块还回原城。还过的记号清掉，一档一次
+    private static void ReleaseSaved()
+    {
+        _releasePending = false;
+        if (_saved == null || _saved.Count == 0)
+        {
+            CityFragmentSystem.RestoreAll();
+            return;
+        }
+        ZoneCalculator calc = World.world.zone_calculator;
+        var back = new List<(TileZone zone, City city)>();
+        foreach (WildRegionData data in _saved)
+        {
+            bool legacy = data.carve < CarveRule;
+            var neutral = data.neutralZones == null ? null : new HashSet<int>(data.neutralZones);
+            for (int k = 0; k < data.zones.Count; k++)
+            {
+                int id = data.zones[k];
+                long carved = data.carved != null && k < data.carved.Count ? data.carved[k] : -1L;
+                long origin = data.origins != null && k < data.origins.Count ? data.origins[k] : -1L;
+                long source = SavedSource(carved, legacy, data.neutral || neutral?.Contains(id) == true, origin);
+                if (source < 0) continue;
+                TileZone zone = calc.getZoneByID(id);
+                City city = World.world.cities.get(source);
+                if (zone != null && city != null) back.Add((zone, city));
+            }
+        }
+        MarkReleased(_saved);
+        try
+        {
+            int zones = GiveBack(back);
+            int fragments = CityFragmentSystem.RestoreAll();
+            if (zones > 0 || fragments > 0)
+                LogService.LogInfo($"[EmpireCraft][无人区] 关着无人区读档：{zones} 块开着时划出去的地还给原来的城，{fragments} 块城地碎块还回原城");
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][无人区] 读档还地出错: {exception}");
+        }
+    }
+
+    // 存档里一块地该还给哪座城(城编号，-1 不还)：记了划出来源的还它；旧档没记的、不是永久中立的还跟着的城
+    internal static long SavedSource(long carved, bool legacy, bool neutral, long origin) =>
+        carved >= 0 ? carved : legacy && !neutral ? origin : -1L;
+
+    // 已还过：清掉划出来源，记成新版(再读不再还；再打开时照常重划重记)
+    private static void MarkReleased(List<WildRegionData> saved)
+    {
+        foreach (WildRegionData data in saved)
+        {
+            data.carved = null;
+            data.carve = CarveRule;
+        }
     }
 
     // 模组设置「雨林全开发」(默认开，见 ConfigActions.WildernessJungleDevelopedCallBack；用户 2026-11-03 "雨林地形百分百开发的开关，
@@ -499,6 +630,7 @@ public static class WildernessSystem
         _cutOff = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
+        _carved = new City[0];
         Owners.Clear();
         Merged.Clear();
         Dirty.Clear();
@@ -519,10 +651,12 @@ public static class WildernessSystem
         _cutOff = new bool[0];
         _neutralZones = new bool[0];
         _parents = new City[0];
+        _carved = new City[0];
         _zones = new TileZone[0];
         _built = false;
         _nextId = 1;
         _saved = null;
+        _releasePending = false;
         Dirty.Clear();
         _firstDirtyAt = _lastDirtyAt = _nextRefresh = _retryAt = 0f;
         _regroup = _pending = _attachPending = false;
@@ -541,12 +675,18 @@ public static class WildernessSystem
     // 分地规矩的版本：1 = 换地形、下河有坎(见 Seam)。存档里的比这个旧，读档后自动挂的地块重分一次(权能笔刷划的、剧本照史实的不动)
     private const int AttachRule = 1;
     private static bool _ruleOutdated;
+    // 记划出来源的版本：1 = 记了哪块从哪座城划出(WildRegionData.carved)。存档里比这个旧的没记过：开着读档时仍空着、不是永久中立的
+    // 按跟着的城补记(见 Regroup)，关着读档时直接还给跟着的城(见 ReleaseSaved)，一档只做一次
+    private const int CarveRule = 1;
+    // 关着无人区读的档里有没还的地块(见 ReleaseSaved)；开着读档时划区就接管，不用再还
+    private static bool _releasePending;
 
     public static void Load(List<WildRegionData> saved, int nextId)
     {
         _saved = new List<WildRegionData>();
         _nextId = Math.Max(1, nextId);
         _ruleOutdated = saved != null && saved.Any(data => data != null && data.rule < AttachRule);
+        _releasePending = false;
         if (saved == null) return;
         foreach (WildRegionData data in saved)
         {
@@ -554,6 +694,7 @@ public static class WildernessSystem
             data.titles ??= new List<long>();
             _saved.Add(data);
             _nextId = Math.Max(_nextId, data.id + 1);
+            if (data.carve < CarveRule || data.carved?.Exists(id => id >= 0) == true) _releasePending = true;
         }
     }
 
@@ -565,7 +706,8 @@ public static class WildernessSystem
         {
             var data = new WildRegionData { id = region.Id, kind = (int)region.Kind, name = region.Name, culture = region.Culture,
                 custom_name = region.CustomName && !string.IsNullOrEmpty(region.Name), neutral = region.Neutral,
-                origins = new List<long>(region.Zones.Count), rule = AttachRule };
+                origins = new List<long>(region.Zones.Count), rule = AttachRule,
+                carved = new List<long>(region.Zones.Count), carve = CarveRule };
             foreach (int id in region.Zones)
             {
                 City origin = OriginOf(_zones[id]);
@@ -573,6 +715,8 @@ public static class WildernessSystem
                 data.zones.Add(id);
                 data.titles.Add(title == null || title.isRekt() ? -1L : title.id);
                 data.origins.Add(origin?.data == null || origin.isRekt() ? -1L : origin.id);
+                City carved = id < _carved.Length ? _carved[id] : null;
+                data.carved.Add(carved?.data == null || carved.isRekt() ? -1L : carved.id);
                 WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], title, origin, IsNeutral(id),
                     IsPainted(_zones[id]) || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                 if (id < _painted.Length && _painted[id] && title != null && !title.isRekt()) (data.painted ??= new List<int>()).Add(id);
@@ -585,13 +729,60 @@ public static class WildernessSystem
 
     #endregion
 
+    #region 锁定刷给城的地块
+
+    // 城市边界固定时锁定玩家刷好的行政区(用户 2026-11-12 转群友"导入存档之后就变成这样""全是无人区整出来的坑""画了一晚上的"，
+    // "玩家编辑好的行政区把地形锁定""如果开了固定城市或者地形的话")：剧本编辑器里刷给城(c:)、本剧本开无人区时开局划成那座城法理无人区的地块
+    // (见 WorldMap.WorldMapWilderness.CityClaim)，法则开着就还给那座城，之后划区也不再划走(见 Regroup 的 anchored)。
+    // 法则开着读档、中途打开法则各还一次；关掉法则不动(下次划区照常按地形划走)。永久中立的、那座城没了的、地块已归了别的城的不还
+    private static bool _claimsLocked;
+
+    private static bool RestoreClaimsDue()
+    {
+        bool locked = CityTerritoryProtection.BordersFixed && WorldMap.WorldMapWilderness.HasCityClaims;
+        if (locked == _claimsLocked) return false;
+        _claimsLocked = locked;
+        return locked;
+    }
+
+    private static int RestoreClaims()
+    {
+        var touched = new HashSet<City>();
+        int count = 0;
+        foreach (KeyValuePair<int, long> claim in WorldMap.WorldMapWilderness.CityClaims.ToList())
+        {
+            int id = claim.Key;
+            TileZone zone = id >= 0 && id < _zones.Length ? _zones[id] : null;
+            if (zone == null || zone.city != null || Index(zone) < 0 || IsNeutral(zone)) continue;
+            City city = World.world.cities.get(claim.Value);
+            if (city?.data == null || city.isRekt()) continue;
+            using (GamePatches.CityExpansionPatch.Manual()) city.addZone(zone);
+            if (zone.city != city) continue;
+            touched.Add(city);
+            count++;
+        }
+        if (count == 0) return 0;
+        CityDistricts.Reset();
+        foreach (City city in touched) PureMapPatch.Redraw(city);
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        LogService.LogInfo($"[EmpireCraft][无人区] 城市边界固定：剧本刷给城的 {count} 块还给 {touched.Count} 座城");
+        return count;
+    }
+
+    #endregion
+
     #region 每帧
 
     // 每帧(ModClass.Update)：加载完头一帧划区；改过地形的停手后重判；村镇厂区变了一年一划；法理挂接与主人几秒一核
     public static void Tick()
     {
         Apply();
-        if (!_enabled) return;
+        if (!_enabled)
+        {
+            // 关着无人区读进来、档里还记着没还的地块：还给原来的城(一档一次，见 ReleaseSaved)
+            if (_releasePending && InWorld()) ReleaseSaved();
+            return;
+        }
         MapBox world = World.world;
         if (world?.zone_calculator?.zones == null || world.cities == null || !Config.game_loaded || SmoothLoader.isLoading() ||
             ModClass.IS_CLEAR || WorldMap.WorldMapGenerator.Generating || WorldMap.WorldMapScenario.AfterLoadPending) return;
@@ -608,6 +799,13 @@ public static class WildernessSystem
                     WorldMap.EarthBeaches.Migrate();
                 }
                 using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
+                _claimsLocked = false;
+                return;
+            }
+            // 城市边界固定开着：剧本里刷给城、已划成无人区的地块还给那座城(读档、打开法则各一次，见 RestoreClaims)
+            if (RestoreClaimsDue())
+            {
+                using (FrameProfiler.Measure("无人区·还刷给城的地")) RestoreClaims();
                 return;
             }
             if (_pending && (now - _lastDirtyAt >= DebounceSeconds || now - _firstDirtyAt >= MaxWaitSeconds))
@@ -869,6 +1067,7 @@ public static class WildernessSystem
         _cutOff = new bool[0];
             _neutralZones = new bool[0];
             _parents = new City[0];
+            _carved = new City[0];
             reclassifyAll = force = true;
         }
         foreach (TileZone zone in all)
@@ -955,9 +1154,13 @@ public static class WildernessSystem
         var oldParents = new City[size];
         var oldPainted = new bool[size];
         var oldNeutral = new bool[size];
+        // 各块原先记的划出来源(见 _carved)；旧档没记过的(见 CarveRule)
+        var oldCarved = new City[size];
+        var legacy = new bool[size];
         for (int i = 0; i < size; i++) oldOf[i] = -1;
         if (fromSave)
         {
+            _releasePending = false;
             foreach (WildRegionData data in _saved)
             {
                 int index = olds.Count;
@@ -975,6 +1178,9 @@ public static class WildernessSystem
                     oldTitles[id] = title == null || title.isRekt() ? null : title;
                     long originId = data.origins != null && k < data.origins.Count ? data.origins[k] : -1L;
                     oldParents[id] = originId >= 0 ? World.world.cities.get(originId) : null;
+                    long carvedId = data.carved != null && k < data.carved.Count ? data.carved[k] : -1L;
+                    oldCarved[id] = carvedId >= 0 ? World.world.cities.get(carvedId) : null;
+                    legacy[id] = data.carve < CarveRule;
                     WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], oldTitles[id], oldParents[id], oldNeutral[id],
                         data.painted?.Contains(id) == true || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                 }
@@ -997,6 +1203,7 @@ public static class WildernessSystem
                     oldNeutral[id] = IsNeutral(id);
                     oldParents[id] = OriginOf(_zones[id]);
                     if (id < _titles.Length) oldTitles[id] = _titles[id];
+                    if (id < _carved.Length) oldCarved[id] = _carved[id];
                     WorldMap.WorldMapWilderness.RememberTerritory(_zones[id], oldTitles[id], oldParents[id], oldNeutral[id],
                         IsPainted(_zones[id]) || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null);
                     if (id < _painted.Length) oldPainted[id] = _painted[id];
@@ -1028,10 +1235,12 @@ public static class WildernessSystem
         // 照原图分地的剧本(从当前世界导入的)里归城的地块：城还领着就留给城(见 WorldMap.WorldMapWilderness.Keep)
         foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
             if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
-        // 城市边界固定：城领着的地不划走；本剧本开无人区、开局定好要转成法理无人区的除外(见 WorldMapWilderness.SetCityClaims)
+        // 城市边界固定：城领着的地不划走；预设剧本开局定好要转成法理无人区的州府锚点除外(见 WorldMapWilderness.SetAnchors)。
+        // 玩家在剧本编辑器里刷给城的(本剧本开无人区，见 WorldMapWilderness.CityClaim)也锁定、不划走(见 RestoreClaims)
         if (CityTerritoryProtection.BordersFixed)
             for (int id = 0; id < size && id < _zones.Length; id++)
-                if (_zones[id]?.city != null && !WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id])) anchored[id] = true;
+                if (_zones[id]?.city != null && (!WorldMap.WorldMapWilderness.BoundedAnchor(_zones[id]) ||
+                                                 WorldMap.WorldMapWilderness.CityClaim(_zones[id]))) anchored[id] = true;
 
         // 连片：同类型四邻相连
         var piece = new int[size];
@@ -1186,6 +1395,8 @@ public static class WildernessSystem
         // 收地：划进无人区的地块被城占着就从城里划出来(城心、村镇厂区所在的早已留给城，见 anchored)
         var touched = new HashSet<City>();
         int carved = 0;
+        // 这回从哪座城划出来的(关掉设置时还给它，见 _carved)
+        var carvedNow = new City[size];
         foreach (WildRegion region in regions)
         {
             region.Zones.RemoveAll(id =>
@@ -1200,6 +1411,7 @@ public static class WildernessSystem
                 // 划不出来(那座城只剩这一块、受保护)的留给城
                 if (zone.city != null) return true;
                 touched.Add(city);
+                carvedNow[id] = city;
                 carved++;
                 return false;
             });
@@ -1254,6 +1466,17 @@ public static class WildernessSystem
         else if (missing || _attachPending) Attach(false);
         _attachPending = false;
         _titleSignature = signature;
+        // 划出来源(见 CarvedSource)：设置管不着的图(预设剧本、本剧本开无人区)关不掉，不记
+        var carvedFrom = new City[size];
+        if (!WorldMap.WorldMapWilderness.ForcesWild)
+            foreach (WildRegion region in regions)
+                foreach (int id in region.Zones)
+                {
+                    City before = oldCarved[id];
+                    carvedFrom[id] = CarvedSource(carvedNow[id], before, before?.data != null && !before.isRekt(), legacy[id],
+                        IsNeutral(id), legacy[id] && carvedNow[id] == null ? OriginOf(_zones[id]) : null);
+                }
+        _carved = carvedFrom;
         RefreshOwners();
         return carved;
     }
@@ -1970,6 +2193,8 @@ public static class WildernessSystem
             _painted[zone.id] = true;
             _titles[zone.id] = title;
             if (follow) _parents[zone.id] = city;
+            // 刷了就不受远近限制(见 Assigned)：当场算近，提示不等下一轮核对就写对归属
+            if (zone.id < _far.Length) _far[zone.id] = false;
             if (!Owners.ContainsKey(title))
             {
                 Kingdom holder = title.FindRealmTitleHolder();
@@ -2335,6 +2560,13 @@ public static class WildernessSystem
     private static int _reachEpoch;
     private static bool _reachPrimed;
 
+    // 指定了归属的地块不限远近(用户 2026-11-12 转群友"用无人区法理那个画笔画的时候画不动，显示无主""导入存档之后……全是无人区整出来的坑")：
+    // 远近只管自动挂的；神力笔刷刷过的(Paint)、剧本编辑器刷了归属的(PaintedTitle)、刷给城后开局划成无人区的(CityClaim)照刷的归。
+    // 以前这些离城远(石器时代往山里只算得进一块半)也算无主，刷了只见"归 无主"，导入的图在山里沙漠里一片片空着
+    private static bool Assigned(int id) =>
+        id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.PaintedTitle(_zones[id]) != null ||
+        WorldMap.WorldMapWilderness.CityClaim(_zones[id]);
+
     private static bool RefreshReach()
     {
         int length = _titles.Length;
@@ -2355,7 +2587,7 @@ public static class WildernessSystem
             {
                 if (id < 0 || id >= length || id >= _zones.Length || _zones[id] == null) continue;
                 bool far = false;
-                if (!exempt)
+                if (!exempt && !Assigned(id))
                 {
                     Kingdom owner = Candidate(_zones[id], out _);
                     if (owner != null)

@@ -60,6 +60,9 @@ public class SaveData
     // 雨林、大泽无人区的开发度(按地块)与朝廷的开发诏令(见 WildernessDevelopmentSystem)。旧档没有，从零开发
     public EmpireCraft.Scripts.GeneralSystems.WildDevelopmentData wild_development =
         new EmpireCraft.Scripts.GeneralSystems.WildDevelopmentData();
+    // 开着无人区时交给别城的城地碎块(地块、原城、接收的城；关掉设置时还回原城，见 CityFragmentSystem)。旧档没有，没交过
+    public List<EmpireCraft.Scripts.GeneralSystems.CityFragmentMove> city_fragment_moves =
+        new List<EmpireCraft.Scripts.GeneralSystems.CityFragmentMove>();
     // 通路之约：两国交好的年数、有过友好时期的、议定的(见 RoadTreatySystem)
     public RoadTreatyData road_treaties = new RoadTreatyData();
     // 借道：主国许借道国借道，单向，有起止(见 MilitaryAccessSystem)。旧档没有，从无约起

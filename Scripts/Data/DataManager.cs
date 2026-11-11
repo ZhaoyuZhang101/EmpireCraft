@@ -371,6 +371,7 @@ public static class DataManager
         // 无人区先记下存档里的，进世界头一帧按它沿用编号名字法理、再按地形校一遍(见 WildernessSystem.Tick)
         WildernessSystem.Load(saveData.wild_regions, saveData.wild_next_id);
         WildernessDevelopmentSystem.Load(saveData.wild_development);
+        CityFragmentSystem.Load(saveData.city_fragment_moves);
         RoadTreatySystem.Load(saveData.road_treaties);
         MilitaryAccessSystem.Load(saveData.military_access);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
@@ -614,6 +615,7 @@ public static class DataManager
         saveData.wild_regions = WildernessSystem.Save();
         saveData.wild_next_id = WildernessSystem.NextId;
         saveData.wild_development = WildernessDevelopmentSystem.Save();
+        saveData.city_fragment_moves = CityFragmentSystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();
         saveData.military_access = MilitaryAccessSystem.Save();
         saveData.specificClans = SpecificClanManager._specificClans;

@@ -21,11 +21,96 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 一块地交过一次，还在接收的城手里就不再挪(防来回倒)。
 // 收地照常过 CityExpansionPatch.CanAddZone(每城地块上限等)，这座城收不下换下一座，都收不下就留着。
 // 时机：无人区每次划完(WildernessSystem.Build 之后)，平时每年再看一次(交战的城停战后再交)。
+// 关掉无人区设置时(见 WildernessSystem.SetEnabled)交出去的碎块还回原城(用户 2026-11-12 问答选"碎块一起还")：碎块是无人区切出来的，
+// 关掉就该回到原来的图；还在接收的城手里、原城还在的才还。交出去的记录随存档(SaveData.city_fragment_moves)。
 public static class CityFragmentSystem
 {
-    // 交出去的地块 → 交给了哪座城
-    private static readonly Dictionary<int, City> Moved = new();
+    // 交出去的地块 → 原来哪座城(连交几次的记最早那座)、眼下交给了哪座城
+    private static readonly Dictionary<int, (City from, City to)> Moved = new();
+    // 读档读进来、还没对上城的记录(进世界后头一回用到时对上，见 Resolve)
+    private static List<CityFragmentMove> _loaded;
     private static double _lastRun = -1d;
+
+    public static void ResetWorldState()
+    {
+        Moved.Clear();
+        _loaded = null;
+        _lastRun = -1d;
+    }
+
+    public static void Load(List<CityFragmentMove> saved) => _loaded = saved is { Count: > 0 } ? saved : null;
+
+    public static List<CityFragmentMove> Save()
+    {
+        if (_loaded != null) return _loaded;
+        var result = new List<CityFragmentMove>(Moved.Count);
+        foreach (KeyValuePair<int, (City from, City to)> pair in Moved.OrderBy(pair => pair.Key))
+        {
+            (City from, City to) = pair.Value;
+            if (from?.data == null || to?.data == null || from.isRekt() || to.isRekt()) continue;
+            result.Add(new CityFragmentMove { zone = pair.Key, from = from.id, to = to.id });
+        }
+        return result;
+    }
+
+    private static void Resolve()
+    {
+        if (_loaded == null || World.world?.cities == null) return;
+        List<CityFragmentMove> loaded = _loaded;
+        _loaded = null;
+        foreach (CityFragmentMove move in loaded)
+        {
+            City from = World.world.cities.get(move.from), to = World.world.cities.get(move.to);
+            if (move.zone >= 0 && from != null && to != null && from != to) Moved[move.zone] = (from, to);
+        }
+    }
+
+    // 一块地交出去后记什么：上回交进 giver 手里的接着记最早那座城，否则从 giver 起记
+    internal static (T from, T to) Chain<T>((T from, T to)? before, T giver, T receiver) where T : class =>
+        before is { } last && ReferenceEquals(last.to, giver) ? (last.from, receiver) : (giver, receiver);
+
+    // 还不还：还在接收的城手里、原城还在的才还
+    internal static bool Restorable(bool heldByReceiver, bool fromAlive) => heldByReceiver && fromAlive;
+
+    private static void Note(int zoneId, City giver, City receiver)
+    {
+        (City from, City to)? before = Moved.TryGetValue(zoneId, out (City from, City to) last) ? last : null;
+        (City from, City to) record = Chain(before, giver, receiver);
+        if (record.from == record.to) Moved.Remove(zoneId);
+        else Moved[zoneId] = record;
+    }
+
+    // 关掉无人区设置：交出去的碎块还回原城；返回还了几块。记录随即清掉
+    public static int RestoreAll()
+    {
+        Resolve();
+        ZoneCalculator calc = World.world?.zone_calculator;
+        if (Moved.Count == 0 || calc == null)
+        {
+            Moved.Clear();
+            return 0;
+        }
+        var touched = new HashSet<City>();
+        int count = 0;
+        foreach (KeyValuePair<int, (City from, City to)> pair in Moved.OrderBy(pair => pair.Key).ToList())
+        {
+            TileZone zone = calc.getZoneByID(pair.Key);
+            (City from, City to) = pair.Value;
+            if (zone == null || !Restorable(zone.city == to, from?.data != null && !from.isRekt())) continue;
+            using (GamePatches.CityExpansionPatch.Manual()) from.addZone(zone);
+            if (zone.city != from) continue;
+            touched.Add(from);
+            touched.Add(to);
+            count++;
+        }
+        Moved.Clear();
+        if (touched.Count == 0) return 0;
+        CityDistricts.Reset();
+        foreach (City city in touched)
+            if (city?.data != null && !city.isRekt()) GamePatches.PureMapPatch.Redraw(city);
+        calc.setDrawnZonesDirty();
+        return count;
+    }
 
     // 无人区划完(WildernessSystem.Build)：当场看一遍
     public static void AfterBuild()
@@ -54,6 +139,7 @@ public static class CityFragmentSystem
         if (world?.zone_calculator?.zones == null || world.cities == null) return;
         _lastRun = world.getCurWorldTime();
         if (CityTerritoryProtection.BordersLocked) return;
+        Resolve();
         var report = new List<string>();
         int moved = Transfer(world.zone_calculator.zones, world.cities.list, report);
         if (moved <= 0) return;
@@ -149,12 +235,12 @@ public static class CityFragmentSystem
                 foreach (TileZone zone in piece)
                 {
                     if (zone.city != city || Pushed(zone)) continue;
-                    if (Moved.TryGetValue(zone.id, out City before) && before == city) continue;
+                    if (Moved.TryGetValue(zone.id, out (City from, City to) before) && before.to == city) continue;
                     foreach (City receiver in receivers)
                     {
                         receiver.addZone(zone);
                         if (zone.city != receiver) continue;
-                        Moved[zone.id] = receiver;
+                        Note(zone.id, city, receiver);
                         holder[zone.id] = receiver;
                         first ??= receiver;
                         given++;
@@ -205,4 +291,12 @@ public static class CityFragmentSystem
             .ThenBy(other => other.id)
             .ToList();
     }
+}
+
+// 存档里的一条城地碎块交接(见 CityFragmentSystem)：地块、原来的城、交给的城
+public class CityFragmentMove
+{
+    public int zone;
+    public long from;
+    public long to;
 }
