@@ -1,108 +1,119 @@
 @echo off
-chcp 65001 >nul
 setlocal
-cd /d "%~dp0"
+pushd "%~dp0" || exit /b 1
 
-rem ===== 联机大厅一键更新：国际线路(Cloudflare) + 国内线路(阿里云) =====
-rem 用法：
-rem   双击运行               两条线路都更新
-rem   update_lobby.bat cf    只更新国际线路
-rem   update_lobby.bat cn    只更新国内线路
-rem   update_lobby.bat check 只检查两条线路通不通，不更新
-rem 国内线路会问一次服务器密码；国际线路头一回要先运行 npx wrangler@3 login 登录。
-rem 换了服务器改下面几项(模组里 TerminalHost.Lobbies 和 lobby.html 的 LINES 也要跟着改)。
+rem Update both lobby routes by default. Modes: cf, cn, check.
 set "SERVER=8.159.129.136"
 set "SERVER_USER=root"
 set "SERVER_DIR=/opt/empirecraft-lobby"
 set "SERVER_PORT=8765"
 set "LOBBY_DIR=Tools\TerminalLobby"
 set "CF_URL=https://lobby.cmhgamedev.dpdns.org"
+set "CN_URL=http://%SERVER%:%SERVER_PORT%"
 set "MODE=%~1"
-set "FAILED="
+set "RESULT=0"
 
-if not exist "%LOBBY_DIR%\wrangler.toml" (
-    echo 找不到 %LOBBY_DIR%\wrangler.toml，这个文件要放在模组根目录里运行。
-    set "FAILED=1"
-    goto :end
-)
+if not defined MODE goto :update_cf
 if /i "%MODE%"=="check" goto :check
-if /i "%MODE%"=="cn" goto :aliyun
+if /i "%MODE%"=="cf" goto :update_cf
+if /i "%MODE%"=="cn" goto :update_cn
+echo Usage: %~nx0 [cf^|cn^|check]
+set "RESULT=1"
+goto :finish
 
+:update_cf
 echo.
-echo ===== 国际线路 · Cloudflare =====
-where npx >nul 2>nul
-if errorlevel 1 (
-    echo 没有找到 npx，请先安装 Node.js。
-    set "FAILED=1"
-    goto :after_cf
-)
-call npx wrangler@3 deploy --config "%LOBBY_DIR%\wrangler.toml"
-if errorlevel 1 (
-    echo.
-    echo 国际线路发布失败。没登录过的话先运行： npx wrangler@3 login
-    set "FAILED=1"
-) else (
-    echo 国际线路发布完成。
-)
-:after_cf
+echo ===== International lobby - Cloudflare =====
+call :deploy_cf
+if errorlevel 1 set "RESULT=1"
 if /i "%MODE%"=="cf" goto :check
 
-:aliyun
+:update_cn
 echo.
-echo ===== 国内线路 · 阿里云 %SERVER% =====
-where ssh >nul 2>nul
-if errorlevel 1 (
-    echo 没有找到 ssh。在 Windows 的可选功能里装上 OpenSSH 客户端再试。
-    set "FAILED=1"
-    goto :check
-)
-where tar >nul 2>nul
-if errorlevel 1 (
-    echo 没有找到 tar，系统太旧了：改照发布说明里的 scp 办法手动传。
-    set "FAILED=1"
-    goto :check
-)
-echo 接下来会问一次服务器 %SERVER_USER% 的密码，输入时不显示字符，输完按回车。
-tar -cf - --exclude=.wrangler --exclude=node_modules --exclude=*.md -C "%LOBBY_DIR%" . | ssh %SERVER_USER%@%SERVER% "mkdir -p %SERVER_DIR% && tar -xf - --no-same-owner -C %SERVER_DIR% && sed -i 's/\r$//' %SERVER_DIR%/install.sh && bash %SERVER_DIR%/install.sh %SERVER_PORT%"
-if errorlevel 1 (
-    echo.
-    echo 国内线路更新失败，看上面的提示。密码输错、安全组没放行 22 端口都会这样。
-    set "FAILED=1"
-) else (
-    echo 国内线路更新完成。
-)
+echo ===== Mainland lobby - Aliyun %SERVER% =====
+call :deploy_cn
+if errorlevel 1 set "RESULT=1"
 
 :check
 echo.
-echo ===== 检查两条线路 =====
-where curl >nul 2>nul
+echo ===== Lobby health checks =====
+where curl.exe >nul 2>&1
 if errorlevel 1 (
-    echo 没有找到 curl，请用浏览器打开两个大厅网址看看。
-    goto :end
+    echo curl.exe is required to verify the lobby.
+    set "RESULT=1"
+    goto :finish
 )
-set "CF_OK="
-set "CN_OK="
-for /f "delims=" %%i in ('curl -s -m 20 -A "EmpireCraft-LobbyUpdate/1" "%CF_URL%/healthz" 2^>nul') do set "CF_OK=%%i"
-for /f "delims=" %%i in ('curl -s -m 20 -A "EmpireCraft-LobbyUpdate/1" "http://%SERVER%:%SERVER_PORT%/healthz" 2^>nul') do set "CN_OK=%%i"
-if "%CF_OK%"=="ok" (
-    echo 国际线路：正常    %CF_URL%/
-) else (
-    echo 国际线路：没有回应  %CF_URL%/
-    set "FAILED=1"
-)
-if "%CN_OK%"=="ok" (
-    echo 国内线路：正常    http://%SERVER%:%SERVER_PORT%/
-) else (
-    echo 国内线路：没有回应  http://%SERVER%:%SERVER_PORT%/
-    set "FAILED=1"
-)
+if /i not "%MODE%"=="cn" call :health "International lobby" "%CF_URL%"
+if /i not "%MODE%"=="cf" call :health "Mainland lobby" "%CN_URL%"
 
-:end
+:finish
 echo.
-if defined FAILED (
-    echo 有没成的步骤，看上面的提示。
+if "%RESULT%"=="0" (
+    echo Done.
 ) else (
-    echo 全部完成。
+    echo One or more steps failed. See the messages above.
 )
 if not defined EC_NOPAUSE pause
-endlocal
+popd
+exit /b %RESULT%
+
+:deploy_cf
+if not exist "%LOBBY_DIR%\wrangler.toml" (
+    echo Missing %LOBBY_DIR%\wrangler.toml.
+    exit /b 1
+)
+where npx >nul 2>&1
+if errorlevel 1 (
+    echo npx was not found. Install Node.js and try again.
+    exit /b 1
+)
+call npx --yes wrangler@3 deploy --config "%LOBBY_DIR%\wrangler.toml"
+if errorlevel 1 (
+    echo Cloudflare deploy failed. If Wrangler is not authenticated, run npx wrangler@3 login.
+    exit /b 1
+)
+echo Cloudflare deploy completed.
+exit /b 0
+
+:deploy_cn
+if not exist "%LOBBY_DIR%\install.sh" (
+    echo Missing %LOBBY_DIR%\install.sh.
+    exit /b 1
+)
+where ssh.exe >nul 2>&1
+if errorlevel 1 (
+    echo ssh.exe was not found. Install the Windows OpenSSH Client and try again.
+    exit /b 1
+)
+where tar.exe >nul 2>&1
+if errorlevel 1 (
+    echo tar.exe was not found. See the manual deployment instructions.
+    exit /b 1
+)
+set "ARCHIVE=%TEMP%\EmpireCraftLobby-%RANDOM%-%RANDOM%.tar"
+tar.exe -cf "%ARCHIVE%" --exclude=.wrangler --exclude=node_modules --exclude=*.md -C "%LOBBY_DIR%" .
+if errorlevel 1 (
+    if exist "%ARCHIVE%" del /q "%ARCHIVE%"
+    echo Failed to package the lobby. No files were sent.
+    exit /b 1
+)
+echo SSH may ask for the %SERVER_USER% password. Typing it will not show any characters.
+ssh.exe %SERVER_USER%@%SERVER% "mkdir -p %SERVER_DIR% && tar -xf - --no-same-owner -C %SERVER_DIR% && sed -i 's/\r$//' %SERVER_DIR%/install.sh && bash %SERVER_DIR%/install.sh %SERVER_PORT%" < "%ARCHIVE%"
+set "SSH_RESULT=%errorlevel%"
+del /q "%ARCHIVE%"
+if not "%SSH_RESULT%"=="0" (
+    echo Aliyun update failed. See the SSH or installation error above.
+    exit /b 1
+)
+echo Aliyun update completed.
+exit /b 0
+
+:health
+curl.exe -fsS --max-time 20 -A "EmpireCraft-LobbyUpdate/1" "%~2/healthz" | findstr.exe /x /c:"ok" >nul
+if errorlevel 1 (
+    echo %~1: health check failed at %~2/healthz
+    set "RESULT=1"
+) else (
+    echo %~1: healthy at %~2/
+)
+exit /b 0
