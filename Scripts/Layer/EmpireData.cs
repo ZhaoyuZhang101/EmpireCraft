@@ -277,6 +277,8 @@ public class EmpireData : MetaObjectData
     // 自定义地图色(#RRGGBB，空为原版颜色，见 CustomColorSystem)
     public string custom_color { get; set; } = "";
     public string prefix_choice { get; set; } = "";
+    // 手选的国号后缀(终端「典册」里改，见 TerminalHost.Annals)：空为自动(政体给的"朝""帝国""汗国"之类)，非空就用它
+    public string suffix_choice { get; set; } = "";
     // 全帝国连荒两年以上的城占几成(见 FamineUnrestSystem，推高王朝积弊)
     public float famine_share { get; set; }
     // 帝国分裂(见 EmpirePartitionSystem)：另一朝的帝国 id、分裂方式(will 遗诏分治 / minister 权臣分立 /

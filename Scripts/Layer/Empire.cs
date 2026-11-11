@@ -442,6 +442,9 @@ public class Empire : MetaObject<EmpireData>
             if (string.IsNullOrWhiteSpace(typeName) || string.Equals(typeName, typeKey, StringComparison.Ordinal))
                 typeName = "";
 
+            // 手选的后缀顶替政体给的那个(EmpireData.suffix_choice)
+            if (!string.IsNullOrWhiteSpace(data.suffix_choice)) typeName = data.suffix_choice.Trim();
+
             string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
             if (ShowsWesternOrdinal())
             {

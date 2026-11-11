@@ -124,6 +124,72 @@ canvas{border-radius:0;border:2px solid var(--edge)}
 #map-panel .act{margin:8px 8px 0 0}
 #toast{z-index:7}
 body.mapfull #toast{bottom:auto;top:calc(52px + env(safe-area-inset-top))}
+/* ───── 层次(用户 2026-11-12 "看着东西好多好挤也没有层次感") ─────
+   五级字：国名 › 卡片标题(小、金、拉开字距) › 一件事的题目 .it › 正文 › 小字 .sub。
+   页面上一件事占一行(.li：左名目右现状，能点的带箭头)，挑人填字都进弹出界面；按钮只留给当场就办的事，
+   分三种：推荐的(primary 绿)、驳与诛(no 红字)、点过一下等确认的(armed 金) */
+#app{padding:10px 12px calc(76px + env(safe-area-inset-bottom))}
+.card{padding:6px 8px 8px;margin-top:12px}
+h2{font-size:13px;letter-spacing:.1em;margin:0 0 4px}
+.sub{font-size:12px;line-height:1.45}
+.it{font-size:16px;font-weight:600;line-height:1.35}
+.li{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:8px 0;border-top:1px solid var(--line)}
+.li.tap{cursor:pointer}.li.tap:active{background:rgba(255,255,255,.05)}
+.li.off{opacity:.45}
+.li.flat{border-top:0;min-height:34px;padding:6px 0 0}
+.li-l{min-width:0;flex:1}
+.li-r{display:flex;align-items:center;gap:8px;flex:none;max-width:58%;text-align:right;color:var(--soft)}
+.li-r .sub{font-size:13px;color:var(--soft)}
+.chev{color:var(--mute);font-size:20px;line-height:1}
+#sheet-body>.li:first-child{border-top:0}
+.pend{padding:12px 0 10px;border-top:1px solid var(--line)}
+.stance{display:flex;gap:2px;height:6px;margin-top:10px}
+.stance i{display:block;height:6px}
+.sum{display:flex;gap:12px;font-size:13px}
+.verdict{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:10px}
+.verdict .act{margin:0;min-height:44px;font-size:16px;padding:6px 4px}
+.act{min-height:38px;padding:6px 12px;font-size:14px}
+.act.no{color:#ffb4aa}
+.act.armed,.pick.armed{background:#7a5f1e;color:#fff3cf;box-shadow:inset 0 2px 0 #b08a2e}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 12px}
+.chips .act{margin:0}
+.act.more{background:none;border:0;box-shadow:none;color:var(--mute);min-height:32px;padding:4px 0;margin-top:0;font-size:13px}
+.card.gold{border-image-source:url(FactionFrame_dominate.png)}
+#decrees>.card:first-child:not(.gold){border-image-source:url(FactionFrame.png)}
+/* ───── 图标与页签(用户 2026-11-12 "模仿模组的风格，多加点图标和分组，作出软件或者游戏的 ui 的感觉") ─────
+   图标都是模组现成的像素图标；底下五个页签带图标；政令页各组是一排图标页签，一回只看一组 */
+.ic{image-rendering:pixelated;flex:none;vertical-align:middle}
+h2 .ic{margin-right:6px;vertical-align:-5px}
+.kpi>.ic{float:right;margin:0 0 2px 4px}
+nav div{grid-template-columns:repeat(5,1fr)}
+nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:12px;min-height:58px;padding:5px 0 4px}
+nav button .ic{opacity:.5;filter:grayscale(.7)}
+nav button.on .ic{opacity:1;filter:none}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:66px;padding:6px 2px 5px;
+  font-size:12.5px;line-height:1.2;background:var(--card);color:var(--soft)}
+.tile .ic{opacity:.75}
+.tile.on{background:#474c3c;color:var(--gold);box-shadow:inset 0 -3px 0 var(--gold),inset 0 2px 0 #5d6450}
+.tile.on .ic{opacity:1}
+.badge{position:absolute;top:3px;right:4px;min-width:16px;height:16px;padding:0 4px;font:normal 11px/16px sans-serif;background:var(--gold);color:#221a05;text-align:center}
+/* 典册：树(同辈一行、父居子中、直角连线，整棵放在能拖的框里)与史册 */
+.tree{overflow:auto;max-height:62vh;margin-top:8px;background:#22261f;border:2px solid var(--edge);-webkit-overflow-scrolling:touch}
+.tree-in{position:relative;margin:12px}
+.tree-in svg{position:absolute;left:0;top:0}
+.tree-line{fill:none;stroke:#8a8f6e;stroke-width:2;shape-rendering:crispEdges}
+.node{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px 4px;background:var(--card2);
+  border:2px solid var(--edge);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);text-align:center;cursor:pointer;overflow:hidden}
+.node b{font-size:13.5px;font-weight:600;line-height:1.2;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .t{font-size:11px;color:var(--gold);line-height:1.2;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .y{font-size:10.5px;color:var(--mute);line-height:1.2;white-space:nowrap}
+.node .no{position:absolute;left:3px;top:2px;font:normal 10px/1 sans-serif;color:var(--gold)}
+.node.ruler{border-color:#b08a2e;background:#4a4530}
+.node.self{box-shadow:0 0 0 2px var(--cyan)}
+.node.dead{opacity:.75}
+.legend{display:flex;gap:14px;margin-top:8px;align-items:center}
+.legend .node{position:static;display:inline-block;width:14px;height:14px;padding:0;margin-right:5px;vertical-align:-2px;cursor:default}
+.hist{padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.hist .sub{margin-right:8px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -168,12 +234,12 @@ body.mapfull #toast{bottom:auto;top:calc(52px + env(safe-area-inset-top))}
     <div class="card">
       <div class="sub" id="since"></div>
       <div class="grid" style="margin-top:8px">
-        <div class="kpi"><span class="sub" data-t="kpi_wars"></span><b id="k-wars">0</b></div>
-        <div class="kpi"><span class="sub" data-t="kpi_new"></span><b id="k-new">0</b></div>
-        <div class="kpi"><span class="sub" data-t="kpi_trust"></span><b id="k-trust"></b></div>
+        <div class="kpi"><img class="ic" data-ic="k_war" width="20" height="20" alt=""><span class="sub" data-t="kpi_wars"></span><b id="k-wars">0</b></div>
+        <div class="kpi"><img class="ic" data-ic="k_new" width="20" height="20" alt=""><span class="sub" data-t="kpi_new"></span><b id="k-new">0</b></div>
+        <div class="kpi"><img class="ic" data-ic="k_trust" width="20" height="20" alt=""><span class="sub" data-t="kpi_trust"></span><b id="k-trust"></b></div>
       </div>
     </div>
-    <div class="card"><h2 data-t="reports"></h2><div class="rows" id="reports"></div></div>
+    <div class="card"><h2><img class="ic" data-ic="tab_reports" width="20" height="20" alt=""><span data-t="reports"></span></h2><div class="rows" id="reports"></div></div>
   </div>
 
   <div id="p-map" hidden>
@@ -197,21 +263,23 @@ body.mapfull #toast{bottom:auto;top:calc(52px + env(safe-area-inset-top))}
 
   <div id="p-decrees" hidden><div id="decrees"></div></div>
 
+  <div id="p-annals" hidden><div id="annals"></div></div>
+
   <div id="p-realm" hidden>
     <div class="card">
-      <div class="row"><h2 style="margin:0" data-t="officials"></h2><span class="tag amber" id="corr"></span></div>
+      <div class="row"><h2 style="margin:0"><img class="ic" data-ic="k_officials" width="20" height="20" alt=""><span data-t="officials"></span></h2><span class="tag amber" id="corr"></span></div>
       <div class="bar"><i id="corr-bar" style="background:var(--amber)"></i></div>
       <div class="sub" id="trust-note" style="margin-top:6px"></div>
       <button class="act" id="purge-go" data-t="purge_go"></button>
     </div>
     <div class="grid" style="margin-top:10px">
-      <div class="kpi"><span class="sub" data-t="f_treasury"></span><b id="f-treasury"></b><span class="sub" id="f-treasury-n"></span></div>
-      <div class="kpi"><span class="sub" data-t="f_army"></span><b id="f-army"></b><span class="sub" id="f-army-n"></span></div>
-      <div class="kpi"><span class="sub" data-t="f_people"></span><b id="f-people"></b><span class="sub" id="f-people-n"></span></div>
+      <div class="kpi"><img class="ic" data-ic="k_treasury" width="20" height="20" alt=""><span class="sub" data-t="f_treasury"></span><b id="f-treasury"></b><span class="sub" id="f-treasury-n"></span></div>
+      <div class="kpi"><img class="ic" data-ic="k_army" width="20" height="20" alt=""><span class="sub" data-t="f_army"></span><b id="f-army"></b><span class="sub" id="f-army-n"></span></div>
+      <div class="kpi"><img class="ic" data-ic="k_people" width="20" height="20" alt=""><span class="sub" data-t="f_people"></span><b id="f-people"></b><span class="sub" id="f-people-n"></span></div>
     </div>
-    <div class="card"><h2 data-t="wars"></h2><div class="rows" id="wars"></div></div>
+    <div class="card"><h2><img class="ic" data-ic="k_war" width="20" height="20" alt=""><span data-t="wars"></span></h2><div class="rows" id="wars"></div></div>
     <div class="card" id="a2hs" hidden><h2 data-t="a2hs"></h2><div id="fixed-box" hidden><div class="sub" id="fixed-note"></div><button class="act" id="fixed-go" data-t="a2hs_fixed"></button></div><div class="sub" data-t="a2hs_ios"></div><div class="sub" data-t="a2hs_android" style="margin-top:4px"></div></div>
-    <div class="card"><h2 data-t="cities"></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
+    <div class="card"><h2><img class="ic" data-ic="k_cities" width="20" height="20" alt=""><span data-t="cities"></span></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
     <div class="card" id="prov-card" hidden><h2 data-t="provinces"></h2><div class="sub" data-t="provinces_note"></div><div class="rows" id="provinces" style="margin-top:6px"></div></div>
   </div>
 </section>
@@ -220,17 +288,22 @@ body.mapfull #toast{bottom:auto;top:calc(52px + env(safe-area-inset-top))}
 <div id="sheet" hidden><div class="sheet-back" id="sheet-back"></div><div class="sheet-box" role="dialog" aria-modal="true"><div class="row"><h2 id="sheet-title" style="margin:0"></h2><button id="sheet-close" class="act" style="margin:0" aria-label="close">&times;</button></div><div class="sub" id="sheet-note" style="margin-top:4px"></div><div id="sheet-body"></div></div></div>
 <div id="toast" role="status" hidden></div>
 <nav id="nav" hidden><div>
-  <button data-p="reports" data-t="tab_reports" class="on"></button>
-  <button data-p="map" data-t="tab_map"></button>
-  <button data-p="realm" data-t="tab_realm"></button>
-  <button data-p="decrees" data-t="tab_decrees"></button>
+  <button data-p="reports" class="on"><img class="ic" data-ic="tab_reports" width="24" height="24" alt=""><span data-t="tab_reports"></span></button>
+  <button data-p="map"><img class="ic" data-ic="tab_map" width="24" height="24" alt=""><span data-t="tab_map"></span></button>
+  <button data-p="decrees"><img class="ic" data-ic="tab_decrees" width="24" height="24" alt=""><span data-t="tab_decrees"></span></button>
+  <button data-p="realm"><img class="ic" data-ic="tab_realm" width="24" height="24" alt=""><span data-t="tab_realm"></span></button>
+  <button data-p="annals"><img class="ic" data-ic="tab_annals" width="24" height="24" alt=""><span data-t="tab_annals"></span></button>
 </div></nav>
 
 <script>
+// 图标：模组现成的像素图标，由 Tools/IconForge/terminal_page_icons.py 编进来(改图标改那个脚本，别手改这一行)
+/*ICONS-BEGIN*/var ICON={tab_reports:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACQUlEQVR4nGNgGAVUBoy4JCaXxsDZht1LSDLUhmEI+PA/rcxmROZkBjkwTF934D+IBoF7p88xvPzxmyRbxDlYGY4/+8zw6e9/hmoGBsZWYn3Ix8zIYGxlykAq2H/4FIwZCKU34NXw//9fBPP/X6Lw9w93wPTje+dBUQHCAVCMAVjwWf7j4304m4NfEYWPTe2rD6/h/D07eje4eBSTZiEM1Lb0M3y9d5WBW0kbTMPAjdff4OyeiS0oejiwWEa0hRpKsgwMIAwCMJqBgcEYZvG9x2D6/avLBPMiXgvf//jNIMjByuAV5A+mkcVh4O+3HwyGH14ziAmIMrx/RdjxBH345t1nhrj4dBSxu9dvofAfvfnAMGdaB4OCEivlFjJzcTBs27wMQxzky+fPEEEpKKbLcP7EOcotBAVZbc8UFDFYAoqM8gfzQZYRC1gIWUYIHFu+CExrOhtSbiEM5GelgIMW2QGgPLfOyA3M3sfAwODUvYThZ0k2A1UsBGfoD4hkDwpCkM/AFkExiM23cjFlFsoo6jE8f3kLbBnMImwAZBkIXP/ORNBClML7CAMDg/X/vwyMjMzgGsPYxQMu9/3+FRSN1+4+Ybiw7gCcfxVa2GuIcoFqHAyzsVroaGsGKu3/u8vyMfxS0GB4fwNRcmADnK+/wy0TEORnEGL8SbB6wgX+E4MtkWgYmwGBsdYYuOKQEVf1ggTWwxjHGRgYLBHigUhq8NeFyKAahziSwSi+QmIHMNAQIAcd3oqXgYoA2QKaW0YyAAC+AA1ik0VlfgAAAABJRU5ErkJggg==",tab_map:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADAklEQVR4nOVW7UtTURj/3akl6hwxKS653DBLMLBomJr4ZQlqX6YS/gf2B/Qp6oP/QVBEH0oiFEShFOwV80vUAhmU6UAL22oT3+5Gd5uivd14Hrfr3XVudyUU9IPDc55zznN/z/Occ59zgL+Jzcggxoav/bZ9WJK4/VMQdLqS7IQlST+XEdayMq29kHFxj9PBi+/dvKxcv9KlnHeWK1pyg1DtkbC96G7ObNDjdCgNdgu3hFFOjRzV2LrTkeTrB+aX4rjQ3YKH3gGEFzzqeFRaxWI4CtFamtbbD4EgBm7dyZqGFEKh3Aar1899Ipubm0c8JqPEbGH5acqHeG2Nuv7rxibLfYX7ec4ITFpFCQURLsxLWVBlt6mkxaKoElEjImq5ID/TZGR1Bb6XHgTlGOs2ixn2SgfikFmnqPyfl9HYcvbPCaPSKiYn36C6+hhamxqZfOjBOM+Jx4/yHOHEmZPcJ2cOowCRXFKqR1Nz/VZEMZlT11pfweNETATkDIEkZWEB3/AlIOdO+F1eZ0n7lNw/aSWC9ZgJFbU1sJmLUGT+ibXFRUzfH2NJDhhBxj2kqIiI9ooiIEfo4DiOHMLMMy+mpQgOVFahQI4ZJjRpFUqJFkQ0O/ueSerqTvHYk+cePigESp8gL8EfMl6wTfqBlY0faj9JVFpajGh0jSNrO9eIUOgjQhYrHC4nIlKMx5IIp/5WiqGU5luKWBKRFpTWalFEa1cn7xtHWlnFUVOkRL5du5WRhFS0xXwH4cHCPAR8M7h9Yx3B2NbhSUKfvscT3nT+pgtQJRV01Z47w3f78cgbQnYIaHed5l53ZwsfshKzhYvFC59f71AHgNGUCD3jr3h/EmS0IAuUkf6hp2qRp2JBCIgi2kRRS7jrt7RXS9rrheCd6GOZeI4o7S6nMtjXy9dbj9PBuu6aSv+twb5eZCPbzckkYYPdor3Ad3wrp2eEHu0uJ6VNoYN29ZIbPt9WSt+9ncLr7RIn7BmhBrs9RzoSctRQ8c4BghGyvYwwCbdOTyH7P/AL/7RtNXW8ycEAAAAASUVORK5CYII=",tab_realm:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAQCAYAAAAI0W+oAAAAAXNSR0IArs4c6QAAAGZJREFUOI3NlEEOACEIA+nG/3+5XnaPC2M0RM5I6VSNuKH81om+5+hmNwgN2viHRpLI+dKRJGX8bZuIoW2qoKmrLSFyK4M4+tBkGRF8beiQI7JMJTayQashZ7PaHmwbOoxm92doqwmXl0v7iAAxsgAAAABJRU5ErkJggg==",tab_decrees:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADUElEQVR4nO1WTUhUURT+/O3Hn/EnSsshDZyFJGgIhRTqLgLJIUpaCeImhEAiFFwLuogiaCeREJluFKWgReW0EAlxnJTJZoIZGnXmjfn7KkNK4xzvHd+b3sy8Elr1weP93PvOd853zrn3Av8YSUYf+zXP0y21uNp8GS+fvYI16zAWBt6iyOmLjM8CONfXDjXoR0D9huTns7itGTeLnf1ck+N30d5Sa2g41YisX+N9TmUJ6h7c5PegN4S5e4NI9S1FJn9e+8IRFpYW8LvnzQSqqtuI2FDBCCGRXI8a9AA4ac1mIinZB6cPhQZeEhGNL818AkUYmN+G/dotijapqrotMi/ZKOz5yhKEcjKRJd6JzPVRYWN+ilQ4Q5dTjEuymfXNXQdcY3yvqm5rMIxwp7sR6Bjg5+1LpxFSVCx4F5EHMNm0d1HnlHQGYvxneJXJlqf9HN2KohrFskeYJMgIG12jPJACYApAvngmnJBRa4hnesfwHQDFNim+5x3TuoT4kh7JyeR7BoCDAGwACsRFRCSrREjMKwZQBMAqvieMMB6CGuN1mqolPO1+BPeIi5+/AggksGWKkKCKCIlMtodizUbNlYs8TqQkq9WspFw0AlutdcjurMepllqWi7AMwN7XzmQTTT1Yc/qwMuLCUFMPUo7mRnLY092I1M2wTtJmM0VDMr4HcEgUBuWSmvt1632dzJRPqubdZgC3B1Q3V23cCKNBzZ1r0NzUMlqyDUs6twKEcyuKqutHwkMzhGSUZNJiSKiwUGPDO0s6k+VXFENZ32LniOJJ7xhLHAsxCSEMSD8zRBU6ukb5nYgIbocHpRrnAgDOXziLitLjhjYNVxoqmB+KirzwKldfdEelODygDKUBKBdkewICbk/sHBoWjcwB5YaMSsgoqIByxbvW7HxMrQwItTgw4uIlzA2grMaGG812XqAJjzsGfsttQ2c9ymxlPGdqfC7mKhM3h/KXcsuhSLnTFbak6+ZRVHQSkDtGvKaPu9LIX0jaM0E/y0xIW9/S5UtCuz1VKKquLRISeqLyQduPNBCdJ6pKklE6F4nQC/OHKHE2YdDZJHovNIsXDnIddgDDiQgJcqcewt/DLu6mCHfZBu/Q2UR3TPhDDO/j3/9AQvwCZACQv4ugaW4AAAAASUVORK5CYII=",tab_annals:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACXklEQVR4nGNgoDNgJFZhPgMDQ8z++QzihioMB9YdYNBUlAGLL3FMZJhIbVc9+nAYmfsfCYPBpFwH6lm2cOkKFItO758PxovmNSNb/B8UAsQAvEF6ev98BlPHRLBlIPatMxCfvn10j0FYTgmuDsTPm3yAobIilrG9YzF5FqJbdnzdQrD43S8ILW8+fGEQEeABsyfO3w+iAiflOmwAWU6yhaB4kxOw/R8daMpw/9pzhitPXjNIMLEwvPj3B0Mtj6AYgwL3f4ZjN5/gNZOgJMh3HOxsDC6mqngVvXv9keH4rZcM////JmguCwELGYwUxBjqm0vgQYoNCMuZM1xpWMrw6StcKICBgWEDWRaCACix3MURL6cZGBgichmIBkwMZABlCvIdE6ka7tpog1PqaXVISUMqYCFVg/KRqwynj1xlMEV2BFJWoboP3wSaMmR3J4F9Coo/GPj1B17SUe5DUEkCA/fXn2aYuh7ZKtIAEymKQdaAglIxEBGgb3i5qWvhg6+o8QMKSjl1DQYGpEQDKuJolmjeHbnKcPDIVQZyARMR1RIYIMcaKBhhGAZ+/PxFmQ/joyPA9Jf3r0CZASXeFKH0x9ffUGgoCMRnIa4MBE/jjIysDLxc2AMClBXYWCBGfP72j0FSWoLh2ZPHeM1mxFYlwZoU+7c+ZSAH7FrTy7B0/WmQeYxyAraEgxRm0Y3LWxk01dQYrt+6hdeCby+foKTU/adfgGk5AVuMWgPFwukds+AWLVwCqx1w194wAIln4kodRhzixJVT+EEglN5A0EJQloiPjgAFB6VgAxXMGGIAAH+g6DKZrPp6AAAAAElFTkSuQmCC",g_court:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADjklEQVR4nOVWX0hTURj/Nm3aGDhGqCj24PBBQ6RCHASOIGmB2WYPiYTBHmR7CfGhXnrrtYceglkPg6nNgYZTRmrzZYYPzkyGNWlhDf/OmXWTMedQb3zn7l7P3e7c7LE+OJxzvn+/7/vOd869AP86yfJVnPVY4FprHy5ZnsdsOGWfF2dgLXripqqU5fXORj6vExwWE/SYDTSb9Xmd7KzHwrYbdCwFzq9ZOiApKswm0Ld0ShqG3wzDYnIfzq2tCUF4Bx+TxW5yj8wdZhvayqiq5AQkTngHSAf+CAQULIyFtmBx/iPhYfarmwzYBn1CAPLaWt7EODC+585ZRh7Q0k0ylBwOiymrDLhhxMFnnhdgujE1aEARX6drpPnckchfZAfEJkFFc1cbS2ep0zXyMiLvMRsExyjDs0rP8kkvZ9tu0EmDWbo7M4zoLHsfGiUBeR52rstuJdnzg+9kqnKie4hGEGdKQKn+LTDxjnWYbVhuWX19E2jKtQgIz+2TKDY5LCb3g75R9t6lSvBHdkRJfN9NEp3U1i0AuuxW0spYtrHwFt3yxEnK8G/IRIOJMmQ2nKCu7CTXQVHWIFh4JzzQ++gpWcuP5iAQ5PiYLe6PC5pgYfoVsaF5mnItAWQ2nG51JTku8T1EJaSrN7phaWmOrJPbATLT+5WfB4IxJw/AhP8L3LndQPSS2wFQlAGYu9rA3j8+Ojn1XnbqxccI+17aQXuxFILBb1BXVw3Ly37wzXyC80olMNEoWO/rYWjYA8riOIRDEaKDQHb3ApRoSvHkoeKCivjrMNuMdEklXxrOCKBIpRLxEACAk3H+lCIdDCiFA/FD1M0kuRQzmYiR+SAWE/HiCSXsxzMdpTuPH8bhOJbIH/A0wiDwHH/ETva8cwwGwTCwbHQmQD7z9Mz2DhVCSZWFygy9vADR2SZzJDiVKiVNeC2wob5O+UCtzp6HpASdM8yxiIelQz4GwRPq4F5RrILRoX7hwQiHIkLW6XRql1aoC8j5aDVFpBuxZBVqrlzYjZsJTgdL+GthifD9+LxFduBy45X8APEludtcRRpjXQWwshol5dI3cxfe/wFgPRyFllut5H4CVJM7WnNTD68dI0RHd71ZEkwE+O7tM5xk+GuBnxS+dJiBY8AFwdCWYGTvnyePAl1efCjKak6exKGRaZyEb1ouyueLntdXH3KVNPUvI0s9SVnJZbfm1AHqSft/6A80sfkgHjnQXAAAAABJRU5ErkJggg==",g_staff:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACMUlEQVR4nGNgGApgz8FtDEMGMBLjm4/PnzO8/s4K5gc6SzGIy7n833NwG+Ode28YRDl/g8X5JSUZXOy9aOLI/60dbf9BNDmamYixAA0z3D2/Havcy0d7yAvSwNBwhvWrV4INb+1oY3j9+DqK/Kc3D7AaNm/lYTCdFG7LCGMTC/5rqan85+Ph/M/CworuQ7A4Fp+jqyUJ4DSURExXy/5jsxQ9DkHBwvDnDySpOxNw2Qt+TgaJj99R6Ksfv6MrC2RgYNgA47CgO+DPn99wV6mzs+G1UP3HXwYGdjYU+iqmZSgA3UKwpchBcfPnL5w+w+ZThp8Ylm1ANxwdwPNTtE8BmH724weDFAcHnIYBbOIVk7vANLTUYcTpw7Ur5jIERySD2Zfv/0LRjAxAxdyNBy8ZhMVlGFSURBhAxRsMvH35BMw/duQQTCgA3YfYghRuKDr49P4NQ2/vZHiiiktOYZAU4WN4/uYTQtHtewyPnj1joKRog4OTl27ALQOBM4cPMPAJiqCokRThw2sGVgtBNQPINyAAomFsGODj4YSzkeU+f/qM6lssAGuQYjMMBrT5ORn+i0szPHn2FMUiZDbL00ekBymyS0FsmOWP/zIwML58ilXd+y8Ii0m2kFBcoANky579+EGahaDkfeveU7DrYT4A0aCgkmVmAAcpCICCFRSEyJa9J8KXWKsmWHWDDSNXW8g0MoaWVqB8SFSbhqzmAxogumiD1fgYriMDbKCCGaOAAS8AANX7S4Gk1P1RAAAAAElFTkSuQmCC",g_palace:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAPCAYAAAA71pVKAAAAAXNSR0IArs4c6QAAAKtJREFUKJFjYBiSgBHGsOfj+0+spoOfPjEyMDAwsCALxklIENS46MULOJsFXcJbWhqnxq1Pn+I21Z6P7/+fbQ7/8dHI6pnQDWAWMcJL49X89805vDTVbGZG5iiwszf8/X+LITZClYHx21MGqZt8DALqLxgsrEUZduw5ynDp0i+Ghz9/NsLUM6KbZs/H9z82lodBT1OeQVFGhOH+kzcMl64/ZFi8+As8foc4AAAgOUo9kSpofgAAAABJRU5ErkJggg==",g_home:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAQCAYAAAAI0W+oAAAAcElEQVR4nN1SQQ7AIAijZP//cheTbTFkEZjKYb0YEVuphTggSQkAAEbnOiKKijR4PLgb2osyxBH0nM+4q0VcS63g2z7SY3lVigBbWGUhnBTuBa8pouuXO9iZuN7GsjAcMx/MhBM6kyIkklVmnf5O6ASrl3fE9df5CwAAAABJRU5ErkJggg==",g_law:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACnUlEQVR4nO1Wz2sTQRR+W8SDBgr1okiseOvFg5cG1B485FTL9pSblx7ipVCwLf4BNRQLRQhCo/RgoYfqISG2FXoLUn8UUaSRlh6MdQ0mYLMVrGgkjry3M+PsZrbZbcCD9IOXnezMe9/Me9+bBOAQGhSXJuCfYbZNf+MAPqwd/46gC+1qnsjwiSmdGh+g7zhmzIbMzCS9Ly5NwKP8jbD7ABlEEEynRun11PgAS13rY/29UTwpmhk+ejAIApXM1/p7o9ogTTXAUyWv31TrRMBTbjRsGltFAxq7W3LuV2WXnts/63/jLLyg+MMjSUjfycj3RzxERIb1EUFEoPTcIpQ/lJ1ddp6B16/eQrn2TXsKMxGXQwDIqXOSUMXH+ilIz5FIfAL2CLJB3XxuYSUr5tTTuQiLmyWdry5g1hsfP67GL8LjlVUcMl4qk6819mtoNsstBgYVP8bXYy04mJmIuxSKihYqzsxMSuGIseLrTyYIRdBWhPRgtsvsar6pddQaGkMOYUs07D05TiZicC/j1Ond8l1YtZyQe7Uv9EQBjt3Oy9TSTZN1eoZ65z5PodV1XJwqi2ntuxLx3QCqG4Fts/NsmezH5hpZofBGLKNT0nYWX1p0RSGeFNZkoLOXIlB6HqX5+fl1bfF5vxEe3HoIX7d3XPNPK99d4lODMEyP6DUEOnscUJFMUeSgp8+YZk+qbxN01xSmwkQV8hSzC+d7tPcov9BNjWmYHKVpHXgguSGFkKzd30g/UF8NjyTZ6a4IkU6nRjG9gjgQjABrKBim0/pcopYoV2pysvrJUu9U40CEvHekkBAoJq8C39c74NzR39DZfUIVmBGaEGsyxE93+eSxfXeMpALKha5VZMvdcASuT6sWCEoIIf9G5EKs/Q/xB/xmcBsWuCQ+AAAAAElFTkSuQmCC",g_spy:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAC80lEQVR4nO2WPWgTYRjHf0q1UdOLgVahZHGwW9cOHQQHpy5R/EDUoU4iCF0cBJGiDuIqQqni5yYoLSgqwUEh2Itwg6VnL6Uc6vVIrlevST8Sv+51CHdNVeTuEl3Mf7nP5//+eN7nfd4XWmqppf9MGxqMF832bCRYfF59wOx0kvmiSWHRAeDI0aGGfKMGClXJMF80efronv+ybftuvi3OcOXGi8jeG5sFA/BtcQaA3p4U/H46/woQk9rULzCenrzUcN4Xvcf0PwE6dOSMP/jPMJN5g30nBqPYRpZw3e/CmH0tDh4YEKn2TSLVvkkAorcnJS4OnxeHjx0X1KYsHdY8SuEJ1/0OgKnnKJeWmS+adO3sRkrEGRm5y/j4YybzBsB+YCyMeaQpM/UcAOXSMgBdO7sBePxcJiu/jWLpq+Fl/053SCZhUpkmK7/FLnyozw6EzFAjEufPnhJ79/T7ddTbk6qvnXQU04a3DlXJ8GpiimTS79INZSZSUXs3qpJBSsQByOZknr1QuX1ztCH/sAFCVTIASIk43bv6GB25hqFPM+e4XDo36MM5Dpw6PRR6jDA/Cy8j2ZyMptmcPDHgf+ze1Yep57h6/SGdUowdOzqxLJsLw5dDjRN02fswt+4/QdNsdMMim5OB2vI39RzZnEyhWEA3LGRFxS5XOXzsOITY1wL3IQ/GLlcB6JAkNM32exFA9o2xLqZQLACwd09/YKggQEJVMszm89jlKp1SzIfSDYtXE1NALUva9BTbtmxlpbLKSmUVgJKzgF344HmlmwEEwDu9dgDzYDzJioqUiPtgHkhUtQX5ab5oYlm2/7xULvv3K5VVZvN5ZEX137kVh6WqS0cs/M4UCKiw6GCXq+tAPBiAOw+zLH2aoyO2kZKzsAZedfmyXKo/HzUHyHHWALwaqZdpfvwl5styic3xBADG58A8wWrIsmw6pZgP5cmtOOsyUg/jXWsF/TUwUNCGFel8/JMC7XFhOnU6Kkmdxprg0VJLf9QP3yt9hbjvyEUAAAAASUVORK5CYII=",g_diplomacy:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAABDklEQVR4nGNgGO6AEY3/n9b2MCJbVuGnQRPbOjbdgNvFxEA/EAAiWJBF7jz7NDBx+OLROYoNPrRvG0NYQg2MGwilNzARcAA1QCDMMowgxQYK8ipIMn3CpA5swmDLiLIQhwFkAyYGOgMWagUpsSHBQi2Dhn+QEhsiLHhlR0SQooMnTiEofJl9axho5sMnaJbhEiPFQpwVMD6D15l54LNjPTKH6Ao45NovOFtriwiYvubzBkyf+vKF4ZGZEH0q4FNfvtCmAu4QYGCo+MCB4jMY2CfDwsBAZOXNSEojapqEGIMZDw+Gz7JevCK6TmTE5XV8CQBkMZpFMAPxAXidSCoIgIbEfygbhmkOAuhlEUUAAOxxVJf2wLLBAAAAAElFTkSuQmCC",g_vassal:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAB/klEQVR4nNWVPUvDQBjH/62J0VZEbQZF/QJSO7k5CQ6OLd06uIqLmx9C3PwIgoOD6NKv4GInBREEQauQQaW+JKbmzMldczbEXHuxFfQH4d6ePP88d8+TA/4oVGG9mw0nDQnVvXXRpUGfVpbyWKuYfHILEH2+Lmyq7feSEXJA1yqmiKAYY8ptKkv5TjbdYdEE0IVxQziLfcoFk+ayenhOiiZfAlYB7AIwpiaQcR4wOtw2f34jX30jNwn9xkHGSPGx03xnoq3BD6CLc1M0YwwmiZDKtrZThHxrygWWGB5Wmu98cgTAmNbKtVljEPu2C4vo0XdLMqffBDe0NHaIT7ezQ3xcP3/k7TSAu0CI0SA+GsTFJYBlzcPFd99HSSJMbdouZeLMMRcA4AZ9Enk5JkL1OtwhPkR0TExsn0CINQHYcr/JCv/Mdnk7Hwi/Bg8JhNjThUNlQbaNrBQEFvF5oojtM2KcTGoedF2PJk0xyRny8zuxXVzFLLJEETwF7UzqA1ZbTD1p2BkyjomPGvv6sQwfWw0HnbilA+HhkcxOmqW1Vh2WrIZzuDBuRL9e6bwSFX65YKYOTu/ZXwTX9ZeuX+95HlSQXk9m69/NRNFP0v1yFMnS3xfseUt/i/RfE6Shm19KTz/vKM0HK1rUsRBb7QxVCN/gxR5sEqHiqG9i+Nd8AiwFzUL2phYuAAAAAElFTkSuQmCC",g_orders:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAActJREFUWIXtl79PwkAUx781ujGxNI7GCRNZSlwJbM6SBkN0YKQr/Stg7epgQwUSZxIXw2raQZldNSwssjnUhRJ63Lu7XiUsvOV6NNz3837cuytwsD2bQb3ota04z8LuQ0SuLQV47FZziQPAfLGEP4nw8U07CQDHopcXZ6Y2QPJffxLFIogj3o/3/akxXyyFAhVnzB03rWadS0G5ABDkkBUKPTs18kC0AChjBVmwrCCZAajQ60ZAWIQAcNJ7Wz//ulfrZyoS7Fxm2imQFaEqiHYKWCEKDADilT0NBlv9JTMAK0zVAgBYnRHev8Q9TRtAVmxxnBYeBgFuW62trS1sk6FnZ27JFWeM0LNhdUZpIcPgauWOAC8FrPgwCMh1lCOQeJaMIrAk/G6jDP9lhvlPxrOAgEmNbA0k89pK2G2U0ayXYBbE6/7bLgg9G64zhnVziWa9hGa9pLSOMgDlcQKSiPefZ+pe5GlEmxHY9HxnhxF1+gHger6zVswKhJ6dyjevFZdPQfaTzDVAhZg6He+uLSGEEOA1+twSYOey+4FZLKDbqpIa0qtzr23FZlGymRWsP5hyb8hKd/e83wj+JAIAfQBICknFZN8HB9ub/QFZ0OBOCmC8WgAAAABJRU5ErkJggg==",g_pending:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAfCAYAAAAfrhY5AAAAAXNSR0IArs4c6QAAAMVJREFUSIljYBgFo2AUjAIaAkZsgors7P+R+fd//sSqjhAgZA4LLo0/GRgYBJmZGb79/YthCCmAi5mZ4f3fvwzsWORwWo4MptazMwgIChNt4Yf3bxkYGBgYsht/4lXHRKyBvNK2DNUV74iiuzuJiyWiLUcGkxb7UyRPluUwQ/NiN2K1BF2eqpajW4qLTyygyOfojkJXRwjgzOfIWY2S1I6c1dDzOVGWUwLwWY4zn7MzMMAtpqSE+4ajgBkFo2AUjIJRQDMAAOrbYRbfovvCAAAAAElFTkSuQmCC",a_lineage:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACXklEQVR4nGNgoDNgJFZhPgMDQ8z++QzihioMB9YdYNBUlAGLL3FMZJhIbVc9+nAYmfsfCYPBpFwH6lm2cOkKFItO758PxovmNSNb/B8UAsQAvEF6ev98BlPHRLBlIPatMxCfvn10j0FYTgmuDsTPm3yAobIilrG9YzF5FqJbdnzdQrD43S8ILW8+fGEQEeABsyfO3w+iAiflOmwAWU6yhaB4kxOw/R8daMpw/9pzhitPXjNIMLEwvPj3B0Mtj6AYgwL3f4ZjN5/gNZOgJMh3HOxsDC6mqngVvXv9keH4rZcM////JmguCwELGYwUxBjqm0vgQYoNCMuZM1xpWMrw6StcKICBgWEDWRaCACix3MURL6cZGBgichmIBkwMZABlCvIdE6ka7tpog1PqaXVISUMqYCFVg/KRqwynj1xlMEV2BFJWoboP3wSaMmR3J4F9Coo/GPj1B17SUe5DUEkCA/fXn2aYuh7ZKtIAEymKQdaAglIxEBGgb3i5qWvhg6+o8QMKSjl1DQYGpEQDKuJolmjeHbnKcPDIVQZyARMR1RIYIMcaKBhhGAZ+/PxFmQ/joyPA9Jf3r0CZASXeFKH0x9ffUGgoCMRnIa4MBE/jjIysDLxc2AMClBXYWCBGfP72j0FSWoLh2ZPHeM1mxFYlwZoU+7c+ZSAH7FrTy7B0/WmQeYxyAraEgxRm0Y3LWxk01dQYrt+6hdeCby+foKTU/adfgGk5AVuMWgPFwukds+AWLVwCqx1w194wAIln4kodRhzixJVT+EEglN5A0EJQloiPjgAFB6VgAxXMGGIAAH+g6DKZrPp6AAAAAElFTkSuQmCC",a_clan:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAgZJREFUWIXtV79Lw0AYfYo1Q0KgUIVSgouDFAUpHQyF4uAidBPprv4Dne3o5A/6D0jnFnFwcBeXgkNHpy4llIIVCtIM1aEuXkjuvuQuVdulb7q8u+Te3fd973LAAnPGEk9kj85Yc/KX87ze35IdKyEvTDTLxthpQbPsQIeh6xi5LvnM2oauA4DHj53WhFosACzzxKfTIVferp2gXTvxJmLc80UZhq4LnCoEATzYhxmG/W5glYzjMex3hXcphIUAZqGEQaPlPecqdXx9vAfGqHKxBWiWjUHjHJ9OB9g68LbePwm/zcVqk+QMXcc4QgAZApZ8q9ZmIOEYqBWGhUEGpRzIVere887pJfCzOhXu1wL4hAOAZHpDGKfKxRYQJUyFk2GqKmC7Uqw2hThTXGwB/ipgTsgqwZ8PLOtlXBSkVcCDqgBVjkJoCHjwBjNy3f8zIh68weQqdcGcitUmyckwVRXMxIjMQslrz9yIAmcBgYSZEmo+md4gORnIHKB+RHhQRy3FycxJmoTsL4cyGFkVqDijVAD7yMh1kTBTAs84/5nhH/drAf5kVIFJcH5LVxbAzoJB4zyWAAphyUwKWLU2oVk2eldlHO9ZyGczU0+8f7iL65tH3DnhYyJDkM9mkN0WBaxba177zRlEinjoaZH9YReT0HtBXJiFEnpXZXRensh7wdxvRgt8A83DGxvu/OecAAAAAElFTkSuQmCC",a_history:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAActJREFUWIXtl79PwkAUx781ujGxNI7GCRNZSlwJbM6SBkN0YKQr/Stg7epgQwUSZxIXw2raQZldNSwssjnUhRJ63Lu7XiUsvOV6NNz3837cuytwsD2bQb3ota04z8LuQ0SuLQV47FZziQPAfLGEP4nw8U07CQDHopcXZ6Y2QPJffxLFIogj3o/3/akxXyyFAhVnzB03rWadS0G5ABDkkBUKPTs18kC0AChjBVmwrCCZAajQ60ZAWIQAcNJ7Wz//ulfrZyoS7Fxm2imQFaEqiHYKWCEKDADilT0NBlv9JTMAK0zVAgBYnRHev8Q9TRtAVmxxnBYeBgFuW62trS1sk6FnZ27JFWeM0LNhdUZpIcPgauWOAC8FrPgwCMh1lCOQeJaMIrAk/G6jDP9lhvlPxrOAgEmNbA0k89pK2G2U0ayXYBbE6/7bLgg9G64zhnVziWa9hGa9pLSOMgDlcQKSiPefZ+pe5GlEmxHY9HxnhxF1+gHger6zVswKhJ6dyjevFZdPQfaTzDVAhZg6He+uLSGEEOA1+twSYOey+4FZLKDbqpIa0qtzr23FZlGymRWsP5hyb8hKd/e83wj+JAIAfQBICknFZN8HB9ub/QFZ0OBOCmC8WgAAAABJRU5ErkJggg==",a_dejure:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAAXNSR0IArs4c6QAAAkRJREFUSIntlj9oE1Ecxz/XFEtOl1CHNnVJBxFD4+aigf6hoouDiBIchA5FHFxEqEPNIIj/olMcBMVBdIrY6iCCITRDkOgST0iWpCIXjNxxas4Yi/Y5NLl4FS+XRAqiX3hw773j+7nve7/3OPivf05CCNF8VhRFOL/9q/q7gXYD6lWi0TpWn6OrEOLnNM3l3NForEurKIpIp9O9pV8PVVW1mU50A5PcAA3DoFwuAyDLMh6PB4BqtWp71zAMwuGwo6fjkgJIkiQB+Hw+a+zVynuOlx92DHMFbO6b1+vF7/cDcD77gNzjlA0GkEql2i5p22NxdPcRVr59BUAzdRafP+JW6BiEWrDYqSsAhLbtamfnnFC5mrO+WDN1AAqFgjWfSCQ4OzNnzQGcOzjvmNIROBoIALCpf8A2ns/nyWaztrFmusmdE06W7fcQYO/2PTy9+MTq+18OMZIbsvrp60su6t0FsFgqcWfuNofuzuANyACIxe/W/HR9CoD7C/eYXTjDZHCC5Otk90AAb0CmxFoVXj58CbPeOntmvcrJ8RNopk4Jg7Ku9pawKV/sIwDL2jLTB/ZRuzDM5mtBAPyDI2zdMsjb2SXy7wq2AuoYGDw9JvGh1Y9EIgBMMcpq4+4u6yqaqVuw+Wc3ur9pagJq4302A6NokKTImy8aNI6LZmquYLS7Sz+vCmRpDfwJGLipC4AXBfuRGIvtt/kM9/3e1mUxt5TJZISqqlQqFTRNIxqNduThqmj+pDYc2JUymYyIx+Mb/l/zd+gHp9YFqBNuch4AAAAASUVORK5CYII=",a_name:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADjklEQVR4nO1WXUhTYRh+tmS2NTtlbmni1EQLSopKCiEqqgsLYt1F3cVqQRESZBaNkIp+LmJ1ERheBGEIXbiK0jL6kVIiCyIrW9iyEepm2XHLtVE78X7bGeecnZ0WUVc9sH18P+d9vvd5f84B/jF0ygVP6wmMjGs/tGFjOW7e8GHXnoM0FTLZ+hsQ6p2bBKe9VpAQa0KvmAu/83PaaxEZHZM+b6/jDJqETIYPvjbYyrcINBKCH+OITMZkB79/T+is/6pHfFocOTkzcen8Bbx98zZ15u7rIFpO1uscje6MhDnSCRER/ENDyDeY8Dk2qfpQPkwAB8xdVM0IhXwrdJ8DbM/R6LZTKmRFKKLAUgSjyYBpkjXyOM7z7BK9/a/Y2ryqMtwimZJkIkjWDj6WPWG/dxgDL3pZfLxBHhPhb/gw6EcwLDfy8PZFVM6rTMlqMRvoTLttzTIdPD3ZEVqK9Ri41At387W0w2TQVlGC6eapqLJwGAsOp2QlVJdwLI7Nnp6MsqYRUhxrli+BizOj2FaNmsWl2LnbhafPB9HZeZFJSwn0ZfwbvkajCEdCaZcKhmPtdZxBpyarjJCMsdjl5mLt6hqWkVJQMhFJJPAFv0IHH1P1UmaRyMRy+DjCwx8aTysPJczGPPCG6b+8gCqhaJy8kF6CYiaCvP8UibAfgSQluUUsm5KQFQDJqk2oRHEhhztdD3Dv0Us2P3q6hY2zjEY2iqQEShYlkrJqE4odhTyhxDjQ1JzaI092OI/AaJ2RIlWi7wfSyicrD6n4yTiBeibB1bCVGdu2vUnm6dJFFWx84edZadQ7N1GLo6V2+uu+cjYzIWUmSUl9koyfOuKEtaqM7ZXmW5OGBDgaz8okJbjPHcLew/uQx5nRer1LjKVwwrFfnZDk1HMcPFfvUfGym69bvwoB73u23+97x+QkT4lUKjfhyeNnOHfsDI6evsziLkorjWVa4VNWFhUWMTJXg4PVnnF2QWqfapBKgWRTvJoU3Umn+opkhO/7RhOTnJkITYxieGQYK1cswP3uXiwsn8suQNIShpKNmmSjdTorweZE3NTJVD2kzHzT1pmazz/eBEQSkooI8WHZmA4hw7pKp6H3oIjoHA55pqisBEhO8k4DOq1N5qF30McmFC+SMVBWwubUYbqv3WavKC0kO81mBamQzW2y+hBSgUjmUbEn21NzP60dZYlMnxV2rU+O/8Cf4id/w5Af+wAYfgAAAABJRU5ErkJggg==",k_treasury:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACn0lEQVR4nO1VS2gTURQ9k0km0dBWDRJBEUkKrkWpdhFxI4iITNRFjXRRLQhqceOuG0EsuBDUgKuKi2pRakkEFy5c+IFEWlsUpVIaI7ZqU2uiaUyb32TkvskMM9F0UrsSciCZeXNv5rx7zn03QAMNNFAFDjUgSQPa/aexaUTjrzDREWLrA4M9mLZ8RrtnF1t72nqxakIdZKz+HbWT4yOX1R3L6no56Kqri5irJqu8RH5w/ZQhcf79DELjE3C12LHX69WefygkMTr6Ec/eptAttnL94diyhFb9Yjwax7Hzt9j9yzevEZ9KoFCUINh4zH7LIDq5wGJfEz9QKJQwl8zC7XKyK6E/HBMlaSDM8501CS36Rd6dMgTtDgcjI1LX+rU44tuMQ3s2aXEio+d68HwnSOS79/zmFW4tbzEEnU5S3AEgx0gXfhUgVVpIEKyw8DxyeQnx75L6kxB9MWM6QpwpYTWyWRmZjCJXNUhSoATHGjvIb/dGY6W+QJC2xlGlJyrH6Q9J6WxVV9jU5GSysmSbHTwHVhkREc52HWZkD59EiASXroUwN7+I4/tZY8nqWTWV1Cu4MIY08jlFTkK5mGeSliVNQgw/elqRHmjf3oz80iKu3hzSGszT1isCCP+VUF8htTtJWguKpErHzsymmY9UFd/sxp3hiJrmX5GH1U1DIEnB8xAEwGblUSxJ2L1jG6YeX2Qj8EssgdNHd7JcXyBI5nHksXrcDB7qQZKu29BieOawK16qkpK8RHqm6yAi90fQ13eb+XjlxhDePZ9kx4h89J/bB7NxJF84qezyZyrNrqnkkiJlZRCoUAdCt9jK1tmKDSQ1TR+dtJqPtSCv4COaxERTD18M9nC+QFBLrAOkllgjZlrdP4FGWv3/jA38r/gNQGEUMX7WsLIAAAAASUVORK5CYII=",k_army:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACwklEQVR4nNVVT0hUQRj/3ttYtpIwdSlBCxZy14K1hIS6lBfRw5oFEhl2yIssJexlD+nZg5e9loc9BNVBqHUXIrykYBsVFULZvpYEWyEWbf3DgiK6E9+8N7Nvh7frPO1QPxi+mTffb37v+2bmG4B/BKRA4gfigx3npw8fIIE8iT+2pWL4c35FZ1NEZHiknxF6jLGUEGsCf2/B4EAvCXS0iORKwGzQNjzST9tZ7ynKCw70ljgqIjPQ0QKJqTkUBH+bH15MzMC89hOnrhdIPIadZ4k1aKv7De9XainndvcdTCPMfkjD9Ow75k85hqW8vUA6W+vNqbFMz3ionfs3uV2if/mUilFaiFZsMj9nmVKGztZ6ePXpF/41eBqPw8uPjyCvrUA2tw6vJ+JQ5b0EF/1u6nv/3hhMz2Vha7fA0iiVwrKpSicjtAW7mo3DoND04RivwHioXSq6skgnI+zUko1UlC7KhMRUuhwqFWSi6WQEwmATG6koF8PI2BFnAmHDiqIYsXHxy66tWn3EfWIW92tey9Cxy6HCkL5P1OIYgXuX+Jrj/L7B0R5pQawaZy6H+FhfiJSILbqd1F6rOcRFfyyuwnnfSc4L24mQAaPTPmu0f1oQY7ZON9JQxQ+3AtW8j0ffe8FL+yg7icLL23x+MrcDS5vFqvd8JsX7Y7KCqtLNijFF4FwN7zNRJqbfO13wqucoLGRW7UdIRZp20Ch9g6M0SiwCRVEF3uSZmA42/315y1w/5QWP+e4Cq/J57S3cuOIziRJY2iwV85yohuiUvtcGYrZLmwFe2nBRRGbXCY2ObVjIrtFvaL98y8KRKqc5whjYQbCrGVhBbjhcvOA4xsuNlxxLm+l1KBnfNE6wHdCFLZ4bq5eCzwk/IR+ZlRjOGfPmt04s1gQzYsqKXHQWkdnKTkNRUJq7/6fmAPz9isFf4v+n+APjCY3tuEvEJwAAAABJRU5ErkJggg==",k_people:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAC5klEQVR4nO1V309ScRQ/OBgkkovW1ltP1b+D8OJL4UNbvTjf66H6K1rLWhhjVoPYXAUt08W0lZUKISKDRiLiTIRdLkI0bzsHvl+/XO5Fmbb10Gc7fH+dcz7nfO85XwD+44Rh6NVAURoHxgbTScejT6a1PhbQGRPPY4/oXBGEEH4VoPOV9NKxg+COnS5nMw6l0ZRGgc40AukNooPidpaEOWNksa/TtB/wT/IzXM9HQpxUL9M+9caEx0f6eD2rqwmYejkLt+/e4ueJTJzGzc0czLz/QHPURb1UegtGx8bIvuWnA0ZxUdzOgv3cBZqX8gW4N+4Ds6Wf1lZrP+z+zMP502dgo7wDudwWPBp/APHoHCxEluHtzDTp1mtV0nePuB1OlzMY8Af0CWdbESMwWnRwymKGUmkXZLlKwWC2sWgCwqEQ7SVT65DJrnHdz58+ch9qsm59qFy7foOilSsV7lwPV9xXSS+T+Q7Li4uscoYAIKhrdBDVJCdVC6/QVpWyStUQR0u6Q13i6JhVKSNaSS8p8egcCRLiKJ5DW3s81b9SRmYwmKhCEevJDMwvfIE7N0dp/S0Whz6jhRvv/67RmC+UQd77BZJUB5vNTKN7xE3u8MacrmHtokEyrDqKzfscNvI7VAiIxI+CJhkCgxJ17fYB+q5PPBOKuk6oD5GEPcQGq5XIEOgAjdUQyRDFYoUKjOkiORYRwukaxvZoJ8SeYsBrRAeIvVqd7yuy3EYmyQ0uqIcEaCfaYO8CwIuODJlPzBS/hRg1I9eCJFVJWLMjxDlDwB9w6D5tYmbsWlhmbdlJVQqOBcjs5EozUOxJLbQRlssSVZhIKl6RmozpqrOThUC7EqoN1WBkbXtSM6ujog9/bLbmAz04aKM+EkGlbjxLc5vVxHVFWAc6K1kP1IfhdxFa4EPs9T2jt5Ph4qXL8Ob1FNx/6CXHWtng90qtJeEoUD/evf9jH46h1hjU+7c4/NHtHcG/4PMfxR+0PyfOkUCHrAAAAABJRU5ErkJggg==",k_cities:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACtklEQVR4nO2Vv2tTURTHv9EktC+alPY9jZmcKrV1U1BBHYo4iXVyEP+EiiIOHUoHB92KFXUoNYOIdrAGAzo0GaxYh0qNGiut9GkdmtqXhCQ2LyUJPDk3ua/vpS9NUoIg9AOXc+6v870/zuUCO/zv2BoYqzUjjq1eMVGS9EoqlTZ1Fgv5hkRrodkdTtpdPeWfitUlatuqsxPAAqCRPQfgZ0e75bjXmTV+rBfLTYFqMe1bCZLIAmAjUfIPJpKW44olU1OM2AUz7FiW4wrzL4RCON17FlbQbnmxO5zU9IIKn0vl/rOnlnNR7iAh7dbtO3ywfi/XbtzUzne0a/0As50GS8UgoJENhULawOCQcfHmHX6fmWWVsdExTIbCzJ8KvkJXdw/zZyMRZh86nJhPJLG7uwfBspVLu2OMjz5i9v3MBwQmnjPfJ0p9RlGWNMMj93D9aj+tDPNxBYdECV/mvsG5T2R++M1b9J45ZWqjoCeOHWVtxJHDXZh4GUT3yeNI/liCqubwbnoaU+FJLMcVm0+UNgRpBT5RYtufi3xiwfa4XGzAWjbLfLJGqG1p6RdaBQE5VUX2TwauvW5mHS0tKKyvw+/3G7M3sClLSYx2yIU4q0ocgtDKfFp5NBqFVxIh7vcinU6xdhIhMYLEiLY2D+KKUvtZUFASIGskFovhwchdvX7p8hUc8Hp1ISKTVeF2CczW8yyQX42zI+Ji5FMhol/nTGM/Rz7qIrwQZNXynErs/Cgr4SJEvpDftFtjH1FNwFKQZxqHX7zxPnIO64DUbxRLZzLwuN3MWmF5h5RtfPVcmLKxHjzu0txqMEF6W8aMXJRlCIJgWnkikYSyEjNNVlZ/Y35R3qivmPu39R1t43vSLOb2VctSW/mh6lTWG6Fo/rJKAsbKwOAQZFnG+JPH+oqaRKDJ8XaAzl/dYZLM52T+kwAAAABJRU5ErkJggg==",k_years:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAC3ElEQVR4nO1VXUhTYRh+jujSM9Mp6uaNaGlG9DMS1CwhUClNKREMu4i68KYiCLoXvOkm6K6LvKkLk0bSIKgIoh/JoBAnUiiYjCCcm8xz5namUzzxfvObZ3OenYNdRQ+M8318P8/7vO/zvQP+dQiZNtwbuImDh52mLu3t6zdNqJoJygyEdGQ2MY8NJCX6t+9GtnYiLc3CVlKbtOHOjcsYGByE59sn2B12Q0yPhobx4OEz1TUyJKSmNzUKlUjfvHyOYCgCOSjDmm/F8aM1bNEzMYl39x/rkrXcvYaxyQWMjr6gaTcA964KKQBbSa22fuhoO4W21jNY9C3il2del2wspqJOWkGF3bLrnlTCjKBLmy1CYqwFr7nglw0TspQ+HX6CjdgGIuEICosLmTq/BNRfaEZ188nE5naA7dOiQMyBa2rOGKG0NMtSyl1KaGk/jyOHqrC56mfz4gKrXgJAtddDEiF3qPY5LHinqZJYVRTkiiL7EkLKOlPDx5trYTbO2pdvnJA/i54eMhcQDflQf6I6sc7JCNy5Pp8fuSKt5UBaXk4Q74asFIXqh9dDSRtkJbZ1qQhlQ2W/hqYGtkZ1TTpfVKRLtkMhGexse3+S9aRgABe7WuGd9zKDkLIpzzSrFdVTm2JSF10XjCt0jcTVkWnixhFQXnlsx6GZ7zMQs7cvplSSoyVpBWuRkHGFvX39O54FdRpKKQd1G07iEEWmTJv+QtFinDBdp2mqq8btW9dZ7ThC3gBCCDBFxfZy9v06NYfamop4MMGAYcK0cDjK4PsdV2bZb0NBZSnevv+CH68+bgd22snUyUrMlMK0nYYMw0ENnVR1dZ5DY9VPzMgyU1ZWWgJ/YClj8LqdRlJW0dHWiKtXOpG1Vas8hFkghArnAVASKaVGyAx1Go5tywsJJ/ozpM9EDbnlVYx/9mQ0QirGJ1jz7ta7ORXJ/zvm0b31dRslJFzaI6l7j+f/A4bwB7/wVavOYeFbAAAAAElFTkSuQmCC",k_mandate:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACSElEQVR4nO2V30sUURTHv7vKNqz0a2tTqMggaQk2iZ4CoUeXQGklet81esmHCMQ/ISIIH8LHnX8gcqkeLIkQlVARmTZzVxEsNF1HN0usVdAb5+idZodxnFmhp/3AZS/n3Hu+95x75i5QoQKAvo99UFPq/xFr1Tps52XhMoCwDEd8Dj7e3Kp1+F41Pmfx+Pj1kgWJZELIUn75lcXqNx2pZyljjys6u7tYrLO7SyQfJfnUdEeWgxhDTanifFNU3LrbLFra20QgFGR7S3ub9wxpU/j4CT61hMQXpxY5oyvHIhj8PIj+0TGcORVCcXoOk1Nf5dI4gLQXQRa9evMaLly6iAf37uP9yAcum/5zjZ10GG12FsurBWzrP7CiF7BV+C3F4EmQSvv04RMWpXt6Ofwa40OjqAqfNNaQyOm6MFaWdHzPzZszsxVzkyFB94P5/DKOKAE2bBa3ShZ8GphwJUb4YcHUIEab1507ywZtLIOFuQXOiEY2k+MRCAXlnt69YY5TQrXV0BN8w2Lml4MagwJHopd3xfQC2xtqw5jJ62iOxxCJNrDtbe87yljEbsR8XkpKnwWymRlsr2+g6miN0SSyYSTkJ5ssczaTMzdO+sAM7aCgxNL6BvKbRcPuL/6bE/KOnXAlKJFiZiFzA1mbybOgLNeOorCIucPcBPcsyBkpCs9JVEIferlU7+egF6V+ctrWV+8QcGjtD/IO/n27NAGg0cah4WDU3R/vXfrY7+YhsmFHlP9/WCZxz4/3CwB3gNuHEE0fYm8FuOYvuksRkq7kt4wAAAAASUVORK5CYII=",k_war:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAQCAYAAAAI0W+oAAAAgElEQVR4nL3U4Q6AIAgEYK/3f+drc+nUBESp+xmTD90opT/DJ1/2vcZCJJKaZAgAIjE2PUrveqMojBOkgyIwCsgLOsGoIFNoB6OBiJAH4wKiQhLW7gYXkVzXirOprYGkwAuUplRqR09nBSdPV6aWboHhu2ewDvHukXvJd//m2rkbnYaP3rraLMYAAAAASUVORK5CYII=",k_officials:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADNElEQVR4nM1Vz0tUcRCfFxIW2yquC1pQbh50XaJDl2DjdYggQcwg/AfEg4a48A7edvUYuYsh1MVO3vTQtiwYZEhS4EXCrNbFfoOZbWu6SYoIL2Z83y/zfu2PLjUwvPnOzHc+M9/v980A/E80MT0J/b09YqkXYfJFLkWKm2F9bRkaT50TQBRs9fU7ONjZNvlVeWrg9siIjKdpEYjHxyqrrG9gUFZ1Lx7V2zs69ZZgyLE61KO9v7dH6jQtUj5Ye0enqErvGxh0BSoFrJUDOjebIrC52ZQpY+SJ6UlKIKyqxBgc13gC3C9s2FA2ki99jBwMwTEwD7q+tmxaa1pEH4rFTKBhVSV5KBazg7HXZQMT2Qog1GFVyLe6rkkb7uOJCUAA6LIBGk+fsqzz1UswyyYJItivKCY7AoqEca+4f+OqbGSqhmVLwYSPAL0UbHW095VZJQUSGeED4cGiDX4ZhKrDL7tDZkfij4a/cqIqIXwuKJDNvCE5s7Ao1A+jDX4SxDeffAw+oTOc8t9y4FcUyOk6BQ40HtothMknJSDvILuFX1LGYAgwvL4Bz56mbVEuX+kAta0NcpkVqTvmPUHfmXQKWoIhk78E/L0vq7ZR/uIFAuu+eh26dR2qtQjsxcdgSlFg6skjON/SBM8ZYJWnxjXWESEoeztSqVd7oBjdGU1I+f3PbVjKfjLZDyz91hEQqc5XT9/jR117OtHG18O7Rtr/smqz7xpXgu0t933DGRCrCobaXI+kNRig48T7HE08IB2unWgpe5jE2+wH2Mz/cARU7o/fBa+3lhY4blirA9/CIqxkPsLN2RScHk9A80kvhOJRYqTsSlb6DsVi8GJ+nuRCYUuob5hQjeD034iflfdH7Cil2Pqza1pEdi3bj88bt7Xb4MZyxhM2C77X0mXs/dSYX6ZOL5oynwRuYHxPmMlWMNNzxPk1k05hO4J6v0/eBa7PNjdDUyAA3rpaOOPVqTMVNrfg1dJL6YcUVlW+FneXtFVorRR7IB+mpRiP3qEy+1EWA7UCWwcxHjUeOfqwB6JXBCbImNRi9FBADMzZAsKBuuBvyRieEtiFywZSKsQvFtD9YfxL+gOhsVPnPaBWVwAAAABJRU5ErkJggg==",k_new:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAC+UlEQVR4nN1VXUgUURT+RlbbH1elJMVIyEr6g0QoCHooCCwq8gd6qIfqoSIiCrIeDHsIiaDCwid9CIQKUkvLVivCAsMHiVUf2qTWtALdRFfX3XFEjYlzZ+84O+7uzApJ9MHszDn37PnuOeeec4H/HYKRwexciL29nu6YNhu27IQkvUB62rElE8qJbCoRJBmQcdnU01B/25DQondOf2pracNIcI4pqu/eUBfHhntjOhr8HsDRE1eIWLh38wIuVdSYIlzs6GsfnA4ZD+pa0dX8DmfC+jqdXenF4/yzeL6ipiWWPz2hEN6limuXSyMM9EQcDmeq0d4XCO8AKFdk2dVUjZeu95Amp2DLSGPKoCigYMc2JqenKY4DU8rpJXCdGTDCMBmDu7cf336OY8DrYfKhg3sgivPIWZOLjfl5qh3pOBwOCzo7P5on1ECorKqNSCnVTxQBSQpBkoAZSYLVZmNr9C2RMgFY6Ccw9Zg3rezp68DTxicQgyE1nRxEsHlTtqoXxVRYpRAm/P6IFBsS8gkxOxcSUpJTZafdyuSs1XYUFhawb3KqpFSGb/Q301HUtAlbOGIObYniNn5KslL84PQMe7xDflYfckxOKb3unsEIMinBtFqipfSNqxnB6VmWVu3h+Nzvg++Xnx0gTkZ2icASLaULywIa6pWUEkbHA/D9GIYbQHbWSkZO8vqt+VqfzfHmryVaSjmc9hUspRN+JRqnPYXpm563I2nIjxG7FWVFu5iO+lYDNuKWlNKxsUm1RqSjAZCdm8NOJTU8vQc+fVFnb231VTxzdeH12w9RSaPtIqIPafIQabSea+/oQd7aVWqERErDnu7Hwwf2E+kijriE1B7nT5exOunBI2ptf7VozevpZqTXy8/i1v1HRCNwt4YRxkPRvt0sIrpRCJSJzMwMrNu4nQ2P+oeNrLUAlABoMXPjk2E80ImEvgTu3n5UVtVC5yPmlcVRHH6MEHHrnyzZq5XN+jCPc6eOaDcn/1WyGJCXkwxhLCvZv4U/x5V7DlJPu1IAAAAASUVORK5CYII=",k_trust:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAAAXNSR0IArs4c6QAAAn1JREFUWIXtmDFu4zAQRT+FALmBG8XutnNrBGq2yBnWpc6hM+gcKnOHLdIYQdp06WKr2SssYKXIUBmNZoaUkyJFPiCAFsnh03yRFA38yFdg5WFB21SfJW0nfa74nZXR8p8RuDTa99PBR7ic+Fey8lf7d/L7pbmbgHCIyhjgYMN58QEAhRETAPD6/ITrukUEKQmicmAg2pTsIa7rFq/PT96Q8wxxmGPXjDAegKfY7wCM8VC32Gx3ans1Q18FI8Fipo5dY2ZqlqGX5m5iUwrmkdpG3cYsCD3Qy1u+v1fjWFLmtM/NzGPd4kwQBZVlvwizAvCb7OvnoWbTPsINHsz98M69Dx/PUogseTCg2Axqsma5s8wTn9oxQ2dhlwaTkgRyswPKzE2YL8S3XYOibse+KRj2kk9eFRk5yy4OB8oWn97/MzOj2XaxZWC28QfIhbHEgZJ2cas025a+M5ptizIkYflvD+Z+GGZ2W/qUZTkwXAen7mIgOctyYKyZqcncXD2lpjZfPK2Zaeliy3Iyo1mUso0DhT7T5xQMt2jvzExtHVpsmQazxKKTshdyLbIslZklFln31dOBtkDmwlQsY9GiStTHsrbbZ1mWWvS4PIt4W2sZ4EBj655tmBKGfyFqX4c5Ft2EwD/Q4rgzwmFF17puB7JuiPf/0LWu26GkupLuRfF7XhkUJ47n7mX83NTT5idtKup28u3DdaJ9q2LlE10ye/KMpgIBwGa7w5qs0damc9fg3DXumiXrok09gLVzDDJf6s12BxDUkQ0en4BnZx/CWG+VI8gY29Dk1LEyjrr87O0dpeV0hzhdJOIHFUgT75D5ZwPX2C8n/rf7O+ZHKb0Bmv0uDVRtDdkAAAAASUVORK5CYII=",i_crown:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAkFJREFUWIXtVDFr20AU/lSXutAhIGN38NTJGRojQ7tk8RCQmgz+B1US2iFbprjYu13S0KFQSCD1kP4DZ4lP4EKWLAk0OBmyZUpBCQl0KG2CzevQnHxSLeup7lCoPxAnnb773vfe3T1gjP8dGodEROQt0LSha+JwAeAuJ7izNuv7DhOOw2UbUHFwfIq3hRRMQ6dB/61CCsV8Gk8eP2Jrsg0cHJ9it3MB0agM5VkvXgMA2wTLQDB4/d2Hgbzq8kuIRsUzYTK073AMyOBOuw0AKL+f+I0j55x2G6JRwW7ngiMdDSIi09DJNHSim03quk2q2TkiIqrZOd97120S3Wz2+cqNGNmADNR1m94jEZyr2Tm2gcgtkCc7Lor5NKxCKpLHOgMAUN06Qe98GwCwulJGIlNCfX4S9flJJDIlrK6UAQC9821Ut05iGw6FLKUssbrvKuS8uhVh/UJFZKskIlIzl6dbfL708WS5i/k0Xq29AQAkMiVWOw6FaeheRrISHATXjRxc4sfOc6LOOvt7JBPSwMJMlqiz/kuci1v+wkw20gCrFV+f7SH57CPf/dQSkgCAT5HUyGv45fI7ktnpvpmWHU4+2ujzzvYYTocYcA6vtDlrEQ/u3/OJqWaCCPK+futhzlqEc3gVehOGVkAI4Yldt2zgaMML4qvEbeaDeFLjjwyomSWz0/2xZfvPxNSSF1Tl/RWQu0+moXtXzDcGTr06moZO5O6P3gmlCcuyYhkXQkB7+DRSn90mOdn4hBnBxxjjn8BPKr8+s+d4UdgAAAAASUVORK5CYII=",i_dead:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAAAXNSR0IArs4c6QAAAm1JREFUWIXtl81rE0EYxh8/kG0OaSEXPUkIQgmkROhNPGwuMfRQhHpIBfPHeOrJP8BeetAeLBQFib0k54KCWAi9tEsvgQaFcQozq5d4sO8wu92Z2Y/WguSBsLuTmTe/fZ53d7PATDP9Z7qRZ9Ha+to0zbydtzuZ62deQDDBUWCdV61Vc0HdzApEMOWFMsoLZQCIbOnjAr4UoHhUnPHMay4VCJo70ByB5hIpr0u5IoPmjmmbV7mBrkqFgHRX9OiKuJQbyNQ71xrZ5/cfFVRRkMJAnHG0et0ICEVHoP8UCAAGW9sRl2is1eteD1Cr10Wr18Vga1tBLa+uFClZvKlJFF2RuAoBEUA8ouXVFeXYlQL5bd/6TIo7lmWtrttpQU7Hp6hUKpHvdHfIsSQwzriqM9wbWv+OWB3y2/6UM554j0l6mMYhSVJIcMYxGU+cbjkjC0WIUIQXxjnjql8I2hYbAHglz/VzZiC/7U8n44mxiPrrsbmhjgePm8bLnk5Mjy8TkF7IJM44Hr1+pY5pPyniNO4Ygah3qEhSsfgTnmSLzSt5CEVo7SXrVRaK0HlmZyfA2clQHf+6m9xLutO2mrlvjIdPnuH73vDC+O/9L4nzvZJXrKlJUkhIIfHiuKbGOOO4N/fSuIYzjg+fbgEA3vksUgeOvjRGRnFJIVFv1LH5vI/mtw6qtSq+Lv3dx7r5RB5u9NGsdfDgRx/NRgcAMDoYAY7IjEAEoys4CvDz6SHmdxcRwPFGsXT+Mnm+pRfHKexPEWdk9UYdADC/u6hg0ojmJ9WyyeiQ7g5ZHR9Poztv7kNCYnQwUkBSSOddfSaT/gAJTjaCNJuEXQAAAABJRU5ErkJggg==",i_lock:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACfUlEQVR4nN2WTUgbQRTH3y6hFkMKGpuCFkSKHtpjDzn1Jgq9GEE8eMi5oNeA4KHkJnjxYMBboYK0kmI8lYiQmh78AvuBejCkWzWJmNXEVpRailPeJDMdt7ObWWuh9A/DvJ2d3V/em/feBuBf14+LU4hGwnT+66DNrcXf1voH+q4fVjQNZhLJgPnknPK7NBVY4HYbhaFtmruQ3zvm97u6e+gcjYS1p2PP/wxohb1f/whLC69gM38GD1rqwX8vyPcOPRlUhtYMY9E0yMRkjDwKtvNQot0/0EeikTAd1fUQJtSVPMSE8OhegomSSm/Ay2fj8HYlw273AsAsGgyAXs9Mxx3fidLtvPPoXmrjeaXTKSsMJiZj+OJeSQhDTpkrBTb6AzhR71D72Q9WWCLYWoDYcGcCr9lZ3m9rAua5nTyyxdJRkXu3beTgqFgWbycwQWTKFUp0npmOh3CfsoeY+qL8gQZmzsrqkOlucyPUkmZTCmTt9YjtQ4eFSx5zNTU3wOriCgyOLmAz0FiNOoa0Wnf8xUb+C78mZwfcPjn51Uu/nX+Hm3U3wJfxwvK7LF3r6u6RhlUaUiaEMYgIQ/l8lSxGIQyh+CM+H0vTQg3IxGBa/R3qAYbsRWqHQhGEg3laS7qbc0LwVLLSgbAuzcPKnvIpoUNFuopn4nlVa43OGEoRhLalhNwBRRibH3b4rKXiSrrKJvGc5t7s8JCytVKpTIeKHFMKvRITAc9MLG4MoQhSgToCxdRn4PDjdn6tmihKwE+ZbepRdq/SH50k1l6u2k/t5PTtIrfqlI74kr6eX/CviqzT1PpP4z5mYA9zBMaGO2lXmUoa2BPdKnGFZ/4T/QTxFFkC5jOGQgAAAABJRU5ErkJggg==",i_ok:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA60lEQVR4nO2VuxXCMAwALc3gESgyDBNQU1MzAjU1NRMwDAUjZIfwVOQ9Y8uS/KPy1Y7vLHDi3GQyGYRf/GZZhyPllgh0Azm9zu7yuYoR0Fu6n5rkMffDDYZOwAtygpsG9pZLPI+PZB32ludOT3IO/Ld8fa9QFOAXv+XG2ypXA0JBHGGRh3ByMYAEtHG4OTcJSb6fPicnQJJzm5XKtQC0yDVZrTwJ0O5yGFH7p4uBXEDJiWvlxM8EwodyL46e8iSgNaJUzgbURFiuW1FASUSLnBDfhFpEzU8UA5ZF2vWsPT1h+hpKghb5ZEIT+AL8jY+ipIyFjwAAAABJRU5ErkJggg==",i_city:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACtklEQVR4nO2Vv2tTURTHv9EktC+alPY9jZmcKrV1U1BBHYo4iXVyEP+EiiIOHUoHB92KFXUoNYOIdrAGAzo0GaxYh0qNGiut9GkdmtqXhCQ2LyUJPDk3ua/vpS9NUoIg9AOXc+6v870/zuUCO/zv2BoYqzUjjq1eMVGS9EoqlTZ1Fgv5hkRrodkdTtpdPeWfitUlatuqsxPAAqCRPQfgZ0e75bjXmTV+rBfLTYFqMe1bCZLIAmAjUfIPJpKW44olU1OM2AUz7FiW4wrzL4RCON17FlbQbnmxO5zU9IIKn0vl/rOnlnNR7iAh7dbtO3ywfi/XbtzUzne0a/0As50GS8UgoJENhULawOCQcfHmHX6fmWWVsdExTIbCzJ8KvkJXdw/zZyMRZh86nJhPJLG7uwfBspVLu2OMjz5i9v3MBwQmnjPfJ0p9RlGWNMMj93D9aj+tDPNxBYdECV/mvsG5T2R++M1b9J45ZWqjoCeOHWVtxJHDXZh4GUT3yeNI/liCqubwbnoaU+FJLMcVm0+UNgRpBT5RYtufi3xiwfa4XGzAWjbLfLJGqG1p6RdaBQE5VUX2TwauvW5mHS0tKKyvw+/3G7M3sClLSYx2yIU4q0ocgtDKfFp5NBqFVxIh7vcinU6xdhIhMYLEiLY2D+KKUvtZUFASIGskFovhwchdvX7p8hUc8Hp1ISKTVeF2CczW8yyQX42zI+Ji5FMhol/nTGM/Rz7qIrwQZNXynErs/Cgr4SJEvpDftFtjH1FNwFKQZxqHX7zxPnIO64DUbxRLZzLwuN3MWmF5h5RtfPVcmLKxHjzu0txqMEF6W8aMXJRlCIJgWnkikYSyEjNNVlZ/Y35R3qivmPu39R1t43vSLOb2VctSW/mh6lTWG6Fo/rJKAsbKwOAQZFnG+JPH+oqaRKDJ8XaAzl/dYZLM52T+kwAAAABJRU5ErkJggg==",i_capital:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACkElEQVR4nNVWz2sTQRT+YlKEFKpJTW29BBUtIhQ0UosgIpbgcRuVkp76J/SgUCx4MlUUETzrQVosBUkCSg9ajRDwR0otCjmUakKwtEltk6aYXJp05E2dZbPZ7G6qEf1gmNl5b983782bNwP8y4hNjuDh2AP8V7DoCeOxoDwuJGfR3R9gNL53a5j/d/aQlcu6+wMNWRyLTY6wAb+PSDnxTrBLa/La8HWZRNEQTZRRXEtpydifCCmTvJ6KiZXUKu/b3Pv4WPTJbA7L3zeM7OmCdbha1B7oNEvdnv4GmWarCXUImNVqQ7lcwgEAJwF8brLV/htA12YJHwEsVU73AQhr6autWcrlEl8hGbiyvxmHYYTdQKagJOzT07bV8JqTfs0UuIfkhVYvUKq2ETYMaXbtPZytPTRkNA5OxTAfT1cot+/ZQjq/fZJyuZw873A4MOg7hcD9cTyZCNKxsty9PWqekCrMu/nFKuXnY48RT2QhXfaj83h71YLCTyew8CWpu4eaB5/IyFh+cUk2SmThF7PcIK2e5slLZTMD3RQU4SNiAZHFgqC4kZFlieQ3Q0JNDwnKFQviDlcL2px2Tqomi0xP487Nqxjw++gzVDehIBXEVMKa1ouyTE12vreX3x6erqM40+lGrQKgS0jZR01gc6+9SmdmZg6nTxzBkHQMobfLWE2v4NzFCzwaIuM195COgcDrqTfckBI/8pVJIeS0by7rFoZujOPSoB/RyEs8e/WJh57gbO1hZop63fVT8nr4fSl5PWqZ9KtVeqiCRalkAiFxX6ogylzYzLGoWZ7UDyt6Ythb3TxpohF9O/pXgQk0H9y+pOklMPoohQ9zC/JZ1cKOb2gNMKNwNgJMK1Eajb9KZoifk+ZOkG/zvRwAAAAASUVORK5CYII=",i_title:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAfCAYAAAAfrhY5AAAAAXNSR0IArs4c6QAAAdtJREFUSIntlD1r21AUhh9Lim8QinBohlCDQeCt0M1DKCF4i6Z2CsTQP6BClw42baB0U1SyFKxq0FYwZOwS/YN2L3QLdC30I1ocosTmdolE/BXLSVo66Nl0Pt73nnMvgoKC/426psm/0aPkFXmwvCwBGooit0xzQnjLNGVDUUZq5x1grvnxYFASmkYqqhsGar8/Uaf2++iGkRkLTeN4MCjdyhzg69lZCaDqPQFgp9udqEljaU3acx3atKAlxMi61i4u0Mtlkr0jKs3mTLFKs0m8d8RauUzj/Fz+XFoayX9LkpEDzZw8AXRVBSBd9a7nYds2URQRBIG0hJCWEDIIAhlFEbZts+t52RVwqZHM8Ji6GksImQCrqsrpcEj3taCyei/Lfym1iaIIx3EA8H0f27Z5KPcBiE9+AfDsTYKuqpwMh4hFJh9npbrJq85vVqqbHLbbOI6D7/vEcYzjODy6/ynLv92fe92LmV/l3YfHmKZJq9Wi1+thmuZE/s7NU9H1jQNc16VWq9HpdHBdl/WNgyz//OnHuze/KhqGIS+3tzF+vCcMw4VMb2SeTrZTr/P984ssPv6dd+03eu3zyPvac5nfhuvMp/7hAARkxuNNebGEkKeXxgUFBQUF/4w/Bbu89y1GJqkAAAAASUVORK5CYII=",i_title_main:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAfCAYAAAAfrhY5AAAAAXNSR0IArs4c6QAAAgpJREFUSIntkjFoE1EYx3/xQh9GbK2WWtLWkBuKoA66ZChNW4QulqbqHISKIliytiAocVI6FANCQDpIQV0EW4hQQcGTgMGltCK4xArRJjXaIFi5QDiX3pFcc/oO6+T9puPde//f+773gYeHh8c/xOdm8/Op0/w4cxOAfZnrAEa+WAXwHb54C4DS3DSX7r+SytvjRm6Kx6L95ItVw1wvlCvGWLQfAPMSMriq3OTehQEDQO1qIV+sUihXAEhmVn2LWhbzIrsqX9SylOamrYrVrhYAtLcbDZnJzKpUnqu228VprUBaKxA93lm/zWh6uAn+ZothIRoCPuh6Q4dM8chgBID0yxxXoj32Dvwxx7FyHQgoihViBtnFACODkYYO1O8PKAq6g6Ppm4eFMHSgXVHYqtW4e0NwoP0QP9fUHeJ6nm13QG97A8DVpE5AUdis1RBuKrezv3uAiTtZ3q2VCIZUZpdWmF1asb6DIZXilwqP8hvM3JabY1cD16oodKttjv/ff/zGib4OUvOx3Zc/eHieULB1x/rM5XEAYuNHGY70kogvSOU1nXYnEvEFzk6e4smLx/QEvpPLfeJa6jOdB/cCsL5cJhE/KZ3nqvLUfIzhSC+vn+YZHVI5IgQT546xvlxmdEilw++39sngatplqWx+BYlpl5L/Db+TO765AEtsPyRLWAhja1vs4fF/8wttG8uAOeWlMAAAAABJRU5ErkJggg==",i_campaign:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACOElEQVR4nM1Wz0sbQRT+djcqmFZRxENRU4Qe6s2LHjS3SBEhbE1aqH+GWOghPUW8CP0nSk6pPyiB0tabHiIUeuzBU9oiEgXb0lTUbqbM7Iz7drO72SRW/GB4y3sz75v38t68ALcQ7Dqd6X7KUiF/RSa/Bak5My6UuaUkMtmU0jPPmdZxXCmrT5ZbXlROTc82lltKMnNmXNj5JdrGW+J0KtGnCBuWx+a9UPSUUtJ7I0PojcXQH++R253FbfeHB5WbrSBfFLEgQ5oUS1ePgctzC3ekalLKw+8nOK2dA6irrSaA7ciEPKq0JHtuGLayXMEDtcFwElK2rCgBhROmCanCH8tCtfEcPkPDBFqH7lW8t4W2blmBZJ1ADzP2qrQSHIX722qZ8JEtGE8tj9APlHQgHqemx83aw7doOF4DeAfN99Bv2Xq8LaoHPygZmlWpK0JFlgS0onQ8kbgrJF0h2EY7fbhrCx4e9a4icP1ep7WaS/kEQLFVwmYR8B7lVcxh1S5cG4rikrpGHoPoVRoERcZfGiPeTU3MFvXAvLdFSPFTPG1OikuFPB1dHadUILe8iNVXm6iexYTzh2N9Qv/l6y9Mz85h4dk8sk9fYOPNDif1L/UA0BFkeuYly2RTjNU/NazjSllIZ5bq0SPkUXgxNOroTr79xf7eR5d9enYOL1fW8GFjR2rqTaeIwFRCpEpF5/eCNAzlUiFP/yWEnQ1F2AEXYSab6pgsFLIilWP2X8kCwG6SDBI3Sna78A9a9OvGqGPr+QAAAABJRU5ErkJggg==",i_return:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACqElEQVR4nNWVX0hTcRTHv7ukG+w2dIz0KWJBTyMx9KWX6MEQ6kEffC+JEIyIEUN82ONKH4RgQYS4mRmBljEKBj70EATZwD+MEAkJFrTZ/jm3mBPujXO23d3NbV7HCvvC2e/fvb/P7/zOzrnASVZweQYvFx/jv5Ku3mIk5MOvzagytvUNy9R63a6y927eHf8rh5O9bpc8NHSdoAxuREK1SafTqUBUxtqLRqqtyc24Urn/ag9OWzrUEETiWXSYDWXj76EfSMSTR+1XV3K7ua3Sg5omCMKxPW0YVsNq6lQVGF+P1WKCJZqCFgUEAZIkqacGALzVAtQl4kk+4XY0hcuCxpBIElZKo8F6j1YCGaq+li1J1uQhQVWq6l1xc1Y6nYIomqgrU9/n9yCw8rPsYdHQqvRjsR1uD/azEM2dGO67gIcvPmJ+1gO7Y0w3NflIO5Bq5sbu3qGHnz+Zw+f1b7h1ewQXz5qwvZPNv5vNceuZflpMj0GtMWQRbHMjpoytZwx49foN/B8CPKbT2x1jSMfDyBzkz2xskdEuSEiggUqjPjW15AklOL9A8QKwn2FPFBE4IdXcrj4wF87whkUoiaoLpco5s8hQih1Bcr/zsfy69gW7yVIaUYjINHtIGzI0HmYweaj2QA2bn51Db28Prl25VFxeEkWTTKYphq2dRrToDdAb26A3luYpRpVaWHjPxd7heAD7/Xu4c97G8/TPpcM+m/YS9HBCq77k/Anq7rKVGZU7MqvFxLWT5qgNLs9QGsmRkI/btMporbLc1Solmovw6OgIJiYmub/odZetfVrbIg+LQ06VerWL6qEWLXV32eB/50L/jXGsrgeVBaFUY4vlri7wOKIr5s6qCliQAqOfZgEZWgVyZG1tWIWCIBdCoTUcTdHAv4SdPP0B7DFcI1IsX2gAAAAASUVORK5CYII=",i_tour:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACtklEQVR4nO2Vv2tTURTHv9EktC+alPY9jZmcKrV1U1BBHYo4iXVyEP+EiiIOHUoHB92KFXUoNYOIdrAGAzo0GaxYh0qNGiut9GkdmtqXhCQ2LyUJPDk3ua/vpS9NUoIg9AOXc+6v870/zuUCO/zv2BoYqzUjjq1eMVGS9EoqlTZ1Fgv5hkRrodkdTtpdPeWfitUlatuqsxPAAqCRPQfgZ0e75bjXmTV+rBfLTYFqMe1bCZLIAmAjUfIPJpKW44olU1OM2AUz7FiW4wrzL4RCON17FlbQbnmxO5zU9IIKn0vl/rOnlnNR7iAh7dbtO3ywfi/XbtzUzne0a/0As50GS8UgoJENhULawOCQcfHmHX6fmWWVsdExTIbCzJ8KvkJXdw/zZyMRZh86nJhPJLG7uwfBspVLu2OMjz5i9v3MBwQmnjPfJ0p9RlGWNMMj93D9aj+tDPNxBYdECV/mvsG5T2R++M1b9J45ZWqjoCeOHWVtxJHDXZh4GUT3yeNI/liCqubwbnoaU+FJLMcVm0+UNgRpBT5RYtufi3xiwfa4XGzAWjbLfLJGqG1p6RdaBQE5VUX2TwauvW5mHS0tKKyvw+/3G7M3sClLSYx2yIU4q0ocgtDKfFp5NBqFVxIh7vcinU6xdhIhMYLEiLY2D+KKUvtZUFASIGskFovhwchdvX7p8hUc8Hp1ISKTVeF2CczW8yyQX42zI+Ji5FMhol/nTGM/Rz7qIrwQZNXynErs/Cgr4SJEvpDftFtjH1FNwFKQZxqHX7zxPnIO64DUbxRLZzLwuN3MWmF5h5RtfPVcmLKxHjzu0txqMEF6W8aMXJRlCIJgWnkikYSyEjNNVlZ/Y35R3qivmPu39R1t43vSLOb2VctSW/mh6lTWG6Fo/rJKAsbKwOAQZFnG+JPH+oqaRKDJ8XaAzl/dYZLM52T+kwAAAABJRU5ErkJggg==",i_era:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAC3ElEQVR4nO1VXUhTYRh+jujSM9Mp6uaNaGlG9DMS1CwhUClNKREMu4i68KYiCLoXvOkm6K6LvKkLk0bSIKgIoh/JoBAnUiiYjCCcm8xz5namUzzxfvObZ3OenYNdRQ+M8318P8/7vO/zvQP+dQiZNtwbuImDh52mLu3t6zdNqJoJygyEdGQ2MY8NJCX6t+9GtnYiLc3CVlKbtOHOjcsYGByE59sn2B12Q0yPhobx4OEz1TUyJKSmNzUKlUjfvHyOYCgCOSjDmm/F8aM1bNEzMYl39x/rkrXcvYaxyQWMjr6gaTcA964KKQBbSa22fuhoO4W21jNY9C3il2del2wspqJOWkGF3bLrnlTCjKBLmy1CYqwFr7nglw0TspQ+HX6CjdgGIuEICosLmTq/BNRfaEZ188nE5naA7dOiQMyBa2rOGKG0NMtSyl1KaGk/jyOHqrC56mfz4gKrXgJAtddDEiF3qPY5LHinqZJYVRTkiiL7EkLKOlPDx5trYTbO2pdvnJA/i54eMhcQDflQf6I6sc7JCNy5Pp8fuSKt5UBaXk4Q74asFIXqh9dDSRtkJbZ1qQhlQ2W/hqYGtkZ1TTpfVKRLtkMhGexse3+S9aRgABe7WuGd9zKDkLIpzzSrFdVTm2JSF10XjCt0jcTVkWnixhFQXnlsx6GZ7zMQs7cvplSSoyVpBWuRkHGFvX39O54FdRpKKQd1G07iEEWmTJv+QtFinDBdp2mqq8btW9dZ7ThC3gBCCDBFxfZy9v06NYfamop4MMGAYcK0cDjK4PsdV2bZb0NBZSnevv+CH68+bgd22snUyUrMlMK0nYYMw0ENnVR1dZ5DY9VPzMgyU1ZWWgJ/YClj8LqdRlJW0dHWiKtXOpG1Vas8hFkghArnAVASKaVGyAx1Go5tywsJJ/ozpM9EDbnlVYx/9mQ0QirGJ1jz7ta7ORXJ/zvm0b31dRslJFzaI6l7j+f/A4bwB7/wVavOYeFbAAAAAElFTkSuQmCC",i_heir:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADBElEQVR4nN1WbUhTURh+VjbnB67SSczyW4rIoASJ/KpsFkExGeWfIO1XGf2oftmHhJFRYUGQH3+yQAozMJLCWqk51w/H/jitRPwY6gqnieI+1OLGOXqud/duY5KF9MDhfd97351n73POe+4BVjM4zoGn1dfx/6G5rZa53OIQPlsW1gSSZH7bTMkeVF3Fae1u6r+qrcdfwc2SAuZymqxULiRUQQeJi08dXnnCWbuZkjES0dBqslJXbkcKQAlm7Wauv6dJTAq3vVSc7xMy+AfHqhwZs2HA1AJjVx8ydqbwCZrC+4HO5T2J/FOZLExC9KmzU5yKvenpHsRueymdT6Eqgy8ECQNCQMj6e5qwOVqN9td1Xolo7vQUWt/rERyhpMRk9ypUZRwj9QWZt+oIIamKTcgpNiwkuyclpAxGwzA+WmmcD+BlYBWO3/Z42VHXTW1ucQa1HyqN1CbkJSAxWY3RMQcG3w3SWB4bC1gtWFbjC7Xv7LVR2y76gTAe6v0BU6gCNlc4AkWQSE7q99nHMT/rQObJHciNUPLJJE6ekWNT+BysNheSdiUh3jmJmGiOSspAelNvsPgnfFZzl3+4dqgLc2NDknViIFICDlG8BL3BQna5zK+kOt1RycvvM3KPQSb+5fTcOAzxWzcyt3HRcn4rJC1AkvSPL9B4/0GNRyJbUyF+To2gwzINdcgMjXPilHSnkvZaH5cBl9MtqZQn/OIK4ycmE4mlFMtG8LzjG7pNDZLn8qhtcDomkJe9h8rLcQ4Z2x88ezbR3m5GsCqNI1+IUZt07YSIjgyC0WSl/qUbF6nNP3IWmWkpqK4uR8Wdh6htaCNVevTmkqQAal4syH+5/BEGPrf4JUzcfgDnCnXUP5RzguY3vqlCiiqKnlLHigoQo1biyq16341//kwJJi2tpHyvCy5GSKiCVjQ3/pW2UsW1e9gSuQ7DE/O8FcPfuacNgLORERcd34fKJ/RmIAaRE0xSr4SB3ldIRXqDRStoBSGBED7P1j8BvQEgMGVWDNp/SbY68RsCZVr7/uaISwAAAABJRU5ErkJggg==",i_abdicate:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAClklEQVR4nO1VXUhTYRh+zqYN3cytwgkxd9EPjC4knEFiTJk3wqDpLrqwxLoxkLwNug/qugvtoiRx104QuilQ6KYfggrUXRj+lGyjs52Vm5xkO/G+7Kyz7ahnalLQAy/f//e87/f+fMB//OsQ9ntwZGkUHdFL3D9tt6PLFziYJiNLo0a2KQU5FCjaQXhmioUUCQ318/rc/Kxyf+xBkdSgkvpk2ouIqHw9PDOlDN8dZOnp7eS9+yIsXK6Ehvr5Ms2zlQgpdP7yBSajtjAfPEjQKF5/O+pOnsDtgRtY2fiCtZUFfItv4pTTxu2naBTShohELAHIeTrTByBSNSFZGfC1odHuIUvw/vUbvrwcTLYaU4dEhr0Ia/QmB65eh+o/IltdX+f54/X1yAgKcpktHmvIYISsAmlpsSQoSMhXTe5mxWyzlIhgMrHvKFJpn6rg3PwsDFt4LzZW7Ks+I7ScdeFKdwfS8QSknzL7dUtMcvto4ikS2QzMNgtym7LS5QsIVT8pgciWP36G3GCF2+XiS9FgRR2svG4/ZoEkJrGQFPmJc9vb6tFgWlqMNNo91RFqQWSWHxm2TgV5kfypwlxbi5zM69MFMl1LTbsRqQT0fGqfSEi+Z7PF4CGoFja5m9UppWoL+fKkuGO2luUgQxRTHHznWrspiom05HTJoKe3Ey+ev2LtrjkdkOMpWJwOXTJaIzz7HdkV8IcG8e7lW1JA0PWppi4pQQNCqeH1txdTg9JFTRUqjTQuL3k1O2StEDHy7eTzaPN6cLH1DPBhGZPhJ/w30vjOzVtcAh8/nDTsQ8FAMZ6m1CF8lSRMjI9zf01KocXu4PZPgJ9ul58lqFVcOCxSTb9PZ726GrsXBBOnc4U1R4HgkbD81fgFuUdkYA6n/gwAAAAASUVORK5CYII=",i_empire:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACeElEQVR4nO1VQWgTURCdaBukQk3ZinpR0N48FEohvTQ2vSnapDl5KQbBo6XsIRQEi4dCz3rsqUhzkq7mKio0COLFpop6KFIF0VIDGkjBlbDypjvhZ/fvbtL0IvhgmNnZ///7M3/+fKL/+NcRC/nnHPJ6/gGLRHRn33ROXThHdnWH2kF9r8Hatv/41owConIGEsdYdyGBUHfjTLrGD+oOm/61m+jROQc1voaRoKPVn6wB2BHIEtHjqEHaFOVmcjjTpj2WHI1Ke9YVPQpmnnWlXJKdqeIYrghRPN7bJPcQZCPJVMLlhTnKpEYoHu+lorUifiZChBCQgRQ+bEIIMTY3kyNUdyRMo481yMaSozxRTZGkUxWJUhXM7ej+YndChiiK1oqzvfXaKZh5FqQQPtiZ1AjbdbvGtmyqUi6xrts1LccRSSXw6cNbGjrZz/atm9dpo/yCnj4s0tZujeXy+bN0f+kB21fTKXq09oSKi3fp1dcq3ciked7w+BTr4/H+8HMEcA5uWnwpRcRe0aTUQbTyT2ojFGhvgNsEuEpNo08rl4wEL2y4qUR6IcsLc2r1hmPS33naamc4ayFUrktkq5MIOQJlsJYEqUNkQgYNER+KykvaE/BakFHd42if7w+OadJjpa9doaHkBH/sfvnI+te373TizOnAVsdVqsMzdB7PYJGCmece2fi83TIHZKqub7zxrdsSoUSHiNzIgGnvJFwLYH3zPd2bn6X1l+9odv42XRwcYP+qtca+gyCqL7YUjQiuRlAz1z5PCkKfl0q5FBsen8JCFhqEYOd386TU7EQ+VZ0g7JlqQWDRdAjd6z7d7sBu4I3oUNN4IPwFuOCLL5ZrM20AAAAASUVORK5CYII=",i_rename_realm:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADjklEQVR4nO1WXUhTYRh+tmS2NTtlbmni1EQLSopKCiEqqgsLYt1F3cVqQRESZBaNkIp+LmJ1ERheBGEIXbiK0jL6kVIiCyIrW9iyEepm2XHLtVE78X7bGeecnZ0WUVc9sH18P+d9vvd5f84B/jF0ygVP6wmMjGs/tGFjOW7e8GHXnoM0FTLZ+hsQ6p2bBKe9VpAQa0KvmAu/83PaaxEZHZM+b6/jDJqETIYPvjbYyrcINBKCH+OITMZkB79/T+is/6pHfFocOTkzcen8Bbx98zZ15u7rIFpO1uscje6MhDnSCRER/ENDyDeY8Dk2qfpQPkwAB8xdVM0IhXwrdJ8DbM/R6LZTKmRFKKLAUgSjyYBpkjXyOM7z7BK9/a/Y2ryqMtwimZJkIkjWDj6WPWG/dxgDL3pZfLxBHhPhb/gw6EcwLDfy8PZFVM6rTMlqMRvoTLttzTIdPD3ZEVqK9Ri41At387W0w2TQVlGC6eapqLJwGAsOp2QlVJdwLI7Nnp6MsqYRUhxrli+BizOj2FaNmsWl2LnbhafPB9HZeZFJSwn0ZfwbvkajCEdCaZcKhmPtdZxBpyarjJCMsdjl5mLt6hqWkVJQMhFJJPAFv0IHH1P1UmaRyMRy+DjCwx8aTysPJczGPPCG6b+8gCqhaJy8kF6CYiaCvP8UibAfgSQluUUsm5KQFQDJqk2oRHEhhztdD3Dv0Us2P3q6hY2zjEY2iqQEShYlkrJqE4odhTyhxDjQ1JzaI092OI/AaJ2RIlWi7wfSyicrD6n4yTiBeibB1bCVGdu2vUnm6dJFFWx84edZadQ7N1GLo6V2+uu+cjYzIWUmSUl9koyfOuKEtaqM7ZXmW5OGBDgaz8okJbjPHcLew/uQx5nRer1LjKVwwrFfnZDk1HMcPFfvUfGym69bvwoB73u23+97x+QkT4lUKjfhyeNnOHfsDI6evsziLkorjWVa4VNWFhUWMTJXg4PVnnF2QWqfapBKgWRTvJoU3Umn+opkhO/7RhOTnJkITYxieGQYK1cswP3uXiwsn8suQNIShpKNmmSjdTorweZE3NTJVD2kzHzT1pmazz/eBEQSkooI8WHZmA4hw7pKp6H3oIjoHA55pqisBEhO8k4DOq1N5qF30McmFC+SMVBWwubUYbqv3WavKC0kO81mBamQzW2y+hBSgUjmUbEn21NzP60dZYlMnxV2rU+O/8Cf4id/w5Af+wAYfgAAAABJRU5ErkJggg==",i_rename_ruler:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACmklEQVR4nGNgoDNgJEbR5tklYNo2yJbh8LrDDHfvXmQwsA9hcPBMp76LDmyficz9D8W0AQcQloEtOrB95v/Ns0tglpJlOSMuiQ9vNzIICPuDLQNZ/PnJbbA4KDhBQFlZH8wu6NgNchgjscHLiMtnUANAPmI4fuEMw4dXb8Fy7979gqsTEmJjmLb6MogZmBWquwHKJt3CPAYGhkkMDP9lpSQY3n/+zPDzDzNOA9hZ/jJ8+fwVp1noAJ+i/6ycfAzd+eYMrFIGDL+fXUCRfPX5N4MYLytDUdduhn//wEKBDAwMGxgIABZ8kiDXg+Jqd2o3htwDblYGnQRrBi5ubpgPiQJM+CQFeXnhiQQEXjmrM/wJ1QWz73/9zUAOYCFVAyjRfONmZVAEpWRoQqKahe8/f0bhi+29CQ9OkA9laOnDB9ysDDJeGhDOthtkWEVGkD7BYtG3r8QnGIKJBpb8YQCUKkEYBpALASj4T6i4w+tD9Ax/ZcFRfKlzPShbMzH9B+XL/7jyOBOuchQGQJkbFH8woAhlf5CSwNAX4azGoKerBuMGYLMTb0kDIrx1xfEoYWDYevklnA0qd5eu2MywApqasdnDgs1nAsL+/0HspLS5eC3bvO0Ag4G+GoOXjRTDjRd88AI9KNiPQUPiE8O2I88YLly8BXM8Iy4fgqsjXODq7TtgWltVhWHSnK0Mp4+fYiiO04VXVzCwe+slhu1XXyKXsyCwAauFIBfeu0NcXnv7+hPD42cvGCZUuMJT9aRFp5HLV7hl+Mz5TwqWlZIAtwRAdISzOhgjyQcQm2hQFOIB6yOc1Rk+v/oAT0DeuuIMBx98gfmSqGqLFPCfh5cbw9dMTNh9SLCkIQIwosVXIIiBllhoAgLQfIPOHyEAAI0QGiARnKcoAAAAAElFTkSuQmCC",i_purge:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACVElEQVR4nGNgGMzg48cEho2rrelu739KNDPi8gkyeHpHE0xrGZf/P7OllcHEpxrkU7BeBzdVhkM9fxnsSpgZDuy6zeAfepSBWuD/5trY/5l+OiAfgnAAOYYwwRhTpUXB9LWznWDDsWCG0+/uIetdj0vdR7QQwhqksKACaarLtmb4+uE7XNGv338Y/vz4x8DFywZng8CHHwiDBDgYGE4fu8tw5s13htwwPcbJqy4R9i7IUij4nxumh831OMXrsq2RgzqAgViwuTaWAeRDJMNgBvzfOTsd2UKYOFweJk5U1skN04P7LtNPB0xHukESCMgROCyEhQZ6qBAN/hdHGyFrIuRDnOqnQhMhVtDdagSLP6zxA5PDZiE2fA2S0rECFhCRlqPHwM9fDTKQQdZICSzx7fkfML3/4lpQ6oUHEyyFgrIFNvXPT94AFxCgHADySGn1OUwLm7LASZjRPXUmKIgYnr3+xfDtw1uwgkMXX+JybKB76sz1TbFmDNdffsOmPqC0+twGBiIAtmAKgJU0sISEnGjw6MFd0iBKCEZQYRCIhuEA5hMQgKZemHoGfzNJBhMRTuSSiGLw399MEsUHUAv+m4hw/p8qLfo/g4AvmYixBKk0wShLpZUESHIxCyHLoIUAuNy8eBpSeIOCDgY2nnr+n5oWMoAKZGRw9/NPUswn2ULGM2++E/JBIHICOQOK0zffybYQbCkxpT+oWjrDgNsiqoEMCPVfkJ2JaqmUKKDMy44IUjqA/zBfMmDWo4RbbRRYygAFsNIJoyylpoUggOwjogpumgMAMmFJDUQUtiAAAAAASUVORK5CYII=",i_recruit:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAADYElEQVR4nO1VS0wTYRD+VlAIcCgCRV6p0XAgEIOExAsnrppYYnxcRD0Zgwf1giLGi4+DB4xGBKMx4WB4aApEExOVAKcSUmrKS0QpT0tboDxKWxSyZobdsl1aKIjx4pdM9v93J/838/0zs8B//EuIoghR9PHzr+B1XU1YPoaWdzuRiejfF58v5tcqw6i1e0vBbYYAgjX4xFFrt5o8bI13hciMDmWpbpbfkL4uYaDPiIE+M+x2O7+ZcQyyT+WTCjlAbJapEEjogyBEM5nJOgpDTR12R8XA3GnEx/cN7ONwTuHeg6fISE9DfmEB+9C6p7cfTYZGClgQhIBjAxCp3Lypr+cnkdn6vzLZryUPuro+Y682E1evXERbewfvCZUpFewz6XShrbV1NQNB0ANoDEtfhRzi8SK9mJeXK2riNcHuS9zAR4+tQLqPEEXjY1v22NiCBKHfjFB1hyJJwpe/7LHhm3UYCwuLyD9SAJdzDLbxEfaLiIqFNikR34dGkJycDI/HjX77DIoKj/KZ0jkb3yFVHJHJvfXsZS1MlgHcvl6CFa+LyYhoZWmRzeEEOk3dmLB9Yv+0FC1X9N0798XyW2XChm1BMlJRECja6hevMDj4hfdxsdGYd7v9ZDJoPWFzYGx8gvfkL6+JNNT0YcIzJ4/5X5A0HvcMYuL2coW6F31sSjLPT8ncM5ibm1+t0vYO9FgsyMvLhSZeQ/KKaz2sIlRixTmNea/Ah9BhahDRuGfJv0/U7uM+LSu9BpPJzFZScknOVB/0DimDcCCTUVBUPtOzXjQ3NWPWNQedLhUr3kmWn4aABIP0FAIypHuS4ZiaZinJQpHJIAmfVz1Cp/EDDh7Q4Yd9iidReellHuzKvg4gVEKbmMDTg4yQmpzIAcXsAdJjohCRlOD3zdDtx4lTZ3H4UDartOCy812TrzIJCXq/pLUNbzkKqiyajRQ5Ycg6DLOlVyp/BxeJDJJTBslI1S0rQaA2IrXUUPfLln7lVI0Xzp3mCqWiycpMZcLHVTX+oOW5C6CIZmxkkADCnoWzrllDxcNqXufkZPL0sY2PcHUriGQyhpoQ6klPvaSUkkA9SpWYk50lSKVvaGk18rcJGgYjw+uIwv6DhIlQfxS92nFdlW4TwWZnUbiOfwJ1Rjsq47bwGz1WFJJwBJwaAAAAAElFTkSuQmCC",i_road:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAC7klEQVR4nN2WTWgTQRTHX2KJaWyCjZo2bURsRGtBjBE/0IM9eVEwiSgeiyCoB6kFDyJ4UMSDWIqCFgTpUQRNvHjwIHpQUiJJBJUIGo1N2jSR2O/ELRJ5LzvT2STbbEku+ofHzkx29zf/N29mA/Cv6+JSsygEl77RwG0D+wh23rsLfG4bhQhtKPBc/yU4OzjK+/FMnq4uh5lDmxoJdO/v5O7SiRR02Zrh+YcpKEgSjnsBwNMw2LHjXgYr+ty2osthphDW0VPT4YNHQ3Cwe61i7O7IR7g/dKsileJYXE5lLPObDdFsUDoNk1dU2TLPUCrfhr7wgWhyVoQFVIsGnbGXfIqOgBhsAuwelsqHgxdo3cpgIMJqVSm95E1sShHDctljqnECz574aVKow72bqVAEGE+lKhBnfuZUP+9PfC2tByocTMF3/Q5q97j6PD2uPmoHX4ZBSo5yqK+09yrcVQWuGo+TA3Typ6OLQxnY1OqE6yd3YtOP9+EeSwVf8+dfvPoGT8OZqu6qVunpgTt0RScmBGVz1JcKC2AwmqivW1yaJ6Yv+vg9be4De7aUwxTuKhyytUBt7TDxtn2DFTZtdBAUZXHuln8xyFEC3/NHxNdVwCqAt4dDPJ3JvJ3cIMTubKYozP+i+7Jzq+W04glCp4hmNYnuWBFQOoWbxMJhLicW9WA0GNixJcqrCYiVxoSFwdYOlRhL8ja6NK5phemW7VCQImqwgBqQp1SuSEpnuRuE/MyOK6BzC/kVwzhQ3HuYTrZ2KAT1HtkLR08cgvTkJAf9SCRXDONAce9hOhlMTQi1Wi10rOH5iXvy2o2bNWEcKO49ce0odbMziqJB4ViL2UJXdn5evXJZ07dOXz6A7hDEtgATQnO5GYIwKGp6femoQ5UdacsCeTrxNLGs66RKxGhvayPXWKmYRnSGIUoG+UW4mnTit+zzvJU66ESLiukY6Nq7qR15F2LFE6j5IPvk1Bm4hh6tDpnq/ZMTqPP5/0B/AbkTgFAse5zaAAAAAElFTkSuQmCC",i_chief:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAF1JREFUWIXtlVsKwDAIBGPpfbz/LfRE2/+WSAl9kDDzuxIHYUlrADArOhERGnlne14NAQQmE7AqlDRUrcsSs+6e3y+AwF6FmdnN3P327CvwFyCwjEBZw4rPawewLAdcWjLKGZ6mPgAAAABJRU5ErkJggg==",i_office:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAJRJREFUWIXtlcEOgDAIQzfj//9yPZnMZDDa4Wm8o9mwlKKtFUVxOl29CACfQr1LtdIEqEKunZftnm0RB8aCXnfqSNxDs26yRZgjsKz0LFaCGMoAwygikod7VSiaAZV0B1hMBxRmlr/PLPeWDrAzZaFHoGyBl51wqJgdZ4JLpZrpHgAiW0OvVdZPSBZgCfnjG1EUxRk8BABYFU0Yl2YAAAAASUVORK5CYII=",i_seal:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAACQUlEQVR4nGNgGAVUBoy4JCaXxsDZht1LSDLUhmEI+PA/rcxmROZkBjkwTF934D+IBoF7p88xvPzxmyRbxDlYGY4/+8zw6e9/hmoGBsZWYn3Ix8zIYGxlykAq2H/4FIwZCKU34NXw//9fBPP/X6Lw9w93wPTje+dBUQHCAVCMAVjwWf7j4304m4NfEYWPTe2rD6/h/D07eje4eBSTZiEM1Lb0M3y9d5WBW0kbTMPAjdff4OyeiS0oejiwWEa0hRpKsgwMIAwCMJqBgcEYZvG9x2D6/avLBPMiXgvf//jNIMjByuAV5A+mkcVh4O+3HwyGH14ziAmIMrx/RdjxBH345t1nhrj4dBSxu9dvofAfvfnAMGdaB4OCEivlFjJzcTBs27wMQxzky+fPEEEpKKbLcP7EOcotBAVZbc8UFDFYAoqM8gfzQZYRC1gIWUYIHFu+CExrOhtSbiEM5GelgIMW2QGgPLfOyA3M3sfAwODUvYThZ0k2A1UsBGfoD4hkDwpCkM/AFkExiM23cjFlFsoo6jE8f3kLbBnMImwAZBkIXP/ORNBClML7CAMDg/X/vwyMjMzgGsPYxQMu9/3+FRSN1+4+Ybiw7gCcfxVa2GuIcoFqHAyzsVroaGsGKu3/u8vyMfxS0GB4fwNRcmADnK+/wy0TEORnEGL8SbB6wgX+E4MtkWgYmwGBsdYYuOKQEVf1ggTWwxjHGRgYLBHigUhq8NeFyKAahziSwSi+QmIHMNAQIAcd3oqXgYoA2QKaW0YyAAC+AA1ik0VlfgAAAABJRU5ErkJggg=="};/*ICONS-END*/
+function ic(name,size){var i=document.createElement("img");i.className="ic";i.alt="";i.width=i.height=size||20;if(ICON[name])i.src=ICON[name];else i.style.visibility="hidden";return i}
+(function(){var n=document.querySelectorAll("img[data-ic]");for(var k=0;k<n.length;k++){var src=ICON[n[k].getAttribute("data-ic")];if(src)n[k].src=src;else n[k].style.display="none"}})();
 (function(){
 "use strict";
 var T={
-cz:{i_campaign:"御驾亲征",i_return:"班师回京",i_tour:"微服私访",sh_tour_note:"去哪座城。回来带回这座城的真数；路上有患病、遇险之虞。",tour_months:"来回约 {0} 月",away_campaign:"车驾亲征在外：奏议与案子由朝廷自决。",away_tour:"微服私访{0}，约 {1} 月后回京：奏议与案子由朝廷自决。",c_toured:"亲见",d_pact:"盟邦",sc_enter:"进外交台摆条件",sc_note:"条件照议和台的口径折成户数来称：对方那一边不亏才肯。",sc_will:"对方肯不肯",sc_yes:"肯 · 余 {0} 户",sc_no:"不肯 · 还差 {0} 户",sc_human:"由对面的君主裁决",sc_quote:"对方开价",sc_quote_none:"眼下什么条件都换不来",sc_quote_free:"不要条件",sc_take:"照此开价",sc_give:"本国出",sc_ask:"向对方索",sc_hu:"{0} 户",sc_nothing:"没有可摆的条件。",sc_send:"遣使",ch_accept:"应允",ch_refuse:"回绝",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"点一位要人、定一个罪名，交律法论处；判得重了有代价。",law_nobody:"眼下没有可查办的要人。",law_pick_charge:"{0}：定什么罪",i_recruit:"招募新军",sh_recruit_note:"在哪座城招一军。钱从国库出。",spy_purse:"君主私财 {0}",spy_hire:"派暗探",spy_hire_note:"雇金出自君主私财。暗探每 {0} 个月带回一项密报，数是约数；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 雇金 {1}",spy_has:"已有暗探",spy_none:"眼下没有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月后回报",spy_recall:"召回",spy_sweep:"彻查暗探 · 库银 {0}%",spy_sweeping:"正在彻查境内暗探，还有 {0} 月。",spy_full:"在外的暗探已满。",spy_poor:"私财不足",ch_kill:"诛杀",ch_turn:"收买",ch_release:"纵归",k_spy:"密报",a2hs_fixed:"改用固定地址打开",a2hs_fixed_note:"固定地址 {0} 不随电脑的地址变。加到桌面之前，先改用它打开。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏议递上去，之后票拟、廷议、批红照常。",sh_heir_note:"从在位君主在世的子嗣里册立一位。",sh_abdicate_note:"禅位之后这个席位空出来，可以再挑一位君主。",sh_no_heir:"眼下没有可立的子嗣。",sh_chief_note:"设内阁的朝廷才立得了首辅。",sh_holder:"现任：{0}",role_official:"朝廷命官",stale:"游戏里的终端还是旧版：重启游戏后，新的政令才办得了。",sent_ok:"已下令：{0}。办到哪一步看「政令」页，办结有回奏。",sent_fail:"这道令没发出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政区 {0}",g_staff:"人事",st_chief:"首辅：{0}",st_no_chief:"眼下没有首辅",st_make_chief:"立首辅",st_delegate_on:"委首辅代批",st_delegate_off:"收回批红",st_delegated:"眼下由首辅代批：奏议和案子都不再等批示，首辅一派会渐渐坐大。",st_direct:"眼下亲自批红。",st_vacant:"空缺",st_dismiss:"免职",st_appoint:"任 {0}",sd_title:"各派表态",sd_for:"赞成",sd_wait:"观望",sd_against:"反对",sd_own:"上奏",sd_favor:"圣眷 {0}",chip_grant:"授虚衔",chip_favor:"动用情分",chip_silver:"赏银",d_gift0:"不带礼",d_gift1:"薄礼 · 库银 5%",d_gift2:"厚礼 · 库银 15%",d_gift_note:"带礼能补好感的不足，谈成了才付。",cd_road:"修官道至此（约 6 月，按里程扣库银）",i_abdicate:"禅让",i_rename_realm:"改国号",i_rename_ruler:"更名",g_home:"内政",i_purge:"拨库银整饬吏治",d_tier:"拨库银 {0}% · 积弊约降 {1}%",d_abdicate_to:"禅位于 {0}",d_now:"现为：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禅位。",purge_go:"整饬吏治",a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。从桌面打开后要再配对一次。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分钟后朝廷自决",d_support:"廷议赞成 {0}%",d_chance:"成算约 {0}%",ch_approve:"准",ch_reject:"驳",ch_shelve:"留中",ch_law:"依律论处",ch_redeem:"戴罪立功",ch_death:"诛杀",g_court:"朝议",g_palace:"宫廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏议在办，办结再递。",d_none_court:"眼下没有递得上去的奏议。",i_era:"改元",i_empire:"称帝",i_heir:"立储",d_heir_now:"现储：{0}",d_age:"{0} 岁",d_orders:"已下政令",d_no_orders:"还没有下过政令。",o_sent:"在途，约 {0} 月",o_done:"已办",o_failed:"未成",d_confirm:"确认：{0}",d_home:"都城里的事约 {0} 月办到；遣使要等使者来回。",d_envoy:"来回约 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下没有通使的国家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
+cz:{an_lands:"所辖王国法理",an_own:"尽在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族谱",an_history:"史册",an_dejure:"法理",an_loading:"正在调阅典册…",an_none:"没有记载。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"左右上下拖动看全；点一格看详情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定为主法理",an_set_main_note:"国号随主法理而定。",an_name:"国号",an_prefix:"前缀",an_suffix:"后缀",an_blank:"不加",an_now:"现用",an_refresh:"重新调阅",tab_annals:"典册",d_sure:"确认",d_go:"下令",d_count:"{0} 项",d_left_tag:"{0} 分钟后自决",sd_note:"点一派可设法拉拢",st_chief_l:"首辅",st_seal:"批红",st_offices:"官职",st_vacant_n:"空缺 {0}",spy_sweep_l:"彻查暗探",spy_sweep_cost:"库银 {0}%",i_campaign:"御驾亲征",i_return:"班师回京",i_tour:"微服私访",sh_tour_note:"去哪座城。回来带回这座城的真数；路上有患病、遇险之虞。",tour_months:"来回约 {0} 月",away_campaign:"车驾亲征在外：奏议与案子由朝廷自决。",away_tour:"微服私访{0}，约 {1} 月后回京：奏议与案子由朝廷自决。",c_toured:"亲见",d_pact:"盟邦",sc_enter:"进外交台摆条件",sc_note:"条件照议和台的口径折成户数来称：对方那一边不亏才肯。",sc_will:"对方肯不肯",sc_yes:"肯 · 余 {0} 户",sc_no:"不肯 · 还差 {0} 户",sc_human:"由对面的君主裁决",sc_quote:"对方开价",sc_quote_none:"眼下什么条件都换不来",sc_quote_free:"不要条件",sc_take:"照此开价",sc_give:"本国出",sc_ask:"向对方索",sc_hu:"{0} 户",sc_nothing:"没有可摆的条件。",sc_send:"遣使",ch_accept:"应允",ch_refuse:"回绝",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"点一位要人、定一个罪名，交律法论处；判得重了有代价。",law_nobody:"眼下没有可查办的要人。",law_pick_charge:"{0}：定什么罪",i_recruit:"招募新军",sh_recruit_note:"在哪座城招一军。钱从国库出。",spy_purse:"君主私财 {0}",spy_hire:"派暗探",spy_hire_note:"雇金出自君主私财。暗探每 {0} 个月带回一项密报，数是约数；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 雇金 {1}",spy_has:"已有暗探",spy_none:"眼下没有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月后回报",spy_recall:"召回",spy_sweep:"彻查暗探 · 库银 {0}%",spy_sweeping:"正在彻查境内暗探，还有 {0} 月。",spy_full:"在外的暗探已满。",spy_poor:"私财不足",ch_kill:"诛杀",ch_turn:"收买",ch_release:"纵归",k_spy:"密报",a2hs_fixed:"改用固定地址打开",a2hs_fixed_note:"固定地址 {0} 不随电脑的地址变。加到桌面之前，先改用它打开。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏议递上去，之后票拟、廷议、批红照常。",sh_heir_note:"从在位君主在世的子嗣里册立一位。",sh_abdicate_note:"禅位之后这个席位空出来，可以再挑一位君主。",sh_no_heir:"眼下没有可立的子嗣。",sh_chief_note:"设内阁的朝廷才立得了首辅。",sh_holder:"现任：{0}",role_official:"朝廷命官",stale:"游戏里的终端还是旧版：重启游戏后，新的政令才办得了。",sent_ok:"已下令：{0}。办到哪一步看「政令」页，办结有回奏。",sent_fail:"这道令没发出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政区 {0}",g_staff:"人事",st_chief:"首辅：{0}",st_no_chief:"眼下没有首辅",st_make_chief:"立首辅",st_delegate_on:"委首辅代批",st_delegate_off:"收回批红",st_delegated:"眼下由首辅代批：奏议和案子都不再等批示，首辅一派会渐渐坐大。",st_direct:"眼下亲自批红。",st_vacant:"空缺",st_dismiss:"免职",st_appoint:"任 {0}",sd_title:"各派表态",sd_for:"赞成",sd_wait:"观望",sd_against:"反对",sd_own:"上奏",sd_favor:"圣眷 {0}",chip_grant:"授虚衔",chip_favor:"动用情分",chip_silver:"赏银",d_gift0:"不带礼",d_gift1:"薄礼 · 库银 5%",d_gift2:"厚礼 · 库银 15%",d_gift_note:"带礼能补好感的不足，谈成了才付。",cd_road:"修官道至此（约 6 月，按里程扣库银）",i_abdicate:"禅让",i_rename_realm:"改国号",i_rename_ruler:"更名",g_home:"内政",i_purge:"拨库银整饬吏治",d_tier:"拨库银 {0}% · 积弊约降 {1}%",d_abdicate_to:"禅位于 {0}",d_now:"现为：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禅位。",purge_go:"整饬吏治",a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。从桌面打开后要再配对一次。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分钟后朝廷自决",d_support:"廷议赞成 {0}%",d_chance:"成算约 {0}%",ch_approve:"准",ch_reject:"驳",ch_shelve:"留中",ch_law:"依律论处",ch_redeem:"戴罪立功",ch_death:"诛杀",g_court:"朝议",g_palace:"宫廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏议在办，办结再递。",d_none_court:"眼下没有递得上去的奏议。",i_era:"改元",i_empire:"称帝",i_heir:"立储",d_heir_now:"现储：{0}",d_age:"{0} 岁",d_orders:"已下政令",d_no_orders:"还没有下过政令。",o_sent:"在途，约 {0} 月",o_done:"已办",o_failed:"未成",d_confirm:"确认：{0}",d_home:"都城里的事约 {0} 月办到；遣使要等使者来回。",d_envoy:"来回约 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下没有通使的国家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
 e_wrong_code:"配对码不对",e_locked:"连错太多，稍后再试",e_full:"席位已满",e_net:"连不上终端",e_code:"填六位数字",
 wait_world:"世界尚未载入",wait_world_hint:"电脑上进入一个世界后，这里自动接上。",
 vacant_title:"再择一君",why_none:"这个席位还没有领君主。",why_dead:"{0}的{1}已驾崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -249,7 +322,7 @@ officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上
 f_treasury:"库银",f_army:"兵额",f_people:"丁口",approx:"约 {0}",n_book:"账面",n_roll:"在册",n_hidden:"隐户未计",n_true:"实数",
 wars:"战事",no_wars:"眼下没有战事。",w_att:"伐{0}",w_def:"御{0}",
 provinces:"行政区与藩属",provinces_note:"朝廷治下的各行政区、羁縻之地与封国。点一家看它的各城。",pk_province:"行政区",pk_jimi:"羁縻",pk_fief:"封国",pn_province:"流官治理，政令到得了的城才有确数。",pn_jimi:"羁縻之地自有君长，朝廷只知大概。",pn_fief:"封国自治，朝廷只知大概。",p_cities:"{0} 城",p_seat:"治所",p_more:"另有 {0} 城未列。",cities:"各城",cities_note:"政令到得了的城才有确数。",capital:"都城",c0:"{0} 口 · 村镇 {1}",c1:"约 {0} 口",c2:"不详",ctl:"政令 {0}%",cd_leader:"长官：{0}",cd_troops:"驻军：{0}",cd_treasury:"府库：{0}",cd_corr:"积弊：{0}%",cd_zones:"辖地：{0} 块",cd_rural:"镇 {0} · 村 {1} · 关堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不畅，只报得上约数。",cd_none:"政令不达，详情报不上来。"},
-ch:{i_campaign:"御駕親征",i_return:"班師回京",i_tour:"微服私訪",sh_tour_note:"去哪座城。回來帶回這座城的真數；路上有患病、遇險之虞。",tour_months:"來回約 {0} 月",away_campaign:"車駕親征在外：奏議與案子由朝廷自決。",away_tour:"微服私訪{0}，約 {1} 月後回京：奏議與案子由朝廷自決。",c_toured:"親見",d_pact:"盟邦",sc_enter:"進外交台擺條件",sc_note:"條件照議和台的口徑折成戶數來稱：對方那一邊不虧才肯。",sc_will:"對方肯不肯",sc_yes:"肯 · 餘 {0} 戶",sc_no:"不肯 · 還差 {0} 戶",sc_human:"由對面的君主裁決",sc_quote:"對方開價",sc_quote_none:"眼下什麼條件都換不來",sc_quote_free:"不要條件",sc_take:"照此開價",sc_give:"本國出",sc_ask:"向對方索",sc_hu:"{0} 戶",sc_nothing:"沒有可擺的條件。",sc_send:"遣使",ch_accept:"應允",ch_refuse:"回絕",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"點一位要人、定一個罪名，交律法論處；判得重了有代價。",law_nobody:"眼下沒有可查辦的要人。",law_pick_charge:"{0}：定什麼罪",i_recruit:"招募新軍",sh_recruit_note:"在哪座城招一軍。錢從國庫出。",spy_purse:"君主私財 {0}",spy_hire:"派暗探",spy_hire_note:"僱金出自君主私財。暗探每 {0} 個月帶回一項密報，數是約數；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 僱金 {1}",spy_has:"已有暗探",spy_none:"眼下沒有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月後回報",spy_recall:"召回",spy_sweep:"徹查暗探 · 庫銀 {0}%",spy_sweeping:"正在徹查境內暗探，還有 {0} 月。",spy_full:"在外的暗探已滿。",spy_poor:"私財不足",ch_kill:"誅殺",ch_turn:"收買",ch_release:"縱歸",k_spy:"密報",a2hs_fixed:"改用固定位址打開",a2hs_fixed_note:"固定位址 {0} 不隨電腦的位址變。加到桌面之前，先改用它打開。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏議遞上去，之後票擬、廷議、批紅照常。",sh_heir_note:"從在位君主在世的子嗣裡冊立一位。",sh_abdicate_note:"禪位之後這個席位空出來，可以再挑一位君主。",sh_no_heir:"眼下沒有可立的子嗣。",sh_chief_note:"設內閣的朝廷才立得了首輔。",sh_holder:"現任：{0}",role_official:"朝廷命官",stale:"遊戲裡的終端還是舊版：重啟遊戲後，新的政令才辦得了。",sent_ok:"已下令：{0}。辦到哪一步看「政令」頁，辦結有回奏。",sent_fail:"這道令沒發出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政區 {0}",g_staff:"人事",st_chief:"首輔：{0}",st_no_chief:"眼下沒有首輔",st_make_chief:"立首輔",st_delegate_on:"委首輔代批",st_delegate_off:"收回批紅",st_delegated:"眼下由首輔代批：奏議和案子都不再等批示，首輔一派會漸漸坐大。",st_direct:"眼下親自批紅。",st_vacant:"空缺",st_dismiss:"免職",st_appoint:"任 {0}",sd_title:"各派表態",sd_for:"贊成",sd_wait:"觀望",sd_against:"反對",sd_own:"上奏",sd_favor:"聖眷 {0}",chip_grant:"授虛銜",chip_favor:"動用情分",chip_silver:"賞銀",d_gift0:"不帶禮",d_gift1:"薄禮 · 庫銀 5%",d_gift2:"厚禮 · 庫銀 15%",d_gift_note:"帶禮能補好感的不足，談成了才付。",cd_road:"修官道至此（約 6 月，按里程扣庫銀）",i_abdicate:"禪讓",i_rename_realm:"改國號",i_rename_ruler:"更名",g_home:"內政",i_purge:"撥庫銀整飭吏治",d_tier:"撥庫銀 {0}% · 積弊約降 {1}%",d_abdicate_to:"禪位於 {0}",d_now:"現為：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禪位。",purge_go:"整飭吏治",a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。從桌面打開後要再配對一次。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分鐘後朝廷自決",d_support:"廷議贊成 {0}%",d_chance:"成算約 {0}%",ch_approve:"准",ch_reject:"駁",ch_shelve:"留中",ch_law:"依律論處",ch_redeem:"戴罪立功",ch_death:"誅殺",g_court:"朝議",g_palace:"宮廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏議在辦，辦結再遞。",d_none_court:"眼下沒有遞得上去的奏議。",i_era:"改元",i_empire:"稱帝",i_heir:"立儲",d_heir_now:"現儲：{0}",d_age:"{0} 歲",d_orders:"已下政令",d_no_orders:"還沒有下過政令。",o_sent:"在途，約 {0} 月",o_done:"已辦",o_failed:"未成",d_confirm:"確認：{0}",d_home:"都城裡的事約 {0} 月辦到；遣使要等使者來回。",d_envoy:"來回約 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下沒有通使的國家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
+ch:{an_lands:"所轄王國法理",an_own:"盡在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族譜",an_history:"史冊",an_dejure:"法理",an_loading:"正在調閱典冊…",an_none:"沒有記載。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"左右上下拖動看全；點一格看詳情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定為主法理",an_set_main_note:"國號隨主法理而定。",an_name:"國號",an_prefix:"前綴",an_suffix:"後綴",an_blank:"不加",an_now:"現用",an_refresh:"重新調閱",tab_annals:"典冊",d_sure:"確認",d_go:"下令",d_count:"{0} 項",d_left_tag:"{0} 分鐘後自決",sd_note:"點一派可設法拉攏",st_chief_l:"首輔",st_seal:"批紅",st_offices:"官職",st_vacant_n:"空缺 {0}",spy_sweep_l:"徹查暗探",spy_sweep_cost:"庫銀 {0}%",i_campaign:"御駕親征",i_return:"班師回京",i_tour:"微服私訪",sh_tour_note:"去哪座城。回來帶回這座城的真數；路上有患病、遇險之虞。",tour_months:"來回約 {0} 月",away_campaign:"車駕親征在外：奏議與案子由朝廷自決。",away_tour:"微服私訪{0}，約 {1} 月後回京：奏議與案子由朝廷自決。",c_toured:"親見",d_pact:"盟邦",sc_enter:"進外交台擺條件",sc_note:"條件照議和台的口徑折成戶數來稱：對方那一邊不虧才肯。",sc_will:"對方肯不肯",sc_yes:"肯 · 餘 {0} 戶",sc_no:"不肯 · 還差 {0} 戶",sc_human:"由對面的君主裁決",sc_quote:"對方開價",sc_quote_none:"眼下什麼條件都換不來",sc_quote_free:"不要條件",sc_take:"照此開價",sc_give:"本國出",sc_ask:"向對方索",sc_hu:"{0} 戶",sc_nothing:"沒有可擺的條件。",sc_send:"遣使",ch_accept:"應允",ch_refuse:"回絕",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"點一位要人、定一個罪名，交律法論處；判得重了有代價。",law_nobody:"眼下沒有可查辦的要人。",law_pick_charge:"{0}：定什麼罪",i_recruit:"招募新軍",sh_recruit_note:"在哪座城招一軍。錢從國庫出。",spy_purse:"君主私財 {0}",spy_hire:"派暗探",spy_hire_note:"僱金出自君主私財。暗探每 {0} 個月帶回一項密報，數是約數；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 僱金 {1}",spy_has:"已有暗探",spy_none:"眼下沒有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月後回報",spy_recall:"召回",spy_sweep:"徹查暗探 · 庫銀 {0}%",spy_sweeping:"正在徹查境內暗探，還有 {0} 月。",spy_full:"在外的暗探已滿。",spy_poor:"私財不足",ch_kill:"誅殺",ch_turn:"收買",ch_release:"縱歸",k_spy:"密報",a2hs_fixed:"改用固定位址打開",a2hs_fixed_note:"固定位址 {0} 不隨電腦的位址變。加到桌面之前，先改用它打開。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏議遞上去，之後票擬、廷議、批紅照常。",sh_heir_note:"從在位君主在世的子嗣裡冊立一位。",sh_abdicate_note:"禪位之後這個席位空出來，可以再挑一位君主。",sh_no_heir:"眼下沒有可立的子嗣。",sh_chief_note:"設內閣的朝廷才立得了首輔。",sh_holder:"現任：{0}",role_official:"朝廷命官",stale:"遊戲裡的終端還是舊版：重啟遊戲後，新的政令才辦得了。",sent_ok:"已下令：{0}。辦到哪一步看「政令」頁，辦結有回奏。",sent_fail:"這道令沒發出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政區 {0}",g_staff:"人事",st_chief:"首輔：{0}",st_no_chief:"眼下沒有首輔",st_make_chief:"立首輔",st_delegate_on:"委首輔代批",st_delegate_off:"收回批紅",st_delegated:"眼下由首輔代批：奏議和案子都不再等批示，首輔一派會漸漸坐大。",st_direct:"眼下親自批紅。",st_vacant:"空缺",st_dismiss:"免職",st_appoint:"任 {0}",sd_title:"各派表態",sd_for:"贊成",sd_wait:"觀望",sd_against:"反對",sd_own:"上奏",sd_favor:"聖眷 {0}",chip_grant:"授虛銜",chip_favor:"動用情分",chip_silver:"賞銀",d_gift0:"不帶禮",d_gift1:"薄禮 · 庫銀 5%",d_gift2:"厚禮 · 庫銀 15%",d_gift_note:"帶禮能補好感的不足，談成了才付。",cd_road:"修官道至此（約 6 月，按里程扣庫銀）",i_abdicate:"禪讓",i_rename_realm:"改國號",i_rename_ruler:"更名",g_home:"內政",i_purge:"撥庫銀整飭吏治",d_tier:"撥庫銀 {0}% · 積弊約降 {1}%",d_abdicate_to:"禪位於 {0}",d_now:"現為：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禪位。",purge_go:"整飭吏治",a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。從桌面打開後要再配對一次。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分鐘後朝廷自決",d_support:"廷議贊成 {0}%",d_chance:"成算約 {0}%",ch_approve:"准",ch_reject:"駁",ch_shelve:"留中",ch_law:"依律論處",ch_redeem:"戴罪立功",ch_death:"誅殺",g_court:"朝議",g_palace:"宮廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏議在辦，辦結再遞。",d_none_court:"眼下沒有遞得上去的奏議。",i_era:"改元",i_empire:"稱帝",i_heir:"立儲",d_heir_now:"現儲：{0}",d_age:"{0} 歲",d_orders:"已下政令",d_no_orders:"還沒有下過政令。",o_sent:"在途，約 {0} 月",o_done:"已辦",o_failed:"未成",d_confirm:"確認：{0}",d_home:"都城裡的事約 {0} 月辦到；遣使要等使者來回。",d_envoy:"來回約 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下沒有通使的國家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
 e_wrong_code:"配對碼不對",e_locked:"連錯太多，稍後再試",e_full:"席位已滿",e_net:"連不上終端",e_code:"填六位數字",
 wait_world:"世界尚未載入",wait_world_hint:"電腦上進入一個世界後，這裡自動接上。",
 vacant_title:"再擇一君",why_none:"這個席位還沒有領君主。",why_dead:"{0}的{1}已駕崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -268,7 +341,7 @@ officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上
 f_treasury:"庫銀",f_army:"兵額",f_people:"丁口",approx:"約 {0}",n_book:"帳面",n_roll:"在冊",n_hidden:"隱戶未計",n_true:"實數",
 wars:"戰事",no_wars:"眼下沒有戰事。",w_att:"伐{0}",w_def:"禦{0}",
 provinces:"行政區與藩屬",provinces_note:"朝廷治下的各行政區、羈縻之地與封國。點一家看它的各城。",pk_province:"行政區",pk_jimi:"羈縻",pk_fief:"封國",pn_province:"流官治理，政令到得了的城才有確數。",pn_jimi:"羈縻之地自有君長，朝廷只知大概。",pn_fief:"封國自治，朝廷只知大概。",p_cities:"{0} 城",p_seat:"治所",p_more:"另有 {0} 城未列。",cities:"各城",cities_note:"政令到得了的城才有確數。",capital:"都城",c0:"{0} 口 · 村鎮 {1}",c1:"約 {0} 口",c2:"不詳",ctl:"政令 {0}%",cd_leader:"長官：{0}",cd_troops:"駐軍：{0}",cd_treasury:"府庫：{0}",cd_corr:"積弊：{0}%",cd_zones:"轄地：{0} 塊",cd_rural:"鎮 {0} · 村 {1} · 關堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不暢，只報得上約數。",cd_none:"政令不達，詳情報不上來。"},
-en:{i_campaign:"Take the field",i_return:"Return to the capital",i_tour:"Travel in plain dress",sh_tour_note:"Choose a city. The ruler brings back its true figures; illness and danger are possible on the road.",tour_months:"about {0} mo there and back",away_campaign:"The ruler is with the army: the court decides proposals and cases by itself.",away_tour:"The ruler is visiting {0} in plain dress and returns in about {1} months: the court decides proposals and cases by itself.",c_toured:"seen in person",d_pact:"ally",sc_enter:"set terms at the table",sc_note:"Terms are weighed in households, the way the peace table does it: the other side agrees only if it does not lose.",sc_will:"Will they agree",sc_yes:"yes · {0} to spare",sc_no:"no · short by {0}",sc_human:"their ruler decides",sc_quote:"Their price",sc_quote_none:"nothing on offer would be enough",sc_quote_free:"no terms needed",sc_take:"Offer their price",sc_give:"This realm gives",sc_ask:"Asked of them",sc_hu:"{0} households",sc_nothing:"Nothing to put on the table.",sc_send:"Send the envoy",ch_accept:"Agree",ch_refuse:"Refuse",g_law:"Justice",g_spy:"Spies",law_charge:"Bring a charge",law_note:"Pick a notable and a charge; the law takes it from there. A harsh sentence has a cost.",law_nobody:"There is no notable to charge right now.",law_pick_charge:"{0}: which charge",i_recruit:"Raise a new army",sh_recruit_note:"Choose the city to raise it in. The treasury pays.",spy_purse:"The ruler's own purse: {0}",spy_hire:"Send a spy",spy_hire_note:"Paid from the ruler's own purse. A spy brings back one rough figure every {0} months and may be lost each time.",spy_pick:"Which grade of spy for {0}",spy_tier:"Grade {0} · costs {1}",spy_has:"spy in place",spy_none:"No spies are abroad.",spy_row:"{0} · grade {1} · reports in {2} mo",spy_recall:"Recall",spy_sweep:"Sweep for spies · {0}% of treasury",spy_sweeping:"A sweep for spies is under way for another {0} months.",spy_full:"No more spies can be kept abroad.",spy_poor:"the purse is too thin",ch_kill:"Execute",ch_turn:"Turn him",ch_release:"Let him go",k_spy:"Secret",a2hs_fixed:"Open with the fixed address",a2hs_fixed_note:"The fixed address {0} stays the same when the computer's address changes. Switch to it before adding to the home screen.",sh_propose:"Put a proposal forward",sh_propose_note:"Table it on behalf of a court faction; drafting, debate and the decision follow as usual.",sh_heir_note:"Name one of the ruler's living children.",sh_abdicate_note:"After abdicating, this seat is free to take another ruler.",sh_no_heir:"There is no child who can be named.",sh_chief_note:"Only a court with a cabinet can have a chief minister.",sh_holder:"Held by {0}",role_official:"Appointed governor",stale:"The terminal inside the game is an older version. Restart the game before the newer orders can work.",sent_ok:"Order given: {0}. Follow it under Orders; a reply comes when it is done.",sent_fail:"The order was not sent.",tx_none:"Outside any Tianxia",tx_cities:"{0} cities",tx_members:"{0} provinces",g_staff:"Appointments",st_chief:"Chief minister: {0}",st_no_chief:"There is no chief minister",st_make_chief:"Name a chief minister",st_delegate_on:"Let the chief minister decide",st_delegate_off:"Decide in person",st_delegated:"The chief minister decides for now: proposals and cases no longer wait, and the chief minister's faction slowly gains weight.",st_direct:"Proposals are decided in person.",st_vacant:"vacant",st_dismiss:"Dismiss",st_appoint:"Appoint {0}",sd_title:"Where the factions stand",sd_for:"for",sd_wait:"undecided",sd_against:"against",sd_own:"proposer",sd_favor:"favour {0}",chip_grant:"Honorary title",chip_favor:"Call in a favour",chip_silver:"Grant silver",d_gift0:"No gift",d_gift1:"Modest gift · 5% of treasury",d_gift2:"Rich gift · 15% of treasury",d_gift_note:"A gift makes up for low opinion and is paid only if they agree.",cd_road:"Build a road here (about 6 mo, paid by distance)",i_abdicate:"Abdicate",i_rename_realm:"Rename the realm",i_rename_ruler:"Take a new name",g_home:"Home affairs",i_purge:"Spend treasury to clean up the administration",d_tier:"{0}% of the treasury · corruption down about {1}%",d_abdicate_to:"In favour of {0}",d_now:"Now: {0}",d_new_name:"New name (up to 12 characters)",why_abdicated:"{1} has abdicated.",purge_go:"Clean up",a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen. Pair once more after opening it from there.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",tab_decrees:"Orders",d_pending:"Awaiting a decision",d_left:"The court decides by itself in {0} min",d_support:"{0}% of the court in favour",d_chance:"Odds about {0}%",ch_approve:"Approve",ch_reject:"Reject",ch_shelve:"Shelve",ch_law:"Apply the law",ch_redeem:"Let him redeem it",ch_death:"Execute",g_court:"Court",g_palace:"Palace",g_diplomacy:"Diplomacy",d_busy:"The court is already handling a proposal. Wait until it is settled.",d_none_court:"Nothing can be tabled right now.",i_era:"New era name",i_empire:"Proclaim an empire",i_heir:"Name an heir",d_heir_now:"Current heir: {0}",d_age:"age {0}",d_orders:"Orders given",d_no_orders:"No orders given yet.",o_sent:"On its way, about {0} mo",o_done:"Done",o_failed:"Failed",d_confirm:"Confirm: {0}",d_home:"Matters in the capital take about {0} mo; envoys must travel there and back.",d_envoy:"about {0} mo there and back",d_opinion:"opinion {0}",d_no_realm:"No realm is within reach of envoys.",pending_banner:"{0} matters await a decision",k_order:"Reply",app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
+en:{an_lands:"Royal titles within",an_own:"fully held",an_custom:"Type your own (4 letters)",an_lineage:"Lineage",an_clan:"Family",an_history:"Chronicle",an_dejure:"De jure",an_loading:"Fetching the archives…",an_none:"Nothing on record.",an_lg_ruler:"monarch",an_lg_self:"self",an_lg_dead:"deceased",an_tree_hint:"Drag to pan; tap a box for details.",an_year:"Year {0}",an_main:"primary",an_set_main:"Make primary",an_set_main_note:"The realm takes its name from the primary title.",an_name:"Name of the realm",an_prefix:"Prefix",an_suffix:"Suffix",an_blank:"none",an_now:"in use",an_refresh:"Fetch again",tab_annals:"Annals",d_sure:"Confirm",d_go:"Order",d_count:"{0}",d_left_tag:"auto in {0} min",sd_note:"tap a faction to win it over",st_chief_l:"Chief minister",st_seal:"Rescripts",st_offices:"Offices",st_vacant_n:"{0} vacant",spy_sweep_l:"Sweep for spies",spy_sweep_cost:"{0}% of the treasury",i_campaign:"Take the field",i_return:"Return to the capital",i_tour:"Travel in plain dress",sh_tour_note:"Choose a city. The ruler brings back its true figures; illness and danger are possible on the road.",tour_months:"about {0} mo there and back",away_campaign:"The ruler is with the army: the court decides proposals and cases by itself.",away_tour:"The ruler is visiting {0} in plain dress and returns in about {1} months: the court decides proposals and cases by itself.",c_toured:"seen in person",d_pact:"ally",sc_enter:"set terms at the table",sc_note:"Terms are weighed in households, the way the peace table does it: the other side agrees only if it does not lose.",sc_will:"Will they agree",sc_yes:"yes · {0} to spare",sc_no:"no · short by {0}",sc_human:"their ruler decides",sc_quote:"Their price",sc_quote_none:"nothing on offer would be enough",sc_quote_free:"no terms needed",sc_take:"Offer their price",sc_give:"This realm gives",sc_ask:"Asked of them",sc_hu:"{0} households",sc_nothing:"Nothing to put on the table.",sc_send:"Send the envoy",ch_accept:"Agree",ch_refuse:"Refuse",g_law:"Justice",g_spy:"Spies",law_charge:"Bring a charge",law_note:"Pick a notable and a charge; the law takes it from there. A harsh sentence has a cost.",law_nobody:"There is no notable to charge right now.",law_pick_charge:"{0}: which charge",i_recruit:"Raise a new army",sh_recruit_note:"Choose the city to raise it in. The treasury pays.",spy_purse:"The ruler's own purse: {0}",spy_hire:"Send a spy",spy_hire_note:"Paid from the ruler's own purse. A spy brings back one rough figure every {0} months and may be lost each time.",spy_pick:"Which grade of spy for {0}",spy_tier:"Grade {0} · costs {1}",spy_has:"spy in place",spy_none:"No spies are abroad.",spy_row:"{0} · grade {1} · reports in {2} mo",spy_recall:"Recall",spy_sweep:"Sweep for spies · {0}% of treasury",spy_sweeping:"A sweep for spies is under way for another {0} months.",spy_full:"No more spies can be kept abroad.",spy_poor:"the purse is too thin",ch_kill:"Execute",ch_turn:"Turn him",ch_release:"Let him go",k_spy:"Secret",a2hs_fixed:"Open with the fixed address",a2hs_fixed_note:"The fixed address {0} stays the same when the computer's address changes. Switch to it before adding to the home screen.",sh_propose:"Put a proposal forward",sh_propose_note:"Table it on behalf of a court faction; drafting, debate and the decision follow as usual.",sh_heir_note:"Name one of the ruler's living children.",sh_abdicate_note:"After abdicating, this seat is free to take another ruler.",sh_no_heir:"There is no child who can be named.",sh_chief_note:"Only a court with a cabinet can have a chief minister.",sh_holder:"Held by {0}",role_official:"Appointed governor",stale:"The terminal inside the game is an older version. Restart the game before the newer orders can work.",sent_ok:"Order given: {0}. Follow it under Orders; a reply comes when it is done.",sent_fail:"The order was not sent.",tx_none:"Outside any Tianxia",tx_cities:"{0} cities",tx_members:"{0} provinces",g_staff:"Appointments",st_chief:"Chief minister: {0}",st_no_chief:"There is no chief minister",st_make_chief:"Name a chief minister",st_delegate_on:"Let the chief minister decide",st_delegate_off:"Decide in person",st_delegated:"The chief minister decides for now: proposals and cases no longer wait, and the chief minister's faction slowly gains weight.",st_direct:"Proposals are decided in person.",st_vacant:"vacant",st_dismiss:"Dismiss",st_appoint:"Appoint {0}",sd_title:"Where the factions stand",sd_for:"for",sd_wait:"undecided",sd_against:"against",sd_own:"proposer",sd_favor:"favour {0}",chip_grant:"Honorary title",chip_favor:"Call in a favour",chip_silver:"Grant silver",d_gift0:"No gift",d_gift1:"Modest gift · 5% of treasury",d_gift2:"Rich gift · 15% of treasury",d_gift_note:"A gift makes up for low opinion and is paid only if they agree.",cd_road:"Build a road here (about 6 mo, paid by distance)",i_abdicate:"Abdicate",i_rename_realm:"Rename the realm",i_rename_ruler:"Take a new name",g_home:"Home affairs",i_purge:"Spend treasury to clean up the administration",d_tier:"{0}% of the treasury · corruption down about {1}%",d_abdicate_to:"In favour of {0}",d_now:"Now: {0}",d_new_name:"New name (up to 12 characters)",why_abdicated:"{1} has abdicated.",purge_go:"Clean up",a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen. Pair once more after opening it from there.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",tab_decrees:"Orders",d_pending:"Awaiting a decision",d_left:"The court decides by itself in {0} min",d_support:"{0}% of the court in favour",d_chance:"Odds about {0}%",ch_approve:"Approve",ch_reject:"Reject",ch_shelve:"Shelve",ch_law:"Apply the law",ch_redeem:"Let him redeem it",ch_death:"Execute",g_court:"Court",g_palace:"Palace",g_diplomacy:"Diplomacy",d_busy:"The court is already handling a proposal. Wait until it is settled.",d_none_court:"Nothing can be tabled right now.",i_era:"New era name",i_empire:"Proclaim an empire",i_heir:"Name an heir",d_heir_now:"Current heir: {0}",d_age:"age {0}",d_orders:"Orders given",d_no_orders:"No orders given yet.",o_sent:"On its way, about {0} mo",o_done:"Done",o_failed:"Failed",d_confirm:"Confirm: {0}",d_home:"Matters in the capital take about {0} mo; envoys must travel there and back.",d_envoy:"about {0} mo there and back",d_opinion:"opinion {0}",d_no_realm:"No realm is within reach of envoys.",pending_banner:"{0} matters await a decision",k_order:"Reply",app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
 e_wrong_code:"That code doesn't match",e_locked:"Too many attempts. Try again shortly",e_full:"All seats are taken",e_net:"Can't reach the terminal",e_code:"Enter six digits",
 wait_world:"No world is loaded",wait_world_hint:"This connects by itself once a world is open on the computer.",
 vacant_title:"Choose a ruler",why_none:"This seat has no ruler yet.",why_dead:"{1} of {0} has died.",why_deposed:"{1} has lost the throne of {0}.",why_fallen:"{0} has fallen.",
@@ -305,7 +378,7 @@ function short(v){
 }
 
 // 这份网页要游戏里的终端至少是第几版(见 TerminalHost.Version)
-var NEED=11;
+var NEED=12;
 // 网页所在的路径：直连时是空的；经联机大厅进来是 /r/房间号。接口都接在它后面，令牌也按它分开存(一个大厅域名下有许多房间)
 var BASE=location.pathname.replace(/\/[^\/]*$/,""),TOKEN_KEY="ec_token"+(BASE?":"+BASE:"");
 var token=store(TOKEN_KEY),state=null,map=null,page="reports",fails=0,openReport=null,openCity=null,lastMapAt=0;
@@ -384,7 +457,7 @@ function renderGrouped(box,items,makeRow,opened,again){
       else if(u.empire){var orphan=el("div","sub",u.empire);orphan.style.marginTop="10px";box.appendChild(orphan)}
       if(!u.members.length)return;
       var key=w.name+"/"+u.empire,open=!!opened[key];
-      var more=el("button","act",t("tx_members",u.members.length)+(open?"  −":"  +"));more.style.marginLeft="16px";
+      var more=el("button","act more",t("tx_members",u.members.length)+(open?"  −":"  +"));more.style.marginLeft="16px";
       more.onclick=function(e){e.stopPropagation();opened[key]=!open;again()};
       box.appendChild(more);
       if(open){u.members.sort(function(x,y){return (y.cities||0)-(x.cities||0)});u.members.forEach(function(m){box.appendChild(makeRow(m,true))})}
@@ -545,7 +618,7 @@ function renderSheet(){
   if(sheet.custom){sheet.custom(box);return}
   if(!sheet.items.length)box.appendChild(el("div","sub",sheet.empty||""));
   sheet.items.forEach(function(it,i){
-    var on=sheet.armed===i,b=el("button","pick"+(on?" primary":"")),left=el("span");
+    var on=sheet.armed===i,b=el("button","pick"+(on?" armed":"")),left=el("span");
     left.appendChild(el("div",null,on?t("d_confirm",it.label):it.label));
     if(it.why||it.sub)left.appendChild(el("div","sub",it.why||it.sub));
     b.appendChild(left);
@@ -557,6 +630,7 @@ function renderSheet(){
       var label=(sheet.prefix||"")+it.label,sent=sheet.sent||"sent_ok";closeSheet();
       api("POST","/api/decree",body).then(function(r){
         toast(r.status===200?t(sent,label):t("sent_fail"),r.status!==200);setTimeout(poll,600);
+        if(page==="annals")setTimeout(function(){loadAnnals(0)},1800);
       },function(){toast(t("e_net"),true)});
     };
     box.appendChild(b);
@@ -673,6 +747,167 @@ function scaleSheet(g,r,k){
     box.appendChild(send);
   }});
 }
+// 典册(用户 2026-11-12 "老觉得玩家没有什么参与感……查看君主世系，用帝国模组里的那种方式做出树，还有自己的族谱，
+// 还能查看帝国历史和法理，也能切换自己帝国的主法理，还有前缀后缀")：四页——世系、族谱、史册、法理。
+// 数是点进这一页才向游戏要的(/api/annals)，不跟着每秒的国势一起来；树画一回就不动，免得正拖着看被重画。
+var annals=null,annalsTab=store("ec_annals")||"lineage",annalsBusy=false;
+var ANNALS=[["lineage","a_lineage"],["clan","a_clan"],["history","a_history"],["dejure","a_dejure"]];
+function openAnnals(){renderAnnals();loadAnnals(0)}
+function loadAnnals(tries){
+  if(annalsBusy&&!tries)return;
+  annalsBusy=true;
+  api("POST","/api/annals",{}).then(function(r){
+    if(r.status===200&&r.json.ready){annals=r.json;annalsBusy=false;if(page==="annals")renderAnnals();return}
+    if(r.status===200&&tries<15){setTimeout(function(){loadAnnals(tries+1)},700);return}
+    annalsBusy=false;
+    if(r.status!==200&&r.status!==401){annals={old:true};if(page==="annals")renderAnnals()}
+  },function(){annalsBusy=false});
+}
+// 一棵树：nodes 每项 {id,parent,…}；make(项) 给出这一格里的内容。同辈一行，父在上、子在下，父居子的正中，
+// 连线走直角。整棵树放在一个能左右上下拖的框里，开出来先对着 focus 那一格
+function drawTree(host,nodes,make,focus,tap){
+  var by={},roots=[],W=96,H=64,GX=10,GY=28,next=0,deep=0;
+  nodes.forEach(function(n){by[n.id]={n:n,kids:[],x:0,d:0,done:false}});
+  nodes.forEach(function(n){
+    var v=by[n.id],p=n.parent!=null?by[n.parent]:null,up=p,loop=false,guard=0;
+    while(up&&guard++<200){if(up===v){loop=true;break}up=up.n.parent!=null?by[up.n.parent]:null}
+    if(p&&!loop)p.kids.push(v);else roots.push(v);
+  });
+  function place(v,d){
+    v.done=true;v.d=d;if(d>deep)deep=d;
+    var kids=v.kids.filter(function(k){return!k.done});
+    if(!kids.length){v.x=next++;return}
+    kids.forEach(function(k){place(k,d+1)});
+    v.x=(kids[0].x+kids[kids.length-1].x)/2;v.shown=kids;
+  }
+  roots.forEach(function(r){if(!r.done){place(r,0);next+=0.4}});
+  var wide=Math.max(1,Math.ceil(next-0.4))*(W+GX)-GX,tall=(deep+1)*(H+GY)-GY;
+  var frame=el("div","tree"),inner=el("div","tree-in");
+  inner.style.width=wide+"px";inner.style.height=tall+"px";
+  var ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg"),path="";
+  svg.setAttribute("width",wide);svg.setAttribute("height",tall);
+  function cx(v){return v.x*(W+GX)+W/2}
+  function top(v){return v.d*(H+GY)}
+  Object.keys(by).forEach(function(id){
+    var v=by[id];if(!v.shown)return;
+    var y0=top(v)+H,mid=y0+GY/2;
+    path+="M"+cx(v)+" "+y0+"V"+mid;
+    path+="M"+cx(v.shown[0])+" "+mid+"H"+cx(v.shown[v.shown.length-1]);
+    v.shown.forEach(function(k){path+="M"+cx(k)+" "+mid+"V"+top(k)});
+  });
+  var line=document.createElementNS(ns,"path");line.setAttribute("d",path);line.setAttribute("class","tree-line");svg.appendChild(line);
+  inner.appendChild(svg);
+  var at=null;
+  Object.keys(by).forEach(function(id){
+    var v=by[id],n=v.n,box=el("div","node"+(n.ruler?" ruler":"")+(n.self?" self":"")+(n.alive===false?" dead":""));
+    box.style.left=v.x*(W+GX)+"px";box.style.top=top(v)+"px";box.style.width=W+"px";box.style.height=H+"px";
+    make(n,box);
+    if(tap)box.onclick=function(){tap(n)};
+    inner.appendChild(box);
+    if(focus!=null&&n.id===focus)at=v;
+  });
+  frame.appendChild(inner);host.appendChild(frame);
+  if(at)setTimeout(function(){frame.scrollLeft=cx(at)-frame.clientWidth/2;frame.scrollTop=top(at)-frame.clientHeight/2+H/2},0);
+}
+function nodeSheet(n){
+  var lines=(n.detail||[]).slice();
+  openSheet({title:n.name,note:n.title||"",items:[],custom:function(box){
+    if(!lines.length)box.appendChild(el("div","sub",t("an_none")));
+    lines.forEach(function(x){box.appendChild(li(x[0],null,x[1],null))});
+  }});
+}
+function nodeFace(n,box){
+  if(n.no)box.appendChild(el("i","no",String(n.no)));
+  box.appendChild(el("b",null,n.name));
+  if(n.title)box.appendChild(el("span","t",n.title));
+  if(n.years)box.appendChild(el("span","y",n.years));
+}
+function annalsSend(body,label){
+  api("POST","/api/decree",body).then(function(r){
+    toast(r.status===200?t("sent_ok",label):t("sent_fail"),r.status!==200);
+    setTimeout(poll,600);setTimeout(function(){loadAnnals(0)},1800);
+  },function(){toast(t("e_net"),true)});
+}
+function renderAnnals(){
+  var box=$("annals");box.textContent="";
+  var strip=el("div","tiles");
+  ANNALS.forEach(function(x){
+    var tile=el("button","tile"+(x[0]===annalsTab?" on":""));
+    tile.appendChild(ic(x[1],28));tile.appendChild(el("span",null,t("an_"+x[0])));
+    tile.onclick=function(){annalsTab=x[0];store("ec_annals",x[0]);renderAnnals()};
+    strip.appendChild(tile);
+  });
+  box.appendChild(strip);
+  var card=el("div","card");box.appendChild(card);
+  if(!annals){card.appendChild(el("div","sub",t("an_loading")));return}
+  if(annals.old){card.appendChild(el("div","sub",t("stale")));return}
+  var a=annals[annalsTab]||{};
+  var head=el("div","row");head.appendChild(hd(ANNALS.filter(function(x){return x[0]===annalsTab})[0][1],a.title||t("an_"+annalsTab)));
+  if(a.sum)head.appendChild(el("span","sub",a.sum));
+  card.appendChild(head);
+  if(a.note)card.appendChild(el("div","sub",a.note));
+  if(annalsTab==="lineage"||annalsTab==="clan"){
+    if(!(a.nodes||[]).length){card.appendChild(el("div","sub",t("an_none")));return}
+    drawTree(card,a.nodes,nodeFace,a.focus,nodeSheet);
+    var legend=el("div","sub legend");
+    [["ruler","an_lg_ruler"],["self","an_lg_self"],["dead","an_lg_dead"]].forEach(function(x){
+      var s=el("span");s.appendChild(el("i","node "+x[0]));s.appendChild(document.createTextNode(t(x[1])));legend.appendChild(s)});
+    card.appendChild(legend);
+    card.appendChild(el("div","sub",t("an_tree_hint")));
+  }else if(annalsTab==="history"){
+    var items=a.items||[],year=null;
+    if(!items.length)card.appendChild(el("div","sub",t("an_none")));
+    items.forEach(function(h){
+      if(h.head!==year){year=h.head;card.appendChild(el("div","world",h.head||""))}
+      var row=el("div","hist");
+      if(h.when)row.appendChild(el("span","sub",h.when));
+      row.appendChild(el("span",null,h.text));card.appendChild(row);
+    });
+  }else if(annalsTab==="dejure"){
+    (a.titles||[]).forEach(function(d){
+      var name=el("div",null,d.name);
+      if(d.main){name.appendChild(document.createTextNode(" "));name.appendChild(el("span","tag gold",t("an_main")))}
+      var row=li(name,d.sub||null,d.main?null:d.can?t("an_set_main"):null,!d.main&&d.can?function(){
+        openSheet({title:d.name,note:t("an_set_main_note"),sent:"sent_ok",items:[{label:t("an_set_main"),payload:{id:"dejure_main",target:String(d.id)}}]});
+      }:null,!d.main&&!d.can&&!!d.why);
+      row.insertBefore(ic(d.main?"i_title_main":"i_title",24),row.firstChild);
+      card.appendChild(row);
+      if(!d.main&&d.why)card.appendChild(el("div","sub",d.why));
+    });
+    if(!(a.titles||[]).length)card.appendChild(el("div","sub",t("an_none")));
+    // 所奉法理之下的各处王国法理，各在谁手里
+    if((a.lands||[]).length){
+      var lc=el("div","card");lc.appendChild(hd("i_title",t("an_lands")));
+      a.lands.forEach(function(l){lc.appendChild(li(l.name,l.sub||null,l.own?el("span","tag green",t("an_own")):null,null))});
+      box.appendChild(lc);
+    }
+    var nm=a.name;
+    if(nm){
+      var nc=el("div","card");nc.appendChild(hd("a_name",t("an_name")));
+      nc.appendChild(el("div","it",nm.full));
+      [["prefix","name_prefix"],["suffix","name_suffix"]].forEach(function(x){
+        var part=nm[x[0]];if(!part)return;
+        nc.appendChild(li(t("an_"+x[0]),null,part.current||t("an_blank"),function(){
+          openSheet({title:t("an_"+x[0]),prefix:t("an_"+x[0])+"：",note:nm.note||"",
+            // 自己填(至多四个字)
+            head:part.custom?function(sb){
+              var wrap=el("div","row"),inp=el("input");inp.maxLength=4;inp.placeholder=t("an_custom");inp.value=texts[x[1]]||"";wrap.style.marginTop="10px";
+              inp.oninput=function(){texts[x[1]]=inp.value};
+              var go=el("button","act primary",t("d_go"));go.style.margin="0";go.style.flex="none";go.style.minHeight="44px";
+              go.onclick=function(){var v=(texts[x[1]]||"").trim();if(!v){inp.focus();return}texts[x[1]]="";closeSheet();annalsSend({id:x[1],choice:"="+v},t("an_"+x[0])+"："+v)};
+              wrap.appendChild(inp);wrap.appendChild(go);sb.appendChild(wrap);
+            }:null,
+            items:(part.options||[]).map(function(o){
+              return{label:o.label||t("an_blank"),why:o.id===part.id?t("an_now"):"",payload:{id:x[1],choice:String(o.id)}}})});
+        },!(part.options||[]).length&&!part.custom));
+      });
+      if(nm.why)nc.appendChild(el("div","sub",nm.why));
+      box.appendChild(nc);
+    }
+  }
+  var again=el("button","act more",t("an_refresh"));again.onclick=function(){annals=null;renderAnnals();loadAnnals(0)};
+  box.appendChild(again);
+}
 function goDecrees(){for(var i=0;i<tabs.length;i++)if(tabs[i].getAttribute("data-p")==="decrees")tabs[i].onclick()}
 // 流速之议：有议时奏报页顶上一条横幅(几人赞成、几人反对)，点进去表态；点右上的"世界流速"可以提议
 function voteNote(v){return t("vote_note",v.by,v.left,v.yes,v.no,v.need)+(v.mine?" "+t("vote_mine_"+v.mine):"")}
@@ -704,8 +939,9 @@ function toast(text,bad){
   var box=$("toast");box.textContent=text;box.style.borderColor=bad?"var(--red)":"var(--gold)";box.hidden=false;
   clearTimeout(toast.timer);toast.timer=setTimeout(function(){box.hidden=true},4000);
 }
-function arm(key,label,payload){
-  var b=el("button","act"+(armed===key?" primary":""),armed===key?t("d_confirm",label):label);
+// cls：这个按钮平时的样子(primary 是推荐的那个，no 是驳、诛这一类)；face：按钮上只写短字(名目在旁边写着)，待确认时写"确认"
+function arm(key,label,payload,cls,face){
+  var on=armed===key,b=el("button","act"+(cls?" "+cls:"")+(on?" armed":""),on?(face?t("d_sure"):t("d_confirm",label)):(face||label));
   b.onclick=function(e){
     e.stopPropagation();
     if(armed!==key){armed=key;rerender();return}
@@ -718,6 +954,79 @@ function arm(key,label,payload){
   };
   return b;
 }
+// 政令页的排法(用户 2026-11-12 看了手机截图："东西好多好挤也没有层次感")：
+//   · 一页只有三种东西——卡片标题、一行一件事的列表行(左边名目、右边现状和箭头)、少数当场就办的小按钮；
+//   · 要挑人、挑目标、填字的事一律点进弹出界面办，页面上不摆一排排按钮和输入框；
+//   · 待批的事只摆题目、成算、各派立场的一条比例和裁决按钮；各派表态与拉拢的筹码点进去再看。
+function sendDecree(body,label,sent){
+  api("POST","/api/decree",body).then(function(r){
+    toast(r.status===200?t(sent||"sent_ok",label):t("sent_fail"),r.status!==200);setTimeout(poll,600);
+  },function(){toast(t("e_net"),true)});
+}
+// 一行：左边名目(下面一行小字)，右边现状；能点的带箭头，点了进弹出界面
+function li(label,sub,right,fn,off){
+  var row=el("div","li"+(off?" off":fn?" tap":"")),left=el("div","li-l"),r=el("div","li-r");
+  left.appendChild(typeof label==="string"?el("div",null,label):label);
+  if(sub)left.appendChild(el("div","sub",sub));
+  row.appendChild(left);
+  if(right)r.appendChild(typeof right==="string"?el("span","sub",right):right);
+  if(fn&&!off){r.appendChild(el("span","chev","›"));row.onclick=function(e){e.stopPropagation();fn()}}
+  row.appendChild(r);
+  return row;
+}
+// 一行：左边名目与说明，右边一个当场就办的小按钮(点一下变"确认"，再点才发)
+function liAct(label,sub,button){
+  var row=el("div","li"),left=el("div","li-l");
+  left.appendChild(el("div",null,label));
+  if(sub)left.appendChild(el("div","sub",sub));
+  button.style.margin="0";button.style.flex="none";
+  row.appendChild(left);row.appendChild(button);
+  return row;
+}
+function pendingOf(id){var list=(state&&state.decrees||{}).pending||[];for(var i=0;i<list.length;i++)if(list[i].id===id)return list[i];return null}
+function stanceTag(sd){return el("span","tag "+(sd.own?"gold":sd.stance>0?"green":sd.stance<0?"red":"amber"),t(sd.own?"sd_own":sd.stance>0?"sd_for":sd.stance<0?"sd_against":"sd_wait"))}
+// 各派表态：一派一行；还能拉拢的点开，底下才出授虚衔、动用情分、赏银
+var openSide=null;
+function sidesSheet(id){
+  var p=pendingOf(id);if(!p)return;
+  openSide=null;
+  openSheet({live:true,title:t("sd_title"),note:p.title+" · "+t("sd_note"),items:[],custom:function(box){
+    var now=pendingOf(id);if(!now){closeSheet();return}
+    (now.sides||[]).forEach(function(sd){
+      var chips=sd.chips||[],open=openSide===sd.id;
+      box.appendChild(li(sd.name,t("sd_favor",sd.favor),stanceTag(sd),chips.length?function(){openSide=open?null:sd.id;renderSheet()}:null));
+      if(open&&chips.length){
+        var acts=el("div","chips");
+        chips.forEach(function(k){acts.appendChild(arm("chip/"+sd.id+"/"+k,t("chip_"+k),{id:"chip",target:sd.id,choice:k}))});
+        box.appendChild(acts);
+      }
+    });
+  }});
+}
+// 改元、改国号、更名：点进来填字
+function nameSheet(it,name){
+  openSheet({title:name,note:t("d_now",it.current)+" · "+t("d_chance",it.chance),items:[],custom:function(box){
+    var inp=el("input");inp.maxLength=12;inp.placeholder=t("d_new_name");inp.value=texts[it.id]||"";inp.style.marginTop="10px";
+    inp.oninput=function(){texts[it.id]=inp.value};
+    var go=el("button","pick primary");go.appendChild(el("span",null,name));go.style.justifyContent="center";
+    go.onclick=function(){
+      var v=(texts[it.id]||"").trim();if(!v){inp.focus();return}
+      texts[it.id]="";closeSheet();sendDecree({id:it.id,choice:v},name+"："+v);
+    };
+    box.appendChild(inp);box.appendChild(go);
+  }});
+}
+// 卡片标题：图标加字
+function hd(icon,text){var h=el("h2");if(ICON[icon])h.appendChild(ic(icon,20));h.appendChild(el("span",null,text));return h}
+var openGroup=store("ec_group")||null;
+// 页签角上的数：这一组里眼下有几件可办、几处要留意的
+function groupBadge(g){
+  if(g.id==="court")return g.busy?0:(g.items||[]).length;
+  if(g.id==="staff")return(g.offices||[]).filter(function(o){return!o.holder}).length;
+  if(g.id==="spy")return(g.spies||[]).length;
+  if(g.id==="vassal")return(g.items||[]).length;
+  return 0;
+}
 function renderDecrees(){
   var d=state.decrees||{groups:[],pending:[],orders:[]},box=$("decrees");
   var banner=$("pending-banner");
@@ -725,150 +1034,149 @@ function renderDecrees(){
   if(box.contains(document.activeElement)&&document.activeElement.tagName==="INPUT")return;
   box.textContent="";
   if(d.pending.length){
-    var pc=el("div","card");pc.appendChild(el("h2",null,t("d_pending")));var rows=el("div","rows");
+    var pc=el("div","card gold"),ph=el("div","row");
+    ph.appendChild(hd("g_pending",t("d_pending")));ph.appendChild(el("span","sub",t("d_count",d.pending.length)));
+    pc.appendChild(ph);
     d.pending.forEach(function(p){
-      var item=el("div");item.appendChild(el("div",null,p.title));
+      var item=el("div","pend"),head=el("div","row");
+      head.appendChild(el("div","it",p.title));
+      head.appendChild(el("span","tag amber",t("d_left_tag",p.left)));
+      item.appendChild(head);
       var bits=[];
       if(p.detail)bits.push(p.detail);
       if(p.support!=null)bits.push(t("d_support",p.support));
       if(p.chance!=null)bits.push(t("d_chance",p.chance));
-      bits.push(t("d_left",p.left));
-      item.appendChild(el("div","sub",bits.join(" · ")));
-      p.choices.forEach(function(c){item.appendChild(arm(p.id+"/"+c,t("ch_"+c),{id:p.id,choice:c}))});
+      if(bits.length)item.appendChild(el("div","sub",bits.join(" · ")));
       if(p.sides&&p.sides.length){
-        item.appendChild(el("div","sub",t("sd_title")));
-        p.sides.forEach(function(sd){
-          var line=el("div","row");line.style.marginTop="6px";
-          var who=el("span");who.appendChild(document.createTextNode(sd.name+" "));who.appendChild(el("span","sub",t("sd_favor",sd.favor)));
-          line.appendChild(who);
-          line.appendChild(el("span","tag "+(sd.own?"gold":sd.stance>0?"green":sd.stance<0?"red":"amber"),t(sd.own?"sd_own":sd.stance>0?"sd_for":sd.stance<0?"sd_against":"sd_wait")));
-          item.appendChild(line);
-          (sd.chips||[]).forEach(function(k){item.appendChild(arm("chip/"+sd.id+"/"+k,t("chip_"+k),{id:"chip",target:sd.id,choice:k}))});
+        var n={f:0,w:0,a:0};
+        p.sides.forEach(function(sd){if(sd.own||sd.stance>0)n.f++;else if(sd.stance<0)n.a++;else n.w++});
+        var bar=el("div","stance"),sum=el("div","sum");
+        [["f","green","sd_for"],["w","amber","sd_wait"],["a","red","sd_against"]].forEach(function(x){
+          if(!n[x[0]])return;
+          var seg=el("i");seg.style.flex=n[x[0]];seg.style.background="var(--"+x[1]+")";bar.appendChild(seg);
+          var word=el("span",null,t(x[2])+" "+n[x[0]]);word.style.color="var(--"+x[1]+")";sum.appendChild(word);
         });
+        item.appendChild(bar);
+        var more=li(sum,null,t("sd_title"),function(){sidesSheet(p.id)});more.className+=" flat";
+        item.appendChild(more);
       }
-      rows.appendChild(item);
+      var acts=el("div","verdict");
+      p.choices.forEach(function(c){
+        var kind=c==="approve"||c==="accept"||c==="law"?"primary":c==="reject"||c==="refuse"||c==="death"||c==="kill"?"no":"";
+        acts.appendChild(arm(p.id+"/"+c,t("ch_"+c),{id:p.id,choice:c},kind));
+      });
+      item.appendChild(acts);
+      pc.appendChild(item);
     });
-    pc.appendChild(rows);box.appendChild(pc);
+    box.appendChild(pc);
   }
+  // 各组是一排带图标的页签(照模组宽窗口的页签)，一回只看一组，不用一路往下划
+  var ids=d.groups.map(function(g){return g.id});
+  if(ids.indexOf(openGroup)<0)openGroup=ids[0]||null;
+  var strip=el("div","tiles");
   d.groups.forEach(function(g){
-    var card=el("div","card");card.appendChild(el("h2",null,t("g_"+g.id)));
-    function entry(label,fn,off){var b=el("button","act",label+" …");b.onclick=function(e){e.stopPropagation();fn()};if(off)b.disabled=true;card.appendChild(b);return b}
+    var tile=el("button","tile"+(g.id===openGroup?" on":"")),n=groupBadge(g);
+    tile.appendChild(ic("g_"+g.id,28));tile.appendChild(el("span",null,t("g_"+g.id)));
+    if(n)tile.appendChild(el("i","badge",String(n)));
+    tile.onclick=function(){openGroup=g.id;store("ec_group",g.id);renderDecrees()};
+    strip.appendChild(tile);
+  });
+  if(d.groups.length)box.appendChild(strip);
+  d.groups.forEach(function(g){
+    if(g.id!==openGroup)return;
+    var card=el("div","card");card.appendChild(hd("g_"+g.id,t("g_"+g.id)));
+    // rowIcon：下一行的行首图标(用过即清)
+    var rowIcon=null;
+    function add(row){if(rowIcon){if(ICON[rowIcon])row.insertBefore(ic(rowIcon,24),row.firstChild);rowIcon=null}card.appendChild(row);return row}
+    // 只要一行"名目 + 箭头"的事用这个(点了进弹出界面)
+    function entry(label,fn,off){return add(li(label,null,null,fn,off))}
     if(g.id==="vassal"){
       card.appendChild(el("div","sub",t("v_list_note")));
-      g.items.forEach(function(it){entry(it.name+" · "+t("vk_"+it.kind),function(){vassalSheet(it)})});
+      g.items.forEach(function(it){add(li(it.name,null,t("vk_"+it.kind),function(){vassalSheet(it)}))});
     }else if(g.id==="court"){
-      if(g.busy)card.appendChild(el("div","sub",t("d_busy")));
-      else if(!g.items.length)card.appendChild(el("div","sub",t("d_none_court")));
-      else entry(t("sh_propose"),function(){openSheet({title:t("sh_propose"),note:t("sh_propose_note"),
-        items:g.items.map(function(it){return{label:it.name,payload:{id:it.id}}})})});
+      var none=g.busy||!g.items.length;
+      add(li(t("sh_propose"),g.busy?t("d_busy"):!g.items.length?t("d_none_court"):null,none?null:t("d_count",g.items.length),function(){
+        openSheet({title:t("sh_propose"),note:t("sh_propose_note"),items:g.items.map(function(it){return{label:it.name,payload:{id:it.id}}})})},none));
     }else if(g.id==="palace"){
       g.items.forEach(function(it){
-        var name=t("i_"+it.id);
+        var name=t("i_"+it.id);rowIcon="i_"+it.id;
         if(it.id==="heir"||it.id==="abdicate"){
           var heirs=(it.targets||[]).filter(function(h){return it.id==="abdicate"||!h.now});
-          if(it.id==="heir"&&it.current)card.appendChild(el("div","sub",t("d_heir_now",it.current)));
-          entry(name,function(){openSheet({title:name,prefix:name+"：",note:t(it.id==="heir"?"sh_heir_note":"sh_abdicate_note"),empty:t("sh_no_heir"),
-            items:heirs.map(function(h){return{label:h.name,sub:t("d_age",h.age),payload:{id:it.id,target:h.id}}})})},!heirs.length);
+          add(li(name,null,it.id==="heir"&&it.current?it.current:null,function(){
+            openSheet({title:name,prefix:name+"：",note:t(it.id==="heir"?"sh_heir_note":"sh_abdicate_note"),empty:t("sh_no_heir"),
+              items:heirs.map(function(h){return{label:h.name,sub:t("d_age",h.age),payload:{id:it.id,target:h.id}}})})},!heirs.length));
         }else if(it.id==="tour"){
-          entry(name,function(){openSheet({title:name,prefix:name+"：",note:t("sh_tour_note"),
-            items:(it.cities||[]).map(function(c){return{label:c.name,sub:t("tour_months",c.months),payload:{id:"tour",target:c.id}}})})},!it.ok);
+          add(li(name,null,null,function(){openSheet({title:name,prefix:name+"：",note:t("sh_tour_note"),
+            items:(it.cities||[]).map(function(c){return{label:c.name,sub:t("tour_months",c.months),payload:{id:"tour",target:c.id}}})})},!it.ok));
         }else if(it.text){
-          var wrap=el("div");wrap.style.marginTop="8px";
-          wrap.appendChild(el("div",null,name+" · "+t("d_chance",it.chance)));
-          wrap.appendChild(el("div","sub",t("d_now",it.current)));
-          var inp=el("input");inp.maxLength=12;inp.placeholder=t("d_new_name");inp.value=texts[it.id]||"";inp.style.marginTop="6px";
-          inp.oninput=function(){texts[it.id]=inp.value};inp.onclick=function(e){e.stopPropagation()};
-          wrap.appendChild(inp);
-          wrap.appendChild(arm(it.id,name,function(){var v=(texts[it.id]||"").trim();if(!v)return null;texts[it.id]="";return{id:it.id,choice:v}}));
-          card.appendChild(wrap);
+          add(li(name,t("d_chance",it.chance),it.current,function(){nameSheet(it,name)}));
         }else{
-          var b=arm(it.id,name+(it.chance!=null?" · "+t("d_chance",it.chance):""),{id:it.id});
+          var b=arm(it.id,name,{id:it.id},"",t("d_go"));
           if(!it.ok)b.disabled=true;
-          card.appendChild(b);
-          if(it.why)card.appendChild(el("div","sub",it.why));
+          add(liAct(name,it.why||(it.chance!=null?t("d_chance",it.chance):null),b));
         }
       });
     }else if(g.id==="staff"){
-      card.appendChild(el("div",null,g.chief?t("st_chief",g.chief):t("st_no_chief")));
-      card.appendChild(el("div","sub",t(g.delegated?"st_delegated":"st_direct")));
-      card.appendChild(arm("delegate",t(g.delegated?"st_delegate_off":"st_delegate_on"),{id:"delegate",choice:g.delegated?"off":"on"}));
       var people=function(make){return g.people.map(function(pp){return{label:pp.name,sub:t("d_age",pp.age)+(pp.faction?" · "+pp.faction:""),payload:make(pp)}})};
-      entry(t("st_make_chief"),function(){openSheet({title:t("st_make_chief"),prefix:t("st_make_chief")+"：",note:t("sh_chief_note"),
-        items:people(function(pp){return{id:"chief",target:pp.id}})})});
-      var slots=el("div","rows");slots.style.marginTop="8px";
-      g.offices.forEach(function(o){
-        var row=el("div","row report");
-        row.appendChild(el("span",null,o.name));
-        row.appendChild(el("span",o.holder?"sub":"tag amber",o.holder||t("st_vacant")));
-        row.onclick=function(){openSheet({title:o.name,prefix:o.name+"：",note:o.holder?t("sh_holder",o.holder):t("st_vacant"),
-          items:(o.holder?[{label:t("st_dismiss"),payload:{id:"dismiss",target:o.id}}]:[]).concat(people(function(pp){return{id:"appoint",target:o.id+":"+pp.id}}))})};
-        slots.appendChild(row);
-      });
-      card.appendChild(slots);
+      rowIcon="i_chief";add(li(t("st_chief_l"),null,g.chief||el("span","tag amber",t("st_vacant")),function(){
+        openSheet({title:t("st_make_chief"),prefix:t("st_make_chief")+"：",note:t("sh_chief_note"),items:people(function(pp){return{id:"chief",target:pp.id}})})}));
+      rowIcon="i_seal";add(liAct(t("st_seal"),t(g.delegated?"st_delegated":"st_direct"),
+        arm("delegate",t(g.delegated?"st_delegate_off":"st_delegate_on"),{id:"delegate",choice:g.delegated?"off":"on"})));
+      var vacant=g.offices.filter(function(o){return!o.holder}).length;
+      var officeSheet=function(o){openSheet({title:o.name,prefix:o.name+"：",note:o.holder?t("sh_holder",o.holder):t("st_vacant"),
+        items:(o.holder?[{label:t("st_dismiss"),payload:{id:"dismiss",target:o.id}}]:[]).concat(people(function(pp){return{id:"appoint",target:o.id+":"+pp.id}}))})};
+      rowIcon="i_office";add(li(t("st_offices"),null,vacant?el("span","tag amber",t("st_vacant_n",vacant)):t("d_count",g.offices.length),function(){
+        openSheet({title:t("st_offices"),items:[],custom:function(sb){
+          g.offices.forEach(function(o){sb.appendChild(li(o.name,null,o.holder||el("span","tag amber",t("st_vacant")),function(){officeSheet(o)}))});
+        }})},!g.offices.length));
     }else if(g.id==="home"){
       g.items.forEach(function(it){
-        var name=t("i_"+it.id);
-        if(it.id==="recruit")entry(name,function(){openSheet({title:name,prefix:name+"：",note:t("sh_recruit_note"),
-          items:(it.cities||[]).map(function(c){return{label:c.name,payload:{id:"recruit",target:c.id}}})})},!it.ok);
-        else entry(name,function(){openSheet({title:name,items:(it.tiers||[]).map(function(tier){
-          return{label:t("d_tier",tier.share,tier.drop),payload:{id:it.id,choice:tier.id}}})})},!it.ok);
+        var name=t("i_"+it.id);rowIcon="i_"+it.id;
+        if(it.id==="recruit")add(li(name,null,null,function(){openSheet({title:name,prefix:name+"：",note:t("sh_recruit_note"),
+          items:(it.cities||[]).map(function(c){return{label:c.name,payload:{id:"recruit",target:c.id}}})})},!it.ok));
+        else add(li(name,null,null,function(){openSheet({title:name,items:(it.tiers||[]).map(function(tier){
+          return{label:t("d_tier",tier.share,tier.drop),payload:{id:it.id,choice:tier.id}}})})},!it.ok));
       });
     }else if(g.id==="law"){
       // 降罪：先点人，再定罪名
-      card.appendChild(el("div","sub",t("law_note")));
-      entry(t("law_charge"),function(){openSheet({title:t("law_charge"),note:t("law_note"),empty:t("law_nobody"),
+      add(li(t("law_charge"),g.people.length?null:t("law_nobody"),null,function(){openSheet({title:t("law_charge"),note:t("law_note"),empty:t("law_nobody"),
         items:g.people.map(function(pp){return{label:pp.name,sub:pp.post,next:function(){
           openSheet({title:t("law_pick_charge",pp.name),prefix:pp.name+"：",
             items:g.charges.map(function(c){return{label:c.name,payload:{id:"charge",target:pp.id,choice:c.id}}})});
-        }}})})},!g.people.length);
+        }}})})},!g.people.length));
     }else if(g.id==="spy"){
-      card.appendChild(el("div",null,t("spy_purse",num(g.purse))));
-      card.appendChild(el("div","sub",t("spy_hire_note",g.months)));
       var hire=function(target){
         openSheet({title:t("spy_pick",target.name),prefix:target.name+"：",items:g.costs.map(function(cost,i){
           return{label:t("spy_tier",i+1,cost),why:g.purse<cost?t("spy_poor"):"",payload:{id:"spy.hire",target:target.id,choice:String(i+1)}}})});
       };
-      entry(t("spy_hire"),function(){openSheet({title:t("spy_hire"),note:t("spy_hire_note",g.months),items:[],custom:function(box){
-        renderGrouped(box,g.targets,function(r,indent){
-          var row=el("div","row report nation");if(indent)row.style.marginLeft="16px";
-          row.appendChild(el("span",null,r.name));
-          if(r.has)row.appendChild(el("span","tag cyan",t("spy_has")));
-          else row.onclick=function(){hire(r)};
+      add(li(t("spy_hire"),g.room?t("spy_purse",num(g.purse)):t("spy_full"),null,function(){openSheet({title:t("spy_hire"),note:t("spy_hire_note",g.months),items:[],custom:function(sb){
+        renderGrouped(sb,g.targets,function(r,indent){
+          var row=li(r.name,null,r.has?el("span","tag cyan",t("spy_has")):null,r.has?null:function(){hire(r)});
+          if(indent)row.style.marginLeft="16px";
           return row;
         },openSpy,renderSheet);
-      }})},!g.room||!g.targets.length);
-      if(!g.room)card.appendChild(el("div","sub",t("spy_full")));
-      var agents=el("div","rows");agents.style.marginTop="8px";
-      if(!g.spies.length)agents.appendChild(el("div","sub",t("spy_none")));
+      }})},!g.room||!g.targets.length));
       g.spies.forEach(function(sp){
-        var row=el("div","report"),head=el("div","row");
-        head.appendChild(el("span",null,t("spy_row",sp.name,sp.skill,sp.left)));
-        row.appendChild(head);
-        if(sp.last)row.appendChild(el("div","sub",sp.last));
-        row.onclick=function(){openSheet({title:sp.name,prefix:sp.name+"：",note:sp.last||"",items:[{label:t("spy_recall"),payload:{id:"spy.recall",target:sp.id}}]})};
-        agents.appendChild(row);
+        add(li(t("spy_row",sp.name,sp.skill,sp.left),sp.last||null,null,function(){
+          openSheet({title:sp.name,prefix:sp.name+"：",note:sp.last||"",items:[{label:t("spy_recall"),payload:{id:"spy.recall",target:sp.id}}]})}));
       });
-      card.appendChild(agents);
-      if(g.sweep>0)card.appendChild(el("div","sub",t("spy_sweeping",g.sweep)));
-      else card.appendChild(arm("sweep",t("spy_sweep",g.sweepShare),{id:"sweep"}));
+      if(g.sweep>0)add(li(t("spy_sweep_l"),t("spy_sweeping",g.sweep),null,null));
+      else add(liAct(t("spy_sweep_l"),t("spy_sweep_cost",g.sweepShare),arm("sweep",t("spy_sweep",g.sweepShare),{id:"sweep"},"",t("d_go"))));
     }else if(g.id==="diplomacy"){
       if(!g.realms.length)card.appendChild(el("div","sub",t("d_no_realm")));
       var list=el("div");
       renderGrouped(list,g.realms,function(r,indent){
-        var row=el("div","row report nation");
-        if(indent)row.style.marginLeft="16px";
-        var who=el("span",null,r.name);
+        var who=el("div",null,r.name);
         if(r.pact){who.appendChild(document.createTextNode(" "));who.appendChild(el("span","tag gold",t("d_pact")))}
-        row.appendChild(who);
-        row.appendChild(el("span","sub",t("d_opinion",r.opinion)+" · "+t("d_envoy",r.months)));
-        row.onclick=function(){diploSheet(g,r)};
+        var row=li(who,t("d_opinion",r.opinion)+" · "+t("d_envoy",r.months),null,function(){diploSheet(g,r)});
+        if(indent)row.style.marginLeft="16px";
         return row;
       },openDiplo,rerender);
       card.appendChild(list);
     }
     box.appendChild(card);
   });
-  var oc=el("div","card");oc.appendChild(el("h2",null,t("d_orders")));
+  var oc=el("div","card");oc.appendChild(hd("g_orders",t("d_orders")));
   if(d.home!=null)oc.appendChild(el("div","sub",t("d_home",d.home)));
   var orows=el("div","rows");orows.style.marginTop="6px";
   if(!d.orders.length)orows.appendChild(el("div","sub",t("d_no_orders")));
@@ -881,6 +1189,8 @@ function renderDecrees(){
     orows.appendChild(row);
   });
   oc.appendChild(orows);box.appendChild(oc);
+  // 开着的"各派表态"跟着新数重画(点了筹码、对面改了立场)
+  if(sheet&&sheet.live)renderSheet();
 }
 
 // 舆图(用户 2026-11-12 "要是能全屏就好了""放大后应该显示更多的细节""军队应该在地图上显示, 手指点击下达命令""地图上也能直接点击外交")：
@@ -1256,7 +1566,8 @@ var tabs=document.querySelectorAll("nav button");
 for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
   commitSeen();page=this.getAttribute("data-p");
   for(var j=0;j<tabs.length;j++)tabs[j].className=tabs[j]===this?"on":"";
-  ["reports","map","realm","decrees"].forEach(function(p){$("p-"+p).hidden=p!==page});
+  ["reports","map","realm","decrees","annals"].forEach(function(p){$("p-"+p).hidden=p!==page});
+  if(page==="annals")openAnnals();
   window.scrollTo(0,0);
   if(page==="map"){drawMap();if(Date.now()-lastMapAt>5000)loadMap();if(Date.now()-armyAt>5000)loadArmies()}
   if(page==="reports"&&state&&state.loaded&&!state.vacant)renderReports();

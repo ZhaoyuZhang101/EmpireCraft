@@ -433,6 +433,10 @@ public static partial class TerminalHost
             made.Target = successorId;
             made.Text = string.Format(LM.Get("terminal_order_abdicate"), successor.getName());
         }
+        else if (id == "dejure_main" || id == "name_prefix" || id == "name_suffix")
+        {
+            if (!AnnalsOrder(seat, made, id, target, choice)) return;
+        }
         else if (id == "rename_ruler" || id == "rename_realm" && (realm.GetEmpire() == null || OwnEmpire(seat) != null))
         {
             string name = CleanText(choice);
@@ -738,6 +742,10 @@ public static partial class TerminalHost
                 seat.Abdicated = true;
                 return null;
             }
+            case "dejure_main":
+            case "name_prefix":
+            case "name_suffix":
+                return AnnalsExecute(seat, realm, order);
             case "rename_realm":
             {
                 float chance = ScaleChance(realm, RealmNameBase, RealmNameSlope);
