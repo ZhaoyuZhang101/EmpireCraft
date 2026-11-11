@@ -18,7 +18,8 @@ namespace EmpireCraft.Scripts.Terminal;
 //     各国各城的界线——回给它；总图上是迷雾的格照旧是迷雾。一次只备一片，手机拿到之前先看着放大的总图；
 //   · 军情：本国各军、看得见的地方的别国军队画在图上。军情是驿报送来的，不是眼前的事：只知接壤的三个月一报，
 //     驿路航路通了一个月一报，有了电报随时报(TerminalIntel.Sight 三档)。图上标着是哪个月的军情；
-//   · 军令：点一支本国的军、再点一座城，就是一道手令(CorpsDirectOrders)——本国的城去驻守，交战敌国的城去打。
+//   · 军令：点一支本国的军、再点一座城，就是一道手令(CorpsDirectOrders)——本国的城(帝国之主连同各行政区、封国的城)去驻守，
+//     交战敌国的城去打。
 //     令在路上要走：都城到那支军越远越久(一到三个月，驿路通了快一档，有电报当月到)；令到了回一条奏报，
 //     军团下个月起照办。新令顶旧令；撤令也是一道令，同样要走
 public static partial class TerminalHost
@@ -198,7 +199,7 @@ public static partial class TerminalHost
                         if (!cityIndex.TryGetValue(city.getID(), out byte index))
                         {
                             cityIndex[city.getID()] = index = (byte)cities.Count;
-                            cities.Add(new JObject { ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["own"] = kingdom.getID() == self });
+                            cities.Add(new JObject { ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["own"] = kingdom.getID() == self || seat.SlotProv[slot] });
                         }
                         info.city = index;
                     }
@@ -336,8 +337,10 @@ public static partial class TerminalHost
         {
             City city = long.TryParse(choice, out long cityId) ? World.world.cities.get(cityId) : null;
             if (city?.data == null || city.isRekt() || city.kingdom == null) return true;
-            bool own = city.kingdom == realm;
-            if (!own && !realm.isInWarWith(city.kingdom))
+            // 帝国之主还能把军调进本朝行政区、封国的城驻守
+            bool foe = realm.isInWarWith(city.kingdom);
+            bool own = !foe && (city.kingdom == realm || realm.GetEmpire() is { } court && court.CoreKingdom == realm && city.kingdom.GetEmpire() == court);
+            if (!own && !foe)
             {
                 Notify(seat, string.Format(LM.Get("terminal_writ_not_enemy"), city.data.name));
                 return true;

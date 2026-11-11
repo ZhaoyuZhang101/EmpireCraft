@@ -254,6 +254,7 @@ nav button.on .ic{opacity:1;filter:none}
       <span class="tag cyan" id="sight"></span><div class="sub" id="sight-note" style="margin-top:6px"></div>
       <div style="margin-top:8px;font-size:13px;color:var(--soft)">
         <div><span class="sw" style="background:var(--gold)"></span><span data-t="lg_own"></span></div>
+        <div><span class="sw" style="background:var(--gold);border-right:4px solid #6f6026"></span><span data-t="lg_prov"></span></div>
         <div><span class="sw" style="background:#7a8f6a"></span><span data-t="lg_known"></span></div>
         <div><span class="sw" style="background:repeating-linear-gradient(45deg,#7a8f6a 0 3px,#34392e 3px 6px)"></span><span data-t="lg_rumour"></span></div>
         <div><span class="sw" style="background:#0e0f0c;border:1px solid var(--line)"></span><span data-t="lg_fog"></span></div>
@@ -317,7 +318,7 @@ reports:"奏报",no_reports:"尚无奏报送达。",k_major:"急报",k_ledger:"�
 d_when:"事在第 {0} 年 {1} 月。",d_late:"历 {0} 月方达。",d_prompt:"当月即达。",d_foreign:"得自邻国往来，未必确实。",d_ledger:"此为地方奏销之数，非实查。",
 map_tap:"点军队选中，再点一座城就是下令；点别国办外交。双指放大看山川城池。",map_full:"全屏",map_exit:"退出全屏",m_diplo:"外交",m_cancel:"取消",intel_live:"军情：电报随时可达",intel_at:"军情截至第 {0} 年 {1} 月 · {2} 月一报",intel_old:"这是 {0} 个月前报来的军情，眼下未必还在原处。",army_foreign:"{0}之军",army_about:"约 {0} 人",army_count:"{0} 支",army_foe:"交战之敌",army_line:"兵力 {0} / {1} · 组织度 {2}",army_home:"驻地 {0}",task_reserve:"留守",task_march:"开赴边境",task_attack:"进攻",task_defend:"防守",task_retreat:"溃退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"没有手令，听朝廷调度",army_writ:"在途：{0}（还要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一并下令",army_release:"撤销手令",army_group:"{0} 支军",aim_title:"点一座城",aim_note:"本国的城：开过去驻守。交战敌国的城：去打它。",aim_miss:"这里没有可去的城",order_post:"驻守 {0}",order_strike:"攻打 {0}",order_delay0:"军令靠人马递送，离都城越远越久，一到三个月才到。",order_delay1:"军令走驿路，一两个月送到。",order_delay2:"军令走电报，当月就到。",order_go:"下令",order_sent:"军令已发往 {0}",release_sent:"撤令已发出",g_vassal:"附庸博弈",vk_0:"羁縻之地",vk_1:"世袭封国",vk_2:"封建附庸",vk_3:"朝贡国",vk_4:"接壤小国",vk_5:"起义军",v_title:"改设为行政区",v_amnesty:"招安",v_list_note:"把藩属改设成行政区、招安起义军，都上天平称。点一家看两边的砝码。",v_note:"朝廷的砝码不轻于对方的抗拒才谈得成。不够可以加码，也可以强推。",v_note_rebel:"招安也上天平：砝码够了，起义军罢兵归顺，其地复归朝廷。",v_resist:"对方的抗拒",v_court:"朝廷的砝码",v_extras:"加码",v_cost:"代价",v_cost_note:"改设之费库银 {0}；其余藩属自危，对朝廷的好感下降；新设的行政区十年里不稳。",v_cost_rebel:"招安之费库银 {0}；归顺之地十年里不稳。",v_send:"遣使去谈",v_send_rebel:"遣使招安",v_force:"强推",v_force_note:"强推不看天平：对方不从，举兵相抗，其余藩属更加离心。",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
 note0:"眼下只知道接壤的国家。再远的地方，要有商路与航海之术才通消息。",note1:"使节到得了的国家都知道；更远的只有传闻。",note2:"消息即时可达，天下都看得见。",
-lg_own:"本国",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
+lg_own:"本国",lg_prov:"本朝行政区（深线是行政区界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
 officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上下有出入，奏报常迟。",tn2:"数字多有虚报，小事常报不上来。",
 f_treasury:"库银",f_army:"兵额",f_people:"丁口",approx:"约 {0}",n_book:"账面",n_roll:"在册",n_hidden:"隐户未计",n_true:"实数",
 wars:"战事",no_wars:"眼下没有战事。",w_att:"伐{0}",w_def:"御{0}",
@@ -336,7 +337,7 @@ reports:"奏報",no_reports:"尚無奏報送達。",k_major:"急報",k_ledger:"�
 d_when:"事在第 {0} 年 {1} 月。",d_late:"歷 {0} 月方達。",d_prompt:"當月即達。",d_foreign:"得自鄰國往來，未必確實。",d_ledger:"此為地方奏銷之數，非實查。",
 map_tap:"點軍隊選中，再點一座城就是下令；點別國辦外交。雙指放大看山川城池。",map_full:"全螢幕",map_exit:"退出全螢幕",m_diplo:"外交",m_cancel:"取消",intel_live:"軍情：電報隨時可達",intel_at:"軍情截至第 {0} 年 {1} 月 · {2} 月一報",intel_old:"這是 {0} 個月前報來的軍情，眼下未必還在原處。",army_foreign:"{0}之軍",army_about:"約 {0} 人",army_count:"{0} 支",army_foe:"交戰之敵",army_line:"兵力 {0} / {1} · 組織度 {2}",army_home:"駐地 {0}",task_reserve:"留守",task_march:"開赴邊境",task_attack:"進攻",task_defend:"防守",task_retreat:"潰退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"沒有手令，聽朝廷調度",army_writ:"在途：{0}（還要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一併下令",army_release:"撤銷手令",army_group:"{0} 支軍",aim_title:"點一座城",aim_note:"本國的城：開過去駐守。交戰敵國的城：去打它。",aim_miss:"這裡沒有可去的城",order_post:"駐守 {0}",order_strike:"攻打 {0}",order_delay0:"軍令靠人馬遞送，離都城越遠越久，一到三個月才到。",order_delay1:"軍令走驛路，一兩個月送到。",order_delay2:"軍令走電報，當月就到。",order_go:"下令",order_sent:"軍令已發往 {0}",release_sent:"撤令已發出",g_vassal:"附庸博弈",vk_0:"羈縻之地",vk_1:"世襲封國",vk_2:"封建附庸",vk_3:"朝貢國",vk_4:"接壤小國",vk_5:"起義軍",v_title:"改設為行政區",v_amnesty:"招安",v_list_note:"把藩屬改設成行政區、招安起義軍，都上天平稱。點一家看兩邊的砝碼。",v_note:"朝廷的砝碼不輕於對方的抗拒才談得成。不夠可以加碼，也可以強推。",v_note_rebel:"招安也上天平：砝碼夠了，起義軍罷兵歸順，其地復歸朝廷。",v_resist:"對方的抗拒",v_court:"朝廷的砝碼",v_extras:"加碼",v_cost:"代價",v_cost_note:"改設之費庫銀 {0}；其餘藩屬自危，對朝廷的好感下降；新設的行政區十年裡不穩。",v_cost_rebel:"招安之費庫銀 {0}；歸順之地十年裡不穩。",v_send:"遣使去談",v_send_rebel:"遣使招安",v_force:"強推",v_force_note:"強推不看天平：對方不從，舉兵相抗，其餘藩屬更加離心。",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
 note0:"眼下只知道接壤的國家。再遠的地方，要有商路與航海之術才通消息。",note1:"使節到得了的國家都知道；更遠的只有傳聞。",note2:"消息即時可達，天下都看得見。",
-lg_own:"本國",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
+lg_own:"本國",lg_prov:"本朝行政區（深線是行政區界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
 officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上下有出入，奏報常遲。",tn2:"數字多有虛報，小事常報不上來。",
 f_treasury:"庫銀",f_army:"兵額",f_people:"丁口",approx:"約 {0}",n_book:"帳面",n_roll:"在冊",n_hidden:"隱戶未計",n_true:"實數",
 wars:"戰事",no_wars:"眼下沒有戰事。",w_att:"伐{0}",w_def:"禦{0}",
@@ -355,7 +356,7 @@ reports:"Reports",no_reports:"No reports have arrived yet.",k_major:"Urgent",k_l
 d_when:"Happened in year {0}, month {1}.",d_late:"Took {0} months to arrive.",d_prompt:"Arrived the same month.",d_foreign:"Heard through neighbours; may not be accurate.",d_ledger:"Figures as filed by local officials, not audited.",
 map_tap:"Tap an army to select it, then tap a city to give the order; tap a realm for diplomacy. Pinch to zoom in on terrain and cities.",map_full:"Full screen",map_exit:"Exit full screen",m_diplo:"Diplomacy",m_cancel:"Cancel",intel_live:"Army reports: live by telegraph",intel_at:"Army reports as of year {0}, month {1} · every {2} mo",intel_old:"This report is {0} months old; the army may have moved since.",army_foreign:"Army of {0}",army_about:"About {0} men",army_count:"{0} corps",army_foe:"At war with us",army_line:"Strength {0} / {1} · Organisation {2}",army_home:"Home {0}",task_reserve:"In reserve",task_march:"Marching to the border",task_attack:"Attacking",task_defend:"Defending",task_retreat:"Routed, regrouping",task_sea:"At sea",army_order:"Standing order: {0}",army_no_order:"No standing order; the court deploys it",army_writ:"On the way: {0} ({1} mo left)",army_aim:"Order: pick a city",army_aim_all:"Order them all",army_release:"Withdraw the order",army_group:"{0} corps",aim_title:"Tap a city",aim_note:"A city of the realm: march there and garrison it. A city of an enemy at war: attack it.",aim_miss:"No city to go to here",order_post:"Garrison {0}",order_strike:"Attack {0}",order_delay0:"Orders go by courier: one to three months, longer the farther from the capital.",order_delay1:"Orders go by post road: one or two months.",order_delay2:"Orders go by telegraph: this month.",order_go:"Give the order",order_sent:"Order sent toward {0}",release_sent:"Withdrawal sent",g_vassal:"Vassals and rebels",vk_0:"Loose-rein land",vk_1:"Hereditary fief",vk_2:"Feudal vassal",vk_3:"Tributary",vk_4:"Small neighbour",vk_5:"Rebels",v_title:"Make it a province",v_amnesty:"Offer amnesty",v_list_note:"Turning a vassal into a province or buying off rebels is weighed on the scale. Tap one to see both sides.",v_note:"It works only if the court outweighs their resistance. Add to the scale if it falls short, or force it.",v_note_rebel:"Amnesty goes on the scale too: with enough weight the rebels lay down arms and their land returns to the court.",v_resist:"Their resistance",v_court:"The court",v_extras:"Add to the scale",v_cost:"Cost",v_cost_note:"A fee of {0} silver; the other vassals grow wary and like the court less; the new province is unsettled for ten years.",v_cost_rebel:"A fee of {0} silver; the returned land is unsettled for ten years.",v_send:"Send an envoy",v_send_rebel:"Send an envoy with amnesty",v_force:"Force it",v_force_note:"Forcing ignores the scale: they refuse and take up arms, and the other vassals turn further away.",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
 note0:"Only bordering realms are known. Word from farther away needs trade roads and seafaring.",note1:"Realms that envoys can reach are known; beyond them there are only rumours.",note2:"News travels at once and the whole world is visible.",
-lg_own:"This realm",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
+lg_own:"This realm",lg_prov:"Provinces of the realm (dark lines are province borders)",m_prov:"Land of the realm",m_prov_cities:"Its cities",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
 officials:"Officials",corr:"Corruption {0}%",tn0:"Reports are broadly reliable.",tn1:"Figures drift and reports often run late.",tn2:"Figures are padded and small matters often go unreported.",
 f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on the books",n_roll:"on the rolls",n_hidden:"hidden households uncounted",n_true:"actual",
 wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
@@ -1215,9 +1216,14 @@ function decodeMap(j){
   if(x1<0){x0=0;y0=0;x1=j.w-1;y1=j.h-1}
   x0=Math.max(0,x0-3);y0=Math.max(0,y0-3);x1=Math.min(j.w-1,x1+3);y1=Math.min(j.h-1,y1+3);
   j.grid=cells;j.view={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};j.tile=j.tile||1;
-  j.realms.forEach(function(r){r.rgb=hexRgb(r.color)});
+  // 本朝之地 = 本国加各行政区(帝国之主才有)。行政区照本国的颜色画，只掺一点它自己的颜色：看得出是一家，又分得开
+  var me=j.realms.filter(function(r){return r.tier===0})[0],mine=me?hexRgb(me.color):null;
+  j.realms.forEach(function(r){
+    r.rgb=hexRgb(r.color);r.inside=r.tier===0||!!r.prov;
+    if(r.prov&&mine)r.rgb=[(mine[0]*3+r.rgb[0])/4,(mine[1]*3+r.rgb[1])/4,(mine[2]*3+r.rgb[2])/4];
+  });
   // 城按要紧的先画：本国都城、各国都城、本国的城、别国的城，同类里大的在前
-  j.cities=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.own=!!r&&r.tier===0;c.rank=(c.own&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c})
+  j.cities=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.home=!!r&&r.tier===0;c.own=!!r&&r.inside;c.rank=(c.home&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c})
     .sort(function(a,b){return a.rank-b.rank});
   if(!mv.set){mv.set=true;mv.z=1;mv.x=x0+(x1-x0+1)/2;mv.y=y0+(y1-y0+1)/2}
   if(detail)detail.stale=true;
@@ -1228,6 +1234,7 @@ function paintMap(){
   var v=map.view,off=document.createElement("canvas");off.width=v.w;off.height=v.h;
   var octx=off.getContext("2d"),img=octx.createImageData(v.w,v.h),d=img.data,g=map.grid,W=map.w;
   function cell(x,y){return x<0||y<0||x>=map.w||y>=map.h?FOG:g[y*W+x]}
+  function inside(v){var o=map.realms[v];return v<250&&!!o&&o.inside}
   for(var y=0;y<v.h;y++)for(var x=0;x<v.w;x++){
     var gx=v.x+x,gy=v.y+y,c=g[gy*W+gx],r,gg,b;
     if(c===FOG){var s=fogShade(gx,gy);r=s;gg=s+1;b=s-2}
@@ -1235,8 +1242,13 @@ function paintMap(){
     else if(c===WILD){r=52;gg=57;b=46}
     else{var realm=map.realms[c],rgb=realm?realm.rgb:[136,136,136];r=rgb[0];gg=rgb[1];b=rgb[2];
       if(realm&&realm.tier===2){if((gx+gy)%3!==0){r=(r+52*2)/3;gg=(gg+57*2)/3;b=(b+46*2)/3}}
-      var edge=cell(gx+1,gy)!==c||cell(gx,gy+1)!==c;
-      if(edge){if(realm&&realm.tier===0){r=243;gg=195;b=74}else{r*=.5;gg*=.5;b*=.5}}}
+      var right=cell(gx+1,gy),down=cell(gx,gy+1);
+      if(right!==c||down!==c){
+        // 本朝之内彼此之间是行政区界(深一档的线)，对外才是金色的国界
+        if(realm&&realm.inside&&inside(right)&&inside(down)){r*=.58;gg*=.58;b*=.58}
+        else if(realm&&realm.inside){r=243;gg=195;b=74}
+        else{r*=.5;gg*=.5;b*=.5}
+      }}
     var p=(y*v.w+x)*4;d[p]=r;d[p+1]=gg;d[p+2]=b;d[p+3]=255;
   }
   octx.putImageData(img,0,0);map.off=off;
@@ -1256,7 +1268,10 @@ function decodeDetail(j){
       r=tc[0]*(1-m)+rc[0]*m;g=tc[1]*(1-m)+rc[1]*m;b=tc[2]*(1-m)+rc[2]*m;
       var right=x+1<W?O[i+1]:o,down=y+1<H?O[i+W]:o;
       if(right!==o&&right!==FOG||down!==o&&down!==FOG){
-        if(realm&&realm.tier===0){r=243;g=195;b=74}else{r=rc[0]*.42;g=rc[1]*.42;b=rc[2]*.42}
+        var ro=map.realms[right],dn=map.realms[down];
+        if(realm&&realm.inside&&(right===o||right<250&&ro&&ro.inside)&&(down===o||down<250&&dn&&dn.inside)){r=rc[0]*.45;g=rc[1]*.45;b=rc[2]*.45}
+        else if(realm&&realm.inside){r=243;g=195;b=74}
+        else{r=rc[0]*.42;g=rc[1]*.42;b=rc[2]*.42}
       }else{
         var c=C[i],cr=x+1<W?C[i+1]:c,cd=y+1<H?C[i+W]:c;
         if(right===o&&cr!==c||down===o&&cd!==c){r*=.7;g*=.7;b*=.7}
@@ -1337,12 +1352,12 @@ function drawMap(){
     if(px<0||py<0||px>cv.width||py>cv.height)return;
     free(px-tw/2,py-8*dpr,tw,16*dpr);
     ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(r.name,px,py);
-    ctx.fillStyle=r.tier===0?"#f3c34a":r.tier===2?"#b9b39d":"#e8e2cf";ctx.fillText(r.name,px,py);
+    ctx.fillStyle=r.tier===0?"#f3c34a":r.prov?"#ecd98a":r.tier===2?"#b9b39d":"#e8e2cf";ctx.fillText(r.name,px,py);
   });
   // 城：都城一直标着，别的城放大了才出来；名字不压着别的字
   ctx.font=(11*dpr)+"px sans-serif";
   map.cities.forEach(function(c){
-    if(!(c.cap&&c.own)&&kc<(c.cap?1.2:c.own?1.8:2.8))return;
+    if(!(c.cap&&c.home)&&kc<(c.cap?1.2:c.own?1.8:2.8))return;
     var px=(c.x-x)*k,py=(c.y-y)*k;
     if(px<-20||py<-20||px>cv.width+20||py>cv.height+20)return;
     var q=(c.cap?4:2.5)*dpr;
@@ -1508,11 +1523,14 @@ function pickAt(clientX,clientY){
     mapRealmActs(r,acts);
   }
   if(!city&&c<250&&r&&r.tier<=1&&detail)city=cityAtCell(gx,gy,c);
-  panel(city?city.name:name,[city?name:null],acts);
+  panel(city?city.name:name,[city?name:null,r&&r.prov&&c<250?t("m_prov"):null],acts);
   drawMap();
 }
 // 点中别国时底下条子里另加的按钮：能改设、能招安的多一个进天平的按钮
 function mapRealmActs(r,acts){
+  // 本朝的行政区：先给一个看它各城的按钮
+  var pr=r.prov&&(state.provinces||[]).filter(function(o){return o.id===r.id})[0];
+  if(pr)acts.unshift({label:t("m_prov_cities"),go:function(){provinceSheet(pr)}});
   var vg=(state.decrees.groups||[]).filter(function(g){return g.id==="vassal"})[0];
   var it=vg&&vg.items.filter(function(o){return o.id===r.id})[0];
   if(it)acts.push({label:t(it.kind===5?"v_amnesty":"v_title"),go:function(){vassalSheet(it)}});

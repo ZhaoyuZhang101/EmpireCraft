@@ -111,6 +111,8 @@ public static partial class TerminalHost
         internal int MapW, MapH, MapTile = 1;
         internal readonly Dictionary<long, int> Slots = new();
         internal int[] SlotTier = new int[0];
+        // 图上哪些编号是本朝的行政区、羁縻、封国(帝国之主才有，见 BuildMap)
+        internal bool[] SlotProv = new bool[0];
         internal volatile string ViewWant, ViewKey, ViewJson, ArmyJson;
         internal JArray ArmySeen;
         internal string ArmySeenText;
@@ -1128,6 +1130,10 @@ public static partial class TerminalHost
                 ["id"] = map.Kingdoms[i].getID().ToString(), ["name"] = map.Kingdoms[i].data.name,
                 ["color"] = Hex(RealmMiniMap.KingdomColor(map.Kingdoms[i])), ["tier"] = tier[i]
             });
+            // 帝国之主的图上，帝国的成员(行政区、羁縻、封国)标成本朝之地：手机照本国的颜色画，彼此之间画行政区界
+            // (用户 2026-11-12 "地图上也要能看到行政区的边界")
+            if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && map.Kingdoms[i].GetEmpire() == empire)
+                realms[realms.Count - 1]["prov"] = true;
             sumX.Add(0f);
             sumY.Add(0f);
             count.Add(0);
@@ -1135,11 +1141,13 @@ public static partial class TerminalHost
         // 细节图、军情都按这回的编号与几等认国(见 TerminalHost.Field)；朝廷还不知道的叛军算在本国头上
         seat.Slots.Clear();
         seat.SlotTier = new int[realms.Count];
+        seat.SlotProv = new bool[realms.Count];
         for (int i = 0; i < slot.Length; i++)
         {
             if (slot[i] < 0) continue;
             seat.Slots[map.Kingdoms[i].getID()] = slot[i];
             seat.SlotTier[slot[i]] = tier[i];
+            seat.SlotProv[slot[i]] = realms[slot[i]]["prov"] != null;
         }
         if (self >= 0 && slot[self] >= 0)
             foreach (long hiddenId in seat.Hidden) seat.Slots[hiddenId] = slot[self];

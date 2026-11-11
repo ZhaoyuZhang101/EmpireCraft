@@ -627,7 +627,7 @@ public static partial class FrontSystem
                 corps.sector_city_id = -1L;
                 if (corps.task == "retreat") { corps.target_zone_id = HomeZone(corps); continue; }
                 // 手令：太平时开到指的那座城驻着(见 CorpsDirectOrders)
-                if (CorpsDirectOrders.Target(kingdom, corps) is City post && post.kingdom == kingdom && post.getTile()?.zone is TileZone postZone)
+                if (CorpsDirectOrders.Target(kingdom, corps) is City post && !kingdom.isInWarWith(post.kingdom) && post.getTile()?.zone is TileZone postZone)
                 {
                     corps.task = "reserve";
                     corps.target_zone_id = postZone.id;
@@ -683,7 +683,8 @@ public static partial class FrontSystem
             {
                 City goal = CorpsDirectOrders.Target(kingdom, corps);
                 if (goal == null) continue;
-                if (goal.kingdom == kingdom)
+                // 不是敌城就是自家的城(本国的、同一帝国里的)：去驻守
+                if (!kingdom.isInWarWith(goal.kingdom))
                 {
                     TileZone anchor = DefenseZone(kingdom, goal);
                     if (!Walkable(kingdom, corps, anchor)) continue;
