@@ -53,11 +53,36 @@ public static partial class CourtSystem
             {
                 claim = claim.type.ToString(), proposer = faction.GetID(), stage = 0, stage_time = now - StageMonths * 5d, proposed = now
             };
-            Log(state, "court_log_god_propose", faction.Name, IssueName(claim.type, empire));
+            // 神力指定了目标的写明(见下面带目标的 GodPropose)
+            string target = claim.HasDesignated ? claim.TargetLabel() : null;
+            if (string.IsNullOrEmpty(target)) Log(state, "court_log_god_propose", faction.Name, IssueName(claim.type, empire));
+            else Log(state, "court_log_god_propose_target", faction.Name, IssueName(claim.type, empire), target);
             return true;
         }
         ParliamentBillSystem.Propose(empire, faction, claim);
         return true;
+    }
+
+    // 能不能改由神力指定目标来发起(用户 2026-11-11 "这里在发起诉求时应该给个目标")：这条决议的目标规则在数据里(ClaimRules.json 的 target)，
+    // 别的门槛都过了(只差朝廷自己挑不出目标也行)，而且候选里有能选的
+    public static bool CanPickTarget(Empire empire, FixedFaction faction, TemporaryFaction claim)
+    {
+        if (claim == null || !claim.CanDesignate) return false;
+        string blocked = CannotGodPropose(empire, faction, claim);
+        if (blocked != null && blocked != "court_god_propose_condition") return false;
+        return claim.HasSelectableTarget();
+    }
+
+    // 指定目标发起(target 为 null = 让朝廷自己挑)：指定的目标记在决议上，从上奏到施行都照它(见 TemporaryFaction.Designate)。
+    // 没递上去、议会当场表决没开跑的，指定作废
+    public static bool GodPropose(Empire empire, FixedFaction faction, TemporaryFaction claim, ClaimTargetOption target)
+    {
+        if (claim == null) return false;
+        if (target != null) claim.Designate(target);
+        else claim.ClearDesignated();
+        bool proposed = GodPropose(empire, faction, claim);
+        if (!proposed || !Applies(empire) && !claim.IsStarted()) claim.ClearDesignated();
+        return proposed;
     }
 
     #endregion

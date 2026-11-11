@@ -51,24 +51,15 @@ public class TempFac_撤销军府 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：没有外敌的军府；朝廷任命的先撤、不要罪名，世袭的藩镇要有可追究的罪名。
+    // 规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
-        if (empire == null) return false;
         // 南明诸镇割据期间朝廷只是名义上的天子，削不了藩(见 SouthernGarrisonSystem)
-        if (EmpireCraft.Scripts.GeneralSystems.SouthernGarrisonSystem.Active(empire)) return false;
-        // 先挑朝廷任命的，再挑世袭的
-        foreach (var kingdom in empire.kingdoms_list.ToList().OrderBy(kingdom => Hereditary(kingdom) ? 1 : 0))
-        {
-            if (kingdom == null || kingdom.isRekt() || kingdom.IsEmpire()) continue;
-            if (kingdom.GetKingdomType() != KingdomType.LvLing_jiedushi &&
-                kingdom.GetKingdomType() != KingdomType.LvLing_duhufu) continue;
-            if (kingdom.hasEnemies()) continue;
-            SetKingdomTarget(kingdom);
-            if (HasRequiredCrimeForCurrentTarget()) return true;
-        }
-
-        return false;
+        return empire?.kingdoms_list != null && !EmpireCraft.Scripts.GeneralSystems.SouthernGarrisonSystem.Active(empire);
     }
 
     private static bool Hereditary(Kingdom kingdom) =>

@@ -52,20 +52,13 @@ public class TempFac_宗教同化 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：不奉帝国国教的成员(连同朝廷自己)。规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
-        if (empire == null || empire.IsArchived() || empire.isRekt() ||
-            empire.Religion == null || empire.Religion.isRekt() || empire.kingdoms_list == null) return false;
-        foreach (var kingdom in empire.kingdoms_list)
-        {
-            if (kingdom?.data == null || kingdom.isRekt()) continue;
-            if (kingdom.religion != empire.Religion)
-            {
-                SetKingdomTarget(kingdom);
-                return true;
-            }
-        }
-        return false;
+        return empire != null && !empire.IsArchived() && !empire.isRekt() &&
+               empire.Religion != null && !empire.Religion.isRekt() && empire.kingdoms_list != null;
     }
 }

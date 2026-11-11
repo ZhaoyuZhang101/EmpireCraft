@@ -379,11 +379,17 @@ public static partial class NomadRaidSystem
     // 盟里各部接壤的定居之国里挑一家
     private static (Kingdom target, double score) PickTarget(Kingdom leader, List<Kingdom> members)
     {
+        List<(Kingdom target, double score)> ranked = RankTargets(leader, members);
+        return ranked.Count > 0 ? ranked[0] : ((Kingdom)null, 0d);
+    }
+
+    // 可劫的各家连同分数，从高到低(一样高的照遇到的先后；分数不过零的不算)
+    private static List<(Kingdom target, double score)> RankTargets(Kingdom leader, List<Kingdom> members)
+    {
         double ours = members.Sum(PowerOf);
         bool league = members.Count > 1;
         var seen = new HashSet<Kingdom>();
-        Kingdom best = null;
-        double bestScore = 0d;
+        var found = new List<(Kingdom target, double score)>();
         foreach (Kingdom member in members)
             foreach (City city in member.cities)
                 foreach (Kingdom target in city?.neighbours_kingdoms ?? new HashSet<Kingdom>())
@@ -393,11 +399,9 @@ public static partial class NomadRaidSystem
                     double ratio = ours / theirs;
                     if (ratio < (league ? LeaguePowerShare : 1d) || !league && ratio <= 1d) continue;
                     double score = SteppeRules.TargetScore(Wealth(target), ratio, Defense(members, target), Grievance(members, target));
-                    if (score <= bestScore) continue;
-                    best = target;
-                    bestScore = score;
+                    if (score > 0d) found.Add((target, score));
                 }
-        return (best, bestScore);
+        return found.OrderByDescending(item => item.score).ToList();
     }
 
     // 可劫：定居之国，不在盟里、不与盟里同一帝国，五年内没遭劫，过得了开战闸门，没给盟里送岁币，没在被别家劫

@@ -35,7 +35,7 @@ public class TempFac_割让城池 : TemporaryFaction
         Empire empire = GetEmpire();
         if (enemy != null && !enemy.isRekt() && empire != null)
         {
-            City city = PickCity(empire, enemy);
+            City city = ClaimTargetRules.CedeCity(empire, enemy);
             if (city != null)
             {
                 string cityName = city.GetCityName();
@@ -48,40 +48,16 @@ public class TempFac_割让城池 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：接壤、把本朝打得危急、又有城可割的交战国。规则在 ClaimRules.json 的 target
+    // (门槛见 ClaimTargetRules.LosingWarBadly，割哪座城见 ClaimTargetRules.CedeCity)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         Kingdom core = empire?.CoreKingdom;
         if (core == null || !core.hasEnemies() || empire.countCities() < 3) return false;
         // 国库充裕：宁可岁输金帛，也不割地
-        if (core.GetMoney() >= RichTreasury && !core.HasGivenAlliance()) return false;
-        foreach (Kingdom enemy in core.getEnemiesKingdoms())
-        {
-            if (enemy == null || enemy.isRekt() || enemy.IsInSameEmpire(core) || !empire.IsNeighbourWith(enemy)) continue;
-            if (!IsLosing(core, enemy) || PickCity(empire, enemy) == null) continue;
-            SetKingdomTarget(enemy);
-            return true;
-        }
-        return false;
+        return core.GetMoney() < RichTreasury || core.HasGivenAlliance();
     }
-
-    private static bool IsLosing(Kingdom core, Kingdom enemy)
-    {
-        War war = WarSituation.FindWar(core, enemy);
-        if (war == null) return false;
-        float years = WarSituation.WarYears(war);
-        if (years < 1f) return false;
-        int lost = WarSituation.CitiesLost(war, core);
-        float ratio = WarSituation.StrengthRatio(core, enemy);
-        if (lost < 0) return ratio >= 2.5f && years >= 2f;
-        return lost >= 2 && ratio >= 1.2f || lost >= 1 && ratio >= 1.8f || ratio >= 3f;
-    }
-
-    // 与敌国接壤、人口最少的非都城城市
-    private static City PickCity(Empire empire, Kingdom enemy) => empire.cities_list
-        .Where(city => city != null && !city.isRekt() && !city.isCapitalCity() &&
-                       city.neighbours_cities != null &&
-                       city.neighbours_cities.Any(other => other != null && other.kingdom == enemy))
-        .OrderBy(city => city.getPopulationPeople())
-        .FirstOrDefault();
 }

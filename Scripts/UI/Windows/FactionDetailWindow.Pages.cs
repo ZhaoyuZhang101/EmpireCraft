@@ -650,10 +650,15 @@ public partial class FactionDetailWindow
             card.AddChipRow(width - Pad, chips.Skip(start).Take(perRow).ToArray());
 
         string blocked = CourtSystem.CannotGodPropose(empire, _faction, claim);
+        // 目标规则写在数据里的决议(ClaimRules.json 的 target，见 ClaimTargetRules)：点发起先开选目标的窗口(ClaimTargetWindow)，
+        // 可以指定，也可以让朝廷自己挑(用户 2026-11-11 "这里在发起诉求时应该给个目标")
+        bool pick = CourtSystem.CanPickTarget(empire, _faction, claim);
         card.AddActionRow(width - Pad,
-            (LM.Get(parliament ? "faction_claim_propose_bill" : "faction_claim_propose"), WideKit.Green, blocked == null, () =>
+            (LM.Get(pick ? "faction_claim_propose_pick" : parliament ? "faction_claim_propose_bill" : "faction_claim_propose"), WideKit.Green,
+                blocked == null || pick, () =>
             {
-                if (CourtSystem.GodPropose(empire, _faction, claim)) ShowClaims();
+                if (pick) ClaimTargetWindow.Open(empire, _faction, claim);
+                else if (CourtSystem.GodPropose(empire, _faction, claim)) ShowClaims();
             }),
             (LM.Get("faction_claim_remove"), WideKit.Red, true, () =>
             {
@@ -661,10 +666,16 @@ public partial class FactionDetailWindow
                 _faction.TemporaryFactionTypesRecord?.Remove(claim.type);
                 ShowClaims();
             }));
-        if (blocked != null && !claim.IsStarted() && !IsCurrent(empire != null && CourtSystem.Applies(empire) ? CourtSystem.State(empire)?.memorial : null, claim))
+        if (blocked != null && !pick && !claim.IsStarted() && !IsCurrent(empire != null && CourtSystem.Applies(empire) ? CourtSystem.State(empire)?.memorial : null, claim))
             card.AddParagraph(width, string.Format(LM.Get("faction_claim_cannot_propose"), LM.Has(blocked) ? LM.Get(blocked) : blocked), 6, WideKit.Muted);
         // 正在推的这一条：神力强制推进
         CourtMemorial live = empire != null && CourtSystem.Applies(empire) ? CourtSystem.State(empire)?.memorial : null;
+        // 目标：正在议、正在施行的写定下的目标(神力指定的标明)；还没发起的写不指定时朝廷会挑谁
+        bool underway = claim.IsStarted() || IsCurrent(live, claim);
+        string target = underway || blocked == null ? claim.TargetLabel() : null;
+        if (!string.IsNullOrEmpty(target))
+            card.AddParagraph(width, string.Format(LM.Get(!underway ? "faction_claim_target_auto"
+                : claim.HasDesignated ? "faction_claim_target_designated" : "faction_claim_target"), target), 6, WideKit.Soft);
         if (IsCurrent(live, claim) && live.stage < 4)
             card.AddActionRow(width - Pad,
                 (LM.Get("faction_force_step"), WideKit.Gold, true, () =>

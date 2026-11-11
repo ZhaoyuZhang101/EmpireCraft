@@ -29,36 +29,22 @@ public class TempFac_罢兵议和 : TemporaryFaction
 
     public override int CooldownYears => 2;
 
-    public override bool CheckCondition()
-    {
-        War war = FindWar();
-        if (war == null) return false;
-        Kingdom core = GetEmpire().CoreKingdom;
-        SetKingdomTarget(war.main_attacker == core ? war.main_defender : war.main_attacker);
-        return true;
-    }
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
 
-    private War FindWar()
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        Kingdom core = GetEmpire()?.CoreKingdom;
-        if (core == null || !OffCooldown()) return null;
-        return core.getWars().Where(war => war != null && (war.main_attacker == core || war.main_defender == core) && Negotiable(war))
-            .OrderByDescending(WarSituation.WarYears).FirstOrDefault();
+        return GetEmpire()?.CoreKingdom != null && OffCooldown();
     }
-
-    private static bool Negotiable(War war) =>
-        PeaceTable.Usable(war) && !war.GetOrCreate().scripted_war && !war.isTotalWar() && !UnificationSystem.IsUnificationWar(war) &&
-        !RulerTraitSystem.IsFounderUnificationWar(war) && !WarlordEraSystem.IsCivilWar(war) &&
-        WarSituation.WarYears(war) >= WarPeaceRules.MinWarYears;
 
     public override void Execute()
     {
         LogService.LogInfo($"执行{type}");
-        War war = FindWar();
+        // 同定好的那一国议和(两国作主战方、眼下谈得了的那场仗，见 ClaimTargetRules.NegotiableWarWith)
+        Kingdom enemy = GetKingdomTarget();
+        War war = ClaimTargetRules.NegotiableWarWith(GetEmpire()?.CoreKingdom, enemy);
         if (war != null)
         {
-            Kingdom core = GetEmpire().CoreKingdom;
-            Kingdom enemy = war.main_attacker == core ? war.main_defender : war.main_attacker;
             World.world.wars.endWar(war, WarWinner.Peace);
             CompletionOutcome = string.Format(LM.Get("claim_outcome_罢兵议和_done"), enemy?.GetKingdomName() ?? "");
         }

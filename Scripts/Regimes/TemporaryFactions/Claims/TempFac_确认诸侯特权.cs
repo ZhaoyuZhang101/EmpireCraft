@@ -44,14 +44,10 @@ public class TempFac_确认诸侯特权 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
-    {
-        Kingdom target = HolyRomanClaimRules.GetPrinces(GetEmpire())
-            .Where(NeedsPrivilege)
-            .OrderByDescending(kingdom => kingdom.countTotalWarriors())
-            .FirstOrDefault();
-        return target != null && TrySetTarget(target);
-    }
+    // 目标：还没有开战之权、或还得给中央出兵的世俗诸侯，兵多的优先。规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady() => HolyRomanClaimRules.IsEligible(GetEmpire());
 
     public override bool CheckLocalCondition(Kingdom actor)
     {

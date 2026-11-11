@@ -1,3 +1,4 @@
+using NeoModLoader.General;
 using System.Collections.Generic;
 using System.Linq;
 using NeoModLoader.services;
@@ -34,13 +35,21 @@ public class TempFac_宗教融入 : TemporaryFaction
         End();
     }
 
+    private const double MajorityShare = 0.6d;
+
     // 帝国治下六成以上的人信同一个宗教、又不是核心王国的国教时，核心王国改奉此教。
     // 信众按各城算：城里的实体各按自己的宗教，背景人口按城的宗教(与 NoCommonersPatch 的信众统计同一口径)；
     // 以前只数帝国的实体小人，无小人模式下只剩君主、城主、官员，几个人的信仰就定了国教
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady() => GetEmpire()?.CoreKingdom != null;
+
+    // 候选：帝国治下有信众的各教，按信众多少排，写明占比；过六成、又不是核心王国国教、本朝奉得了的那一教可选
+    public override List<ClaimTargetOption> BuiltinCandidates()
     {
+        var result = new List<ClaimTargetOption>();
         Empire empire = GetEmpire();
-        if (empire?.CoreKingdom == null) return false;
+        if (empire?.CoreKingdom == null) return result;
         var believers = new Dictionary<Religion, double>();
         double total = 0d;
         foreach (City city in empire.getCities())
@@ -57,16 +66,23 @@ public class TempFac_宗教融入 : TemporaryFaction
             total += background;
             if (background > 0 && city.hasReligion()) Add(believers, city.religion, background);
         }
-        if (total <= 0d || believers.Count == 0) return false;
-        KeyValuePair<Religion, double> mostPopular = believers.OrderByDescending(pair => pair.Value).First();
-        if (mostPopular.Value / total > 0.6d && mostPopular.Key != empire.CoreKingdom.religion &&
-            CaliphateFaith.MayAdopt(empire.CoreKingdom, mostPopular.Key))
+        if (total <= 0d) return result;
+        foreach (KeyValuePair<Religion, double> pair in believers.OrderByDescending(pair => pair.Value))
         {
-            SetReligionTarget(mostPopular.Key);
-            return true;
+            Religion religion = pair.Key;
+            if (religion?.data == null || religion.isRekt()) continue;
+            double share = pair.Value / total;
+            // 哈里发国只奉伊斯兰(见 CaliphateFaith)
+            string blocked = religion == empire.CoreKingdom.religion ? "claim_target_fail_faith_current"
+                : share <= MajorityShare ? "claim_target_fail_faith_share"
+                : !CaliphateFaith.MayAdopt(empire.CoreKingdom, religion) ? "claim_target_fail_faith_barred" : null;
+            ClaimTargetOption option = ClaimTargetOption.Of(religion, blocked == null ? "" : LM.Get(blocked));
+            option.Selectable = blocked == null;
+            option.Figure = string.Format(LM.Get("claim_target_share"), share * 100d);
+            option.FigureHex = share > MajorityShare ? "#65D66E" : "#F2EEE2";
+            result.Add(option);
         }
-
-        return false;
+        return result;
     }
 
     private static void Add(Dictionary<Religion, double> believers, Religion religion, double amount)

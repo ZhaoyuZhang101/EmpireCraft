@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
@@ -28,15 +30,17 @@ public class TempFac_劫掠 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：可劫的接壤定居之国，照劫掠的算法排先后(见 NomadRaidSystem.ClaimTargets)，第一家就是朝堂自己会挑的
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         // 有劫掠传统的文化才劫(草原、维京；阿兹特克、林地部族不劫，见 ClaimRules.json)
-        if (!ClaimRules.HasTrait(empire, EmpireCraft.Scripts.Data.OnomasticsRule.RaiderTrait)) return false;
-        Kingdom target = NomadRaidSystem.ClaimTarget(empire.CoreKingdom);
-        if (target == null) return false;
-        SetKingdomTarget(target);
-        return true;
+        return ClaimRules.HasTrait(empire, EmpireCraft.Scripts.Data.OnomasticsRule.RaiderTrait);
     }
+
+    public override List<ClaimTargetOption> BuiltinCandidates() =>
+        NomadRaidSystem.ClaimTargets(GetEmpire()?.CoreKingdom).Select(target => ClaimTargetOption.Of(target)).ToList();
 }

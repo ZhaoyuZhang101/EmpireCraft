@@ -1,5 +1,165 @@
 {
   "_comment": "派系决议与文化制度树、科技时代的对应(见 Scripts/GeneralSystems/ClaimRules.cs)。cultures 只有这些文化才有；traits 文化要有其中一个政治特性(raider 劫掠传统、nomad 游牧，见各文化 CultureRule.jsonc 的 political_traits；复合帝国也看统治族群)；min_era/max_era 科技时代 tier(1 石器 … 7 工业 … 11 未来，0 不限)；lines 各制度线(Huaxia/Roma/Arabic/Youmu/Japan/Origins)的要求，没列出的线 = 没有这条路线、不出现；any 已施行其一才提出，none 已施行其一就不再提出，push 决议成功后对第一个未施行的制度发起改革(push 都施行了就不再提出；削藩这类本身是做事的决议同时写 any，施行之后照样能提)；special: sinicized_nomad = 已采纳中原制度的游牧政权。没写进本文件的决议不受限制。",
+  "_comment_target": "target：决议的目标规则(谁能当目标、朝廷自己怎么挑；写了的决议可在派系窗口发起时由神力指定目标)。可以是一条或按先后的几条，每条 kind 目标种类、pool 候选来源(builtin = 决议自带的候选，判断太专门的写在该决议代码里，这里照样可以再叠规则、加分)、rules 逐条都要过的规则、our_power_min / their_power_min / army_share_min / army_share_max / min_cities 数值门槛、prefer 朝廷自己挑时各项的分(不写取第一个过关的)、auto_rules 只在朝廷自己挑时多看的规则、auto: builtin 朝廷自己挑时走决议自带的写法。能用的名字见 _target_vocabulary。",
+  "_target_vocabulary": {
+    "_说明": "决议的目标规则用到的名字(游戏端见 Scripts/GeneralSystems/ClaimTargetRules.cs)。政体编辑器的决议页照这张表列出可选项；游戏不读这张表。在代码里加了新的候选来源、规则、加分项，要在这里补上名字和说明",
+    "kinds": {
+      "kingdom": "国家(选择窗口里可按帝国、按国家两级选)",
+      "city": "城",
+      "actor": "人物",
+      "title": "法理头衔(只有决议自带的候选)",
+      "religion": "宗教(只有决议自带的候选)"
+    },
+    "pools": {
+      "kingdom": {
+        "foreign": "本朝之外的国家",
+        "enemies": "交战的敌国(属于帝国的记到它的朝廷)",
+        "war_opponents": "本朝作主战方的战争里对面的主战国",
+        "members": "本朝的成员国(行政区、封国)",
+        "enemy_kingdoms": "交战的敌国本身(不记到它的朝廷)",
+        "realm": "本朝各国连同朝廷自己",
+        "border_foreign": "与本朝接壤的外国",
+        "builtin": "决议自带的候选(写在该决议代码里；这里还可以再叠规则、加分)"
+      },
+      "city": {
+        "core_cities": "朝廷直辖的城",
+        "builtin": "决议自带的候选(写在该决议代码里；这里还可以再叠规则、加分)"
+      },
+      "actor": {
+        "heir_candidates": "储君人选",
+        "emperor_siblings": "皇帝的兄弟(已在图上的)",
+        "builtin": "决议自带的候选(写在该决议代码里；这里还可以再叠规则、加分)"
+      },
+      "title": {
+        "builtin": "决议自带的候选(写在该决议代码里；这里还可以再叠规则、加分)"
+      },
+      "religion": {
+        "builtin": "决议自带的候选(写在该决议代码里；这里还可以再叠规则、加分)"
+      }
+    },
+    "rules": {
+      "kingdom": {
+        "neighbour": "接壤",
+        "neighbour_or_strait": "接壤或隔海相望",
+        "not_at_war": "没在同本朝交战",
+        "not_deterred": "不受对方核威慑",
+        "can_declare": "眼下能对它宣战(和约、同盟等不拦着)",
+        "not_in_empire": "不属于任何帝国",
+        "not_tributary": "不是本朝的朝贡国",
+        "not_overlord": "不是本朝纳贡的对象",
+        "other_species": "与本朝不同族",
+        "not_zhou_vassal": "不是仍奉王室的诸侯",
+        "tribute_reach": "本朝直辖之地够得着",
+        "no_pact": "同本朝没有和约",
+        "no_market": "同本朝还没开互市",
+        "not_tribute_payer": "对方不是别人的纳贡国",
+        "losing_war": "同它的仗打得吃紧",
+        "negotiable_war": "同它的仗眼下谈得了",
+        "has_admin_title": "有行政区头衔",
+        "no_assimilation_duty": "还没领同化的差事",
+        "needs_assimilation": "文化还没同化过来",
+        "war_reach": "陆上走得到(法理相连且走得通)或隔海相望",
+        "opinion_not_good": "本朝对它的观感不好",
+        "steppe_peace_allowed": "游牧国平时只打小国这一条不拦着(雄主在位、非游牧不限)",
+        "losing_war_badly": "同它的仗打得危急(门槛比 losing_war 高)",
+        "has_city_to_cede": "有与它接壤的非都城可割",
+        "other_religion": "不奉帝国国教",
+        "has_king": "有君主",
+        "secular_prince": "世俗诸侯(不是自由城市、主教领)",
+        "diplomacy_locked": "不得自行开战",
+        "diplomacy_free": "可自行开战",
+        "needs_privilege": "还没有开战之权，或还得给中央出兵",
+        "has_crime": "有罪名可追究(不要罪名的决议恒过)",
+        "not_faction_rebelling": "没在随派系起兵",
+        "at_peace": "没在打任何仗",
+        "no_enemies": "没有敌国",
+        "renown_enough": "皇帝的名望压得住它的君主",
+        "king_defiant": "其君已有不臣之迹(违逆 ≥ 90)",
+        "not_church_land": "不是政教合一的教会领地(世袭的埃米尔除外)",
+        "hereditary_ruler": "君位世袭",
+        "is_military_command": "是军府(节度使、都护府)",
+        "not_military_command": "还不是军府",
+        "not_kingdom_fief": "不是封国",
+        "is_border": "在边地"
+      },
+      "city": {
+        "not_capital": "不是都城",
+        "borders_papacy": "挨着同教的教宗国",
+        "no_assimilation_duty": "还没领同化的差事",
+        "needs_assimilation": "文化还没同化过来"
+      },
+      "actor": {
+        "not_current_heir": "不是现任储君",
+        "enfeoff_eligible": "合分封的条件(皇帝的兄弟、未封、不是储君)",
+        "own_or_unaligned_vs_rival": "本派的人；或没有派系、而现储君是别派的人"
+      },
+      "title": {},
+      "religion": {}
+    },
+    "numbers": {
+      "our_power_min": "本朝国力 ÷ 对方 至少",
+      "their_power_min": "对方国力 ÷ 本朝 至少",
+      "army_share_min": "对方兵力 ÷ 本朝兵力 至少",
+      "army_share_max": "对方兵力 ÷ 本朝兵力 至多",
+      "min_cities": "对方至少几城"
+    },
+    "prefer": {
+      "kingdom": {
+        "dejure_claim": "本朝对它有法理宣称(加这么多分)",
+        "grudge": "宿怨(每点乘这么多)",
+        "power_ratio": "本朝国力 ÷ 对方(乘这么多)",
+        "their_power": "对方国力 ÷ 本朝(乘这么多)",
+        "at_war": "正同本朝交战(加这么多分)",
+        "nomad": "游牧(加这么多分)",
+        "other_culture": "异文化(加这么多分)",
+        "cities": "城数(每城乘这么多)",
+        "war_years": "这场仗打了几年(每年乘这么多)",
+        "army": "兵力(每人乘这么多)",
+        "population_total": "人口(每人乘这么多)",
+        "appointed": "朝廷任命、不世袭(加这么多分)"
+      },
+      "city": {
+        "population": "人口(每人乘这么多；负数 = 人少的优先)"
+      },
+      "actor": {
+        "own_faction": "上奏一派的人(加这么多分)",
+        "age": "年岁(每岁乘这么多)"
+      },
+      "title": {},
+      "religion": {}
+    },
+    "_required": "required：游戏里只照 target 挑目标的决议(决议代码的 CheckCondition 走 PickRuleTarget)。这些决议的 target 不能去掉：去掉后朝廷再也提不出它，游戏会在日志里记一条。没列在这里的决议，目标由局面唯一确定或根本没有目标，由决议自己定",
+    "required": [
+      "削藩",
+      "夺取诸侯开战权",
+      "分封",
+      "允许诸侯自由开战",
+      "转军府",
+      "撤销军府",
+      "设置行政区",
+      "确认诸侯特权",
+      "划地给教廷",
+      "迫使朝贡",
+      "劫掠",
+      "游牧扩张",
+      "输出革命",
+      "兴兵讨伐",
+      "对外扩张",
+      "和亲",
+      "开放互市",
+      "提供岁币",
+      "罢兵议和",
+      "文化同化",
+      "册立储君",
+      "割让城池",
+      "扩张地盘",
+      "谋求统一",
+      "宗教同化",
+      "宗教融入",
+      "文化转化",
+      "游牧化"
+    ]
+  },
   "开科取士": {
     "lines": {
       "Huaxia": {}
@@ -107,6 +267,20 @@
           "origins_tax_reform"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "hereditary_ruler",
+        "not_church_land",
+        "king_defiant",
+        "renown_enough",
+        "at_peace",
+        "not_faction_rebelling",
+        "has_crime"
+      ],
+      "army_share_max": 0.1667
     }
   },
   "夺取诸侯开战权": {
@@ -126,6 +300,15 @@
           "origins_caste_system"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "diplomacy_free",
+        "has_crime"
+      ],
+      "army_share_min": 0.334
     }
   },
   "土地改革": {
@@ -231,6 +414,14 @@
           "origins_feudalization"
         ]
       }
+    },
+    "target": {
+      "kind": "actor",
+      "pool": "emperor_siblings",
+      "rules": [
+        "enfeoff_eligible"
+      ],
+      "auto": "builtin"
     }
   },
   "允许诸侯自由开战": {
@@ -277,6 +468,14 @@
           "origins_caste_system"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "secular_prince",
+        "diplomacy_locked"
+      ]
     }
   },
   "转军府": {
@@ -306,6 +505,15 @@
           "origins_imperial_guard_officer"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "not_kingdom_fief",
+        "not_military_command",
+        "is_border"
+      ]
     }
   },
   "撤销军府": {
@@ -334,6 +542,18 @@
         "any": [
           "origins_imperial_guard_officer"
         ]
+      }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "is_military_command",
+        "no_enemies",
+        "has_crime"
+      ],
+      "prefer": {
+        "appointed": 1
       }
     }
   },
@@ -369,6 +589,10 @@
           "origins_tax_reform"
         ]
       }
+    },
+    "target": {
+      "kind": "title",
+      "pool": "builtin"
     }
   },
   "转世袭": {
@@ -505,6 +729,18 @@
           "western_feudal_contract"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "members",
+      "rules": [
+        "has_king",
+        "secular_prince",
+        "needs_privilege"
+      ],
+      "prefer": {
+        "army": 1
+      }
     }
   },
   "争夺主教叙任权": {
@@ -544,6 +780,17 @@
           "western_clerical_supremacy",
           "western_theocratic_state"
         ]
+      }
+    },
+    "target": {
+      "kind": "city",
+      "pool": "core_cities",
+      "rules": [
+        "not_capital",
+        "borders_papacy"
+      ],
+      "prefer": {
+        "population": -1
       }
     }
   },
@@ -589,17 +836,39 @@
           "origins_royal_power"
         ]
       }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "not_in_empire",
+        "not_zhou_vassal",
+        "not_tributary",
+        "can_declare",
+        "neighbour_or_strait",
+        "tribute_reach"
+      ],
+      "our_power_min": 1,
+      "min_cities": 2
     }
   },
   "劫掠": {
     "traits": [
       "raider"
-    ]
+    ],
+    "target": {
+      "kind": "kingdom",
+      "pool": "builtin"
+    }
   },
   "游牧扩张": {
     "traits": [
       "nomad"
-    ]
+    ],
+    "target": {
+      "kind": "kingdom",
+      "pool": "builtin"
+    }
   },
   "输出革命": {
     "lines": {
@@ -632,6 +901,16 @@
           "japan_ideology_communism",
           "japan_ideology_socialism"
         ]
+      }
+    },
+    "target": {
+      "kind": "kingdom",
+      "pool": "border_foreign",
+      "rules": [
+        "not_at_war"
+      ],
+      "prefer": {
+        "population_total": 1
       }
     }
   },
@@ -792,6 +1071,195 @@
           "japan_ideology_capitalism"
         ]
       }
+    }
+  },
+  "兴兵讨伐": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "neighbour_or_strait",
+        "not_at_war",
+        "not_deterred",
+        "can_declare"
+      ],
+      "our_power_min": 0.8,
+      "prefer": {
+        "dejure_claim": 30,
+        "grudge": 1,
+        "power_ratio": 5
+      }
+    }
+  },
+  "对外扩张": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "not_overlord",
+        "not_tributary",
+        "not_in_empire",
+        "neighbour_or_strait",
+        "other_species",
+        "not_at_war",
+        "not_deterred",
+        "can_declare"
+      ],
+      "our_power_min": 1
+    }
+  },
+  "和亲": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "neighbour_or_strait",
+        "no_pact"
+      ],
+      "their_power_min": 0.7,
+      "prefer": {
+        "their_power": 10,
+        "at_war": 20,
+        "nomad": 10
+      }
+    }
+  },
+  "开放互市": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "neighbour",
+        "not_at_war",
+        "no_market"
+      ],
+      "prefer": {
+        "nomad": 20,
+        "other_culture": 10,
+        "cities": 1
+      }
+    }
+  },
+  "提供岁币": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "enemies",
+      "rules": [
+        "not_overlord",
+        "not_tribute_payer",
+        "losing_war"
+      ]
+    }
+  },
+  "罢兵议和": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "war_opponents",
+      "rules": [
+        "negotiable_war"
+      ],
+      "prefer": {
+        "war_years": 1
+      }
+    }
+  },
+  "文化同化": {
+    "target": [
+      {
+        "kind": "kingdom",
+        "pool": "members",
+        "rules": [
+          "no_assimilation_duty",
+          "has_admin_title",
+          "needs_assimilation"
+        ]
+      },
+      {
+        "kind": "city",
+        "pool": "core_cities",
+        "rules": [
+          "no_assimilation_duty",
+          "needs_assimilation"
+        ]
+      }
+    ]
+  },
+  "册立储君": {
+    "target": {
+      "kind": "actor",
+      "pool": "heir_candidates",
+      "rules": [
+        "not_current_heir"
+      ],
+      "auto_rules": [
+        "own_or_unaligned_vs_rival"
+      ],
+      "prefer": {
+        "own_faction": 100,
+        "age": 1
+      }
+    }
+  },
+  "割让城池": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "enemy_kingdoms",
+      "rules": [
+        "neighbour",
+        "losing_war_badly",
+        "has_city_to_cede"
+      ]
+    }
+  },
+  "扩张地盘": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "foreign",
+      "rules": [
+        "not_overlord",
+        "not_tributary",
+        "war_reach",
+        "not_at_war",
+        "opinion_not_good",
+        "can_declare",
+        "steppe_peace_allowed"
+      ],
+      "prefer": {
+        "dejure_claim": 1
+      }
+    }
+  },
+  "谋求统一": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "builtin"
+    }
+  },
+  "宗教同化": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "realm",
+      "rules": [
+        "other_religion"
+      ]
+    }
+  },
+  "宗教融入": {
+    "target": {
+      "kind": "religion",
+      "pool": "builtin"
+    }
+  },
+  "文化转化": {
+    "target": {
+      "kind": "title",
+      "pool": "builtin"
+    }
+  },
+  "游牧化": {
+    "target": {
+      "kind": "kingdom",
+      "pool": "builtin"
     }
   }
 }

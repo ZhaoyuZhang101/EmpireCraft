@@ -188,6 +188,8 @@ internal static class MainTab
         MarketWindow.CreateAndInit(nameof(MarketWindow), new Vector2(480f, 380f));
         // 无人区(地图上点无人区、营建页「无人区」按钮打开，见 WildernessWindow)；各图层点地块没接的、点在无人区上的交给它
         WildernessWindow.CreateAndInit(nameof(WildernessWindow), new Vector2(480f, 380f));
+        // 发起诉求时选目标(派系窗口诉求页的「发起」打开，见 ClaimTargetWindow)
+        ClaimTargetWindow.CreateAndInit(nameof(ClaimTargetWindow), new Vector2(480f, 380f));
         WildernessWindow.HookClicks();
         SetWindowIcons();
     }
@@ -224,6 +226,7 @@ internal static class MainTab
             [nameof(WorldReligionsWindow)] = "iconReligion",
             [nameof(WarInfoWindow)] = "iconWar",
             [nameof(WildernessWindow)] = "iconLand",
+            [nameof(ClaimTargetWindow)] = "iconKingdom",
         };
         foreach (KeyValuePair<string, string> pair in icons)
         {

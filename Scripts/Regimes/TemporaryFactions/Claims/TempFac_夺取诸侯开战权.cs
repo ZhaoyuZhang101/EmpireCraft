@@ -40,24 +40,14 @@ public class TempFac_夺取诸侯开战权 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：自行开战、兵力超过本朝三分之一、有罪名可追究的成员。规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || empire.kingdoms_list == null) return false;
         // 春秋战国王室衰微，诸侯的征伐之权收不回来(周制每年都会还给诸侯，见 ZhouEraSystem)
-        if (EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
-        foreach (Kingdom kingdom in empire.kingdoms_list)
-        {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
-                kingdom.IsEmpire()) continue;
-            Regime regime = kingdom.GetRegime();
-            if (regime != null && regime.IsAllowDiplomacy() &&
-                kingdom.countTotalWarriors() * 3 > empire.countWarriors())
-            {
-                return TrySetTarget(kingdom);
-            }
-        }
-
-        return false;
+        return !EmpireCraft.Scripts.GeneralSystems.ZhouEraSystem.RoyalReclaimBlocked(empire);
     }
 }

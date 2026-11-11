@@ -32,26 +32,13 @@ public class TempFac_允许诸侯自由开战 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：不得自行开战的世俗诸侯(自由城市、主教领本就不开战，不在此列)。规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || empire.kingdoms_list == null) return false;
-        if (empire.HasEmperor())
-        {
-            if (!empire.Emperor.hasTrait("ambitious")) return false;
-        }
-        foreach (Kingdom kingdom in empire.kingdoms_list)
-        {
-            // 自由城市、主教领本就不开战，不在此列
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == empire.CoreKingdom ||
-                !HolyRomanSystem.SecularPrince(kingdom)) continue;
-            Regime regime = kingdom.GetRegime();
-            if (regime != null && !regime.IsAllowDiplomacy())
-            {
-                SetKingdomTarget(kingdom);
-                return true;
-            }
-        }
-        return false;
+        return !empire.HasEmperor() || empire.Emperor.hasTrait("ambitious");
     }
 }

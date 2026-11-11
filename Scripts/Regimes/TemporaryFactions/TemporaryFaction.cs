@@ -56,6 +56,15 @@ public abstract class TemporaryFaction
     public bool canBePushByLocal = false;
     public MetaType pusherType = MetaType.None;
     public MetaType TargetType = MetaType.None;
+    // 神力指定的目标(用户 2026-11-11 "这里在发起诉求时应该给个目标""比如兴兵讨伐")：从派系窗口发起时选的目标另存一份。
+    // 目标本来由朝廷自己挑(各决议的 CheckCondition)，从上奏到施行其间界面与 AI 每查一次条件就重挑一回；指定了的，重挑时照它
+    // (见 PickRuleTarget)。施行完(End)、奏议没施行就收场(CourtSystem.Close)、议案没通过(CourtSystem.GodPropose)时清掉
+    public long DesignatedID = -1L;
+    public MetaType DesignatedType = MetaType.None;
+    [JsonIgnore]
+    public bool HasDesignated => DesignatedType != MetaType.None && DesignatedID >= 0;
+    [JsonIgnore]
+    public FixedFaction ProposerFaction => GetFaction();
     [JsonIgnore]
     public bool IsLocallyPushed => pusherType == MetaType.Kingdom && KingdomID > 0;
     [JsonIgnore]
@@ -136,6 +145,8 @@ public abstract class TemporaryFaction
         canBePushByLocal = other.canBePushByLocal;
         pusherType = other.pusherType;
         TargetType = other.TargetType;
+        DesignatedID = other.DesignatedID;
+        DesignatedType = other.DesignatedType;
         progress = other.progress;
         progressMax = other.progressMax;
         BudgetPaid = other.BudgetPaid;
@@ -177,6 +188,132 @@ public abstract class TemporaryFaction
         return kingdom?.data == null || kingdom.isRekt() ? null : kingdom;
     }    
     
+    #region 目标规则与神力指定(数据在 ClaimRules.json 的 target，见 ClaimTargetRules；政体编辑器的决议页可改)
+
+    // 这条决议的目标能不能由神力指定
+    [JsonIgnore]
+    public bool CanDesignate => ClaimTargetRules.Has(type);
+
+    // 决议自己的前提(冷却、忙不过来、国库……，不含挑目标)：目标规则在数据里的决议把 CheckCondition 拆成这一步加 PickRuleTarget
+    protected virtual bool TargetReady() => true;
+
+    // 朝廷自己挑时走决议自带写法的(ClaimRules.json 里 auto = builtin)在这里挑、设好目标
+    protected virtual bool PickBuiltinTarget() => false;
+
+    // 决议自带的候选(ClaimRules.json 里 pool = builtin)：候选怎么来的判断太专门、数据里写不下的，在各决议里列。
+    // 按朝廷自己挑的先后排(没有加分项时取第一个可选的)；可以自带缘由、中间一列的数，也可以列出不可选的并写明原因
+    public virtual List<ClaimTargetOption> BuiltinCandidates() => null;
+
+    // 这个成员国眼下有没有本决议用得上的罪名(不要罪名的决议恒为真；目标规则 has_crime)。
+    // 要不要罪名有的决议看目标(撤销军府：世袭的才要)，所以先把目标临时换成它再问
+    public bool TargetCrimeOk(Kingdom kingdom)
+    {
+        (long id, MetaType type) old = (TargetID, TargetType);
+        SetKingdomTarget(kingdom);
+        bool ok = HasRequiredCrimeForCurrentTarget();
+        TargetID = old.id;
+        TargetType = old.type;
+        return ok;
+    }
+
+    // 全部候选(连同不可选的与原因)；不能指定的返回 null，前提没过的返回空表
+    public List<ClaimTargetOption> TargetOptions() =>
+        !CanDesignate ? null : TargetReady() ? ClaimTargetRules.Options(this) : new List<ClaimTargetOption>();
+
+    // 神力眼下有没有可指定的目标(前提过了、候选里有过关的)
+    public bool HasSelectableTarget() => CanDesignate && TargetReady() && ClaimTargetRules.AnySelectable(this);
+
+    public void Designate(ClaimTargetOption option)
+    {
+        DesignatedID = option?.Id ?? -1L;
+        DesignatedType = option == null || DesignatedID < 0 ? MetaType.None : option.Type;
+    }
+
+    public void ClearDesignated()
+    {
+        DesignatedID = -1L;
+        DesignatedType = MetaType.None;
+    }
+
+    // 按目标规则定目标：神力指定了的照指定的(它眼下不合规则就算条件不满足，不改挑别的)，否则朝廷自己挑。没有可选的返回 false
+    protected bool PickRuleTarget()
+    {
+        if (!CanDesignate)
+        {
+            ClaimTargetRules.WarnMissing(type);
+            return false;
+        }
+        if (HasDesignated)
+        {
+            foreach (ClaimTargetOption option in ClaimTargetRules.Options(this))
+            {
+                if (!option.Selectable || option.Type != DesignatedType || option.Id != DesignatedID) continue;
+                ApplyTarget(option);
+                return true;
+            }
+            return false;
+        }
+        if (ClaimTargetRules.BuiltinAuto(type)) return PickBuiltinTarget();
+        ClaimTargetOption auto = ClaimTargetRules.Auto(this);
+        if (auto == null) return false;
+        ApplyTarget(auto);
+        return true;
+    }
+
+    private void ApplyTarget(ClaimTargetOption option)
+    {
+        if (option.Type == MetaType.Kingdom) SetKingdomTarget(option.Kingdom);
+        else if (option.Type == MetaType.City) SetCityTarget(option.City);
+        else if (option.Type == MetaType.Unit) SetActorTarget(option.Actor);
+        else if (option.Type == MetaType.Religion) SetReligionTarget(option.Religion);
+        else SetTitleTarget(option.Title);
+    }
+
+    // 不指定时朝廷会挑谁(选择窗口里标出来)：照自己挑的规矩走一遍，目标与指定都还原
+    public ClaimTargetOption AutoTarget()
+    {
+        if (!CanDesignate || !TargetReady()) return null;
+        if (!ClaimTargetRules.BuiltinAuto(type)) return ClaimTargetRules.Auto(this);
+        long designatedId = DesignatedID, targetId = TargetID;
+        MetaType designatedType = DesignatedType, targetType = TargetType;
+        ClearDesignated();
+        ClaimTargetOption picked = null;
+        if (PickBuiltinTarget())
+            picked = ClaimTargetRules.Options(this).FirstOrDefault(option => option.Type == TargetType && option.Id == TargetID);
+        DesignatedID = designatedId;
+        DesignatedType = designatedType;
+        TargetID = targetId;
+        TargetType = targetType;
+        return picked;
+    }
+
+    // 临时把目标换成这个候选来估算(各派因目标而起的立场，见 TargetStance)；用完要 RestoreTarget
+    public (long id, MetaType type) SwapTarget(ClaimTargetOption option)
+    {
+        (long id, MetaType type) old = (TargetID, TargetType);
+        TargetID = option?.Id ?? -1L;
+        TargetType = option == null ? MetaType.None : option.Type;
+        return old;
+    }
+
+    public void RestoreTarget((long id, MetaType type) old)
+    {
+        TargetID = old.id;
+        TargetType = old.type;
+    }
+
+    // 眼下的目标叫什么(没有为 null)
+    public string TargetLabel() => TargetType switch
+    {
+        MetaType.Kingdom => GetKingdomTarget()?.GetKingdomName(),
+        MetaType.City => GetCityTarget()?.GetCityName(),
+        MetaType.Unit => GetActorTarget()?.getName(),
+        MetaType.Religion => GetReligionTarget()?.data?.name,
+        _ => TargetType == MetaTypeExtension.KingdomTitle ? GetTitleTarget()?.data?.name : null
+    };
+
+    #endregion
+
     // 统一入口：设定“国家目标”
     public void SetKingdomTarget(Kingdom k, string reason = "")
     {
@@ -580,6 +717,7 @@ public abstract class TemporaryFaction
         PaidBudget = 0;
         TargetID = -1L;
         TargetType = MetaType.None;
+        ClearDesignated();
         kingdoms ??= new List<long>();
         kingdoms.Clear();
         started = false;

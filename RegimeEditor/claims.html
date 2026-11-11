@@ -55,7 +55,9 @@
       dry_native: "旱地故土"
     };
     const SPECIALS = { sinicized_nomad: "仅限已采纳中原制度的游牧政权(元、清式)" };
-    const RULE_FIELDS = ["cultures", "traits", "min_era", "max_era", "lines"];
+    const RULE_FIELDS = ["cultures", "traits", "min_era", "max_era", "lines", "target"];
+    // 目标规则(target，游戏端见 Scripts/GeneralSystems/ClaimTargetRules.cs)一条里的字段
+    const TARGET_FIELDS = ["kind", "pool", "rules", "auto_rules", "our_power_min", "their_power_min", "army_share_min", "army_share_max", "min_cities", "prefer", "auto"];
     const LINE_FIELDS = ["any", "none", "push", "cultures", "special"];
     // 读不到 ClaimRules.cs 时的后备：自己会发起制度改革的决议
     const FALLBACK_SELF_REFORMING = ["开放党禁", "推行普选", "开科取士", "转天朝制度", "推行三省六部", "设立内阁"];
@@ -506,6 +508,9 @@
         linesBox.appendChild(grid);
       }
 
+      // 目标规则
+      panel.appendChild(targetCard(name, rule));
+
       const tools = document.createElement("div");
       tools.className = "toolbar section";
       tools.innerHTML = `<button class="danger small" id="removeRule">删除这条规则(改回不限制)</button>`;
@@ -514,6 +519,214 @@
         if (!confirm(`删除「${name}」的规则？删除后任何文化、任何时代都可能提出。`)) return;
         delete S.rules[name]; markDirty(); renderEditor();
       });
+    }
+
+    // ---------- 目标规则(target)：谁能当这条决议的目标、朝廷自己怎么挑 ----------
+    // 能用的候选来源、规则、加分项和它们的中文说明列在 ClaimRules.json 的 _target_vocabulary 里(游戏不读它，只给这里用)；
+    // 游戏代码里加了新名字，在那张表里补一行，这里就能选
+    function vocab(section, kind) {
+      const all = S.rules && isObj(S.rules._target_vocabulary) ? S.rules._target_vocabulary : {};
+      const part = isObj(all[section]) ? all[section] : {};
+      return kind === undefined ? part : (isObj(part[kind]) ? part[kind] : {});
+    }
+    function targetList(rule) {
+      return Array.isArray(rule.target) ? rule.target.filter(isObj) : isObj(rule.target) ? [rule.target] : [];
+    }
+    function storeTargets(rule, list) {
+      if (!list.length) delete rule.target; else rule.target = list.length === 1 ? list[0] : list;
+    }
+    function newTarget() { return { kind: "kingdom", pool: Object.keys(vocab("pools", "kingdom"))[0] || "foreign", rules: [] }; }
+    function ensureTargetDatalist(id, names) {
+      const host = document.getElementById("datalists");
+      const old = document.getElementById(id);
+      if (old) old.remove();
+      host.insertAdjacentHTML("beforeend", `<datalist id="${id}">${Object.entries(names).map(([k, t]) =>
+        `<option value="${esc(k)}">${esc(String(t))}</option>`).join("")}</datalist>`);
+    }
+
+    // 游戏里只照 target 挑目标的决议(名单在 _target_vocabulary.required)：它们的 target 不能去掉
+    function requiredTargets() {
+      const all = S.rules && isObj(S.rules._target_vocabulary) ? S.rules._target_vocabulary : {};
+      return Array.isArray(all.required) ? all.required.filter(n => typeof n === "string") : [];
+    }
+    function missingTargets() {
+      return requiredTargets().filter(n => !isObj(S.rules[n]) || !targetList(S.rules[n]).length);
+    }
+
+    function targetCard(name, rule) {
+      const box = document.createElement("div");
+      box.className = "card section";
+      const list = targetList(rule);
+      const required = requiredTargets().includes(name);
+      box.innerHTML = `<label class="field"><span><input type="checkbox" id="useTarget" ${list.length ? "checked" : ""}> 目标规则(target)：谁能当这条决议的目标、朝廷自己怎么挑${required ? ' <span class="tag">必须</span>' : ""}</span></label>
+        <details class="help"><summary>目标规则怎么用</summary><ol>
+          <li>写了目标规则的决议，游戏里在派系窗口点「发起」时先开选目标的窗口：可以指定目标，也可以让朝廷自己挑。</li>
+          <li>标了「必须」的决议，游戏里只照这里的规则挑目标：把目标规则去掉，朝廷就再也提不出这条决议。没标的决议(目标由局面唯一确定，或根本没有目标)由决议自己定，不用写。</li>
+          <li>候选来源(pool)定从哪里找候选；规则(rules)逐条都要过，过不了的在选择窗口里灰着、写哪条没过。</li>
+          <li>候选来源选「决议自带的候选(builtin)」的，候选由该决议的代码列出(劫掠、谋求统一这类判断太专门的)；这里照样可以再叠规则、加分项。只有代码里列了候选的决议用得上它，别的决议选了就没有候选。法理头衔、宗教两种目标只有这一种来源。</li>
+          <li>加分项(prefer)只管朝廷自己挑谁：各项按权重相加，分最高的当选；一项都不写 = 取第一个过关的。</li>
+          <li>只在朝廷自己挑时多看的规则(auto_rules)不限制神意指定。</li>
+          <li>可以写几条：朝廷自己挑时先看前一条，没有可选的再看后一条(如文化同化先行政区、后直辖的城)。</li>
+          <li>决议自己的前提(冷却、忙不过来、国库够不够)还在代码里，这里改不了。</li>
+        </ol></details>`;
+      if (rule.target !== undefined && !list.length)
+        box.insertAdjacentHTML("beforeend", `<p class="hint warn">target 现在的值不是 { } 对象或它们的列表，游戏会忽略它：${esc(JSON.stringify(rule.target))}</p>`);
+      if (required && !list.length)
+        box.insertAdjacentHTML("beforeend", `<p class="hint warn">这条决议在游戏里只照这里的目标规则挑目标：现在没写，朝廷永远提不出它。勾上并填好规则，或从模组自带的 ClaimRules.json 把这一条的 target 拷回来。</p>`);
+      if (!Object.keys(vocab("kinds")).length)
+        box.insertAdjacentHTML("beforeend", `<p class="hint warn">ClaimRules.json 里没有 _target_vocabulary 这张名字表，列不出可选项(从仓库的 ClaimRules.json 把这一段拷回来)。</p>`);
+      box.querySelector("#useTarget").addEventListener("change", e => {
+        const key = `${name}\u0000target`;
+        if (e.target.checked) { rule.target = S.stash[key] !== undefined ? S.stash[key] : newTarget(); delete S.stash[key]; }
+        else { if (rule.target !== undefined) S.stash[key] = rule.target; delete rule.target; }
+        markDirty(); renderEditor();
+      });
+      if (!list.length) return box;
+      const grid = document.createElement("div");
+      grid.className = list.length > 1 ? "grid two" : "grid";
+      grid.style.marginTop = "8px";
+      list.forEach((entry, index) => grid.appendChild(targetEntryCard(rule, list, entry, index)));
+      box.appendChild(grid);
+      const tools = document.createElement("div");
+      tools.className = "toolbar";
+      tools.innerHTML = `<button class="small">再加一条(朝廷自己挑时排在后面)</button>`;
+      tools.querySelector("button").addEventListener("click", () => { list.push(newTarget()); storeTargets(rule, list); markDirty(); renderEditor(); });
+      box.appendChild(tools);
+      return box;
+    }
+
+    function targetEntryCard(rule, list, entry, index) {
+      const card = document.createElement("div");
+      card.className = "card line-card";
+      const kinds = vocab("kinds");
+      const kind = typeof entry.kind === "string" && entry.kind ? entry.kind : "kingdom";
+      const pools = vocab("pools", kind), rules = vocab("rules", kind), prefers = vocab("prefer", kind), numbers = vocab("numbers");
+      const options = (cur, names, unknown) => {
+        let html = Object.entries(names).map(([v, text]) =>
+          `<option value="${esc(v)}" ${cur === v ? "selected" : ""}>${esc(String(text))}(${esc(v)})</option>`).join("");
+        if (!has(names, cur)) html = `<option value="${esc(cur)}" selected>${esc(cur || "(没写)")}(${unknown})</option>` + html;
+        return html;
+      };
+      card.innerHTML = `<h4>第 ${index + 1} 条<span class="tag">${esc(kind)}</span></h4>`;
+      const rows = document.createElement("div");
+      rows.className = "rows";
+      const head = document.createElement("div");
+      head.className = "grid two";
+      head.innerHTML = `<label class="field">目标种类(kind)<select data-k="kind">${options(kind, kinds, "游戏不认识，按国家算")}</select></label>
+        <label class="field">候选来源(pool)<select data-k="pool">${options(typeof entry.pool === "string" ? entry.pool : "", pools, "游戏不认识")}</select></label>`;
+      head.querySelector('[data-k="kind"]').addEventListener("change", e => {
+        // 换了种类，候选来源、规则、加分项是另一套：清掉重选
+        entry.kind = e.target.value;
+        entry.pool = Object.keys(vocab("pools", entry.kind))[0] || "";
+        entry.rules = [];
+        for (const k of ["auto_rules", "prefer", "our_power_min", "their_power_min", "army_share_min", "army_share_max", "min_cities"]) delete entry[k];
+        markDirty(); renderEditor();
+      });
+      head.querySelector('[data-k="pool"]').addEventListener("change", e => { entry.pool = e.target.value; markDirty(); });
+      rows.appendChild(head);
+
+      const known = new Set(Object.keys(rules));
+      const listId = `dl-target-rules-${kind}`;
+      ensureTargetDatalist(listId, rules);
+      for (const [key, text, hint] of [
+        ["rules", "规则(rules)：逐条都要过", "写在前面的先看；过不了的在选择窗口里灰着、写哪条没过。红色 = 名字表里没有，游戏当它没写。"],
+        ["auto_rules", "只在朝廷自己挑时多看的规则(auto_rules)", "神意指定不受它限。"]
+      ]) {
+        rows.appendChild(field(text, hint));
+        rows.appendChild(chips(Array.isArray(entry[key]) ? [...entry[key]] : [], {
+          placeholder: "规则名或说明，回车添加", listId, known, labelOf: id => String(rules[id] || ""),
+          resolve: v => Object.keys(rules).find(k => rules[k] === v) || v,
+          onChange: v => { if (v.length || key === "rules") entry[key] = [...v]; else delete entry[key]; markDirty(); }
+        }));
+      }
+
+      if (kind === "kingdom") {
+        rows.appendChild(field("数值门槛", "空着 = 不看。"));
+        const nums = document.createElement("div");
+        nums.className = "grid two";
+        nums.innerHTML = Object.entries(numbers).map(([k, text]) =>
+          `<label class="field">${esc(String(text))}(${esc(k)})<input type="number" min="0" step="${k === "min_cities" ? "1" : "any"}" data-n="${esc(k)}" value="${Number(entry[k]) > 0 ? Number(entry[k]) : ""}" placeholder="不看"></label>`).join("");
+        nums.querySelectorAll("input[data-n]").forEach(input => input.addEventListener("change", () => {
+          const n = Number(input.value);
+          if (n > 0) entry[input.dataset.n] = n; else delete entry[input.dataset.n];
+          markDirty();
+        }));
+        rows.appendChild(nums);
+      }
+
+      rows.appendChild(field("朝廷自己挑时的加分项(prefer)", "各项按权重相加，分最高的当选，一样高取靠前的；一项都不写 = 取第一个过关的。"));
+      const prefer = isObj(entry.prefer) ? entry.prefer : {};
+      for (const [by, weight] of Object.entries(prefer)) {
+        const line = document.createElement("div");
+        line.className = "toolbar";
+        line.innerHTML = `<span style="flex:1">${esc(has(prefers, by) ? String(prefers[by]) : `${by}(名字表里没有，游戏当它没写)`)}<span class="cid">${esc(by)}</span></span>` +
+          `<input type="number" step="any" value="${esc(String(weight))}" style="width:90px"><button class="small danger" title="移除">×</button>`;
+        line.querySelector("input").addEventListener("change", e => {
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) { entry.prefer[by] = n; markDirty(); }
+        });
+        line.querySelector("button").addEventListener("click", () => {
+          delete entry.prefer[by];
+          if (!Object.keys(entry.prefer).length) delete entry.prefer;
+          markDirty(); renderEditor();
+        });
+        rows.appendChild(line);
+      }
+      const rest = Object.entries(prefers).filter(([k]) => !has(prefer, k));
+      if (rest.length) {
+        const add = document.createElement("div");
+        add.className = "toolbar";
+        add.innerHTML = `<select><option value="">添加加分项…</option>${rest.map(([k, text]) => `<option value="${esc(k)}">${esc(String(text))}</option>`).join("")}</select>`;
+        add.querySelector("select").addEventListener("change", e => {
+          if (!e.target.value) return;
+          if (!isObj(entry.prefer)) entry.prefer = {};
+          entry.prefer[e.target.value] = 1;
+          markDirty(); renderEditor();
+        });
+        rows.appendChild(add);
+      }
+
+      const auto = document.createElement("label");
+      auto.className = "field";
+      auto.innerHTML = `朝廷自己挑时(auto)<select><option value="">照上面的规则挑</option>` +
+        `<option value="builtin" ${entry.auto === "builtin" ? "selected" : ""}>走决议自带的写法(builtin)</option></select>` +
+        `<span class="hint">自带写法只有个别决议有(分封：会把族谱里的兄弟落成实体)；没有自带写法的决议选了它，朝廷就挑不出目标。</span>`;
+      auto.querySelector("select").addEventListener("change", e => {
+        if (e.target.value) entry.auto = e.target.value; else delete entry.auto;
+        markDirty();
+      });
+      rows.appendChild(auto);
+
+      const odd = oddities(entry, TARGET_FIELDS, ["rules", "auto_rules"]);
+      if (odd) rows.appendChild(odd);
+      const tools = document.createElement("div");
+      tools.className = "toolbar";
+      tools.innerHTML = (index > 0 ? `<button class="small" data-a="up">上移</button>` : "") + `<button class="danger small" data-a="del">删除这一条</button>`;
+      tools.querySelector('[data-a="del"]').addEventListener("click", () => { list.splice(index, 1); storeTargets(rule, list); markDirty(); renderEditor(); });
+      const up = tools.querySelector('[data-a="up"]');
+      if (up) up.addEventListener("click", () => {
+        [list[index - 1], list[index]] = [list[index], list[index - 1]];
+        storeTargets(rule, list); markDirty(); renderEditor();
+      });
+      rows.appendChild(tools);
+      card.appendChild(rows);
+      return card;
+    }
+
+    // 目标规则里名字表没有的名字(游戏当它没写)
+    function unknownTargetNames() {
+      const bad = new Set();
+      for (const [claim, r] of Object.entries(S.rules || {})) {
+        if (claim.startsWith("_") || !isObj(r)) continue;
+        for (const entry of targetList(r)) {
+          const kind = typeof entry.kind === "string" && entry.kind ? entry.kind : "kingdom";
+          if (!has(vocab("kinds"), kind)) bad.add(kind);
+          if (!has(vocab("pools", kind), entry.pool)) bad.add(String(entry.pool));
+          for (const key of ["rules", "auto_rules"]) for (const id of strs(entry[key])) if (!has(vocab("rules", kind), id)) bad.add(id);
+          if (isObj(entry.prefer)) for (const id of Object.keys(entry.prefer)) if (!has(vocab("prefer", kind), id)) bad.add(id);
+        }
+      }
+      return bad;
     }
 
     // 编辑器不认识的字段、格式不对的列表：提示一下，保存时原样保留
@@ -623,7 +836,13 @@
         for (const r of Object.values(S.rules)) if (isObj(r) && isObj(r.lines))
           for (const e of Object.values(r.lines)) if (isObj(e))
             for (const k of ["any", "none", "push"]) for (const id of strs(e[k])) if (!S.nodeInfo[id]) missing.add(id);
-        toast(`已保存 ${FILE}，重启游戏后生效` + (missing.size ? `(有 ${missing.size} 个制度 id 在制度树里找不到：${[...missing].slice(0, 5).join("、")})` : ""), missing.size > 0);
+        const badTargets = unknownTargetNames();
+        const noTargets = missingTargets();
+        toast(`已保存 ${FILE}，重启游戏后生效` +
+          (missing.size ? `(有 ${missing.size} 个制度 id 在制度树里找不到：${[...missing].slice(0, 5).join("、")})` : "") +
+          (badTargets.size ? `(目标规则里有 ${badTargets.size} 个名字表里没有的名字：${[...badTargets].slice(0, 5).join("、")})` : "") +
+          (noTargets.length ? `(有 ${noTargets.length} 条决议缺目标规则，游戏里提不出来：${noTargets.slice(0, 5).join("、")})` : ""),
+          missing.size > 0 || badTargets.size > 0 || noTargets.length > 0);
       } catch (e) { toast("保存失败：" + e.message, true); }
     }
 

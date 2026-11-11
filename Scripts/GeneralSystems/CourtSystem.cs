@@ -769,6 +769,9 @@ public static partial class CourtSystem
     {
         string text = Log(state, logKey, args);
         Archive(empire, state, logKey, text);
+        // 奏议没施行就收场：神力指定的目标作废(施行了的在决议结束时清，见 TemporaryFaction.End)
+        TemporaryFaction closing = FindClaim(empire, state.memorial);
+        if (closing != null && !closing.IsStarted()) closing.ClearDesignated();
         state.memorial = null;
         ClearDraft(empire);
     }

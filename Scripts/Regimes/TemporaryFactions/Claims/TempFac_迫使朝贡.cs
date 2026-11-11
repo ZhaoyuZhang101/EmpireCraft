@@ -32,27 +32,14 @@ public class TempFac_迫使朝贡 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         // 只在忙不过来时不提(同扩张地盘，见 WarSituation.TooBusyForWar；以前中央手上有一场仗就不提)
-        if (empire?.CoreKingdom == null || WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
-        if (!FeudalConquestService.HasTributeInstitution(empire)) return false;
-        foreach (var kingdom in World.world.kingdoms)
-        {
-            if (kingdom.IsInEmpire()) continue;
-            // 战国的周诸侯仍奉王室，不能迫其朝贡
-            if (ZhouEraSystem.IsDetachedVassal(kingdom)) continue;
-            if (empire.taken_Kingdoms.Contains(kingdom)) continue;
-            // 比战力(军团、无小人模式下原版小人数是 0，以前比小人数永远不开战)
-            if (WarSituation.Power(kingdom) >= WarSituation.Power(empire) || !WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
-            if (!empire.IsNeighbourWith(kingdom) && !StraitReach.Across(empire.CoreKingdom, kingdom)) continue;
-            // 宗主直辖之地够不着的不迫其朝贡(封国、附庸挨着的远国，见 TributaryRelations.InReach)
-            if (!TributaryRelations.InReach(kingdom, empire)) continue;
-            if (kingdom.cities.Count<=1) continue;
-            SetKingdomTarget(kingdom);
-            return true;
-        }
-        return false;
+        return empire?.CoreKingdom != null && !WarSituation.TooBusyForWar(empire.CoreKingdom) &&
+               FeudalConquestService.HasTributeInstitution(empire);
     }
 }

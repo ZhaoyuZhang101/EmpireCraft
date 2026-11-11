@@ -245,12 +245,15 @@ public static partial class NomadRaidSystem
     #region 单国劫掠诉求(TempFac_劫掠)
 
     // 有劫掠传统的帝国朝堂提"劫掠"：要今年草原压力够、能出兵，挑一家比自己弱的接壤定居之国；没有返回 null
-    public static Kingdom ClaimTarget(Kingdom core)
+    public static Kingdom ClaimTarget(Kingdom core) => ClaimTargets(core).FirstOrDefault();
+
+    // 同上，可劫的各家按分从高到低(发起劫掠诉求时选目标用，见 TempFac_劫掠.BuiltinCandidates)；第一家就是朝堂自己会挑的
+    public static List<Kingdom> ClaimTargets(Kingdom core)
     {
-        if (!IsRealm(core) || !IsRaider(core) || !CanRaid(core)) return null;
+        if (!IsRealm(core) || !IsRaider(core) || !CanRaid(core)) return new List<Kingdom>();
         SteppeState state = State(core);
-        if (state.pressure_at < 0d || YearsSince(state.pressure_at) > 1.5f || state.pressure < SteppeRules.RaidThreshold) return null;
-        return PickTarget(core, new List<Kingdom> { core }).target;
+        if (state.pressure_at < 0d || YearsSince(state.pressure_at) > 1.5f || state.pressure < SteppeRules.RaidThreshold) return new List<Kingdom>();
+        return RankTargets(core, new List<Kingdom> { core }).Select(item => item.target).ToList();
     }
 
     // 诉求施行：单独劫掠(开战前再查一遍)

@@ -47,31 +47,12 @@ public class TempFac_提供岁币 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
-    {
-        Empire empire = GetEmpire();
-        Kingdom core = empire?.CoreKingdom;
-        if (core == null || core.HasGivenAlliance() || core.GetMoney() <= 0 || RulerTraitSystem.FounderReigns(core)) return false;
-        foreach (Kingdom enemy in core.getEnemiesKingdoms())
-        {
-            if (enemy == null || enemy.isRekt() || empire.given_Kingdoms.Contains(enemy) ||
-                enemy.IsInSameEmpire(core) || enemy.HasGivenAlliance()) continue;
-            Kingdom target = enemy.IsInEmpire() ? enemy.GetEmpire().CoreKingdom : enemy;
-            if (target == null || !IsLosing(core, enemy)) continue;
-            SetKingdomTarget(target);
-            return true;
-        }
-        return false;
-    }
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
 
-    private static bool IsLosing(Kingdom core, Kingdom enemy)
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        War war = WarSituation.FindWar(core, enemy);
-        if (war == null) return false;
-        float years = WarSituation.WarYears(war);
-        if (years < 1f) return false;
-        int lost = WarSituation.CitiesLost(war, core);
-        float ratio = WarSituation.StrengthRatio(core, enemy);
-        return lost >= 1 && ratio >= 1.2f || ratio >= 1.8f || ratio >= 1.5f && years >= 3f;
+        Kingdom core = GetEmpire()?.CoreKingdom;
+        return core != null && !core.HasGivenAlliance() && core.GetMoney() > 0 && !RulerTraitSystem.FounderReigns(core);
     }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.services;
 using EmpireCraft.Scripts.Layer;
@@ -30,17 +32,19 @@ public class TempFac_游牧化 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady() => GetEmpire()?.kingdoms_list != null;
+
+    // 候选：过得了 Eligible 的成员，照成员的先后
+    public override List<ClaimTargetOption> BuiltinCandidates()
     {
+        var result = new List<ClaimTargetOption>();
         Empire empire = GetEmpire();
-        if (empire?.kingdoms_list == null) return false;
-        foreach (var kingdom in empire.kingdoms_list)
-        {
-            if (!Eligible(empire, kingdom)) continue;
-            SetKingdomTarget(kingdom);
-            return true;
-        }
-        return false;
+        if (empire?.kingdoms_list == null) return result;
+        foreach (Kingdom kingdom in empire.kingdoms_list)
+            if (Eligible(empire, kingdom)) result.Add(ClaimTargetOption.Of(kingdom));
+        return result;
     }
 
     // 只改游牧文化(有游牧特性或走游牧一线)的成员；手选、锁定政体的、共和与现代、原始政体、羁縻的不动

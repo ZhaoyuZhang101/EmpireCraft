@@ -45,15 +45,22 @@ public class TempFac_分封 : TemporaryFaction
             EnfeoffmentHelper.FindEnfeoffableCity(empire, EmpireCoreManager.Get(empire)) != null;
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         if (empire == null || empire.CoreKingdom == null) return false;
         Regime regime = empire.CoreKingdom.GetRegime();
         if (regime == null || regime.enfeoff_virtual_only) return false;
-        if (EnfeoffmentHelper.FindEnfeoffableCity(empire, EmpireCoreManager.Get(empire)) == null) return false;
+        return EnfeoffmentHelper.FindEnfeoffableCity(empire, EmpireCoreManager.Get(empire)) != null;
+    }
 
-        Actor candidate = EnfeoffmentHelper.FindEnfeoffmentCandidate(empire);
+    // 朝廷自己挑：皇帝的兄弟里按长幼取一位够资格的(族谱里的虚拟兄弟会落成实体，见 EnfeoffmentHelper)
+    protected override bool PickBuiltinTarget()
+    {
+        Actor candidate = EnfeoffmentHelper.FindEnfeoffmentCandidate(GetEmpire());
         if (candidate == null) return false;
         SetActorTarget(candidate);
         return true;

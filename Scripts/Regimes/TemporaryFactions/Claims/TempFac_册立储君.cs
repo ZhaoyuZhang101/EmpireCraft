@@ -40,29 +40,20 @@ public class TempFac_册立储君 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         Kingdom core = empire?.CoreKingdom;
         Regime regime = core?.GetRegime();
-        FixedFaction faction = GetFaction();
-        if (core == null || regime == null || faction == null || empire.Emperor == null ||
+        if (core == null || regime == null || GetFaction() == null || empire.Emperor == null ||
             regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession ||
             regime.GetSuccessionLaw() == SuccessionLawType.强者继承法) return false;
         // 秘密立储：储君由皇帝暗定，朝臣无从议立(见 LateImperialSystem)
         if (LateImperialSystem.SecretSuccession(core)) return false;
-        var candidates = EmpireCraftKingdomBehCheckHeir.HeirCandidates(core);
-        if (candidates.Count < 2) return false;
-        Actor current = core.GetHeir();
-        Actor pick = candidates.Where(actor => actor != current && actor.GetFaction() == faction)
-            .OrderByDescending(actor => actor.getAge()).FirstOrDefault();
-        FixedFaction currentFaction = current?.GetFaction();
-        if (pick == null && currentFaction != null && currentFaction != faction)
-            pick = candidates.Where(actor => actor != current && actor.GetFaction() == null)
-                .OrderByDescending(actor => actor.getAge()).FirstOrDefault();
-        if (pick == null || core.GetOrCreate().designated_heir_id == pick.getID()) return false;
-        SetActorTarget(pick);
-        return true;
+        return EmpireCraftKingdomBehCheckHeir.HeirCandidates(core).Count >= 2;
     }
 
     // 立的是哪一派的皇子：皇子所属派系 +15，被换下的储君所属派系 -12

@@ -29,26 +29,12 @@ public class TempFac_开放互市 : TemporaryFaction
 
     public override int CooldownYears => 10;
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        Empire empire = GetEmpire();
-        Kingdom core = empire?.CoreKingdom;
-        if (core == null || !OffCooldown()) return false;
-        Kingdom best = null;
-        float bestScore = -1f;
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == core || kingdom.GetEmpire() == empire) continue;
-            if (!empire.IsNeighbourWith(kingdom) || kingdom.isInWarWith(core) || NomadRaidSystem.MarketTreaty(core, kingdom)) continue;
-            float score = (NomadRaidSystem.IsNomad(kingdom) ? 20f : 0f) + (CultureService.GetRealmCulture(kingdom) != CultureService.GetRealmCulture(core) ? 10f : 0f) +
-                          kingdom.cities.Count;
-            if (score <= bestScore) continue;
-            best = kingdom;
-            bestScore = score;
-        }
-        if (best == null) return false;
-        SetKingdomTarget(best);
-        return true;
+        return GetEmpire()?.CoreKingdom != null && OffCooldown();
     }
 
     public override void Execute()

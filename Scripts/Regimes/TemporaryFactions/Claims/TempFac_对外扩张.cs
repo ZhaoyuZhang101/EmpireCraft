@@ -34,36 +34,13 @@ public class TempFac_对外扩张 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        Empire empire = GetEmpire();
-        if (empire == null) return false;
-        if (empire.CoreKingdom == null || GeneralSystems.WarSituation.TooBusyForWar(empire.CoreKingdom)) return false;
-        if (GeneralSystems.CorpsSystem.CannotFundWar(empire.CoreKingdom)) return false;   // 发不出军饷不开新仗
-        foreach (var kingdom in World.world.kingdoms)
-        {
-            if (empire.given_Kingdoms.Contains(kingdom)) continue;
-            if (empire.taken_Kingdoms.Contains(kingdom)) continue;
-            if (kingdom.IsInEmpire()) continue;
-            // 接壤或隔海相望(见 StraitReach)
-            if (empire.IsNeighbourWith(kingdom) || EmpireCraft.Scripts.GeneralSystems.StraitReach.Across(empire.CoreKingdom, kingdom))
-            {
-                if (kingdom.species_id != empire.CoreKingdom.species_id)
-                {
-                    // 对方有核、自己没有：不敢下手(见 NuclearDoctrineSystem)
-                    if (!kingdom.isInWarWith(empire.CoreKingdom) &&
-                        !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom))
-                    {
-                        if (GeneralSystems.WarSituation.Power(empire) > GeneralSystems.WarSituation.Power(kingdom) &&
-                            GeneralSystems.WarGate.CanDeclare(empire.CoreKingdom, kingdom))
-                        {
-                            SetKingdomTarget(kingdom);
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        return false;
+        Kingdom core = GetEmpire()?.CoreKingdom;
+        // 发不出军饷不开新仗
+        return core != null && !GeneralSystems.WarSituation.TooBusyForWar(core) && !GeneralSystems.CorpsSystem.CannotFundWar(core);
     }
 }

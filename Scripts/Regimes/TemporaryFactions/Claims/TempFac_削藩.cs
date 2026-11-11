@@ -65,36 +65,18 @@ public class TempFac_削藩 : TemporaryFaction
         return TrySetTarget(target);
     }
 
-    public override bool CheckCondition()
+    // 目标：世袭、其君已有不臣之迹(违逆 ≥ 90)、兵力不到本朝六分之一、不在打仗、有罪名可追究的成员，皇帝的名望还得压得住。
+    // 规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
-        if (empire == null || ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
+        if (empire?.kingdoms_list == null || ZhouEraSystem.RoyalReclaimBlocked(empire)) return false;
         // 哈里发正统高才收得回世袭的埃米尔(见 EmirateSystem.StrongLegitimacy，印度按 InvestitureGap 减)；
         // 大汗也要正统高才收得回兀鲁思(见 EnfeoffmentHelper.UlusPartition)
-        if ((EmirateSystem.Applies(empire) &&
-             empire.Legitimacy < EmirateSystem.StrongLegitimacy - EmirateSystem.InvestitureGap(empire)) ||
-            (empire.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu && empire.Legitimacy < UlusReclaimLegitimacy)) return false;
-        foreach (Kingdom kingdom in empire.kingdoms_list)
-        {
-            if (kingdom.IsEmpire()) continue;
-            if (kingdom.IsFactionRebelling()) continue;
-            if (kingdom.getWars().Any()) continue;
-            if (!OwnEnoughRenown(kingdom)) continue;
-            if ((kingdom?.king?.GetViolateValue()??0)<90) continue;
-            Regime regime = kingdom.GetRegime();
-            // 政教合一的成员(教会领地)不削。哈里发神权把政教合一推到全境的阿拉伯成员(见 arabic_caliphal_theocracy 的
-            // set_regime_option)，世袭的埃米尔照削(用户 2026-10-21 选"埃米尔能收回"：以前神权路线的哈里发国一家也削不了)，圣城之主除外
-            if (regime.GetReligionLevel() == ReligionLevel.High &&
-                (!EmirateSystem.IsHereditaryEmir(empire, kingdom) || PapacySystem.HoldsHolyCity(kingdom))) continue;
-            if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Succession)
-            {
-                if (kingdom.countTotalWarriors() * 5 <= empire.countWarriors() - kingdom.countTotalWarriors())
-                {
-                    return TrySetTarget(kingdom);
-                }
-            }
-        }
-
-        return false;
+        return !(EmirateSystem.Applies(empire) &&
+                 empire.Legitimacy < EmirateSystem.StrongLegitimacy - EmirateSystem.InvestitureGap(empire)) &&
+               !(empire.CoreKingdom?.GetRegime()?.type == RegimeType.YouMu && empire.Legitimacy < UlusReclaimLegitimacy);
     }
 }

@@ -29,31 +29,13 @@ public class TempFac_兴兵讨伐 : TemporaryFaction
 
     public override int CooldownYears => 5;
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        Empire empire = GetEmpire();
-        Kingdom core = empire?.CoreKingdom;
-        if (core == null || !OffCooldown() || WarSituation.TooBusyForWar(core) || CorpsSystem.CannotFundWar(core)) return false;
-        float ours = (float)WarSituation.Power(empire);
-        Kingdom best = null;
-        float bestScore = 0f;
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == core || kingdom.GetEmpire() == empire) continue;
-            if (!(empire.IsNeighbourWith(kingdom) || StraitReach.Across(core, kingdom))) continue;
-            if (kingdom.isInWarWith(core) || EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(core, kingdom) ||
-                !WarGate.CanDeclare(core, kingdom)) continue;
-            float theirs = (float)WarSituation.Power(kingdom);
-            if (ours < theirs * 0.8f) continue;
-            float score = (DeJureAgenda.HasClaimOn(core, kingdom) ? 30f : 0f) + Mathf.Max(0, -DiplomacyActions.HistoryOpinion(core, kingdom)) +
-                          5f * ours / Mathf.Max(1f, theirs);
-            if (score <= bestScore) continue;
-            best = kingdom;
-            bestScore = score;
-        }
-        if (best == null) return false;
-        SetKingdomTarget(best);
-        return true;
+        Kingdom core = GetEmpire()?.CoreKingdom;
+        return core != null && OffCooldown() && !WarSituation.TooBusyForWar(core) && !CorpsSystem.CannotFundWar(core);
     }
 
     public override void Execute()

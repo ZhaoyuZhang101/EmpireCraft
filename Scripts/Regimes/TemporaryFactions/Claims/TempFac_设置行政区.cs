@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using EmpireCraft.Scripts.GeneralSystems;
+using NeoModLoader.General;
 using System.Linq;
 using EmpireCraft.Scripts.AI.KingdomAI;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -70,24 +73,32 @@ public class TempFac_设置行政区 : TemporaryFaction
 
     public override bool CheckCondition()
     {
+        if (!TargetReady() || !PickRuleTarget()) return false;
+        Acc = 30;
+        return true;
+    }
+
+    protected override bool TargetReady()
+    {
         Empire empire = GetEmpire();
-        var titles = empire.Emperor.GetOwnedTitle();
-        if (titles.Any())
+        return empire?.CoreKingdom != null && empire.Emperor != null;
+    }
+
+    // 候选：皇帝名下、朝廷自己管着、首府不是京师的法理头衔
+    public override List<ClaimTargetOption> BuiltinCandidates()
+    {
+        var result = new List<ClaimTargetOption>();
+        Empire empire = GetEmpire();
+        if (empire?.CoreKingdom == null || empire.Emperor == null) return result;
+        foreach (long id in empire.Emperor.GetOwnedTitle())
         {
-            foreach (var title in titles)
-            {
-                var kt = ModClass.KINGDOM_TITLE_MANAGER.get(title);
-                if (kt==null) continue;
-                if (kt.title_capital.isRekt()) continue;
-                if (kt.control_kingdom!=empire.CoreKingdom) continue;
-                if (kt.title_capital != empire.CoreKingdom.capital)
-                {
-                    Acc = 30;
-                    SetTitleTarget(kt);
-                    return true;
-                }
-            }
+            KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.get(id);
+            if (title?.data == null || title.isRekt() || title.title_capital == null || title.title_capital.isRekt() ||
+                title.control_kingdom != empire.CoreKingdom || title.title_capital == empire.CoreKingdom.capital) continue;
+            ClaimTargetOption option = ClaimTargetOption.Of(title);
+            option.Figure = string.Format(LM.Get("claim_target_cities"), title.city_list?.Count ?? 0);
+            result.Add(option);
         }
-        return false;
+        return result;
     }
 }

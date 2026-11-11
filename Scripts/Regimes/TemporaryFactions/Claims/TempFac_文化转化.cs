@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
+using EmpireCraft.Scripts.Data;
+using NeoModLoader.General;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
@@ -34,19 +38,28 @@ public class TempFac_文化转化 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
-    {
-        Empire empire = GetEmpire();
-        if (empire?.kingdoms_list == null) return false;
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
 
+    protected override bool TargetReady() => GetEmpire()?.kingdoms_list != null;
+
+    // 候选：各成员国的主头衔里，法理首都与三分之二辖城的主流文化已经换了的(见 CultureService.FindTitleCultureConversionCandidate)
+    public override List<ClaimTargetOption> BuiltinCandidates()
+    {
+        var result = new List<ClaimTargetOption>();
+        var seen = new HashSet<KingdomTitle>();
+        Empire empire = GetEmpire();
+        if (empire?.kingdoms_list == null) return result;
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             if (kingdom == null || kingdom.isRekt()) continue;
             KingdomTitle title = kingdom.GetMainTitle();
-            if (title == null || !CultureService.FindTitleCultureConversionCandidate(title, out _)) continue;
-            if (!TrySetTarget(title)) continue;
-            return true;
+            if (title?.data == null || title.isRekt() || !seen.Add(title) ||
+                !CultureService.FindTitleCultureConversionCandidate(title, out string candidate)) continue;
+            ClaimTargetOption option = ClaimTargetOption.Of(title,
+                string.Format(LM.Get("claim_target_tag_convert_to"), candidate.GetCultureTranslate()));
+            option.Figure = string.Format(LM.Get("claim_target_cities"), title.city_list?.Count ?? 0);
+            result.Add(option);
         }
-        return false;
+        return result;
     }
 }

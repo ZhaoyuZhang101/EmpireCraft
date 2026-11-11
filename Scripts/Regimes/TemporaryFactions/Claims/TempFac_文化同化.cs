@@ -49,60 +49,13 @@ public class TempFac_文化同化 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
-        if (!CultureService.IsAssimilationEnabled() || empire == null || empire.IsArchived() || empire.isRekt())
-            return false;
-        string sourceCulture = CultureService.GetEmpireDefaultCulture(empire);
-        if (!CultureService.IsValidCulture(sourceCulture)) return false;
-
-        Kingdom kingdomTarget = GetCandidateAdministrations(empire, sourceCulture).FirstOrDefault();
-        if (kingdomTarget != null)
-        {
-            SetKingdomTarget(kingdomTarget);
-            return true;
-        }
-
-        City cityTarget = GetCandidateDirectCities(empire, sourceCulture).FirstOrDefault();
-        if (cityTarget != null)
-        {
-            SetCityTarget(cityTarget);
-            return true;
-        }
-        return false;
-    }
-
-    private static IEnumerable<Kingdom> GetCandidateAdministrations(Empire empire, string targetCulture)
-    {
-        IEnumerable<Kingdom> members = (empire.kingdoms_list ?? new List<Kingdom>())
-            .Where(member => member?.data != null && !member.isRekt() && !member.IsEmpire())
-            .OrderBy(member => member.id);
-        foreach (Kingdom member in members)
-        {
-            CultureService.UpdateCulturalAssimilationDuty(member);
-            if (member.GetOrCreate().cultural_assimilation_duty) continue;
-            if (member.GetAdministrativeTitle() == null) continue;
-            if (!CultureService.AdministrationNeedsCulturalAssimilation(member, targetCulture)) continue;
-            yield return member;
-        }
-    }
-
-    // 帝国直辖：没有下放给任何行政区、由帝国核心王国自己统治的城市。这类城市
-    // 没有"行政区长官"这一层，所以只要城市本身还没被指定过、且主流文化尚未
-    // 变成任务目标，就可以被这条决议直接点名，交给城主
-    // （或没有城主时的皇帝本人）自己负责。
-    private static IEnumerable<City> GetCandidateDirectCities(Empire empire, string sourceCulture)
-    {
-        Kingdom core = empire.CoreKingdom;
-        if (core?.cities == null) yield break;
-        CultureService.UpdateCulturalAssimilationDuty(core);
-        foreach (City city in core.cities.OrderBy(c => c.id))
-        {
-            if (city?.data == null || city.isRekt()) continue;
-            if (city.GetOrCreate().cultural_assimilation_duty) continue;
-            if (!CultureService.CityNeedsCulturalAssimilation(city, sourceCulture)) continue;
-            yield return city;
-        }
+        return CultureService.IsAssimilationEnabled() && empire != null && !empire.IsArchived() && !empire.isRekt() &&
+               CultureService.IsValidCulture(CultureService.GetEmpireDefaultCulture(empire));
     }
 }

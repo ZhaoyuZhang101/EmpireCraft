@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
@@ -44,47 +45,52 @@ public class TempFac_游牧扩张 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    // 目标：过得了 BuiltinCandidates 里各条的邻国，照邻国的先后，第一家就是朝堂自己会挑的
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
         if (empire?.CoreKingdom == null || empire.CoreKingdom.isRekt()) return false;
         // 游牧文化才有：按文化特性不按政体(阿兹特克、林地部族同走游牧政体却不游牧；元、清式复合帝国看统治族群)
         if (!ClaimRules.HasTrait(empire, EmpireCraft.Scripts.Data.OnomasticsRule.NomadTrait)) return false;
         Kingdom core = empire.CoreKingdom;
+        // 雄主在位：手上的游牧扩张之战不到两场、没被全面侵略、出得起军费就能再开，不看过度扩张
+        if (RulerTraitSystem.FounderReigns(core))
+            return !(ExpansionWars(core) >= HeroMaxWars || WarGoalSystem.FightingForSurvival(core) || CorpsSystem.CannotFundWar(core) ||
+                     core.getWars().Count(war => war?.data != null && !war.hasEnded()) > HeroMaxWars);
+        if (core.hasEnemies()) return false;
+        // 同对外扩张(用户 2026-10-17 "游牧太强了")：打仗太多、发不出军饷不开新仗；只打不在任何帝国里的邻国，
+        // 自己给出去、收进来的不打，对方有核自己没有不敢碰，兵力(战力)要占优
+        if (WarSituation.TooBusyForWar(core) || CorpsSystem.CannotFundWar(core)) return false;
+        // 已过度扩张(直辖城数超出容量，见 AdministrativeControlSystem)不再兴兵扩张(用户 2026-10-20 选"游牧来得快去得快")
+        return core.GetOrCreate().admin_overextension <= 0f;
+    }
+
+    public override List<ClaimTargetOption> BuiltinCandidates()
+    {
+        var result = new List<ClaimTargetOption>();
+        Empire empire = GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || core.isRekt()) return result;
         bool hero = RulerTraitSystem.FounderReigns(core);
-        if (hero)
-        {
-            // 雄主在位：手上的游牧扩张之战不到两场、没被全面侵略、出得起军费就能再开，不看过度扩张
-            if (ExpansionWars(core) >= HeroMaxWars || WarGoalSystem.FightingForSurvival(core) || CorpsSystem.CannotFundWar(core) ||
-                core.getWars().Count(war => war?.data != null && !war.hasEnded()) > HeroMaxWars) return false;
-        }
-        else
-        {
-            if (core.hasEnemies()) return false;
-            // 同对外扩张(用户 2026-10-17 "游牧太强了")：打仗太多、发不出军饷不开新仗；只打不在任何帝国里的邻国，
-            // 自己给出去、收进来的不打，对方有核自己没有不敢碰，兵力(战力)要占优
-            if (WarSituation.TooBusyForWar(core) || CorpsSystem.CannotFundWar(core)) return false;
-            // 已过度扩张(直辖城数超出容量，见 AdministrativeControlSystem)不再兴兵扩张(用户 2026-10-20 选"游牧来得快去得快")
-            if (core.GetOrCreate().admin_overextension > 0f) return false;
-        }
         // 国力里的兵力已按武备废弛打折(见 MaladySystem.LevyFactor、CityPopulationSystem.WarPotential)
         double power = WarSituation.Power(empire);
         foreach (Kingdom kingdom in empire.GetKingdomNeighbours())
         {
             if (kingdom == null || kingdom.isRekt() || empire.given_Kingdoms.Contains(kingdom) ||
-                empire.taken_Kingdoms.Contains(kingdom) || empire.CoreKingdom.isOpinionTowardsKingdomGood(kingdom) ||
-                empire.CoreKingdom.isInWarWith(kingdom)) continue;
+                empire.taken_Kingdoms.Contains(kingdom) || core.isOpinionTowardsKingdomGood(kingdom) ||
+                core.isInWarWith(kingdom)) continue;
             // 平时只打两城以内、不在帝国里、兵力不到本国一半的小国
             if (!hero && (kingdom.IsInEmpire() || kingdom.IsEmpire() || (kingdom.cities?.Count ?? 0) > SteppeOrderSystem.PeaceMaxCities ||
                           power < WarSituation.Power(kingdom) * PeacePowerLead)) continue;
             if (kingdom.IsInEmpire() && !BorderTarget(empire, kingdom, power)) continue;
-            if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(empire.CoreKingdom, kingdom)) continue;
+            if (EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsDeterred(core, kingdom)) continue;
             if (!kingdom.IsInEmpire() && power <= WarSituation.Power(kingdom)) continue;
-            if (!WarGate.CanDeclare(empire.CoreKingdom, kingdom)) continue;
-            SetKingdomTarget(kingdom);
-            return true;
+            if (!WarGate.CanDeclare(core, kingdom)) continue;
+            result.Add(ClaimTargetOption.Of(kingdom));
         }
-        return false;
+        return result;
     }
 
     // 本国手上的游牧扩张之战(攻方)

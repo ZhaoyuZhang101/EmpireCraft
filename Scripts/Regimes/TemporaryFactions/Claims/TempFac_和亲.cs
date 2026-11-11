@@ -29,29 +29,12 @@ public class TempFac_和亲 : TemporaryFaction
 
     public override int CooldownYears => 15;
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
-        Empire empire = GetEmpire();
-        Kingdom core = empire?.CoreKingdom;
-        if (core == null || !OffCooldown()) return false;
-        float ours = (float)WarSituation.Power(empire);
-        Kingdom best = null;
-        float bestScore = 0f;
-        foreach (Kingdom kingdom in World.world.kingdoms)
-        {
-            if (kingdom?.data == null || kingdom.isRekt() || kingdom == core || kingdom.GetEmpire() == empire) continue;
-            if (!(empire.IsNeighbourWith(kingdom) || StraitReach.Across(core, kingdom))) continue;
-            if (empire.data.diplomatic_pacts.ContainsKey(kingdom.id)) continue;
-            float theirs = (float)WarSituation.Power(kingdom);
-            if (theirs < ours * 0.7f) continue;
-            float score = theirs / Mathf.Max(1f, ours) * 10f + (kingdom.isInWarWith(core) ? 20f : 0f) + (NomadRaidSystem.IsNomad(kingdom) ? 10f : 0f);
-            if (score <= bestScore) continue;
-            best = kingdom;
-            bestScore = score;
-        }
-        if (best == null) return false;
-        SetKingdomTarget(best);
-        return true;
+        return GetEmpire()?.CoreKingdom != null && OffCooldown();
     }
 
     public override void Execute()

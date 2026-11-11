@@ -30,7 +30,7 @@ public class TempFac_划地给教廷 : TemporaryFaction
     {
         LogService.LogInfo($"执行{this.type}");
         City city = GetCityTarget();
-        Kingdom papacy = city == null ? null : FindPapacy(GetEmpire(), city);
+        Kingdom papacy = city == null ? null : GeneralSystems.ClaimTargetRules.PapacyNear(GetEmpire(), city);
         if (city != null && papacy != null)
         {
             string cityName = city.GetCityName();
@@ -41,24 +41,12 @@ public class TempFac_划地给教廷 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    // 谁能当目标、朝廷自己怎么挑写在 ClaimRules.json 的 target(见 ClaimTargetRules，政体编辑器的决议页可改)；这里只留决议自己的前提
+    protected override bool TargetReady()
     {
         Empire empire = GetEmpire();
-        Kingdom core = empire?.CoreKingdom;
-        if (core?.cities == null || empire.Religion == null || empire.Religion.isRekt()) return false;
-        City city = core.cities.Where(candidate => candidate?.data != null && !candidate.isRekt() &&
-                                                   candidate != core.capital && !candidate.isCapitalCity() &&
-                                                   FindPapacy(empire, candidate) != null)
-            .OrderBy(candidate => candidate.getPopulationPeople()).FirstOrDefault();
-        if (city == null) return false;
-        SetCityTarget(city);
-        return true;
+        return empire?.CoreKingdom?.cities != null && empire.Religion != null && !empire.Religion.isRekt();
     }
-
-    // 与该城接壤、信同一宗教的教宗国
-    private static Kingdom FindPapacy(Empire empire, City city) =>
-        city.neighbours_cities?.Select(other => other?.kingdom)
-            .FirstOrDefault(kingdom => kingdom != null && !kingdom.isRekt() && kingdom != city.kingdom &&
-                                       kingdom.GetKingdomType() == Regimes.KingdomType.Feudalism_papal_state &&
-                                       kingdom.religion == empire.Religion);
 }

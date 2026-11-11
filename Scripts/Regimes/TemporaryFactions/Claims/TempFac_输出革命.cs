@@ -34,15 +34,8 @@ public class TempFac_输出革命 : TemporaryFaction
         End();
     }
 
-    public override bool CheckCondition()
-    {
-        Empire empire = GetEmpire();
-        if (empire == null || !CityPopulationSystem.AbstractPopulationEnabled) return false;
-        Kingdom target = ClaimPolicySystem.ForeignBorders(empire).Select(pair => pair.foreign.kingdom)
-            .Where(kingdom => kingdom != null && !kingdom.isRekt() && !kingdom.isInWarWith(empire.CoreKingdom))
-            .Distinct().OrderByDescending(kingdom => kingdom.getPopulationTotal()).FirstOrDefault();
-        if (target == null) return false;
-        SetKingdomTarget(target);
-        return true;
-    }
+    // 目标：接壤、没在交战的外国，人口多的优先。规则在 ClaimRules.json 的 target(见 ClaimTargetRules)
+    public override bool CheckCondition() => TargetReady() && PickRuleTarget();
+
+    protected override bool TargetReady() => GetEmpire() != null && CityPopulationSystem.AbstractPopulationEnabled;
 }
