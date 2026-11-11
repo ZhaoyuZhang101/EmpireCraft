@@ -85,14 +85,11 @@ public static partial class TerminalHost
     }
 
     // 手机上打开的大厅网页、本机的房间(末尾不带斜杠)
-    public static string LobbyWeb
-    {
-        get
-        {
-            string socket = LobbySocket;
-            return socket.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) ? "https://" + socket.Substring(6) : "http://" + socket.Substring(5);
-        }
-    }
+    public static string LobbyWeb => WebOf(LobbySocket);
+
+    // 游戏连大厅用的地址(ws / wss) → 手机上打开的网址(http / https)
+    public static string WebOf(string socket) =>
+        socket.StartsWith("wss://", StringComparison.OrdinalIgnoreCase) ? "https://" + socket.Substring(6) : "http://" + socket.Substring(5);
 
     public static string RoomUrl => _roomId == null ? "" : LobbyWeb + "/r/" + _roomId;
 

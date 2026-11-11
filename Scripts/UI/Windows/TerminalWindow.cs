@@ -104,30 +104,19 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             ModSettingsWindow.SetSwitch("terminal_mode_toggle", !on);
             Refresh();
         });
-        // 接入联机大厅：一条线路一个按钮(国际、国内各是各的大厅，要换线路先退出再接另一条)；另填了大厅地址的只有一个
+        // 接入、退出联机大厅(走哪条线路在右边「房间公开到哪条线路」那张卡里挑，接入后也能当场换)
         if (on && joined)
             rail.AddRailButton("terminal_lobby_toggle", LM.Get("terminal_lobby_leave"), () =>
             {
                 ModSettingsWindow.SetSwitch("terminal_lobby_toggle", false);
                 Refresh();
             });
-        else if (on && TerminalHost.LobbyCustom)
+        else if (on)
             rail.AddRailButton("terminal_lobby_toggle", LM.Get("terminal_lobby_join"), () =>
             {
                 ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
                 Refresh();
             });
-        else if (on)
-            foreach ((string key, string _) in TerminalHost.Lobbies)
-            {
-                string lineKey = key;
-                rail.AddRailButton("terminal_lobby_join_" + lineKey, string.Format(LM.Get("terminal_lobby_join_line"), LM.Get("terminal_line_" + lineKey)), () =>
-                {
-                    ModSettingsWindow.SetText("Terminal_Lobby_Line_Text", lineKey);
-                    ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
-                    Refresh();
-                });
-            }
         if (joined)
             rail.AddRailButton("terminal_room_open_toggle", LM.Get(TerminalHost.RoomOpen ? "terminal_room_make_private" : "terminal_room_make_open"), () =>
             {
@@ -141,6 +130,41 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
                 Refresh();
             });
         rail.AddRailButton("terminal_refresh", LM.Get("terminal_refresh"), () => Refresh());
+    }
+
+    // 「房间公开到哪条线路」(用户 2026-11-11 "终端也要切换路线的选项""选择把房间公开至哪个路线")：一条线路一行，
+    // 点哪条房间就公开到哪条的大厅——还没接入的顺带接入，已经接着别的线路的当场换过去(连接自己断开重连，房间号不变)。
+    // 设置里另填了大厅地址的只列那一条
+    private void DrawLines(AutoVertLayoutGroup page)
+    {
+        var card = page.BeginCard(PageWidth, "terminal_card_lines", WideKit.Gold);
+        card.AddParagraph(PageWidth, LM.Get("terminal_lines_note"), 6, WideKit.Muted);
+        bool joined = TerminalHost.LobbyEnabled;
+        if (TerminalHost.LobbyCustom)
+        {
+            card.AddToggleRow(PageWidth, 0, LM.Get("terminal_line_custom"), TerminalHost.LobbyWeb, joined,
+                LM.Get(joined ? "terminal_line_here" : "terminal_line_pick"), () =>
+                {
+                    ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
+                    Refresh();
+                });
+            return;
+        }
+        for (int i = 0; i < TerminalHost.Lobbies.Length; i++)
+        {
+            (string key, string socket) = TerminalHost.Lobbies[i];
+            bool here = joined && key == TerminalHost.LineKey;
+            string state = !here ? "" : " · " + LM.Get(TerminalHost.LobbyOnline ? "terminal_lobby_online"
+                : string.IsNullOrEmpty(TerminalHost.LobbyError) ? "terminal_lobby_connecting" : "terminal_lobby_retrying");
+            card.AddToggleRow(PageWidth, i, LM.Get("terminal_line_" + key), TerminalHost.WebOf(socket) + state, here,
+                LM.Get(here ? "terminal_line_here" : joined ? "terminal_line_switch" : "terminal_line_pick"), () =>
+                {
+                    if (here) return;
+                    ModSettingsWindow.SetText("Terminal_Lobby_Line_Text", key);
+                    ModSettingsWindow.SetSwitch("terminal_lobby_toggle", true);
+                    Refresh();
+                });
+        }
     }
 
     private static void RailNote(AutoVertLayoutGroup card, string text) =>
@@ -164,6 +188,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             return;
         }
         TerminalConnectCard.Draw(page, PageWidth);
+        DrawLines(page);
         if (seats.Count == 0)
         {
             page.AddEmptyCard(PageWidth, LM.Get("terminal_empty_seats"), LM.Get("terminal_hint_on"));
