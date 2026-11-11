@@ -903,6 +903,7 @@ public static partial class TerminalHost
         state["wars"] = Wars(seat);
         state["away"] = AwayJson(seat);
         state["cities"] = Cities(seat);
+        state["provinces"] = Provinces(seat);
         var reports = new JArray();
         for (int i = seat.Reports.Count - 1; i >= 0 && reports.Count < 80; i--)
         {
@@ -950,25 +951,75 @@ public static partial class TerminalHost
         if (realm.cities == null) return cities;
         foreach (City city in realm.cities.Where(city => city?.data != null && !city.isRekt())
                      .OrderByDescending(city => city == realm.capital).ThenByDescending(city => city.getPopulationPeople()).Take(MaxCities))
+            cities.Add(CityRow(seat, city, realm.capital, 0, true));
+        return cities;
+    }
+
+    // 行政区与藩属(用户 2026-11-12 看国势页："这好歹让我能看到我的行政区啊""怎么只有直辖城市")：帝国之主才有。
+    // 帝国的成员一家一条——流官的行政区、羁縻之地、世袭的封国——各带它的城(都城在前、人多的在前，至多 MaxProvinceCities 座)。
+    // 行政区的城同直辖的城一个看法(政令到得了才有确数)；羁縻与封国自治，朝廷至多知道个约数。朝廷还不知道的叛军不列
+    private const int MaxProvinces = 24, MaxProvinceCities = 10;
+
+    private static JArray Provinces(Seat seat)
+    {
+        var list = new JArray();
+        Kingdom realm = seat.Realm;
+        Empire empire = realm.GetEmpire();
+        if (empire == null || empire.CoreKingdom != realm) return list;
+        foreach (Kingdom member in empire.kingdoms_list
+                     .Where(found => found?.data != null && !found.isRekt() && found != realm && !seat.Hidden.Contains(found.getID()))
+                     .OrderByDescending(found => found.IsAdministrativeKingdomType()).ThenByDescending(found => found.cities?.Count ?? 0)
+                     .Take(MaxProvinces).ToList())
         {
-            float control = city == realm.capital || !AdministrativeControlSystem.Known(city) ? 1f : AdministrativeControlSystem.Get(city);
-            int clarity = TerminalIntel.Clarity(control);
+            bool jimi = JimiSystem.IsJimiAdministration(member);
+            string kind = jimi ? "jimi" : member.IsAdministrativeKingdomType() || !Hereditary(member) ? "province" : "fief";
+            var rows = new JArray();
+            long people = 0;
+            List<City> cities = (member.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt()).ToList();
+            foreach (City city in cities.OrderByDescending(city => city == member.capital).ThenByDescending(city => city.getPopulationPeople())
+                         .Take(MaxProvinceCities))
+            {
+                JObject row = CityRow(seat, city, member.capital, kind == "province" ? 0 : 1, false);
+                if (row["people"] != null) people += (long)row["people"];
+                rows.Add(row);
+            }
+            var item = new JObject
+            {
+                ["id"] = member.getID().ToString(), ["name"] = member.data.name, ["kind"] = kind, ["n"] = cities.Count, ["cities"] = rows
+            };
+            if (people > 0) item["people"] = TerminalIntel.RoundSig(people, 2);
+            if (member.king != null && member.king.isAlive()) item["ruler"] = member.king.getName();
+            list.Add(item);
+        }
+        return list;
+    }
+
+    // 一座城给手机的那一条。capital：它所在那一国的都城(治所)；floor：最清楚也只到这一档(羁縻、封国的城朝廷至多知道约数)；
+    // details：要不要点进去看的细节(兵、库银、村镇)
+    private static JObject CityRow(Seat seat, City city, City capital, int floor, bool details)
+    {
+        {
+            float control = city == capital || !AdministrativeControlSystem.Known(city) ? 1f : AdministrativeControlSystem.Get(city);
+            int clarity = Math.Max(floor, TerminalIntel.Clarity(control));
             // 微服私访亲眼看过的城：一年之内按真数给(不照吏治虚报、不管政令达不达)
             bool toured = seat.Toured.TryGetValue(city.getID(), out int seenAt) && MonthNow() - seenAt < TourTruthMonths;
             double padding = toured ? 0d : seat.Corruption;
             if (toured) clarity = 0;
+            if (!details && clarity == 0) details = false;
             long people = TerminalIntel.Reported(city.getPopulationPeople(), padding, -1,
                 TerminalIntel.Hash(city.getID(), 2, Date.getCurrentYear()), out _);
             var row = new JObject
             {
-                ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["capital"] = city == realm.capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity, ["toured"] = toured
+                ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["capital"] = city == capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity, ["toured"] = toured
             };
             if (clarity < 2)
             {
                 row["people"] = clarity == 0 ? people : TerminalIntel.RoundSig(people, 1);
                 if (city.leader != null && city.leader.isAlive()) row["leader"] = city.leader.getName();
             }
-            if (clarity == 0)
+            if (clarity == 0 && !details)
+                row["villages"] = RuralSettlementSystem.InCity(city)?.Count ?? 0;
+            if (clarity == 0 && details)
             {
                 // 点进去看的细节(用户 2026-11-11 "单个行政区也可以点进去查看细节")：政令到得了的城才有，数照吏治虚报
                 List<EmpireCraft.Scripts.Data.RuralSettlement> rural = RuralSettlementSystem.InCity(city);
@@ -983,9 +1034,8 @@ public static partial class TerminalHost
             }
             string admin = AdministrativeControlSystem.Describe(city);
             if (admin != null) row["admin"] = admin;
-            cities.Add(row);
+            return row;
         }
-        return cities;
     }
 
     private static string Hex(Color32 color) => "#" + color.r.ToString("x2") + color.g.ToString("x2") + color.b.ToString("x2");
