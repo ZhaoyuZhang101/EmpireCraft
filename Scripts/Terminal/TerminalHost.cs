@@ -215,9 +215,10 @@ public static partial class TerminalHost
     }
 
     // 扫码用的整条地址(带配对码，扫了直接进)
-    // 没填外网地址、又接着联机大厅时用大厅里本机的房间地址(不在同一个网络也扫得进来)
+    // 接着联机大厅时用大厅里本机的房间地址(用户 2026-11-11 "二维码能扫描后直接进大厅的房间""不需要手动输入配对码")：
+    // 手机在哪个网络都扫得进来，地址里带着配对码，网页打开就自己配上；没接大厅才用外网地址、局域网地址
     public static string PairUrl() =>
-        (PublicUrl.Length > 0 ? PublicUrl : LobbyOnline ? RoomUrl : "http://" + PrimaryAddress()) + "/?c=" + Code;
+        (LobbyOnline ? RoomUrl : PublicUrl.Length > 0 ? PublicUrl : "http://" + PrimaryAddress()) + "/?c=" + Code;
 
     // 外网地址(用户 2026-11-11 "那还是考虑第三方的吧")：模组只在本机开端口；不在同一个网络时，由第三方隧道工具(组网、内网穿透)
     // 把这个端口引出去，它给一个固定网址。把网址填在终端窗口里，二维码、手机桌面图标就都用它，手机不用知道电脑的地址

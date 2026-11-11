@@ -12443,6 +12443,8 @@
   "terminal_room_make_private": "Require the pairing code",
   "terminal_lobby_hint_off": "Once joined, this game appears on the online lobby page and people on other networks can come in. No port forwarding or firewall changes needed.",
   "terminal_lobby_hint_on": "Send the lobby address above to whoever is coming. Open rooms accept anyone while a seat is free; otherwise the pairing code is needed too.",
+  "terminal_connect_lobby": "The QR code goes straight to this room in the online lobby: scan to join from any network, no pairing code to type. The code changes after each phone pairs, and the QR follows.",
+  "terminal_room_url": "Room address",
   "terminal_public_url_bad": "This address cannot be used: no spaces or quotes, and not too long. The QR code still uses the LAN address.",
   "terminal_use_mesh": "Use mesh address {0} for the QR code"
 }

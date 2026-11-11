@@ -30,9 +30,11 @@ public static class TerminalConnectCard
         if (!TerminalHost.Lan) card.AddParagraph(width, LM.Get("terminal_connect_local"), 7, WideKit.Orange);
         Texture2D code = Code(TerminalHost.PairUrl());
         if (code != null) AddCode(card.transform, code);
-        bool outside = TerminalHost.PublicUrl.Length > 0;
-        card.AddParagraph(width, LM.Get(outside ? "terminal_connect_public" : "terminal_connect_scan"));
-        if (outside) card.AddValueRow(width, 3, LM.Get("terminal_public_url"), TerminalHost.PublicUrl, WideKit.Gold);
+        // 接着联机大厅：二维码直通大厅里本机的房间(见 TerminalHost.PairUrl)，其余地址照旧列着备用
+        bool lobby = TerminalHost.LobbyOnline, outside = TerminalHost.PublicUrl.Length > 0;
+        card.AddParagraph(width, LM.Get(lobby ? "terminal_connect_lobby" : outside ? "terminal_connect_public" : "terminal_connect_scan"));
+        if (lobby) card.AddValueRow(width, 4, LM.Get("terminal_room_url"), TerminalHost.RoomUrl + "/", WideKit.Gold);
+        if (outside) card.AddValueRow(width, 3, LM.Get("terminal_public_url"), TerminalHost.PublicUrl, lobby ? WideKit.Cyan : WideKit.Gold);
         card.AddValueRow(width, 0, LM.Get("terminal_address"), "http://" + TerminalHost.PrimaryAddress(), WideKit.Cyan);
         card.AddValueRow(width, 1, LM.Get("terminal_code"), TerminalHost.Code, WideKit.Gold);
         // 固定地址：电脑的地址变了、换台电脑开游戏都还是它(加到手机桌面用这个)

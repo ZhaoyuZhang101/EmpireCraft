@@ -12449,6 +12449,8 @@
   "terminal_room_make_private": "改為憑配對碼",
   "terminal_lobby_hint_off": "接入後這場遊戲會出現在聯機大廳的網頁上，不在同一個網路的人也能進來。不必引連接埠、不必動防火牆。",
   "terminal_lobby_hint_on": "把上面的大廳網址發給要來的人。公開的房間有空席位就能進；憑配對碼的房間還要另給配對碼。",
+  "terminal_connect_lobby": "二維碼直通聯機大廳裡的這個房間：掃了就進，不用填配對碼，手機在哪個網路都行。配成一部手機後配對碼會換，二維碼跟著換。",
+  "terminal_room_url": "房間位址",
   "terminal_public_url_bad": "這個位址用不了：不能有空格、引號，也不能太長。二維碼仍用區域網路位址。",
   "terminal_use_mesh": "二維碼用組網位址 {0}"
 }
