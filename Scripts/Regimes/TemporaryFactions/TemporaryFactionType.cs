@@ -152,5 +152,8 @@ public enum TemporaryFactionType
     [Description("与强邻和亲修好")]
     和亲,
     [Description("增设官署官职")]
-    增设官署
+    增设官署,
+    // 2026-11-11 追加(用户 2026-11-11 转群友"目前诉求没有招募新军吗？或加强军备"，"可以加")
+    [Description("征兵加饷，在兵源多的城编成新军")]
+    招募新军
 }

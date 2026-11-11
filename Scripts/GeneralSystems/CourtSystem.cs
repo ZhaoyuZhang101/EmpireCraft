@@ -689,7 +689,7 @@ public static partial class CourtSystem
         float stance = emperor.GetFaction() == null ? 0f : CourtIssues.StanceLevel(emperor.GetFaction(), issue);
         bool expansion = issue is TemporaryFactionType.对外扩张 or TemporaryFactionType.迫使朝贡 or
             TemporaryFactionType.扩张地盘 or TemporaryFactionType.谋求统一 or TemporaryFactionType.兴兵讨伐 or
-            TemporaryFactionType.整军经武;
+            TemporaryFactionType.整军经武 or TemporaryFactionType.招募新军;
         bool appeasement = issue is TemporaryFactionType.提供岁币 or TemporaryFactionType.割让城池 or
             TemporaryFactionType.罢兵议和 or TemporaryFactionType.和亲;
         bool devolution = issue is TemporaryFactionType.分封 or TemporaryFactionType.确认诸侯特权 or

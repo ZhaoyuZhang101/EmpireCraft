@@ -895,6 +895,41 @@ public static class CorpsSystem
         return Raise(kingdom, home, LegionsPerCorps, people, World.world.getCurWorldTime(), manual: true, formation: formation);
     }
 
+    // 招募新军(见 TempFac_招募新军)(用户 2026-11-11 转群友"目前诉求没有招募新军吗？或加强军备"，"可以加")：兵源最多、够得上成军的几座城各成一军，
+    // 兵额照本国一军的平均，按手动组建的军算(不按军制裁撤)，经费走诉求经费不另扣。返回成了的军
+    public static int RecruitSeats(Kingdom kingdom, int count) =>
+        ManualSeats(kingdom, count).Count(city => CityPopulationSystem.LevyBackground(city) >= ManualMin);
+
+    public static List<CorpsData> RecruitNew(Kingdom kingdom, int count)
+    {
+        var raised = new List<CorpsData>();
+        if (!Enabled || kingdom?.data == null || kingdom.isRekt()) return raised;
+        foreach (City home in ManualSeats(kingdom, count).Where(city => CityPopulationSystem.LevyBackground(city) >= ManualMin))
+        {
+            CorpsData corps = RaiseStanding(kingdom, home, ManualSize(kingdom, home));
+            if (corps == null) continue;
+            raised.Add(corps);
+            FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_recruited"), Name(corps), home.GetCityName(), ShortStrength(corps.strength)));
+        }
+        return raised;
+    }
+
+    // 整军经武(见 TempFac_整军经武)：各正规军补足兵员(照常从兵源里补，兵源不够补不满)，士气、粮秣整顿一新。返回整顿了几支
+    public static int Refit(Kingdom kingdom)
+    {
+        if (!Enabled || kingdom?.data == null || kingdom.isRekt()) return 0;
+        int count = 0;
+        foreach (CorpsData corps in Of(kingdom).Where(corps => !corps.militia && corps.order_id < 0).ToList())
+        {
+            if (corps.strength < corps.full) Reinforce(kingdom, corps, corps.full - corps.strength);
+            corps.org = 100f;
+            corps.rations = 1f;
+            corps.supply = Mathf.Max(corps.supply, 1f);
+            count++;
+        }
+        return count;
+    }
+
     // 手动解散(交战中的不能解散)
     public static bool DisbandManual(Kingdom kingdom, CorpsData corps)
     {

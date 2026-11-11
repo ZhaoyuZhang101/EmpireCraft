@@ -318,6 +318,7 @@ public static class FactionClassSystem
             TemporaryFactionType.兴兵讨伐 => Effects((SocialClass.Army, 16), (SocialClass.Noble, 6), (SocialClass.Peasant, -8), (SocialClass.Merchant, -8)),
             TemporaryFactionType.罢兵议和 => Effects((SocialClass.Peasant, 10), (SocialClass.Merchant, 10), (SocialClass.Army, -12)),
             TemporaryFactionType.整军经武 => Effects((SocialClass.Army, 16), (SocialClass.Officer, 4), (SocialClass.Peasant, -8)),
+            TemporaryFactionType.招募新军 => Effects((SocialClass.Army, 18), (SocialClass.Noble, 2), (SocialClass.Peasant, -10), (SocialClass.Merchant, -4)),
             TemporaryFactionType.修筑城防 => Effects((SocialClass.Army, 8), (SocialClass.Landlord, 4), (SocialClass.Peasant, -6)),
             TemporaryFactionType.开放互市 => Effects((SocialClass.Merchant, 14), (SocialClass.Citizen, 4), (SocialClass.Army, -4)),
             TemporaryFactionType.通商减税 => Effects((SocialClass.Merchant, 14), (SocialClass.Citizen, 6), (SocialClass.Landlord, -6), (SocialClass.Officer, -4)),

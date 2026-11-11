@@ -219,6 +219,8 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.兴兵讨伐 => 8f,
             TemporaryFactionType.罢兵议和 => 12f + Peasantry() * 0.1f,
             TemporaryFactionType.整军经武 => 6f + Grievance(SocialClass.Army) * 0.1f,
+            // 打着仗、或军人怨气大时急着募兵
+            TemporaryFactionType.招募新军 => (CorpsSystem.IsAtWar(empire.CoreKingdom) ? 14f : 3f) + Grievance(SocialClass.Army) * 0.1f,
             TemporaryFactionType.修筑城防 => 6f,
             TemporaryFactionType.开放互市 or TemporaryFactionType.通商减税 => 4f + Grievance(SocialClass.Merchant) * 0.15f,
             TemporaryFactionType.营建宫室 => 3f,
