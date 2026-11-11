@@ -6,7 +6,7 @@ using NeoModLoader.api;
 namespace EmpireCraft.Scripts.GamePatches;
 
 // 开战总入口过"够得着"这道闸(见 WarReach)：原版与本模组的 startWar、本模组直接调的 newWar 都在这里拦，
-// 拦下时返回空(原版 startWar 本来就会返回空，各处都判过)
+// 拦下时返回空(原版 startWar 本来就会返回空，各处都判过)。世界法则「禁止AI宣战」也在这里兜底(见 WarReach.LawForbids)
 public class WarReachPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
@@ -47,7 +47,8 @@ public class WarReachPatch : GamePatch
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.Owns(attacker)) return true;
         try
         {
-            if (WarReach.MayDeclare(attacker, defender, type)) return true;
+            // 世界法则「禁止AI宣战」「禁止AI外交(总)」：没经 WarGate 的开战也在这里拦下(见 WarReach.LawForbids)
+            if (!WarReach.LawForbids(attacker, defender, type) && WarReach.MayDeclare(attacker, defender, type)) return true;
         }
         catch (Exception)
         {

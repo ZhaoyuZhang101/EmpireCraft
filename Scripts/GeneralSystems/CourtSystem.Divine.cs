@@ -196,7 +196,8 @@ public static partial class CourtSystem
     {
         if (claim == null || !claim.IsStarted()) return false;
         claim.progress = Mathf.Min(claim.progressMax, claim.progress + claim.progressMax * share);
-        if (claim.progress >= claim.progressMax) claim.RunExecute();
+        // 神力推满当场施行：算玩家强制的，世界法则「禁止AI宣战」等不拦(见 DiplomacyLaws.ByPlayer)
+        if (claim.progress >= claim.progressMax) DiplomacyLaws.ByPlayer(() => claim.RunExecute());
         return true;
     }
 

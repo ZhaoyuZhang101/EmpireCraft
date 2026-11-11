@@ -72,6 +72,35 @@ public static class WarReach
         return false;
     }
 
+    // 世界法则「禁止AI宣战」「禁止AI外交(总)」(见 DiplomacyLaws)在开战总入口再拦一道(见 WarReachPatch)：
+    // 法则原先只拦经 WarGate.CanDeclare 的十几处与原版挑目标，其余四十来处直接 startWar / newWar 的(帝号之争、圣战、私战、
+    // 诸侯互伐、军阀混战、逼冕、复国……)都绕了过去(群友 2026-11-11 "昨天我关闭了所有外交功能""但还是会发起战争是bug吧")。
+    //   · 拦的是国与国之间 AI 自己开的仗；玩家在外交面板、神力里开的不拦(DiplomacyLaws 里看 MembershipCooldown.GodActing)；
+    //   · 剧本点名的战争、神力挑拨煽动、全面战争不拦；
+    //   · 起兵、内乱一类不算外交，归「禁止叛乱」管(见 Uprising)。
+    public static bool LawForbids(Kingdom attacker, Kingdom defender, WarTypeAsset type)
+    {
+        if (attacker?.data == null || defender?.data == null || attacker == defender) return false;
+        if (!DiplomacyLaws.WarBlocked) return false;
+        if (ScenarioDeclaring || ExemptType(type) || ColonySystem.Rising || Uprising(attacker, defender)) return false;
+        string caller = Caller();
+        if (Reported.Count < 512 && Reported.Add($"law|{caller}|{attacker.id}|{defender.id}"))
+            LogService.LogInfo($"{LogTag} 拦下 {attacker.GetKingdomName()} 对 {defender.GetKingdomName()} 宣战(来自 {caller})：世界法则禁止AI宣战");
+        return true;
+    }
+
+    // 起兵、内乱：同一帝国里有一方正在叛乱，刚离开或反过对方帝国(起兵、叛离、独立)，封建上下级，宗主与殖民地。
+    // 同一帝国里两个都没在叛乱的成员互相开战(私战、诸侯互伐)照样算 AI 宣战
+    private static bool Uprising(Kingdom a, Kingdom b)
+    {
+        if (LeftFrom(a, b) || LeftFrom(b, a)) return true;
+        if (FeudalVassalService.GetOverlord(a) == b || FeudalVassalService.GetOverlord(b) == a) return true;
+        if (ColonySystem.MetropoleOf(a) == b || ColonySystem.MetropoleOf(b) == a) return true;
+        Empire empire = a.GetEmpire();
+        return empire != null && !empire.isRekt() && empire == b.GetEmpire() &&
+               (a.IsFactionRebelling() || a.IsLocalRebelling() || b.IsFactionRebelling() || b.IsLocalRebelling());
+    }
+
     private static bool ExemptType(WarTypeAsset type) =>
         type != null && (type.total_war || type == WarTypeLibrary.rebellion || type == WarTypeLibrary.inspire ||
                          type == WarTypeLibrary.whisper_of_war);

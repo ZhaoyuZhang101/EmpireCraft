@@ -27,10 +27,21 @@ public static class DiplomacyLaws
         }
     }
 
+    // 玩家用神力把一条诉求当场推到施行(见 CourtSystem.GodHasten)：这一步里开的仗、结的关系算玩家强制的。
+    // 单独一个标记，不借 MembershipCooldown.ByGod——那个还会记"神力放出、拉入"的保护期
+    private static int _forced;
+
+    public static void ByPlayer(global::System.Action action)
+    {
+        _forced++;
+        try { action(); }
+        finally { _forced--; }
+    }
+
     public static bool Blocked(Kind kind)
     {
         // 玩家强制的一律放行
-        if (MembershipCooldown.GodActing) return false;
+        if (MembershipCooldown.GodActing || _forced > 0) return false;
         if (On(EmpireCraftWorldLawLibrary.empirecraft_law_ban_diplomacy)) return true;
         return On(kind switch
         {
@@ -44,7 +55,8 @@ public static class DiplomacyLaws
         });
     }
 
-    // 宣战：模组各系统经 WarGate.CanDeclare，原版 AI 挑目标经 WarTargetPatch
+    // 宣战：模组各系统经 WarGate.CanDeclare，原版 AI 挑目标经 WarTargetPatch；没经这两处、直接开战的在开战总入口兜底
+    // (见 WarReach.LawForbids，起兵内乱不算、归「禁止叛乱」管)
     public static bool WarBlocked => Blocked(Kind.War);
     // 结盟：原版 Alliance.canJoin(见 AlliancePatch)，建盟与入盟都走它
     public static bool AllianceBlocked => Blocked(Kind.Alliance);
