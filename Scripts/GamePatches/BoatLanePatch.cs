@@ -21,6 +21,13 @@ public class BoatLanePatch : GamePatch
     private const float CacheSeconds = 30f;
     private static readonly Dictionary<(int, int), (float at, List<TileZone> zones)> Cache = new();
     private static int _frame = -1, _computed;
+    // 每条路都用这几张常驻的表(只在主线程、不重入)：以前每条新建路径、平滑点、绕岸搜索的字典与队列，
+    // 性能日志里「航线·船只改道」每帧分配三百来 KB，是模组里分配最多的一段
+    private static readonly List<WorldTile> Path = new();
+    private static readonly List<Vector2> Points = new(), Smoothed = new();
+    private static readonly Dictionary<WorldTile, WorldTile> Previous = new();
+    private static readonly Queue<WorldTile> Frontier = new();
+    private static readonly List<WorldTile> Gap = new();
 
     public void Initialize()
     {
@@ -41,11 +48,11 @@ public class BoatLanePatch : GamePatch
         {
             List<TileZone> zones = Zones(start.zone, pTileTarget.zone);
             if (zones == null || zones.Count < 3) return;
-            List<WorldTile> path = Follow(start, pTileTarget, RoadNetwork.Smooth(zones, start, pTileTarget));
-            if (path == null || path.Count == 0) return;
+            Smooth(zones, start, pTileTarget);
+            if (!Follow(start, pTileTarget, Points) || Path.Count == 0) return;
             // 原版已经按目标格设好了 tile_target；只换掉路径(整条给出，不再分段寻路)
             pActor.clearOldPath();
-            pActor.current_path.AddRange(path);
+            pActor.current_path.AddRange(Path);
             pActor.split_path = SplitPathStatus.Normal;
         }
         catch (Exception exception)
@@ -73,10 +80,38 @@ public class BoatLanePatch : GamePatch
         return zones;
     }
 
-    // 沿平滑后的折线逐格走；落到岸上的格跳过，前后两段之间就地绕开
-    private static List<WorldTile> Follow(WorldTile start, WorldTile end, List<Vector2> points)
+    // 同 RoadNetwork.Smooth(地块中心加抖动、两遍 Chaikin 削角)，结果放在 Points
+    private static void Smooth(List<TileZone> zones, WorldTile start, WorldTile end)
     {
-        var path = new List<WorldTile>();
+        Points.Clear();
+        for (int i = 0; i < zones.Count; i++)
+        {
+            if (i == 0) Points.Add(new Vector2(start.x, start.y));
+            else if (i == zones.Count - 1) Points.Add(new Vector2(end.x, end.y));
+            else Points.Add(RoadNetwork.Jittered(zones[i]));
+        }
+        for (int pass = 0; pass < 2; pass++)
+        {
+            if (Points.Count < 3) return;
+            Smoothed.Clear();
+            Smoothed.Add(Points[0]);
+            for (int i = 0; i + 1 < Points.Count; i++)
+            {
+                Vector2 a = Points[i], b = Points[i + 1];
+                Smoothed.Add(Vector2.Lerp(a, b, 0.25f));
+                Smoothed.Add(Vector2.Lerp(a, b, 0.75f));
+            }
+            Smoothed.Add(Points[Points.Count - 1]);
+            Points.Clear();
+            Points.AddRange(Smoothed);
+        }
+    }
+
+    // 沿平滑后的折线逐格走；落到岸上的格跳过，前后两段之间就地绕开；路径放在 Path，走不通返回 false
+    private static bool Follow(WorldTile start, WorldTile end, List<Vector2> points)
+    {
+        List<WorldTile> path = Path;
+        path.Clear();
         WorldTile last = start;
         bool gap = false;
         foreach (WorldTile tile in Raster(points))
@@ -87,17 +122,17 @@ public class BoatLanePatch : GamePatch
                 gap = true;
                 continue;
             }
-            if ((gap || !Adjacent(last, tile)) && !Bridge(last, tile, path)) return null;
+            if ((gap || !Adjacent(last, tile)) && !Bridge(last, tile, path)) return false;
             gap = false;
             path.Add(tile);
             last = tile;
         }
         if (last != end)
         {
-            if (!Adjacent(last, end) && !Bridge(last, end, path)) return null;
+            if (!Adjacent(last, end) && !Bridge(last, end, path)) return false;
             path.Add(end);
         }
-        return path;
+        return true;
     }
 
     private static IEnumerable<WorldTile> Raster(List<Vector2> points)
@@ -129,8 +164,11 @@ public class BoatLanePatch : GamePatch
     // 两格之间在海面上广度优先找一段(不含两端)接进路径
     private static bool Bridge(WorldTile from, WorldTile to, List<WorldTile> path)
     {
-        var previous = new Dictionary<WorldTile, WorldTile> { [from] = null };
-        var queue = new Queue<WorldTile>();
+        Dictionary<WorldTile, WorldTile> previous = Previous;
+        Queue<WorldTile> queue = Frontier;
+        previous.Clear();
+        queue.Clear();
+        previous[from] = null;
         queue.Enqueue(from);
         while (queue.Count > 0 && previous.Count < BridgeSearch)
         {
@@ -144,10 +182,14 @@ public class BoatLanePatch : GamePatch
             }
         }
         if (!previous.ContainsKey(to)) return false;
-        var bridge = new List<WorldTile>();
+        List<WorldTile> bridge = Gap;
+        bridge.Clear();
         for (WorldTile tile = previous[to]; tile != null && tile != from; tile = previous[tile]) bridge.Add(tile);
         bridge.Reverse();
         path.AddRange(bridge);
+        bridge.Clear();
+        previous.Clear();
+        queue.Clear();
         return true;
     }
 }

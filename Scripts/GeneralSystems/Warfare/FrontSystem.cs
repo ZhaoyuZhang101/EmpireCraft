@@ -271,8 +271,19 @@ public static partial class FrontSystem
     private static bool InReach(Kingdom side, City city, HashSet<City> home)
     {
         if (home.Contains(city)) return true;
-        if (city.neighbours_cities != null && city.neighbours_cities.Any(home.Contains)) return true;
-        if (WildernessNeighbours.Of(city).Any(home.Contains) && LandRoute(side, city)) return true;
+        // 逐个看(以前 Any(home.Contains) 每次新建委托，月初每国对每座敌城各两次)
+        if (city.neighbours_cities != null)
+            foreach (City next in city.neighbours_cities)
+                if (next != null && home.Contains(next)) return true;
+        bool wildNeighbour = false;
+        IReadOnlyList<City> wild = WildernessNeighbours.Of(city);
+        for (int i = 0; i < wild.Count; i++)
+            if (wild[i] != null && home.Contains(wild[i]))
+            {
+                wildNeighbour = true;
+                break;
+            }
+        if (wildNeighbour && LandRoute(side, city)) return true;
         WorldTile tile = city.getTile();
         if (tile == null) return false;
         float limit = LandReachTiles * LandReachTiles;
@@ -291,6 +302,21 @@ public static partial class FrontSystem
     private static readonly Dictionary<(long, long), (bool found, double at, long signature)> LandRoutes = new();
     // 当前在算战线段的一方的敌国签名(见 Sectors)
     private static long _routeSignature;
+    // 广度搜索用的常驻表：按地块编号记这一轮搜过没有(戳记)、待搜的队列。以前每次新建集合与队列，搜满 6000 块时一次一两百 KB，
+    // 月初各国对近处每座敌城各搜一回，是「战线·分派」分配的大头
+    private static int[] _routeSeen = new int[0];
+    private static int _routeStamp, _routeSeenCount;
+    private static readonly Queue<TileZone> RouteQueue = new();
+
+    private static bool RouteVisit(int id)
+    {
+        if (id < 0) return false;
+        if (id >= _routeSeen.Length) global::System.Array.Resize(ref _routeSeen, Math.Max(id + 1, _routeSeen.Length * 2));
+        if (_routeSeen[id] == _routeStamp) return false;
+        _routeSeen[id] = _routeStamp;
+        _routeSeenCount++;
+        return true;
+    }
 
     // 能走的地块：陆地、不是高山、不是本方过不去的无人区(见 WildernessPassage)，归属无主或本方、盟友、交战敌国、
     // 许本方借道的国家(见 MilitaryAccessSystem)；不相干的第三国不走
@@ -309,17 +335,23 @@ public static partial class FrontSystem
         double now = World.world.getCurWorldTime();
         if (LandRoutes.TryGetValue(key, out var known) && known.signature == _routeSignature && now >= known.at &&
             Date.getMonthsSince(known.at) < LandRouteMonths) return known.found;
-        var seen = new HashSet<int>();
-        var queue = new Queue<TileZone>();
+        if (++_routeStamp == int.MaxValue)
+        {
+            global::System.Array.Clear(_routeSeen, 0, _routeSeen.Length);
+            _routeStamp = 1;
+        }
+        _routeSeenCount = 0;
+        Queue<TileZone> queue = RouteQueue;
+        queue.Clear();
         foreach (TileZone zone in target.zones)
-            if (zone != null && seen.Add(zone.id)) queue.Enqueue(zone);
+            if (zone != null && RouteVisit(zone.id)) queue.Enqueue(zone);
         bool found = false;
-        while (queue.Count > 0 && seen.Count < LandRouteSearch && !found)
+        while (queue.Count > 0 && _routeSeenCount < LandRouteSearch && !found)
         {
             TileZone zone = queue.Dequeue();
             foreach (TileZone next in zone.neighbours_all ?? Array.Empty<TileZone>())
             {
-                if (next == null || !seen.Add(next.id)) continue;
+                if (next == null || !RouteVisit(next.id)) continue;
                 if (Controller(next) is Kingdom owner && Friendly(side, owner) && !TerrainSystem.Impassable(next) &&
                     TerrainSystem.Crossable(next, zone) && WildernessPassage.Passable(next, side))
                 {
@@ -329,6 +361,7 @@ public static partial class FrontSystem
                 if (Passable(side, next)) queue.Enqueue(next);
             }
         }
+        queue.Clear();
         if (LandRoutes.Count > 20000) LandRoutes.Clear();
         LandRoutes[key] = (found, now, _routeSignature);
         // 近处的敌城走不到：年底看是不是被第三国隔着，向它借道

@@ -47,6 +47,10 @@ public static class WildernessTerritory
         public Dictionary<Kingdom, List<TileZone>> byOwner = new();
         // 按跟着的城分的并进地块(法理、天下的铭牌排版用：铭牌算哪些城，就连同跟着这些城的无人区，见 ZonesFollowing)
         public Dictionary<City, List<TileZone>> byOrigin = new();
+        // 上一轮的几张表，下一轮清空了接着用(同上面几张轮换)
+        public Dictionary<TileZone, IMetaObject> spareFill = new();
+        public Dictionary<TileZone, Kingdom> spareOwners = new();
+        public Dictionary<City, List<TileZone>> spareByOrigin = new();
         // 日志：上回记的并进块数、下回最早何时再记
         public int logged = -1;
         public float logAt;
@@ -354,11 +358,31 @@ public static class WildernessTerritory
             calc.drawZoneClear(zone);
     }
 
+    // 每 2 秒整片重算一回(世界地图上两万来块)：以前每回新建三四张这么大的表，性能日志里「无人区并进国土」每帧分配两百来 KB；
+    // 现在两套表轮换、清空了接着用，按城、按国分的地块列表回收再用(读这些列表的地方都当场抄走，见 ZonesOf、ZonesFollowing)
+    private static readonly Stack<List<TileZone>> ListPool = new();
+    private static readonly HashSet<TileZone> Changed = new();
+
+    private static void Recycle<TKey>(Dictionary<TKey, List<TileZone>> lists)
+    {
+        foreach (List<TileZone> list in lists.Values)
+        {
+            list.Clear();
+            if (ListPool.Count < 4096) ListPool.Push(list);
+        }
+        lists.Clear();
+    }
+
+    private static List<TileZone> RentList() => ListPool.Count > 0 ? ListPool.Pop() : new List<TileZone>();
+
     private static void Refresh(Layer layer, MapBox world)
     {
-        var fill = new Dictionary<TileZone, IMetaObject>();
-        var owners = new Dictionary<TileZone, Kingdom>();
-        var byOrigin = new Dictionary<City, List<TileZone>>();
+        Dictionary<TileZone, IMetaObject> fill = layer.spareFill;
+        Dictionary<TileZone, Kingdom> owners = layer.spareOwners;
+        Dictionary<City, List<TileZone>> byOrigin = layer.spareByOrigin;
+        fill.Clear();
+        owners.Clear();
+        Recycle(byOrigin);
         ZoneCalculator calc = world.zone_calculator;
         Metas.Clear();
         CityMetas.Clear();
@@ -422,7 +446,8 @@ public static class WildernessTerritory
         Metas.Clear();
         CityMetas.Clear();
         // 变了的地块连同四邻重画(边线跟着变)
-        var changed = new HashSet<TileZone>();
+        HashSet<TileZone> changed = Changed;
+        changed.Clear();
         foreach (KeyValuePair<TileZone, IMetaObject> pair in layer.fill)
             if (!fill.TryGetValue(pair.Key, out IMetaObject after) || !ReferenceEquals(after, pair.Value)) changed.Add(pair.Key);
         foreach (KeyValuePair<TileZone, IMetaObject> pair in fill)
@@ -432,18 +457,21 @@ public static class WildernessTerritory
             if (!owners.TryGetValue(pair.Key, out Kingdom after) || after != pair.Value) changed.Add(pair.Key);
         foreach (KeyValuePair<TileZone, Kingdom> pair in owners)
             if (!layer.owners.TryGetValue(pair.Key, out Kingdom before) || before != pair.Value) changed.Add(pair.Key);
+        layer.spareFill = layer.fill;
+        layer.spareOwners = layer.owners;
+        layer.spareByOrigin = layer.byOrigin;
         layer.fill = fill;
         layer.owners = owners;
         layer.byOrigin = byOrigin;
         if (changed.Count > 0 || layer.byOwner.Count == 0 && owners.Count > 0)
         {
-            var byOwner = new Dictionary<Kingdom, List<TileZone>>();
+            Dictionary<Kingdom, List<TileZone>> byOwner = layer.byOwner;
+            Recycle(byOwner);
             foreach (KeyValuePair<TileZone, Kingdom> pair in owners)
             {
-                if (!byOwner.TryGetValue(pair.Value, out List<TileZone> zones)) byOwner[pair.Value] = zones = new List<TileZone>();
+                if (!byOwner.TryGetValue(pair.Value, out List<TileZone> zones)) byOwner[pair.Value] = zones = RentList();
                 zones.Add(pair.Key);
             }
-            layer.byOwner = byOwner;
             Revision++;
         }
         // 日志：并进的块数变了记一条(至多半分钟一条)——图层上没画进去时据此分清是没算出归属，还是算出了没画上
@@ -463,12 +491,13 @@ public static class WildernessTerritory
             SmoothBorders.ClaimChanged(zone.id);
             WildernessOverlay.MarkAround(zone);
         }
+        changed.Clear();
     }
 
     private static void Follow(Dictionary<City, List<TileZone>> byOrigin, City origin, TileZone zone)
     {
         if (origin == null) return;
-        if (!byOrigin.TryGetValue(origin, out List<TileZone> zones)) byOrigin[origin] = zones = new List<TileZone>();
+        if (!byOrigin.TryGetValue(origin, out List<TileZone> zones)) byOrigin[origin] = zones = RentList();
         zones.Add(zone);
     }
 
