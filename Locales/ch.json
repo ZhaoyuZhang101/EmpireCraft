@@ -12307,5 +12307,11 @@
   "Terminal_Speed_Text Description": "有席位領著君主時，世界時間按這個比例放慢；沒有席位領著君主時照常。",
   "Terminal_Port_Text": "終端連接埠",
   "Terminal_Port_Text Description": "手機連接用的連接埠。改後片刻自動換到新連接埠。",
-  "terminal_hint_remote": "不在同一網路：電腦上用組網或內網穿透工具把這個連接埠引出去，手機打開它給的位址，配對照舊。別在路由器上直接映射連接埠。"
+  "terminal_hint_remote": "不在同一網路：電腦上用組網或內網穿透工具把這個連接埠引出去，手機打開它給的位址，配對照舊。別在路由器上直接映射連接埠。",
+  "terminal_card_connect": "手機連接",
+  "terminal_connect_scan": "手機與這台電腦連同一個 Wi-Fi，用相機或瀏覽器掃上面的碼，直接進。",
+  "terminal_connect_manual": "不掃碼：手機瀏覽器輸入上面的位址，再填配對碼。配成一部手機後配對碼會換。",
+  "terminal_connect_firewall": "連不上時：Windows 防火牆要放行這個連接埠；電腦的網路類型是「公用」也會被攔；路由器的訪客網路可能隔開裝置。",
+  "terminal_connect_local": "眼下只有這台電腦自己能連：連接埠沒能對同一網路開放，換一個連接埠試試。",
+  "terminal_connect_failed": "{0} 連接埠開不了，換一個連接埠試試。"
 }

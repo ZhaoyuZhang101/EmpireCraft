@@ -12301,5 +12301,11 @@
   "Terminal_Speed_Text Description": "While any seat holds a ruler, world time runs at this share of normal speed. Otherwise it is unchanged.",
   "Terminal_Port_Text": "Terminal Port",
   "Terminal_Port_Text Description": "The port phones connect to. A change takes effect within a few moments.",
-  "terminal_hint_remote": "On another network: use a mesh VPN or tunnelling tool on this computer to expose the port, then open the address it gives on the phone and pair as usual. Don't forward the port on the router directly."
+  "terminal_hint_remote": "On another network: use a mesh VPN or tunnelling tool on this computer to expose the port, then open the address it gives on the phone and pair as usual. Don't forward the port on the router directly.",
+  "terminal_card_connect": "Connect a phone",
+  "terminal_connect_scan": "Put the phone on the same Wi-Fi as this computer and scan the code above with its camera or browser.",
+  "terminal_connect_manual": "Without scanning: type the address above into the phone's browser and enter the pairing code. The code changes after each phone is paired.",
+  "terminal_connect_firewall": "If it won't connect: allow this port through Windows Firewall, check the network isn't set to Public, and avoid guest Wi-Fi that isolates devices.",
+  "terminal_connect_local": "Only this computer can connect right now: the port could not be opened to the network. Try another port.",
+  "terminal_connect_failed": "Port {0} could not be opened. Try another port."
 }

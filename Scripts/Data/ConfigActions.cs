@@ -146,10 +146,12 @@ namespace EmpireCraft.Scripts.Data
         public static void TerminalModeCallBack(bool on)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.Enabled = on;
+            EmpireCraft.Scripts.Terminal.TerminalHost.Kick();
         }
         public static void TerminalPortCallBack(string text)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.Port = SettlementValue(text, 8765, 1024, 65535);
+            EmpireCraft.Scripts.Terminal.TerminalHost.Kick();
         }
         public static void TerminalSpeedCallBack(string text)
         {

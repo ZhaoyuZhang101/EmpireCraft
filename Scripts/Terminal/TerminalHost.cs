@@ -116,6 +116,68 @@ public static class TerminalHost
 
     public static void NewCode() => Pairing.NewCodeNow();
 
+    // 设置刚改(开关、端口)：下一帧就重开，不等重试的间隔
+    public static void Kick() => _retryAt = 0f;
+
+    // 窗口要显示地址和二维码：这就把端口开起来(刚打开开关的那一下，还没轮到 Tick)
+    public static void EnsureNow()
+    {
+        if (!Enabled || Application.isMobilePlatform || ModClass._declare == null) return;
+        if (_server != null && _server.Running && _server.Port == Port) return;
+        _retryAt = 0f;
+        EnsureServer(Time.realtimeSinceStartup);
+    }
+
+    // 手机该连的那个地址：本机往外走的那块网卡的地址(只查路由，不发包)；查不到就用列表里头一个
+    private static string _primary;
+    private static float _primaryAt = -100f;
+
+    public static string PrimaryAddress()
+    {
+        if (!Lan) return "127.0.0.1:" + Port;
+        float now = Time.realtimeSinceStartup;
+        if (_primary != null && now - _primaryAt < 10f) return _primary + ":" + Port;
+        string found = null;
+        try
+        {
+            using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            socket.Connect("8.8.8.8", 53);
+            if (socket.LocalEndPoint is IPEndPoint local && !IPAddress.IsLoopback(local.Address)) found = local.Address.ToString();
+        }
+        catch
+        {
+            // 没有往外的路：用下面的
+        }
+        if (found == null)
+        {
+            string first = Addresses().FirstOrDefault();
+            found = first == null ? "127.0.0.1" : first.Substring(0, first.LastIndexOf(':'));
+        }
+        _primary = found;
+        _primaryAt = now;
+        return found + ":" + Port;
+    }
+
+    // 扫码用的整条地址(带配对码，扫了直接进)
+    public static string PairUrl() => "http://" + PrimaryAddress() + "/?c=" + Code;
+
+    // 窗口上显示的东西变了没有(配对码、席位、谁领着谁、在不在线)：变了窗口自己重画
+    private static string _signature;
+
+    private static void NotifyWindows()
+    {
+        var signature = new global::System.Text.StringBuilder();
+        signature.Append(Running ? Code : "-").Append(Lan ? 'L' : 'l').Append(Port);
+        foreach (Seat seat in Seats()) signature.Append('|').Append(seat.Token, 0, 4).Append(seat.RulerId).Append(seat.Watched ? '+' : '-');
+        string now = signature.ToString();
+        if (now == _signature) return;
+        bool first = _signature == null;
+        _signature = now;
+        if (first) return;
+        EmpireCraft.Scripts.UI.Windows.TerminalWindow.RefreshIfOpen();
+        EmpireCraft.Scripts.UI.Windows.ModSettingsWindow.RefreshTerminalPage();
+    }
+
     // 各席位，按配对先后
     public static List<Seat> Seats()
     {
@@ -246,6 +308,7 @@ public static class TerminalHost
             }
         }
         _anyRuler = any;
+        NotifyWindows();
     }
 
     private static void EnsureServer(float now)

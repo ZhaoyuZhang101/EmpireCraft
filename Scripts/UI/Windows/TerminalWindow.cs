@@ -21,6 +21,12 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
 
     protected override void OnOpen() => _seat = null;
 
+    // 配对码、席位、谁领着谁变了(见 TerminalHost.NotifyWindows)：开着就重画
+    public static void RefreshIfOpen()
+    {
+        if (Instance != null && Instance.gameObject.activeInHierarchy) Instance.Refresh();
+    }
+
     private TerminalHost.Seat Selected(List<TerminalHost.Seat> seats) =>
         seats.FirstOrDefault(seat => seat.Token == _seat) ?? seats.FirstOrDefault();
 
@@ -82,6 +88,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             page.AddEmptyCard(PageWidth, LM.Get("terminal_empty_off"), LM.Get("terminal_hint_off"));
             return;
         }
+        TerminalConnectCard.Draw(page, PageWidth);
         if (seats.Count == 0)
         {
             page.AddEmptyCard(PageWidth, LM.Get("terminal_empty_seats"), LM.Get("terminal_hint_on"));

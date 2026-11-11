@@ -12315,5 +12315,11 @@
   "Terminal_Speed_Text Description": "有席位领着君主时，世界时间按这个比例放慢；没有席位领着君主时照常。",
   "Terminal_Port_Text": "终端端口",
   "Terminal_Port_Text Description": "手机连接用的端口。改后片刻自动换到新端口。",
-  "terminal_hint_remote": "不在同一网络：电脑上用组网或内网穿透工具把这个端口引出去，手机打开它给的地址，配对照旧。别在路由器上直接映射端口。"
+  "terminal_hint_remote": "不在同一网络：电脑上用组网或内网穿透工具把这个端口引出去，手机打开它给的地址，配对照旧。别在路由器上直接映射端口。",
+  "terminal_card_connect": "手机连接",
+  "terminal_connect_scan": "手机与这台电脑连同一个 Wi-Fi，用相机或浏览器扫上面的码，直接进。",
+  "terminal_connect_manual": "不扫码：手机浏览器输入上面的地址，再填配对码。配成一部手机后配对码会换。",
+  "terminal_connect_firewall": "连不上时：Windows 防火墙要放行这个端口；电脑的网络类型是「公用」也会被拦；路由器的访客网络可能隔开设备。",
+  "terminal_connect_local": "眼下只有这台电脑自己能连：端口没能对同一网络开放，换一个端口试试。",
+  "terminal_connect_failed": "{0} 端口开不了，换一个端口试试。"
 }

@@ -343,6 +343,17 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                 EnabledChip(items) ?? string.Format(LM.Get("mod_settings_count"), items.Count), card.Icon);
             for (int i = 0; i < items.Count; i++) DrawSetting(block, items[i], i);
         }
+        // 终端模式开着：当场给二维码、地址、配对码(不用再去找终端窗口)
+        if (category.Key == TerminalCategory) TerminalConnectCard.Draw(page, PageWidth);
+    }
+
+    private const string TerminalCategory = "mod_settings_cat_terminal";
+
+    // 配对码、端口状态变了(见 TerminalHost.NotifyWindows)：正开着终端这一类就重画
+    public static void RefreshTerminalPage()
+    {
+        if (Instance == null || !Instance.gameObject.activeInHierarchy || Instance._categories.Count == 0) return;
+        if (Instance.Current.Key == TerminalCategory) Instance.Refresh();
     }
 
     private void DrawSetting(AutoVertLayoutGroup card, Setting setting, int index)

@@ -421,6 +421,16 @@ for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
   if(page==="reports"&&state&&state.loaded&&!state.vacant)renderReports();
 };
 
+// 扫码进来：地址里带着配对码(?c=)，没配过就直接配；用完把它从地址栏去掉
+(function(){
+  var m=/[?&]c=(\d{6})(?:&|$)/.exec(location.search);
+  if(!m)return;
+  try{history.replaceState(null,"",location.pathname)}catch(e){}
+  if(token)return;
+  $("code").value=m[1];
+  show("s-pair");
+  $("pair-go").onclick();
+})();
 applyLang();
 poll();
 setInterval(function(){if(!document.hidden)poll()},3000);
