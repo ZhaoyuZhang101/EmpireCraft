@@ -31,7 +31,7 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 这一期只读：奏报、地图、国势。下命令(外交、批奏、立储、改元之类，只下简单的令、剩下让下面的人去办)是下一期。
 // 线程：游戏对象只在主线程碰。Tick 每秒把各席位的状态拼成字符串放着，网络线程只读这些字符串、往 Commands 里放要办的事。
 // 手机版游戏上不启用(终端就是给电脑上的游戏配的)
-public static class TerminalHost
+public static partial class TerminalHost
 {
     public static bool Enabled;
     public static int Port = 8765;
@@ -68,6 +68,18 @@ public static class TerminalHost
         internal int Lost, LedgerYear = int.MinValue;
         internal long LedgerTreasury, LedgerPeople, LedgerArmy;
         internal volatile string StateJson, MapJson;
+        // 第二期(见 TerminalHost.Decrees.cs)：下了还没办结的命令、待批的案子、等着批红的奏议
+        internal readonly List<Order> Orders = new();
+        internal readonly List<Case> Cases = new();
+        internal readonly Dictionary<long, int> Judged = new();
+        internal string HoldMark;
+        internal bool Abdicated;
+        // 委首辅代批(奏议、案子都不等手机)、这件奏议上用过的筹码
+        internal bool Delegated;
+        internal int DelegateMonth;
+        internal readonly HashSet<string> Chips = new();
+        internal float HoldSince, NextDecrees;
+        internal JObject DecreesCache;
         internal long LastClientTicks;
         internal float NextState, NextSight;
 
@@ -80,6 +92,14 @@ public static class TerminalHost
             Known.Clear();
             KnownNames.Clear();
             Lost = 0;
+            Orders.Clear();
+            Chips.Clear();
+            Delegated = false;
+            Cases.Clear();
+            Judged.Clear();
+            HoldMark = null;
+            DecreesCache = null;
+            NextDecrees = 0f;
             LedgerYear = int.MinValue;
             NextSight = NextState = 0f;
             MapJson = null;
@@ -287,6 +307,8 @@ public static class TerminalHost
                         TechnologySystem.RealmHasTech(seat.Realm, "telegraph"));
                     Ledger(seat);
                     Deliver(seat);
+                    RunOrders(seat);
+                    RunCases(seat);
                 }
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
@@ -336,6 +358,13 @@ public static class TerminalHost
             byte[] page = Page();
             return page == null ? TerminalServer.Reply.Error(404, "no_page") : TerminalServer.Reply.Html(page);
         }
+        // 添加到手机桌面用的清单和图标(Terminal 目录下的几个固定文件)
+        if (method == "GET" && StaticTypes.TryGetValue(path, out string staticType))
+        {
+            byte[] file = StaticFile(path.Substring(1));
+            return file == null ? TerminalServer.Reply.Error(404, "not_found")
+                : new TerminalServer.Reply { Status = 200, Type = staticType, Body = file };
+        }
         if (method == "POST" && path == "/api/pair")
         {
             string name = Field(body, "name");
@@ -363,6 +392,13 @@ public static class TerminalHost
             });
             return TerminalServer.Reply.Json("{\"ok\":true}");
         }
+        if (method == "POST" && path == "/api/decree")
+        {
+            string id = Field(body, "id"), target = Field(body, "target"), choice = Field(body, "choice");
+            if (string.IsNullOrEmpty(id) || id.Length > 80) return TerminalServer.Reply.Error(400, "bad_request");
+            Commands.Enqueue(() => Issue(mine, id, target, choice));
+            return TerminalServer.Reply.Json("{\"ok\":true}");
+        }
         return TerminalServer.Reply.Error(404, "not_found");
     }
 
@@ -371,6 +407,29 @@ public static class TerminalHost
         try
         {
             return string.IsNullOrEmpty(body) ? null : JObject.Parse(body)[name]?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static readonly Dictionary<string, string> StaticTypes = new()
+    {
+        ["/manifest.json"] = "application/manifest+json", ["/icon-192.png"] = "image/png", ["/icon-512.png"] = "image/png",
+        ["/apple-touch-icon.png"] = "image/png"
+    };
+
+    private static readonly ConcurrentDictionary<string, byte[]> StaticFiles = new();
+
+    private static byte[] StaticFile(string name)
+    {
+        try
+        {
+            if (StaticFiles.TryGetValue(name, out byte[] cached)) return cached;
+            string path = _pagePath == null ? null : Path.Combine(Path.GetDirectoryName(_pagePath) ?? "", name);
+            if (path == null || !File.Exists(path)) return null;
+            return StaticFiles[name] = File.ReadAllBytes(path);
         }
         catch
         {
@@ -618,6 +677,12 @@ public static class TerminalHost
             ["people"] = FigureJson(seat, realm.getPopulationPeople(), -1, 2),
             ["army"] = FigureJson(seat, realm.countTotalWarriors(), 1, 3)
         };
+        if (seat.DecreesCache == null || Time.realtimeSinceStartup >= seat.NextDecrees)
+        {
+            seat.NextDecrees = Time.realtimeSinceStartup + DecreeSeconds;
+            seat.DecreesCache = Decrees(seat);
+        }
+        state["decrees"] = seat.DecreesCache;
         state["wars"] = Wars(realm);
         state["cities"] = Cities(seat);
         var reports = new JArray();
@@ -672,10 +737,28 @@ public static class TerminalHost
                 TerminalIntel.Hash(city.getID(), 2, Date.getCurrentYear()), out _);
             var row = new JObject
             {
-                ["name"] = city.data.name, ["capital"] = city == realm.capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity
+                ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["capital"] = city == realm.capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity
             };
-            if (clarity < 2) row["people"] = clarity == 0 ? people : TerminalIntel.RoundSig(people, 1);
-            if (clarity == 0) row["villages"] = RuralSettlementSystem.InCity(city)?.Count ?? 0;
+            if (clarity < 2)
+            {
+                row["people"] = clarity == 0 ? people : TerminalIntel.RoundSig(people, 1);
+                if (city.leader != null && city.leader.isAlive()) row["leader"] = city.leader.getName();
+            }
+            if (clarity == 0)
+            {
+                // 点进去看的细节(用户 2026-11-11 "单个行政区也可以点进去查看细节")：政令到得了的城才有，数照吏治虚报
+                List<EmpireCraft.Scripts.Data.RuralSettlement> rural = RuralSettlementSystem.InCity(city);
+                int year = Date.getCurrentYear();
+                row["villages"] = rural?.Count ?? 0;
+                row["towns"] = rural?.Count(place => place.town) ?? 0;
+                row["forts"] = rural?.Count(place => place.fort) ?? 0;
+                row["troops"] = TerminalIntel.Reported(city.countWarriors(), seat.Corruption, 1, TerminalIntel.Hash(city.getID(), 3, year), out _);
+                row["treasury"] = TerminalIntel.Reported(city.GetTreasuryBalance(), seat.Corruption, 1, TerminalIntel.Hash(city.getID(), 1, year), out _);
+                row["corruption"] = Math.Round(CorruptionRules.Bound(city.GetCorruptionRate()), 2);
+                row["zones"] = city.countZones();
+            }
+            string admin = AdministrativeControlSystem.Describe(city);
+            if (admin != null) row["admin"] = admin;
             cities.Add(row);
         }
         return cities;
@@ -693,11 +776,13 @@ public static class TerminalHost
         int factor = Mathf.Max(1, Mathf.CeilToInt(map.Width / (float)MapWidth));
         int width = Mathf.Max(1, map.Width / factor), height = Mathf.Max(1, map.Height / factor);
         var owner = new int[width * height];
+        var cityAt = new int[width * height];
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
             int sx = Math.Min(map.Width - 1, x * factor + factor / 2), sy = Math.Min(map.Height - 1, y * factor + factor / 2);
             owner[y * width + x] = map.Owner[sy * map.Width + sx];
+            cityAt[y * width + x] = map.City[sy * map.Width + sx];
         }
         int self = map.KingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
         HashSet<int> neighbours = Neighbours(owner, width, height, self);
@@ -743,32 +828,44 @@ public static class TerminalHost
             slot[i] = realms.Count;
             realms.Add(new JObject
             {
-                ["name"] = map.Kingdoms[i].data.name, ["color"] = Hex(RealmMiniMap.KingdomColor(map.Kingdoms[i])), ["tier"] = tier[i]
+                ["id"] = map.Kingdoms[i].getID().ToString(), ["name"] = map.Kingdoms[i].data.name,
+                ["color"] = Hex(RealmMiniMap.KingdomColor(map.Kingdoms[i])), ["tier"] = tier[i]
             });
             sumX.Add(0f);
             sumY.Add(0f);
             count.Add(0);
         }
         var cells = new byte[width * height];
-        bool[] seed = new bool[cells.Length], keep = new bool[cells.Length];
+        var keep = new bool[cells.Length];
+        var reach = new int[cells.Length];
+        // 本国各城看得到多远按政令(都城看满)；已知的别国只看得到它的地、往外两格
+        var cityReach = new int[map.Cities.Count];
+        for (int i = 0; i < cityReach.Length; i++)
+        {
+            City city = map.Cities[i];
+            if (city?.data == null || city.kingdom != realm) continue;
+            float control = city == realm.capital || !AdministrativeControlSystem.Known(city) ? 1f : AdministrativeControlSystem.Get(city);
+            cityReach[i] = TerminalIntel.CityReach(control, FogRadius);
+        }
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
             int from = y * width + x, to = (height - 1 - y) * width + x, who = owner[from];
+            reach[to] = -1;
             if (who == -2) cells[to] = TerminalIntel.Water;
             else if (who < 0 || slot[who] < 0) cells[to] = TerminalIntel.Wild;
             else
             {
                 int index = slot[who];
                 cells[to] = (byte)index;
-                seed[to] = tier[who] <= 1;
+                reach[to] = who == self ? (cityAt[from] >= 0 ? cityReach[cityAt[from]] : 1) : tier[who] == 1 ? 2 : -1;
                 keep[to] = tier[who] == 2;
                 sumX[index] += x;
                 sumY[index] += height - 1 - y;
                 count[index]++;
             }
         }
-        if (seat.Sight != TerminalIntel.Sight.World) TerminalIntel.ApplyFog(cells, seed, keep, width, height, FogRadius);
+        if (seat.Sight != TerminalIntel.Sight.World) TerminalIntel.ApplyFog(cells, reach, keep, width, height);
         for (int i = 0; i < realms.Count; i++)
         {
             realms[i]["n"] = count[i];

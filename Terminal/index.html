@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14150f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="终端">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>EmpireCraft Terminal</title>
 <style>
 :root{--bg:#14150f;--card:#1e2018;--line:#3a3d2e;--ink:#e8e2cf;--soft:#b9b39d;--mute:#8a8f80;--gold:#f3c34a;--cyan:#7fd8ea;--green:#65d66e;--red:#e2675a;--amber:#e9a85b}
@@ -35,12 +42,16 @@ input:focus,button:focus-visible{outline:2px solid var(--cyan);outline-offset:1p
 #bar{position:sticky;top:0;z-index:3;background:var(--bg);padding:6px 0 8px;border-bottom:1px solid var(--line)}
 #warn{display:none;background:#4a2320;color:#ffd9d2;font-size:13px;padding:6px 10px;border-radius:8px;margin-top:8px}
 nav{position:fixed;left:0;right:0;bottom:0;background:#191b14;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:4}
-nav div{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav div{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.act{min-height:40px;padding:8px 12px;margin:8px 8px 0 0}
+.banner{background:#3a2f12;border:1px solid #6b5a26;color:var(--gold);border-radius:10px;padding:10px 14px;margin-top:10px;cursor:pointer}
 nav button{border:0;border-radius:0;background:none;color:var(--mute);min-height:56px;font-size:14px}
 nav button.on{color:var(--gold);box-shadow:inset 0 2px 0 var(--gold)}
 .bar{height:6px;border-radius:3px;background:#101109;margin-top:8px;overflow:hidden}
 .bar i{display:block;height:6px;border-radius:3px}
-canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);background:#0e0f0c;touch-action:manipulation}
+canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);background:#0e0f0c;touch-action:none;cursor:grab}
+.zoom button{min-height:40px;min-width:44px;padding:6px 10px;margin-left:6px;font-size:17px}
+.zoom button[disabled]{opacity:.4}
 .pick{width:100%;text-align:left;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .pick[disabled]{opacity:.5}
 .detail{display:none;font-size:13px;color:var(--soft);margin-top:6px}
@@ -85,6 +96,7 @@ canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);
   </div>
 
   <div id="p-reports">
+    <div class="banner" id="pending-banner" hidden></div>
     <div class="card">
       <div class="sub" id="since"></div>
       <div class="grid" style="margin-top:8px">
@@ -99,10 +111,11 @@ canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);
   <div id="p-map" hidden>
     <div class="card" style="padding:10px">
       <canvas id="map" width="600" height="360"></canvas>
-      <div class="row" style="margin-top:8px"><span id="map-pick" class="sub" data-t="map_tap"></span><span class="tag cyan" id="sight"></span></div>
+      <div class="row" style="margin-top:8px"><span id="map-pick" class="sub" data-t="map_tap"></span><span class="zoom" style="flex:none"><button id="z-out" aria-label="zoom out">&minus;</button><button id="z-in" aria-label="zoom in">+</button><button id="z-reset" data-t="map_reset" style="font-size:13px"></button></span></div>
+      <div id="map-acts"></div>
     </div>
     <div class="card">
-      <div class="sub" id="sight-note"></div>
+      <span class="tag cyan" id="sight"></span><div class="sub" id="sight-note" style="margin-top:6px"></div>
       <div style="margin-top:8px;font-size:13px;color:var(--soft)">
         <div><span class="sw" style="background:var(--gold)"></span><span data-t="lg_own"></span></div>
         <div><span class="sw" style="background:#7a8f6a"></span><span data-t="lg_known"></span></div>
@@ -112,11 +125,14 @@ canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);
     </div>
   </div>
 
+  <div id="p-decrees" hidden><div id="decrees"></div></div>
+
   <div id="p-realm" hidden>
     <div class="card">
       <div class="row"><h2 style="margin:0" data-t="officials"></h2><span class="tag amber" id="corr"></span></div>
       <div class="bar"><i id="corr-bar" style="background:var(--amber)"></i></div>
       <div class="sub" id="trust-note" style="margin-top:6px"></div>
+      <button class="act" id="purge-go" data-t="purge_go"></button>
     </div>
     <div class="grid" style="margin-top:10px">
       <div class="kpi"><span class="sub" data-t="f_treasury"></span><b id="f-treasury"></b><span class="sub" id="f-treasury-n"></span></div>
@@ -124,6 +140,7 @@ canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);
       <div class="kpi"><span class="sub" data-t="f_people"></span><b id="f-people"></b><span class="sub" id="f-people-n"></span></div>
     </div>
     <div class="card"><h2 data-t="wars"></h2><div class="rows" id="wars"></div></div>
+    <div class="card" id="a2hs" hidden><h2 data-t="a2hs"></h2><div class="sub" data-t="a2hs_ios"></div><div class="sub" data-t="a2hs_android" style="margin-top:4px"></div></div>
     <div class="card"><h2 data-t="cities"></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
   </div>
 </section>
@@ -133,13 +150,14 @@ canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);
   <button data-p="reports" data-t="tab_reports" class="on"></button>
   <button data-p="map" data-t="tab_map"></button>
   <button data-p="realm" data-t="tab_realm"></button>
+  <button data-p="decrees" data-t="tab_decrees"></button>
 </div></nav>
 
 <script>
 (function(){
 "use strict";
 var T={
-cz:{app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
+cz:{g_staff:"人事",st_chief:"首辅：{0}",st_no_chief:"眼下没有首辅",st_make_chief:"立首辅",st_delegate_on:"委首辅代批",st_delegate_off:"收回批红",st_delegated:"眼下由首辅代批：奏议和案子都不再等批示，首辅一派会渐渐坐大。",st_direct:"眼下亲自批红。",st_vacant:"空缺",st_dismiss:"免职",st_appoint:"任 {0}",sd_title:"各派表态",sd_for:"赞成",sd_wait:"观望",sd_against:"反对",sd_own:"上奏",sd_favor:"圣眷 {0}",chip_grant:"授虚衔",chip_favor:"动用情分",chip_silver:"赏银",d_gift0:"不带礼",d_gift1:"薄礼 · 库银 5%",d_gift2:"厚礼 · 库银 15%",d_gift_note:"带礼能补好感的不足，谈成了才付。",cd_road:"修官道至此（约 6 月，按里程扣库银）",i_abdicate:"禅让",i_rename_realm:"改国号",i_rename_ruler:"更名",g_home:"内政",i_purge:"拨库银整饬吏治",d_tier:"拨库银 {0}% · 积弊约降 {1}%",d_abdicate_to:"禅位于 {0}",d_now:"现为：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禅位。",purge_go:"整饬吏治",a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。从桌面打开后要再配对一次。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分钟后朝廷自决",d_support:"廷议赞成 {0}%",d_chance:"成算约 {0}%",ch_approve:"准",ch_reject:"驳",ch_shelve:"留中",ch_law:"依律论处",ch_redeem:"戴罪立功",ch_death:"诛杀",g_court:"朝议",g_palace:"宫廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏议在办，办结再递。",d_none_court:"眼下没有递得上去的奏议。",i_era:"改元",i_empire:"称帝",i_heir:"立储",d_heir_now:"现储：{0}",d_age:"{0} 岁",d_orders:"已下政令",d_no_orders:"还没有下过政令。",o_sent:"在途，约 {0} 月",o_done:"已办",o_failed:"未成",d_confirm:"确认：{0}",d_home:"都城里的事约 {0} 月办到；遣使要等使者来回。",d_envoy:"来回约 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下没有通使的国家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
 e_wrong_code:"配对码不对",e_locked:"连错太多，稍后再试",e_full:"席位已满",e_net:"连不上终端",e_code:"填六位数字",
 wait_world:"世界尚未载入",wait_world_hint:"电脑上进入一个世界后，这里自动接上。",
 vacant_title:"再择一君",why_none:"这个席位还没有领君主。",why_dead:"{0}的{1}已驾崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -151,14 +169,14 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小时 {1} 分",real_m:"{0
 kpi_wars:"战事",kpi_new:"新到",kpi_trust:"奏报",trust0:"可信",trust1:"参差",trust2:"不足信",
 reports:"奏报",no_reports:"尚无奏报送达。",k_major:"急报",k_ledger:"岁计",k_foreign:"外讯",late:"迟 {0} 月",lost:"另有若干奏报未达。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"历 {0} 月方达。",d_prompt:"当月即达。",d_foreign:"得自邻国往来，未必确实。",d_ledger:"此为地方奏销之数，非实查。",
-map_tap:"点地图看是哪一国",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
+map_tap:"点地图看是哪一国",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
 note0:"眼下只知道接壤的国家。再远的地方，要有商路与航海之术才通消息。",note1:"使节到得了的国家都知道；更远的只有传闻。",note2:"消息即时可达，天下都看得见。",
 lg_own:"本国",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
 officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上下有出入，奏报常迟。",tn2:"数字多有虚报，小事常报不上来。",
 f_treasury:"库银",f_army:"兵额",f_people:"丁口",approx:"约 {0}",n_book:"账面",n_roll:"在册",n_hidden:"隐户未计",n_true:"实数",
 wars:"战事",no_wars:"眼下没有战事。",w_att:"伐{0}",w_def:"御{0}",
-cities:"各城",cities_note:"政令到得了的城才有确数。",capital:"都城",c0:"{0} 口 · 村镇 {1}",c1:"约 {0} 口",c2:"不详",ctl:"政令 {0}%"},
-ch:{app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
+cities:"各城",cities_note:"政令到得了的城才有确数。",capital:"都城",c0:"{0} 口 · 村镇 {1}",c1:"约 {0} 口",c2:"不详",ctl:"政令 {0}%",cd_leader:"长官：{0}",cd_troops:"驻军：{0}",cd_treasury:"府库：{0}",cd_corr:"积弊：{0}%",cd_zones:"辖地：{0} 块",cd_rural:"镇 {0} · 村 {1} · 关堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不畅，只报得上约数。",cd_none:"政令不达，详情报不上来。"},
+ch:{g_staff:"人事",st_chief:"首輔：{0}",st_no_chief:"眼下沒有首輔",st_make_chief:"立首輔",st_delegate_on:"委首輔代批",st_delegate_off:"收回批紅",st_delegated:"眼下由首輔代批：奏議和案子都不再等批示，首輔一派會漸漸坐大。",st_direct:"眼下親自批紅。",st_vacant:"空缺",st_dismiss:"免職",st_appoint:"任 {0}",sd_title:"各派表態",sd_for:"贊成",sd_wait:"觀望",sd_against:"反對",sd_own:"上奏",sd_favor:"聖眷 {0}",chip_grant:"授虛銜",chip_favor:"動用情分",chip_silver:"賞銀",d_gift0:"不帶禮",d_gift1:"薄禮 · 庫銀 5%",d_gift2:"厚禮 · 庫銀 15%",d_gift_note:"帶禮能補好感的不足，談成了才付。",cd_road:"修官道至此（約 6 月，按里程扣庫銀）",i_abdicate:"禪讓",i_rename_realm:"改國號",i_rename_ruler:"更名",g_home:"內政",i_purge:"撥庫銀整飭吏治",d_tier:"撥庫銀 {0}% · 積弊約降 {1}%",d_abdicate_to:"禪位於 {0}",d_now:"現為：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禪位。",purge_go:"整飭吏治",a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。從桌面打開後要再配對一次。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分鐘後朝廷自決",d_support:"廷議贊成 {0}%",d_chance:"成算約 {0}%",ch_approve:"准",ch_reject:"駁",ch_shelve:"留中",ch_law:"依律論處",ch_redeem:"戴罪立功",ch_death:"誅殺",g_court:"朝議",g_palace:"宮廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏議在辦，辦結再遞。",d_none_court:"眼下沒有遞得上去的奏議。",i_era:"改元",i_empire:"稱帝",i_heir:"立儲",d_heir_now:"現儲：{0}",d_age:"{0} 歲",d_orders:"已下政令",d_no_orders:"還沒有下過政令。",o_sent:"在途，約 {0} 月",o_done:"已辦",o_failed:"未成",d_confirm:"確認：{0}",d_home:"都城裡的事約 {0} 月辦到；遣使要等使者來回。",d_envoy:"來回約 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下沒有通使的國家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
 e_wrong_code:"配對碼不對",e_locked:"連錯太多，稍後再試",e_full:"席位已滿",e_net:"連不上終端",e_code:"填六位數字",
 wait_world:"世界尚未載入",wait_world_hint:"電腦上進入一個世界後，這裡自動接上。",
 vacant_title:"再擇一君",why_none:"這個席位還沒有領君主。",why_dead:"{0}的{1}已駕崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -170,14 +188,14 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小時 {1} 分",real_m:"{0
 kpi_wars:"戰事",kpi_new:"新到",kpi_trust:"奏報",trust0:"可信",trust1:"參差",trust2:"不足信",
 reports:"奏報",no_reports:"尚無奏報送達。",k_major:"急報",k_ledger:"歲計",k_foreign:"外訊",late:"遲 {0} 月",lost:"另有若干奏報未達。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"歷 {0} 月方達。",d_prompt:"當月即達。",d_foreign:"得自鄰國往來，未必確實。",d_ledger:"此為地方奏銷之數，非實查。",
-map_tap:"點地圖看是哪一國",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
+map_tap:"點地圖看是哪一國",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
 note0:"眼下只知道接壤的國家。再遠的地方，要有商路與航海之術才通消息。",note1:"使節到得了的國家都知道；更遠的只有傳聞。",note2:"消息即時可達，天下都看得見。",
 lg_own:"本國",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
 officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上下有出入，奏報常遲。",tn2:"數字多有虛報，小事常報不上來。",
 f_treasury:"庫銀",f_army:"兵額",f_people:"丁口",approx:"約 {0}",n_book:"帳面",n_roll:"在冊",n_hidden:"隱戶未計",n_true:"實數",
 wars:"戰事",no_wars:"眼下沒有戰事。",w_att:"伐{0}",w_def:"禦{0}",
-cities:"各城",cities_note:"政令到得了的城才有確數。",capital:"都城",c0:"{0} 口 · 村鎮 {1}",c1:"約 {0} 口",c2:"不詳",ctl:"政令 {0}%"},
-en:{app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
+cities:"各城",cities_note:"政令到得了的城才有確數。",capital:"都城",c0:"{0} 口 · 村鎮 {1}",c1:"約 {0} 口",c2:"不詳",ctl:"政令 {0}%",cd_leader:"長官：{0}",cd_troops:"駐軍：{0}",cd_treasury:"府庫：{0}",cd_corr:"積弊：{0}%",cd_zones:"轄地：{0} 塊",cd_rural:"鎮 {0} · 村 {1} · 關堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不暢，只報得上約數。",cd_none:"政令不達，詳情報不上來。"},
+en:{g_staff:"Appointments",st_chief:"Chief minister: {0}",st_no_chief:"There is no chief minister",st_make_chief:"Name a chief minister",st_delegate_on:"Let the chief minister decide",st_delegate_off:"Decide in person",st_delegated:"The chief minister decides for now: proposals and cases no longer wait, and the chief minister's faction slowly gains weight.",st_direct:"Proposals are decided in person.",st_vacant:"vacant",st_dismiss:"Dismiss",st_appoint:"Appoint {0}",sd_title:"Where the factions stand",sd_for:"for",sd_wait:"undecided",sd_against:"against",sd_own:"proposer",sd_favor:"favour {0}",chip_grant:"Honorary title",chip_favor:"Call in a favour",chip_silver:"Grant silver",d_gift0:"No gift",d_gift1:"Modest gift · 5% of treasury",d_gift2:"Rich gift · 15% of treasury",d_gift_note:"A gift makes up for low opinion and is paid only if they agree.",cd_road:"Build a road here (about 6 mo, paid by distance)",i_abdicate:"Abdicate",i_rename_realm:"Rename the realm",i_rename_ruler:"Take a new name",g_home:"Home affairs",i_purge:"Spend treasury to clean up the administration",d_tier:"{0}% of the treasury · corruption down about {1}%",d_abdicate_to:"In favour of {0}",d_now:"Now: {0}",d_new_name:"New name (up to 12 characters)",why_abdicated:"{1} has abdicated.",purge_go:"Clean up",a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen. Pair once more after opening it from there.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",tab_decrees:"Orders",d_pending:"Awaiting a decision",d_left:"The court decides by itself in {0} min",d_support:"{0}% of the court in favour",d_chance:"Odds about {0}%",ch_approve:"Approve",ch_reject:"Reject",ch_shelve:"Shelve",ch_law:"Apply the law",ch_redeem:"Let him redeem it",ch_death:"Execute",g_court:"Court",g_palace:"Palace",g_diplomacy:"Diplomacy",d_busy:"The court is already handling a proposal. Wait until it is settled.",d_none_court:"Nothing can be tabled right now.",i_era:"New era name",i_empire:"Proclaim an empire",i_heir:"Name an heir",d_heir_now:"Current heir: {0}",d_age:"age {0}",d_orders:"Orders given",d_no_orders:"No orders given yet.",o_sent:"On its way, about {0} mo",o_done:"Done",o_failed:"Failed",d_confirm:"Confirm: {0}",d_home:"Matters in the capital take about {0} mo; envoys must travel there and back.",d_envoy:"about {0} mo there and back",d_opinion:"opinion {0}",d_no_realm:"No realm is within reach of envoys.",pending_banner:"{0} matters await a decision",k_order:"Reply",app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
 e_wrong_code:"That code doesn't match",e_locked:"Too many attempts. Try again shortly",e_full:"All seats are taken",e_net:"Can't reach the terminal",e_code:"Enter six digits",
 wait_world:"No world is loaded",wait_world_hint:"This connects by itself once a world is open on the computer.",
 vacant_title:"Choose a ruler",why_none:"This seat has no ruler yet.",why_dead:"{1} of {0} has died.",why_deposed:"{1} has lost the throne of {0}.",why_fallen:"{0} has fallen.",
@@ -189,13 +207,13 @@ span_y:"{0} y {1} m",span_m:"{0} months",real_h:"{0} h {1} min",real_m:"{0} min"
 kpi_wars:"Wars",kpi_new:"New",kpi_trust:"Reports",trust0:"Reliable",trust1:"Uneven",trust2:"Doubtful",
 reports:"Reports",no_reports:"No reports have arrived yet.",k_major:"Urgent",k_ledger:"Accounts",k_foreign:"Abroad",late:"{0} mo late",lost:"Some reports never arrived.",
 d_when:"Happened in year {0}, month {1}.",d_late:"Took {0} months to arrive.",d_prompt:"Arrived the same month.",d_foreign:"Heard through neighbours; may not be accurate.",d_ledger:"Figures as filed by local officials, not audited.",
-map_tap:"Tap the map to see whose land it is",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
+map_tap:"Tap the map to see whose land it is",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
 note0:"Only bordering realms are known. Word from farther away needs trade roads and seafaring.",note1:"Realms that envoys can reach are known; beyond them there are only rumours.",note2:"News travels at once and the whole world is visible.",
 lg_own:"This realm",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
 officials:"Officials",corr:"Corruption {0}%",tn0:"Reports are broadly reliable.",tn1:"Figures drift and reports often run late.",tn2:"Figures are padded and small matters often go unreported.",
 f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on the books",n_roll:"on the rolls",n_hidden:"hidden households uncounted",n_true:"actual",
 wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
-cities:"Cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%"}
+cities:"Cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%",cd_leader:"Governor: {0}",cd_troops:"Garrison: {0}",cd_treasury:"City treasury: {0}",cd_corr:"Corruption: {0}%",cd_zones:"Land: {0} zones",cd_rural:"{0} towns · {1} villages · {2} forts",cd_admin:"Control: {0}",cd_rough:"Government reaches here poorly; only rough figures come back.",cd_none:"Government does not reach here; no details come back."}
 };
 var lang=/^zh/i.test(navigator.language||"")?(/tw|hk|hant/i.test(navigator.language)?"ch":"cz"):"en";
 function t(key){var s=(T[lang]||T.en)[key];if(s==null)s=T.en[key]||key;for(var i=1;i<arguments.length;i++)s=s.split("{"+(i-1)+"}").join(arguments[i]);return s}
@@ -213,7 +231,7 @@ function short(v){
   return a>=1e8?trim1(v/1e8)+" "+yi:a>=1e4?trim1(v/1e4)+" "+wan:num(v);
 }
 
-var token=store("ec_token"),state=null,map=null,page="reports",fails=0,openReport=null,lastMapAt=0;
+var token=store("ec_token"),state=null,map=null,page="reports",fails=0,openReport=null,openCity=null,lastMapAt=0;
 
 function api(method,path,body){
   var opt={method:method,headers:{},cache:"no-store"};
@@ -260,11 +278,11 @@ function render(){
   $("date").textContent=t("date",state.year,state.month);
   $("ruler").textContent=t("ruler",state.ruler.name,state.ruler.age)+" · "+t("role_"+state.realm.role);
   $("pace").textContent=state.paused?t("paused"):t("pace",state.speed);
-  renderReports();renderRealm();renderSight();
+  renderReports();renderRealm();renderSight();renderDecrees();renderMapActs();
 }
 
 function renderVacant(){
-  show("s-vacant");map=null;
+  show("s-vacant");map=null;mv.set=false;
   var f=state.former||{},why=state.reason||"none";
   $("vacant-why").textContent=why==="none"||!f.realm?t("why_none"):t("why_"+why,f.realm,f.ruler);
   var box=$("rulers");box.textContent="";
@@ -303,6 +321,7 @@ function renderReports(){
     var tags=el("div");tags.style.cssText="display:flex;flex-direction:column;gap:4px;align-items:flex-end";
     if(r.kind==="major")tags.appendChild(el("span","tag red",t("k_major")));
     else if(r.kind==="ledger")tags.appendChild(el("span","tag gold",t("k_ledger")));
+    else if(r.kind==="order")tags.appendChild(el("span","tag green",t("k_order")));
     else if(!r.own)tags.appendChild(el("span","tag cyan",t("k_foreign")));
     if(r.late>0)tags.appendChild(el("span","tag amber",t("late",r.late)));
     head.appendChild(tags);item.appendChild(head);
@@ -348,13 +367,186 @@ function renderRealm(){
     left.appendChild(el("div","sub",c.clarity===0?t("c0",short(c.people),c.villages):c.clarity===1?t("c1",short(c.people)):t("c2")));
     row.appendChild(left);
     row.appendChild(el("span","tag "+(c.clarity===0?"green":c.clarity===1?"amber":"red"),t("ctl",Math.round(c.control*100))));
-    cities.appendChild(row);
+    var item=el("div","report"+(openCity===c.name?" open":"")),d=el("div","detail");
+    function line(text){d.appendChild(el("div",null,text))}
+    if(c.leader)line(t("cd_leader",c.leader));
+    if(c.clarity===0){
+      line(t("cd_troops",short(c.troops)));line(t("cd_treasury",short(c.treasury)));
+      line(t("cd_corr",Math.round(c.corruption*100)));line(t("cd_zones",c.zones));
+      line(t("cd_rural",c.towns,c.villages-c.towns-c.forts<0?0:c.villages-c.towns-c.forts,c.forts));
+    }else line(t(c.clarity===1?"cd_rough":"cd_none"));
+    if(c.admin)line(t("cd_admin",c.admin));
+    if(!c.capital&&c.id)d.appendChild(arm("road/"+c.id,t("cd_road"),{id:"road",target:c.id}));
+    item.appendChild(row);item.appendChild(d);
+    item.onclick=function(){openCity=openCity===c.name?null:c.name;renderRealm()};
+    cities.appendChild(item);
   });
 }
 function renderSight(){$("sight").textContent=t("sight"+state.realm.sight);$("sight-note").textContent=t("note"+state.realm.sight)}
 
-// 地图
-var FOG=254,WATER=253,WILD=252;
+// 政令：待批的事、能下的命令、下过的命令。点一下先变成"确认"，再点才发出去
+var armed=null,openRealm=null,openOffice=null,texts={},gifts={},picked=null;
+function rerender(){renderDecrees();renderRealm();renderMapActs()}
+// 对一国能办的事：要对方答应的可以带礼
+function diploButtons(box,g,r){
+  var consent=g.consent||[],tier=gifts[r.id]||0;
+  if(r.can.some(function(k){return consent.indexOf(k)>=0})){
+    var pick=el("div");
+    [0,1,2].forEach(function(n){var b=el("button","act"+(tier===n?" primary":""),t("d_gift"+n));b.onclick=function(e){e.stopPropagation();gifts[r.id]=n;armed=null;rerender()};pick.appendChild(b)});
+    box.appendChild(pick);box.appendChild(el("div","sub",t("d_gift_note")));
+  }
+  r.can.forEach(function(k){box.appendChild(arm("diplo/"+r.id+"/"+k,g.names[k]||k,{id:"diplo:"+k,target:r.id,choice:consent.indexOf(k)>=0?String(tier):""}))});
+  Object.keys(r.cannot||{}).forEach(function(k){box.appendChild(el("div","sub",(g.names[k]||k)+"："+r.cannot[k]))});
+}
+// 地图上点中一个已知之国：就地列出对它能办的事
+function renderMapActs(){
+  var box=$("map-acts");if(!box)return;box.textContent="";
+  if(!picked||!state||!state.decrees)return;
+  var g=(state.decrees.groups||[]).filter(function(x){return x.id==="diplomacy"})[0];if(!g)return;
+  var r=g.realms.filter(function(x){return x.id===picked})[0];if(!r)return;
+  box.appendChild(el("div","sub",t("d_opinion",r.opinion)+" · "+t("d_envoy",r.months)));
+  diploButtons(box,g,r);
+}
+function goDecrees(){for(var i=0;i<tabs.length;i++)if(tabs[i].getAttribute("data-p")==="decrees")tabs[i].onclick()}
+function arm(key,label,payload){
+  var b=el("button","act"+(armed===key?" primary":""),armed===key?t("d_confirm",label):label);
+  b.onclick=function(e){
+    e.stopPropagation();
+    if(armed!==key){armed=key;rerender();return}
+    armed=null;b.disabled=true;
+    var body=typeof payload==="function"?payload():payload;
+    if(!body)return;
+    api("POST","/api/decree",body).then(function(){setTimeout(poll,600)},function(){});
+  };
+  return b;
+}
+function renderDecrees(){
+  var d=state.decrees||{groups:[],pending:[],orders:[]},box=$("decrees");
+  var banner=$("pending-banner");
+  banner.hidden=!d.pending.length;banner.textContent=t("pending_banner",d.pending.length);banner.onclick=goDecrees;
+  if(box.contains(document.activeElement)&&document.activeElement.tagName==="INPUT")return;
+  box.textContent="";
+  if(d.pending.length){
+    var pc=el("div","card");pc.appendChild(el("h2",null,t("d_pending")));var rows=el("div","rows");
+    d.pending.forEach(function(p){
+      var item=el("div");item.appendChild(el("div",null,p.title));
+      var bits=[];
+      if(p.detail)bits.push(p.detail);
+      if(p.support!=null)bits.push(t("d_support",p.support));
+      if(p.chance!=null)bits.push(t("d_chance",p.chance));
+      bits.push(t("d_left",p.left));
+      item.appendChild(el("div","sub",bits.join(" · ")));
+      p.choices.forEach(function(c){item.appendChild(arm(p.id+"/"+c,t("ch_"+c),{id:p.id,choice:c}))});
+      if(p.sides&&p.sides.length){
+        item.appendChild(el("div","sub",t("sd_title")));
+        p.sides.forEach(function(sd){
+          var line=el("div","row");line.style.marginTop="6px";
+          var who=el("span");who.appendChild(document.createTextNode(sd.name+" "));who.appendChild(el("span","sub",t("sd_favor",sd.favor)));
+          line.appendChild(who);
+          line.appendChild(el("span","tag "+(sd.own?"gold":sd.stance>0?"green":sd.stance<0?"red":"amber"),t(sd.own?"sd_own":sd.stance>0?"sd_for":sd.stance<0?"sd_against":"sd_wait")));
+          item.appendChild(line);
+          (sd.chips||[]).forEach(function(k){item.appendChild(arm("chip/"+sd.id+"/"+k,t("chip_"+k),{id:"chip",target:sd.id,choice:k}))});
+        });
+      }
+      rows.appendChild(item);
+    });
+    pc.appendChild(rows);box.appendChild(pc);
+  }
+  d.groups.forEach(function(g){
+    var card=el("div","card");card.appendChild(el("h2",null,t("g_"+g.id)));
+    if(g.id==="court"){
+      if(g.busy)card.appendChild(el("div","sub",t("d_busy")));
+      else if(!g.items.length)card.appendChild(el("div","sub",t("d_none_court")));
+      g.items.forEach(function(it){card.appendChild(arm(it.id,it.name,{id:it.id}))});
+    }else if(g.id==="palace"){
+      g.items.forEach(function(it){
+        var name=t("i_"+it.id),wrap=el("div");wrap.style.marginTop="6px";
+        if(it.id==="abdicate"){
+          wrap.appendChild(el("div",null,name));
+          (it.targets||[]).forEach(function(h){wrap.appendChild(arm("abdicate/"+h.id,t("d_abdicate_to",h.name),{id:"abdicate",target:h.id}))});
+        }else if(it.text){
+          wrap.appendChild(el("div",null,name+" · "+t("d_chance",it.chance)));
+          wrap.appendChild(el("div","sub",t("d_now",it.current)));
+          var inp=el("input");inp.maxLength=12;inp.placeholder=t("d_new_name");inp.value=texts[it.id]||"";inp.style.marginTop="6px";
+          inp.oninput=function(){texts[it.id]=inp.value};inp.onclick=function(e){e.stopPropagation()};
+          wrap.appendChild(inp);
+          wrap.appendChild(arm(it.id,name,function(){var v=(texts[it.id]||"").trim();if(!v)return null;texts[it.id]="";return{id:it.id,choice:v}}));
+        }else if(it.id==="heir"){
+          wrap.appendChild(el("div",null,name));
+          if(it.current)wrap.appendChild(el("div","sub",t("d_heir_now",it.current)));
+          (it.targets||[]).forEach(function(h){if(!h.now)wrap.appendChild(arm("heir/"+h.id,h.name+" · "+t("d_age",h.age),{id:"heir",target:h.id}))});
+        }else{
+          var b=arm(it.id,name+(it.chance!=null?" · "+t("d_chance",it.chance):""),{id:it.id});
+          if(!it.ok)b.disabled=true;
+          wrap.appendChild(b);
+          if(it.why)wrap.appendChild(el("div","sub",it.why));
+        }
+        card.appendChild(wrap);
+      });
+    }else if(g.id==="staff"){
+      card.appendChild(el("div",null,g.chief?t("st_chief",g.chief):t("st_no_chief")));
+      card.appendChild(el("div","sub",t(g.delegated?"st_delegated":"st_direct")));
+      card.appendChild(arm("delegate",t(g.delegated?"st_delegate_off":"st_delegate_on"),{id:"delegate",choice:g.delegated?"off":"on"}));
+      var slots=el("div","rows");slots.style.marginTop="8px";
+      [{id:"chief",name:t("st_make_chief"),chief:true}].concat(g.offices).forEach(function(o){
+        var key=o.chief?"chief":"o"+o.id,item=el("div","report"+(openOffice===key?" open":"")),head=el("div","row");
+        head.appendChild(el("span",null,o.name));
+        if(!o.chief)head.appendChild(el("span",o.holder?"sub":"tag amber",o.holder||t("st_vacant")));
+        item.appendChild(head);
+        var det=el("div","detail");
+        if(openOffice===key){
+          if(o.holder)det.appendChild(arm("dismiss/"+o.id,t("st_dismiss"),{id:"dismiss",target:o.id}));
+          g.people.forEach(function(pp){
+            var label=t("st_appoint",pp.name)+(pp.faction?" · "+pp.faction:"");
+            det.appendChild(o.chief?arm("chief/"+pp.id,label,{id:"chief",target:pp.id}):arm("appoint/"+o.id+"/"+pp.id,label,{id:"appoint",target:o.id+":"+pp.id}));
+          });
+        }
+        item.appendChild(det);
+        item.onclick=function(){openOffice=openOffice===key?null:key;armed=null;rerender()};
+        slots.appendChild(item);
+      });
+      card.appendChild(slots);
+    }else if(g.id==="home"){
+      g.items.forEach(function(it){
+        card.appendChild(el("div",null,t("i_"+it.id)));
+        (it.tiers||[]).forEach(function(tier){var b=arm(it.id+"/"+tier.id,t("d_tier",tier.share,tier.drop),{id:it.id,choice:tier.id});if(!it.ok)b.disabled=true;card.appendChild(b)});
+      });
+    }else if(g.id==="diplomacy"){
+      if(!g.realms.length)card.appendChild(el("div","sub",t("d_no_realm")));
+      var list=el("div","rows");
+      g.realms.forEach(function(r){
+        var item=el("div","report"+(openRealm===r.id?" open":"")),head=el("div","row");
+        head.appendChild(el("span",null,r.name));
+        head.appendChild(el("span","sub",t("d_opinion",r.opinion)+" · "+t("d_envoy",r.months)));
+        item.appendChild(head);
+        var det=el("div","detail");
+        diploButtons(det,g,r);
+        item.appendChild(det);
+        item.onclick=function(){openRealm=openRealm===r.id?null:r.id;armed=null;rerender()};
+        list.appendChild(item);
+      });
+      card.appendChild(list);
+    }
+    box.appendChild(card);
+  });
+  var oc=el("div","card");oc.appendChild(el("h2",null,t("d_orders")));
+  if(d.home!=null)oc.appendChild(el("div","sub",t("d_home",d.home)));
+  var orows=el("div","rows");orows.style.marginTop="6px";
+  if(!d.orders.length)orows.appendChild(el("div","sub",t("d_no_orders")));
+  d.orders.forEach(function(o){
+    var row=el("div","row"),left=el("div");
+    left.appendChild(el("div",null,o.text));
+    left.appendChild(el("div","sub",t("date",o.year,o.month)+(o.note?" · "+o.note:"")));
+    row.appendChild(left);
+    row.appendChild(el("span","tag "+(o.state==="done"?"green":o.state==="failed"?"red":"amber"),o.state==="sent"?t("o_sent",o.left):t("o_"+o.state)));
+    orows.appendChild(row);
+  });
+  oc.appendChild(orows);box.appendChild(oc);
+}
+
+// 地图：先把"所知天下"那一片画成一张像素图，再按眼下的视野(放大几倍、对着哪里)贴到画布上。
+// 双指捏合、滚轮、加减按钮放大缩小，单指拖动挪地方；没怎么动的一下算点选
+var FOG=254,WATER=253,WILD=252,mv={z:1,x:0,y:0,set:false},MAXZ=8;
 function decodeMap(j){
   var bin=atob(j.cells),cells=new Uint8Array(j.w*j.h),at=0;
   for(var i=0;i+1<bin.length;i+=2){var v=bin.charCodeAt(i),n=bin.charCodeAt(i+1);for(var k=0;k<n&&at<cells.length;k++)cells[at++]=v}
@@ -364,14 +556,11 @@ function decodeMap(j){
   x0=Math.max(0,x0-3);y0=Math.max(0,y0-3);x1=Math.min(j.w-1,x1+3);y1=Math.min(j.h-1,y1+3);
   j.grid=cells;j.view={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
   j.realms.forEach(function(r){var c=r.color||"#888888";r.rgb=[parseInt(c.substr(1,2),16),parseInt(c.substr(3,2),16),parseInt(c.substr(5,2),16)]});
+  if(!mv.set){mv.set=true;mv.z=1;mv.x=x0+(x1-x0+1)/2;mv.y=y0+(y1-y0+1)/2}
   return j;
 }
-function drawMap(){
-  if(!map)return;
-  var cv=$("map"),v=map.view,dpr=Math.min(3,window.devicePixelRatio||1),cssW=cv.clientWidth||320;
-  var scale=cssW/v.w,cssH=Math.max(120,Math.min(cssW*1.2,v.h*scale));scale=Math.min(scale,cssH/v.h);
-  cv.width=Math.round(cssW*dpr);cv.height=Math.round(v.h*scale*dpr);cv.style.height=(v.h*scale)+"px";
-  var off=document.createElement("canvas");off.width=v.w;off.height=v.h;
+function paintMap(){
+  var v=map.view,off=document.createElement("canvas");off.width=v.w;off.height=v.h;
   var octx=off.getContext("2d"),img=octx.createImageData(v.w,v.h),d=img.data,g=map.grid,W=map.w;
   function cell(x,y){return x<0||y<0||x>=map.w||y>=map.h?FOG:g[y*W+x]}
   for(var y=0;y<v.h;y++)for(var x=0;x<v.w;x++){
@@ -385,29 +574,91 @@ function drawMap(){
       if(edge){if(realm&&realm.tier===0){r=243;gg=195;b=74}else{r*=.5;gg*=.5;b*=.5}}}
     var p=(y*v.w+x)*4;d[p]=r;d[p+1]=gg;d[p+2]=b;d[p+3]=255;
   }
-  octx.putImageData(img,0,0);
-  var ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;ctx.drawImage(off,0,0,cv.width,cv.height);
-  var k=cv.width/v.w;
-  if(map.capital){var cx=(map.capital[0]-v.x+.5)*k,cy=(map.capital[1]-v.y+.5)*k,q=4*dpr;ctx.fillStyle="#fff3cf";ctx.strokeStyle="#14150f";ctx.lineWidth=dpr;ctx.fillRect(cx-q,cy-q,q*2,q*2);ctx.strokeRect(cx-q,cy-q,q*2,q*2)}
+  octx.putImageData(img,0,0);map.off=off;
+}
+function drawMap(){
+  if(!map)return;
+  var cv=$("map"),v=map.view,dpr=Math.min(3,window.devicePixelRatio||1),cssW=cv.clientWidth||320;
+  var cssH=Math.max(160,Math.min(cssW*1.1,cssW*v.h/v.w));
+  cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);cv.style.height=cssH+"px";
+  if(!map.off)paintMap();
+  // 视野：放大 z 倍；形状跟画布一样，不出"所知天下"那一片
+  var w=v.w/mv.z,h=w*cssH/cssW;
+  if(h>v.h){h=v.h;w=h*cssW/cssH}
+  var x=Math.min(Math.max(mv.x-w/2,v.x),v.x+v.w-w),y=Math.min(Math.max(mv.y-h/2,v.y),v.y+v.h-h);
+  mv.x=x+w/2;mv.y=y+h/2;map.win={x:x,y:y,w:w,h:h};
+  var ctx=cv.getContext("2d");ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle="#0e0f0c";ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.drawImage(map.off,x-v.x,y-v.y,w,h,0,0,cv.width,cv.height);
+  var k=cv.width/w;
+  if(map.capital){var cx=(map.capital[0]+.5-x)*k,cy=(map.capital[1]+.5-y)*k,q=4*dpr;ctx.fillStyle="#fff3cf";ctx.strokeStyle="#14150f";ctx.lineWidth=dpr;ctx.fillRect(cx-q,cy-q,q*2,q*2);ctx.strokeRect(cx-q,cy-q,q*2,q*2)}
   ctx.font="600 "+(12*dpr)+"px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
   map.realms.forEach(function(r){
     if(r.x==null||!r.name)return;
-    var w=ctx.measureText(r.name).width;
-    if(r.tier!==0&&Math.sqrt(r.n)*k<w*.6)return;
-    var x=(r.x-v.x+.5)*k,y=(r.y-v.y+.5)*k;
-    if(x<0||y<0||x>cv.width||y>cv.height)return;
-    ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(r.name,x,y);
-    ctx.fillStyle=r.tier===0?"#f3c34a":r.tier===2?"#b9b39d":"#e8e2cf";ctx.fillText(r.name,x,y);
+    var tw=ctx.measureText(r.name).width;
+    if(r.tier!==0&&Math.sqrt(r.n)*k<tw*.6)return;
+    var px=(r.x+.5-x)*k,py=(r.y+.5-y)*k;
+    if(px<0||py<0||px>cv.width||py>cv.height)return;
+    ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(r.name,px,py);
+    ctx.fillStyle=r.tier===0?"#f3c34a":r.tier===2?"#b9b39d":"#e8e2cf";ctx.fillText(r.name,px,py);
   });
+  $("z-out").disabled=mv.z<=1.001;$("z-in").disabled=mv.z>=MAXZ-.001;$("z-reset").disabled=mv.z<=1.001;
 }
-$("map").addEventListener("click",function(e){
-  if(!map)return;
-  var rect=this.getBoundingClientRect(),v=map.view;
-  var x=v.x+Math.floor((e.clientX-rect.left)/rect.width*v.w),y=v.y+Math.floor((e.clientY-rect.top)/rect.height*v.h);
+// 以画布上的一点(占宽高的比例)为准放大缩小：那一点底下的地方不动
+function zoomAt(factor,fx,fy){
+  if(!map||!map.win)return;
+  var win=map.win,gx=win.x+fx*win.w,gy=win.y+fy*win.h,z=Math.min(MAXZ,Math.max(1,mv.z*factor));
+  if(z===mv.z)return;
+  var ratio=mv.z/z;mv.z=z;
+  mv.x=gx+(.5-fx)*win.w*ratio;mv.y=gy+(.5-fy)*win.h*ratio;
+  drawMap();
+}
+function pickAt(clientX,clientY){
+  if(!map||!map.win)return;
+  var rect=$("map").getBoundingClientRect(),win=map.win;
+  var x=Math.floor(win.x+(clientX-rect.left)/rect.width*win.w),y=Math.floor(win.y+(clientY-rect.top)/rect.height*win.h);
   if(x<0||y<0||x>=map.w||y>=map.h)return;
   var c=map.grid[y*map.w+x],r=map.realms[c];
   $("map-pick").textContent=c===FOG?t("m_fog"):c===WATER?t("m_water"):c===WILD||!r?t("m_wild"):r.tier===2?t("m_rumour",r.name):r.name;
-});
+  picked=c<250&&r&&r.tier===1&&r.id?r.id:null;armed=null;renderMapActs();
+}
+(function(){
+  var cv=$("map"),pts={},pinch=null,moved=0;
+  function count(){return Object.keys(pts).length}
+  function spread(){var k=Object.keys(pts),a=pts[k[0]],b=pts[k[1]];return{d:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+  cv.addEventListener("pointerdown",function(e){
+    try{cv.setPointerCapture(e.pointerId)}catch(err){}
+    pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    if(count()===1)moved=0;
+    if(count()===2){pinch=spread();pinch.z=mv.z;moved=99}
+  });
+  cv.addEventListener("pointermove",function(e){
+    var p=pts[e.pointerId];if(!p||!map||!map.win)return;
+    var dx=e.clientX-p.x,dy=e.clientY-p.y;pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    var rect=cv.getBoundingClientRect();
+    if(count()===1){
+      moved+=Math.abs(dx)+Math.abs(dy);
+      if(moved<6)return;
+      mv.x-=dx/rect.width*map.win.w;mv.y-=dy/rect.height*map.win.h;drawMap();
+    }else if(count()===2&&pinch){
+      var now=spread(),target=Math.min(MAXZ,Math.max(1,pinch.z*now.d/pinch.d));
+      zoomAt(target/mv.z,(now.x-rect.left)/rect.width,(now.y-rect.top)/rect.height);
+    }
+  });
+  function up(e){
+    var single=count()===1&&pts[e.pointerId];
+    delete pts[e.pointerId];pinch=null;
+    if(single&&moved<6&&e.type==="pointerup")pickAt(e.clientX,e.clientY);
+  }
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+  cv.addEventListener("wheel",function(e){
+    e.preventDefault();var rect=cv.getBoundingClientRect();
+    zoomAt(e.deltaY<0?1.25:.8,(e.clientX-rect.left)/rect.width,(e.clientY-rect.top)/rect.height);
+  },{passive:false});
+  $("z-in").onclick=function(){zoomAt(1.6,.5,.5)};
+  $("z-out").onclick=function(){zoomAt(1/1.6,.5,.5)};
+  $("z-reset").onclick=function(){mv.z=1;drawMap()};
+})();
 window.addEventListener("resize",drawMap);
 
 // 页签
@@ -415,7 +666,7 @@ var tabs=document.querySelectorAll("nav button");
 for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
   commitSeen();page=this.getAttribute("data-p");
   for(var j=0;j<tabs.length;j++)tabs[j].className=tabs[j]===this?"on":"";
-  ["reports","map","realm"].forEach(function(p){$("p-"+p).hidden=p!==page});
+  ["reports","map","realm","decrees"].forEach(function(p){$("p-"+p).hidden=p!==page});
   window.scrollTo(0,0);
   if(page==="map"){drawMap();if(Date.now()-lastMapAt>5000)loadMap()}
   if(page==="reports"&&state&&state.loaded&&!state.vacant)renderReports();
@@ -431,6 +682,8 @@ for(var i=0;i<tabs.length;i++)tabs[i].onclick=function(){
   show("s-pair");
   $("pair-go").onclick();
 })();
+$("purge-go").onclick=function(){goDecrees()};
+$("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches));
 applyLang();
 poll();
 setInterval(function(){if(!document.hidden)poll()},3000);

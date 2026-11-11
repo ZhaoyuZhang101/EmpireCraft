@@ -24,6 +24,32 @@ public class TerminalPatch : GamePatch
         {
             LogService.LogWarning($"[EmpireCraft][终端] 流速没接上: {exception.Message}");
         }
+        // 第二期：廷议已毕的奏议等手机批红、要人失职的案子等手机裁决(见 TerminalHost.Decrees.cs)；没有席位领着这位君主时原样放行
+        try
+        {
+            var harmony = new Harmony(nameof(TerminalPatch) + "Decrees");
+            harmony.Patch(AccessTools.Method(typeof(EmpireCraft.Scripts.GeneralSystems.CourtSystem), "Decide"),
+                prefix: new HarmonyMethod(typeof(TerminalPatch), nameof(BeforeDecide)));
+            harmony.Patch(AccessTools.Method(typeof(EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem),
+                    nameof(EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.Prosecute)),
+                prefix: new HarmonyMethod(typeof(TerminalPatch), nameof(BeforeProsecute)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][终端] 待批没接上: {exception.Message}");
+        }
+    }
+
+    // 神力裁决(godDecision 不为空，手机批红也走这条)照办；每月自动批红时，终端等着的先不批
+    public static bool BeforeDecide(EmpireCraft.Scripts.Layer.Empire empire, string godDecision) =>
+        godDecision != null || !TerminalHost.HoldsMemorial(empire);
+
+    public static bool BeforeProsecute(Actor actor, EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawType type, Kingdom kingdom, string reasonKey,
+        Actor accuser, ref EmpireCraft.Scripts.GeneralSystems.EmpireLaw.LawEnforcementContext __result)
+    {
+        if (!TerminalHost.HoldsCase(actor, type, kingdom, reasonKey, accuser)) return true;
+        __result = null;
+        return false;
     }
 
     public static void AfterElapsed(ref float __result)

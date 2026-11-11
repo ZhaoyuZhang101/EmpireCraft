@@ -93,36 +93,29 @@ public static class TerminalIntel
     public static bool Lost(double corruption, bool major, Sight sight, uint seed) =>
         !major && sight != Sight.World && corruption > 0.3d && Unit(seed ^ 0x9E3779B9u) < (corruption - 0.3d) * 0.6d;
 
-    // 迷雾：seed 为真的格(本国、已知之国)四周 radius 格以内看得见，其余盖成 Fog；keep 为真的格(传闻之国)不盖
-    public static void ApplyFog(byte[] cells, bool[] seed, bool[] keep, int width, int height, int radius)
+    // 迷雾：reach[i] >= 0 的格看得见，并且往外看得到 reach[i] 格远(政令到得了的城看得远，政令不达的城只看得见自己那块地，
+    // 用户 2026-11-11 "政令每到达一处就会扩宽这个城周边的视野")；其余盖成 Fog；keep 为真的格(传闻之国)不盖
+    public static void ApplyFog(byte[] cells, int[] reach, bool[] keep, int width, int height)
     {
-        var distance = new int[cells.Length];
-        var queue = new Queue<int>();
-        for (int i = 0; i < cells.Length; i++)
+        int[] best = (int[])reach.Clone();
+        int max = 0;
+        foreach (int value in best) max = Math.Max(max, value);
+        for (int level = max; level >= 1; level--)
+        for (int at = 0; at < best.Length; at++)
         {
-            distance[i] = seed[i] ? 0 : -1;
-            if (seed[i]) queue.Enqueue(i);
-        }
-        while (queue.Count > 0)
-        {
-            int at = queue.Dequeue(), d = distance[at];
-            if (d >= radius) continue;
+            if (best[at] != level) continue;
             int x = at % width, y = at / width;
-            if (x > 0) Visit(at - 1);
-            if (x + 1 < width) Visit(at + 1);
-            if (y > 0) Visit(at - width);
-            if (y + 1 < height) Visit(at + width);
-
-            void Visit(int next)
-            {
-                if (distance[next] >= 0) return;
-                distance[next] = d + 1;
-                queue.Enqueue(next);
-            }
+            if (x > 0 && best[at - 1] < level - 1) best[at - 1] = level - 1;
+            if (x + 1 < width && best[at + 1] < level - 1) best[at + 1] = level - 1;
+            if (y > 0 && best[at - width] < level - 1) best[at - width] = level - 1;
+            if (y + 1 < height && best[at + width] < level - 1) best[at + width] = level - 1;
         }
         for (int i = 0; i < cells.Length; i++)
-            if (distance[i] < 0 && !keep[i]) cells[i] = Fog;
+            if (best[i] < 0 && !keep[i]) cells[i] = Fog;
     }
+
+    // 一座城看得到多远：政令清楚的看满，只有约数的看两格，不达的只见自己
+    public static int CityReach(float control, int full) => control >= ClearControl ? full : control >= RoughControl ? 2 : 0;
 
     // 行程压缩：(值, 连着几格) 一对一对，一段至多 255 格
     public static byte[] Rle(byte[] cells)
