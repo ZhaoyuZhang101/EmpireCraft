@@ -27,7 +27,9 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 一部手机一个席位(Seat)，可以好几个人各连各的："我可以选择一个君主，另一个也可以选一个""最后大家都用终端这一台服务器"。
 //     各席位各领一位君主(同一位不能两人领)，奏报、地图、国势各算各的，互相看不到；
 //   · 领的是君主本人(帝国的皇帝、普通的国王、帝国里的成员国君主都行)：他驾崩、失位、亡国，席位不撤，手机上再挑一位在世的；
-//   · 有席位领着君主的时候世界走得慢(设置里的终端流速，默认一成；"终端模式下地图的事件流速会变慢")，消息也就细；
+//   · 有席位领着君主、手机也还连着的时候世界走得慢(设置里的终端流速，默认一成；"终端模式下地图的事件流速会变慢")，消息也就细；
+//     手机都断了(ClientSeconds 秒没来取过)世界照常速走，再连上又放慢——以前只看领没领君主，手机一断线世界就一直拖着一成的流速
+//     (用户 2026-11-12 "我更新终端后变卡了""游戏整体变卡了"，选"断线就恢复全速")；
 //   · 这一期只读：奏报、地图、国势。下命令(外交、批奏、立储、改元之类，只下简单的令、剩下让下面的人去办)是下一期。
 // 线程：游戏对象只在主线程碰。Tick 每秒把各席位的状态拼成字符串放着，网络线程只读这些字符串、往 Commands 里放要办的事。
 // 手机版游戏上不启用(终端就是给电脑上的游戏配的)
@@ -179,6 +181,8 @@ public static partial class TerminalHost
     private static float _nextTick, _retryAt;
     private static long _seq;
     private static volatile bool _anyRuler;
+    // 领着君主的席位里有没有手机还连着的(定世界放不放慢，见 SpeedFactor)
+    private static volatile bool _anyWatching;
 
     public static bool Running => _server?.Running == true;
     public static bool Lan => _server?.Lan == true;
@@ -188,8 +192,10 @@ public static partial class TerminalHost
     public static string FixedAddress => TerminalMdns.FullName + ":" + Port;
     public static bool FixedReady => _mdns?.Running == true && _mdns.Listening > 0;
 
-    // 世界流速的倍数(见 TerminalPatch)：有席位领着君主时放慢
-    public static float SpeedFactor => Enabled && _anyRuler ? Mathf.Clamp(SpeedPercent, 1, 100) / 100f : 1f;
+    // 世界流速的倍数(见 TerminalPatch)：有席位领着君主、手机还连着时放慢；手机都断线了照常速走
+    public static float SpeedFactor => Enabled && _anyWatching ? Mathf.Clamp(SpeedPercent, 1, 100) / 100f : 1f;
+    // 世界眼下是不是按终端流速走着(终端窗口显示用)
+    public static bool Slowed => Enabled && _anyWatching;
 
     public static void NewCode() => Pairing.NewCodeNow();
 
@@ -331,7 +337,7 @@ public static partial class TerminalHost
         RulerPacts.Clear();
         RebellionNoticed.Clear();
         _campaigning = Array.Empty<Kingdom>();
-        _anyRuler = false;
+        _anyRuler = _anyWatching = false;
     }
 
     // 本机在局域网里的地址(给窗口显示)
@@ -364,7 +370,7 @@ public static partial class TerminalHost
                 _server.Stop();
                 _server = null;
                 _mdns?.Stop();
-                _anyRuler = false;
+                _anyRuler = _anyWatching = false;
             }
             StopLobby();
             return;
@@ -389,7 +395,7 @@ public static partial class TerminalHost
         if (now < _nextTick) return;
         _nextTick = now + 1f;
         bool ready = WorldReady();
-        bool any = false, mapped = false;
+        bool any = false, watching = false, mapped = false;
         foreach (Seat seat in SeatByToken.Values)
         {
             if (!ready)
@@ -404,6 +410,7 @@ public static partial class TerminalHost
                 if (seat.Ruler != null)
                 {
                     any = true;
+                    if (seat.Watched) watching = true;
                     seat.Corruption = CorruptionSystem.GetRate(seat.Realm);
                     seat.Sight = TerminalIntel.SightOf(EmpireLawSystem.GetEraTier(seat.Realm), HasTelegraph(seat.Realm));
                     Ledger(seat);
@@ -442,6 +449,7 @@ public static partial class TerminalHost
             }
         }
         _anyRuler = any;
+        _anyWatching = watching;
         if (ready) RunPacts();
         if (ready) RunSpeedVote(now);
         if (ready) RunRebellions();

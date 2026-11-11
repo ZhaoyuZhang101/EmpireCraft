@@ -180,7 +180,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         page.AddKpiRow(PageWidth,
             (LM.Get("terminal_kpi_seats"), seats.Count + "/" + TerminalPairing.MaxSeats, WideKit.Cyan),
             (LM.Get("terminal_kpi_ruling"), ruling.ToString(), WideKit.Gold),
-            (LM.Get("terminal_kpi_speed"), ruling > 0 ? TerminalHost.SpeedPercent + "%" : "100%", WideKit.Green));
+            (LM.Get("terminal_kpi_speed"), TerminalHost.Slowed ? TerminalHost.SpeedPercent + "%" : "100%", WideKit.Green));
 
         if (!TerminalHost.Enabled)
         {

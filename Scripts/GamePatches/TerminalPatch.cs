@@ -6,9 +6,9 @@ using NeoModLoader.services;
 
 namespace EmpireCraft.Scripts.GamePatches;
 
-// 终端模式领着君主时世界走得慢(用户 2026-11-11 "终端模式下地图的事件流速会变慢""那么模拟的信息也会丰富些")：
+// 终端模式领着君主、手机还连着时世界走得慢(手机都断线了照常速走，见 TerminalHost.SpeedFactor；用户 2026-11-11 "终端模式下地图的事件流速会变慢""那么模拟的信息也会丰富些")：
 // 原版每帧的世界时长 = 固定帧长 × 速度档倍数(MapBox.calculateCurElapsed)，这里再乘终端流速(设置里的百分比，默认一成)。
-// 速度档照旧能调，是在档位之上再放慢；没领君主、没开终端模式时不动
+// 速度档照旧能调，是在档位之上再放慢；没领君主、手机断了线、没开终端模式时不动
 public class TerminalPatch : GamePatch
 {
     public ModDeclare declare { get; set; }
