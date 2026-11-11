@@ -86,7 +86,7 @@ public static partial class TerminalHost
         foreach (Seat seat in SeatByToken.Values)
         {
             if (seat.Ruler == null || seat.Realm != empire.CoreKingdom || !RulesInPerson(seat, empire)) continue;
-            if (seat.Delegated) return false;
+            if (seat.Delegated || seat.Away != null) return false;
             string mark = memorial.claim + "@" + memorial.stage_time;
             if (seat.HoldMark != mark)
             {
@@ -246,6 +246,7 @@ public static partial class TerminalHost
             ["id"] = "rename_ruler", ["ok"] = true, ["text"] = true, ["current"] = seat.Ruler.getName(),
             ["chance"] = Mathf.RoundToInt(ScaleChance(realm, RulerNameBase, RulerNameSlope) * 100f)
         });
+        AddJourney(seat, palace);
         groups.Add(new JObject { ["id"] = "palace", ["items"] = palace });
 
         // 内政：拨库银整饬吏治(用户 2026-11-11 "玩家可以设计如果花掉库银子用于减少积弊")
@@ -378,6 +379,7 @@ public static partial class TerminalHost
             if (offer != null && (choice == "accept" || choice == "refuse")) Answer(seat, offer, choice == "accept");
             return;
         }
+        if (Journey(seat, id, target)) return;
         if (Intrigue(seat, id, target, choice)) return;
         if (id.StartsWith("case:", StringComparison.Ordinal))
         {
@@ -840,7 +842,7 @@ public static partial class TerminalHost
             if (seat.Ruler == null || actor == seat.Ruler) continue;
             Empire empire = OwnEmpire(seat);
             if (seat.Realm != kingdom && (empire == null || kingdom.GetEmpire() != empire)) continue;
-            if (seat.Delegated || !TranslateHelper.ShouldBroadcastLawActor(actor)) return false;
+            if (seat.Delegated || seat.Away != null || !TranslateHelper.ShouldBroadcastLawActor(actor)) return false;
             long id = actor.getID();
             if (seat.Cases.Any(held => held.ActorId == id)) return true;
             if (seat.Judged.TryGetValue(id, out int month) && MonthNow() - month < CaseQuietMonths) return true;

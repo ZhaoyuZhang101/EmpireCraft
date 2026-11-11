@@ -135,6 +135,35 @@ public static class TerminalIntel
     }
 
     // 去掉游戏文字里的 <color=...>、<b> 这类标记
+    // 外网地址补全：整条网址(http:// 或 https:// 开头)原样用；只填了地址的补上 http://，没写端口再补上端口。
+    // 不成个地址(有空格、尖括号、引号，或太长二维码装不下)的给空串
+    public static string OutsideUrl(string text, int port)
+    {
+        string url = (text ?? "").Trim().TrimEnd('/');
+        if (url.Length == 0 || url.IndexOfAny(new[] { ' ', '<', '>', '"', '\'', '\\' }) >= 0) return "";
+        bool web = url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        if (!web)
+        {
+            if (url.Contains("://")) return "";
+            int slash = url.IndexOf('/');
+            string host = slash < 0 ? url : url.Substring(0, slash), rest = slash < 0 ? "" : url.Substring(slash);
+            if (host.Length == 0) return "";
+            int colon = host.LastIndexOf(':');
+            bool hasPort = colon > 0 && colon < host.Length - 1;
+            for (int i = colon + 1; hasPort && i < host.Length; i++) hasPort = host[i] >= '0' && host[i] <= '9';
+            if (!hasPort) host = host.TrimEnd(':') + ":" + port;
+            url = "http://" + host + rest;
+        }
+        return url.Length <= 90 ? url : "";
+    }
+
+    // 100.64.0.0/10：运营商级转换段，组网工具拿它给各台设备编地址
+    public static bool IsMesh(string host)
+    {
+        string[] parts = (host ?? "").Split('.');
+        return parts.Length == 4 && parts[0] == "100" && int.TryParse(parts[1], out int second) && second >= 64 && second <= 127;
+    }
+
     public static string Strip(string text)
     {
         if (string.IsNullOrEmpty(text) || text.IndexOf('<') < 0) return text ?? "";

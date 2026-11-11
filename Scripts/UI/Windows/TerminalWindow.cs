@@ -53,11 +53,22 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         {
             // 外网地址：第三方隧道给的固定网址，填了二维码就用它(留空就是只在同一个网络里用)
             var outside = rail.BeginRailCard();
-            outside.AddRailInput(LM.Get("terminal_public_url"), TerminalHost.PublicUrl, value =>
+            // 框里显示补全后的整条地址(只填了 100.x.x.x 的，这里能看到补成了什么)；不成个地址的原样留着并说明
+            outside.AddRailInput(LM.Get("terminal_public_url"), TerminalHost.PublicBad ? TerminalHost.PublicText : TerminalHost.PublicUrl, value =>
             {
                 ModSettingsWindow.SetText("Terminal_Public_Url_Text", value ?? "");
                 Refresh();
             });
+            if (TerminalHost.PublicBad) RailNote(outside, LM.Get("terminal_public_url_bad").ColorString("#E8A04C"));
+            else if (TerminalHost.PublicUrl.Length == 0) RailNote(outside, LM.Get("terminal_public_url_hint"));
+            // 本机挂着组网工具：一点就拿它给的地址作外网地址，不用手抄
+            string mesh = TerminalHost.MeshAddress();
+            if (mesh != null && TerminalHost.PublicUrl != TerminalIntel.OutsideUrl(mesh, TerminalHost.Port))
+                rail.AddRailButton("terminal_use_mesh", string.Format(LM.Get("terminal_use_mesh"), mesh), () =>
+                {
+                    ModSettingsWindow.SetText("Terminal_Public_Url_Text", mesh);
+                    Refresh();
+                });
         }
         var notes = rail.BeginRailCard();
         RailNote(notes, LM.Get(on ? "terminal_hint_on" : "terminal_hint_off"));

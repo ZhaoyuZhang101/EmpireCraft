@@ -12421,5 +12421,19 @@
   "terminal_offer_did_accept": "已应允{0}所议：{1}",
   "terminal_offer_did_refuse": "已回绝{0}所议：{1}",
   "terminal_pact_called": "盟邦{0}遭{1}所伐，本国依盟约应战",
-  "terminal_pact_broken": "{0}背盟而去"
+  "terminal_pact_broken": "{0}背盟而去",
+  "terminal_campaign_start": "车驾亲征，三军振奋",
+  "terminal_campaign_end": "下诏班师，车驾还京",
+  "terminal_campaign_over": "战事已息，车驾还京",
+  "terminal_tour_start": "微服出京，往{0}去",
+  "terminal_tour_lost": "所往之城已非本国所有，中道折返",
+  "terminal_tour_report": "私访{0}所见：实有 {1} 口，府库 {2}，驻军 {3}，吏治积弊 {4}%",
+  "terminal_peril_campaign": "阵前遇险，负伤而还",
+  "terminal_peril_tour": "途中遇刺，负伤得脱",
+  "terminal_ill": "途中染疾",
+  "terminal_rebel_head_start": "朝廷尚未察觉，约 {0} 月后大军方至",
+  "terminal_rebel_known": "{0}举兵作乱，朝廷至今方闻",
+  "terminal_public_url_hint": "手机不在同一个网络时填：组网工具给这台电脑的地址(如 100.x.x.x)，或内网穿透给的整条网址。填了二维码就用它。",
+  "terminal_public_url_bad": "这个地址用不了：不能有空格、引号，也不能太长。二维码仍用局域网地址。",
+  "terminal_use_mesh": "二维码用组网地址 {0}"
 }

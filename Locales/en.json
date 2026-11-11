@@ -12407,5 +12407,19 @@
   "terminal_offer_did_accept": "Agreed to what {0} proposed: {1}",
   "terminal_offer_did_refuse": "Refused what {0} proposed: {1}",
   "terminal_pact_called": "The ally {0} is attacked by {1}; this realm joins the war as the pact requires",
-  "terminal_pact_broken": "{0} has broken the pact"
+  "terminal_pact_broken": "{0} has broken the pact",
+  "terminal_campaign_start": "The ruler takes the field; the armies take heart",
+  "terminal_campaign_end": "The ruler orders the return to the capital",
+  "terminal_campaign_over": "The fighting is over; the ruler returns to the capital",
+  "terminal_tour_start": "The ruler leaves the capital in plain dress for {0}",
+  "terminal_tour_lost": "The city no longer belongs to this realm; the ruler turns back",
+  "terminal_tour_report": "Seen in {0} with the ruler's own eyes: {1} people, {2} in the city treasury, a garrison of {3}, corruption at {4}%",
+  "terminal_peril_campaign": "Caught in danger at the front, the ruler comes back wounded",
+  "terminal_peril_tour": "Attacked on the road, the ruler escapes wounded",
+  "terminal_ill": "The ruler has fallen ill on the road",
+  "terminal_rebel_head_start": "The court has not noticed yet; its armies will take about {0} months to come",
+  "terminal_rebel_known": "{0} has risen in revolt; the court has only now heard of it",
+  "terminal_public_url_hint": "For phones on another network: the address a mesh VPN gives this PC (e.g. 100.x.x.x), or the full URL from a tunnel. The QR code then uses it.",
+  "terminal_public_url_bad": "This address cannot be used: no spaces or quotes, and not too long. The QR code still uses the LAN address.",
+  "terminal_use_mesh": "Use mesh address {0} for the QR code"
 }

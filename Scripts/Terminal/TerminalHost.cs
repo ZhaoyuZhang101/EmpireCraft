@@ -37,7 +37,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 8;
+    public const int Version = 9;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -87,6 +87,13 @@ public static partial class TerminalHost
         // 暗探(见 TerminalHost.Intrigue.cs)：派出去的、拿获别人的、各国已探到的几项、彻查到哪个月；传闻之国也派得了暗探
         // 别的席位递来、等着裁的外交提议(见 TerminalHost.Scale.cs)
         internal readonly List<Offer> Offers = new();
+        // 君主在外(见 TerminalHost.Journey.cs)：campaign 亲征、tour 私访；私访看过的城(哪个月看的)；朝廷还不该知道的叛军
+        internal string Away;
+        internal long AwayCity;
+        internal int AwayUntil, AwayRolled;
+        internal readonly Dictionary<long, int> Toured = new();
+        internal readonly HashSet<long> Hidden = new();
+        internal readonly List<string> HiddenNames = new();
         internal readonly List<Spy> Spies = new();
         internal readonly List<CaughtSpy> Caught = new();
         internal readonly Dictionary<long, Dictionary<string, string>> Dossiers = new();
@@ -110,6 +117,10 @@ public static partial class TerminalHost
             Chips.Clear();
             Spies.Clear();
             Offers.Clear();
+            Away = null;
+            Toured.Clear();
+            Hidden.Clear();
+            HiddenNames.Clear();
             Caught.Clear();
             Dossiers.Clear();
             Rumoured.Clear();
@@ -208,13 +219,24 @@ public static partial class TerminalHost
 
     // 外网地址(用户 2026-11-11 "那还是考虑第三方的吧")：模组只在本机开端口；不在同一个网络时，由第三方隧道工具(组网、内网穿透)
     // 把这个端口引出去，它给一个固定网址。把网址填在终端窗口里，二维码、手机桌面图标就都用它，手机不用知道电脑的地址
-    public static string PublicUrl = "";
+    // 填的是什么就存什么(PublicText)，用的时候再补全(PublicUrl)：只填了组网地址 100.x.x.x 的，补上 http:// 和端口
+    // (用户 2026-11-11 填了组网工具给的地址、没带 http://，被整条清掉，二维码还是局域网地址)。端口后来改了也跟着走
+    public static string PublicText = "";
 
-    public static string CleanUrl(string text)
+    public static string PublicUrl => TerminalIntel.OutsideUrl(PublicText, Port);
+
+    // 填了、但不成个地址(窗口里要说一声，不能悄悄当没填)
+    public static bool PublicBad => (PublicText ?? "").Trim().Length > 0 && PublicUrl.Length == 0;
+
+    // 组网工具给本机的地址(100.64.0.0/10 这一段是组网工具专用的)：有的话窗口里给个按钮，一点就拿它作外网地址
+    public static string MeshAddress()
     {
-        string url = (text ?? "").Trim().TrimEnd('/');
-        bool web = url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
-        return web && url.Length <= 90 && url.IndexOfAny(new[] { ' ', '<', '>', '"' }) < 0 ? url : "";
+        foreach (string address in Addresses())
+        {
+            string host = address.Substring(0, address.LastIndexOf(':'));
+            if (TerminalIntel.IsMesh(host)) return host;
+        }
+        return null;
     }
 
     // 窗口上显示的东西变了没有(配对码、席位、谁领着谁、在不在线)：变了窗口自己重画
@@ -272,6 +294,8 @@ public static partial class TerminalHost
             seat.StateJson = null;
         }
         RulerPacts.Clear();
+        RebellionNoticed.Clear();
+        _campaigning = Array.Empty<Kingdom>();
         _anyRuler = false;
     }
 
@@ -349,6 +373,7 @@ public static partial class TerminalHost
                     RunCases(seat);
                     RunSpies(seat);
                     RunOffers(seat);
+                    RunJourney(seat);
                 }
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
@@ -371,6 +396,7 @@ public static partial class TerminalHost
         }
         _anyRuler = any;
         if (ready) RunPacts();
+        if (ready) RunRebellions();
         NotifyWindows();
     }
 
@@ -650,6 +676,9 @@ public static partial class TerminalHost
             foreach (Seat seat in SeatByToken.Values)
             {
                 if (seat.Ruler == null || seat.Realm?.data == null) continue;
+                // 朝廷还不该知道的叛乱：开战的消息、提到叛军的消息都不报(见 TerminalHost.Journey.cs)
+                if (about != null && seat.Hidden.Contains(about.getID()) || seat.HiddenNames.Any(text.Contains) ||
+                    id.Contains("war") && FreshRebellionAgainst(seat)) continue;
                 string realmName = seat.Realm.data.name;
                 bool own = about == seat.Realm || !string.IsNullOrEmpty(realmName) && text.Contains(realmName);
                 // 皇帝治下各行政区的事也算本国的，照吏治迟报、缺报；只是小事另丢一半(皇权不下乡)
@@ -692,6 +721,8 @@ public static partial class TerminalHost
             return;
         }
         int late = TerminalIntel.DelayMonths(seat.Corruption, own, major, seat.Sight, seed);
+        // 君主亲征在军中：军国大事当月就知道
+        if (seat.Away == "campaign" && own && major) late = 0;
         if (seat.Pending.Count >= MaxPending)
         {
             seat.Pending.RemoveAt(0);
@@ -820,7 +851,8 @@ public static partial class TerminalHost
             }
         }
         state["decrees"] = seat.DecreesCache;
-        state["wars"] = Wars(realm);
+        state["wars"] = Wars(seat);
+        state["away"] = AwayJson(seat);
         state["cities"] = Cities(seat);
         var reports = new JArray();
         for (int i = seat.Reports.Count - 1; i >= 0 && reports.Count < 80; i--)
@@ -842,14 +874,16 @@ public static partial class TerminalHost
         return new JObject { ["v"] = value, ["vague"] = vague };
     }
 
-    private static JArray Wars(Kingdom realm)
+    private static JArray Wars(Seat seat)
     {
+        Kingdom realm = seat.Realm;
         var wars = new JArray();
         foreach (War war in realm.getWars())
         {
             if (war?.data == null || war.hasEnded()) continue;
             bool attacker = war.isAttacker(realm);
             Kingdom enemy = attacker ? war.main_defender : war.main_attacker;
+            if (Unnoticed(seat, enemy)) continue;
             wars.Add(new JObject
             {
                 ["enemy"] = enemy?.data?.name ?? "", ["attacker"] = attacker, ["months"] = Date.getMonthsSince(war.data.created_time),
@@ -870,11 +904,15 @@ public static partial class TerminalHost
         {
             float control = city == realm.capital || !AdministrativeControlSystem.Known(city) ? 1f : AdministrativeControlSystem.Get(city);
             int clarity = TerminalIntel.Clarity(control);
-            long people = TerminalIntel.Reported(city.getPopulationPeople(), seat.Corruption, -1,
+            // 微服私访亲眼看过的城：一年之内按真数给(不照吏治虚报、不管政令达不达)
+            bool toured = seat.Toured.TryGetValue(city.getID(), out int seenAt) && MonthNow() - seenAt < TourTruthMonths;
+            double padding = toured ? 0d : seat.Corruption;
+            if (toured) clarity = 0;
+            long people = TerminalIntel.Reported(city.getPopulationPeople(), padding, -1,
                 TerminalIntel.Hash(city.getID(), 2, Date.getCurrentYear()), out _);
             var row = new JObject
             {
-                ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["capital"] = city == realm.capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity
+                ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["capital"] = city == realm.capital, ["control"] = Math.Round(control, 2), ["clarity"] = clarity, ["toured"] = toured
             };
             if (clarity < 2)
             {
@@ -889,8 +927,8 @@ public static partial class TerminalHost
                 row["villages"] = rural?.Count ?? 0;
                 row["towns"] = rural?.Count(place => place.town) ?? 0;
                 row["forts"] = rural?.Count(place => place.fort) ?? 0;
-                row["troops"] = TerminalIntel.Reported(city.countWarriors(), seat.Corruption, 1, TerminalIntel.Hash(city.getID(), 3, year), out _);
-                row["treasury"] = TerminalIntel.Reported(city.GetTreasuryBalance(), seat.Corruption, 1, TerminalIntel.Hash(city.getID(), 1, year), out _);
+                row["troops"] = TerminalIntel.Reported(city.countWarriors(), padding, 1, TerminalIntel.Hash(city.getID(), 3, year), out _);
+                row["treasury"] = TerminalIntel.Reported(city.GetTreasuryBalance(), padding, 1, TerminalIntel.Hash(city.getID(), 1, year), out _);
                 row["corruption"] = Math.Round(CorruptionRules.Bound(city.GetCorruptionRate()), 2);
                 row["zones"] = city.countZones();
             }
@@ -922,6 +960,12 @@ public static partial class TerminalHost
             cityAt[y * width + x] = map.City[sy * map.Width + sx];
         }
         int self = map.KingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
+        // 朝廷还不该知道的叛军：它占的地在图上还算本国的
+        if (self >= 0)
+            foreach (long hiddenId in seat.Hidden)
+                if (map.KingdomIndex.TryGetValue(hiddenId, out int rebelIndex))
+                    for (int cell = 0; cell < owner.Length; cell++)
+                        if (owner[cell] == rebelIndex) owner[cell] = self;
         HashSet<int> neighbours = Neighbours(owner, width, height, self);
 
         // 各国几等：0 本国、1 已知、2 传闻、3 不知
@@ -940,6 +984,11 @@ public static partial class TerminalHost
         for (int i = 0; i < map.Kingdoms.Count; i++)
         {
             Kingdom kingdom = map.Kingdoms[i];
+            if (kingdom != null && seat.Hidden.Contains(kingdom.getID()))
+            {
+                tier[i] = 3;
+                continue;
+            }
             if (i == self) tier[i] = 0;
             else if (kingdom?.data == null || kingdom.isRekt()) tier[i] = 3;
             else if (seat.Sight == TerminalIntel.Sight.World || neighbours.Contains(i) || enemies.Contains(kingdom) ||

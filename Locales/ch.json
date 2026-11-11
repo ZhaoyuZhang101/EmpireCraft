@@ -12413,5 +12413,19 @@
   "terminal_offer_did_accept": "已應允{0}所議：{1}",
   "terminal_offer_did_refuse": "已回絕{0}所議：{1}",
   "terminal_pact_called": "盟邦{0}遭{1}所伐，本國依盟約應戰",
-  "terminal_pact_broken": "{0}背盟而去"
+  "terminal_pact_broken": "{0}背盟而去",
+  "terminal_campaign_start": "車駕親征，三軍振奮",
+  "terminal_campaign_end": "下詔班師，車駕還京",
+  "terminal_campaign_over": "戰事已息，車駕還京",
+  "terminal_tour_start": "微服出京，往{0}去",
+  "terminal_tour_lost": "所往之城已非本國所有，中道折返",
+  "terminal_tour_report": "私訪{0}所見：實有 {1} 口，府庫 {2}，駐軍 {3}，吏治積弊 {4}%",
+  "terminal_peril_campaign": "陣前遇險，負傷而還",
+  "terminal_peril_tour": "途中遇刺，負傷得脫",
+  "terminal_ill": "途中染疾",
+  "terminal_rebel_head_start": "朝廷尚未察覺，約 {0} 月後大軍方至",
+  "terminal_rebel_known": "{0}舉兵作亂，朝廷至今方聞",
+  "terminal_public_url_hint": "手機不在同一個網路時填：組網工具給這台電腦的位址(如 100.x.x.x)，或內網穿透給的整條網址。填了二維碼就用它。",
+  "terminal_public_url_bad": "這個位址用不了：不能有空格、引號，也不能太長。二維碼仍用區域網路位址。",
+  "terminal_use_mesh": "二維碼用組網位址 {0}"
 }

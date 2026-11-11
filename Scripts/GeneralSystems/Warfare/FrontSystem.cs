@@ -1163,9 +1163,10 @@ public static partial class FrontSystem
         // 本土帝国在本族的城上抵御异族入侵，战斗欲望更强(见 NativeDefenseSystem)
         // 穿越政权的新式操典与组织(见 TransmigrantSystem.CombatFactor)
         // 禁旅八旗随八旗锐气加成(见 BannerSystem.CombatFactor)
+        // 终端模式里君主御驾亲征的加成(见 TerminalHost.CampaignFactor；没开终端、没人亲征时是 1)
         float attack = attackers.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                               WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                              PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                              PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) * EmpireCraft.Scripts.Terminal.TerminalHost.CampaignFactor(entry.kingdom) *
                                               TransmigrantSystem.CombatFactor(entry.kingdom) *
                                               BannerSystem.CombatFactor(entry.kingdom, entry.corps) *
                                               ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
@@ -1181,7 +1182,7 @@ public static partial class FrontSystem
         float remnant = RemnantFactor(city);
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
                                             WarCommandSystem.Factor(entry.kingdom) * LogisticsSystem.AttackFactor(entry.corps) *
-                                            PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) *
+                                            PapacySystem.OrderFactor(entry.corps) * RulerTraitSystem.FounderCombat(entry.kingdom) * EmpireCraft.Scripts.Terminal.TerminalHost.CampaignFactor(entry.kingdom) *
                                             TransmigrantSystem.CombatFactor(entry.kingdom) *
                                             BannerSystem.CombatFactor(entry.kingdom, entry.corps) *
                                             ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
