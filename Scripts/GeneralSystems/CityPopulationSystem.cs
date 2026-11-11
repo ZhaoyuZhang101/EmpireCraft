@@ -1318,8 +1318,9 @@ public static class CityPopulationSystem
             {
                 _lastFoldPass = now;
                 var monthly = new HashSet<City>(TransmigrantSystem.MonthlySettledCities());
-                foreach (City city in world.cities)
-                    if (city?.data != null && !city.isRekt() && !monthly.Contains(city)) PendingFolds.Enqueue(city);
+                // 帝国与天下的主要国家(连同所在帝国的成员、藩属)的城排在前面(见 RealmPriority)：慢帧时全图一遍结得慢，大国的税与产出先按时结
+                RealmPriority.EnqueueByPriority(PendingFolds, world.cities,
+                    city => city?.data != null && !city.isRekt() && !monthly.Contains(city));
             }
             if (PendingFolds.Count == 0 && PriorityFolds.Count == 0) return;
         }

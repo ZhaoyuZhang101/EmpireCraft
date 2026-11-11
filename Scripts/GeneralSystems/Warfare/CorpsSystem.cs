@@ -255,7 +255,8 @@ public static class CorpsSystem
         try { MilitaryAccessSystem.Monthly(); }
         catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][借道] 年结失败: {exception}"); }
         MonthQueue.Clear();
-        foreach (Kingdom kingdom in World.world.kingdoms.ToList()) MonthQueue.Enqueue(kingdom);
+        // 帝国与天下的主要国家(连同所在帝国的成员、藩属)先征召(见 RealmPriority)
+        RealmPriority.EnqueueByPriority(MonthQueue, World.world.kingdoms.ToList());
         _monthPhase = MonthPhase.Kingdoms;
     }
 
@@ -296,7 +297,8 @@ public static class CorpsSystem
                 case MonthPhase.FrontBegin:
                     if (!MonthStep("军团·战线月度", () => FrontSystem.BeginMonth(_monthAt))) break;
                     MonthQueue.Clear();
-                    foreach (Kingdom side in World.world.kingdoms.ToList()) MonthQueue.Enqueue(side);
+                    // 战线分派也是主要国家先(见 RealmPriority)
+                    RealmPriority.EnqueueByPriority(MonthQueue, World.world.kingdoms.ToList());
                     _monthPhase = MonthPhase.FrontAssign;
                     break;
                 case MonthPhase.FrontAssign:

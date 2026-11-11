@@ -170,6 +170,14 @@ public static class EmpireCraftStrategicScheduler
             processedEmpires, minimumEmpires, maximumEmpires, ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
                 budgetMilliseconds * EmpireBudgetShare)));
 
+        // 重要的国家先过一遍(见 RealmPriority)：每帧至少 MinMajorsPerFrame 国，有预算就接着，一帧至多把名单过一轮；下面轮转时跳过它们
+        IReadOnlyList<Kingdom> majors = RealmPriority.Majors;
+        for (int done = 0; done < majors.Count && (done < MinMajorsPerFrame || SimulationFrameBudget.HasTime); done++)
+        {
+            if (_majorCursor >= majors.Count) _majorCursor = 0;
+            ProcessKingdom(realtime, majors[_majorCursor++], true);
+        }
+
         int processed = 0;
         do
         {
@@ -261,13 +269,25 @@ public static class EmpireCraftStrategicScheduler
         }
     }
 
+    private const int MinMajorsPerFrame = 2;
+    private static int _majorCursor;
+
+    // 轮转到下一国(重要的国家另在前面过，这里跳过)
     private static bool ProcessNextKingdom(float realtime, IList<Kingdom> kingdoms)
     {
         if (kingdoms == null || kingdoms.Count == 0) return false;
         if (_kingdomCursor >= kingdoms.Count) _kingdomCursor = 0;
         Kingdom kingdom = kingdoms[_kingdomCursor++];
-        if (kingdom == null || kingdom.isRekt() || AncientWarfareCompatibility.Owns(kingdom)) return true;
-        if (FaultRetryTimes.TryGetValue(kingdom.id, out float retryAt) && realtime < retryAt) return true;
+        if (RealmPriority.IsMajor(kingdom)) return true;
+        ProcessKingdom(realtime, kingdom, false);
+        return true;
+    }
+
+    // major：重要的国家(见 RealmPriority)，月度各步预算用完也至少推进一步
+    private static void ProcessKingdom(float realtime, Kingdom kingdom, bool major)
+    {
+        if (kingdom == null || kingdom.isRekt() || AncientWarfareCompatibility.Owns(kingdom)) return;
+        if (FaultRetryTimes.TryGetValue(kingdom.id, out float retryAt) && realtime < retryAt) return;
 
         try
         {
@@ -305,9 +325,11 @@ public static class EmpireCraftStrategicScheduler
                     state.LastStrategicWorldTime = World.world.getCurWorldTime();
                     state.MonthlyPhase = 0;
                 }
-                // 各个检查分别续跑，不把正在执行的旧月度工作重置为下一月。
-                while (state.MonthlyPhase >= 0 && SimulationFrameBudget.HasTime)
+                // 各个检查分别续跑，不把正在执行的旧月度工作重置为下一月。重要的国家预算用完也至少推进一步
+                int steps = 0;
+                while (state.MonthlyPhase >= 0 && (SimulationFrameBudget.HasTime || major && steps == 0))
                 {
+                    steps++;
                     switch (state.MonthlyPhase++)
                     {
                         case 0: KingdomTypeCheck.execute(kingdom); break;
@@ -329,7 +351,6 @@ public static class EmpireCraftStrategicScheduler
             FaultRetryTimes[kingdom.id] = realtime + 5f;
             LogService.LogWarning($"[EmpireCraft] Strategic kingdom slice failed for {kingdom.id}: {error}");
         }
-        return true;
     }
 
     private static void ProcessTemporaryFactions(Kingdom kingdom)
