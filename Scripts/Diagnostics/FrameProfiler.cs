@@ -261,6 +261,8 @@ public static class FrameProfiler
         if (allocReport != null) LogService.LogWarning(allocReport);
         string uploadReport = EmpireCraft.Scripts.Diagnostics.TextureUploadCounter.BuildReport(frames);
         if (uploadReport != null) LogService.LogWarning(uploadReport);
+        string budgetReport = EmpireCraft.Scripts.HelperFunc.FrameJobs.BuildReport();
+        if (budgetReport != null) LogService.LogWarning(budgetReport);
         // 帧率体检行：每个窗口必报(写性能日志)；帧数明显在跳时同时进游戏日志
         string health = BuildFrameHealthLine();
         bool unstable = _spikes > 0 || (_frames > 0 && _slowFrames * 20 >= _frames);
@@ -270,6 +272,7 @@ public static class FrameProfiler
             "[EmpireCraft][每帧耗时] 被计时片段均低于 0.3 ms/帧且单次峰值低于 4 ms");
         if (allocReport != null) EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(allocReport);
         if (uploadReport != null) EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(uploadReport);
+        if (budgetReport != null) EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(budgetReport);
         if (health != null)
             EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile.Record(health + SpikeDetail);
         Ticks.Clear();

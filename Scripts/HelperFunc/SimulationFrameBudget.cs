@@ -6,9 +6,14 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.HelperFunc;
 
 // 所有后台队列共用预算。40 FPS = 25 ms，给原版模拟与绘制留出大部分时间。
+// 以前只在无小人模式下管(平常模式 HasTime 一律为真，挂在这里的二十来个系统不限时地跑)；现在两种模式都管，
+// 快进时按倍数放宽(至多三倍)，各系统的每帧入口按档排队见 FrameJobs(用户 2026-11-11 第一档③)
 public static class SimulationFrameBudget
 {
-    private static bool Enabled => EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled;
+    private static bool Enabled => true;
+    private const float MaxSpeedFactor = 3f;
+    public static double BudgetMilliseconds => _budget;
+    public static float SpeedFactor { get; private set; } = 1f;
     public const double TargetFramesPerSecond = 40d;
     public const double TargetFrameMilliseconds = 1000d / TargetFramesPerSecond;
     private static int _frame = -1;
@@ -40,7 +45,8 @@ public static class SimulationFrameBudget
         _frame = Time.frameCount;
         _spent = 0d;
         _depth = 0;
-        _budget = ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d));
+        SpeedFactor = Mathf.Clamp(Config.time_scale_asset?.multiplier ?? 1f, 1f, MaxSpeedFactor);
+        _budget = ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d)) * SpeedFactor;
         double seconds = Math.Max(0d, Time.unscaledDeltaTime);
         _sampleSeconds += seconds;
         _sampleFrames++;
@@ -67,6 +73,15 @@ public static class SimulationFrameBudget
             _sampleFrames = _slowFrames = 0;
             _sampleCursor = _storedSamples = 0;
         }
+    }
+
+    // 这一帧的预算里前 share 成还有没有余量(FrameJobs 按档用：低档只用前六成)
+    public static bool HasShare(double share)
+    {
+        if (!Enabled) return true;
+        BeginFrame();
+        double running = _depth > 0 ? (Stopwatch.GetTimestamp() - _started) * 1000d / Stopwatch.Frequency : 0d;
+        return _spent + running < _budget * share;
     }
 
     public static bool HasTime

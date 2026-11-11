@@ -59,46 +59,48 @@ public static class EmpireCraftStrategicScheduler
         // 读档后第 1、6、12、36 个月对一次帝国的账(见 EmpireLossDiagnostics)，平时第一行就返回
         EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics.Tick();
         // 计时标签都是字面量(不每帧拼字符串)；路网、行政控制力、文化辐射、地方稳定与财政在各自里面计时
-        using (FrameProfiler.Measure("国家移民与空城安置")) StateSettlementSystem.Tick();
+        // 下面各子系统按档从 FrameJobs 过(月结中档，年结与杂活低档)：到期那一帧照旧整批结，几个撞在同一帧时一帧一个往后排，
+        // 至多顺延半秒(中档)、三秒(低档)。计时标签照旧(字面量，不每帧拼字)；自己里面分段计时的不再套一层
+        FrameJobs.Run("国家移民与空城安置", FrameJobs.Priority.Low, StateSettlementSystem.Tick);
         // 路网规划、修路养路(自己按真实时间与游戏月份限频，见 RoadNetwork、RoadBuildingSystem)
-        RoadNetwork.Tick();
-        using (FrameProfiler.Measure("皇帝出行")) EmperorTourSystem.Tick();
-        using (FrameProfiler.Measure("宗室·生老病死")) RoyalHouseSystem.Tick();
-        using (FrameProfiler.Measure("饥荒动荡")) FamineUnrestSystem.Tick();
-        using (FrameProfiler.Measure("天下大势")) UnificationSystem.Tick();
+        FrameJobs.Run("路网", FrameJobs.Priority.Low, RoadNetwork.Tick, measure: false);
+        FrameJobs.Run("皇帝出行", FrameJobs.Priority.Normal, EmperorTourSystem.Tick);
+        FrameJobs.Run("宗室·生老病死", FrameJobs.Priority.Normal, RoyalHouseSystem.Tick);
+        FrameJobs.Run("饥荒动荡", FrameJobs.Priority.Normal, FamineUnrestSystem.Tick);
+        FrameJobs.Run("天下大势", FrameJobs.Priority.Normal, UnificationSystem.Tick);
         // 本土帝国抵御异族入侵：号召同族来援(每月，见 NativeDefenseSystem)
-        using (FrameProfiler.Measure("御侮")) NativeDefenseSystem.Tick();
-        // 傀儡随主国参战、流亡政府换东道国与还都(每月，见 PuppetStateSystem、ExileGovernmentSystem)
-        using (FrameProfiler.Measure("傀儡与流亡政府"))
+        FrameJobs.Run("御侮", FrameJobs.Priority.Normal, NativeDefenseSystem.Tick);
+        // 傀儡随主国参战、流亡政府换东道国与还都(每月，见 PuppetStateSystem、ExileGovernmentSystem)；
+        // 近代占领他国：军管满一年的交给这一片的傀儡、议和割给傀儡的城(见 OccupationPuppetSystem)
+        FrameJobs.Run("傀儡与流亡政府", FrameJobs.Priority.Normal, () =>
         {
             PuppetStateSystem.Tick();
             ExileGovernmentSystem.Tick();
-            // 近代占领他国：军管满一年的交给这一片的傀儡、议和割给傀儡的城(见 OccupationPuppetSystem)
             OccupationPuppetSystem.Tick();
-        }
+        });
         // 异族之地：年度扫描、正统跌破五十时镇压或自立(见 ForeignLandSystem)
-        using (FrameProfiler.Measure("异族之地")) ForeignLandSystem.Tick();
+        FrameJobs.Run("异族之地", FrameJobs.Priority.Low, ForeignLandSystem.Tick);
         // 独立的游牧国换君后诸子分帐(见 NomadAppanageSystem)
-        NomadAppanageSystem.Tick();
+        FrameJobs.Run("游牧分帐", FrameJobs.Priority.Low, NomadAppanageSystem.Tick, measure: false);
         // 一两城的小国被大国包着、国力悬殊时称臣(每年，见 SmallStateSubmissionSystem)
-        using (FrameProfiler.Measure("小国归附")) SmallStateSubmissionSystem.Tick();
-        using (FrameProfiler.Measure("飞地年度维护")) ExclaveMaintenanceSystem.Tick();
-        AdministrativeControlSystem.Tick();
+        FrameJobs.Run("小国归附", FrameJobs.Priority.Low, SmallStateSubmissionSystem.Tick);
+        FrameJobs.Run("飞地年度维护", FrameJobs.Priority.Low, ExclaveMaintenanceSystem.Tick);
+        FrameJobs.Run("行政控制力", FrameJobs.Priority.Low, AdministrativeControlSystem.Tick, measure: false);
         // 水土：游牧离草、定居入草(每帧至多一个政权，一年一次，见 ShuiTuSystem)
-        ShuiTuSystem.Tick();
+        FrameJobs.Run("水土", FrameJobs.Priority.Low, ShuiTuSystem.Tick, measure: false);
         // 通达层：城与城之间走多远(快照分帧、计算在后台线程，见 ConnectivitySystem)；教化接着用它的城际图
-        ConnectivitySystem.Tick();
-        CultureRadiation.Tick();
-        CityStabilitySystem.Tick();
+        FrameJobs.Run("通达层", FrameJobs.Priority.Low, ConnectivitySystem.Tick, measure: false);
+        FrameJobs.Run("文化辐射", FrameJobs.Priority.Low, CultureRadiation.Tick, measure: false);
+        FrameJobs.Run("地方稳定与财政", FrameJobs.Priority.Normal, CityStabilitySystem.Tick, measure: false);
         // 府库积压：每年一次国库、城库余钱折损(见 TreasuryHoardSystem)
-        using (FrameProfiler.Measure("府库积压")) TreasuryHoardSystem.Tick();
+        FrameJobs.Run("府库积压", FrameJobs.Priority.Low, TreasuryHoardSystem.Tick);
         // 穿越政体：元老院席位继承、执委会主席改选、阶段、出版指导小组(每年一次，见 TransmigrantSystem)
-        using (FrameProfiler.Measure("穿越政体")) TransmigrantSystem.Tick();
+        FrameJobs.Run("穿越政体", FrameJobs.Priority.Low, TransmigrantSystem.Tick);
         // 殖民：海外城编入殖民地、总督任期、解送分红、离心独立、殖民船(每年一次分帧，见 ColonySystem)
-        using (FrameProfiler.Measure("殖民")) ColonySystem.Tick();
+        FrameJobs.Run("殖民", FrameJobs.Priority.Low, ColonySystem.Tick);
         // 商品市场：各城记账、市场结算、市场间贸易、关税同盟(每年一次分帧，见 CommodityMarketSystem)
-        using (FrameProfiler.Measure("商品市场")) CommodityMarketSystem.Tick();
-        using (FrameProfiler.Measure("帝国改划")) AdministrationReorganizationSystem.Tick();
+        FrameJobs.Run("商品市场", FrameJobs.Priority.Low, CommodityMarketSystem.Tick);
+        FrameJobs.Run("帝国改划", FrameJobs.Priority.Low, AdministrationReorganizationSystem.Tick);
 
         float realtime = Time.realtimeSinceStartup;
         if (realtime >= _nextCompatibilityRefresh)
@@ -156,24 +158,26 @@ public static class EmpireCraftStrategicScheduler
         // title scan on every physics tick.
         using (FrameProfiler.Measure("头衔管理")) ModClass.KINGDOM_TITLE_MANAGER?.update(0f);
 
+        // 每帧至少处理最少的那几个(minimum)，再看共享预算：前面的子系统、军团用光了预算时，帝国与王国也不至于一帧一个都轮不上
+        // (平常模式以前不受预算管，现在受管，见 FrameJobs)
         int processedEmpires = 0;
         do
         {
-            if (!SimulationFrameBudget.HasTime || !ProcessNextEmpire(realtime, empires)) break;
+            if (processedEmpires >= minimumEmpires && !SimulationFrameBudget.HasTime || !ProcessNextEmpire(realtime, empires)) break;
             processedEmpires++;
         }
-        while (SimulationFrameBudget.HasTime && EmpireCraftFrameSchedulingRules.CanContinue(processedEmpires, minimumEmpires, maximumEmpires,
-            ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
+        while ((processedEmpires < minimumEmpires || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
+            processedEmpires, minimumEmpires, maximumEmpires, ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
                 budgetMilliseconds * EmpireBudgetShare)));
 
         int processed = 0;
         do
         {
-            if (!SimulationFrameBudget.HasTime || !ProcessNextKingdom(realtime, kingdoms)) break;
+            if (processed >= minimumKingdoms && !SimulationFrameBudget.HasTime || !ProcessNextKingdom(realtime, kingdoms)) break;
             processed++;
         }
-        while (SimulationFrameBudget.HasTime && EmpireCraftFrameSchedulingRules.CanContinue(processed, minimumKingdoms, maximumKingdoms,
-            ElapsedMilliseconds(started), budgetMilliseconds));
+        while ((processed < minimumKingdoms || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
+            processed, minimumKingdoms, maximumKingdoms, ElapsedMilliseconds(started), budgetMilliseconds));
     }
 
     public static void Reset()

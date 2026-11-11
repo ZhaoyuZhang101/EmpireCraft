@@ -121,40 +121,40 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         using (FrameProfiler.Measure("后台·和约割城")) EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Tick();
         using (FrameProfiler.Measure("后台·民族统一")) EmpireCraft.Scripts.GeneralSystems.NationalUnificationSystem.Tick();
         EmpireCraft.Scripts.GeneralSystems.PopulationRuntimeDiagnostics.Tick();
+        // 各后台系统按档从 FrameJobs 过，共用一份每帧预算(见 FrameJobs、SimulationFrameBudget；用户 2026-11-11 第一档③)。
+        // 以前平常模式不限时、无小人模式五个系统轮流排第一
         if (!EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled)
         {
-            EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Reset();
+            EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.BeginFrame();
+            using var normalWork = EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Measure();
+            // 战略调度暂停时也要走(剧本进世界后的安排，见 WorldMapScenario.TickAfterLoad)：不进队列
             EmpireCraftStrategicScheduler.Tick();
-            EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
-            EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick();
-            EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild();
+            EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·人口", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Normal,
+                EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick);
+            EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·牧业", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Low,
+                EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick);
+            EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·野生清理", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Low,
+                EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild);
             return;
         }
         if (World.world == null || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return;
         EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.BeginFrame();
         using var frameWork = EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.Measure();
-        // 每帧轮换先运行的系统，避免月度人口队列长期挤掉外交。
-        bool populationRan = false;
-        for (int i = 0; i < 5 && EmpireCraft.Scripts.HelperFunc.SimulationFrameBudget.HasTime; i++)
-        {
-            switch ((_backgroundCursor + i) % 5)
-            {
-                case 0: using (FrameProfiler.Measure("后台·战略调度")) EmpireCraftStrategicScheduler.Tick(); break;
-                case 1:
-                    populationRan = true;
-                    using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick();
-                    break;
-                case 2: using (FrameProfiler.Measure("后台·牧业")) EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick(); break;
-                case 3: using (FrameProfiler.Measure("后台·野生清理")) EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild(); break;
-                case 4: using (FrameProfiler.Measure("后台·理念接触")) EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.TickContact(); break;
-            }
-        }
-        _backgroundCursor = (_backgroundCursor + 1) % 5;
-        // 战略调度跑一次就用光慢帧的预算(11-04 存档日志：一次 7.9 ms，预算最多 4 ms)，人口只有排第一时才轮得上，五帧一次：
-        // 全图月结一遍要十三四年，每城每遍只结 24 个月，其余的税、产出、营建都丢了。月结每帧都走，时间片在 TickFolds 里
+        // 军团战线排最前：行军每帧都要走，月度结算自带每帧 3 毫秒的切片；不进队列，但时间记进共享预算，后面的低档会让
+        using (FrameProfiler.Measure("后台·军团战线")) EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Update();
+        EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·战略调度", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.High,
+            EmpireCraftStrategicScheduler.Tick);
+        bool populationRan = EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·人口", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Normal,
+            EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.Tick);
+        EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·理念接触", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Low,
+            EmpireCraft.Scripts.GeneralSystems.IdeologyPopulationSystem.TickContact);
+        EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·牧业", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Low,
+            EmpireCraft.Scripts.GeneralSystems.AnimalHusbandrySystem.Tick);
+        EmpireCraft.Scripts.HelperFunc.FrameJobs.Run("后台·野生清理", EmpireCraft.Scripts.HelperFunc.FrameJobs.Priority.Low,
+            EmpireCraft.Scripts.GamePatches.NoCommonersPatch.CullExcessWild);
+        // 人口这一帧没轮上：月结照走(时间片在 TickFolds 里；以前战略调度一次就用光慢帧预算，人口五帧才轮一次，全图月结一遍要十三四年)
         if (!populationRan)
             using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.TickFoldsOnly();
-        using (FrameProfiler.Measure("后台·军团战线")) EmpireCraft.Scripts.GeneralSystems.CorpsSystem.Update();
     }
 
     public GameObject GetGameObject()

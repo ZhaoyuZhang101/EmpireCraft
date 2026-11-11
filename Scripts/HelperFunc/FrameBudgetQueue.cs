@@ -29,8 +29,8 @@ public sealed class FrameBudgetQueue<T>
     public void Start(IEnumerable<T> items)
     {
         // 高速游戏进入下一年度时，不能把尚未完成的旧队列反复清零，导致尾部城市永远轮不到。
-        if (EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.AbstractPopulationEnabled &&
-            Active && ReferenceEquals(_world, World.world)) return;
+        // (平常模式现在也按帧预算分帧，见 SimulationFrameBudget，同样护着)
+        if (Active && ReferenceEquals(_world, World.world)) return;
         _items = items?.ToList() ?? new List<T>();
         _index = 0;
         _world = World.world;
