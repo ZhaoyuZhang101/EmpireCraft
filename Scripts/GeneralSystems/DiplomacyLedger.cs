@@ -118,29 +118,51 @@ public static class DiplomacyLedger
     }
 
     // child 对 parent 是什么(体系图、市场成员)
-    public static string RoleOf(Kingdom child, Kingdom parent)
+    // 种类：self 本国、vassal 附庸、colony 殖民地、member 帝国成员、tributary 朝贡国、union 关税同盟、subject 其余属下；
+    // 文字是 diplomacy_role_<种类>(简图按种类上色，见 DiplomacyWindow.Map)
+    public static string RoleKey(Kingdom child, Kingdom parent)
     {
         if (child == null || parent == null) return "";
-        if (child == parent) return LM.Get("diplomacy_role_self");
-        if (FeudalVassalService.GetOverlord(child) == parent) return LM.Get("diplomacy_role_vassal");
-        if (ColonySystem.MetropoleOf(child) == parent) return LM.Get("diplomacy_role_colony");
+        if (child == parent) return "self";
+        if (FeudalVassalService.GetOverlord(child) == parent) return "vassal";
+        if (ColonySystem.MetropoleOf(child) == parent) return "colony";
         Empire empire = parent.GetEmpire();
         if (empire != null && empire.CoreKingdom == parent)
         {
-            if (child.GetEmpire() == empire) return LM.Get("diplomacy_role_member");
-            if (child.GetTakenAllianceEmpire() == empire) return LM.Get("diplomacy_role_tributary");
+            if (child.GetEmpire() == empire) return "member";
+            if (child.GetTakenAllianceEmpire() == empire) return "tributary";
         }
-        if (CommodityMarketSystem.UnionOf(child) == parent) return LM.Get("diplomacy_role_union");
-        return LM.Get("diplomacy_role_subject");
+        if (CommodityMarketSystem.UnionOf(child) == parent) return "union";
+        return "subject";
+    }
+
+    public static string RoleOf(Kingdom child, Kingdom parent)
+    {
+        string key = RoleKey(child, parent);
+        return key.Length == 0 ? "" : LM.Get("diplomacy_role_" + key);
+    }
+
+    // 直接上级(与 Dependents 相对)：封建宗主、殖民宗主国、所在帝国之主、受贡的帝国之主
+    public static HashSet<Kingdom> Overlords(Kingdom kingdom)
+    {
+        var result = new HashSet<Kingdom>();
+        if (kingdom?.data == null) return result;
+        foreach (Kingdom other in new[]
+                 {
+                     FeudalVassalService.GetOverlord(kingdom), ColonySystem.MetropoleOf(kingdom), kingdom.GetEmpire()?.CoreKingdom,
+                     kingdom.GetTakenAllianceEmpire()?.CoreKingdom
+                 })
+            if (other?.data != null && !other.isRekt() && other != kingdom) result.Add(other);
+        return result;
     }
 
     public static string MarketRole(Kingdom member, Kingdom leader) =>
         member == leader ? LM.Get("diplomacy_role_leader") : RoleOf(member, leader);
 
-    // 宗主一系的树：根在前，附属按 RoleOf 写身份，至多 MaxDepth 层
+    // 宗主一系的树：根在前，附属按 RoleOf 写身份(key 是 RoleKey 的种类，根为 self)，至多 MaxDepth 层
     private const int MaxDepth = 4;
 
-    public static IEnumerable<(Kingdom kingdom, int depth, string role)> Tree(Kingdom root)
+    public static IEnumerable<(Kingdom kingdom, int depth, string role, string key)> Tree(Kingdom root)
     {
         if (root?.data == null) yield break;
         var seen = new HashSet<Kingdom>();
@@ -150,7 +172,8 @@ public static class DiplomacyLedger
         {
             (Kingdom kingdom, int depth, Kingdom parent) = stack.Pop();
             if (!seen.Add(kingdom)) continue;
-            yield return (kingdom, depth, parent == null ? Standing(kingdom) : RoleOf(kingdom, parent));
+            yield return (kingdom, depth, parent == null ? Standing(kingdom) : RoleOf(kingdom, parent),
+                parent == null ? "self" : RoleKey(kingdom, parent));
             if (depth >= MaxDepth) continue;
             List<Kingdom> children = Dependents(kingdom).OrderBy(child => child.cities.Count).ToList();
             foreach (Kingdom child in children) stack.Push((child, depth + 1, kingdom));

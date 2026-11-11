@@ -21,8 +21,11 @@ namespace EmpireCraft.Scripts.UI.Windows;
 //   · 操作：上帝视角的按钮，一行一项，能做的金字可点，不能的灰字写原因(见 DiplomacyActions)；宣战先挑目标；
 //   · 市场：焦点国所在的共同市场——领衔、成员、外贸、奢侈品，各物资的产量需求价格缺口进出口，关税同盟的签与退，各大市场一览；
 //   · 体系图：焦点国所在的宗主一系(附庸、陪臣、殖民地、帝国成员、朝贡国)的树，所在天下的各家占比。
+// 三页带天下简图(用户 2026-11-11 "对了外交界面也可以加这个缩略图模式""这样会很清晰"，示意图 Tasks/ui-mockups/diplomacy-map.png，
+// 画法在 DiplomacyWindow.Map.cs)：总览的关系图(关系 / 态度 / 势力三种上色，左栏筛选同图联动，点图进双边页)、
+// 双边的两国位置(点图换对方)、体系图的宗主一系(点图换焦点)。
 // 入口：帝国页的「外交」权能(先点发起国、再点对象国直接进两国的双边页，同一国点两下进总览，见 DiplomacyPower)；国情窗口左栏的「外交」。
-public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
+public partial class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
 {
     private enum Page { Overview, Bilateral, Actions, Market, System }
 
@@ -74,6 +77,7 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
         }
         _pendingFocus = _pendingOther = -1L;
         _pendingMarket = false;
+        RealmMiniMap.Invalidate();
         _filter = Filter.All;
         _search = "";
         _listPage = _historyPage = 0;
@@ -249,6 +253,7 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
             page.AddParagraph(PageWidth, string.Format(LM.Get("diplomacy_worst_line"), Name(worst),
                 OpinionText(DiplomacyLedger.Opinion(_focus, worst))), 7, WideKit.Muted);
 
+        DrawOverviewMap(page);
         if (_rows.Count == 0)
         {
             page.AddEmptyCard(PageWidth, "diplomacy_empty_rows");
@@ -279,10 +284,13 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
         {
             page.AddPageHeader(PageWidth, LM.Get(PageKey(Page.Bilateral)));
             page.AddEmptyCard(PageWidth, "diplomacy_pick_other", LM.Get("diplomacy_pick_other_hint"));
+            // 还没选对方：在关系图上点一国
+            DrawOverviewMap(page);
             return;
         }
         page.AddPageHeader(PageWidth, $"{_focus.GetKingdomName()} ⇄ {_other.GetKingdomName()}",
             LM.Get(_focus.isEnemy(_other) ? "diplomacy_chip_war" : "diplomacy_chip_peace"));
+        DrawPairMap(page);
 
         // 关系与条约
         List<DiplomacyLedger.Tie> ties = DiplomacyLedger.Ties(_focus, _other);
@@ -521,9 +529,10 @@ public class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
     {
         Kingdom root = DiplomacyLedger.TopOf(_focus);
         page.AddPageHeader(PageWidth, LM.Get(PageKey(Page.System)), root == null ? "" : root.GetKingdomName());
+        if (root != null) DrawSystemMap(page, root);
         var tree = page.BeginCard(PageWidth, "diplomacy_tree_title", WideKit.Gold);
         int index = 0;
-        foreach ((Kingdom kingdom, int depth, string role) in DiplomacyLedger.Tree(root))
+        foreach ((Kingdom kingdom, int depth, string role, string _) in DiplomacyLedger.Tree(root))
         {
             Kingdom target = kingdom;
             string indent = depth == 0 ? "" : new string('　', depth - 1) + "└ ";

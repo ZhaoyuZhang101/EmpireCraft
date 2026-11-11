@@ -14,6 +14,7 @@ using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using static EmpireCraft.Scripts.UI.Components.RealmMiniMap;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
@@ -40,8 +41,8 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
     }
 
     private const float Pad = 12f;
-    private const int MaxMapWidth = 592, MaxMapHeight = 300, ListRows = 10, NameList = 8;
-    private const float MapWidth = PageWidth - Pad, MapMaxHeight = 150f, MapSeconds = 20f;
+    private const int ListRows = 10, NameList = 8;
+    private const float MapWidth = PageWidth - Pad, MapMaxHeight = 150f;
     private static long _pendingEmpire = -1L;
     private static string _pendingFaction = "";
     private static TemporaryFactionType _pendingClaim;
@@ -81,7 +82,7 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
         _options = null;
         _selected = -1L;
         _grouping = 0;
-        _map = null;
+        RealmMiniMap.Invalidate();
         Resolve();
         if (_claim == null) return;
         _options = _claim.TargetOptions() ?? new List<ClaimTargetOption>();
@@ -407,93 +408,7 @@ public class ClaimTargetWindow : WideScrollWindow<ClaimTargetWindow>
 
     #region 简化地图
 
-    // 整张图按格取样的快照：每格归哪国(-1 无主陆地、-2 水)、哪座城。打开窗口时取一回，过 MapSeconds 秒再用就重取
-    private sealed class MapData
-    {
-        public MapBox World;
-        public float At;
-        public int Width, Height, Step;
-        public int[] Owner, City;
-        public readonly List<Kingdom> Kingdoms = new();
-        public readonly List<City> Cities = new();
-        public readonly Dictionary<long, int> KingdomIndex = new(), CityIndex = new();
-    }
-
-    private static MapData _map;
-
-    private static MapData Snapshot()
-    {
-        MapBox world = World.world;
-        float now = Time.realtimeSinceStartup;
-        if (_map != null && ReferenceEquals(_map.World, world) && now - _map.At < MapSeconds && now >= _map.At) return _map;
-        int step = Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(MapBox.width / (float)MaxMapWidth, MapBox.height / (float)MaxMapHeight)));
-        var map = new MapData { World = world, At = now, Step = step, Width = Mathf.Max(1, MapBox.width / step), Height = Mathf.Max(1, MapBox.height / step) };
-        map.Owner = new int[map.Width * map.Height];
-        map.City = new int[map.Width * map.Height];
-        // 每块地归哪国、哪座城只判一回(城的地块按城，并进国土的无人区按主人)
-        var zoneOwner = new Dictionary<TileZone, (int kingdom, int city)>();
-        for (int y = 0; y < map.Height; y++)
-        for (int x = 0; x < map.Width; x++)
-        {
-            int at = y * map.Width + x;
-            WorldTile tile = world.GetTile(Mathf.Min(MapBox.width - 1, x * step + step / 2), Mathf.Min(MapBox.height - 1, y * step + step / 2));
-            map.City[at] = -1;
-            if (tile?.Type == null || tile.Type.liquid || tile.zone == null)
-            {
-                map.Owner[at] = -2;
-                continue;
-            }
-            if (!zoneOwner.TryGetValue(tile.zone, out (int kingdom, int city) owner))
-            {
-                City city = tile.zone.city;
-                if (city?.data == null || city.isRekt()) city = null;
-                Kingdom kingdom = city?.kingdom ?? WildernessSystem.OwnerOf(tile.zone);
-                if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) kingdom = null;
-                int kingdomIndex = -1, cityIndex = -1;
-                if (kingdom != null && !map.KingdomIndex.TryGetValue(kingdom.id, out kingdomIndex))
-                {
-                    map.KingdomIndex[kingdom.id] = kingdomIndex = map.Kingdoms.Count;
-                    map.Kingdoms.Add(kingdom);
-                }
-                if (city != null && kingdom != null && !map.CityIndex.TryGetValue(city.id, out cityIndex))
-                {
-                    map.CityIndex[city.id] = cityIndex = map.Cities.Count;
-                    map.Cities.Add(city);
-                }
-                zoneOwner[tile.zone] = owner = (kingdomIndex, cityIndex);
-            }
-            map.Owner[at] = owner.kingdom;
-            map.City[at] = owner.city;
-        }
-        return _map = map;
-    }
-
-    private static readonly Color32 Water = new(28, 38, 44, 255), Wild = new(52, 57, 46, 255), Grey = new(98, 104, 96, 255),
-        OwnGold = new(201, 164, 74, 255), OwnGoldDark = new(184, 145, 58, 255), Dim = new(70, 75, 68, 255),
-        Cyan = new(127, 216, 234, 255), MarkerGrey = new(138, 143, 128, 255), Ink = new(17, 18, 14, 255), White = new(255, 255, 255, 255);
-
-    private static Color32 Mix(Color32 a, Color32 b, float t) => new(
-        (byte)(a.r + (b.r - a.r) * t), (byte)(a.g + (b.g - a.g) * t), (byte)(a.b + (b.b - a.b) * t), 255);
-
-    private static Color32 KingdomColor(Kingdom kingdom)
-    {
-        try
-        {
-            ColorAsset color = kingdom?.getColor();
-            if (color != null)
-            {
-                Color32 main = color.getColorMain32();
-                main.a = 255;
-                return main;
-            }
-        }
-        catch (Exception)
-        {
-            // 国色还没备好：用灰
-        }
-        return Grey;
-    }
-
+    // 地图的快照(每格归哪国、哪座城)、配色、国色都在 RealmMiniMap(外交界面的简图也用它)，这里只管选目标的画法
     private void DrawMap(AutoVertLayoutGroup page, List<ClaimTargetOption> listed)
     {
         MapData map;
