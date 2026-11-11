@@ -79,9 +79,9 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
                 : TerminalHost.LobbyOnline ? LM.Get("terminal_lobby_online")
                 : string.IsNullOrEmpty(TerminalHost.LobbyError) ? LM.Get("terminal_lobby_connecting")
                 : string.Format(LM.Get("terminal_lobby_failed"), TerminalHost.LobbyError);
-            lobby.AddRailRow(width, LM.Get("terminal_lobby_title"), lobbyStatus, TerminalHost.LobbyOnline ? WideKit.Gold : WideKit.Cyan, 0);
             if (joined)
             {
+                lobby.AddRailRow(width, LM.Get("terminal_lobby_title"), lobbyStatus, TerminalHost.LobbyOnline ? WideKit.Gold : WideKit.Cyan, 0);
                 lobby.AddRailRow(width, LM.Get("terminal_room_mode"),
                     LM.Get(TerminalHost.RoomOpen ? "terminal_room_open" : "terminal_room_private"), WideKit.Cyan, 1);
                 lobby.AddRailInput(LM.Get("terminal_room_name"), TerminalHost.RoomName, value =>
@@ -89,14 +89,13 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
                     ModSettingsWindow.SetText("Terminal_Room_Name_Text", value ?? "");
                     Refresh();
                 });
-                if (TerminalHost.LobbyOnline) RailNote(lobby, TerminalHost.LobbyWeb);
             }
-            RailNote(lobby, LM.Get(joined ? "terminal_lobby_hint_on" : "terminal_lobby_hint_off"));
+            // 左栏放不下长说明(用户 2026-11-11 截图"ui超出了")：接入后大厅网址、怎么进都在右边「手机连接」卡里；
+            // 没接入时只留一句话，状态行也不占地方(下面的按钮写着"接入联机大厅")
+            else RailNote(lobby, LM.Get("terminal_lobby_hint_off"));
         }
         var notes = rail.BeginRailCard();
         RailNote(notes, LM.Get(on ? "terminal_hint_on" : "terminal_hint_off"));
-        // 不在同一网络怎么连(用户 2026-11-11 "远程也可以允许"，问答选"先用自备隧道")：模组只管在本机开端口，引出去靠玩家自己的工具
-        if (on) RailNote(rail.BeginRailCard(), LM.Get("terminal_hint_remote"));
 
         rail.AddRailButton("terminal_toggle", LM.Get(on ? "terminal_turn_off" : "terminal_turn_on"), () =>
         {

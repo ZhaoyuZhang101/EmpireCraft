@@ -12455,7 +12455,7 @@
   "terminal_lobby_leave": "退出联机大厅",
   "terminal_room_make_open": "改为公开",
   "terminal_room_make_private": "改为凭配对码",
-  "terminal_lobby_hint_off": "接入后这局游戏会出现在联机大厅的网页上，不在同一个网络的人也能进来。不必引端口、不必动防火墙。",
+  "terminal_lobby_hint_off": "接入后不在同一个网络的人也能从大厅网页进来，不必引端口。",
   "terminal_lobby_hint_on": "把上面的大厅网址发给要来的人。公开的房间有空席位就能进；凭配对码的房间还要另给配对码。",
   "terminal_connect_lobby": "二维码直通联机大厅里的这个房间：扫了就进，不用填配对码，手机在哪个网络都行。配成一部手机后配对码会换，二维码跟着换。",
   "terminal_room_url": "房间地址",
