@@ -354,4 +354,34 @@ public static class TechDriveSystem
     }
 
     #endregion
+
+    #region 强制推进(用户 2026-11-11 "如果有正在推的议题也应该允许玩家强制推进")
+
+    public const float GodStep = 0.25f;
+
+    // 神力推进革新：给本项(或通往它的下一步)加 share 成进度，推满当场研成；finish 时连同缺的前置当场研成
+    public static bool GodAdvance(Empire empire, float share, bool finish)
+    {
+        TechDriveState drive = empire?.data?.tech_drive;
+        string culture = CultureOf(empire);
+        if (drive == null || culture == null) return false;
+        if (finish) TechnologySystem.ForceResearch(culture, drive.tech_id);
+        else
+        {
+            TechNodeConfig step = TechnologySystem.NextStepToward(culture, drive.tech_id);
+            if (step == null) return false;
+            TechnologySystem.AddTechProgressFraction(culture, step.id, share);
+            if (TechnologySystem.GetProgress(culture, step.id) >= TechnologySystem.GetCost(culture, step) - 0.001f)
+                TechnologySystem.ForceResearch(culture, step.id);
+        }
+        if (TechnologySystem.HasTech(culture, drive.tech_id))
+        {
+            if (Sponsor(empire, drive) is FixedFaction winner && CourtSystem.Applies(empire))
+                CourtSystem.AdjustFaction(empire, winner, "capital", 10f);
+            Stop(empire, "done");
+        }
+        return true;
+    }
+
+    #endregion
 }

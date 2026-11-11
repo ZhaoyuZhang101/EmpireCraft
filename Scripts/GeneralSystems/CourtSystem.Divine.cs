@@ -131,4 +131,49 @@ public static partial class CourtSystem
     }
 
     #endregion
+
+    #region 强制推进(用户 2026-11-11 "如果有正在推的议题也应该允许玩家强制推进")
+
+    // 神力推进一步：不等时日，照常结算眼下这一步(上奏→票拟、票拟→廷议、廷议→批红按天平掷、留中→再批)；施行中的加三成进度
+    public static bool GodAdvance(Empire empire)
+    {
+        CourtState state = State(empire);
+        CourtMemorial memorial = state?.memorial;
+        if (memorial == null) return false;
+        TemporaryFaction claim = FindClaim(empire, memorial);
+        FixedFaction proposer = FindFaction(empire, memorial.proposer);
+        if (claim == null || proposer == null) return false;
+        double now = World.world.getCurWorldTime();
+        switch (memorial.stage)
+        {
+            case 0:
+                Draft(empire, state, memorial, claim, proposer, now);
+                return true;
+            case 1:
+                Debate(empire, state, memorial, claim, proposer, now);
+                return true;
+            case 2:
+                Decide(empire, state, memorial, claim, proposer, now, null);
+                return true;
+            case 3:
+                memorial.stage = 2;
+                Decide(empire, state, memorial, claim, proposer, now, null);
+                return true;
+            default:
+                return GodHasten(claim, HastenShare);
+        }
+    }
+
+    public const float HastenShare = 0.3f;
+
+    // 施行中的诉求(朝堂、议会、政党、地方推的都算)：加 share 成进度，推满当场施行
+    public static bool GodHasten(TemporaryFaction claim, float share)
+    {
+        if (claim == null || !claim.IsStarted()) return false;
+        claim.progress = Mathf.Min(claim.progressMax, claim.progress + claim.progressMax * share);
+        if (claim.progress >= claim.progressMax) claim.RunExecute();
+        return true;
+    }
+
+    #endregion
 }

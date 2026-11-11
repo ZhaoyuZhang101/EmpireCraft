@@ -54,7 +54,7 @@ public partial class FactionDetailWindow
     }
 
     // 卡里的小节：左青字，右灰字
-    private static void SubHeading(AutoVertLayoutGroup card, float width, string text, string right = null)
+    private static void SubHeading(AutoVertLayoutGroup card, float width, string text, string right = null, UnityAction action = null)
     {
         float inner = width - Pad;
         var row = card.BeginHoriGroup(new Vector2(inner, 12f), TextAnchor.MiddleLeft, 2, new RectOffset(2, 2, 0, 0));
@@ -62,6 +62,22 @@ public partial class FactionDetailWindow
             .UseFixedFontSize(7, HorizontalWrapMode.Overflow);
         row.AddTextIntoHoriLayout((right ?? "").ColorString(WideKit.Muted), true, TextAnchor.MiddleRight, new Vector2(inner * 0.5f - 8f, 11f))
             .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        if (action != null) UIHelper.MakeClickable(row.gameObject, action);
+    }
+
+    // 清单的小节可收起(用户 2026-11-11 "公共议题和独特议题什么的分类能展开和隐藏吗，不然列表太长了")：点小节标题切换，
+    // 公共议题默认收起；收起时右侧写摘要。返回这一节是否展开
+    private static readonly HashSet<string> _collapsedGroups = new() { "court_public_issues" };
+
+    private bool GroupHeading(AutoVertLayoutGroup card, string key, string text, string openHint, string foldedSummary)
+    {
+        bool open = !_collapsedGroups.Contains(key);
+        SubHeading(card, ContentWidth, (open ? "－ " : "＋ ") + text, open ? openHint : foldedSummary, () =>
+        {
+            if (!_collapsedGroups.Remove(key)) _collapsedGroups.Add(key);
+            ShowClaims();
+        });
+        return open;
     }
 
     private static string Signed(float value) => value >= 0f ? $"+{value:0.#}" : $"{value:0.#}";
@@ -302,6 +318,31 @@ public partial class FactionDetailWindow
         if (empire?.CoreKingdom != null && TechTrackOn(empire))
             card.AddValueRow(ContentWidth, 0, LM.Get("faction_tech_track"), DriveText(empire), empire.data.tech_drive == null ? WideKit.Muted : WideKit.Cyan,
                 labelWidth: label);
+        // 正在推的(奏议、改革、革新)神力可强制推进(用户 2026-11-11 "如果有正在推的议题也应该允许玩家强制推进")
+        var force = new List<(string label, string hex, bool enabled, UnityAction action)>();
+        if (court?.memorial != null)
+        {
+            force.Add((LM.Get("faction_force_memorial"), WideKit.Gold, true, () =>
+            {
+                if (CourtSystem.GodAdvance(empire)) ShowClaims();
+            }));
+            if (court.memorial.stage < 4)
+                force.Add((LM.Get("faction_force_approve"), WideKit.Green, true, () =>
+                {
+                    if (CourtSystem.GodDecide(empire, "approve")) ShowClaims();
+                }));
+        }
+        if (realm?.State?.active_reform != null)
+            force.Add((LM.Get("faction_force_reform"), WideKit.Gold, true, () =>
+            {
+                if (InstitutionSystem.GodAdvanceReform(realm, InstitutionSystem.GodReformStep, false)) ShowClaims();
+            }));
+        if (empire?.data?.tech_drive != null)
+            force.Add((LM.Get("faction_force_tech"), WideKit.Gold, true, () =>
+            {
+                if (TechDriveSystem.GodAdvance(empire, TechDriveSystem.GodStep, false)) ShowClaims();
+            }));
+        if (force.Count > 0) card.AddActionRow(ContentWidth - Pad, force.ToArray());
     }
 
     // 清单：独特议题、公共议题两节；每行 状态 · 议程分 · 准奏率(议会制为表决能否通过)，点一行在下面展开
@@ -317,7 +358,9 @@ public partial class FactionDetailWindow
         {
             var group = entries.Where(entry => CourtIssues.IsPublic(_faction, entry.claim.type) == isPublic).ToList();
             if (group.Count == 0) continue;
-            SubHeading(card, ContentWidth, string.Format(LM.Get("faction_claims_group"), LM.Get(key), group.Count));
+            int ready = group.Count(entry => entry.claim.Active && !entry.claim.IsStarted() && entry.claim.CountDown <= 0 && entry.view.CanPropose);
+            if (!GroupHeading(card, key, string.Format(LM.Get("faction_claims_group"), LM.Get(key), group.Count), "",
+                    string.Format(LM.Get("faction_group_folded_claims"), ready))) continue;
             for (int i = 0; i < group.Count; i++)
             {
                 (TemporaryFaction claim, ClaimAgendaView view) = group[i];
@@ -618,8 +661,32 @@ public partial class FactionDetailWindow
                 _faction.TemporaryFactionTypesRecord?.Remove(claim.type);
                 ShowClaims();
             }));
-        if (blocked != null && !claim.IsStarted())
+        if (blocked != null && !claim.IsStarted() && !IsCurrent(empire != null && CourtSystem.Applies(empire) ? CourtSystem.State(empire)?.memorial : null, claim))
             card.AddParagraph(width, string.Format(LM.Get("faction_claim_cannot_propose"), LM.Has(blocked) ? LM.Get(blocked) : blocked), 6, WideKit.Muted);
+        // 正在推的这一条：神力强制推进
+        CourtMemorial live = empire != null && CourtSystem.Applies(empire) ? CourtSystem.State(empire)?.memorial : null;
+        if (IsCurrent(live, claim) && live.stage < 4)
+            card.AddActionRow(width - Pad,
+                (LM.Get("faction_force_step"), WideKit.Gold, true, () =>
+                {
+                    if (CourtSystem.GodAdvance(empire)) ShowClaims();
+                }),
+                (LM.Get("faction_force_approve"), WideKit.Green, true, () =>
+                {
+                    if (CourtSystem.GodDecide(empire, "approve")) ShowClaims();
+                }));
+        else if (claim.IsStarted())
+            card.AddActionRow(width - Pad,
+                (LM.Get("faction_force_hasten"), WideKit.Gold, true, () =>
+                {
+                    CourtSystem.GodHasten(claim, CourtSystem.HastenShare);
+                    ShowClaims();
+                }),
+                (LM.Get("faction_force_finish"), WideKit.Green, true, () =>
+                {
+                    CourtSystem.GodHasten(claim, 1f);
+                    ShowClaims();
+                }));
     }
 
     private static string FactorText(CourtScaleFactor factor)
@@ -740,7 +807,7 @@ public partial class FactionDetailWindow
     private void DrawInstitutionRows(AutoVertLayoutGroup card, InstitutionRealm realm, Dictionary<SocialClass, float> shares, float nameWidth)
     {
         if (realm == null || _faction == null) return;
-        SubHeading(card, ContentWidth, LM.Get("faction_inst_group"), LM.Get("faction_inst_group_hint"));
+        if (!GroupHeading(card, "inst", LM.Get("faction_inst_group"), LM.Get("faction_inst_group_hint"), LM.Get("faction_group_folded"))) return;
         string culture = realm.Culture;
         for (int i = 0; i < 2; i++)
         {
@@ -890,6 +957,19 @@ public partial class FactionDetailWindow
                 if (started) ShowClaims();
             }),
             (LM.Get("faction_inst_change_lean"), WideKit.Cyan, true, () => ShowInstitutionStance()));
+        InstitutionReformState activeReform = realm.State?.active_reform;
+        if (activeReform != null && activeReform.node_id == node.id && activeReform.revert == revert)
+            actions.AddActionRow(ContentWidth - Pad,
+                (LM.Get("faction_force_progress"), WideKit.Gold, true, () =>
+                {
+                    InstitutionSystem.GodAdvanceReform(realm, InstitutionSystem.GodReformStep, false);
+                    ShowClaims();
+                }),
+                (LM.Get(revert ? "faction_force_revert_finish" : "faction_force_reform_finish"), WideKit.Green, true, () =>
+                {
+                    InstitutionSystem.GodAdvanceReform(realm, 0f, true);
+                    ShowClaims();
+                }));
         if (revert) actions.AddParagraph(ContentWidth, LM.Get("faction_inst_revert_warning"), 6, WideKit.Orange);
     }
 
@@ -952,7 +1032,7 @@ public partial class FactionDetailWindow
     private void DrawTechRow(AutoVertLayoutGroup card, Empire empire, float nameWidth)
     {
         if (empire?.CoreKingdom == null || _faction == null || !TechTrackOn(empire)) return;
-        SubHeading(card, ContentWidth, LM.Get("faction_tech_group"), LM.Get("faction_tech_group_hint"));
+        if (!GroupHeading(card, "tech", LM.Get("faction_tech_group"), LM.Get("faction_tech_group_hint"), LM.Get("faction_group_folded"))) return;
         string culture = TechDriveSystem.CultureOf(empire);
         TechNodeConfig tech = TechFor(empire);
         TechDriveSystem.DriveOutlook outlook = tech == null ? null : TechDriveSystem.Outlook(empire, tech.id, _faction);
@@ -1086,6 +1166,18 @@ public partial class FactionDetailWindow
                     if (TechDriveSystem.Start(empire, _faction, tech.id, forced)) ShowClaims();
                 }));
         }
+        if (running)
+            actions.AddActionRow(half - Pad,
+                (LM.Get("faction_force_progress"), WideKit.Gold, true, () =>
+                {
+                    TechDriveSystem.GodAdvance(empire, TechDriveSystem.GodStep, false);
+                    ShowClaims();
+                }),
+                (LM.Get("faction_force_tech_finish"), WideKit.Green, true, () =>
+                {
+                    TechDriveSystem.GodAdvance(empire, 0f, true);
+                    ShowClaims();
+                }));
         actions.AddParagraph(half, string.Format(LM.Get("faction_tech_rules"), TechDriveSystem.MaxYears), 6, WideKit.Muted);
     }
 

@@ -328,4 +328,29 @@ public static partial class InstitutionSystem
     }
 
     #endregion
+
+    #region 强制推进(用户 2026-11-11 "如果有正在推的议题也应该允许玩家强制推进")
+
+    public const float GodReformStep = 25f;
+
+    // 神力推进改革线上眼下这一项(推行或回退)：加 amount 进度；推满或 complete 时当场完成，不等最短年限
+    public static bool GodAdvanceReform(InstitutionRealm realm, float amount, bool complete)
+    {
+        InstitutionEmpireState state = EnsureRealmState(realm);
+        InstitutionReformState reform = state?.active_reform;
+        InstitutionNodeConfig node = reform == null ? null : InstitutionDefinitionRegistry.Get(reform.node_id);
+        if (node == null) return false;
+        reform.progress = Math.Min(100f, reform.progress + Math.Max(0f, amount));
+        reform.stage = InstitutionRules.ResolveStage(reform.progress);
+        if (!complete && reform.progress < 100f) return true;
+        if (reform.revert)
+        {
+            if (IsEnacted(realm.Culture, node.id)) CompleteRevert(realm, node);
+            else state.active_reform = null;
+        }
+        else CompleteReform(realm, node);
+        return true;
+    }
+
+    #endregion
 }
