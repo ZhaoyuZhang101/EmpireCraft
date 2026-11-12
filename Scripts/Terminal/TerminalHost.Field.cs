@@ -28,7 +28,8 @@ namespace EmpireCraft.Scripts.Terminal;
 //     各军的手令照各自的远近走
 public static partial class TerminalHost
 {
-    private const int TerrainMaxWidth = 1024, TerrainMaxHeight = 768, TerrainPart = 120 * 1024, MaxMapCities = 1500, MaxArmies = 160, MaxWrits = 200;
+    // TerrainPart：山川一片多大(RLE 后的字节)。经中转出入境时线路只有十来 KB/s，一片小些才能在中转等得及的时候里送到，取不到也只重取这一片
+    private const int TerrainMaxWidth = 1024, TerrainMaxHeight = 768, TerrainPart = 48 * 1024, MaxMapCities = 1500, MaxArmies = 160, MaxWrits = 200;
     private const float TerrainTick = 0.25f, TerrainSeconds = 120f, LiveArmySeconds = 3f;
     // 地貌里的记号：这一格在迷雾里(颜色号到不了这么大)
     private const byte NoTerrain = 255, KeepTerrain = 254;

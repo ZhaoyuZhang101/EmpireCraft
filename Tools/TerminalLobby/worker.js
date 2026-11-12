@@ -3,7 +3,8 @@
 //   · 网页入口：GET / 是大厅页(lobby.html)，GET /api/rooms 是房间列表，GET /api/join?room= 给公开房间的配对码；
 //   · 房主接入：游戏用 WebSocket 连 /host?room=房间号&key=钥匙，发 HELLO / UPDATE 报房间信息；
 //   · 中转：手机访问 /r/房间号/…，转成文本帧 "REQ\n编号\n方法\n路径\n令牌\n正文" 发给房主，等它回二进制帧
-//     "RES 编号 状态 类型\n" 加正文，再交还手机。
+//     "RES 编号 状态 类型\n" 加正文，再交还手机。房主连上时先发文本帧 "FEATURES\ngzip"：新版游戏就把较大的文字回复先压好，
+//     头一行写 RESZ(正文是 gzip)，这里解开再交还(往手机那一段 Cloudflare 自己会压)；旧版游戏不认 FEATURES，照旧发 RES。
 // 世界在房主的电脑上算，这里不存任何游戏数据。
 //   · Room：一个房间一个实例，握着房主那条连接(可休眠，闲着不计时长)，记着钥匙(别人拿着房间号顶替不了房主)；
 //   · Lobby：全站一个实例，一张房间表(SQLite)，每个地址至多 MAX_PER_IP 间，久不报到的自动撤下。
@@ -25,7 +26,8 @@ const ROOM = /^[0-9a-f]{16}$/, KEY = /^[0-9a-f]{32}$/, TOKEN = /^[0-9a-f]{0,64}$
 const RELAY = /^\/r\/([0-9a-f]{16})(\/.*)?$/;
 // 房主那边不常变的几个文件：每个房间各存一份，省得每个来人都穿一趟
 const STATIC = new Set(["/manifest.json", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/FactionFrame.png", "/FactionFrame_dominate.png"]);
-const MAX_BODY = 4096, REPLY_MS = 8000, MAX_NAME = 24, MAX_ROOMS = 500, MAX_PER_IP = 3;
+// REPLY_MS：等房主回话最多多久(隔着国境、线路慢时一份山川要传好几秒，8 秒常常不够)
+const MAX_BODY = 4096, REPLY_MS = 60000, MAX_NAME = 24, MAX_ROOMS = 500, MAX_PER_IP = 3;
 // 房主每 4 分钟报到一次(见 TerminalHost.Lobby 的 RoomInfoSeconds)；12 分钟没报到的从列表撤下
 const PUT_EVERY_MS = 4 * 60 * 1000, STALE_MS = 12 * 60 * 1000, LIST_CACHE_SECONDS = 5;
 
@@ -160,6 +162,12 @@ export class Room {
     }
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]);
+    // 告诉房主这里认得压过的回复(见文件头)
+    try {
+      pair[1].send("FEATURES\ngzip");
+    } catch (error) {
+      // 发不出去：房主照旧发不压的
+    }
     this.cache.clear();
     this.info = undefined;
     this.listed = "";
@@ -211,12 +219,21 @@ export class Room {
     const bytes = new Uint8Array(message), cut = bytes.indexOf(10);
     if (cut < 0) return;
     const parts = new TextDecoder().decode(bytes.subarray(0, cut)).split(" ");
-    if (parts[0] !== "RES" || parts.length < 3) return;
+    if ((parts[0] !== "RES" && parts[0] !== "RESZ") || parts.length < 3) return;
     const waiting = this.pending.get(parts[1]);
     if (!waiting) return;
     this.pending.delete(parts[1]);
     clearTimeout(waiting.timer);
-    waiting.resolve({ status: parseInt(parts[2], 10) || 500, type: parts.slice(3).join(" ") || "text/plain", body: bytes.slice(cut + 1) });
+    let body = bytes.slice(cut + 1);
+    if (parts[0] === "RESZ") {
+      try {
+        body = new Uint8Array(await new Response(new Blob([body]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+      } catch (error) {
+        waiting.resolve({ status: 502, type: "application/json; charset=utf-8", body: new TextEncoder().encode('{"error":"bad_reply"}') });
+        return;
+      }
+    }
+    waiting.resolve({ status: parseInt(parts[2], 10) || 500, type: parts.slice(3).join(" ") || "text/plain", body });
   }
 
   // 房间信息：记下；列表上看得到的几项变了、或隔了一阵，就报给大厅(配对码不进列表)

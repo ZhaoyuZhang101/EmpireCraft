@@ -7,6 +7,8 @@
   · 网页入口：GET / 是大厅页(同目录的 lobby.html)，GET /api/rooms 是房间列表；
   · 房主接入：游戏用 WebSocket 连 /host?room=房间号&key=钥匙，发 HELLO / UPDATE 报房间信息；
   · 中转：手机访问 /r/房间号/…，原样转给房主那条连接(文本帧 REQ)，等它回(二进制帧 RES)再交还手机。
+    房主连上时这里先发一个文本帧 "FEATURES\ngzip"：新版游戏见了就把较大的文字回复先压好，头一行写 RESZ(正文是 gzip)；
+    手机收得了 gzip 就原样转过去(带 Content-Encoding)，收不了就在这里解开。旧版游戏不认 FEATURES，照旧发 RES。
 世界在房主的电脑上算，这里不存任何游戏数据；只记"房间号 → 钥匙"(lobby_keys.json)，免得别人拿着房间号顶替房主。
 协议与游戏里的 Scripts/Terminal/TerminalRelay.cs 对应；Cloudflare 上的 worker.js 是同一套协议的另一种实现。
 """
@@ -28,7 +30,8 @@ RELAY = re.compile(r'^/r/([0-9a-f]{16})(/.*)?$')
 GUID = b'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 
 MAX_HEAD, MAX_BODY, MAX_FRAME = 8192, 4096, 1024 * 1024
-IDLE_SECONDS, HOST_SILENT_SECONDS, REPLY_SECONDS = 20, 90, 8
+# REPLY_SECONDS：等房主回话最多多久。房主与这台服务器隔着国境时一份山川要传好几秒(2026-11-13 实测出入境十来 KB/s)，8 秒常常不够
+IDLE_SECONDS, HOST_SILENT_SECONDS, REPLY_SECONDS = 20, 90, 60
 MAX_ROOMS, MAX_ROOMS_PER_IP, MAX_NAME = 500, 3, 24
 RATE_PER_SECOND, RATE_BURST = 30.0, 90.0
 KEY_KEEP_SECONDS = 60 * 86400
@@ -166,7 +169,8 @@ STATUS = {200: 'OK', 302: 'Found', 400: 'Bad Request', 401: 'Unauthorized', 403:
 async def write_response(writer, status, content_type, body, request_headers, keep, extra):
     headers = {'Content-Type': content_type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'}
     headers.update(extra or {})
-    if len(body) > 1024 and 'gzip' in request_headers.get('accept-encoding', '') and content_type.startswith(COMPRESSIBLE):
+    if 'Content-Encoding' not in headers and len(body) > 1024 and 'gzip' in request_headers.get('accept-encoding', '') \
+            and content_type.startswith(COMPRESSIBLE):
         body = gzip.compress(body, 5)
         headers['Content-Encoding'] = 'gzip'
         headers['Vary'] = 'Accept-Encoding'
@@ -216,15 +220,25 @@ async def route(method, path, query, headers, body, address):
     if not room:
         return error(503, 'host_offline')
     token = headers.get('x-terminal-token', '')
-    return await relay(room, method, match.group(2), token if TOKEN.match(token) else '', body)
+    gzip_ok = 'gzip' in headers.get('accept-encoding', '')
+    return await relay(room, method, match.group(2), token if TOKEN.match(token) else '', body, gzip_ok)
 
 
-async def relay(room, method, path, token, body):
+# 房主回的正文压过(RESZ)：手机收得了就原样给它，收不了就在这里解开
+def unpack(status, content_type, payload, packed, gzip_ok, extra):
+    if packed and gzip_ok:
+        extra = dict(extra, **{'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding'})
+    elif packed:
+        payload = gzip.decompress(payload)
+    return status, content_type, payload, extra
+
+
+async def relay(room, method, path, token, body, gzip_ok=True):
     path = path.replace('\r', '').replace('\n', '')[:200]
     cacheable = method == 'GET' and path in STATIC
     if cacheable and path in room.cache:
-        status, content_type, payload = room.cache[path]
-        return status, content_type, payload, {'Cache-Control': 'public, max-age=3600'}
+        status, content_type, payload, packed = room.cache[path]
+        return unpack(status, content_type, payload, packed, gzip_ok, {'Cache-Control': 'public, max-age=3600'})
     room.seq += 1
     request_id = str(room.seq)
     future = asyncio.get_event_loop().create_future()
@@ -232,7 +246,7 @@ async def relay(room, method, path, token, body):
     try:
         text = '\n'.join(('REQ', request_id, method, path, token, body.decode('utf-8', 'replace')))
         await send_frame(room, 0x1, text.encode('utf-8'))
-        status, content_type, payload = await asyncio.wait_for(future, REPLY_SECONDS)
+        status, content_type, payload, packed = await asyncio.wait_for(future, REPLY_SECONDS)
     except asyncio.TimeoutError:
         return error(504, 'host_timeout')
     except (ConnectionError, OSError):
@@ -240,9 +254,9 @@ async def relay(room, method, path, token, body):
     finally:
         room.pending.pop(request_id, None)
     if cacheable and status == 200:
-        room.cache[path] = (status, content_type, payload)
-        return status, content_type, payload, {'Cache-Control': 'public, max-age=3600'}
-    return status, content_type, payload, {}
+        room.cache[path] = (status, content_type, payload, packed)
+        return unpack(status, content_type, payload, packed, gzip_ok, {'Cache-Control': 'public, max-age=3600'})
+    return unpack(status, content_type, payload, packed, gzip_ok, {})
 
 
 # ───────── WebSocket(房主) ─────────
@@ -338,6 +352,8 @@ async def host_session(reader, writer, headers, query, address):
         except (ConnectionError, OSError):
             pass
     log('room up  ', room_id, address)
+    # 告诉房主这里认得压过的回复(见文件头)
+    await send_frame(room, 0x1, b'FEATURES\ngzip')
     message, kind = b'', 0
     try:
         while True:
@@ -366,10 +382,10 @@ async def host_session(reader, writer, headers, query, address):
             elif kind == 0x2:
                 line, newline, body = message.partition(b'\n')
                 parts = line.decode('latin-1').split(' ', 3)
-                if newline and len(parts) >= 3 and parts[0] == 'RES' and parts[2].isdigit():
+                if newline and len(parts) >= 3 and parts[0] in ('RES', 'RESZ') and parts[2].isdigit():
                     future = room.pending.get(parts[1])
                     if future and not future.done():
-                        future.set_result((int(parts[2]), parts[3] if len(parts) > 3 else 'text/plain', body))
+                        future.set_result((int(parts[2]), parts[3] if len(parts) > 3 else 'text/plain', body, parts[0] == 'RESZ'))
             message = b''
     except (asyncio.IncompleteReadError, asyncio.TimeoutError, ConnectionError, OSError, ValueError):
         pass

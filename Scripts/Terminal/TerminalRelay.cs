@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -14,6 +15,9 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 连接是 WebSocket(ws:// 或 wss://)，只用 System.dll 里的套接字和 SslStream 自己读写帧，不引别的库(同 TerminalServer)；
 //   · 连上先发 HELLO(房间的几行信息，见 TerminalHost.Lobby)，信息变了再发 UPDATE；
 //   · 服务器发来文本帧 "REQ\n编号\n方法\n路径\n令牌\n正文"，回一个二进制帧 "RES 编号 状态 类型\n" 后跟正文；
+//   · 服务器连上后若发来文本帧 "FEATURES\n…gzip…"，就是说它认得压过的回复：较大的文字回复(网页、国势、疆域、山川)先 gzip，
+//     头一行改成 "RESZ 编号 状态 类型\n"(用户 2026-11-13 经国内中转出入境，一份山川 8 秒传不完、图一直黑着)；
+//     旧的服务器不发 FEATURES，照旧不压；
 //   · 每 PingSeconds 秒发一次心跳，DeadSeconds 秒没听到任何动静就断开重连；断了按 2、4、8……至多 30 秒重试；
 //     被服务器回绝的(钥匙不对、这个地址开的房间太多、大厅满了)隔 RefusedSeconds 秒再试，免得白耗大厅的额度。
 // 这个文件不碰游戏和 Unity：Handler 在线程池里调，只许读主线程备好的字符串、往队列里放命令(同 TerminalServer.Handler)
@@ -23,8 +27,9 @@ public sealed class TerminalRelay
     // 连上时要报的房间信息(各行 键=值)
     public Func<string> Hello;
 
-    private const int ConnectMs = 10000, PingSeconds = 25, DeadSeconds = 70, MaxFrame = 65536, MaxReply = 900 * 1024, MaxBackoff = 30,
-        RefusedSeconds = 300;
+    // SendMs：连上以后一帧最多写这么久(线路慢时一份大回复要写好一阵，按连接时的 10 秒算会被当成断线)；PackFrom：多大的回复才压
+    private const int ConnectMs = 10000, SendMs = 60000, PingSeconds = 25, DeadSeconds = 70, MaxFrame = 65536, MaxReply = 900 * 1024, MaxBackoff = 30,
+        RefusedSeconds = 300, PackFrom = 1024;
     private readonly object _write = new();
     private Thread _thread, _pinger;
     private volatile bool _running;
@@ -33,6 +38,8 @@ public sealed class TerminalRelay
     private long _heardTicks;
     // 这一回是被服务器回绝的(不是网络断了)
     private volatile bool _refused;
+    // 这一回连上的服务器认得压过的回复(它发来过 FEATURES gzip)
+    private volatile bool _gzip;
     private Uri _uri;
 
     // off 没开、connecting 正在连、online 连上了、retry 断了等着重连
@@ -145,6 +152,7 @@ public sealed class TerminalRelay
         }
         _client = client;
         _stream = stream;
+        _gzip = false;
 
         var nonce = new byte[16];
         using (var random = new RNGCryptoServiceProvider()) random.GetBytes(nonce);
@@ -167,6 +175,7 @@ public sealed class TerminalRelay
         }
         // 往后读不设超时(SslStream 读到一半超时会坏掉)，靠心跳那条线程看多久没动静
         client.ReceiveTimeout = 0;
+        client.SendTimeout = SendMs;
         Interlocked.Exchange(ref _heardTicks, DateTime.UtcNow.Ticks);
     }
 
@@ -242,7 +251,8 @@ public sealed class TerminalRelay
             if (kind == 0x1)
             {
                 string text = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
-                ThreadPool.QueueUserWorkItem(_ => Answer(text));
+                if (text.StartsWith("FEATURES\n", StringComparison.Ordinal)) _gzip = text.IndexOf("gzip", StringComparison.Ordinal) > 0;
+                else ThreadPool.QueueUserWorkItem(_ => Answer(text));
             }
             message.SetLength(0);
         }
@@ -278,12 +288,23 @@ public sealed class TerminalRelay
             reply = TerminalServer.Reply.Error(500, "failed");
         }
         byte[] body = reply.Body ?? Array.Empty<byte>();
+        bool packed = false;
+        if (_gzip && body.Length > PackFrom && Packable(reply.Type))
+        {
+            byte[] zipped = Gzip(body);
+            if (zipped != null && zipped.Length < body.Length)
+            {
+                body = zipped;
+                packed = true;
+            }
+        }
         if (body.Length > MaxReply)
         {
             reply = TerminalServer.Reply.Error(500, "too_large");
             body = reply.Body;
+            packed = false;
         }
-        byte[] head = Encoding.ASCII.GetBytes("RES " + id + " " + reply.Status + " " + (reply.Type ?? "text/plain") + "\n");
+        byte[] head = Encoding.ASCII.GetBytes((packed ? "RESZ " : "RES ") + id + " " + reply.Status + " " + (reply.Type ?? "text/plain") + "\n");
         var frame = new byte[head.Length + body.Length];
         Buffer.BlockCopy(head, 0, frame, 0, head.Length);
         Buffer.BlockCopy(body, 0, frame, head.Length, body.Length);
@@ -294,6 +315,29 @@ public sealed class TerminalRelay
         catch
         {
             Close();
+        }
+    }
+
+    // 文字的才压(网页、JSON)；图片本来就压过，再压白费工夫
+    private static bool Packable(string type)
+    {
+        if (string.IsNullOrEmpty(type)) return false;
+        return type.StartsWith("text/", StringComparison.OrdinalIgnoreCase) || type.IndexOf("json", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               type.IndexOf("javascript", StringComparison.OrdinalIgnoreCase) >= 0 || type.IndexOf("svg", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    // 压不成(运行库里缺了压缩用的本机库之类)就回 null，照原样发
+    private static byte[] Gzip(byte[] data)
+    {
+        try
+        {
+            using var output = new MemoryStream(data.Length / 3 + 64);
+            using (var zip = new GZipStream(output, CompressionMode.Compress, true)) zip.Write(data, 0, data.Length);
+            return output.ToArray();
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
