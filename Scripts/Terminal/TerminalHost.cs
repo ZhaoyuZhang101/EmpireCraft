@@ -396,6 +396,7 @@ public static partial class TerminalHost
         {
             seat.Vacate("none");
             seat.FormerRuler = seat.FormerRealm = "";
+            ForgetLegacy(seat);
             seat.StateJson = null;
         }
         RulerPacts.Clear();
@@ -695,6 +696,8 @@ public static partial class TerminalHost
             seat.Realm = actor.kingdom;
             seat.FormerRuler = actor.getName();
             seat.FormerRealm = NameOf(seat.Realm);
+            // 身后可以接着领谁(见 TerminalHost.Succession)：在位时记下子孙、国、都城
+            RememberLegacy(seat);
             return;
         }
         // 驾崩、失位、亡国：席位不撤，等着再挑一位(用户："死后终端也不结束，可以再选地图上存活的任意君主")
@@ -950,6 +953,8 @@ public static partial class TerminalHost
                     ["empire"] = info.Empire, ["look"] = Look(World.world.units.get(info.Id))
                 });
             state["rulers"] = rulers;
+            // 身后可以接着领的君主：即位的子孙、原国新君、占着故都的、受天命的(见 TerminalHost.Succession)
+            state["next"] = LegacyJson(seat);
             return state;
         }
         Kingdom realm = seat.Realm;
