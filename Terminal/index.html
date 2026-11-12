@@ -2148,7 +2148,7 @@ function drawBorders(ctx,x,y,w,h,k,dpr){
 // "地形就不用像素了, 就可以直接用颜色和高低起伏来表达"：底图交给显卡画——
 //   · 地貌：游戏给每个颜色号带上种类和高低(见 TerminalHost.Field 的 TerrainKind/TerrainElev)，这里照种类上色(林、田、荒漠、雪各有纹理)、
 //     照高低算出起伏(成片的山越往里越高，再抹平)打光，山抬起来，像斜着看过去；海按深浅上色。海岸、林缘、各色之间都是平滑过渡，不照格子；
-//   · 国色、界线：每块地的归属做成一张小图，显卡照它现算国色和界线(四个相邻地块按远近合成，转角是圆的)，粗细按屏幕上的点算，放多大都一样；
+//   · 国色、界线：每块地的归属做成一张小图，显卡照它现算国色和界线(同游戏里的平滑国界：周围 3×3 块地按二次 B 样条加权、再加一层低频噪声)，粗细按屏幕上的点算，放多大都一样；
 //   · 城、国名、军队、行军方向仍画在上面那张画布上：只有山抬起来，城和军都不在山上，点选照旧；
 //   · 拖动、捏合的时候先按低一档的清晰度画，停手再画清楚的。手机不支持 WebGL 或出了错，退回原来的平面画法；图右边「立体」可关(记在这部手机上)
 var G3={on:store("ec_3d")!=="0",bad:false,gl:null,last:0,tx:[],tilt:1.8};
@@ -2194,23 +2194,34 @@ var G3FS=["precision highp float;",
   " col*=1.-tr*(.18+.38*clamp(.5+(tf.x+tf.y)*1.8,0.,1.));",
   " float sn=max(C.a,smoothstep(.95,1.25,h+(n1.x-.5)*.3));",
   " col=mix(col,vec3(.93,.95,.97),sn*.9);",
-  // 归属：四个相邻地块按远近合成(水、迷雾不算)，s 是和最近那块同属的份量，界线在 s = .5 处
-  " vec2 ob=p-.5,i0=floor(ob),f=ob-i0;vec4 q1[4],q2[4],q3[4];float w[4];vec2 g[4];",
-  " float best=-1.,vis=0.;vec4 m1=vec4(0.),m2=m1,m3=m1;",
-  " for(int k=0;k<4;k++){vec2 o=vec2(mod(float(k),2.),floor(float(k)*.5)),uv=(i0+o+.5)/uZ,wv=mix(1.-f,f,o);",
-  "  q1[k]=texture2D(uO1,uv);q2[k]=texture2D(uO2,uv);q3[k]=texture2D(uO3,uv);w[k]=wv.x*wv.y;g[k]=(o*2.-1.)*wv.yx;",
-  "  float F=fl(q1[k]);vis+=w[k]*bit(F,16.);if(bit(F,1.)>.5&&w[k]>best){best=w[k];m1=q1[k];m2=q2[k];m3=q3[k];}}",
-  " float D=0.,alt=-1.,insM=bit(fl(m1),8.);vec2 gD=vec2(0.);vec4 N=vec4(0.),GX=N,GY=N,a1=m1;",
-  " for(int k=0;k<4;k++){float F=fl(q1[k]);if(bit(F,1.)>.5){",
-  "  vec4 e=vec4(step(abs(bit(F,8.)-insM),.5),eq(vec3(q2[k].rg,0.),vec3(m2.rg,0.)),eq(vec3(q2[k].ba,0.),vec3(m2.ba,0.)),eq(q3[k].rgb,m3.rgb));",
-  "  D+=w[k];gD+=g[k];N+=w[k]*e;GX+=g[k].x*e;GY+=g[k].y*e;if(e.w<.5&&w[k]>alt){alt=w[k];a1=q1[k];}}}",
-  " vec4 s=vec4(1.),dd=vec4(1e4);",
-  " if(D>0.){s=N/D;vec4 sx=(GX*D-N*gD.x)/(D*D),sy=(GY*D-N*gD.y)/(D*D);",
-  "  dd=mix(abs(s-.5)*uK/max(sqrt(sx*sx+sy*sy),vec4(1e-4)),vec4(1e4),step(.999,s));}",
-  " vec4 own=s.w<.5?a1:m1;float Fo=fl(own),ae=clamp(.8/cp,.02,.5),la=smoothstep(.5-ae,.5+ae,land);",
-  // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠界线的一圈深一些；无主之地压暗
-  " if(best>=0.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),m=bit(Fo,4.)>.5?(mod(floor((p.x+p.y)/P),3.)<1.?.5:.15):.55;",
-  "  m+=.16*smoothstep(10.*uPx,0.,min(dd.y,dd.z));col=mix(col,own.rgb,m*(1.-rk*.3));}",
+  // 归属(照游戏里的平滑国界 SmoothBorders.SmoothedOwnerAt)：周围 3×3 块地按二次 B 样条加权，同一家(叶，或展开到城时的城)的权相加，
+  // 各家再加一层低频噪声(幅度 .28、噪声一格 6 格地)，最大的那家就是这里的主人；水、迷雾不参与(国土贴着海岸走)。
+  // 界线在头两家打平处：两家之差除以它变化的快慢就是离界线几个点，粗细按屏幕上的点算；哪一级的界看这两家在哪一级上不同
+  " vec2 zc=floor(p),t=p-zc-.5;",
+  " vec3 wx=vec3(.5*(.5-t.x)*(.5-t.x),.75-t.x*t.x,.5*(.5+t.x)*(.5+t.x)),wy=vec3(.5*(.5-t.y)*(.5-t.y),.75-t.y*t.y,.5*(.5+t.y)*(.5+t.y));",
+  " vec3 dx=vec3(t.x-.5,-2.*t.x,.5+t.x),dy=vec3(t.y-.5,-2.*t.y,.5+t.y);",
+  " vec4 Q[9];float W[9];vec2 G[9];float vis=0.;",
+  " for(int j=0;j<3;j++)for(int i=0;i<3;i++){Q[j*3+i]=texture2D(uO3,(zc+vec2(float(i)-1.,float(j)-1.)+.5)/uZ);",
+  "  W[j*3+i]=wx[i]*wy[j];G[j*3+i]=vec2(dx[i]*wy[j],wx[i]*dy[j]);vis+=W[j*3+i]*bit(fl(Q[j*3+i]),16.);}",
+  " float s1=-9.,s2=-9.,ka=0.,kb=0.;vec2 g1=vec2(0.),g2=g1;vec4 oa=vec4(0.),ob=oa;",
+  " for(int k=0;k<9;k++){",
+  "  if(bit(fl(Q[k]),1.)<.5)continue;",
+  "  float dup=0.;for(int m=0;m<9;m++){if(m<k&&bit(fl(Q[m]),1.)>.5&&eq(Q[m].rgb,Q[k].rgb)>.5)dup=1.;}",
+  "  if(dup>.5)continue;",
+  "  float S=0.;vec2 SG=vec2(0.);",
+  "  for(int m=0;m<9;m++){if(bit(fl(Q[m]),1.)>.5&&eq(Q[m].rgb,Q[k].rgb)>.5){S+=W[m];SG+=G[m];}}",
+  "  vec3 nz=nd(p*1.3333+vec2(dot(Q[k].rgb,vec3(311.7,173.3,97.1)),dot(Q[k].rgb,vec3(127.1,269.5,183.3)))*7.);",
+  "  S+=.28*(nz.x-.5);SG+=.3733*nz.yz;",
+  "  if(S>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=S;g1=SG;oa=Q[k];ka=float(k);}else if(S>s2){s2=S;g2=SG;ob=Q[k];kb=float(k);}}",
+  " float dl=1e4,lv=4.,Fo=fl(oa);vec4 own=vec4(0.);",
+  " if(s1>-9.){vec2 ua=(zc+vec2(mod(ka,3.)-1.,floor(ka/3.)-1.)+.5)/uZ;own=texture2D(uO1,ua);",
+  "  if(s2>-9.){vec2 ub=(zc+vec2(mod(kb,3.)-1.,floor(kb/3.)-1.)+.5)/uZ;vec4 pa=texture2D(uO2,ua),pb=texture2D(uO2,ub);",
+  "   dl=(s1-s2)*uK/max(length(g1-g2),1e-4);",
+  "   lv=abs(bit(Fo,8.)-bit(fl(ob),8.))>.5?0.:eq(vec3(pa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(pa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.;}}",
+  " float ae=clamp(.8/cp,.02,.5),la=smoothstep(.5-ae,.5+ae,land);",
+  // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠各家之间界线的一圈深一些；无主之地压暗
+  " if(s1>-9.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),m=bit(Fo,4.)>.5?(mod(floor((p.x+p.y)/P),3.)<1.?.5:.15):.55;",
+  "  if(lv<2.5)m+=.16*smoothstep(10.*uPx,0.,dl);col=mix(col,own.rgb,m*(1.-rk*.3));}",
   "  else col=mix(col,vec3(dot(col,vec3(.3,.59,.11))),.35)*.72;}",
   // 打光：起伏的法线加上细纹，光从西北来
   " vec3 nr=vec3(B.rg*2.-1.,0.);nr.z=sqrt(max(.05,1.-dot(nr.xy,nr.xy)));",
@@ -2224,8 +2235,8 @@ var G3FS=["precision highp float;",
   " col=mix(wcol,col,la);",
   " col*=1.-.3*smoothstep(1.3*uPx,0.,abs(land-.5)*cp*1.4)*clamp(cp/4.-.5,0.,1.);",
   // 界线：城界最浅、一家之内细线、各家之间深线、本朝疆界金线
-  " vec4 wd=(uFar>.5?vec4(1.5,1.25,1.,1.):vec4(2.5,2.,1.5,1.))*uPx,al=clamp(wd*.5+.5-dd,0.,1.);vec3 dk=vec3(.078,.086,.059);",
-  " col=mix(col,dk,al.w*.38);col=mix(col,dk,al.z*.7);col=mix(col,dk,al.y*.9);col=mix(col,vec3(.953,.765,.29),al.x);",
+  " if(lv<3.5){float wd=(lv<.5?(uFar>.5?1.5:2.5):lv<1.5?(uFar>.5?1.25:2.):lv<2.5?(uFar>.5?1.:1.5):1.)*uPx,al=clamp(wd*.5+.5-dl,0.,1.);",
+  "  col=mix(col,lv<.5?vec3(.953,.765,.29):vec3(.078,.086,.059),al*(lv<.5?1.:lv<1.5?.9:lv<2.5?.7:.38));}",
   // 迷雾
   " col=mix(vec3(.055,.06,.047)+.03*n1.x,col,smoothstep(.15,.85,vis+(n1.x-.5)*.35));",
   " gl_FragColor=vec4(col,1.);}"].join("\n");
@@ -2303,7 +2314,7 @@ function g3Own(gl,sc){
     var o=M.grid[i],la=M.zLeaf[i],r=o<250?M.realms[o]:null,own=la>=0,rgb=own&&M.leafRgb[la]||[0,0,0],j=i*4,z=M.zcity[i];
     a[j]=rgb[0];a[j+1]=rgb[1];a[j+2]=rgb[2];a[j+3]=((o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0))*8;
     var p1=own?M.nodes[la].top:65535,p2=own?M.shown[la]:65535,cl=own&&(M.cityOpen[la]||sc&&r&&r.tier<=1),p3=own?(cl&&z!==NOCITY?8388608+z:la):16777215;
-    b[j]=p1&255;b[j+1]=p1>>8&255;b[j+2]=p2&255;b[j+3]=p2>>8&255;c[j]=p3&255;c[j+1]=p3>>8&255;c[j+2]=p3>>16&255;c[j+3]=255;
+    b[j]=p1&255;b[j+1]=p1>>8&255;b[j+2]=p2&255;b[j+3]=p2>>8&255;c[j]=p3&255;c[j+1]=p3>>8&255;c[j+2]=p3>>16&255;c[j+3]=a[j+3];
   }
   g3Tex(gl,3,M.w,M.h,a,false);g3Tex(gl,4,M.w,M.h,b,false);g3Tex(gl,5,M.w,M.h,c,false);
 }
@@ -2401,6 +2412,155 @@ function loadArmies(){
     if(sel&&!aim)showArmies(armies.armies.filter(function(a){return a.own&&sel.indexOf(a.id)>=0}));
   },function(){});
 }
+// ───────── 国名铭牌贴合国土 ─────────
+// 用户 2026-11-12 "为什么客户端现在拖动地图铭牌会乱动""不会跟随国家""我希望铭牌的逻辑能像模组的一样, 贴合国土"：
+// 照游戏里领土铭牌的排法(TerritoryLabelRenderer.BuildZonePlacement)：取这一家最大的一片连着的地，按地的走向(主轴)前后各偏 30 度、
+// 再加横竖几个角度，在这片地里挑几十个中心逐个试，找装得下的最大一行字(字框各处都要落在这一家的地上)，再按这片地的中线略弯。
+// 位置、角度、字高都按地块算好记在这一家身上(换图层才重排)，拖动、缩放时铭牌跟着国土走，字随远近放大缩小；
+// 字太小不标(本国照标)，大到快盖满屏幕就淡下去
+var LAB_FONT='"Noto Serif CJK SC","Source Han Serif SC","Songti SC","SimSun",serif',LAB_GAP=.12,labCtx=null;
+// 每一家(连同上头各级)有哪些地块：按叶往上数一遍，排成一张表(换图层重排)
+function labZones(){
+  if(map.labFor===map.nodes)return;
+  var nodes=map.nodes,n=nodes.length,zl=map.zLeaf,N=zl.length,cnt=new Int32Array(n+1),i,id;
+  for(i=0;i<N;i++)for(id=zl[i];id>=0;id=nodes[id].parent)cnt[id+1]++;
+  for(i=0;i<n;i++)cnt[i+1]+=cnt[i];
+  var at=cnt.slice(0,n),list=new Int32Array(cnt[n]);
+  for(i=0;i<N;i++)for(id=zl[i];id>=0;id=nodes[id].parent)list[at[id]++]=i;
+  map.labFor=nodes;map.labStart=cnt;map.labList=list;map.labMark=new Int32Array(N);map.labStamp=0;
+}
+// 一行字的宽高比(字高算 1，字间留一点空)，各字的宽
+function labMeasure(name){
+  if(!labCtx)labCtx=document.createElement("canvas").getContext("2d");
+  labCtx.font="600 100px "+LAB_FONT;
+  var ch=name.split(""),ws=ch.map(function(c){return labCtx.measureText(c).width/100}),sum=0,gap=ch.length>1?LAB_GAP:0;
+  ws.forEach(function(v){sum+=v});
+  return{ch:ch,ws:ws,gap:gap,aspect:Math.max(.5,sum+gap*(ch.length-1))};
+}
+// 排一家的铭牌(地块坐标)：中心、角度、半宽半高、弯度。没处放回 null
+function labPlace(o){
+  labZones();
+  var W=map.w,H=map.h,s0=map.labStart[o.id],s1=map.labStart[o.id+1],L=map.labList,mk=map.labMark,i,j,z,x;
+  if(s1<=s0)return null;
+  var own=++map.labStamp,seen=++map.labStamp;
+  for(i=s0;i<s1;i++)mk[L[i]]=own;
+  // 最大的一片(八邻连着的算一片)
+  var cmp=null;
+  for(i=s0;i<s1;i++){
+    z=L[i];if(mk[z]!==own)continue;
+    var part=[z];mk[z]=seen;
+    for(j=0;j<part.length;j++){
+      var c=part[j],cx=c%W,cy=(c-cx)/W;
+      for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){
+        var nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;
+        var nz=ny*W+nx;if(mk[nz]===own){mk[nz]=seen;part.push(nz)}
+      }
+    }
+    if(!cmp||part.length>cmp.length)cmp=part;
+  }
+  var m=cmp.length,PX=new Float64Array(m),PY=new Float64Array(m),mx=0,my=0;
+  for(i=0;i<m;i++){x=cmp[i]%W;PX[i]=x+.5;PY[i]=(cmp[i]-x)/W+.5;mx+=PX[i];my+=PY[i]}
+  mx/=m;my/=m;
+  var xx=0,xy=0,yy=0,near=0,nd=1e18;
+  for(i=0;i<m;i++){var ex=PX[i]-mx,ey=PY[i]-my,d=ex*ex+ey*ey;xx+=ex*ex;xy+=ex*ey;yy+=ey*ey;if(d<nd){nd=d;near=i}}
+  // 候选角度：主轴前后各 30 度(每 10 度一个)，再加横竖；都折成字头朝上的方向
+  var angs=[],pa=.5*Math.atan2(2*xy,xx-yy)*180/Math.PI;
+  function addA(a){while(a>90)a-=180;while(a<=-90)a+=180;for(var q=0;q<angs.length;q++)if(Math.abs(angs[q]-a)<1)return;angs.push(a)}
+  for(var off=-30;off<=30;off+=10)addA(pa+off);
+  addA(0);addA(90);
+  // 候选中心：离重心最近的那块，再匀着挑几十块
+  var cs=[near],cc=Math.min(m,40);
+  for(i=0;i<cc;i++){j=cc===1?0:Math.round(i*(m-1)/(cc-1));if(j!==near)cs.push(j)}
+  function inside(px,py){if(px<0||py<0||px>=W||py>=H)return false;var v=mk[Math.floor(py)*W+Math.floor(px)];return v===own||v===seen}
+  // 字框里的点都落在这一家的地上(粗查五道横线，细查满格)
+  function fits(cx,cy,ax,ay,hw,hh,dense){
+    var sa=Math.max(dense?2:4,Math.ceil(hw*2/.4)),sb=dense?Math.max(2,Math.ceil(hh*2/.4)):4;
+    for(var b=0;b<=sb;b++){var ac=-hh+2*hh*b/sb;for(var a=0;a<=sa;a++){var al=-hw+2*hw*a/sa;if(!inside(cx+ax*al-ay*ac,cy+ay*al+ax*ac))return false}}
+    return true;
+  }
+  var M=labMeasure(o.name),asp=M.aspect,bh=0,bx=0,by=0,ba=0;
+  angs.forEach(function(deg){
+    var r=deg*Math.PI/180,ax=Math.cos(r),ay=Math.sin(r),ra=.5*(Math.abs(ax)+Math.abs(ay)),mina=1e18,maxa=-1e18,minn=1e18,maxn=-1e18;
+    for(var t=0;t<m;t++){var al=PX[t]*ax+PY[t]*ay,an=-PX[t]*ay+PY[t]*ax;
+      if(al-ra<mina)mina=al-ra;if(al+ra>maxa)maxa=al+ra;if(an-ra<minn)minn=an-ra;if(an+ra>maxn)maxn=an+ra}
+    cs.forEach(function(ci){
+      var cx=PX[ci],cy=PY[ci],ca=cx*ax+cy*ay,cn=-cx*ay+cy*ax;
+      var hi=Math.min(Math.min(ca-mina,maxa-ca)/asp,Math.min(cn-minn,maxn-cn)),lo=0;
+      if(hi<=bh)return;
+      for(var it=0;it<7;it++){var mid=(lo+hi)/2;if(fits(cx,cy,ax,ay,mid*asp,mid,false))lo=mid;else hi=mid}
+      if(lo>bh){bh=lo;bx=cx;by=cy;ba=r}
+    });
+  });
+  if(bh<=.05)return null;
+  var ax=Math.cos(ba),ay=Math.sin(ba),hh=bh*.82,hw=hh*asp;
+  for(var tr=0;tr<12&&!fits(bx,by,ax,ay,hw,hh,true);tr++){hw*=.9;hh*=.9}
+  if(!fits(bx,by,ax,ay,hw,hh,true))return null;
+  // 弯度：沿字的方向把这片地切七段，看各段的中线偏离两头连线多少；直的国家字也直，弯的才弯(最多一成)
+  var mina2=1e18,maxa2=-1e18,offs=[0,0,0,0,0,0,0],cnts=[0,0,0,0,0,0,0],curv=0;
+  for(i=0;i<m;i++){var a2=(PX[i]-bx)*ax+(PY[i]-by)*ay;if(a2<mina2)mina2=a2;if(a2>maxa2)maxa2=a2}
+  var span=maxa2-mina2;
+  if(m>=3&&span>.1){
+    for(i=0;i<m;i++){var ddx=PX[i]-bx,ddy=PY[i]-by,sl=Math.min(6,Math.max(0,Math.floor((ddx*ax+ddy*ay-mina2)/span*7)));offs[sl]+=-ddx*ay+ddy*ax;cnts[sl]++}
+    var f0=-1,f1=-1;
+    for(i=0;i<7;i++){if(!cnts[i])continue;offs[i]/=cnts[i];if(f0<0)f0=i;f1=i}
+    if(f0>=0&&f1-f0>=2){
+      var rs=0,ws=0;
+      for(i=f0+1;i<f1;i++){if(!cnts[i])continue;var pr=(i-f0)/(f1-f0),pf=4*pr*(1-pr);rs+=(offs[i]-(offs[f0]+(offs[f1]-offs[f0])*pr))*pf;ws+=pf*pf}
+      if(ws>.01){var lim=Math.min(.1,hh*.45/hw);curv=Math.max(-lim,Math.min(lim,rs/ws/hw))}
+    }
+  }
+  return{x:bx,y:by,a:ba,hw:hw,hh:hh,cv:curv,M:M};
+}
+// 两个斜放的字框压没压着(分离轴)
+function labHit(A,B){
+  var ax=[A.c,A.s,-A.s,A.c,B.c,B.s,-B.s,B.c],dx=B.x-A.x,dy=B.y-A.y;
+  for(var i=0;i<8;i+=2){
+    var ux=ax[i],uy=ax[i+1],ra=A.w*Math.abs(A.c*ux+A.s*uy)+A.h*Math.abs(-A.s*ux+A.c*uy),rb=B.w*Math.abs(B.c*ux+B.s*uy)+B.h*Math.abs(-B.s*ux+B.c*uy);
+    if(Math.abs(dx*ux+dy*uy)>ra+rb+2)return false;
+  }
+  return true;
+}
+// 画一家的铭牌。boxes 是已画的斜字框，placed 是城名用的正框(见 drawMap 的 free)；头一回排要花点工夫，一帧排不完的下一帧再排
+function drawLabel(ctx,o,x,y,k,dpr,cv,boxes,placed,t0){
+  if(o.lab===undefined){
+    if(Date.now()-t0>40){clearTimeout(drawLabel.tm);drawLabel.tm=setTimeout(drawMap,30);return}
+    o.lab=labPlace(o);
+  }
+  // 本国排不下(地太碎)也标：照旧放在这一家的重心，横着写
+  if(!o.lab&&o.home)o.lab={x:o.x+.5,y:o.y+.5,a:0,hw:0,hh:0,cv:0,M:labMeasure(o.name)};
+  var L=o.lab;if(!L)return;
+  var f=2*L.hh*k*.9,small=9*dpr,cap=Math.max(16*dpr,Math.min(cv.width,cv.height)*.22);
+  if(f<small&&!o.home)return;
+  var alpha=o.home?1:Math.min(1,(f-small)/(3*dpr)+.25);
+  f=Math.max(o.home?11*dpr:0,Math.min(f,cap));
+  var M=L.M,hs=M.aspect*f/2,c=Math.cos(L.a),s=Math.sin(L.a),px=(L.x-x)*k,py=(L.y-y)*k;
+  var box={x:px,y:py,c:c,s:s,w:hs,h:f*.55+Math.abs(L.cv)*hs};
+  var R=Math.max(box.w,box.h);
+  if(px<-R||py<-R||px>cv.width+R||py>cv.height+R)return;
+  for(var i=0;i<boxes.length;i++)if(labHit(box,boxes[i])&&!o.home)return;
+  boxes.push(box);
+  var ex=box.w*Math.abs(c)+box.h*Math.abs(s),ey=box.w*Math.abs(s)+box.h*Math.abs(c);
+  placed.push([px-ex,py-ey,ex*2,ey*2]);
+  // 快盖满屏幕的大字淡下去(同游戏里 ScreenCoverageVisibility)
+  var cover=Math.max(ex*2/cv.width,ey*2/cv.height),tc=Math.max(0,Math.min(1,(cover-.7)/.3));
+  alpha*=1-.82*tc*tc*(3-2*tc);
+  var pos=[],at=-hs;
+  for(i=0;i<M.ch.length;i++){
+    var cw=M.ws[i]*f,cx=at+cw/2,u=hs>0?cx/hs:0;
+    pos.push([cx,L.cv*hs*(1-u*u),Math.atan(-2*L.cv*u)]);
+    at+=cw+M.gap*f;
+  }
+  ctx.save();ctx.translate(px,py);ctx.rotate(L.a);ctx.globalAlpha=alpha;
+  ctx.font="600 "+f.toFixed(1)+"px "+LAB_FONT;ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
+  ctx.lineWidth=Math.max(2*dpr,f*.08);ctx.strokeStyle="rgba(14,15,12,.7)";ctx.globalAlpha=alpha*.92;
+  ctx.fillStyle=o.home?"#f3c34a":o.prov?"#ecd98a":o.rum?"#b9b39d":"#e8e2cf";
+  for(var pass=0;pass<2;pass++)for(i=0;i<pos.length;i++){
+    var p=pos[i];ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(p[2]);
+    if(pass)ctx.fillText(M.ch[i],0,0);else ctx.strokeText(M.ch[i],0,0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
 function mapFull(){return $("mapbox").classList.contains("full")}
 function drawMap(){
   if(!map||!mapShown()||$("s-main").hidden)return;
@@ -2451,17 +2611,10 @@ function drawMap(){
   }
   ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
   // 名字：眼下该标的那几家(天下、帝国、国，见 openTree)，本国那一家先标、其余大的在前；地方太小写不下的不标，
-  // 和已标的字压着的也不标(本国的照标)
-  ctx.font="600 "+(12*dpr)+"px sans-serif";
+  // 和已标的字压着的也不标(本国的照标)。铭牌贴合国土、跟着国土走(见 drawLabel)
+  var boxes=[],labT0=Date.now();
   (aim?[]:map.front).map(function(id){return map.nodes[id]}).sort(function(a,b){return(a.home?0:1)-(b.home?0:1)||b.n-a.n}).forEach(function(o){
-    if(!o.name||!o.n)return;
-    var tw=ctx.measureText(o.name).width;
-    if(!o.home&&Math.sqrt(o.n)*k<tw*.6)return;
-    var px=(o.x+.5-x)*k,py=(o.y+.5-y)*k;
-    if(px<0||py<0||px>cv.width||py>cv.height)return;
-    if(!free(px-tw/2,py-8*dpr,tw,16*dpr)&&!o.home)return;
-    ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(o.name,px,py);
-    ctx.fillStyle=o.home?"#f3c34a":o.prov?"#ecd98a":o.rum?"#b9b39d":"#e8e2cf";ctx.fillText(o.name,px,py);
+    if(o.name&&o.n)drawLabel(ctx,o,x,y,k,dpr,cv,boxes,placed,labT0);
   });
   // 城：本国都城一直标着；拉近到一国(王国法理)，它的城都出来；别处的城放得很大才出来；名字不压着别的字。
   // 给军队下令时(用户 2026-11-12 "只要我给军人下命令层级就会自动短暂的显示所有附近能去的城市, 或者直接切到城市层级")
