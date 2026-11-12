@@ -341,7 +341,7 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
     <div id="mapbox">
       <canvas id="map" width="600" height="360"></canvas>
       <div id="map-top"><span></span><button id="map-full" aria-label="fullscreen"><img class="ic" data-ic="c_full" width="20" height="20" alt="" id="full-ic"></button></div>
-      <div id="map-layers"><button data-l="pol"><img class="ic" data-ic="ly_empire" width="20" height="20" alt=""><span data-t="ly_pol"></span></button><button data-l="dj"><img class="ic" data-ic="a_dejure" width="20" height="20" alt=""><span data-t="ly_dj"></span></button><button id="map-army"><img class="ic" data-ic="k_army" width="20" height="20" alt=""><span data-t="ly_army"></span></button><button id="map-legend-go"><img class="ic" data-ic="ly_legend" width="20" height="20" alt=""><span data-t="ly_legend"></span></button></div>
+      <div id="map-layers"><button data-l="pol"><img class="ic" data-ic="ly_empire" width="20" height="20" alt=""><span data-t="ly_pol"></span></button><button data-l="dj"><img class="ic" data-ic="a_dejure" width="20" height="20" alt=""><span data-t="ly_dj"></span></button><button id="map-army"><img class="ic" data-ic="k_army" width="20" height="20" alt=""><span data-t="ly_army"></span></button><button id="map-3d"><img class="ic" data-ic="l_terrain" width="20" height="20" alt=""><span data-t="ly_3d"></span></button><button id="map-legend-go"><img class="ic" data-ic="ly_legend" width="20" height="20" alt=""><span data-t="ly_legend"></span></button></div>
       <div class="zoom" id="map-zoom"><button id="z-in" aria-label="zoom in"><img class="ic" data-ic="c_in" width="20" height="20" alt=""></button><button id="z-out" aria-label="zoom out"><img class="ic" data-ic="c_out" width="20" height="20" alt=""></button><button id="z-reset" aria-label="fit"><img class="ic" data-ic="c_fit" width="20" height="20" alt=""></button></div>
       <div id="map-panel" hidden></div>
     </div>
@@ -419,7 +419,7 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小时 {1} 分",real_m:"{0
 kpi_wars:"战事",kpi_new:"新到",kpi_trust:"奏报",trust0:"可信",trust1:"参差",trust2:"不足信",
 reports:"奏报",no_reports:"尚无奏报送达。",k_major:"急报",k_ledger:"岁计",k_foreign:"外讯",late:"迟 {0} 月",lost:"另有若干奏报未达。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"历 {0} 月方达。",d_prompt:"当月即达。",d_foreign:"得自邻国往来，未必确实。",d_ledger:"此为地方奏销之数，非实查。",
-map_tap:"点军队选中，再点一座城就是下令；点别国办外交。双指放大看山川城池。",map_full:"全屏",map_exit:"退出全屏",m_diplo:"外交",m_cancel:"取消",intel_live:"军情：电报随时可达",intel_at:"军情截至第 {0} 年 {1} 月 · {2} 月一报",intel_old:"这是 {0} 个月前报来的军情，眼下未必还在原处。",army_foreign:"{0}之军",army_about:"约 {0} 人",army_count:"{0} 支",army_foe:"交战之敌",army_mixed:"{0}等 {1} 国之军",army_line:"兵力 {0} / {1} · 组织度 {2}",army_home:"驻地 {0}",task_reserve:"留守",task_march:"开赴边境",task_attack:"进攻",task_defend:"防守",task_retreat:"溃退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"没有手令，听朝廷调度",army_writ:"在途：{0}（还要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一并下令",army_release:"撤销手令",army_group:"{0} 支军",aim_title:"点一座城",aim_note:"本国的城：开过去驻守。交战敌国的城：去打它。",aim_miss:"这里没有可去的城",aim_bad:"{0}既不是本朝之城，也不是交战之敌",ly_army:"军队",order_post:"驻守 {0}",order_strike:"攻打 {0}",order_delay0:"军令靠人马递送，离都城越远越久，一到三个月才到。",order_delay1:"军令走驿路，一两个月送到。",order_delay2:"军令走电报，当月就到。",order_go:"下令",order_sent:"军令已发往 {0}",release_sent:"撤令已发出",g_vassal:"附庸博弈",vk_0:"羁縻之地",vk_1:"世袭封国",vk_2:"封建附庸",vk_3:"朝贡国",vk_4:"接壤小国",vk_5:"起义军",v_title:"改设为行政区",v_amnesty:"招安",v_list_note:"把藩属改设成行政区、招安起义军，都上天平称。点一家看两边的砝码。",v_note:"朝廷的砝码不轻于对方的抗拒才谈得成。不够可以加码，也可以强推。",v_note_rebel:"招安也上天平：砝码够了，起义军罢兵归顺，其地复归朝廷。",v_resist:"对方的抗拒",v_court:"朝廷的砝码",v_extras:"加码",v_cost:"代价",v_cost_note:"改设之费库银 {0}；其余藩属自危，对朝廷的好感下降；新设的行政区十年里不稳。",v_cost_rebel:"招安之费库银 {0}；归顺之地十年里不稳。",v_send:"遣使去谈",v_send_rebel:"遣使招安",v_force:"强推",v_force_note:"强推不看天平：对方不从，举兵相抗，其余藩属更加离心。",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
+map_tap:"点军队选中，再点一座城就是下令；点别国办外交。双指放大看山川城池。",map_full:"全屏",map_exit:"退出全屏",m_diplo:"外交",m_cancel:"取消",intel_live:"军情：电报随时可达",intel_at:"军情截至第 {0} 年 {1} 月 · {2} 月一报",intel_old:"这是 {0} 个月前报来的军情，眼下未必还在原处。",army_foreign:"{0}之军",army_about:"约 {0} 人",army_count:"{0} 支",army_foe:"交战之敌",army_mixed:"{0}等 {1} 国之军",army_line:"兵力 {0} / {1} · 组织度 {2}",army_home:"驻地 {0}",task_reserve:"留守",task_march:"开赴边境",task_attack:"进攻",task_defend:"防守",task_retreat:"溃退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"没有手令，听朝廷调度",army_writ:"在途：{0}（还要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一并下令",army_release:"撤销手令",army_group:"{0} 支军",aim_title:"点一座城",aim_note:"本国的城：开过去驻守。交战敌国的城：去打它。",aim_miss:"这里没有可去的城",aim_bad:"{0}既不是本朝之城，也不是交战之敌",ly_army:"军队",ly_3d:"立体",order_post:"驻守 {0}",order_strike:"攻打 {0}",order_delay0:"军令靠人马递送，离都城越远越久，一到三个月才到。",order_delay1:"军令走驿路，一两个月送到。",order_delay2:"军令走电报，当月就到。",order_go:"下令",order_sent:"军令已发往 {0}",release_sent:"撤令已发出",g_vassal:"附庸博弈",vk_0:"羁縻之地",vk_1:"世袭封国",vk_2:"封建附庸",vk_3:"朝贡国",vk_4:"接壤小国",vk_5:"起义军",v_title:"改设为行政区",v_amnesty:"招安",v_list_note:"把藩属改设成行政区、招安起义军，都上天平称。点一家看两边的砝码。",v_note:"朝廷的砝码不轻于对方的抗拒才谈得成。不够可以加码，也可以强推。",v_note_rebel:"招安也上天平：砝码够了，起义军罢兵归顺，其地复归朝廷。",v_resist:"对方的抗拒",v_court:"朝廷的砝码",v_extras:"加码",v_cost:"代价",v_cost_note:"改设之费库银 {0}；其余藩属自危，对朝廷的好感下降；新设的行政区十年里不稳。",v_cost_rebel:"招安之费库银 {0}；归顺之地十年里不稳。",v_send:"遣使去谈",v_send_rebel:"遣使招安",v_force:"强推",v_force_note:"强推不看天平：对方不从，举兵相抗，其余藩属更加离心。",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
 note0:"眼下只知道接壤的国家。再远的地方，要有商路与航海之术才通消息。",note1:"使节到得了的国家都知道；更远的只有传闻。",note2:"消息即时可达，天下都看得见。",
 lg_own:"本国",lg_prov:"本朝行政区（深线是行政区界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
 officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上下有出入，奏报常迟。",tn2:"数字多有虚报，小事常报不上来。",
@@ -438,7 +438,7 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小時 {1} 分",real_m:"{0
 kpi_wars:"戰事",kpi_new:"新到",kpi_trust:"奏報",trust0:"可信",trust1:"參差",trust2:"不足信",
 reports:"奏報",no_reports:"尚無奏報送達。",k_major:"急報",k_ledger:"歲計",k_foreign:"外訊",late:"遲 {0} 月",lost:"另有若干奏報未達。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"歷 {0} 月方達。",d_prompt:"當月即達。",d_foreign:"得自鄰國往來，未必確實。",d_ledger:"此為地方奏銷之數，非實查。",
-map_tap:"點軍隊選中，再點一座城就是下令；點別國辦外交。雙指放大看山川城池。",map_full:"全螢幕",map_exit:"退出全螢幕",m_diplo:"外交",m_cancel:"取消",intel_live:"軍情：電報隨時可達",intel_at:"軍情截至第 {0} 年 {1} 月 · {2} 月一報",intel_old:"這是 {0} 個月前報來的軍情，眼下未必還在原處。",army_foreign:"{0}之軍",army_about:"約 {0} 人",army_count:"{0} 支",army_foe:"交戰之敵",army_mixed:"{0}等 {1} 國之軍",army_line:"兵力 {0} / {1} · 組織度 {2}",army_home:"駐地 {0}",task_reserve:"留守",task_march:"開赴邊境",task_attack:"進攻",task_defend:"防守",task_retreat:"潰退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"沒有手令，聽朝廷調度",army_writ:"在途：{0}（還要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一併下令",army_release:"撤銷手令",army_group:"{0} 支軍",aim_title:"點一座城",aim_note:"本國的城：開過去駐守。交戰敵國的城：去打它。",aim_miss:"這裡沒有可去的城",aim_bad:"{0}既不是本朝之城，也不是交戰之敵",ly_army:"軍隊",order_post:"駐守 {0}",order_strike:"攻打 {0}",order_delay0:"軍令靠人馬遞送，離都城越遠越久，一到三個月才到。",order_delay1:"軍令走驛路，一兩個月送到。",order_delay2:"軍令走電報，當月就到。",order_go:"下令",order_sent:"軍令已發往 {0}",release_sent:"撤令已發出",g_vassal:"附庸博弈",vk_0:"羈縻之地",vk_1:"世襲封國",vk_2:"封建附庸",vk_3:"朝貢國",vk_4:"接壤小國",vk_5:"起義軍",v_title:"改設為行政區",v_amnesty:"招安",v_list_note:"把藩屬改設成行政區、招安起義軍，都上天平稱。點一家看兩邊的砝碼。",v_note:"朝廷的砝碼不輕於對方的抗拒才談得成。不夠可以加碼，也可以強推。",v_note_rebel:"招安也上天平：砝碼夠了，起義軍罷兵歸順，其地復歸朝廷。",v_resist:"對方的抗拒",v_court:"朝廷的砝碼",v_extras:"加碼",v_cost:"代價",v_cost_note:"改設之費庫銀 {0}；其餘藩屬自危，對朝廷的好感下降；新設的行政區十年裡不穩。",v_cost_rebel:"招安之費庫銀 {0}；歸順之地十年裡不穩。",v_send:"遣使去談",v_send_rebel:"遣使招安",v_force:"強推",v_force_note:"強推不看天平：對方不從，舉兵相抗，其餘藩屬更加離心。",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
+map_tap:"點軍隊選中，再點一座城就是下令；點別國辦外交。雙指放大看山川城池。",map_full:"全螢幕",map_exit:"退出全螢幕",m_diplo:"外交",m_cancel:"取消",intel_live:"軍情：電報隨時可達",intel_at:"軍情截至第 {0} 年 {1} 月 · {2} 月一報",intel_old:"這是 {0} 個月前報來的軍情，眼下未必還在原處。",army_foreign:"{0}之軍",army_about:"約 {0} 人",army_count:"{0} 支",army_foe:"交戰之敵",army_mixed:"{0}等 {1} 國之軍",army_line:"兵力 {0} / {1} · 組織度 {2}",army_home:"駐地 {0}",task_reserve:"留守",task_march:"開赴邊境",task_attack:"進攻",task_defend:"防守",task_retreat:"潰退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"沒有手令，聽朝廷調度",army_writ:"在途：{0}（還要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一併下令",army_release:"撤銷手令",army_group:"{0} 支軍",aim_title:"點一座城",aim_note:"本國的城：開過去駐守。交戰敵國的城：去打它。",aim_miss:"這裡沒有可去的城",aim_bad:"{0}既不是本朝之城，也不是交戰之敵",ly_army:"軍隊",ly_3d:"立體",order_post:"駐守 {0}",order_strike:"攻打 {0}",order_delay0:"軍令靠人馬遞送，離都城越遠越久，一到三個月才到。",order_delay1:"軍令走驛路，一兩個月送到。",order_delay2:"軍令走電報，當月就到。",order_go:"下令",order_sent:"軍令已發往 {0}",release_sent:"撤令已發出",g_vassal:"附庸博弈",vk_0:"羈縻之地",vk_1:"世襲封國",vk_2:"封建附庸",vk_3:"朝貢國",vk_4:"接壤小國",vk_5:"起義軍",v_title:"改設為行政區",v_amnesty:"招安",v_list_note:"把藩屬改設成行政區、招安起義軍，都上天平稱。點一家看兩邊的砝碼。",v_note:"朝廷的砝碼不輕於對方的抗拒才談得成。不夠可以加碼，也可以強推。",v_note_rebel:"招安也上天平：砝碼夠了，起義軍罷兵歸順，其地復歸朝廷。",v_resist:"對方的抗拒",v_court:"朝廷的砝碼",v_extras:"加碼",v_cost:"代價",v_cost_note:"改設之費庫銀 {0}；其餘藩屬自危，對朝廷的好感下降；新設的行政區十年裡不穩。",v_cost_rebel:"招安之費庫銀 {0}；歸順之地十年裡不穩。",v_send:"遣使去談",v_send_rebel:"遣使招安",v_force:"強推",v_force_note:"強推不看天平：對方不從，舉兵相抗，其餘藩屬更加離心。",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
 note0:"眼下只知道接壤的國家。再遠的地方，要有商路與航海之術才通消息。",note1:"使節到得了的國家都知道；更遠的只有傳聞。",note2:"消息即時可達，天下都看得見。",
 lg_own:"本國",lg_prov:"本朝行政區（深線是行政區界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
 officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上下有出入，奏報常遲。",tn2:"數字多有虛報，小事常報不上來。",
@@ -457,7 +457,7 @@ span_y:"{0} y {1} m",span_m:"{0} months",real_h:"{0} h {1} min",real_m:"{0} min"
 kpi_wars:"Wars",kpi_new:"New",kpi_trust:"Reports",trust0:"Reliable",trust1:"Uneven",trust2:"Doubtful",
 reports:"Reports",no_reports:"No reports have arrived yet.",k_major:"Urgent",k_ledger:"Accounts",k_foreign:"Abroad",late:"{0} mo late",lost:"Some reports never arrived.",
 d_when:"Happened in year {0}, month {1}.",d_late:"Took {0} months to arrive.",d_prompt:"Arrived the same month.",d_foreign:"Heard through neighbours; may not be accurate.",d_ledger:"Figures as filed by local officials, not audited.",
-map_tap:"Tap an army to select it, then tap a city to give the order; tap a realm for diplomacy. Pinch to zoom in on terrain and cities.",map_full:"Full screen",map_exit:"Exit full screen",m_diplo:"Diplomacy",m_cancel:"Cancel",intel_live:"Army reports: live by telegraph",intel_at:"Army reports as of year {0}, month {1} · every {2} mo",intel_old:"This report is {0} months old; the army may have moved since.",army_foreign:"Army of {0}",army_about:"About {0} men",army_count:"{0} corps",army_foe:"At war with us",army_mixed:"Armies of {0} and others ({1} realms)",army_line:"Strength {0} / {1} · Organisation {2}",army_home:"Home {0}",task_reserve:"In reserve",task_march:"Marching to the border",task_attack:"Attacking",task_defend:"Defending",task_retreat:"Routed, regrouping",task_sea:"At sea",army_order:"Standing order: {0}",army_no_order:"No standing order; the court deploys it",army_writ:"On the way: {0} ({1} mo left)",army_aim:"Order: pick a city",army_aim_all:"Order them all",army_release:"Withdraw the order",army_group:"{0} corps",aim_title:"Tap a city",aim_note:"A city of the realm: march there and garrison it. A city of an enemy at war: attack it.",aim_miss:"No city to go to here",aim_bad:"{0} is neither ours nor at war with us",ly_army:"Armies",order_post:"Garrison {0}",order_strike:"Attack {0}",order_delay0:"Orders go by courier: one to three months, longer the farther from the capital.",order_delay1:"Orders go by post road: one or two months.",order_delay2:"Orders go by telegraph: this month.",order_go:"Give the order",order_sent:"Order sent toward {0}",release_sent:"Withdrawal sent",g_vassal:"Vassals and rebels",vk_0:"Loose-rein land",vk_1:"Hereditary fief",vk_2:"Feudal vassal",vk_3:"Tributary",vk_4:"Small neighbour",vk_5:"Rebels",v_title:"Make it a province",v_amnesty:"Offer amnesty",v_list_note:"Turning a vassal into a province or buying off rebels is weighed on the scale. Tap one to see both sides.",v_note:"It works only if the court outweighs their resistance. Add to the scale if it falls short, or force it.",v_note_rebel:"Amnesty goes on the scale too: with enough weight the rebels lay down arms and their land returns to the court.",v_resist:"Their resistance",v_court:"The court",v_extras:"Add to the scale",v_cost:"Cost",v_cost_note:"A fee of {0} silver; the other vassals grow wary and like the court less; the new province is unsettled for ten years.",v_cost_rebel:"A fee of {0} silver; the returned land is unsettled for ten years.",v_send:"Send an envoy",v_send_rebel:"Send an envoy with amnesty",v_force:"Force it",v_force_note:"Forcing ignores the scale: they refuse and take up arms, and the other vassals turn further away.",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
+map_tap:"Tap an army to select it, then tap a city to give the order; tap a realm for diplomacy. Pinch to zoom in on terrain and cities.",map_full:"Full screen",map_exit:"Exit full screen",m_diplo:"Diplomacy",m_cancel:"Cancel",intel_live:"Army reports: live by telegraph",intel_at:"Army reports as of year {0}, month {1} · every {2} mo",intel_old:"This report is {0} months old; the army may have moved since.",army_foreign:"Army of {0}",army_about:"About {0} men",army_count:"{0} corps",army_foe:"At war with us",army_mixed:"Armies of {0} and others ({1} realms)",army_line:"Strength {0} / {1} · Organisation {2}",army_home:"Home {0}",task_reserve:"In reserve",task_march:"Marching to the border",task_attack:"Attacking",task_defend:"Defending",task_retreat:"Routed, regrouping",task_sea:"At sea",army_order:"Standing order: {0}",army_no_order:"No standing order; the court deploys it",army_writ:"On the way: {0} ({1} mo left)",army_aim:"Order: pick a city",army_aim_all:"Order them all",army_release:"Withdraw the order",army_group:"{0} corps",aim_title:"Tap a city",aim_note:"A city of the realm: march there and garrison it. A city of an enemy at war: attack it.",aim_miss:"No city to go to here",aim_bad:"{0} is neither ours nor at war with us",ly_army:"Armies",ly_3d:"Relief",order_post:"Garrison {0}",order_strike:"Attack {0}",order_delay0:"Orders go by courier: one to three months, longer the farther from the capital.",order_delay1:"Orders go by post road: one or two months.",order_delay2:"Orders go by telegraph: this month.",order_go:"Give the order",order_sent:"Order sent toward {0}",release_sent:"Withdrawal sent",g_vassal:"Vassals and rebels",vk_0:"Loose-rein land",vk_1:"Hereditary fief",vk_2:"Feudal vassal",vk_3:"Tributary",vk_4:"Small neighbour",vk_5:"Rebels",v_title:"Make it a province",v_amnesty:"Offer amnesty",v_list_note:"Turning a vassal into a province or buying off rebels is weighed on the scale. Tap one to see both sides.",v_note:"It works only if the court outweighs their resistance. Add to the scale if it falls short, or force it.",v_note_rebel:"Amnesty goes on the scale too: with enough weight the rebels lay down arms and their land returns to the court.",v_resist:"Their resistance",v_court:"The court",v_extras:"Add to the scale",v_cost:"Cost",v_cost_note:"A fee of {0} silver; the other vassals grow wary and like the court less; the new province is unsettled for ten years.",v_cost_rebel:"A fee of {0} silver; the returned land is unsettled for ten years.",v_send:"Send an envoy",v_send_rebel:"Send an envoy with amnesty",v_force:"Force it",v_force_note:"Forcing ignores the scale: they refuse and take up arms, and the other vassals turn further away.",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
 note0:"Only bordering realms are known. Word from farther away needs trade roads and seafaring.",note1:"Realms that envoys can reach are known; beyond them there are only rumours.",note2:"News travels at once and the whole world is visible.",
 lg_own:"This realm",lg_prov:"Provinces of the realm (dark lines are province borders)",m_prov:"Land of the realm",m_prov_cities:"Its cities",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
 officials:"Officials",corr:"Corruption {0}%",tn0:"Reports are broadly reliable.",tn1:"Figures drift and reports often run late.",tn2:"Figures are padded and small matters often go unreported.",
@@ -2143,6 +2143,214 @@ function drawBorders(ctx,x,y,w,h,k,dpr){
     ctx.strokeStyle=s[1];ctx.lineWidth=s[2]*dpr;ctx.lineCap="square";ctx.stroke();
   });
 }
+// ───────── 立体舆图(WebGL) ─────────
+// 群里 "能不能做成欧陆风云那种小 3D 的地图"，用户 2026-11-12 "客户端接收终端的地图数据后, 用webgl渲染出3d样式"
+// "地形就不用像素了, 就可以直接用颜色和高低起伏来表达"：底图交给显卡画——
+//   · 地貌：游戏给每个颜色号带上种类和高低(见 TerminalHost.Field 的 TerrainKind/TerrainElev)，这里照种类上色(林、田、荒漠、雪各有纹理)、
+//     照高低算出起伏(成片的山越往里越高，再抹平)打光，山抬起来，像斜着看过去；海按深浅上色。海岸、林缘、各色之间都是平滑过渡，不照格子；
+//   · 国色、界线：每块地的归属做成一张小图，显卡照它现算国色和界线(四个相邻地块按远近合成，转角是圆的)，粗细按屏幕上的点算，放多大都一样；
+//   · 城、国名、军队、行军方向仍画在上面那张画布上：只有山抬起来，城和军都不在山上，点选照旧；
+//   · 拖动、捏合的时候先按低一档的清晰度画，停手再画清楚的。手机不支持 WebGL 或出了错，退回原来的平面画法；图右边「立体」可关(记在这部手机上)
+var G3={on:store("ec_3d")!=="0",bad:false,gl:null,last:0,tx:[],tilt:1.8};
+// 种类(见 TerrainKind)：底色、掺几成游戏里的颜色
+var G3KIND=[[118,138,78,.55],[188,168,98,.25],[58,88,46,.3],[216,190,128,.3],[222,206,160,.3],[236,240,244,.25],[84,98,66,.35],[128,130,86,.45],
+  [128,116,98,.25],[150,140,98,.5],[40,80,110,0],[210,70,24,.3],[214,228,238,.2],[38,86,44,.3],[116,104,90,.5],[92,118,62,.35]];
+// 种类：岩、林、田、旱、雪(0~255)
+var G3ATTR=[[0,0,0,0,0],[0,0,255,0,0],[0,255,0,0,0],[0,0,0,255,0],[0,0,0,150,0],[0,0,0,0,255],[0,60,0,0,0],[110,0,0,0,0],[255,0,0,0,0],[50,0,0,60,0],
+  [0,0,0,0,0],[90,0,0,120,0],[0,0,0,0,255],[0,255,0,0,0],[90,0,0,120,0],[0,120,0,0,0]];
+var G3VS="attribute vec3 aP;uniform vec4 uV;uniform float uTl,uMH;varying vec2 vP;"+
+  "void main(){vP=aP.xy;vec2 s=(aP.xy-uV.xy)/uV.zw;s.y-=aP.z*uTl/uV.w;gl_Position=vec4(s.x*2.-1.,1.-s.y*2.,.98-1.96*aP.y/uMH,1.);}";
+var G3FS=["precision highp float;",
+  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar;varying vec2 vP;",
+  "float hs(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}",
+  // 值噪声连同导数(起伏的细纹)
+  "vec3 nd(vec2 p){vec2 i=floor(p),f=p-i,u=f*f*(3.-2.*f),du=6.*f*(1.-f);float a=hs(i),b=hs(i+vec2(1.,0.)),c=hs(i+vec2(0.,1.)),d=hs(i+1.),e=a-b-c+d;",
+  " return vec3(a+(b-a)*u.x+(c-a)*u.y+e*u.x*u.y,du*(vec2(b-a,c-a)+e*u.yx));}",
+  "vec4 tx(sampler2D t,vec2 c){return texture2D(t,c/uT);}",
+  // 三次 B 样条取样(四次双线性)：海岸、各色之间是圆滑的曲线
+  "vec4 bs(sampler2D t,vec2 c){c-=.5;vec2 i=floor(c),f=c-i,f2=f*f,f3=f2*f,w0=(1.-3.*f+3.*f2-f3)/6.,w1=(4.-6.*f2+3.*f3)/6.,w2=(1.+3.*f+3.*f2-3.*f3)/6.,w3=f3/6.,",
+  " g0=w0+w1,g1=w2+w3,h0=i-.5+w1/g0,h1=i+1.5+w3/g1;",
+  " return g0.y*(g0.x*tx(t,h0)+g1.x*tx(t,vec2(h1.x,h0.y)))+g1.y*(g0.x*tx(t,vec2(h0.x,h1.y))+g1.x*tx(t,h1));}",
+  "float fl(vec4 o){return floor(o.a*31.875+.5);}",
+  "float bit(float f,float b){return mod(floor(f/b),2.);}",
+  "float eq(vec3 a,vec3 b){vec3 d=abs(a-b);return step(max(d.x,max(d.y,d.z)),.002);}",
+  "void main(){",
+  " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);",
+  " vec3 n1=nd(p*1.9),n2=nd(p*5.3+3.1);",
+  " vec2 wc=c+(vec2(n1.x,nd(p*1.9+17.).x)-.5)*clamp(cp*.3,0.,.9);",
+  " vec4 A=bs(uA,wc),B=tx(uB,wc),C=tx(uC,wc);",
+  " float h=B.b*1.6,land=A.a;",
+  // 地面：底色、岩、林、田、沙丘、树、雪
+  " vec3 col=A.rgb*(.9+.18*n1.x);",
+  " float rk=clamp(B.a+smoothstep(.5,.95,h)*.7,0.,1.);",
+  " col=mix(col,vec3(.48,.44,.39)*(.85+.3*n2.x),rk*.55);",
+  " float fo=smoothstep(.3,.7,C.r+(nd(p*3.7).x-.5)*.55);",
+  " col=mix(col,col*vec3(.62,.76,.6),fo*.8);",
+  " vec2 fp=p*vec2(2.3,3.1)+vec2(n1.x,n2.x)*1.1,fi=floor(fp),ff=fract(fp);",
+  " col=mix(col,col*(.84+.3*hs(fi))*mix(.8,1.,smoothstep(0.,.07,min(min(ff.x,1.-ff.x),min(ff.y,1.-ff.y)))),C.g*smoothstep(.2,.7,det));",
+  " col*=mix(1.,.9+.2*(sin(dot(p,vec2(2.6,1.2))*2.3+n1.x*5.)*.5+.5),C.b*det*.8);",
+  " vec2 tp=p*7.,ti=floor(tp),tf=tp-ti-.5-(vec2(hs(ti),hs(ti+5.3))-.5)*.4;",
+  " float tr=smoothstep(.36,.24,length(tf))*step(hs(ti+9.1),C.r*1.15)*smoothstep(.45,1.,det);",
+  " col*=1.-tr*(.18+.38*clamp(.5+(tf.x+tf.y)*1.8,0.,1.));",
+  " float sn=max(C.a,smoothstep(.95,1.25,h+(n1.x-.5)*.3));",
+  " col=mix(col,vec3(.93,.95,.97),sn*.9);",
+  // 归属：四个相邻地块按远近合成(水、迷雾不算)，s 是和最近那块同属的份量，界线在 s = .5 处
+  " vec2 ob=p-.5,i0=floor(ob),f=ob-i0;vec4 q1[4],q2[4],q3[4];float w[4];vec2 g[4];",
+  " float best=-1.,vis=0.;vec4 m1=vec4(0.),m2=m1,m3=m1;",
+  " for(int k=0;k<4;k++){vec2 o=vec2(mod(float(k),2.),floor(float(k)*.5)),uv=(i0+o+.5)/uZ,wv=mix(1.-f,f,o);",
+  "  q1[k]=texture2D(uO1,uv);q2[k]=texture2D(uO2,uv);q3[k]=texture2D(uO3,uv);w[k]=wv.x*wv.y;g[k]=(o*2.-1.)*wv.yx;",
+  "  float F=fl(q1[k]);vis+=w[k]*bit(F,16.);if(bit(F,1.)>.5&&w[k]>best){best=w[k];m1=q1[k];m2=q2[k];m3=q3[k];}}",
+  " float D=0.,alt=-1.,insM=bit(fl(m1),8.);vec2 gD=vec2(0.);vec4 N=vec4(0.),GX=N,GY=N,a1=m1;",
+  " for(int k=0;k<4;k++){float F=fl(q1[k]);if(bit(F,1.)>.5){",
+  "  vec4 e=vec4(step(abs(bit(F,8.)-insM),.5),eq(vec3(q2[k].rg,0.),vec3(m2.rg,0.)),eq(vec3(q2[k].ba,0.),vec3(m2.ba,0.)),eq(q3[k].rgb,m3.rgb));",
+  "  D+=w[k];gD+=g[k];N+=w[k]*e;GX+=g[k].x*e;GY+=g[k].y*e;if(e.w<.5&&w[k]>alt){alt=w[k];a1=q1[k];}}}",
+  " vec4 s=vec4(1.),dd=vec4(1e4);",
+  " if(D>0.){s=N/D;vec4 sx=(GX*D-N*gD.x)/(D*D),sy=(GY*D-N*gD.y)/(D*D);",
+  "  dd=mix(abs(s-.5)*uK/max(sqrt(sx*sx+sy*sy),vec4(1e-4)),vec4(1e4),step(.999,s));}",
+  " vec4 own=s.w<.5?a1:m1;float Fo=fl(own),ae=clamp(.8/cp,.02,.5),la=smoothstep(.5-ae,.5+ae,land);",
+  // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠界线的一圈深一些；无主之地压暗
+  " if(best>=0.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),m=bit(Fo,4.)>.5?(mod(floor((p.x+p.y)/P),3.)<1.?.5:.15):.55;",
+  "  m+=.16*smoothstep(10.*uPx,0.,min(dd.y,dd.z));col=mix(col,own.rgb,m*(1.-rk*.3));}",
+  "  else col=mix(col,vec3(dot(col,vec3(.3,.59,.11))),.35)*.72;}",
+  // 打光：起伏的法线加上细纹，光从西北来
+  " vec3 nr=vec3(B.rg*2.-1.,0.);nr.z=sqrt(max(.05,1.-dot(nr.xy,nr.xy)));",
+  " vec3 n3=nd(p*11.7+5.);",
+  " nr=normalize(nr-vec3((n1.yz*.4+n2.yz*(.25+rk*.55)+n3.yz*rk*.35*det)*(.1+rk*1.1+fo*.25)*(.35+.65*det),0.));",
+  " vec3 Ld=normalize(vec3(-.55,-.65,.8));col*=(.5+.62*max(dot(nr,Ld),0.))/(.5+.62*Ld.z);",
+  // 水：按深浅，近岸浅一些，有一点波光；海岸一道细的暗线
+  " vec3 wn=nd(p*3.3+n1.x*.6),wcol=mix(vec3(.26,.48,.55),vec3(.07,.18,.31),smoothstep(0.,.6,B.b));",
+  " wcol=mix(wcol,vec3(.38,.6,.6),smoothstep(.15,.48,land)*.6)*(.94+.08*wn.x);",
+  " wcol+=.12*pow(max(0.,dot(normalize(vec3(-wn.yz*.2,1.)),normalize(Ld+vec3(0.,0.,1.)))),24.);",
+  " col=mix(wcol,col,la);",
+  " col*=1.-.3*smoothstep(1.3*uPx,0.,abs(land-.5)*cp*1.4)*clamp(cp/4.-.5,0.,1.);",
+  // 界线：城界最浅、一家之内细线、各家之间深线、本朝疆界金线
+  " vec4 wd=(uFar>.5?vec4(1.5,1.25,1.,1.):vec4(2.5,2.,1.5,1.))*uPx,al=clamp(wd*.5+.5-dd,0.,1.);vec3 dk=vec3(.078,.086,.059);",
+  " col=mix(col,dk,al.w*.38);col=mix(col,dk,al.z*.7);col=mix(col,dk,al.y*.9);col=mix(col,vec3(.953,.765,.29),al.x);",
+  // 迷雾
+  " col=mix(vec3(.055,.06,.047)+.03*n1.x,col,smoothstep(.15,.85,vis+(n1.x-.5)*.35));",
+  " gl_FragColor=vec4(col,1.);}"].join("\n");
+// 地面格高度线 → 起伏(海平面 0，水是负的)
+function g3Relief(e){return e<98?(e-98)/98:e<128?(e-98)/600:e<199?.05+(e-128)/284:e<210?.38:e<230?.6:.8}
+// 只在 m 为 1 的格子之间取方框平均
+function g3Blur(v,m,w,h,r){
+  var a=new Float32Array(w*h),b=new Float32Array(w*h),o=new Float32Array(w*h),cs=new Float64Array(w),ct=new Float64Array(w),x,y,i,s,t,j,row;
+  for(y=0;y<h;y++){row=y*w;s=0;t=0;for(x=-r;x<w;x++){
+    j=x+r;if(j<w){i=row+j;s+=v[i]*m[i];t+=m[i]}j=x-r-1;if(j>=0){i=row+j;s-=v[i]*m[i];t-=m[i]}if(x>=0){a[row+x]=s;b[row+x]=t}}}
+  // 竖着那一遍也按行走(一列一列跳着读太慢)
+  for(y=-r;y<h;y++){
+    j=y+r;if(j<h){row=j*w;for(x=0;x<w;x++){cs[x]+=a[row+x];ct[x]+=b[row+x]}}
+    j=y-r-1;if(j>=0){row=j*w;for(x=0;x<w;x++){cs[x]-=a[row+x];ct[x]-=b[row+x]}}
+    if(y>=0){row=y*w;for(x=0;x<w;x++){i=row+x;o[i]=m[i]&&ct[x]>.5?cs[x]/ct[x]:v[i]}}}
+  return o;
+}
+function g3Tex(gl,u,w,h,data,lin){
+  var t=G3.tx[u]||(G3.tx[u]=gl.createTexture()),f=lin?gl.LINEAR:gl.NEAREST;
+  gl.activeTexture(gl.TEXTURE0+u);gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,data);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,f);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,f);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+}
+// 地貌三张图(颜色与陆地、起伏的法线与高低与岩、林田旱雪)和抬起山来的网格。山川换了一版才重做
+function g3Terrain(gl){
+  var T=terr,M=map,tw=T.w,th=T.h,n=tw*th,q=T.step/M.tile,np=T.pal.length,i,x,y,k,d,j;
+  var Hl=new Float32Array(n),Hw=new Float32Array(n),L=new Float32Array(n),Wm=new Float32Array(n),A=new Uint8Array(n*4),B=new Uint8Array(n*4),C=new Uint8Array(n*4);
+  for(i=0;i<n;i++){
+    var ti=T.idx[i],c,e;
+    if(ti>=np){x=i%tw;y=(i-x)/tw;k=M.grid[Math.min(M.h-1,Math.floor((y+.5)*q))*M.w+Math.min(M.w-1,Math.floor((x+.5)*q))]===WATER?10:0;e=k?50:112;c=k?[44,74,96]:[96,104,80]}
+    else{k=T.kind?T.kind[ti]:T.liq[ti]?10:0;e=T.elev?T.elev[ti]:k===10?50:112;c=T.pal[ti]}
+    var kc=G3KIND[k]||G3KIND[0],m=kc[3],at=G3ATTR[k]||G3ATTR[0],hv=g3Relief(e);j=i*4;
+    A[j]=kc[0]*(1-m)+c[0]*m;A[j+1]=kc[1]*(1-m)+c[1]*m;A[j+2]=kc[2]*(1-m)+c[2]*m;
+    if(k===10){Wm[i]=1;Hw[i]=Math.min(1,-hv)}else{L[i]=1;Hl[i]=Math.max(0,hv);A[j+3]=255}
+    B[j+3]=at[0];C[j]=at[1];C[j+1]=at[2];C[j+2]=at[3];C[j+3]=at[4];
+  }
+  // 成片的山、丘陵越往里越高(到边上的远近)
+  var D=new Float32Array(n);
+  for(i=0;i<n;i++)D[i]=Hl[i]>=.3?1e9:0;
+  for(y=0;y<th;y++)for(x=0;x<tw;x++){i=y*tw+x;if(!D[i])continue;d=D[i];
+    if(x>0)d=Math.min(d,D[i-1]+1);if(y>0){d=Math.min(d,D[i-tw]+1);if(x>0)d=Math.min(d,D[i-tw-1]+1.4);if(x<tw-1)d=Math.min(d,D[i-tw+1]+1.4)}D[i]=d}
+  for(y=th-1;y>=0;y--)for(x=tw-1;x>=0;x--){i=y*tw+x;if(!D[i])continue;d=D[i];
+    if(x<tw-1)d=Math.min(d,D[i+1]+1);if(y<th-1){d=Math.min(d,D[i+tw]+1);if(x<tw-1)d=Math.min(d,D[i+tw+1]+1.4);if(x>0)d=Math.min(d,D[i+tw-1]+1.4)}D[i]=d}
+  for(i=0;i<n;i++)if(D[i])Hl[i]+=(Hl[i]>=.55?.55:.1)*Math.min(1,D[i]*T.step/18);
+  // 抹平(陆地、水各抹各的，海岸不挪)
+  var r=Math.max(1,Math.round(2/T.step));
+  Hl=g3Blur(g3Blur(Hl,L,tw,th,r),L,tw,th,r);Hw=g3Blur(g3Blur(Hw,Wm,tw,th,r+1),Wm,tw,th,r+1);
+  var S=3.5/T.step,hl=function(x,y){x=x<0?0:x>=tw?tw-1:x;y=y<0?0:y>=th?th-1:y;var o=y*tw+x;return L[o]?Hl[o]:0};
+  for(y=0;y<th;y++)for(x=0;x<tw;x++){
+    i=y*tw+x;j=i*4;var nx=0,ny=0,hb=Hw[i];
+    if(L[i]){nx=-(hl(x+1,y)-hl(x-1,y))*S;ny=-(hl(x,y+1)-hl(x,y-1))*S;d=Math.sqrt(nx*nx+ny*ny+1);nx/=d;ny/=d;hb=Hl[i]/1.6}
+    B[j]=nx*127.5+127.5;B[j+1]=ny*127.5+127.5;B[j+2]=Math.min(1,hb)*255;
+  }
+  g3Tex(gl,0,tw,th,A,true);g3Tex(gl,1,tw,th,B,true);g3Tex(gl,2,tw,th,C,true);
+  // 网格：一格顶点管几格地貌(顶点不过 65000)，顶点的高低取四周的平均，只有山抬起来(城和军都不在山上)；由南往北排，近的先画
+  var s=Math.max(1,Math.ceil(Math.sqrt(n/60000))),vw,vh;
+  while((vw=Math.ceil(tw/s)+1)*(vh=Math.ceil(th/s)+1)>65000)s++;
+  var P=new Float32Array(vw*vh*3),hs=Math.max(1,s>>1),p=0,I=new Uint16Array((vw-1)*(vh-1)*6),t=0;
+  for(y=0;y<vh;y++)for(x=0;x<vw;x++){
+    var cx=Math.min(tw,x*s),cy=Math.min(th,y*s),sum=0,cnt=0;
+    for(var yy=Math.max(0,cy-hs);yy<Math.min(th,cy+hs);yy++)for(var xx=Math.max(0,cx-hs);xx<Math.min(tw,cx+hs);xx++){j=yy*tw+xx;sum+=L[j]?Hl[j]:0;cnt++}
+    P[p++]=cx*q;P[p++]=cy*q;P[p++]=Math.max(0,(cnt?sum/cnt:0)-.45)*1.1;
+  }
+  for(y=vh-2;y>=0;y--)for(x=0;x<vw-1;x++){var a=y*vw+x;I[t++]=a;I[t++]=a+vw;I[t++]=a+1;I[t++]=a+1;I[t++]=a+vw;I[t++]=a+vw+1}
+  gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I,gl.STATIC_DRAW);
+  G3.ni=t;G3.terr=terr;G3.tw=tw;G3.th=th;G3.q=q;
+}
+// 归属三张小图(一块地一个点)：颜色与记号(陆地、有主、传闻、本朝、看得见)；最上一级与眼下标着的那一家；叶(或城)。
+// 界线分四级：本朝内外不同是金线，最上一级不同是深线，标着的那一家不同是细线，叶或城不同是最浅的线(同 drawBorders)
+function g3Own(gl,sc){
+  var M=map,n=M.w*M.h,a=new Uint8Array(n*4),b=new Uint8Array(n*4),c=new Uint8Array(n*4),i;
+  for(i=0;i<n;i++){
+    var o=M.grid[i],la=M.zLeaf[i],r=o<250?M.realms[o]:null,own=la>=0,rgb=own&&M.leafRgb[la]||[0,0,0],j=i*4,z=M.zcity[i];
+    a[j]=rgb[0];a[j+1]=rgb[1];a[j+2]=rgb[2];a[j+3]=((o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0))*8;
+    var p1=own?M.nodes[la].top:65535,p2=own?M.shown[la]:65535,cl=own&&(M.cityOpen[la]||sc&&r&&r.tier<=1),p3=own?(cl&&z!==NOCITY?8388608+z:la):16777215;
+    b[j]=p1&255;b[j+1]=p1>>8&255;b[j+2]=p2&255;b[j+3]=p2>>8&255;c[j]=p3&255;c[j+1]=p3>>8&255;c[j+2]=p3>>16&255;c[j+3]=255;
+  }
+  g3Tex(gl,3,M.w,M.h,a,false);g3Tex(gl,4,M.w,M.h,b,false);g3Tex(gl,5,M.w,M.h,c,false);
+}
+function g3Init(){
+  if(G3.gl||G3.bad)return G3.gl;
+  try{
+    var cv=document.createElement("canvas"),gl=cv.getContext("webgl",{antialias:false,alpha:false,depth:true,stencil:false})||cv.getContext("experimental-webgl");
+    var hp=gl&&gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT);
+    if(!hp||!hp.precision)throw "no highp";
+    var sh=function(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s};
+    var pg=gl.createProgram(),u={};
+    gl.attachShader(pg,sh(gl.VERTEX_SHADER,G3VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,G3FS));gl.bindAttribLocation(pg,0,"aP");gl.linkProgram(pg);
+    if(!gl.getProgramParameter(pg,gl.LINK_STATUS))throw gl.getProgramInfoLog(pg);
+    gl.useProgram(pg);
+    "uA uB uC uO1 uO2 uO3 uV uTl uMH uT uZ uQ uK uPx uFar".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<6)gl.uniform1i(u[nm],i)});
+    cv.addEventListener("webglcontextlost",function(e){e.preventDefault();G3.bad=true;G3.gl=null;g3Hide();drawMap()});
+    cv.id="map-gl";G3.cv=cv;G3.u=u;G3.vb=gl.createBuffer();G3.ib=gl.createBuffer();G3.max=gl.getParameter(gl.MAX_TEXTURE_SIZE);G3.gl=gl;
+  }catch(e){G3.bad=true;if($("map-3d"))$("map-3d").hidden=true;try{console.warn("[3d]",e)}catch(x){}}
+  return G3.gl;
+}
+function g3Hide(){if(G3.cv)G3.cv.style.display="none";if($("map"))$("map").style.background=""}
+// 画底图：画成了回 true(上面那张画布只要清空再画城、名字、军队)；不成回 false，照旧平面画
+function g3Draw(cv,x,y,w,h,kc){
+  if(!G3.on||G3.bad||!terr||!map||!map.leafRgb){g3Hide();return false}
+  var gl=g3Init();
+  if(!gl||Math.max(terr.w,terr.h,map.w,map.h)>G3.max){g3Hide();return false}
+  try{
+    if(G3.terr!==terr)g3Terrain(gl);
+    var sc=kc>=14;
+    if(G3.nodes!==map.nodes||G3.okey!==map.openKey||G3.sc!==sc||G3.grid!==map.grid){g3Own(gl,sc);G3.nodes=map.nodes;G3.okey=map.openKey;G3.sc=sc;G3.grid=map.grid}
+    var cw=cv.clientWidth,ch=cv.clientHeight,now=Date.now(),busy=now-G3.last<90,pr=Math.min(2,window.devicePixelRatio||1),gc=G3.cv,u=G3.u;
+    G3.last=now;clearTimeout(G3.tm);
+    if(busy){pr=Math.max(.75,pr*.6);G3.tm=setTimeout(function(){G3.last=0;drawMap()},150)}
+    var bw=Math.max(1,Math.round(cw*pr)),bh=Math.max(1,Math.round(ch*pr));
+    if(gc.parentNode!==cv.parentNode)cv.parentNode.insertBefore(gc,cv);
+    if(gc.width!==bw)gc.width=bw;if(gc.height!==bh)gc.height=bh;
+    gc.style.cssText="display:block;position:absolute;pointer-events:none;border:0;border-radius:0;margin:0;background:#0e0f0c;left:"+(cv.offsetLeft+cv.clientLeft)+
+      "px;top:"+(cv.offsetTop+cv.clientTop)+"px;width:"+cw+"px;height:"+ch+"px";
+    cv.style.position="relative";cv.style.background="transparent";
+    gl.viewport(0,0,bw,bh);gl.clearColor(.055,.06,.047,1);gl.enable(gl.DEPTH_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    gl.uniform4f(u.uV,x,y,w,h);gl.uniform1f(u.uTl,G3.tilt);gl.uniform1f(u.uMH,map.h);gl.uniform2f(u.uT,G3.tw,G3.th);gl.uniform2f(u.uZ,map.w,map.h);
+    gl.uniform1f(u.uQ,G3.q);gl.uniform1f(u.uK,bw/w);gl.uniform1f(u.uPx,pr);gl.uniform1f(u.uFar,kc<3?1:0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.drawElements(gl.TRIANGLES,G3.ni,gl.UNSIGNED_SHORT,0);
+    return true;
+  }catch(e){G3.bad=true;try{console.warn("[3d]",e)}catch(x){}g3Hide();return false}
+}
 function loadMap(){
   lastMapAt=Date.now();
   api("GET","/api/map").then(function(r){
@@ -2173,7 +2381,7 @@ function loadTerrain(){
         var old=terr.idx;
         for(var i=0;i<n;i++)if(data[i]===254)data[i]=old[i];
       }
-      terr={ts:head.ts,w:head.w,h:head.h,step:head.step,pal:head.pal.map(hexRgb),liq:head.liq,idx:data};
+      terr={ts:head.ts,w:head.w,h:head.h,step:head.step,pal:head.pal.map(hexRgb),liq:head.liq,kind:head.kind,elev:head.elev,idx:data};
       terrBusy=0;terrProg=null;map.off=null;
       if(!synced&&state)render();
       drawMap();
@@ -2213,8 +2421,10 @@ function drawMap(){
   // k：一块地在画布上占几个像素；kc：占几个屏幕上的点
   var k=cv.width/w,kc=k/dpr;
   openTree(k,Math.min(cv.width,cv.height));
-  if(!map.off)paintMap();
-  if(!map.off){
+  // 立体舆图画得成就不用平面底图(见 g3Draw)
+  var g3=g3Draw(cv,x,y,w,h,kc);
+  if(!g3&&!map.off)paintMap();
+  if(!g3&&!map.off){
     // 山川还没到：不拿粗图顶着，写一句等它
     var c0=cv.getContext("2d");c0.fillStyle="#0e0f0c";c0.fillRect(0,0,cv.width,cv.height);
     c0.fillStyle="#8fa0a8";c0.font=(13*dpr)+"px sans-serif";c0.textAlign="center";c0.textBaseline="middle";
@@ -2223,6 +2433,8 @@ function drawMap(){
   }
   // near：没展开到城的地方，城和城名要放多大才出来；选目的地时早一些出来，城都点得着
   var ctx=cv.getContext("2d"),R=map.offRect,near=aim?.6:1;
+  if(g3)ctx.clearRect(0,0,cv.width,cv.height);
+  else{
   ctx.fillStyle="#0e0f0c";ctx.fillRect(0,0,cv.width,cv.height);
   // 挑一级不比画布粗的图贴上去：放大时是细图本身，一格一格清楚；缩小时是减半过的那几级
   var shrink=R.w*k/map.off.width,level=0;
@@ -2230,6 +2442,7 @@ function drawMap(){
   ctx.imageSmoothingEnabled=shrink<1;ctx.imageSmoothingQuality="high";
   ctx.drawImage(map.mips[level],(R.x-x)*k,(R.y-y)*k,R.w*k,R.h*k);
   drawBorders(ctx,x,y,w,h,k,dpr);
+  }
   hits=[];
   var placed=[];
   function free(bx,by,bw,bh){
@@ -2581,6 +2794,9 @@ function mapRealmActs(r,acts){
   // 军队显示与否(用户 2026-11-12 "我需要一个显示军人和不显示军人的按钮")：记在这部手机上
   $("map-army").className=showArmy?"on":"";
   $("map-army").onclick=function(){showArmy=!showArmy;store("ec_army",showArmy?"1":"0");this.className=showArmy?"on":"";drawMap()};
+  // 立体舆图开关(手机吃力可关，回到平面画法)
+  $("map-3d").className=G3.on?"on":"";
+  $("map-3d").onclick=function(){G3.on=!G3.on;store("ec_3d",G3.on?"1":"0");this.className=G3.on?"on":"";if(!G3.on)g3Hide();drawMap()};
   $("map-legend-go").onclick=function(){
     openSheet({title:t("ly_legend"),items:[],custom:function(box){var c=$("map-legend").cloneNode(true);c.removeAttribute("id");c.className="";box.appendChild(c)}});
   };

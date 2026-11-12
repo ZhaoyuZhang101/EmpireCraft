@@ -152,7 +152,10 @@ public static partial class TerminalHost
     // ───────── 地貌 ─────────
     // 整张地图的山川地貌：一格一个颜色号(地块种类的颜色，另附哪几号是水)，世界太大时隔几格取一格。全图取一回各席位共用，
     // 隔 TerrainSeconds 秒有人看着才重取，同上回不一样才算新的一版。发给哪部手机之前先把它迷雾里的抹掉(看不到的山川不出这台电脑)。
-    // 头一回发整份；之后手机报上它手上是哪一版，同这边记的对得上就只补发变了的格(迷雾揭开的、草木田地变了的)，没变的写 KeepTerrain
+    // 头一回发整份；之后手机报上它手上是哪一版，同这边记的对得上就只补发变了的格(迷雾揭开的、草木田地变了的)，没变的写 KeepTerrain。
+    // 立体舆图(群里 "能不能做成欧陆风云那种小 3D 的地图"，用户 2026-11-12 "地形就不用像素了, 就可以直接用颜色和高低起伏来表达")：
+    // 每个颜色号另带地貌种类(kind)和高低(elev，原版地面格的高度线：深海 0、浅海 70、沙 98、低地 108、高地 128、高原 160~180、丘陵 199、山 210、峰 230)，
+    // 手机照种类上色、照高低起伏打光、把山抬起来。种类和高低跟着颜色号走，每格仍只一个字节，补发照旧
     private sealed class Terrain
     {
         public MapBox World;
@@ -160,7 +163,77 @@ public static partial class TerminalHost
         public int Step, Width, Height, Version;
         public uint Hash;
         public byte[] Index;
-        public readonly List<int> Palette = new();
+        public readonly List<long> Palette = new();
+    }
+
+    // 地貌种类：0 平原 1 田 2 林 3 荒漠 4 沙滩 5 雪原 6 沼泽 7 丘陵 8 山 9 高原 10 水 11 熔岩 12 冰 13 雨林 14 荒原 15 疏林
+    private const byte KindPlain = 0, KindFarm = 1, KindForest = 2, KindDesert = 3, KindSand = 4, KindSnow = 5, KindSwamp = 6, KindHills = 7,
+        KindMountain = 8, KindPlateau = 9, KindWater = 10, KindLava = 11, KindIce = 12, KindJungle = 13, KindWaste = 14, KindWoods = 15;
+
+    // trees：这一格四周 5×5 个取样格里有几格长着树(纯净地图没有树，林地只看生物群系)
+    private static byte TerrainKind(WorldTile tile, int trees)
+    {
+        TileTypeBase type = tile.Type;
+        TileType main = tile.main_type;
+        string id = tile.top_type?.id ?? "";
+        if (type.lava || main != null && main.lava) return KindLava;
+        if (id == "ice") return KindIce;
+        if (type.liquid || main != null && main.liquid) return KindWater;
+        if (main != null && (main.mountains || main.summit)) return KindMountain;
+        if (type.farm_field) return KindFarm;
+        int land = LandKinds.Of(type);
+        bool pure = PureMapMode.Enabled;
+        if ((land & LandKinds.Forest) != 0 && (pure || trees >= 2) || trees >= 5)
+            return (land & LandKinds.Wet) != 0 ? KindJungle : KindForest;
+        if (id.StartsWith("frozen") || id.StartsWith("snow") || id.StartsWith("permafrost")) return KindSnow;
+        if ((land & LandKinds.Wet) != 0) return KindSwamp;
+        if (PlateauTerrain.IsPlateau(main)) return KindPlateau;
+        if ((land & LandKinds.Rough) != 0) return KindHills;
+        if (type.sand || (land & LandKinds.Sand) != 0) return KindSand;
+        string biome = type.biome_id ?? "";
+        if (biome == "biome_desert") return KindDesert;
+        if ((land & LandKinds.Infernal) != 0 || biome is "biome_wasteland" or "biome_corrupted" or "biome_tumor" or "biome_biomass") return KindWaste;
+        if ((land & LandKinds.Woodland) != 0 && (pure || trees >= 2)) return KindWoods;
+        return KindPlain;
+    }
+
+    // 高低：地面格的高度线(没有高度线的：水当浅海以下，别的当低地)
+    private static byte TerrainElev(WorldTile tile)
+    {
+        TileType main = tile.main_type;
+        if (main == null) return 108;
+        int height = main.height_min >= 0 ? main.height_min : main.liquid && !main.lava ? 40 : 110;
+        return (byte)Mathf.Clamp(height, 0, 255);
+    }
+
+    // 取样格上 5×5 的和(树的疏密)
+    private static byte[] BoxCount(byte[] cells, int width, int height)
+    {
+        var rows = new byte[cells.Length];
+        var sums = new byte[cells.Length];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int sum = 0;
+            for (int d = -2; d <= 2; d++)
+            {
+                int at = x + d;
+                if (at >= 0 && at < width) sum += cells[y * width + at];
+            }
+            rows[y * width + x] = (byte)sum;
+        }
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int sum = 0;
+            for (int d = -2; d <= 2; d++)
+            {
+                int at = y + d;
+                if (at >= 0 && at < height) sum += rows[at * width + x];
+            }
+            sums[y * width + x] = (byte)sum;
+        }
+        return sums;
     }
 
     private static Terrain _terrain;
@@ -179,10 +252,25 @@ public static partial class TerminalHost
             World = world, At = now, Step = step, Width = Mathf.Max(1, MapBox.width / step), Height = Mathf.Max(1, MapBox.height / step)
         };
         built.Index = new byte[built.Width * built.Height];
-        var paletteAt = new Dictionary<int, byte>();
+        var paletteAt = new Dictionary<long, byte>();
         // 头一号留给图外：水
         Color32 sea = RealmMiniMap.Water;
-        built.Palette.Add(1 << 24 | sea.r << 16 | sea.g << 8 | sea.b);
+        built.Palette.Add(PaletteKey(sea, true, KindWater, 40));
+        // 树的疏密(纯净地图没有树，不数)
+        byte[] trees = null;
+        if (!PureMapMode.Enabled)
+        {
+            var tree = new byte[built.Index.Length];
+            for (int py = 0; py < built.Height; py++)
+            for (int px = 0; px < built.Width; px++)
+            {
+                int tileX = px * step + step / 2, tileY = MapBox.height - 1 - (py * step + step / 2);
+                if (tileX < 0 || tileY < 0 || tileX >= MapBox.width || tileY >= MapBox.height) continue;
+                Building building = world.GetTile(tileX, tileY)?.building;
+                if (building?.asset != null && building.asset.building_type == BuildingType.Building_Tree) tree[py * built.Width + px] = 1;
+            }
+            trees = BoxCount(tree, built.Width, built.Height);
+        }
         // 颜色号接着上回的排：补发时没变的格还照旧号认颜色
         if (_terrain != null && ReferenceEquals(_terrain.World, world) && _terrain.Palette.Count > 0 && _terrain.Palette[0] == built.Palette[0])
             for (int i = 1; i < _terrain.Palette.Count; i++) built.Palette.Add(_terrain.Palette[i]);
@@ -196,8 +284,9 @@ public static partial class TerminalHost
             byte index = 0;
             if (tile?.Type != null)
             {
-                Color32 color = tile.getColor();
-                int key = (tile.Type.liquid ? 1 << 24 : 0) | color.r << 16 | color.g << 8 | color.b;
+                // 路格当普通地面(底下那层的颜色)
+                Color32 color = tile.Type.road && tile.main_type != null ? tile.main_type.color : tile.getColor();
+                long key = PaletteKey(color, tile.Type.liquid, TerrainKind(tile, trees?[py * built.Width + px] ?? 0), TerrainElev(tile));
                 if (!paletteAt.TryGetValue(key, out index))
                 {
                     // 颜色号用完了(NoTerrain 以上留作记号)：归到头一号
@@ -222,6 +311,10 @@ public static partial class TerminalHost
         built.Version = _terrainVersion;
         return _terrain = built;
     }
+
+    // 颜色号的键：高低 << 40 | 种类 << 32 | 是水 << 24 | 颜色
+    private static long PaletteKey(Color32 color, bool liquid, byte kind, byte elev) =>
+        (long)elev << 40 | (long)kind << 32 | (liquid ? 1L << 24 : 0L) | (long)color.r << 16 | (long)color.g << 8 | color.b;
 
     // 手机来取地貌的第 p 片(ts 是它在总图里看到的那一版)。没备好、备的不是这一版：记下来，主线程备
     private static TerminalServer.Reply TerrainReply(Seat seat, string body)
@@ -291,10 +384,14 @@ public static partial class TerminalHost
         int count = Math.Max(1, (packed.Length + TerrainPart - 1) / TerrainPart);
         var colors = new JArray();
         var liquid = new JArray();
-        foreach (int key in terrain.Palette)
+        var kinds = new JArray();
+        var elevs = new JArray();
+        foreach (long key in terrain.Palette)
         {
             colors.Add("#" + (key & 0xffffff).ToString("x6"));
-            liquid.Add(key >> 24 & 1);
+            liquid.Add((int)(key >> 24 & 1));
+            kinds.Add((int)(key >> 32 & 0xff));
+            elevs.Add((int)(key >> 40 & 0xff));
         }
         var parts = new string[count];
         for (int i = 0; i < count; i++)
@@ -311,6 +408,8 @@ public static partial class TerminalHost
                 json["step"] = step;
                 json["pal"] = colors;
                 json["liq"] = liquid;
+                json["kind"] = kinds;
+                json["elev"] = elevs;
                 if (patchOnly) json["from"] = have;
             }
             parts[i] = json.ToString(Newtonsoft.Json.Formatting.None);
