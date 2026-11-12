@@ -823,10 +823,13 @@ public partial class PureMapPatch : GamePatch
         string established = CityStyleSystem.Established(city);
         bool grid = StyleOf(established)?.Layout is "grid" or "canal";
         int span = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(counts.Values.Sum() / 4f)));
+        // 城区至多几块地(原始聚落按阶段封顶，见 UrbanCap)：满了以后只往已有的地块里添，不再开新地块
+        int cap = UrbanCap(city, culture, peak);
+        bool Full(TileZone zone) => plan.zones.Count >= cap && !plan.zones.ContainsKey(zone.id);
         // 第一轮：各地块按自动规划先放对口的建筑(农耕区不放)；码头先放临水的地块
         foreach (TileZone zone in zones)
         {
-            if (FarmlandSystem.IsPlanned(city, zone)) continue;
+            if (FarmlandSystem.IsPlanned(city, zone) || Full(zone)) continue;
             bool water = zone.tiles.Any(tile => tile?.Type?.liquid == true);
             Kind[] wants = zone == centerZone ? grid ? new[] { Kind.Civic, Kind.Temple, Kind.Market, Kind.House }
                     : new[] { Kind.Market, Kind.Temple, Kind.Civic, Kind.House }
@@ -839,11 +842,24 @@ public partial class PureMapPatch : GamePatch
         foreach (TileZone zone in zones)
         {
             if (queues.Values.All(queue => queue.Count == 0)) break;
-            if (FarmlandSystem.IsPlanned(city, zone)) continue;
+            if (FarmlandSystem.IsPlanned(city, zone) || Full(zone)) continue;
             Fill(plan, zone, queues, order);
         }
         Layout(plan, city, culture, centerZone);
         return plan;
+    }
+
+    // 自动城区的地块上限(用户 2026-11-12 转群友"原始时代城市城区就自行发展到9格以上")：城区是放了建筑的地块，一块地四座，
+    // 原始政体的部落人一多就铺开九块地以上，环壕聚落画得比后来的州城还大。画成原始聚落的城(见 PureMapPatch.Tribal)按原始改革
+    // 走到的阶段封顶：环壕聚落 2 块、部落中心 4 块、早期城址 6 块；放不下的建筑不画(账、人口照算)。不封顶的：手动城区、
+    // 营地(游牧、林地)、在非原始政体下画过城池的城(易主给部落也不缩)、政体已定的国家。块数是我定的，用户没逐条确认
+    private static readonly int[] TribalUrbanCap = { 2, 4, 6 };
+
+    private static int UrbanCap(City city, string culture, CityExtension.CityExtraData extra)
+    {
+        if (extra.map_settled || Camp(CityStyleSystem.Established(city)) || SettledOwner(city, culture)) return int.MaxValue;
+        int stage = TribalStageOf(city, culture);
+        return stage < 0 ? int.MaxValue : TribalUrbanCap[Mathf.Clamp(stage, 0, TribalUrbanCap.Length - 1)];
     }
 
     // 自动规划(见 PlanFor)：

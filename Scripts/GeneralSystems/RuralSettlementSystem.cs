@@ -227,7 +227,8 @@ public static class RuralSettlementSystem
         }
     }
 
-    // 镇村那块地，和四周离城心 far 格以内的无主之地划进本城
+    // 镇村那块地，和四周离城心 far 格以内的无主之地划进本城。四周八块不全划(整整 3×3 块，铺满了城界是一个个长方形，
+    // 见 CityExpansionPatch.Jitter)：正挨着的四块多半划、斜角的四块多半留着，留着的以后照常一块块领
     private static void ClaimAround(City city, RuralSettlement settlement, int gateX, int gateY, float far)
     {
         TileZone seat = World.world.GetTile(settlement.x, settlement.y)?.zone;
@@ -237,6 +238,8 @@ public static class RuralSettlementSystem
         foreach (TileZone zone in seat.neighbours_all)
         {
             if (zone?.centerTile == null || !CanClaim(city, zone)) continue;
+            bool corner = zone.x != seat.x && zone.y != seat.y;
+            if (GamePatches.CityExpansionPatch.Jitter(city, zone, 4) < (corner ? 0.6f : 0.2f)) continue;
             float dx = zone.centerTile.x - gateX, dy = zone.centerTile.y - gateY;
             if (dx * dx + dy * dy <= far * far) city.addZone(zone);
         }

@@ -168,6 +168,39 @@ public class CityExpansionPatch : GamePatch
     // 城区或本城村镇几块地以内
     public const int SettledReach = 2;
 
+    // 城界不成方块(用户 2026-11-12 转群友"城市扩张的时候能随机一点吗 怎么一个方块一个方块扩的……铺满时候发现个个都是
+    // 长方形城市边界")。以前"两块地以内"按方框算(城心、每处村镇四周各 5×5 块)，挑下一块地又总是先填角、齐着边一圈圈长，
+    // 村镇划地是整整 3×3 块，铺满了就是一个个长方形。现在每块地对每座城有个固定的随机数(同一块地、同一座城永远一样，
+    // 不存档；一半是每三块地缓缓起伏的，一半是各块自己的)，用在四处：
+    //   · "两块地以内"按圆算，半径一块半到近三块各处不同(见 Settled)；
+    //   · 离城心多远以内各处松紧不同(八成半到一成一五)；
+    //   · 挑下一块地的打分加一点随机(见 ExpansionScore)，地形阻力仍是大头，山、河、荒漠照旧后领；
+    //   · 村镇划地四周八块不再全划，斜角的多半留着(见 RuralSettlementSystem.ClaimAround)，以后照常一块块领。
+    // 幅度是我定的，用户没逐条确认
+    internal static float Jitter(City city, TileZone zone, int salt)
+    {
+        long seed = (city?.data?.id ?? 0L) * 31L + salt;
+        float fx = zone.x / 3f, fy = zone.y / 3f;
+        int x0 = global::UnityEngine.Mathf.FloorToInt(fx), y0 = global::UnityEngine.Mathf.FloorToInt(fy);
+        float tx = fx - x0, ty = fy - y0;
+        float low = global::UnityEngine.Mathf.Lerp(
+            global::UnityEngine.Mathf.Lerp(Hash01(seed, x0, y0), Hash01(seed, x0 + 1, y0), tx),
+            global::UnityEngine.Mathf.Lerp(Hash01(seed, x0, y0 + 1), Hash01(seed, x0 + 1, y0 + 1), tx), ty);
+        return 0.5f * low + 0.5f * Hash01(seed + 7L, zone.x, zone.y);
+    }
+
+    private static float Hash01(long seed, int x, int y)
+    {
+        unchecked
+        {
+            ulong h = (ulong)seed * 0x9E3779B97F4A7C15UL ^ (ulong)(uint)x * 0xC2B2AE3D27D4EB4FUL ^ (ulong)(uint)y * 0x165667B19E3779F9UL;
+            h ^= h >> 29;
+            h *= 0xBF58476D1CE4E5B9UL;
+            h ^= h >> 32;
+            return (h & 0xFFFFFFUL) / 16777216f;
+        }
+    }
+
     public static bool Settled(City city, TileZone zone)
     {
         if (!PureMapMode.Enabled || zone == null || zone.city != null || city?.zones == null) return true;
@@ -181,14 +214,16 @@ public class CityExpansionPatch : GamePatch
         if (seat != null && zone.centerTile != null)
         {
             int tier = global::UnityEngine.Mathf.Clamp(city.GetOrCreate().urban_tier, 0, 4);
-            float far = 24f + 8f * tier;
+            float far = (24f + 8f * tier) * (0.85f + 0.3f * Jitter(city, zone, 2));
             float dx = zone.centerTile.x - seat.x, dy = zone.centerTile.y - seat.y;
             if (dx * dx + dy * dy > far * far) return false;
         }
         // 被本城的地三面以上围着的空地(城界上的豁口、夹在中间的空地)补进来，城界不再破碎
         if (Enclosed(city, zone)) return true;
-        bool Near(TileZone anchor) => anchor != null && global::System.Math.Abs(anchor.x - zone.x) <= SettledReach &&
-                                      global::System.Math.Abs(anchor.y - zone.y) <= SettledReach;
+        // 按圆算、各处半径不同(一块半到近三块；以前是方框，见 Jitter)
+        float reach = SettledReach - 0.5f + 1.4f * Jitter(city, zone, 1);
+        bool Near(TileZone anchor) => anchor != null &&
+                                      (anchor.x - zone.x) * (anchor.x - zone.x) + (anchor.y - zone.y) * (anchor.y - zone.y) <= reach * reach;
         if (Near(city.getTile()?.zone)) return true;
         foreach (TileZone own in city.zones)
                 if (own != null && built.Contains(own.id) && Near(own)) return true;
@@ -397,7 +432,9 @@ public class CityExpansionPatch : GamePatch
         WorldTile origin = city.getTile(), target = zone.centerTile;
         float dx = target == null || origin == null ? 0f : target.x - origin.x;
         float dy = target == null || origin == null ? 0f : target.y - origin.y;
-        return entry + 0.6f / contacts + (dx * dx + dy * dy) * 0.002f / (Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE);
+        // 再加一点各块固定的随机(见 Jitter)：不总是先填角、齐着边长
+        return entry + 0.6f / contacts + (dx * dx + dy * dy) * 0.002f / (Config.CITY_ZONE_SIZE * Config.CITY_ZONE_SIZE) +
+               0.45f * Jitter(city, zone, 3);
     }
 
     // 无小人模式：虚拟居民每月替原版的"领地人"领一块地(BehClaimZoneForCityActorBorder)。原版选地照旧，
