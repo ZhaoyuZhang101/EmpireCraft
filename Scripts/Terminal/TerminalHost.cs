@@ -1411,7 +1411,24 @@ public static partial class TerminalHost
             // (用户 2026-11-12 "地图上也要能看到行政区的边界")
             if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && court == empire) row["prov"] = true;
             // 交战之敌：手机下令时它的城能去(同 FieldDecree 的判法)
-            if (realm != null && i != self && kingdom?.data != null && realm.isInWarWith(kingdom)) row["war"] = true;
+            if (realm != null && i != self && kingdom?.data != null && realm.isInWarWith(kingdom))
+            {
+                row["war"] = true;
+                // 是它打过来的：手机上的战争箭头由攻方指向守方(用户 2026-11-12 "开战的时候还是显示箭头和战线吧")
+                try
+                {
+                    foreach (War war in realm.getWars())
+                        if (war.getAttackers().Contains(kingdom) && war.getDefenders().Contains(realm))
+                        {
+                            row["atk"] = true;
+                            break;
+                        }
+                }
+                catch (Exception)
+                {
+                    // 战争正在结束：不标方向
+                }
+            }
             realms.Add(row);
             sumX.Add(0f);
             sumY.Add(0f);

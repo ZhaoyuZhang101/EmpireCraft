@@ -2141,6 +2141,7 @@ function applyLayer(){
     map.realms.forEach(function(r,i){
       var e=r.emp!=null?map.empires[r.emp]:null;
       var emp=e&&e.name?node("e"+r.emp,1,e.name,e.rgb,null):null;
+      if(emp)emp.ei=r.emp;
       var leaf=leafOf[i]=node("r"+i,2,r.name,r.own,emp);
       leaf.home=r.tier===0;leaf.prov=!!r.prov;leaf.rum=r.tier===2;
     });
@@ -2344,79 +2345,90 @@ var G3ATTR=[[0,0,0,0,0],[0,0,255,0,0],[0,255,0,0,0],[0,0,0,255,0],[0,0,0,150,0],
 var G3VS="attribute vec3 aP;uniform vec4 uV;uniform float uTl,uMH;varying vec2 vP;"+
   "void main(){vP=aP.xy;vec2 s=(aP.xy-uV.xy)/uV.zw;s.y-=aP.z*uTl/uV.w;gl_Position=vec4(s.x*2.-1.,1.-s.y*2.,.98-1.96*aP.y/uMH,1.);}";
 var G3FS=["precision highp float;",
-  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer;varying vec2 vP;",
+  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3,uN;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer;varying vec2 vP;",
   "float hs(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}",
-  // 值噪声连同导数(起伏的细纹)
-  "vec3 nd(vec2 p){vec2 i=floor(p),f=p-i,u=f*f*(3.-2.*f),du=6.*f*(1.-f);float a=hs(i),b=hs(i+vec2(1.,0.)),c=hs(i+vec2(0.,1.)),d=hs(i+1.),e=a-b-c+d;",
-  " return vec3(a+(b-a)*u.x+(c-a)*u.y+e*u.x*u.y,du*(vec2(b-a,c-a)+e*u.yx));}",
+  // 噪声查表(见 g3Noise)：x 值、yz 它的变化(起伏的细纹)、w 另一份噪声。手机上逐点算散列太慢(用户 2026-11-12 "新版的3d地图在客户端真的好卡")
+  "vec4 nt(vec2 p){vec4 t=texture2D(uN,p/128.);return vec4(t.r,(t.gb-.5)*6.,t.a);}",
   "vec4 tx(sampler2D t,vec2 c){return texture2D(t,c/uT);}",
   // 三次 B 样条取样(四次双线性)：海岸、各色之间是圆滑的曲线
   "vec4 bs(sampler2D t,vec2 c){c-=.5;vec2 i=floor(c),f=c-i,f2=f*f,f3=f2*f,w0=(1.-3.*f+3.*f2-f3)/6.,w1=(4.-6.*f2+3.*f3)/6.,w2=(1.+3.*f+3.*f2-3.*f3)/6.,w3=f3/6.,",
   " g0=w0+w1,g1=w2+w3,h0=i-.5+w1/g0,h1=i+1.5+w3/g1;",
   " return g0.y*(g0.x*tx(t,h0)+g1.x*tx(t,vec2(h1.x,h0.y)))+g1.y*(g0.x*tx(t,vec2(h0.x,h1.y))+g1.x*tx(t,h1));}",
-  "float fl(vec4 o){return floor(o.a*63.75+.5);}",
+  "float fl(vec4 o){return floor(o.a*255.+.5);}",
   "float bit(float f,float b){return mod(floor(f/b),2.);}",
   "float eq(vec3 a,vec3 b){vec3 d=abs(a-b);return step(max(d.x,max(d.y,d.z)),.002);}",
+  // 一家的边界噪声(各家错开取样)
+  "vec3 sn(vec4 q,vec2 p){vec4 z=nt(p*1.3333+vec2(dot(q.rgb,vec3(311.7,173.3,97.1)),dot(q.rgb,vec3(127.1,269.5,183.3)))*7.);return vec3(.28*(z.x-.5),.3733*z.yz);}",
   "void main(){",
-  " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);",
-  " vec3 n1=nd(p*1.9),n2=nd(p*5.3+3.1);",
-  " vec2 wc=c+(vec2(n1.x,nd(p*1.9+17.).x)-.5)*clamp(cp*.3,0.,.9);",
-  " vec4 A=bs(uA,wc),B=tx(uB,wc),C=tx(uC,wc);",
-  " float h=B.b*1.6,land=A.a;",
-  // 地面：底色、岩、林、田、沙丘、树、雪
-  " vec3 col=A.rgb*(.9+.18*n1.x);",
-  " float rk=clamp(B.a+smoothstep(.5,.95,h)*.7,0.,1.);",
-  " col=mix(col,vec3(.48,.44,.39)*(.85+.3*n2.x),rk*.55);",
-  " float fo=smoothstep(.3,.7,C.r+(nd(p*3.7).x-.5)*.55);",
-  " col=mix(col,col*vec3(.62,.76,.6),fo*.8);",
-  " vec2 fp=p*vec2(2.3,3.1)+vec2(n1.x,n2.x)*1.1,fi=floor(fp),ff=fract(fp);",
-  " col=mix(col,col*(.84+.3*hs(fi))*mix(.8,1.,smoothstep(0.,.07,min(min(ff.x,1.-ff.x),min(ff.y,1.-ff.y)))),C.g*smoothstep(.2,.7,det));",
-  " col*=mix(1.,.9+.2*(sin(dot(p,vec2(2.6,1.2))*2.3+n1.x*5.)*.5+.5),C.b*det*.8);",
-  " vec2 tp=p*7.,ti=floor(tp),tf=tp-ti-.5-(vec2(hs(ti),hs(ti+5.3))-.5)*.4;",
-  " float tr=smoothstep(.36,.24,length(tf))*step(hs(ti+9.1),C.r*1.15)*smoothstep(.45,1.,det);",
-  " col*=1.-tr*(.18+.38*clamp(.5+(tf.x+tf.y)*1.8,0.,1.));",
-  " float sn=max(C.a,smoothstep(.95,1.25,h+(n1.x-.5)*.3));",
-  " col=mix(col,vec3(.93,.95,.97),sn*.9);",
-  " if(uTer<.5)col=vec3(.204,.224,.18);",
+  " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);vec4 n1=nt(p*1.9);",
   // 归属(照游戏里的平滑国界 SmoothBorders.SmoothedOwnerAt)：周围 3×3 块地按二次 B 样条加权，同一家(叶，或展开到城时的城)的权相加，
   // 各家再加一层低频噪声(幅度 .28、噪声一格 6 格地)，最大的那家就是这里的主人；水、迷雾不参与(国土贴着海岸走)。
-  // 界线在头两家打平处：两家之差除以它变化的快慢就是离界线几个点，粗细按屏幕上的点算；哪一级的界看这两家在哪一级上不同
-  " vec2 zc=floor(p),t=p-zc-.5;",
-  " vec3 wx=vec3(.5*(.5-t.x)*(.5-t.x),.75-t.x*t.x,.5*(.5+t.x)*(.5+t.x)),wy=vec3(.5*(.5-t.y)*(.5-t.y),.75-t.y*t.y,.5*(.5+t.y)*(.5+t.y));",
-  " vec3 dx=vec3(t.x-.5,-2.*t.x,.5+t.x),dy=vec3(t.y-.5,-2.*t.y,.5+t.y);",
-  " vec4 Q[9];float W[9];vec2 G[9];float vis=0.;",
-  " for(int j=0;j<3;j++)for(int i=0;i<3;i++){Q[j*3+i]=texture2D(uO3,(zc+vec2(float(i)-1.,float(j)-1.)+.5)/uZ);",
+  // 界线在头两家打平处：两家之差除以它变化的快慢就是离界线几个点，粗细按屏幕上的点算；哪一级的界看这两家在哪一级上不同。
+  // 九块都是同一家(一国腹地，屏幕上大多数点)就不必比
+  // 腹地(周围八块同属一家，见 g3Own)只取一块，不必比九块
+  " vec2 zc=floor(p),t=p-zc-.5;vec4 Q4=texture2D(uO3,(zc+.5)/uZ);float F4=fl(Q4),vis=bit(F4,16.);",
+  " float s1=-9.,s2=-9.,ka=4.,kb=4.;vec2 g1=vec2(0.),g2=g1;vec4 oa=Q4,ob=oa;",
+  " if(F4>127.5){if(bit(F4,1.)>.5)s1=1.;}",
+  " else{",
+  "  vec3 wx=vec3(.5*(.5-t.x)*(.5-t.x),.75-t.x*t.x,.5*(.5+t.x)*(.5+t.x)),wy=vec3(.5*(.5-t.y)*(.5-t.y),.75-t.y*t.y,.5*(.5+t.y)*(.5+t.y));",
+  "  vec3 dx=vec3(t.x-.5,-2.*t.x,.5+t.x),dy=vec3(t.y-.5,-2.*t.y,.5+t.y);",
+  "  vec4 Q[9];float W[9];vec2 G[9];vis=0.;",
+  "  for(int j=0;j<3;j++)for(int i=0;i<3;i++){Q[j*3+i]=texture2D(uO3,(zc+vec2(float(i)-1.,float(j)-1.)+.5)/uZ);",
   "  W[j*3+i]=wx[i]*wy[j];G[j*3+i]=vec2(dx[i]*wy[j],wx[i]*dy[j]);vis+=W[j*3+i]*bit(fl(Q[j*3+i]),16.);}",
-  " float s1=-9.,s2=-9.,ka=0.,kb=0.;vec2 g1=vec2(0.),g2=g1;vec4 oa=vec4(0.),ob=oa;",
-  " for(int k=0;k<9;k++){",
-  "  if(bit(fl(Q[k]),1.)<.5)continue;",
-  "  float dup=0.;for(int m=0;m<9;m++){if(m<k&&bit(fl(Q[m]),1.)>.5&&eq(Q[m].rgb,Q[k].rgb)>.5)dup=1.;}",
-  "  if(dup>.5)continue;",
-  "  float S=0.;vec2 SG=vec2(0.);",
-  "  for(int m=0;m<9;m++){if(bit(fl(Q[m]),1.)>.5&&eq(Q[m].rgb,Q[k].rgb)>.5){S+=W[m];SG+=G[m];}}",
-  "  vec3 nz=nd(p*1.3333+vec2(dot(Q[k].rgb,vec3(311.7,173.3,97.1)),dot(Q[k].rgb,vec3(127.1,269.5,183.3)))*7.);",
-  "  S+=.28*(nz.x-.5);SG+=.3733*nz.yz;",
-  "  if(S>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=S;g1=SG;oa=Q[k];ka=float(k);}else if(S>s2){s2=S;g2=SG;ob=Q[k];kb=float(k);}}",
-  " float dl=1e4,lv=4.,Fo=fl(oa);vec4 own=vec4(0.);",
+  "  vec4 c0=vec4(-1.),c1=c0,c2=c0,c3=c0;float w0=0.,w1=0.,w2=0.,w3=0.,k0=0.,k1=0.,k2=0.,k3=0.,nc=0.;vec2 d0=vec2(0.),d1=d0,d2=d0,d3=d0;",
+  "  for(int k=0;k<9;k++){",
+  "   if(bit(fl(Q[k]),1.)<.5)continue;",
+  "   vec3 q=Q[k].rgb;float wk=W[k];vec2 gk=G[k];",
+  "   if(nc>.5&&eq(q,c0.rgb)>.5){w0+=wk;d0+=gk;}",
+  "   else if(nc>1.5&&eq(q,c1.rgb)>.5){w1+=wk;d1+=gk;}",
+  "   else if(nc>2.5&&eq(q,c2.rgb)>.5){w2+=wk;d2+=gk;}",
+  "   else if(nc>3.5&&eq(q,c3.rgb)>.5){w3+=wk;d3+=gk;}",
+  "   else if(nc<.5){c0=Q[k];w0=wk;d0=gk;k0=float(k);nc=1.;}",
+  "   else if(nc<1.5){c1=Q[k];w1=wk;d1=gk;k1=float(k);nc=2.;}",
+  "   else if(nc<2.5){c2=Q[k];w2=wk;d2=gk;k2=float(k);nc=3.;}",
+  "   else if(nc<3.5){c3=Q[k];w3=wk;d3=gk;k3=float(k);nc=4.;}}",
+  "  if(nc>1.5){vec3 z=sn(c0,p);w0+=z.x;d0+=z.yz;z=sn(c1,p);w1+=z.x;d1+=z.yz;",
+  "   if(nc>2.5){z=sn(c2,p);w2+=z.x;d2+=z.yz;}if(nc>3.5){z=sn(c3,p);w3+=z.x;d3+=z.yz;}}",
+  "  if(nc>.5){s1=w0;g1=d0;oa=c0;ka=k0;}",
+  "  if(nc>1.5){if(w1>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w1;g1=d1;oa=c1;ka=k1;}else{s2=w1;g2=d1;ob=c1;kb=k1;}}",
+  "  if(nc>2.5){if(w2>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w2;g1=d2;oa=c2;ka=k2;}else if(w2>s2){s2=w2;g2=d2;ob=c2;kb=k2;}}",
+  "  if(nc>3.5){if(w3>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w3;g1=d3;oa=c3;ka=k3;}else if(w3>s2){s2=w3;g2=d3;ob=c3;kb=k3;}}}",
+  " float dl=1e4,lv=4.,fr=0.,Fo=fl(oa);vec4 own=vec4(0.);",
   " if(s1>-9.){vec2 ua=(zc+vec2(mod(ka,3.)-1.,floor(ka/3.)-1.)+.5)/uZ;own=texture2D(uO1,ua);",
   "  if(s2>-9.){vec2 ub=(zc+vec2(mod(kb,3.)-1.,floor(kb/3.)-1.)+.5)/uZ;vec4 pa=texture2D(uO2,ua),pb=texture2D(uO2,ub);",
   "   dl=(s1-s2)*uK/max(length(g1-g2),1e-4);",
-  "   lv=abs(bit(Fo,8.)-bit(fl(ob),8.))>.5?0.:eq(vec3(pa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(pa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.;}}",
+  "   lv=abs(bit(Fo,8.)-bit(fl(ob),8.))>.5?0.:eq(vec3(pa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(pa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.;",
+  // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
+  "   fr=lv<.5&&bit(Fo,64.)+bit(fl(ob),64.)>.5?1.:0.;}}",
+  // 地面：底色、岩、林、田、沙丘、树、雪(关了地形只取海岸，地面平涂简图的暗色)
+  " vec3 col=vec3(.204,.224,.18);float land,rk=0.,fo=0.,h=0.;vec4 B,C;",
+  " if(uTer>.5){",
+  "  vec2 wc=c+(n1.xw-.5)*clamp(cp*.3,0.,.9);vec4 A=bs(uA,wc),n2=nt(p*5.3+3.1);B=tx(uB,wc);C=tx(uC,wc);",
+  "  h=B.b*1.6;land=A.a;col=A.rgb*(.9+.18*n1.x);",
+  "  rk=clamp(B.a+smoothstep(.5,.95,h)*.7,0.,1.);col=mix(col,vec3(.48,.44,.39)*(.85+.3*n2.x),rk*.55);",
+  "  fo=smoothstep(.3,.7,C.r+(n2.w-.5)*.55);col=mix(col,col*vec3(.62,.76,.6),fo*.8);",
+  "  if(det>.2){",
+  "   vec2 fp=p*vec2(2.3,3.1)+vec2(n1.x,n2.x)*1.1,fi=floor(fp),ff=fract(fp);",
+  "   col=mix(col,col*(.84+.3*hs(fi))*mix(.8,1.,smoothstep(0.,.07,min(min(ff.x,1.-ff.x),min(ff.y,1.-ff.y)))),C.g*smoothstep(.2,.7,det));",
+  "   col*=mix(1.,.9+.2*(sin(dot(p,vec2(2.6,1.2))*2.3+n1.x*5.)*.5+.5),C.b*det*.8);",
+  "   if(det>.45&&C.r>.05){vec2 tp=p*7.,ti=floor(tp),tf=tp-ti-.5-(vec2(hs(ti),hs(ti+5.3))-.5)*.4;",
+  "    float tr=smoothstep(.36,.24,length(tf))*step(hs(ti+9.1),C.r*1.15)*smoothstep(.45,1.,det);col*=1.-tr*(.18+.38*clamp(.5+(tf.x+tf.y)*1.8,0.,1.));}}",
+  "  col=mix(col,vec3(.93,.95,.97),max(C.a,smoothstep(.95,1.25,h+(n1.x-.5)*.3))*.9);",
+  " }else{land=bs(uA,c).a;B=tx(uB,c);}",
   " float ae=clamp(.8/cp,.02,.5),la=smoothstep(.5-ae,.5+ae,land);",
-  // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠各家之间界线的一圈深一些；无主之地压暗
-  " if(s1>-9.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),m=bit(Fo,4.)>.5?(mod(floor((p.x+p.y)/P),3.)<1.?.5:.15):.55;if(uTer<.5)m=bit(Fo,4.)>.5?(mod(floor((p.x+p.y)/P),3.)<1.?.75:.3):.92;",
-  "  if(lv<2.5)m+=.16*smoothstep(10.*uPx,0.,dl);col=mix(col,own.rgb,m*(1.-rk*.3*uTer));if(bit(Fo,32.)>.5)col=mix(col,vec3(1.),.14);}",
+  // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠各家之间界线的一圈深一些；无主之地压暗；选中的那一家提亮
+  " if(s1>-9.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),st=mod(floor((p.x+p.y)/P),3.),m=uTer>.5?(bit(Fo,4.)>.5?(st<1.?.5:.15):.55):(bit(Fo,4.)>.5?(st<1.?.75:.3):.92);",
+  "  if(lv<2.5)m+=.16*smoothstep(10.*uPx,0.,dl);col=mix(col,own.rgb,m*(1.-rk*.3));if(bit(Fo,32.)>.5)col=mix(col,vec3(1.),.14);}",
   "  else col=mix(col,vec3(dot(col,vec3(.3,.59,.11))),.35)*.72;}",
-  // 打光：起伏的法线加上细纹，光从西北来
-  " vec3 nr=vec3(B.rg*2.-1.,0.);nr.z=sqrt(max(.05,1.-dot(nr.xy,nr.xy)));",
-  " vec3 n3=nd(p*11.7+5.);",
-  " nr=normalize(nr-vec3((n1.yz*.4+n2.yz*(.25+rk*.55)+n3.yz*rk*.35*det)*(.1+rk*1.1+fo*.25)*(.35+.65*det),0.));",
-  " vec3 Ld=normalize(vec3(-.55,-.65,.8));col*=mix(1.,(.5+.62*max(dot(nr,Ld),0.))/(.5+.62*Ld.z),uTer);",
-  // 水：按深浅，近岸浅一些，有一点波光；海岸一道细的暗线
-  " vec3 wn=nd(p*3.3+n1.x*.6),wcol=mix(vec3(.26,.48,.55),vec3(.07,.18,.31),smoothstep(0.,.6,B.b));",
-  " wcol=mix(wcol,vec3(.38,.6,.6),smoothstep(.15,.48,land)*.6)*(.94+.08*wn.x);",
-  " if(uTer<.5)wcol=mix(vec3(.2,.32,.4),vec3(.11,.149,.173),smoothstep(.1,.5,B.b));",
-  " wcol+=.12*pow(max(0.,dot(normalize(vec3(-wn.yz*.2,1.)),normalize(Ld+vec3(0.,0.,1.)))),24.);",
+  // 打光：起伏的法线加上细纹，光从西北来；水按深浅，近岸浅一些，有一点波光
+  " vec3 Ld=normalize(vec3(-.55,-.65,.8)),wcol=mix(vec3(.2,.32,.4),vec3(.11,.149,.173),smoothstep(.1,.5,B.b));",
+  " if(uTer>.5){",
+  "  vec3 nr=vec3(B.rg*2.-1.,0.);nr.z=sqrt(max(.05,1.-dot(nr.xy,nr.xy)));vec2 gr=n1.yz*.4;",
+  "  if(rk*det>.05)gr+=nt(p*11.7+5.).yz*rk*.35*det;",
+  "  nr=normalize(nr-vec3(gr*(.1+rk*1.1+fo*.25)*(.35+.65*det),0.));col*=(.5+.62*max(dot(nr,Ld),0.))/(.5+.62*Ld.z);",
+  "  if(la<.999){vec4 wn=nt(p*3.3+n1.x*.6);wcol=mix(vec3(.26,.48,.55),vec3(.07,.18,.31),smoothstep(0.,.6,B.b));",
+  "   wcol=mix(wcol,vec3(.38,.6,.6),smoothstep(.15,.48,land)*.6)*(.94+.08*wn.x);",
+  "   wcol+=.12*pow(max(0.,dot(normalize(vec3(-wn.yz*.2,1.)),normalize(Ld+vec3(0.,0.,1.)))),24.);}}",
   " col=mix(wcol,col,la);",
   " col*=1.-.3*smoothstep(1.3*uPx,0.,abs(land-.5)*cp*1.4)*clamp(cp/4.-.5,0.,1.);",
   // 界线(参考原版：各国在自己那一边描一道本国的深一档颜色，不透明，用户 2026-11-12 "国家边框变粗点颜色明显点, 参考原游戏")：
@@ -2424,13 +2436,29 @@ var G3FS=["precision highp float;",
   " if(lv<3.5){float far=uFar>.5?1.:0.,bw=(far>.5?1.6:2.6)*uPx;",
   "  if(lv<2.5&&bit(Fo,2.)>.5&&s1>-9.){vec3 bc=clamp(own.rgb*1.12+.03,0.,1.);bc=clamp(mix(vec3(dot(bc,vec3(.3,.59,.11))),bc,1.35),0.,1.);",
   "   col=mix(col,bc*(.82+.18*smoothstep(bw,0.,dl)),clamp(bw+.5-dl,0.,1.)*(lv<1.5?1.:.8));}",
-  "  float cw=(lv<.5?(far>.5?2.:3.):lv<1.5?1.2:lv<2.5?.9:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.);",
-  "  col=mix(col,lv<.5?vec3(.953,.765,.29):vec3(.06,.065,.045),al*(lv<.5?1.:lv<1.5?.85:lv<2.5?.6:.38));}",
+  "  float cw=(lv<.5?(far>.5?2.:3.)*(1.+fr*.4):lv<1.5?1.2:lv<2.5?.9:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.);",
+  "  col=mix(col,lv<.5?(fr>.5?vec3(.91,.24,.15):vec3(.953,.765,.29)):vec3(.06,.065,.045),al*(lv<.5?1.:lv<1.5?.85:lv<2.5?.6:.38));}",
   // 选中的那一家：同不选中的相接处描一道白边
   " if(s2>-9.&&abs(bit(Fo,32.)-bit(fl(ob),32.))>.5)col=mix(col,vec3(1.),clamp((uFar>.5?2.:3.)*uPx*.5+.5-dl,0.,1.)*.95);",
   // 迷雾
   " col=mix(vec3(.055,.06,.047)+.03*n1.x,col,smoothstep(.15,.85,vis+(n1.x-.5)*.35));",
   " gl_FragColor=vec4(col,1.);}"].join("\n");
+// 噪声表：512×512 张、128 格一循环的平滑值噪声(r 值、gb 它的变化、a 另一份)，铺开不露缝，缩小了有逐级减半的图不闪
+function g3Noise(gl){
+  var S=512,L=128,cell=S/L,g=new Float32Array(L*L),h=new Float32Array(L*L),d=new Uint8Array(S*S*4),x,y,seed=20261112;
+  function rnd(){seed=seed*16807%2147483647;return(seed-1)/2147483646}
+  for(x=0;x<L*L;x++){g[x]=rnd();h[x]=rnd()}
+  for(y=0;y<S;y++)for(x=0;x<S;x++){
+    var fx=(x+.5)/cell,fy=(y+.5)/cell,ix=Math.floor(fx),iy=Math.floor(fy),u=fx-ix,v=fy-iy,su=u*u*(3-2*u),sv=v*v*(3-2*v),du=6*u*(1-u),dv=6*v*(1-v);
+    var i0=iy%L*L,i1=(iy+1)%L*L,x0=ix%L,x1=(ix+1)%L,a=g[i0+x0],b=g[i0+x1],c=g[i1+x0],e=g[i1+x1],k=a-b-c+e,j=(y*S+x)*4;
+    d[j]=(a+(b-a)*su+(c-a)*sv+k*su*sv)*255;d[j+1]=(du*(b-a+k*sv)/6+.5)*255;d[j+2]=(dv*(c-a+k*su)/6+.5)*255;
+    a=h[i0+x0];b=h[i0+x1];c=h[i1+x0];e=h[i1+x1];d[j+3]=(a+(b-a)*su+(c-a)*sv+(a-b-c+e)*su*sv)*255;
+  }
+  var t=gl.createTexture();gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,S,S,0,gl.RGBA,gl.UNSIGNED_BYTE,d);gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+}
 // 地面格高度线 → 起伏(海平面 0，水是负的)
 function g3Relief(e){return e<98?(e-98)/98:e<128?(e-98)/600:e<199?.05+(e-128)/284:e<210?.38:e<230?.6:.8}
 // 只在 m 为 1 的格子之间取方框平均
@@ -2503,9 +2531,19 @@ function g3Own(gl,sc){
   var M=map,n=M.w*M.h,a=new Uint8Array(n*4),b=new Uint8Array(n*4),c=new Uint8Array(n*4),i,sel=g3Sel();
   for(i=0;i<n;i++){
     var o=M.grid[i],la=M.zLeaf[i],r=o<250?M.realms[o]:null,own=la>=0,rgb=own&&M.leafRgb[la]||[0,0,0],j=i*4,z=M.zcity[i],picked=own&&sel>=0&&M.shown[la]===sel;
-    a[j]=rgb[0];a[j+1]=rgb[1];a[j+2]=rgb[2];a[j+3]=((o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0)|(picked?32:0))*4;
+    a[j]=rgb[0];a[j+1]=rgb[1];a[j+2]=rgb[2];a[j+3]=((o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0)|(picked?32:0)|(r&&r.war?64:0));
     var p1=own?M.nodes[la].top:65535,p2=own?M.shown[la]:65535,cl=own&&(M.cityOpen[la]||sc&&r&&r.tier<=1),p3=own?(cl&&z!==NOCITY?8388608+z:la):16777215;
     b[j]=p1&255;b[j+1]=p1>>8&255;b[j+2]=p2&255;b[j+3]=p2>>8&255;c[j]=p3&255;c[j+1]=p3>>8&255;c[j+2]=p3>>16&255;c[j+3]=a[j+3];
+  }
+  // 腹地：周围八块同属一家、记号也一样，记在 O3 的第 128 位(着色器在这里只取一块)
+  var W=M.w,H=M.h;
+  for(i=0;i<n;i++){
+    var x=i%W,y=(i-x)/W,j=i*4,ok=1;
+    for(var dy=-1;dy<=1&&ok;dy++)for(var dx=-1;dx<=1;dx++){
+      var q=(Math.min(H-1,Math.max(0,y+dy))*W+Math.min(W-1,Math.max(0,x+dx)))*4;
+      if(c[q]!==c[j]||c[q+1]!==c[j+1]||c[q+2]!==c[j+2]||a[q+3]!==a[j+3]){ok=0;break}
+    }
+    if(ok)c[j+3]|=128;
   }
   g3Tex(gl,3,M.w,M.h,a,false);g3Tex(gl,4,M.w,M.h,b,false);g3Tex(gl,5,M.w,M.h,c,false);
 }
@@ -2522,7 +2560,8 @@ function g3Init(){
     gl.attachShader(pg,sh(gl.VERTEX_SHADER,G3VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,G3FS));gl.bindAttribLocation(pg,0,"aP");gl.linkProgram(pg);
     if(!gl.getProgramParameter(pg,gl.LINK_STATUS))throw gl.getProgramInfoLog(pg);
     gl.useProgram(pg);
-    "uA uB uC uO1 uO2 uO3 uV uTl uMH uT uZ uQ uK uPx uFar uTer".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<6)gl.uniform1i(u[nm],i)});
+    "uA uB uC uO1 uO2 uO3 uN uV uTl uMH uT uZ uQ uK uPx uFar uTer".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<7)gl.uniform1i(u[nm],i)});
+    g3Noise(gl);
     cv.addEventListener("webglcontextlost",function(e){e.preventDefault();G3.bad=true;G3.gl=null;g3Hide();drawMap()});
     cv.id="map-gl";G3.cv=cv;G3.u=u;G3.vb=gl.createBuffer();G3.ib=gl.createBuffer();G3.max=gl.getParameter(gl.MAX_TEXTURE_SIZE);G3.gl=gl;
   }catch(e){G3.bad=true;if($("map-3d"))$("map-3d").hidden=true;try{console.warn("[3d]",e)}catch(x){}}
@@ -2539,7 +2578,7 @@ function g3Draw(cv,x,y,w,h,kc){
     var sc=kc>=14;
     var sel=g3Sel();
     if(G3.nodes!==map.nodes||G3.okey!==map.openKey||G3.sc!==sc||G3.grid!==map.grid||G3.sel!==sel){g3Own(gl,sc);G3.nodes=map.nodes;G3.okey=map.openKey;G3.sc=sc;G3.grid=map.grid;G3.sel=sel}
-    var cw=cv.clientWidth,ch=cv.clientHeight,now=Date.now(),busy=now-G3.last<90,pr=Math.min(2,window.devicePixelRatio||1),gc=G3.cv,u=G3.u;
+    var cw=cv.clientWidth,ch=cv.clientHeight,now=Date.now(),busy=now-G3.last<90,pr=Math.min(1.5,window.devicePixelRatio||1),gc=G3.cv,u=G3.u;
     G3.last=now;clearTimeout(G3.tm);
     if(busy){pr=Math.max(.75,pr*.6);G3.tm=setTimeout(function(){G3.last=0;drawMap()},150)}
     var bw=Math.max(1,Math.round(cw*pr)),bh=Math.max(1,Math.round(ch*pr));
@@ -2761,11 +2800,44 @@ function drawLabel(ctx,o,x,y,k,dpr,cv,boxes,placed,t0){
   }
   ctx.restore();
 }
+// 战争箭头(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")：照游戏里的战争标记(WarMarkerPatch)，
+// 画在两边离得最近的两座城之间(本朝连同各行政区、封国的城算一边)，由攻方指向守方(atk：是它打过来的)，正中一个交战的图标；
+// 战线是底图上本朝同交战之敌相接处的朱红界线(见 G3FS)
+function drawWars(ctx,x,y,k,dpr,cv){
+  if(aim||!map.cityAt)return;
+  if(map.warFor!==map.cityAt){
+    map.warFor=map.cityAt;map.wars=[];
+    map.realms.forEach(function(r,ri){
+      if(!r.war)return;
+      var best=null,bd=1e18;
+      map.cityAt.forEach(function(a){if(!a.own)return;map.cityAt.forEach(function(b){
+        if(b.r!==ri)return;var d=(a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y);if(d<bd){bd=d;best=[a,b]}})});
+      if(best)map.wars.push({a:r.atk?best[1]:best[0],b:r.atk?best[0]:best[1]});
+    });
+  }
+  map.wars.forEach(function(wr){
+    var ax=(wr.a.x-x)*k,ay=(wr.a.y-y)*k,bx=(wr.b.x-x)*k,by=(wr.b.y-y)*k,dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy);
+    if(L<16*dpr||Math.max(ax,bx)<0||Math.min(ax,bx)>cv.width||Math.max(ay,by)<0||Math.min(ay,by)>cv.height)return;
+    var nx=-dy/L,ny=dx/L,bend=L*.18,cx=(ax+bx)/2+nx*bend,cy=(ay+by)/2+ny*bend,hw=Math.max(3*dpr,Math.min(7*dpr,L*.04));
+    var tx=bx-cx,ty=by-cy,tl=Math.hypot(tx,ty)||1;tx/=tl;ty/=tl;
+    var ex=bx-tx*8*dpr,ey=by-ty*8*dpr,hl=hw*2.6,hb=hw*1.9;
+    ctx.save();ctx.lineCap="round";ctx.lineJoin="round";
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.quadraticCurveTo(cx,cy,ex-tx*hl*.6,ey-ty*hl*.6);
+    ctx.strokeStyle="rgba(24,8,6,.7)";ctx.lineWidth=hw+3*dpr;ctx.stroke();ctx.strokeStyle="#e0412e";ctx.lineWidth=hw;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-tx*hl-ty*hb,ey-ty*hl+tx*hb);ctx.lineTo(ex-tx*hl+ty*hb,ey-ty*hl-tx*hb);ctx.closePath();
+    ctx.lineWidth=2*dpr;ctx.strokeStyle="rgba(24,8,6,.7)";ctx.stroke();ctx.fillStyle="#e0412e";ctx.fill();
+    var ic=pic("k_war");
+    if(ic){var s=10*dpr,mx=.25*ax+.5*cx+.25*ex,my=.25*ay+.5*cy+.25*ey;ctx.fillStyle="rgba(24,8,6,.75)";ctx.beginPath();ctx.arc(mx,my,s*1.15,0,6.283);ctx.fill();
+      ctx.imageSmoothingEnabled=false;ctx.drawImage(ic,mx-s,my-s,s*2,s*2)}
+    ctx.restore();
+  });
+}
 function mapFull(){return $("mapbox").classList.contains("full")}
 function drawMap(){
   // 选人时还在加载界面(选人页藏着)：先不画，出图时 renderVacant 会画
   if(!map||!mapShown()||$("s-main").hidden&&!(picking&&!$("s-vacant").hidden))return;
-  var cv=$("map"),v=map.view,dpr=Math.min(3,window.devicePixelRatio||1),cssW=cv.clientWidth||320,cssH;
+  // 底图交给显卡时上面这张只画字和牌子，两倍清晰度够了(三倍的大画布每帧清空、合成都吃力)
+  var cv=$("map"),v=map.view,dpr=Math.min(G3.on&&!G3.bad?2:3,window.devicePixelRatio||1),cssW=cv.clientWidth||320,cssH;
   // 图铺满页签栏以外的地方；全屏时、选人页(没有页签栏)整个屏幕都是图
   cssH=mapFull()||picking?window.innerHeight:($("p-map").clientHeight||window.innerHeight);
   cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);cv.style.height=cssH+"px";
@@ -2776,8 +2848,8 @@ function drawMap(){
   map.maxz=Math.max(8,w0*map.tile/24);
   if(mv.z>map.maxz)mv.z=map.maxz;
   var w=w0/mv.z,h=w*cssH/cssW;
-  var x=w>=v.w?v.x+v.w/2-w/2:Math.min(Math.max(mv.x-w/2,v.x),v.x+v.w-w);
-  var y=h>=v.h?v.y+v.h/2-h/2:Math.min(Math.max(mv.y-h/2,v.y),v.y+v.h-h);
+  // 拖动留出富余(用户 2026-11-12 "拖动允许给点富裕的空间吧, 不然万一我的国家在最上面, 全被ui挡住了")：图心能拖到所知天下的任一处，边上的国家也拖得到屏幕正中
+  var x=Math.min(Math.max(mv.x,v.x),v.x+v.w)-w/2,y=Math.min(Math.max(mv.y,v.y),v.y+v.h)-h/2;
   mv.x=x+w/2;mv.y=y+h/2;map.win={x:x,y:y,w:w,h:h};
   // k：一块地在画布上占几个像素；kc：占几个屏幕上的点
   var k=cv.width/w,kc=k/dpr;
@@ -2850,6 +2922,7 @@ function drawMap(){
     ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(c.name,px,ty);
     ctx.fillStyle=c.own?"#fff3cf":"#d6d0bd";ctx.fillText(c.name,px,ty);
   });
+  drawWars(ctx,x,y,k,dpr,cv);
   drawArmies(ctx,x,y,k,dpr,cv);
   $("z-out").disabled=mv.z<=1.001;$("z-in").disabled=mv.z>=map.maxz-.001;$("z-reset").disabled=mv.z<=1.001;
   var tag=$("map-intel"),line=armies?(armies.every===0?t("intel_live"):t("intel_at",Math.floor(armies.at/12)+1,armies.at%12+1,armies.every)):"";
@@ -2938,8 +3011,10 @@ function zoomAt(factor,fx,fy){
   if(z===mv.z)return;
   var ratio=mv.z/z;mv.z=z;
   mv.x=gx+(.5-fx)*win.w*ratio;mv.y=gy+(.5-fy)*win.h*ratio;
-  drawMap();
+  drawSoon();
 }
+// 拖动、捏合时一帧只画一回(手指一动就画，手机上画不过来就越积越卡)
+function drawSoon(){if(drawSoon.q)return;drawSoon.q=requestAnimationFrame(function(){drawSoon.q=0;drawMap()})}
 // 底下的条子：点中了什么、能办什么
 function panel(title,lines,acts){
   var box=$("map-panel");box.textContent="";
@@ -3067,13 +3142,21 @@ function pickAt(clientX,clientY){
   // 点中的那一家描白边(下令时不描)
   mapSelZone=c<250&&!aim?y*map.w+x:-1;
   if(picking){pickRealm(c<250?r:null);return}
-  if(!city&&c<250&&r&&r.tier<=1)city=cityAtCell(gx,gy);
+  // 点中的是眼下标着的那一家(用户 2026-11-13 "地图拉远后点击某个政体只能选择城市?为什么不直接选择当前显示的政体""拉近是王国我选择就是王国")：
+  // 还没拉近到城一级，点地不落到城上(点城的图标照旧是城；下令时照旧落到城上)
+  var zl=c<250?map.zLeaf[y*map.w+x]:-1,cityLevel=zl>=0&&map.cityOpen[zl]===1,shownNode=zl>=0&&!cityLevel?map.nodes[map.shown[zl]]:null;
+  if(!city&&c<250&&r&&r.tier<=1&&(cityLevel||aim))city=cityAtCell(gx,gy);
   if(aim){
     if(city&&!(city.own||city.foe)){toast(t("aim_bad",city.name),true);return}
     if(city)confirmOrder(city);else toast(t("aim_miss"),true);
     return;
   }
   sel=null;
+  // 标着的是帝国(政体图层还没展开到各国)：按帝国之主办事(外交、出兵都对着它)
+  if(!city&&shownNode&&layer==="pol"&&shownNode.ei!=null){
+    var head=null;map.realms.forEach(function(o){if(o.emp===shownNode.ei&&!o.prov&&(!head||o.tier<head.tier||o.tier===head.tier&&(o.n||0)>(head.n||0)))head=o});
+    if(head){r=head;c=map.realms.indexOf(head)}
+  }
   var name=c===FOG?t("m_fog"):c===WATER?t("m_water"):c===WILD||!r?t("m_wild"):r.tier===2?t("m_rumour",r.name):r.name,acts=[];
   // 点中一个已知之国：给一个办外交的按钮
   if(c<250&&r&&r.tier===1&&r.id&&state&&state.decrees){
@@ -3097,7 +3180,9 @@ function pickAt(clientX,clientY){
       if(o.id===city.id&&!o.seat&&pv.cities.length>1)acts.push({label:t("dv_move"),icon:"g_division",go:function(){divisionMove(dv,o,pv)}});
     })});
   }
-  panel(city?city.name:name,[city?name:null,c<250&&r?belongOf(r):null,r&&r.prov&&c<250?t("m_prov"):null],acts);
+  // 条子的题目：城；或标着的那一家(帝国、法理)；或脚下的国
+  var title=city?city.name:shownNode&&(layer==="dj"||shownNode.ei!=null)?shownNode.name:name;
+  panel(title,[city||title!==name?name:null,c<250&&r?belongOf(r):null,r&&r.prov&&c<250?t("m_prov"):null],acts);
   drawMap();
 }
 // 点中别国时底下条子里另加的按钮：能改设、能招安的多一个进天平的按钮
@@ -3130,7 +3215,7 @@ function mapRealmActs(r,acts){
     if(count()===1){
       moved+=Math.abs(dx)+Math.abs(dy);
       if(moved<6)return;
-      mv.x-=dx/rect.width*map.win.w;mv.y-=dy/rect.height*map.win.h;drawMap();
+      mv.x-=dx/rect.width*map.win.w;mv.y-=dy/rect.height*map.win.h;drawSoon();
     }else if(count()===2&&pinch){
       var now=spread(),target=Math.min(maxZ(),Math.max(1,pinch.z*now.d/pinch.d));
       zoomAt(target/mv.z,(now.x-rect.left)/rect.width,(now.y-rect.top)/rect.height);
@@ -3148,7 +3233,7 @@ function mapRealmActs(r,acts){
   },{passive:false});
   $("z-in").onclick=function(){zoomAt(1.6,.5,.5)};
   $("z-out").onclick=function(){zoomAt(1/1.6,.5,.5)};
-  $("z-reset").onclick=function(){mv.z=1;drawMap()};
+  $("z-reset").onclick=function(){mv.z=1;if(map){mv.x=map.view.x+map.view.w/2;mv.y=map.view.y+map.view.h/2}drawMap()};
   // 层级四档、图例
   var lb=document.querySelectorAll("#map-layers button[data-l]");
   for(var n=0;n<lb.length;n++){lb[n].className=lb[n].getAttribute("data-l")===layer?"on":"";lb[n].onclick=function(){setLayer(this.getAttribute("data-l"))}}
