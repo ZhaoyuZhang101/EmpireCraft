@@ -467,6 +467,7 @@ public static class ScenarioEditing
         foreach (WorldMapCore core in Era.cores)
             if (core.capital == id) core.capital = "";
         Era.ranks.Remove(id);
+        Era.species?.Remove(id);
         Era.independent?.Remove(id);
         int forgotten = ForgetInEvents(city: id);
         Changed();
@@ -485,6 +486,7 @@ public static class ScenarioEditing
         Era.base_stale = true;
         Era.independent = null;
         Era.ranks.Clear();
+        Era.species = null;
         Era.polities.Clear();
         Era.relations.Clear();
         foreach (WorldMapRegion region in Era.regions ?? new List<WorldMapRegion>()) region.capital = "";
@@ -722,6 +724,92 @@ public static class ScenarioEditing
         Before();
         polity.culture = Step(CultureService.CultureKeys.ToList(), polity.culture, step);
         Changed();
+    }
+
+    // 种族(原版物种；用户 2026-11-13 转群友"剧本编辑器里可以自己设置王国、城市是什么种族，而不是锁死文化")：国家、城、部落圈各可单设，
+    // 空着的照旧——城随国家，国家照文化(见 WorldMapScenario.RulerSpecies、CitySpecies)。只管长相与原版天性，起名、政体、制度仍照文化，
+    // 不配套的照设的来。可选的是装着的文明物种，原版四族排前头
+    private static readonly string[] MainSpecies = { "human", "orc", "elf", "dwarf" };
+    private static List<string> _speciesKeys;
+
+    public static List<string> SpeciesKeys
+    {
+        get
+        {
+            if (_speciesKeys is { Count: > 0 }) return _speciesKeys;
+            List<string> civ = EmpireCraft.Scripts.Data.ConfigData.AllCivSpecies.Where(asset => !string.IsNullOrEmpty(asset?.id))
+                .Select(asset => asset.id).Distinct().ToList();
+            _speciesKeys = MainSpecies.Where(civ.Contains).Concat(civ.Where(id => !MainSpecies.Contains(id))).ToList();
+            return _speciesKeys;
+        }
+    }
+
+    // 空 = 不单设(随国家/随文化)，再是各物种
+    private static string StepSpecies(string current, int step) =>
+        Step(new List<string> { "" }.Concat(SpeciesKeys).ToList(), current ?? "", step);
+
+    public static string SpeciesName(string species) =>
+        string.IsNullOrEmpty(species) ? "" :
+        AssetManager.actor_library.has(species) ? AssetManager.actor_library.get(species).getLocalizedName() : species;
+
+    // 这座城单设的物种(没设为空)
+    public static string OwnSpecies(WorldMapCity city) =>
+        city != null && Era?.species != null && Era.species.TryGetValue(city.id, out string species) ? species ?? "" : "";
+
+    public static void CycleCitySpecies(string cityId, int step)
+    {
+        WorldMapCity city = City(cityId);
+        if (city == null || Era == null) return;
+        Before();
+        string next = StepSpecies(OwnSpecies(city), step);
+        if (string.IsNullOrEmpty(next)) Era.species?.Remove(city.id);
+        else (Era.species ??= new Dictionary<string, string>())[city.id] = next;
+        Changed();
+    }
+
+    public static void CycleSpecies(WorldMapPolity polity, int step)
+    {
+        if (polity == null) return;
+        Before();
+        string next = StepSpecies(polity.species, step);
+        polity.species = string.IsNullOrEmpty(next) ? null : next;
+        Changed();
+    }
+
+    public static void CycleTribesSpecies(int index, int step)
+    {
+        WorldMapTribes tribes = TribesOf(index);
+        if (tribes == null) return;
+        Before();
+        string next = StepSpecies(tribes.species, step);
+        tribes.species = string.IsNullOrEmpty(next) ? null : next;
+        Changed();
+    }
+
+    // 国家没单设时开局君主用的物种：照本国文化(没写文化的照都城的)
+    public static string AutoRealmSpecies(WorldMapPolity polity)
+    {
+        if (polity == null) return "";
+        string culture = CultureService.IsValidCulture(polity.culture) ? polity.culture : RegionCulture(Region(City(polity.capital)?.region));
+        return WorldMapScenario.SpeciesFor(culture);
+    }
+
+    // 国家开局实际用的物种(单设的没装就照文化)
+    public static string RealmSpecies(WorldMapPolity polity) => WorldMapScenario.KnownSpecies(polity?.species) ?? AutoRealmSpecies(polity);
+
+    // 城没单设时开局用的物种：所在国家单设了的随国家(fromRealm)；都城随君主，照国家的；别的城照所在法理的文化
+    public static string AutoCitySpecies(WorldMapCity city, out bool fromRealm)
+    {
+        fromRealm = false;
+        if (city == null) return "";
+        WorldMapPolity owner = OwnerOf(city);
+        string realm = WorldMapScenario.KnownSpecies(owner?.species);
+        if (realm != null)
+        {
+            fromRealm = true;
+            return realm;
+        }
+        return owner != null && owner.capital == city.id ? AutoRealmSpecies(owner) : WorldMapScenario.SpeciesFor(RegionCulture(Region(city.region)));
     }
 
     public static void ToggleEmpire(WorldMapPolity polity)
@@ -1469,6 +1557,7 @@ public static class ScenarioEditing
         Era.passes.Clear();
         Era.events.Clear();
         Era.ranks.Clear();
+        Era.species = null;
         Era.culture.Clear();
         Era.cores = new List<WorldMapCore>();
         // 刷的地块、地形、开发度与部落圈按经纬度记，换了地图对不上

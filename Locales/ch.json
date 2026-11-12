@@ -12620,5 +12620,11 @@
   "terminal_books_wrong_renown": "威望 -{0}。",
   "terminal_books_wrong_faction": "{0}所屬的{1}心懷不滿。",
   "terminal_impeach": "{0}上疏，參{1}{2}貪墨。",
-  "terminal_wear_poor": "內帑不足，這一件買不起。"
+  "terminal_wear_poor": "內帑不足，這一件買不起。",
+  "scenario_editor_species": "種族",
+  "scenario_editor_species_from_culture": "隨文化({0})",
+  "scenario_editor_species_from_realm": "隨國家({0})",
+  "scenario_editor_species_mismatch": "{0}平常配{1}文化；這裡照{2}文化起名、定政體與制度",
+  "scenario_editor_species_capital": "君主、宗室照國家的種族：{0}",
+  "scenario_editor_species_missing": "物種 {0} 未載入，開局按{1}"
 }

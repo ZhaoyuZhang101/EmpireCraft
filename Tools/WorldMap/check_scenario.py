@@ -11,11 +11,11 @@ import sys
 TOP = {"id", "year", "focus", "order", "zh", "en", "tw", "dzh", "den", "dtw", "author", "tech", "techExtra", "techSkip", "inst",
        "culture", "ranks", "transmigrant", "relations", "walls", "passes", "wilderness", "silk", "events", "cores", "titles", "polities",
        "regions", "cities", "tianxia", "map", "paint", "terrain", "tribes", "frame", "wilderness_regions",
-       "exact", "own_wilderness", "paint_base", "base_stale", "size", "own_cities", "independent", "develop", "base"}
+       "exact", "own_wilderness", "paint_base", "base_stale", "size", "own_cities", "independent", "develop", "base", "species"}
 POLITY = {"id", "zh", "en", "tw", "c", "cap", "r", "cities", "seats", "boundary", "of", "emp", "banner", "hero", "court", "shogun", "core", "zhou", "king", "ruler", "kin",
           "era_name", "dynasty", "era_year", "grand", "holy", "old_capital", "divisions", "colonies", "famous", "conquest",
           "conquest_city", "decline", "modern", "autonomy", "exile", "colony_of", "company", "dependency", "place", "lessor",
-          "lease_years", "title", "abbr"}
+          "lease_years", "title", "abbr", "species"}
 DEPENDENCIES = {"governorate", "company", "protectorate", "dominion", "mandate", "lease"}
 MODERN = {"regime", "ideology", "party", "one_party", "parties"}
 REGIMES = {"republic", "constitutional", "monarchy"}
@@ -199,6 +199,8 @@ def main():
                 err("culture：%s 不是文化键" % culture)
     for cid in era.get("ranks", {}):
         city(cid, "ranks")
+    for cid in era.get("species", {}):
+        city(cid, "species")
     for unit, region in era.get("wilderness_regions", {}).items():
         if unit not in era.get("wilderness", {}):
             err("wilderness_regions：%s 没有对应的国家归属" % unit)

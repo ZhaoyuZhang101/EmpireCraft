@@ -46,6 +46,8 @@ public static class WorldMapScenario
         public int rank;
         public string name;
         public string culture;
+        // 单设的原版物种(剧本 species 表，或补空城随最近剧本城)；空的随所在国家，再照文化(见 CitySpecies)
+        public string species;
         public Vector2Int tile;
         public PlannedPolity owner;
         public City city;
@@ -65,6 +67,8 @@ public static class WorldMapScenario
         public WorldMapPolity data;
         public string name;
         public string culture;
+        // 单设的原版物种(剧本国家的 species、独立城与部落圈单设的)：君主、宗室、名人与本国没单设的城都用它；空的照文化(见 RulerSpecies)
+        public string species;
         public PlannedCity capital;
         public readonly List<PlannedCity> cities = new();
         public Kingdom kingdom;
@@ -151,7 +155,8 @@ public static class WorldMapScenario
             var planned = new PlannedCity
             {
                 data = data, region = region, rank = rank, name = data.NameIn(era.year), tile = tile,
-                culture = era.RegionCulture(region)
+                culture = era.RegionCulture(region),
+                species = era.species != null && era.species.TryGetValue(data.id, out string own) ? KnownSpecies(own) : null
             };
             _cities.Add(planned);
             byId[data.id] = planned;
@@ -161,7 +166,7 @@ public static class WorldMapScenario
         _exiles.Clear();
         foreach (WorldMapPolity data in era.polities)
         {
-            var polity = new PlannedPolity { data = data, name = data.Name };
+            var polity = new PlannedPolity { data = data, name = data.Name, species = KnownSpecies(data.species) };
             // 开局即流亡的(大韩民国临时政府)：不占城、不认领地区，各国建好后再立在东道国都城外(见 BuildExiles)
             if (!string.IsNullOrEmpty(data.exile))
             {
@@ -212,7 +217,7 @@ public static class WorldMapScenario
         // 谁都不认领的城各自独立，以城名为国名
         foreach (PlannedCity city in _cities.Where(city => city.owner == null))
         {
-            var polity = new PlannedPolity { name = city.name, culture = city.culture };
+            var polity = new PlannedPolity { name = city.name, culture = city.culture, species = city.species };
             polity.cities.Add(city);
             city.owner = polity;
             _polities.Add(polity);
@@ -323,7 +328,7 @@ public static class WorldMapScenario
                 MakeOasis(zone);
                 MakeValley(zone);
                 WorldTile tile = LandTile(zone);
-                string species = SpeciesFor(polity.kingdom == null ? polity.culture : planned.culture);
+                string species = polity.kingdom == null ? RulerSpecies(polity) : CitySpecies(planned, polity);
                 Actor actor = Spawn(species, tile);
                 if (actor == null) continue;
                 if (polity.kingdom == null)
@@ -354,6 +359,8 @@ public static class WorldMapScenario
                     planned.city.setUnitMetas(actor);
                     actor.GetModName().SetName(actor);
                     founder = actor;
+                    // 都城单设了别的种族：君主照国家的，城里另落一户本城种族的百姓
+                    if (planned.species != null && planned.species != actor.asset?.id) SettleNative(planned, polity, founder, tile);
                 }
                 else
                 {
@@ -398,7 +405,7 @@ public static class WorldMapScenario
             Actor actor = null;
             try
             {
-                actor = Spawn(SpeciesFor(polity.culture), seat?.getTile() ?? founder.current_tile);
+                actor = Spawn(RulerSpecies(polity), seat?.getTile() ?? founder.current_tile);
                 if (actor != null && person.Spouse)
                 {
                     SetSexAge(actor, person, false);
@@ -546,7 +553,7 @@ public static class WorldMapScenario
         {
             try
             {
-                Actor actor = Spawn(SpeciesFor(polity.culture), seat?.getTile() ?? founder.current_tile);
+                Actor actor = Spawn(RulerSpecies(polity), seat?.getTile() ?? founder.current_tile);
                 if (actor == null) continue;
                 SetSexAge(actor, person.AsPerson(), false);
                 actor.joinKingdom(polity.kingdom);
@@ -912,7 +919,9 @@ public static class WorldMapScenario
         }
     }
 
-    private static string SpeciesFor(string culture)
+    // 按文化定的原版物种：这文化配对的物种里头一个装着的，没有就是人类(配对见 ConfigData.speciesCulturePair)。
+    // 剧本单设了物种的不走这里(见 RulerSpecies、CitySpecies)；编辑器显示"随文化"时也照它
+    internal static string SpeciesFor(string culture)
     {
         try
         {
@@ -929,6 +938,30 @@ public static class WorldMapScenario
             // 取不到配对就用人类
         }
         return "human";
+    }
+
+    // 剧本写的物种装着、是文明物种才认，否则当没写(照文化定)：模组物种卸了的剧本照旧能开
+    internal static string KnownSpecies(string species) =>
+        !string.IsNullOrEmpty(species) && AssetManager.actor_library.has(species) && AssetManager.actor_library.get(species).civ ? species : null;
+
+    // 君主、宗室、名人的物种：国家单设的，没设照本国文化
+    private static string RulerSpecies(PlannedPolity polity) => polity.species ?? SpeciesFor(polity.culture);
+
+    // 都城以外各城头一位百姓的物种：城单设的，再随国家单设的，都没设照这座城的文化(以前就是这样)
+    private static string CitySpecies(PlannedCity planned, PlannedPolity polity) => planned.species ?? polity.species ?? SpeciesFor(planned.culture);
+
+    // 都城单设的种族与君主不同：城里落一户本城种族的百姓(入国入城、照本城文化起名)，原版的城才有这个种族的人；
+    // 无小人模式下背景人口另按本城种族记(见 SettleRealms)
+    private static void SettleNative(PlannedCity planned, PlannedPolity polity, Actor founder, WorldTile tile)
+    {
+        Actor native = Spawn(planned.species, tile);
+        if (native == null) return;
+        native.joinKingdom(polity.kingdom);
+        if (founder.language != null) native.setLanguage(founder.language);
+        if (founder.religion != null) native.setReligion(founder.religion);
+        native.joinCity(planned.city);
+        PrepareName(native, planned.culture);
+        native.GetModName().SetName(native);
     }
 
     private static Actor Spawn(string species, WorldTile tile)
@@ -986,7 +1019,8 @@ public static class WorldMapScenario
                         float missing = people - CityPopulationSystem.GetTotal(city);
                         if (missing > 0f)
                             CityPopulationSystem.AddBackground(city, SocialClass.Peasant, planned.culture ?? "",
-                                city.leader?.asset?.id ?? SpeciesFor(planned.culture), IdeologyPopulationSystem.GetDominant(city), missing);
+                                planned.species ?? polity.species ?? city.leader?.asset?.id ?? SpeciesFor(planned.culture),
+                                IdeologyPopulationSystem.GetDominant(city), missing);
                         _develop.Enqueue((city, people));
                     }
                 }
@@ -1313,7 +1347,9 @@ public static class WorldMapScenario
             string culture = from >= 0 ? anchors[from].culture : nearest.culture;
             WorldMapRegion home = from >= 0 ? anchors[from].region : nearest.region;
             PlannedPolity homeOwner = from >= 0 ? anchors[from].owner : null;
-            PlannedPolity polity = fillers.Where(other => other.culture == culture && other.cities.Count < CitiesPerFiller &&
+            // 种族随走得到的最近剧本城单设的(城的，再国家的)；都没设照文化，同以前
+            string species = from >= 0 ? anchors[from].species ?? anchors[from].owner?.species : null;
+            PlannedPolity polity = fillers.Where(other => other.culture == culture && other.species == species && other.cities.Count < CitiesPerFiller &&
                                                           (other.capital.tile - tile).sqrMagnitude <= FillerJoinTiles * FillerJoinTiles)
                 .OrderBy(other => (other.capital.tile - tile).sqrMagnitude).FirstOrDefault();
             string id = "filler_" + _cities.Count(city => city.random);
@@ -1321,11 +1357,11 @@ public static class WorldMapScenario
             {
                 data = new WorldMapCity { id = id, region = polity?.capital.region.id ?? id, rank = 3 }, rank = 3,
                 region = polity?.capital.region ?? new WorldMapRegion { id = id, culture = culture },
-                tile = tile, culture = culture, random = true, home = home, homeOwner = homeOwner
+                tile = tile, culture = culture, species = species, random = true, home = home, homeOwner = homeOwner
             };
             if (polity == null)
             {
-                polity = new PlannedPolity { culture = culture, capital = planned };
+                polity = new PlannedPolity { culture = culture, species = species, capital = planned };
                 fillers.Add(polity);
                 _polities.Add(polity);
             }
@@ -1386,7 +1422,7 @@ public static class WorldMapScenario
                     data = new WorldMapCity { id = id, region = id, rank = 3 }, rank = 3, region = region, tile = tile,
                     culture = area.culture, random = true
                 };
-                var polity = new PlannedPolity { culture = area.culture, capital = planned, tribe = true };
+                var polity = new PlannedPolity { culture = area.culture, species = KnownSpecies(area.species), capital = planned, tribe = true };
                 planned.owner = polity;
                 polity.cities.Add(planned);
                 _cities.Add(planned);
@@ -2498,7 +2534,7 @@ public static class WorldMapScenario
             }
             polity.culture ??= host.culture;
             WorldMapPerson ruler = polity.data.ruler;
-            Actor founder = Spawn(SpeciesFor(polity.culture), seat.getTile());
+            Actor founder = Spawn(RulerSpecies(polity), seat.getTile());
             if (founder == null) continue;
             SetSexAge(founder, ruler, true);
             polity.kingdom = World.world.kingdoms.makeNewCivKingdom(founder, null, false);

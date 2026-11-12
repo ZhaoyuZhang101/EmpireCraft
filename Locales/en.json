@@ -12614,5 +12614,11 @@
   "terminal_books_wrong_renown": " Renown -{0}.",
   "terminal_books_wrong_faction": " {1}, the faction of {0}, resents it.",
   "terminal_impeach": "{0} memorialises: {2} of {1} is embezzling.",
-  "terminal_wear_poor": "The privy purse cannot afford this."
+  "terminal_wear_poor": "The privy purse cannot afford this.",
+  "scenario_editor_species": "Species",
+  "scenario_editor_species_from_culture": "By culture ({0})",
+  "scenario_editor_species_from_realm": "By realm ({0})",
+  "scenario_editor_species_mismatch": "{0} usually go with {1} culture; names, government and institutions here still follow {2}",
+  "scenario_editor_species_capital": "The ruler and royal kin use the realm's species: {0}",
+  "scenario_editor_species_missing": "Species {0} is not loaded; the start uses {1}"
 }

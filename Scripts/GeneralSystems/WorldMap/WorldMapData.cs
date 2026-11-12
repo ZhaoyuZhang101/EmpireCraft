@@ -144,6 +144,8 @@ public sealed class WorldMapTribes
     public float[] at;
     public float radius = 3f;
     public string culture = "";
+    // 原版物种(人类、兽人、精灵、矮人及模组物种的编号)：不写照文化定(见 WorldMapScenario.SpeciesFor)
+    public string species;
     public int count;
 }
 
@@ -366,6 +368,9 @@ public sealed class WorldMapPolity
     public string title = "";
     // 简称("简体|英文|繁体"，如 英、法、德、日)：国号写全称(大不列颠帝国)时，属地"某属某地"的"某"照它(见 ColonySystem.Abbrev)
     public string abbr = "";
+    // 原版物种(用户 2026-11-13 转群友"剧本编辑器里可以自己设置王国、城市是什么种族，而不是锁死文化")：君主、宗室、名人，
+    // 以及本国没单设种族的城都用它；不写照本国文化定(见 WorldMapScenario.SpeciesFor)。只管长相与原版天性，起名、政体、制度仍照文化
+    public string species;
 
     public string Name => WorldMapData.Pick(zh, tw, en);
 }
@@ -487,6 +492,9 @@ public sealed class WorldMapEra
     // 同一政权内部明确指定的当地法理：地理单元 → 地区 id；没有可用治所时沿用原有自动挂接。
     public Dictionary<string, string> wilderness_regions = new();
     public bool ShouldSerializewilderness_regions() => wilderness_regions is { Count: > 0 };
+    // 单设了种族的城：城编号 → 原版物种(这座城的头一批百姓与背景人口)；没写的随所在国家，国家也没写的照文化(见 WorldMapScenario)
+    public Dictionary<string, string> species;
+    public bool ShouldSerializespecies() => species is { Count: > 0 };
 
     public int RankOf(WorldMapCity city) => ranks.TryGetValue(city.id, out int rank) ? rank : city.rank;
 

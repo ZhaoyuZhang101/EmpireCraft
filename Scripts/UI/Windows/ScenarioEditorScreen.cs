@@ -175,6 +175,9 @@ public static class ScenarioEditorScreen
     private static Btn _closeBtn, _saveBtn, _undoBtn;
     private static Btn _rankBtn, _capitalBtn, _foundBtn, _deleteCityBtn, _cultureBtn, _empireBtn, _deleteRealmBtn;
     private static Btn _regionCultureBtn, _regionCapitalBtn, _newRegionBtn, _deleteRegionBtn;
+    // 城、国家、部落圈的种族(原版物种，见 ScenarioEditing.CycleSpecies)与下面那行灰字
+    private static Btn _citySpeciesBtn, _realmSpeciesBtn, _tribeSpeciesBtn;
+    private static Text _citySpeciesNote, _realmSpeciesNote, _tribeSpeciesNote;
     // 上手步骤；点地图时(选中、划入、兼属)；选国家、法理的前后翻；认领法理；地块画法；帮助
     private const int GuideSteps = 6;
     private const string GuidePref = "EmpireCraft.ScenarioGuideClosed";
@@ -760,6 +763,11 @@ public static class ScenarioEditorScreen
         {
             if (_cityId != null) ScenarioEditing.RenameCity(_cityId, text);
         });
+        _citySpeciesBtn = Cycler(_cityCard, LM.Get("scenario_editor_species"), step =>
+        {
+            if (_cityId != null) ScenarioEditing.CycleCitySpecies(_cityId, step);
+        });
+        _citySpeciesNote = Label(_cityCard, "SpeciesNote", 13, DimText, TextAnchor.UpperLeft, true);
         _cityInfo = Label(_cityCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         RectTransform cityActions = Columns(_cityCard);
         _rankBtn = MakeButton(cityActions, "", ToolColor, () =>
@@ -784,6 +792,8 @@ public static class ScenarioEditorScreen
         _realmPickBtn = Cycler(_realmCard, LM.Get("scenario_editor_realm_pick"), StepRealm);
         _realmNameInput = Field(_realmCard, LM.Get("scenario_editor_name"), text => ScenarioEditing.RenamePolity(ScenarioEditing.Polity(_realmId), text));
         _cultureBtn = Cycler(_realmCard, LM.Get("scenario_editor_culture"), step => ScenarioEditing.CycleCulture(ScenarioEditing.Polity(_realmId), step));
+        _realmSpeciesBtn = Cycler(_realmCard, LM.Get("scenario_editor_species"), step => ScenarioEditing.CycleSpecies(ScenarioEditing.Polity(_realmId), step));
+        _realmSpeciesNote = Label(_realmCard, "SpeciesNote", 13, DimText, TextAnchor.UpperLeft, true);
         _empireBtn = MakeButton(_realmCard, "", ToolColor, () => ScenarioEditing.ToggleEmpire(ScenarioEditing.Polity(_realmId)));
         _famInput = Field(_realmCard, LM.Get("scenario_editor_ruler_family"), text => ScenarioEditing.SetRuler(ScenarioEditing.Polity(_realmId), text, null, null));
         _givInput = Field(_realmCard, LM.Get("scenario_editor_ruler_given"), text => ScenarioEditing.SetRuler(ScenarioEditing.Polity(_realmId), null, text, null));
@@ -977,6 +987,8 @@ public static class ScenarioEditorScreen
         // 部落圈：文化、几个部落、删掉
         _tribeCard = Card(side, LM.Get("scenario_editor_card_tribe"));
         _tribeCultureBtn = Cycler(_tribeCard, LM.Get("scenario_editor_culture"), step => ScenarioEditing.CycleTribesCulture(_tribeIndex, step));
+        _tribeSpeciesBtn = Cycler(_tribeCard, LM.Get("scenario_editor_species"), step => ScenarioEditing.CycleTribesSpecies(_tribeIndex, step));
+        _tribeSpeciesNote = Label(_tribeCard, "SpeciesNote", 13, DimText, TextAnchor.UpperLeft, true);
         _tribeCountBtn = Cycler(_tribeCard, LM.Get("scenario_editor_tribe_count"), step => ScenarioEditing.CycleTribesCount(_tribeIndex, step));
         _tribeInfo = Label(_tribeCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
         _deleteTribeBtn = MakeButton(_tribeCard, LM.Get("scenario_editor_delete_tribe"), DangerColor, () =>
@@ -3198,6 +3210,9 @@ public static class ScenarioEditorScreen
     {
         WorldMapTribes tribes = ScenarioEditing.TribesOf(_tribeIndex);
         _tribeCultureBtn.Set(tribes == null ? LM.Get("scenario_editor_none") : CultureName(tribes.culture), ViewColor, tribes != null);
+        string tribeSpecies = tribes == null ? "" : WorldMapScenario.SpeciesFor(tribes.culture);
+        _tribeSpeciesBtn.Set(tribes == null ? LM.Get("scenario_editor_none") : SpeciesText(tribes.species, tribeSpecies, false), ViewColor, tribes != null);
+        SetNote(_tribeSpeciesNote, tribes == null || string.IsNullOrEmpty(tribes.species) ? "" : SpeciesNote(tribes.species, tribeSpecies, tribes.culture));
         _tribeCountBtn.Set(tribes == null ? "" : TribeCount(tribes), ViewColor, tribes != null);
         _tribeInfo.text = tribes == null
             ? string.Format(LM.Get("scenario_editor_tribe_none"), ScenarioEditing.Tribes.Count)
@@ -3262,6 +3277,7 @@ public static class ScenarioEditorScreen
         WorldMapCity city = ScenarioEditing.City(_cityId);
         WorldMapPolity realm = ScenarioEditing.Polity(_realmId);
         SetInput(_cityNameInput, ScenarioEditing.CityName(city));
+        RefreshCitySpecies(city);
         WorldMapPolity owner = ScenarioEditing.OwnerOf(city);
         WorldMapRegion region = ScenarioEditing.Region(city.region);
         bool capital = era.polities.Any(polity => polity.capital == city.id);
@@ -3298,6 +3314,8 @@ public static class ScenarioEditorScreen
             SetInput(_givInput, "");
             SetInput(_ageInput, "");
             _cultureBtn.Set(LM.Get("scenario_editor_none"), ViewColor, false);
+            _realmSpeciesBtn.Set(LM.Get("scenario_editor_none"), ViewColor, false);
+            SetNote(_realmSpeciesNote, "");
             _empireBtn.Set(LM.Get("scenario_editor_empire_off"), ToolColor, false);
             _realmInfo.text = LM.Get(polities.Count > 0 ? "scenario_editor_realm_pick_hint" : "scenario_editor_realm_none");
             _claimBtn.Set(LM.Get("scenario_editor_claim_add"), ToolColor, false);
@@ -3306,6 +3324,7 @@ public static class ScenarioEditorScreen
         }
         SetInput(_realmNameInput, realm.Name);
         _cultureBtn.Set(CultureName(realm.culture), ViewColor);
+        RefreshRealmSpecies(realm);
         _empireBtn.Set(LM.Get(realm.empire ? "scenario_editor_empire_on" : "scenario_editor_empire_off"), realm.empire ? ActiveColor : ToolColor);
         SetInput(_famInput, realm.ruler?.fam == null ? "" : WorldMapData.PickParts(realm.ruler.fam));
         SetInput(_givInput, realm.ruler?.giv == null ? "" : WorldMapData.PickParts(realm.ruler.giv));
@@ -3586,6 +3605,55 @@ public static class ScenarioEditorScreen
 
     private static string CultureName(string culture) =>
         CultureService.IsValidCulture(culture) ? culture.GetCultureTranslate() : culture ?? "";
+
+    // 种族那一格：单设的写物种名，没设的写"随国家(兽人)"或"随文化(人类)"——开局实际用哪个
+    private static string SpeciesText(string own, string auto, bool fromRealm) =>
+        !string.IsNullOrEmpty(own) ? ScenarioEditing.SpeciesName(own)
+            : string.Format(LM.Get(fromRealm ? "scenario_editor_species_from_realm" : "scenario_editor_species_from_culture"), ScenarioEditing.SpeciesName(auto));
+
+    // 种族下面那行灰字：单设的物种没装(模组卸了)，开局照文化；物种平常配的文化与这里的不同(兽人配华夏)，注明起名、制度照这里的文化。
+    // 不配套照设的来，只提示
+    private static string SpeciesNote(string species, string auto, string culture)
+    {
+        if (string.IsNullOrEmpty(species)) return "";
+        if (WorldMapScenario.KnownSpecies(species) == null)
+            return string.Format(LM.Get("scenario_editor_species_missing"), species, ScenarioEditing.SpeciesName(auto));
+        if (!CultureService.IsValidCulture(culture) || !ConfigData.speciesCulturePair.TryGetValue(species, out string paired) ||
+            !CultureService.IsValidCulture(paired) || paired == culture) return "";
+        return string.Format(LM.Get("scenario_editor_species_mismatch"), ScenarioEditing.SpeciesName(species), CultureName(paired), CultureName(culture));
+    }
+
+    private static void SetNote(Text note, string text)
+    {
+        if (note == null) return;
+        note.text = text ?? "";
+        note.gameObject.SetActive(!string.IsNullOrEmpty(text));
+    }
+
+    private static void RefreshCitySpecies(WorldMapCity city)
+    {
+        string own = ScenarioEditing.OwnSpecies(city);
+        string auto = ScenarioEditing.AutoCitySpecies(city, out bool fromRealm);
+        _citySpeciesBtn.Set(SpeciesText(own, auto, fromRealm), ViewColor);
+        string culture = ScenarioEditing.RegionCulture(ScenarioEditing.Region(city.region));
+        var lines = new List<string>();
+        // 随国家单设的也提示不配套；随文化的本来就配套
+        if (!string.IsNullOrEmpty(own)) lines.Add(SpeciesNote(own, auto, culture));
+        else if (fromRealm) lines.Add(SpeciesNote(auto, auto, culture));
+        // 都城另设了种族：城里百姓照这里，君主、宗室照国家的
+        WorldMapPolity owner = ScenarioEditing.OwnerOf(city);
+        string realm = owner == null ? null : ScenarioEditing.RealmSpecies(owner);
+        if (!string.IsNullOrEmpty(own) && owner?.capital == city.id && WorldMapScenario.KnownSpecies(own) != null && realm != own)
+            lines.Add(string.Format(LM.Get("scenario_editor_species_capital"), ScenarioEditing.SpeciesName(realm)));
+        SetNote(_citySpeciesNote, string.Join("\n", lines.Where(line => !string.IsNullOrEmpty(line))));
+    }
+
+    private static void RefreshRealmSpecies(WorldMapPolity realm)
+    {
+        string auto = ScenarioEditing.AutoRealmSpecies(realm);
+        _realmSpeciesBtn.Set(SpeciesText(realm.species, auto, false), ViewColor);
+        SetNote(_realmSpeciesNote, SpeciesNote(realm.species, auto, realm.culture));
+    }
 
     // 输入框空着时的灰字
     private static Text Placeholder(InputField input)

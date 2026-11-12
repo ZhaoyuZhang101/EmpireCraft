@@ -343,6 +343,8 @@ public static class ScenarioWorldExport
         #region 国家
 
         var realmArray = new JArray();
+        // 各城的种族与所在国家不同的(城编号 → 原版物种)，写进顶层 species
+        var speciesMap = new JObject();
         divisionCount = 0;
         foreach (Realm realm in realms.Values.OrderByDescending(item => item.cities.Count).ThenBy(item => item.kingdom.id))
         {
@@ -389,6 +391,14 @@ public static class ScenarioWorldExport
                 entry["ruler"] = ruler;
                 JArray kin = Safe(() => Kin(kingdom, king), new JArray());
                 if (kin.Count > 0) entry["kin"] = kin;
+            }
+            // 种族照原图写：国家取君主的(没有君主取建国时的)，城取原版记的建城种族，与国家相同的不写；不写的开局会照文化定
+            string realmSpecies = WorldMapScenario.KnownSpecies(Safe(() => ruler != null ? king.asset?.id : kingdom.getSpecies(), null));
+            if (realmSpecies != null) entry["species"] = realmSpecies;
+            foreach (City city in realm.cities)
+            {
+                string citySpecies = WorldMapScenario.KnownSpecies(Safe(() => city.getSpecies(), null));
+                if (citySpecies != null && citySpecies != realmSpecies && CityId(city) is string cityId) speciesMap[cityId] = citySpecies;
             }
             if (realm.divisions.Count > 0)
             {
@@ -459,6 +469,7 @@ public static class ScenarioWorldExport
         if (tianxia.Count > 0) root["tianxia"] = tianxia;
         if (coreArray.Count > 0) root["cores"] = coreArray;
         root["polities"] = realmArray;
+        if (speciesMap.Count > 0) root["species"] = speciesMap;
         if (relations.Count > 0) root["relations"] = relations;
         Guard("科技与制度", () => Culture(root, cultures.OrderBy(key => key, StringComparer.Ordinal).ToList()));
         List<WorldMapPaint> paint = Safe(() => Paint(projection, regionOf, CityId), null);
