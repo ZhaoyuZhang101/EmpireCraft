@@ -1148,7 +1148,7 @@ public static partial class TerminalHost
         try
         {
             Kingdom kingdom = actor.kingdom;
-            string role = actor.isKing() ? kingdom != null && kingdom.IsEmpire() ? "emperor" : "king"
+            string role = actor.isKing() ? RulerRole(kingdom)
                 : kingdom != null && kingdom.GetHeir() == actor ? "heir"
                 : CorpsSystem.IsGeneral(actor) ? "general"
                 : actor.HasOfficeIdentity() ? "minister"
@@ -1159,6 +1159,17 @@ public static partial class TerminalHost
         {
             return "";
         }
+    }
+
+    // 一国之主算什么身份：帝国之主是皇帝；帝国里的行政区(郡、省、节度使…)在游戏里也是一国，主官却是朝廷命官，照地方官
+    // (用户 2026-11-12 "官员为什么也是皇帝的冕冠")；别的(含封国之主)是国王
+    private static string RulerRole(Kingdom kingdom)
+    {
+        if (kingdom == null) return "king";
+        if (kingdom.IsEmpire()) return "emperor";
+        Empire court = kingdom.GetEmpire();
+        if (court?.CoreKingdom == null || court.CoreKingdom == kingdom) return "king";
+        return kingdom.IsAdministrativeKingdomType() ? "governor" : "king";
     }
 
     internal static string LookText(bool male, int age, string role, Kingdom kingdom, string wear = "", string skin = "") =>
@@ -1371,6 +1382,8 @@ public static partial class TerminalHost
             // 帝国之主的图上，帝国的成员(行政区、羁縻、封国)标成本朝之地：手机照本国的颜色画，彼此之间画行政区界
             // (用户 2026-11-12 "地图上也要能看到行政区的边界")
             if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && court == empire) row["prov"] = true;
+            // 交战之敌：手机下令时它的城能去(同 FieldDecree 的判法)
+            if (i != self && kingdom?.data != null && realm.isInWarWith(kingdom)) row["war"] = true;
             realms.Add(row);
             sumX.Add(0f);
             sumY.Add(0f);
@@ -1435,7 +1448,7 @@ public static partial class TerminalHost
         seat.MapH = height;
         seat.MapTile = Mathf.Max(1, MapBox.width / width);
         // 图上的城，和每块地是哪座城的(两个字节，城多的图一个字节不够)；迷雾里的、不知道的国的不给
-        JArray shown = MapCities(seat, cities, out Dictionary<long, int> shownAt);
+        JArray shown = MapCities(seat, cities, out Dictionary<long, int> shownAt, out JObject dejure);
         var cityLow = new byte[cells.Length];
         var cityHigh = new byte[cells.Length];
         uint fog = 2166136261u;
@@ -1459,7 +1472,7 @@ public static partial class TerminalHost
         {
             ["ready"] = true, ["w"] = width, ["h"] = height, ["sight"] = (int)seat.Sight,
             ["cells"] = Convert.ToBase64String(TerminalIntel.Rle(cells)), ["realms"] = realms, ["empires"] = empires, ["worlds"] = worlds,
-            ["tile"] = seat.MapTile, ["cities"] = shown, ["ts"] = seat.MapTs,
+            ["tile"] = seat.MapTile, ["cities"] = shown, ["dejure"] = dejure, ["ts"] = seat.MapTs,
             ["zc"] = new JArray(Convert.ToBase64String(TerminalIntel.Rle(cityLow)), Convert.ToBase64String(TerminalIntel.Rle(cityHigh)))
         };
         City capital = realm.capital;

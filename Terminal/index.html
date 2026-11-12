@@ -173,8 +173,10 @@ nav button.on .ic{opacity:1;filter:none}
 .tile.on .ic{opacity:1}
 .badge{position:absolute;top:3px;right:4px;min-width:16px;height:16px;padding:0 4px;font:normal 11px/16px sans-serif;background:var(--gold);color:#221a05;text-align:center}
 /* 典册：树(同辈一行、父居子中、直角连线，整棵放在能拖的框里)与史册 */
-.tree{overflow:auto;max-height:62vh;margin-top:8px;background:#22261f;border:2px solid var(--edge);-webkit-overflow-scrolling:touch}
-.tree-in{position:relative;margin:12px}
+.tree{position:relative;overflow:hidden;height:62vh;min-height:260px;margin-top:8px;background:#22261f;border:2px solid var(--edge);touch-action:none;cursor:grab}
+.tree-in{position:absolute;left:0;top:0;transform-origin:0 0}
+.tree-tools{position:absolute;right:6px;top:6px;z-index:1;display:flex;gap:4px}
+.tree-tools button{min-height:34px;min-width:38px;padding:2px 6px;margin:0;display:flex;align-items:center;justify-content:center}
 .tree-in svg{position:absolute;left:0;top:0}
 .tree-line{fill:none;stroke:#8a8f6e;stroke-width:2;shape-rendering:crispEdges}
 .node{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px 4px;background:var(--card2);
@@ -240,7 +242,7 @@ body.main.side #win-head{display:flex;position:fixed;z-index:3;left:18px;right:1
 body.main.mapfull #win-head{display:none}
 #win-head b{flex:1;color:var(--gold);font-size:15px;letter-spacing:.1em;text-shadow:0 1px 0 rgba(0,0,0,.45)}
 #win-head button{min-height:28px;min-width:34px;padding:0 8px;margin:0;font-size:16px}
-body.main .tree{max-height:none}
+body.main .tree{height:calc(100vh - var(--barh) - var(--navh) - 210px)}
 /* 图右边的按钮 */
 #map-layers{position:absolute;right:8px;top:52px;display:flex;flex-direction:column;gap:4px}
 #mapbox.full #map-layers{top:calc(52px + env(safe-area-inset-top))}
@@ -338,7 +340,7 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
     <div id="mapbox">
       <canvas id="map" width="600" height="360"></canvas>
       <div id="map-top"><span></span><button id="map-full" aria-label="fullscreen"><img class="ic" data-ic="c_full" width="20" height="20" alt="" id="full-ic"></button></div>
-      <div id="map-layers"><button data-l="world"><img class="ic" data-ic="ly_world" width="20" height="20" alt=""><span data-t="ly_world"></span></button><button data-l="empire"><img class="ic" data-ic="ly_empire" width="20" height="20" alt=""><span data-t="ly_empire"></span></button><button data-l="realm"><img class="ic" data-ic="ly_realm" width="20" height="20" alt=""><span data-t="ly_realm"></span></button><button data-l="city"><img class="ic" data-ic="ly_city" width="20" height="20" alt=""><span data-t="ly_city"></span></button><button id="map-legend-go"><img class="ic" data-ic="ly_legend" width="20" height="20" alt=""><span data-t="ly_legend"></span></button></div>
+      <div id="map-layers"><button data-l="pol"><img class="ic" data-ic="ly_empire" width="20" height="20" alt=""><span data-t="ly_pol"></span></button><button data-l="dj"><img class="ic" data-ic="a_dejure" width="20" height="20" alt=""><span data-t="ly_dj"></span></button><button id="map-army"><img class="ic" data-ic="k_army" width="20" height="20" alt=""><span data-t="ly_army"></span></button><button id="map-legend-go"><img class="ic" data-ic="ly_legend" width="20" height="20" alt=""><span data-t="ly_legend"></span></button></div>
       <div class="zoom" id="map-zoom"><button id="z-in" aria-label="zoom in"><img class="ic" data-ic="c_in" width="20" height="20" alt=""></button><button id="z-out" aria-label="zoom out"><img class="ic" data-ic="c_out" width="20" height="20" alt=""></button><button id="z-reset" aria-label="fit"><img class="ic" data-ic="c_fit" width="20" height="20" alt=""></button></div>
       <div id="map-panel" hidden></div>
     </div>
@@ -404,7 +406,7 @@ function ic(name,size){var i=document.createElement("img");i.className="ic";i.al
 (function(){
 "use strict";
 var T={
-cz:{wd_title:"衣冠",wd_note:"花的是君主的私财。别的文化的贵一倍，过时的古装贵五成，比眼下还新的买不到。买了就穿上，衣柜里的随时换。",wd_none:"衣冠铺子还没开张。",wd_money:"私财",wd_body:"衣着",wd_hat:"冠帽",wd_hair:"发式",wd_own:"衣柜",wd_default:"本来的装束",wd_default_note:"照身份与时期配的那一身",wd_on:"穿着",wd_shop:"铺子",wd_empty:"眼下没有买得到的。",wd_buy:"买 · {0}",wd_kind_royal:"君主礼服",wd_kind_court:"官服",wd_kind_casual:"常服",wd_kind_armor:"戎装",wd_kind_clergy:"僧道",wd_kind_commoner:"布衣",wd_kind_lady:"女装",wd_civ_hx:"华夏",wd_civ_nomad:"游牧",wd_civ_west:"西方",wd_civ_arab:"阿拉伯",wd_civ_jp:"日本",wd_civ_any:"通用",wd_p0:"上古",wd_p1:"青铜",wd_p2:"铁器",wd_p3:"中古",wd_p4:"火药",wd_p5:"近代",wd_p6:"现代",rv_title:"考课",rv_note:"贪廉看不见，只能几条消息对着看：钱粮、积弊、谁参过他。",rv_hits:"被参 {0}",rv_down:"钱粮见少",rv_mark_found:"查实贪墨",rv_mark_clean:"回奏无亏",rv_mark_wronged:"曾被冤",rv_more:"还有 {0} 人",rv_less:"收起",rv_sheet_note:"上缴是现银，做不了假；弹章有真有假，看参他的是些什么人。",rv_fac:"派系",rv_nofac:"无派",rv_age:"年岁",rv_years:"在任至少",rv_years_v:"{0} 年",rv_remit:"治下上缴（上年）",rv_was:"前一年 {0}",rv_corr:"治下积弊",rv_unknown:"政令不达，不详",rv_mark:"查过",rv_ago:"{0} 个月前",rv_charges:"被参的记录（近三年）",rv_nohits:"没有人参过。",rv_hint_many:"几派的人都参他，多半不是党争。",rv_hint_one:"参他的只有一派，或是党争；对着钱粮再看。",rv_charge:"降罪",k_impeach:"弹章",bk_col_book:"账面",bk_col_real:"实查",bk_title:"查账",bk_ready:"点一位官员把账册封存起来，再翻开抽查",bk_sent:"正在封存账册",bk_wait:"上回查账未满一年，再等 {0} 个月",bk_open:"账册已封存 {0} 册，{1} 个月后结案",bk_go:"翻账",bk_pick:"谁主持查账",bk_pick_note:"才干高的能多抽几册。朝廷积弊重时，主持的人也可能被买通——那就册册账实相符。",bk_note:"每册只写着账面数。点一册可以抽查(见真亏空)或问责。抽查的册数有限；问责至多两处，抽没抽过都能问，问错了白用一回，还要掉威望、惹他那一派不满。抽查过的册点开能看完整的账目。",bk_by:"{0}主持",bk_peeks:"还可抽查 {0} 册",bk_blames:"还可问责 {0} 处",bk_left:"{0} 个月后结案",bk_book:"账面 {0}",bk_unknown:"未查",bk_gap:"亏空 {0}",bk_clean:"账实相符",bk_peek:"抽查这一册",bk_blame:"问责",bk_close:"结案",bk_closed:"这一回查账已结。",fs_odd:"对不上",fs_trend:"走势（一期半年）",fs_trend_wait:"攒够两期才看得出走势。",fs_tick:"{0}年{1}",fs_now_short:"眼下",fs_title:"财报",fs_period:"第 {0} 年{1}半年",fs_h0:"上",fs_h1:"下",fs_now:"眼下的账（近半年）",fs_income:"收",fs_expense:"支",fs_balance:"结余",fs_detail:"看细目与各地",fs_note_short:"都是报上来的数",fs_in:"收入",fs_out:"支出",fs_places:"各地 · 报称岁入 / 上缴",fs_none:"账报不上来",fs_prev:"上期 {0}",fs_note:"这些都是下面报上来的数：吏治越坏报得越虚。上缴是现银入库，做不了假。点一处可以遣官彻查。",fs_k_tax:"赋税",fs_k_trade:"官营与关税",fs_k_tribute:"贡赋",fs_k_other:"其它",fs_k_military:"军费",fs_k_admin:"官俸与日用",fs_k_build:"营建",fs_k_research:"研究",dk_province:"行政区",dk_garrison:"军府",dk_fief:"封地",dk_province_note:"流官治理，政体跟朝廷，赋税归朝廷。往后可以撤、可以改隶。",dk_garrison_note:"点一位将领作节度使，世袭，自养兵、自办外交，一直叫某某军。设出去就不归区划管了，要动它走附庸博弈。",dk_fief_note:"点一位宗室受封，世袭，自养兵、自办外交、轻税。设出去就不归区划管了，要动它走附庸博弈。",dv_pick_cities:"划出哪几座城",dv_pick_general:"谁作节度使",dv_pick_lord:"封给谁",dv_no_one:"眼下无人可授。",pk_garrison:"军府",pn_garrison:"世袭的军镇，自养兵、自办外交；朝廷只知大概。",k_tax:"岁入",au_go:"遣官彻查",au_title:"遣谁去查{0}",au_skill:"才干 {0}",au_none:"眼下无官可派。",au_sent:"已遣：{0}",au_note:"路上按远近一到三个月，查账约 {0} 个月。才干高的查得深；积弊重的地方会拿钱堵他的嘴，回来只说账目无亏。",g_division:"区划",dv_note:"只管流官的行政区；世袭的封国、羁縻要动走「附庸博弈」。令从都城发出，下月施行。",dv_create:"新设行政区、军府、封地",dv_create_note:"先定种类，再从直辖各城里点几座划出去，头一座点的作治所。",dv_create_go:"设立（{0} 城）",dv_direct:"朝廷直辖",dv_cities:"{0} 城",dv_cap:"都城",dv_seat:"治所",dv_move:"改隶",dv_move_title:"{0}改隶何处",dv_move_note:"这座城连同它的地一并划过去。",dv_sheet_note:"点一座城给它改隶；都城、治所不能挪，行政区只剩一城时要动就撤销。",dv_dissolve:"撤销此行政区",dv_dissolve_note:"各城收归朝廷直辖。",tk_money:"库银",tk_city:"城",tk_vassal:"属国",tk_title:"法理",tk_corps:"军",m_host:"令其出兵",host_aim:"令{0}出兵：点一座城",host_post:"令{0}出兵进驻 {1}",host_strike:"令{0}出兵攻打 {1}",host_sent:"军令已发出：{0}",host_note:"它的各军（城则是驻地在这座城的各军）一并奉令，手令照各军的远近送到。",load_title:"正在同步",load_state:"国势",load_map:"疆域（各地块归属）",load_terrain:"山川地貌",load_armies:"军情",load_done:"已到",load_wait:"在路上",load_note:"头一回要把所知之地的山川整份取下来，之后只取变了的。",m_explore:"遣人探路",m_chart:"购其舆图",m_chart_of:"购{0}舆图",sv_cost:"约需库银 {0}",sv_explore_note:"拨库银遣一队人去看这一带。来回要几个月，也有一去不回的；回来了，沿途的山川邦国就画在图上。",sv_chart_note:"遣使带银子去买它的舆图：它境内连同四邻一圈的山川疆界都画在上头。它不肯卖就白跑一趟，银子不花。",ly_world:"天下",ly_empire:"帝国",ly_realm:"王国",ly_city:"城市",ly_legend:"图例",terr_wait:"山川正在送来",map_turn:"右边四档换层级：按天下、帝国、王国、城市看。把手机横过来，舆图一直在，办事的几页收在左边。",lg_lines:"金线是本朝的疆界，深线是别国的国界，细线是一家之内的界与城界。",an_lands:"所辖王国法理",an_own:"尽在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族谱",an_history:"史册",an_dejure:"法理",an_loading:"正在调阅典册…",an_none:"没有记载。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"左右上下拖动看全；点一格看详情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定为主法理",an_set_main_note:"国号随主法理而定。",an_name:"国号",an_prefix:"前缀",an_suffix:"后缀",an_blank:"不加",an_now:"现用",an_refresh:"重新调阅",tab_annals:"典册",d_sure:"确认",d_go:"下令",d_count:"{0} 项",d_left_tag:"{0} 分钟后自决",sd_note:"点一派可设法拉拢",st_chief_l:"首辅",st_seal:"批红",st_offices:"官职",st_vacant_n:"空缺 {0}",spy_sweep_l:"彻查暗探",spy_sweep_cost:"库银 {0}%",i_campaign:"御驾亲征",i_return:"班师回京",i_tour:"微服私访",sh_tour_note:"去哪座城。回来带回这座城的真数；路上有患病、遇险之虞。",tour_months:"来回约 {0} 月",away_campaign:"车驾亲征在外：奏议与案子由朝廷自决。",away_tour:"微服私访{0}，约 {1} 月后回京：奏议与案子由朝廷自决。",c_toured:"亲见",d_pact:"盟邦",sc_enter:"进外交台摆条件",sc_note:"条件照议和台的口径折成户数来称：对方那一边不亏才肯。",sc_will:"对方肯不肯",sc_yes:"肯 · 余 {0} 户",sc_no:"不肯 · 还差 {0} 户",sc_human:"由对面的君主裁决",sc_quote:"对方开价",sc_quote_none:"眼下什么条件都换不来",sc_quote_free:"不要条件",sc_take:"照此开价",sc_give:"本国出",sc_ask:"向对方索",sc_hu:"{0} 户",sc_nothing:"没有可摆的条件。",sc_send:"遣使",ch_accept:"应允",ch_refuse:"回绝",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"点一位要人、定一个罪名，交律法论处；判得重了有代价。",law_nobody:"眼下没有可查办的要人。",law_pick_charge:"{0}：定什么罪",i_recruit:"招募新军",sh_recruit_note:"在哪座城招一军。钱从国库出。",spy_purse:"君主私财 {0}",spy_hire:"派暗探",spy_hire_note:"雇金出自君主私财。暗探每 {0} 个月带回一项密报，数是约数；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 雇金 {1}",spy_has:"已有暗探",spy_none:"眼下没有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月后回报",spy_recall:"召回",spy_sweep:"彻查暗探 · 库银 {0}%",spy_sweeping:"正在彻查境内暗探，还有 {0} 月。",spy_full:"在外的暗探已满。",spy_poor:"私财不足",ch_kill:"诛杀",ch_turn:"收买",ch_release:"纵归",k_spy:"密报",a2hs_fixed:"改用固定地址打开",a2hs_fixed_note:"固定地址 {0} 不随电脑的地址变。加到桌面之前，先改用它打开。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏议递上去，之后票拟、廷议、批红照常。",sh_heir_note:"从在位君主在世的子嗣里册立一位。",sh_abdicate_note:"禅位之后这个席位空出来，可以再挑一位君主。",sh_no_heir:"眼下没有可立的子嗣。",sh_chief_note:"设内阁的朝廷才立得了首辅。",sh_holder:"现任：{0}",role_official:"朝廷命官",stale:"游戏里的终端还是旧版：重启游戏后，新的政令才办得了。",sent_ok:"已下令：{0}。办到哪一步看「政令」页，办结有回奏。",sent_fail:"这道令没发出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政区 {0}",g_staff:"人事",st_chief:"首辅：{0}",st_no_chief:"眼下没有首辅",st_make_chief:"立首辅",st_delegate_on:"委首辅代批",st_delegate_off:"收回批红",st_delegated:"眼下由首辅代批：奏议和案子都不再等批示，首辅一派会渐渐坐大。",st_direct:"眼下亲自批红。",st_vacant:"空缺",st_dismiss:"免职",st_appoint:"任 {0}",sd_title:"各派表态",sd_for:"赞成",sd_wait:"观望",sd_against:"反对",sd_own:"上奏",sd_favor:"圣眷 {0}",chip_grant:"授虚衔",chip_favor:"动用情分",chip_silver:"赏银",d_gift0:"不带礼",d_gift1:"薄礼 · 库银 5%",d_gift2:"厚礼 · 库银 15%",d_gift_note:"带礼能补好感的不足，谈成了才付。",cd_road:"修官道至此（约 6 月，按里程扣库银）",i_abdicate:"禅让",i_rename_realm:"改国号",i_rename_ruler:"更名",g_home:"内政",i_purge:"拨库银整饬吏治",d_tier:"拨库银 {0}% · 积弊约降 {1}%",d_abdicate_to:"禅位于 {0}",d_now:"现为：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禅位。",purge_go:"整饬吏治",a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。从桌面打开后要再配对一次。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分钟后朝廷自决",d_support:"廷议赞成 {0}%",d_chance:"成算约 {0}%",ch_approve:"准",ch_reject:"驳",ch_shelve:"留中",ch_law:"依律论处",ch_redeem:"戴罪立功",ch_death:"诛杀",g_court:"朝议",g_palace:"宫廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏议在办，办结再递。",d_none_court:"眼下没有递得上去的奏议。",i_era:"改元",i_empire:"称帝",i_heir:"立储",d_heir_now:"现储：{0}",d_age:"{0} 岁",d_orders:"已下政令",d_no_orders:"还没有下过政令。",o_sent:"在途，约 {0} 月",o_done:"已办",o_failed:"未成",d_confirm:"确认：{0}",d_home:"都城里的事约 {0} 月办到；遣使要等使者来回。",d_envoy:"来回约 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下没有通使的国家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
+cz:{wd_title:"衣冠",wd_note:"花的是君主的私财。别的文化的贵一倍，过时的古装贵五成，比眼下还新的买不到。买了就穿上，衣柜里的随时换。",wd_none:"衣冠铺子还没开张。",wd_money:"私财",wd_body:"衣着",wd_hat:"冠帽",wd_hair:"发式",wd_own:"衣柜",wd_default:"本来的装束",wd_default_note:"照身份与时期配的那一身",wd_on:"穿着",wd_shop:"铺子",wd_empty:"眼下没有买得到的。",wd_buy:"买 · {0}",wd_kind_royal:"君主礼服",wd_kind_court:"官服",wd_kind_casual:"常服",wd_kind_armor:"戎装",wd_kind_clergy:"僧道",wd_kind_commoner:"布衣",wd_kind_lady:"女装",wd_civ_hx:"华夏",wd_civ_nomad:"游牧",wd_civ_west:"西方",wd_civ_arab:"阿拉伯",wd_civ_jp:"日本",wd_civ_any:"通用",wd_p0:"上古",wd_p1:"青铜",wd_p2:"铁器",wd_p3:"中古",wd_p4:"火药",wd_p5:"近代",wd_p6:"现代",rv_title:"考课",rv_note:"贪廉看不见，只能几条消息对着看：钱粮、积弊、谁参过他。",rv_hits:"被参 {0}",rv_down:"钱粮见少",rv_mark_found:"查实贪墨",rv_mark_clean:"回奏无亏",rv_mark_wronged:"曾被冤",rv_more:"还有 {0} 人",rv_less:"收起",rv_sheet_note:"上缴是现银，做不了假；弹章有真有假，看参他的是些什么人。",rv_fac:"派系",rv_nofac:"无派",rv_age:"年岁",rv_years:"在任至少",rv_years_v:"{0} 年",rv_remit:"治下上缴（上年）",rv_was:"前一年 {0}",rv_corr:"治下积弊",rv_unknown:"政令不达，不详",rv_mark:"查过",rv_ago:"{0} 个月前",rv_charges:"被参的记录（近三年）",rv_nohits:"没有人参过。",rv_hint_many:"几派的人都参他，多半不是党争。",rv_hint_one:"参他的只有一派，或是党争；对着钱粮再看。",rv_charge:"降罪",k_impeach:"弹章",bk_col_book:"账面",bk_col_real:"实查",bk_title:"查账",bk_ready:"点一位官员把账册封存起来，再翻开抽查",bk_sent:"正在封存账册",bk_wait:"上回查账未满一年，再等 {0} 个月",bk_open:"账册已封存 {0} 册，{1} 个月后结案",bk_go:"翻账",bk_pick:"谁主持查账",bk_pick_note:"才干高的能多抽几册。朝廷积弊重时，主持的人也可能被买通——那就册册账实相符。",bk_note:"每册只写着账面数。点一册可以抽查(见真亏空)或问责。抽查的册数有限；问责至多两处，抽没抽过都能问，问错了白用一回，还要掉威望、惹他那一派不满。抽查过的册点开能看完整的账目。",bk_by:"{0}主持",bk_peeks:"还可抽查 {0} 册",bk_blames:"还可问责 {0} 处",bk_left:"{0} 个月后结案",bk_book:"账面 {0}",bk_unknown:"未查",bk_gap:"亏空 {0}",bk_clean:"账实相符",bk_peek:"抽查这一册",bk_blame:"问责",bk_close:"结案",bk_closed:"这一回查账已结。",fs_odd:"对不上",fs_trend:"走势（一期半年）",fs_trend_wait:"攒够两期才看得出走势。",fs_tick:"{0}年{1}",fs_now_short:"眼下",fs_title:"财报",fs_period:"第 {0} 年{1}半年",fs_h0:"上",fs_h1:"下",fs_now:"眼下的账（近半年）",fs_income:"收",fs_expense:"支",fs_balance:"结余",fs_detail:"看细目与各地",fs_note_short:"都是报上来的数",fs_in:"收入",fs_out:"支出",fs_places:"各地 · 报称岁入 / 上缴",fs_none:"账报不上来",fs_prev:"上期 {0}",fs_note:"这些都是下面报上来的数：吏治越坏报得越虚。上缴是现银入库，做不了假。点一处可以遣官彻查。",fs_k_tax:"赋税",fs_k_trade:"官营与关税",fs_k_tribute:"贡赋",fs_k_other:"其它",fs_k_military:"军费",fs_k_admin:"官俸与日用",fs_k_build:"营建",fs_k_research:"研究",dk_province:"行政区",dk_garrison:"军府",dk_fief:"封地",dk_province_note:"流官治理，政体跟朝廷，赋税归朝廷。往后可以撤、可以改隶。",dk_garrison_note:"点一位将领作节度使，世袭，自养兵、自办外交，一直叫某某军。设出去就不归区划管了，要动它走附庸博弈。",dk_fief_note:"点一位宗室受封，世袭，自养兵、自办外交、轻税。设出去就不归区划管了，要动它走附庸博弈。",dv_pick_cities:"划出哪几座城",dv_pick_general:"谁作节度使",dv_pick_lord:"封给谁",dv_no_one:"眼下无人可授。",pk_garrison:"军府",pn_garrison:"世袭的军镇，自养兵、自办外交；朝廷只知大概。",k_tax:"岁入",au_go:"遣官彻查",au_title:"遣谁去查{0}",au_skill:"才干 {0}",au_none:"眼下无官可派。",au_sent:"已遣：{0}",au_note:"路上按远近一到三个月，查账约 {0} 个月。才干高的查得深；积弊重的地方会拿钱堵他的嘴，回来只说账目无亏。",g_division:"区划",dv_note:"只管流官的行政区；世袭的封国、羁縻要动走「附庸博弈」。令从都城发出，下月施行。",dv_create:"新设行政区、军府、封地",dv_create_note:"先定种类，再从直辖各城里点几座划出去，头一座点的作治所。",dv_create_go:"设立（{0} 城）",dv_direct:"朝廷直辖",dv_cities:"{0} 城",dv_cap:"都城",dv_seat:"治所",dv_move:"改隶",dv_move_title:"{0}改隶何处",dv_move_note:"这座城连同它的地一并划过去。",dv_sheet_note:"点一座城给它改隶；都城、治所不能挪，行政区只剩一城时要动就撤销。",dv_dissolve:"撤销此行政区",dv_dissolve_note:"各城收归朝廷直辖。",tk_money:"库银",tk_city:"城",tk_vassal:"属国",tk_title:"法理",tk_corps:"军",m_host:"令其出兵",host_aim:"令{0}出兵：点一座城",host_post:"令{0}出兵进驻 {1}",host_strike:"令{0}出兵攻打 {1}",host_sent:"军令已发出：{0}",host_note:"它的各军（城则是驻地在这座城的各军）一并奉令，手令照各军的远近送到。",load_title:"正在同步",load_state:"国势",load_map:"疆域（各地块归属）",load_terrain:"山川地貌",load_armies:"军情",load_done:"已到",load_wait:"在路上",load_note:"头一回要把所知之地的山川整份取下来，之后只取变了的。",m_explore:"遣人探路",m_chart:"购其舆图",m_chart_of:"购{0}舆图",sv_cost:"约需库银 {0}",sv_explore_note:"拨库银遣一队人去看这一带。来回要几个月，也有一去不回的；回来了，沿途的山川邦国就画在图上。",sv_chart_note:"遣使带银子去买它的舆图：它境内连同四邻一圈的山川疆界都画在上头。它不肯卖就白跑一趟，银子不花。",ly_world:"天下",ly_empire:"帝国",ly_realm:"王国",ly_city:"城市",ly_pol:"政体",ly_dj:"法理",ly_legend:"图例",terr_wait:"山川正在送来",map_turn:"右边四档换层级：按天下、帝国、王国、城市看。把手机横过来，舆图一直在，办事的几页收在左边。",lg_lines:"金线是本朝的疆界，深线分开各家，细线是一家之内的界，最浅的是城界。拉远只标最上一级；哪一家拉近到铺满大半个屏幕，就改标它里头的各家，再近标城。",an_lands:"所辖王国法理",an_own:"尽在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族谱",an_history:"史册",an_dejure:"法理",an_loading:"正在调阅典册…",an_none:"没有记载。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"拖动看各处、双指缩放，右上角「看全」把整棵缩进框里；点一格看详情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定为主法理",an_set_main_note:"国号随主法理而定。",an_name:"国号",an_prefix:"前缀",an_suffix:"后缀",an_blank:"不加",an_now:"现用",an_refresh:"重新调阅",tab_annals:"典册",d_sure:"确认",d_go:"下令",d_count:"{0} 项",d_left_tag:"{0} 分钟后自决",sd_note:"点一派可设法拉拢",st_chief_l:"首辅",st_seal:"批红",st_offices:"官职",st_vacant_n:"空缺 {0}",spy_sweep_l:"彻查暗探",spy_sweep_cost:"库银 {0}%",i_campaign:"御驾亲征",i_return:"班师回京",i_tour:"微服私访",sh_tour_note:"去哪座城。回来带回这座城的真数；路上有患病、遇险之虞。",tour_months:"来回约 {0} 月",away_campaign:"车驾亲征在外：奏议与案子由朝廷自决。",away_tour:"微服私访{0}，约 {1} 月后回京：奏议与案子由朝廷自决。",c_toured:"亲见",d_pact:"盟邦",sc_enter:"进外交台摆条件",sc_note:"条件照议和台的口径折成户数来称：对方那一边不亏才肯。",sc_will:"对方肯不肯",sc_yes:"肯 · 余 {0} 户",sc_no:"不肯 · 还差 {0} 户",sc_human:"由对面的君主裁决",sc_quote:"对方开价",sc_quote_none:"眼下什么条件都换不来",sc_quote_free:"不要条件",sc_take:"照此开价",sc_give:"本国出",sc_ask:"向对方索",sc_hu:"{0} 户",sc_nothing:"没有可摆的条件。",sc_send:"遣使",ch_accept:"应允",ch_refuse:"回绝",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"点一位要人、定一个罪名，交律法论处；判得重了有代价。",law_nobody:"眼下没有可查办的要人。",law_pick_charge:"{0}：定什么罪",i_recruit:"招募新军",sh_recruit_note:"在哪座城招一军。钱从国库出。",spy_purse:"君主私财 {0}",spy_hire:"派暗探",spy_hire_note:"雇金出自君主私财。暗探每 {0} 个月带回一项密报，数是约数；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 雇金 {1}",spy_has:"已有暗探",spy_none:"眼下没有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月后回报",spy_recall:"召回",spy_sweep:"彻查暗探 · 库银 {0}%",spy_sweeping:"正在彻查境内暗探，还有 {0} 月。",spy_full:"在外的暗探已满。",spy_poor:"私财不足",ch_kill:"诛杀",ch_turn:"收买",ch_release:"纵归",k_spy:"密报",a2hs_fixed:"改用固定地址打开",a2hs_fixed_note:"固定地址 {0} 不随电脑的地址变。加到桌面之前，先改用它打开。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏议递上去，之后票拟、廷议、批红照常。",sh_heir_note:"从在位君主在世的子嗣里册立一位。",sh_abdicate_note:"禅位之后这个席位空出来，可以再挑一位君主。",sh_no_heir:"眼下没有可立的子嗣。",sh_chief_note:"设内阁的朝廷才立得了首辅。",sh_holder:"现任：{0}",role_official:"朝廷命官",stale:"游戏里的终端还是旧版：重启游戏后，新的政令才办得了。",sent_ok:"已下令：{0}。办到哪一步看「政令」页，办结有回奏。",sent_fail:"这道令没发出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政区 {0}",g_staff:"人事",st_chief:"首辅：{0}",st_no_chief:"眼下没有首辅",st_make_chief:"立首辅",st_delegate_on:"委首辅代批",st_delegate_off:"收回批红",st_delegated:"眼下由首辅代批：奏议和案子都不再等批示，首辅一派会渐渐坐大。",st_direct:"眼下亲自批红。",st_vacant:"空缺",st_dismiss:"免职",st_appoint:"任 {0}",sd_title:"各派表态",sd_for:"赞成",sd_wait:"观望",sd_against:"反对",sd_own:"上奏",sd_favor:"圣眷 {0}",chip_grant:"授虚衔",chip_favor:"动用情分",chip_silver:"赏银",d_gift0:"不带礼",d_gift1:"薄礼 · 库银 5%",d_gift2:"厚礼 · 库银 15%",d_gift_note:"带礼能补好感的不足，谈成了才付。",cd_road:"修官道至此（约 6 月，按里程扣库银）",i_abdicate:"禅让",i_rename_realm:"改国号",i_rename_ruler:"更名",g_home:"内政",i_purge:"拨库银整饬吏治",d_tier:"拨库银 {0}% · 积弊约降 {1}%",d_abdicate_to:"禅位于 {0}",d_now:"现为：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禅位。",purge_go:"整饬吏治",a2hs:"添加到手机桌面",a2hs_ios:"iPhone：用 Safari 打开本页，点分享，选「添加到主屏幕」。从桌面打开后要再配对一次。",a2hs_android:"安卓：浏览器菜单里选「添加到主屏幕」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分钟后朝廷自决",d_support:"廷议赞成 {0}%",d_chance:"成算约 {0}%",ch_approve:"准",ch_reject:"驳",ch_shelve:"留中",ch_law:"依律论处",ch_redeem:"戴罪立功",ch_death:"诛杀",g_court:"朝议",g_palace:"宫廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏议在办，办结再递。",d_none_court:"眼下没有递得上去的奏议。",i_era:"改元",i_empire:"称帝",i_heir:"立储",d_heir_now:"现储：{0}",d_age:"{0} 岁",d_orders:"已下政令",d_no_orders:"还没有下过政令。",o_sent:"在途，约 {0} 月",o_done:"已办",o_failed:"未成",d_confirm:"确认：{0}",d_home:"都城里的事约 {0} 月办到；遣使要等使者来回。",d_envoy:"来回约 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下没有通使的国家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"终端",pair_title:"连接终端",pair_hint:"游戏里打开终端窗口，那里有六位配对码。",pair_name:"称呼（可不填）",pair_code:"配对码",pair_go:"配对",
 e_wrong_code:"配对码不对",e_locked:"连错太多，稍后再试",e_full:"席位已满",e_net:"连不上终端",e_code:"填六位数字",
 wait_world:"世界尚未载入",wait_world_hint:"电脑上进入一个世界后，这里自动接上。",
 vacant_title:"再择一君",why_none:"这个席位还没有领君主。",why_dead:"{0}的{1}已驾崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -416,14 +418,14 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小时 {1} 分",real_m:"{0
 kpi_wars:"战事",kpi_new:"新到",kpi_trust:"奏报",trust0:"可信",trust1:"参差",trust2:"不足信",
 reports:"奏报",no_reports:"尚无奏报送达。",k_major:"急报",k_ledger:"岁计",k_foreign:"外讯",late:"迟 {0} 月",lost:"另有若干奏报未达。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"历 {0} 月方达。",d_prompt:"当月即达。",d_foreign:"得自邻国往来，未必确实。",d_ledger:"此为地方奏销之数，非实查。",
-map_tap:"点军队选中，再点一座城就是下令；点别国办外交。双指放大看山川城池。",map_full:"全屏",map_exit:"退出全屏",m_diplo:"外交",m_cancel:"取消",intel_live:"军情：电报随时可达",intel_at:"军情截至第 {0} 年 {1} 月 · {2} 月一报",intel_old:"这是 {0} 个月前报来的军情，眼下未必还在原处。",army_foreign:"{0}之军",army_about:"约 {0} 人",army_count:"{0} 支",army_foe:"交战之敌",army_line:"兵力 {0} / {1} · 组织度 {2}",army_home:"驻地 {0}",task_reserve:"留守",task_march:"开赴边境",task_attack:"进攻",task_defend:"防守",task_retreat:"溃退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"没有手令，听朝廷调度",army_writ:"在途：{0}（还要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一并下令",army_release:"撤销手令",army_group:"{0} 支军",aim_title:"点一座城",aim_note:"本国的城：开过去驻守。交战敌国的城：去打它。",aim_miss:"这里没有可去的城",order_post:"驻守 {0}",order_strike:"攻打 {0}",order_delay0:"军令靠人马递送，离都城越远越久，一到三个月才到。",order_delay1:"军令走驿路，一两个月送到。",order_delay2:"军令走电报，当月就到。",order_go:"下令",order_sent:"军令已发往 {0}",release_sent:"撤令已发出",g_vassal:"附庸博弈",vk_0:"羁縻之地",vk_1:"世袭封国",vk_2:"封建附庸",vk_3:"朝贡国",vk_4:"接壤小国",vk_5:"起义军",v_title:"改设为行政区",v_amnesty:"招安",v_list_note:"把藩属改设成行政区、招安起义军，都上天平称。点一家看两边的砝码。",v_note:"朝廷的砝码不轻于对方的抗拒才谈得成。不够可以加码，也可以强推。",v_note_rebel:"招安也上天平：砝码够了，起义军罢兵归顺，其地复归朝廷。",v_resist:"对方的抗拒",v_court:"朝廷的砝码",v_extras:"加码",v_cost:"代价",v_cost_note:"改设之费库银 {0}；其余藩属自危，对朝廷的好感下降；新设的行政区十年里不稳。",v_cost_rebel:"招安之费库银 {0}；归顺之地十年里不稳。",v_send:"遣使去谈",v_send_rebel:"遣使招安",v_force:"强推",v_force_note:"强推不看天平：对方不从，举兵相抗，其余藩属更加离心。",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
+map_tap:"点军队选中，再点一座城就是下令；点别国办外交。双指放大看山川城池。",map_full:"全屏",map_exit:"退出全屏",m_diplo:"外交",m_cancel:"取消",intel_live:"军情：电报随时可达",intel_at:"军情截至第 {0} 年 {1} 月 · {2} 月一报",intel_old:"这是 {0} 个月前报来的军情，眼下未必还在原处。",army_foreign:"{0}之军",army_about:"约 {0} 人",army_count:"{0} 支",army_foe:"交战之敌",army_mixed:"{0}等 {1} 国之军",army_line:"兵力 {0} / {1} · 组织度 {2}",army_home:"驻地 {0}",task_reserve:"留守",task_march:"开赴边境",task_attack:"进攻",task_defend:"防守",task_retreat:"溃退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"没有手令，听朝廷调度",army_writ:"在途：{0}（还要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一并下令",army_release:"撤销手令",army_group:"{0} 支军",aim_title:"点一座城",aim_note:"本国的城：开过去驻守。交战敌国的城：去打它。",aim_miss:"这里没有可去的城",aim_bad:"{0}既不是本朝之城，也不是交战之敌",ly_army:"军队",order_post:"驻守 {0}",order_strike:"攻打 {0}",order_delay0:"军令靠人马递送，离都城越远越久，一到三个月才到。",order_delay1:"军令走驿路，一两个月送到。",order_delay2:"军令走电报，当月就到。",order_go:"下令",order_sent:"军令已发往 {0}",release_sent:"撤令已发出",g_vassal:"附庸博弈",vk_0:"羁縻之地",vk_1:"世袭封国",vk_2:"封建附庸",vk_3:"朝贡国",vk_4:"接壤小国",vk_5:"起义军",v_title:"改设为行政区",v_amnesty:"招安",v_list_note:"把藩属改设成行政区、招安起义军，都上天平称。点一家看两边的砝码。",v_note:"朝廷的砝码不轻于对方的抗拒才谈得成。不够可以加码，也可以强推。",v_note_rebel:"招安也上天平：砝码够了，起义军罢兵归顺，其地复归朝廷。",v_resist:"对方的抗拒",v_court:"朝廷的砝码",v_extras:"加码",v_cost:"代价",v_cost_note:"改设之费库银 {0}；其余藩属自危，对朝廷的好感下降；新设的行政区十年里不稳。",v_cost_rebel:"招安之费库银 {0}；归顺之地十年里不稳。",v_send:"遣使去谈",v_send_rebel:"遣使招安",v_force:"强推",v_force_note:"强推不看天平：对方不从，举兵相抗，其余藩属更加离心。",map_reset:"全览",sight0:"只知接壤",sight1:"驿路与航路所及",sight2:"天下可见",
 note0:"眼下只知道接壤的国家。再远的地方，要有商路与航海之术才通消息。",note1:"使节到得了的国家都知道；更远的只有传闻。",note2:"消息即时可达，天下都看得见。",
 lg_own:"本国",lg_prov:"本朝行政区（深线是行政区界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之国",lg_rumour:"仅有传闻",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"无主之地",m_water:"水域",m_rumour:"{0}（仅有传闻）",
 officials:"吏治",corr:"积弊 {0}%",tn0:"奏报大体可信。",tn1:"数字上下有出入，奏报常迟。",tn2:"数字多有虚报，小事常报不上来。",
 f_treasury:"库银",f_army:"兵额",f_people:"丁口",approx:"约 {0}",n_book:"账面",n_roll:"在册",n_hidden:"隐户未计",n_true:"实数",
 wars:"战事",no_wars:"眼下没有战事。",w_att:"伐{0}",w_def:"御{0}",
 provinces:"行政区与藩属",provinces_note:"朝廷治下的各行政区、羁縻之地与封国。点一家看它的各城。",pk_province:"行政区",pk_jimi:"羁縻",pk_fief:"封国",pn_province:"流官治理，政令到得了的城才有确数。",pn_jimi:"羁縻之地自有君长，朝廷只知大概。",pn_fief:"封国自治，朝廷只知大概。",p_cities:"{0} 城",p_seat:"治所",p_more:"另有 {0} 城未列。",cities:"直辖各城",cities_note:"政令到得了的城才有确数。",capital:"都城",c0:"{0} 口 · 村镇 {1}",c1:"约 {0} 口",c2:"不详",ctl:"政令 {0}%",cd_leader:"长官：{0}",cd_troops:"驻军：{0}",cd_treasury:"府库：{0}",cd_corr:"积弊：{0}%",cd_zones:"辖地：{0} 块",cd_rural:"镇 {0} · 村 {1} · 关堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不畅，只报得上约数。",cd_none:"政令不达，详情报不上来。"},
-ch:{wd_title:"衣冠",wd_note:"花的是君主的私財。別的文化的貴一倍，過時的古裝貴五成，比眼下還新的買不到。買了就穿上，衣櫃裡的隨時換。",wd_none:"衣冠鋪子還沒開張。",wd_money:"私財",wd_body:"衣著",wd_hat:"冠帽",wd_hair:"髮式",wd_own:"衣櫃",wd_default:"本來的裝束",wd_default_note:"照身份與時期配的那一身",wd_on:"穿著",wd_shop:"鋪子",wd_empty:"眼下沒有買得到的。",wd_buy:"買 · {0}",wd_kind_royal:"君主禮服",wd_kind_court:"官服",wd_kind_casual:"常服",wd_kind_armor:"戎裝",wd_kind_clergy:"僧道",wd_kind_commoner:"布衣",wd_kind_lady:"女裝",wd_civ_hx:"華夏",wd_civ_nomad:"游牧",wd_civ_west:"西方",wd_civ_arab:"阿拉伯",wd_civ_jp:"日本",wd_civ_any:"通用",wd_p0:"上古",wd_p1:"青銅",wd_p2:"鐵器",wd_p3:"中古",wd_p4:"火藥",wd_p5:"近代",wd_p6:"現代",rv_title:"考課",rv_note:"貪廉看不見，只能幾條消息對著看：錢糧、積弊、誰參過他。",rv_hits:"被參 {0}",rv_down:"錢糧見少",rv_mark_found:"查實貪墨",rv_mark_clean:"回奏無虧",rv_mark_wronged:"曾被冤",rv_more:"還有 {0} 人",rv_less:"收起",rv_sheet_note:"上繳是現銀，做不了假；彈章有真有假，看參他的是些什麼人。",rv_fac:"派系",rv_nofac:"無派",rv_age:"年歲",rv_years:"在任至少",rv_years_v:"{0} 年",rv_remit:"治下上繳（上年）",rv_was:"前一年 {0}",rv_corr:"治下積弊",rv_unknown:"政令不達，不詳",rv_mark:"查過",rv_ago:"{0} 個月前",rv_charges:"被參的記錄（近三年）",rv_nohits:"沒有人參過。",rv_hint_many:"幾派的人都參他，多半不是黨爭。",rv_hint_one:"參他的只有一派，或是黨爭；對著錢糧再看。",rv_charge:"降罪",k_impeach:"彈章",bk_col_book:"帳面",bk_col_real:"實查",bk_title:"查帳",bk_ready:"點一位官員把帳冊封存起來，再翻開抽查",bk_sent:"正在封存帳冊",bk_wait:"上回查帳未滿一年，再等 {0} 個月",bk_open:"帳冊已封存 {0} 冊，{1} 個月後結案",bk_go:"翻帳",bk_pick:"誰主持查帳",bk_pick_note:"才幹高的能多抽幾冊。朝廷積弊重時，主持的人也可能被買通——那就冊冊帳實相符。",bk_note:"每冊只寫著帳面數。點一冊可以抽查(見真虧空)或問責。抽查的冊數有限；問責至多兩處，抽沒抽過都能問，問錯了白用一回，還要掉威望、惹他那一派不滿。抽查過的冊點開能看完整的帳目。",bk_by:"{0}主持",bk_peeks:"還可抽查 {0} 冊",bk_blames:"還可問責 {0} 處",bk_left:"{0} 個月後結案",bk_book:"帳面 {0}",bk_unknown:"未查",bk_gap:"虧空 {0}",bk_clean:"帳實相符",bk_peek:"抽查這一冊",bk_blame:"問責",bk_close:"結案",bk_closed:"這一回查帳已結。",fs_odd:"對不上",fs_trend:"走勢（一期半年）",fs_trend_wait:"攢夠兩期才看得出走勢。",fs_tick:"{0}年{1}",fs_now_short:"眼下",fs_title:"財報",fs_period:"第 {0} 年{1}半年",fs_h0:"上",fs_h1:"下",fs_now:"眼下的帳（近半年）",fs_income:"收",fs_expense:"支",fs_balance:"結餘",fs_detail:"看細目與各地",fs_note_short:"都是報上來的數",fs_in:"收入",fs_out:"支出",fs_places:"各地 · 報稱歲入 / 上繳",fs_none:"帳報不上來",fs_prev:"上期 {0}",fs_note:"這些都是下面報上來的數：吏治越壞報得越虛。上繳是現銀入庫，做不了假。點一處可以遣官徹查。",fs_k_tax:"賦稅",fs_k_trade:"官營與關稅",fs_k_tribute:"貢賦",fs_k_other:"其它",fs_k_military:"軍費",fs_k_admin:"官俸與日用",fs_k_build:"營建",fs_k_research:"研究",dk_province:"行政區",dk_garrison:"軍府",dk_fief:"封地",dk_province_note:"流官治理，政體跟朝廷，賦稅歸朝廷。往後可以撤、可以改隸。",dk_garrison_note:"點一位將領作節度使，世襲，自養兵、自辦外交，一直叫某某軍。設出去就不歸區劃管了，要動它走附庸博弈。",dk_fief_note:"點一位宗室受封，世襲，自養兵、自辦外交、輕稅。設出去就不歸區劃管了，要動它走附庸博弈。",dv_pick_cities:"劃出哪幾座城",dv_pick_general:"誰作節度使",dv_pick_lord:"封給誰",dv_no_one:"眼下無人可授。",pk_garrison:"軍府",pn_garrison:"世襲的軍鎮，自養兵、自辦外交；朝廷只知大概。",k_tax:"歲入",au_go:"遣官徹查",au_title:"遣誰去查{0}",au_skill:"才幹 {0}",au_none:"眼下無官可派。",au_sent:"已遣：{0}",au_note:"路上按遠近一到三個月，查帳約 {0} 個月。才幹高的查得深；積弊重的地方會拿錢堵他的嘴，回來只說帳目無虧。",g_division:"區劃",dv_note:"只管流官的行政區；世襲的封國、羈縻要動走「附庸博弈」。令從都城發出，下月施行。",dv_create:"新設行政區、軍府、封地",dv_create_note:"先定種類，再從直轄各城裡點幾座劃出去，頭一座點的作治所。",dv_create_go:"設立（{0} 城）",dv_direct:"朝廷直轄",dv_cities:"{0} 城",dv_cap:"都城",dv_seat:"治所",dv_move:"改隸",dv_move_title:"{0}改隸何處",dv_move_note:"這座城連同它的地一併劃過去。",dv_sheet_note:"點一座城給它改隸；都城、治所不能挪，行政區只剩一城時要動就撤銷。",dv_dissolve:"撤銷此行政區",dv_dissolve_note:"各城收歸朝廷直轄。",tk_money:"庫銀",tk_city:"城",tk_vassal:"屬國",tk_title:"法理",tk_corps:"軍",m_host:"令其出兵",host_aim:"令{0}出兵：點一座城",host_post:"令{0}出兵進駐 {1}",host_strike:"令{0}出兵攻打 {1}",host_sent:"軍令已發出：{0}",host_note:"它的各軍（城則是駐地在這座城的各軍）一併奉令，手令照各軍的遠近送到。",load_title:"正在同步",load_state:"國勢",load_map:"疆域（各地塊歸屬）",load_terrain:"山川地貌",load_armies:"軍情",load_done:"已到",load_wait:"在路上",load_note:"頭一回要把所知之地的山川整份取下來，之後只取變了的。",m_explore:"遣人探路",m_chart:"購其輿圖",m_chart_of:"購{0}輿圖",sv_cost:"約需庫銀 {0}",sv_explore_note:"撥庫銀遣一隊人去看這一帶。來回要幾個月，也有一去不回的；回來了，沿途的山川邦國就畫在圖上。",sv_chart_note:"遣使帶銀子去買它的輿圖：它境內連同四鄰一圈的山川疆界都畫在上頭。它不肯賣就白跑一趟，銀子不花。",ly_world:"天下",ly_empire:"帝國",ly_realm:"王國",ly_city:"城市",ly_legend:"圖例",terr_wait:"山川正在送來",map_turn:"右邊四檔換層級：按天下、帝國、王國、城市看。把手機橫過來，輿圖一直在，辦事的幾頁收在左邊。",lg_lines:"金線是本朝的疆界，深線是別國的國界，細線是一家之內的界與城界。",an_lands:"所轄王國法理",an_own:"盡在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族譜",an_history:"史冊",an_dejure:"法理",an_loading:"正在調閱典冊…",an_none:"沒有記載。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"左右上下拖動看全；點一格看詳情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定為主法理",an_set_main_note:"國號隨主法理而定。",an_name:"國號",an_prefix:"前綴",an_suffix:"後綴",an_blank:"不加",an_now:"現用",an_refresh:"重新調閱",tab_annals:"典冊",d_sure:"確認",d_go:"下令",d_count:"{0} 項",d_left_tag:"{0} 分鐘後自決",sd_note:"點一派可設法拉攏",st_chief_l:"首輔",st_seal:"批紅",st_offices:"官職",st_vacant_n:"空缺 {0}",spy_sweep_l:"徹查暗探",spy_sweep_cost:"庫銀 {0}%",i_campaign:"御駕親征",i_return:"班師回京",i_tour:"微服私訪",sh_tour_note:"去哪座城。回來帶回這座城的真數；路上有患病、遇險之虞。",tour_months:"來回約 {0} 月",away_campaign:"車駕親征在外：奏議與案子由朝廷自決。",away_tour:"微服私訪{0}，約 {1} 月後回京：奏議與案子由朝廷自決。",c_toured:"親見",d_pact:"盟邦",sc_enter:"進外交台擺條件",sc_note:"條件照議和台的口徑折成戶數來稱：對方那一邊不虧才肯。",sc_will:"對方肯不肯",sc_yes:"肯 · 餘 {0} 戶",sc_no:"不肯 · 還差 {0} 戶",sc_human:"由對面的君主裁決",sc_quote:"對方開價",sc_quote_none:"眼下什麼條件都換不來",sc_quote_free:"不要條件",sc_take:"照此開價",sc_give:"本國出",sc_ask:"向對方索",sc_hu:"{0} 戶",sc_nothing:"沒有可擺的條件。",sc_send:"遣使",ch_accept:"應允",ch_refuse:"回絕",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"點一位要人、定一個罪名，交律法論處；判得重了有代價。",law_nobody:"眼下沒有可查辦的要人。",law_pick_charge:"{0}：定什麼罪",i_recruit:"招募新軍",sh_recruit_note:"在哪座城招一軍。錢從國庫出。",spy_purse:"君主私財 {0}",spy_hire:"派暗探",spy_hire_note:"僱金出自君主私財。暗探每 {0} 個月帶回一項密報，數是約數；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 僱金 {1}",spy_has:"已有暗探",spy_none:"眼下沒有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月後回報",spy_recall:"召回",spy_sweep:"徹查暗探 · 庫銀 {0}%",spy_sweeping:"正在徹查境內暗探，還有 {0} 月。",spy_full:"在外的暗探已滿。",spy_poor:"私財不足",ch_kill:"誅殺",ch_turn:"收買",ch_release:"縱歸",k_spy:"密報",a2hs_fixed:"改用固定位址打開",a2hs_fixed_note:"固定位址 {0} 不隨電腦的位址變。加到桌面之前，先改用它打開。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏議遞上去，之後票擬、廷議、批紅照常。",sh_heir_note:"從在位君主在世的子嗣裡冊立一位。",sh_abdicate_note:"禪位之後這個席位空出來，可以再挑一位君主。",sh_no_heir:"眼下沒有可立的子嗣。",sh_chief_note:"設內閣的朝廷才立得了首輔。",sh_holder:"現任：{0}",role_official:"朝廷命官",stale:"遊戲裡的終端還是舊版：重啟遊戲後，新的政令才辦得了。",sent_ok:"已下令：{0}。辦到哪一步看「政令」頁，辦結有回奏。",sent_fail:"這道令沒發出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政區 {0}",g_staff:"人事",st_chief:"首輔：{0}",st_no_chief:"眼下沒有首輔",st_make_chief:"立首輔",st_delegate_on:"委首輔代批",st_delegate_off:"收回批紅",st_delegated:"眼下由首輔代批：奏議和案子都不再等批示，首輔一派會漸漸坐大。",st_direct:"眼下親自批紅。",st_vacant:"空缺",st_dismiss:"免職",st_appoint:"任 {0}",sd_title:"各派表態",sd_for:"贊成",sd_wait:"觀望",sd_against:"反對",sd_own:"上奏",sd_favor:"聖眷 {0}",chip_grant:"授虛銜",chip_favor:"動用情分",chip_silver:"賞銀",d_gift0:"不帶禮",d_gift1:"薄禮 · 庫銀 5%",d_gift2:"厚禮 · 庫銀 15%",d_gift_note:"帶禮能補好感的不足，談成了才付。",cd_road:"修官道至此（約 6 月，按里程扣庫銀）",i_abdicate:"禪讓",i_rename_realm:"改國號",i_rename_ruler:"更名",g_home:"內政",i_purge:"撥庫銀整飭吏治",d_tier:"撥庫銀 {0}% · 積弊約降 {1}%",d_abdicate_to:"禪位於 {0}",d_now:"現為：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禪位。",purge_go:"整飭吏治",a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。從桌面打開後要再配對一次。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分鐘後朝廷自決",d_support:"廷議贊成 {0}%",d_chance:"成算約 {0}%",ch_approve:"准",ch_reject:"駁",ch_shelve:"留中",ch_law:"依律論處",ch_redeem:"戴罪立功",ch_death:"誅殺",g_court:"朝議",g_palace:"宮廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏議在辦，辦結再遞。",d_none_court:"眼下沒有遞得上去的奏議。",i_era:"改元",i_empire:"稱帝",i_heir:"立儲",d_heir_now:"現儲：{0}",d_age:"{0} 歲",d_orders:"已下政令",d_no_orders:"還沒有下過政令。",o_sent:"在途，約 {0} 月",o_done:"已辦",o_failed:"未成",d_confirm:"確認：{0}",d_home:"都城裡的事約 {0} 月辦到；遣使要等使者來回。",d_envoy:"來回約 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下沒有通使的國家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
+ch:{wd_title:"衣冠",wd_note:"花的是君主的私財。別的文化的貴一倍，過時的古裝貴五成，比眼下還新的買不到。買了就穿上，衣櫃裡的隨時換。",wd_none:"衣冠鋪子還沒開張。",wd_money:"私財",wd_body:"衣著",wd_hat:"冠帽",wd_hair:"髮式",wd_own:"衣櫃",wd_default:"本來的裝束",wd_default_note:"照身份與時期配的那一身",wd_on:"穿著",wd_shop:"鋪子",wd_empty:"眼下沒有買得到的。",wd_buy:"買 · {0}",wd_kind_royal:"君主禮服",wd_kind_court:"官服",wd_kind_casual:"常服",wd_kind_armor:"戎裝",wd_kind_clergy:"僧道",wd_kind_commoner:"布衣",wd_kind_lady:"女裝",wd_civ_hx:"華夏",wd_civ_nomad:"游牧",wd_civ_west:"西方",wd_civ_arab:"阿拉伯",wd_civ_jp:"日本",wd_civ_any:"通用",wd_p0:"上古",wd_p1:"青銅",wd_p2:"鐵器",wd_p3:"中古",wd_p4:"火藥",wd_p5:"近代",wd_p6:"現代",rv_title:"考課",rv_note:"貪廉看不見，只能幾條消息對著看：錢糧、積弊、誰參過他。",rv_hits:"被參 {0}",rv_down:"錢糧見少",rv_mark_found:"查實貪墨",rv_mark_clean:"回奏無虧",rv_mark_wronged:"曾被冤",rv_more:"還有 {0} 人",rv_less:"收起",rv_sheet_note:"上繳是現銀，做不了假；彈章有真有假，看參他的是些什麼人。",rv_fac:"派系",rv_nofac:"無派",rv_age:"年歲",rv_years:"在任至少",rv_years_v:"{0} 年",rv_remit:"治下上繳（上年）",rv_was:"前一年 {0}",rv_corr:"治下積弊",rv_unknown:"政令不達，不詳",rv_mark:"查過",rv_ago:"{0} 個月前",rv_charges:"被參的記錄（近三年）",rv_nohits:"沒有人參過。",rv_hint_many:"幾派的人都參他，多半不是黨爭。",rv_hint_one:"參他的只有一派，或是黨爭；對著錢糧再看。",rv_charge:"降罪",k_impeach:"彈章",bk_col_book:"帳面",bk_col_real:"實查",bk_title:"查帳",bk_ready:"點一位官員把帳冊封存起來，再翻開抽查",bk_sent:"正在封存帳冊",bk_wait:"上回查帳未滿一年，再等 {0} 個月",bk_open:"帳冊已封存 {0} 冊，{1} 個月後結案",bk_go:"翻帳",bk_pick:"誰主持查帳",bk_pick_note:"才幹高的能多抽幾冊。朝廷積弊重時，主持的人也可能被買通——那就冊冊帳實相符。",bk_note:"每冊只寫著帳面數。點一冊可以抽查(見真虧空)或問責。抽查的冊數有限；問責至多兩處，抽沒抽過都能問，問錯了白用一回，還要掉威望、惹他那一派不滿。抽查過的冊點開能看完整的帳目。",bk_by:"{0}主持",bk_peeks:"還可抽查 {0} 冊",bk_blames:"還可問責 {0} 處",bk_left:"{0} 個月後結案",bk_book:"帳面 {0}",bk_unknown:"未查",bk_gap:"虧空 {0}",bk_clean:"帳實相符",bk_peek:"抽查這一冊",bk_blame:"問責",bk_close:"結案",bk_closed:"這一回查帳已結。",fs_odd:"對不上",fs_trend:"走勢（一期半年）",fs_trend_wait:"攢夠兩期才看得出走勢。",fs_tick:"{0}年{1}",fs_now_short:"眼下",fs_title:"財報",fs_period:"第 {0} 年{1}半年",fs_h0:"上",fs_h1:"下",fs_now:"眼下的帳（近半年）",fs_income:"收",fs_expense:"支",fs_balance:"結餘",fs_detail:"看細目與各地",fs_note_short:"都是報上來的數",fs_in:"收入",fs_out:"支出",fs_places:"各地 · 報稱歲入 / 上繳",fs_none:"帳報不上來",fs_prev:"上期 {0}",fs_note:"這些都是下面報上來的數：吏治越壞報得越虛。上繳是現銀入庫，做不了假。點一處可以遣官徹查。",fs_k_tax:"賦稅",fs_k_trade:"官營與關稅",fs_k_tribute:"貢賦",fs_k_other:"其它",fs_k_military:"軍費",fs_k_admin:"官俸與日用",fs_k_build:"營建",fs_k_research:"研究",dk_province:"行政區",dk_garrison:"軍府",dk_fief:"封地",dk_province_note:"流官治理，政體跟朝廷，賦稅歸朝廷。往後可以撤、可以改隸。",dk_garrison_note:"點一位將領作節度使，世襲，自養兵、自辦外交，一直叫某某軍。設出去就不歸區劃管了，要動它走附庸博弈。",dk_fief_note:"點一位宗室受封，世襲，自養兵、自辦外交、輕稅。設出去就不歸區劃管了，要動它走附庸博弈。",dv_pick_cities:"劃出哪幾座城",dv_pick_general:"誰作節度使",dv_pick_lord:"封給誰",dv_no_one:"眼下無人可授。",pk_garrison:"軍府",pn_garrison:"世襲的軍鎮，自養兵、自辦外交；朝廷只知大概。",k_tax:"歲入",au_go:"遣官徹查",au_title:"遣誰去查{0}",au_skill:"才幹 {0}",au_none:"眼下無官可派。",au_sent:"已遣：{0}",au_note:"路上按遠近一到三個月，查帳約 {0} 個月。才幹高的查得深；積弊重的地方會拿錢堵他的嘴，回來只說帳目無虧。",g_division:"區劃",dv_note:"只管流官的行政區；世襲的封國、羈縻要動走「附庸博弈」。令從都城發出，下月施行。",dv_create:"新設行政區、軍府、封地",dv_create_note:"先定種類，再從直轄各城裡點幾座劃出去，頭一座點的作治所。",dv_create_go:"設立（{0} 城）",dv_direct:"朝廷直轄",dv_cities:"{0} 城",dv_cap:"都城",dv_seat:"治所",dv_move:"改隸",dv_move_title:"{0}改隸何處",dv_move_note:"這座城連同它的地一併劃過去。",dv_sheet_note:"點一座城給它改隸；都城、治所不能挪，行政區只剩一城時要動就撤銷。",dv_dissolve:"撤銷此行政區",dv_dissolve_note:"各城收歸朝廷直轄。",tk_money:"庫銀",tk_city:"城",tk_vassal:"屬國",tk_title:"法理",tk_corps:"軍",m_host:"令其出兵",host_aim:"令{0}出兵：點一座城",host_post:"令{0}出兵進駐 {1}",host_strike:"令{0}出兵攻打 {1}",host_sent:"軍令已發出：{0}",host_note:"它的各軍（城則是駐地在這座城的各軍）一併奉令，手令照各軍的遠近送到。",load_title:"正在同步",load_state:"國勢",load_map:"疆域（各地塊歸屬）",load_terrain:"山川地貌",load_armies:"軍情",load_done:"已到",load_wait:"在路上",load_note:"頭一回要把所知之地的山川整份取下來，之後只取變了的。",m_explore:"遣人探路",m_chart:"購其輿圖",m_chart_of:"購{0}輿圖",sv_cost:"約需庫銀 {0}",sv_explore_note:"撥庫銀遣一隊人去看這一帶。來回要幾個月，也有一去不回的；回來了，沿途的山川邦國就畫在圖上。",sv_chart_note:"遣使帶銀子去買它的輿圖：它境內連同四鄰一圈的山川疆界都畫在上頭。它不肯賣就白跑一趟，銀子不花。",ly_world:"天下",ly_empire:"帝國",ly_realm:"王國",ly_city:"城市",ly_pol:"政体",ly_dj:"法理",ly_legend:"圖例",terr_wait:"山川正在送來",map_turn:"右邊四檔換層級：按天下、帝國、王國、城市看。把手機橫過來，輿圖一直在，辦事的幾頁收在左邊。",lg_lines:"金線是本朝的疆界，深線分開各家，細線是一家之內的界，最淺的是城界。拉遠只標最上一級；哪一家拉近到鋪滿大半個螢幕，就改標它裡頭的各家，再近標城。",an_lands:"所轄王國法理",an_own:"盡在掌握",an_custom:"自己填（至多四字）",an_lineage:"世系",an_clan:"族譜",an_history:"史冊",an_dejure:"法理",an_loading:"正在調閱典冊…",an_none:"沒有記載。",an_lg_ruler:"君主",an_lg_self:"本人",an_lg_dead:"已故",an_tree_hint:"拖動看各處、雙指縮放，右上角「看全」把整棵縮進框裡；點一格看詳情。",an_year:"第 {0} 年",an_main:"主法理",an_set_main:"定為主法理",an_set_main_note:"國號隨主法理而定。",an_name:"國號",an_prefix:"前綴",an_suffix:"後綴",an_blank:"不加",an_now:"現用",an_refresh:"重新調閱",tab_annals:"典冊",d_sure:"確認",d_go:"下令",d_count:"{0} 項",d_left_tag:"{0} 分鐘後自決",sd_note:"點一派可設法拉攏",st_chief_l:"首輔",st_seal:"批紅",st_offices:"官職",st_vacant_n:"空缺 {0}",spy_sweep_l:"徹查暗探",spy_sweep_cost:"庫銀 {0}%",i_campaign:"御駕親征",i_return:"班師回京",i_tour:"微服私訪",sh_tour_note:"去哪座城。回來帶回這座城的真數；路上有患病、遇險之虞。",tour_months:"來回約 {0} 月",away_campaign:"車駕親征在外：奏議與案子由朝廷自決。",away_tour:"微服私訪{0}，約 {1} 月後回京：奏議與案子由朝廷自決。",c_toured:"親見",d_pact:"盟邦",sc_enter:"進外交台擺條件",sc_note:"條件照議和台的口徑折成戶數來稱：對方那一邊不虧才肯。",sc_will:"對方肯不肯",sc_yes:"肯 · 餘 {0} 戶",sc_no:"不肯 · 還差 {0} 戶",sc_human:"由對面的君主裁決",sc_quote:"對方開價",sc_quote_none:"眼下什麼條件都換不來",sc_quote_free:"不要條件",sc_take:"照此開價",sc_give:"本國出",sc_ask:"向對方索",sc_hu:"{0} 戶",sc_nothing:"沒有可擺的條件。",sc_send:"遣使",ch_accept:"應允",ch_refuse:"回絕",g_law:"刑名",g_spy:"暗探",law_charge:"降罪",law_note:"點一位要人、定一個罪名，交律法論處；判得重了有代價。",law_nobody:"眼下沒有可查辦的要人。",law_pick_charge:"{0}：定什麼罪",i_recruit:"招募新軍",sh_recruit_note:"在哪座城招一軍。錢從國庫出。",spy_purse:"君主私財 {0}",spy_hire:"派暗探",spy_hire_note:"僱金出自君主私財。暗探每 {0} 個月帶回一項密報，數是約數；每回都可能失陷。",spy_pick:"往{0}派哪一等的暗探",spy_tier:"{0} 等 · 僱金 {1}",spy_has:"已有暗探",spy_none:"眼下沒有在外的暗探。",spy_row:"{0} · {1} 等 · {2} 月後回報",spy_recall:"召回",spy_sweep:"徹查暗探 · 庫銀 {0}%",spy_sweeping:"正在徹查境內暗探，還有 {0} 月。",spy_full:"在外的暗探已滿。",spy_poor:"私財不足",ch_kill:"誅殺",ch_turn:"收買",ch_release:"縱歸",k_spy:"密報",a2hs_fixed:"改用固定位址打開",a2hs_fixed_note:"固定位址 {0} 不隨電腦的位址變。加到桌面之前，先改用它打開。",sh_propose:"上奏",sh_propose_note:"替朝中一派把奏議遞上去，之後票擬、廷議、批紅照常。",sh_heir_note:"從在位君主在世的子嗣裡冊立一位。",sh_abdicate_note:"禪位之後這個席位空出來，可以再挑一位君主。",sh_no_heir:"眼下沒有可立的子嗣。",sh_chief_note:"設內閣的朝廷才立得了首輔。",sh_holder:"現任：{0}",role_official:"朝廷命官",stale:"遊戲裡的終端還是舊版：重啟遊戲後，新的政令才辦得了。",sent_ok:"已下令：{0}。辦到哪一步看「政令」頁，辦結有回奏。",sent_fail:"這道令沒發出去。",tx_none:"未入天下",tx_cities:"{0} 城",tx_members:"行政區 {0}",g_staff:"人事",st_chief:"首輔：{0}",st_no_chief:"眼下沒有首輔",st_make_chief:"立首輔",st_delegate_on:"委首輔代批",st_delegate_off:"收回批紅",st_delegated:"眼下由首輔代批：奏議和案子都不再等批示，首輔一派會漸漸坐大。",st_direct:"眼下親自批紅。",st_vacant:"空缺",st_dismiss:"免職",st_appoint:"任 {0}",sd_title:"各派表態",sd_for:"贊成",sd_wait:"觀望",sd_against:"反對",sd_own:"上奏",sd_favor:"聖眷 {0}",chip_grant:"授虛銜",chip_favor:"動用情分",chip_silver:"賞銀",d_gift0:"不帶禮",d_gift1:"薄禮 · 庫銀 5%",d_gift2:"厚禮 · 庫銀 15%",d_gift_note:"帶禮能補好感的不足，談成了才付。",cd_road:"修官道至此（約 6 月，按里程扣庫銀）",i_abdicate:"禪讓",i_rename_realm:"改國號",i_rename_ruler:"更名",g_home:"內政",i_purge:"撥庫銀整飭吏治",d_tier:"撥庫銀 {0}% · 積弊約降 {1}%",d_abdicate_to:"禪位於 {0}",d_now:"現為：{0}",d_new_name:"新名（至多十二字）",why_abdicated:"{1}已禪位。",purge_go:"整飭吏治",a2hs:"添加到手機桌面",a2hs_ios:"iPhone：用 Safari 打開本頁，點分享，選「加入主畫面」。從桌面打開後要再配對一次。",a2hs_android:"安卓：瀏覽器選單裡選「加到主畫面」。",tab_decrees:"政令",d_pending:"待批",d_left:"{0} 分鐘後朝廷自決",d_support:"廷議贊成 {0}%",d_chance:"成算約 {0}%",ch_approve:"准",ch_reject:"駁",ch_shelve:"留中",ch_law:"依律論處",ch_redeem:"戴罪立功",ch_death:"誅殺",g_court:"朝議",g_palace:"宮廷",g_diplomacy:"外交",d_busy:"朝中正有一件奏議在辦，辦結再遞。",d_none_court:"眼下沒有遞得上去的奏議。",i_era:"改元",i_empire:"稱帝",i_heir:"立儲",d_heir_now:"現儲：{0}",d_age:"{0} 歲",d_orders:"已下政令",d_no_orders:"還沒有下過政令。",o_sent:"在途，約 {0} 月",o_done:"已辦",o_failed:"未成",d_confirm:"確認：{0}",d_home:"都城裡的事約 {0} 月辦到；遣使要等使者來回。",d_envoy:"來回約 {0} 月",d_opinion:"好感 {0}",d_no_realm:"眼下沒有通使的國家。",pending_banner:"有 {0} 件事待批",k_order:"回奏",app_title:"終端",pair_title:"連接終端",pair_hint:"遊戲裡打開終端視窗，那裡有六位配對碼。",pair_name:"稱呼（可不填）",pair_code:"配對碼",pair_go:"配對",
 e_wrong_code:"配對碼不對",e_locked:"連錯太多，稍後再試",e_full:"席位已滿",e_net:"連不上終端",e_code:"填六位數字",
 wait_world:"世界尚未載入",wait_world_hint:"電腦上進入一個世界後，這裡自動接上。",
 vacant_title:"再擇一君",why_none:"這個席位還沒有領君主。",why_dead:"{0}的{1}已駕崩。",why_deposed:"{1}已失{0}之位。",why_fallen:"{0}已亡。",
@@ -435,14 +437,14 @@ span_y:"{0} 年 {1} 月",span_m:"{0} 月",real_h:"{0} 小時 {1} 分",real_m:"{0
 kpi_wars:"戰事",kpi_new:"新到",kpi_trust:"奏報",trust0:"可信",trust1:"參差",trust2:"不足信",
 reports:"奏報",no_reports:"尚無奏報送達。",k_major:"急報",k_ledger:"歲計",k_foreign:"外訊",late:"遲 {0} 月",lost:"另有若干奏報未達。",
 d_when:"事在第 {0} 年 {1} 月。",d_late:"歷 {0} 月方達。",d_prompt:"當月即達。",d_foreign:"得自鄰國往來，未必確實。",d_ledger:"此為地方奏銷之數，非實查。",
-map_tap:"點軍隊選中，再點一座城就是下令；點別國辦外交。雙指放大看山川城池。",map_full:"全螢幕",map_exit:"退出全螢幕",m_diplo:"外交",m_cancel:"取消",intel_live:"軍情：電報隨時可達",intel_at:"軍情截至第 {0} 年 {1} 月 · {2} 月一報",intel_old:"這是 {0} 個月前報來的軍情，眼下未必還在原處。",army_foreign:"{0}之軍",army_about:"約 {0} 人",army_count:"{0} 支",army_foe:"交戰之敵",army_line:"兵力 {0} / {1} · 組織度 {2}",army_home:"駐地 {0}",task_reserve:"留守",task_march:"開赴邊境",task_attack:"進攻",task_defend:"防守",task_retreat:"潰退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"沒有手令，聽朝廷調度",army_writ:"在途：{0}（還要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一併下令",army_release:"撤銷手令",army_group:"{0} 支軍",aim_title:"點一座城",aim_note:"本國的城：開過去駐守。交戰敵國的城：去打它。",aim_miss:"這裡沒有可去的城",order_post:"駐守 {0}",order_strike:"攻打 {0}",order_delay0:"軍令靠人馬遞送，離都城越遠越久，一到三個月才到。",order_delay1:"軍令走驛路，一兩個月送到。",order_delay2:"軍令走電報，當月就到。",order_go:"下令",order_sent:"軍令已發往 {0}",release_sent:"撤令已發出",g_vassal:"附庸博弈",vk_0:"羈縻之地",vk_1:"世襲封國",vk_2:"封建附庸",vk_3:"朝貢國",vk_4:"接壤小國",vk_5:"起義軍",v_title:"改設為行政區",v_amnesty:"招安",v_list_note:"把藩屬改設成行政區、招安起義軍，都上天平稱。點一家看兩邊的砝碼。",v_note:"朝廷的砝碼不輕於對方的抗拒才談得成。不夠可以加碼，也可以強推。",v_note_rebel:"招安也上天平：砝碼夠了，起義軍罷兵歸順，其地復歸朝廷。",v_resist:"對方的抗拒",v_court:"朝廷的砝碼",v_extras:"加碼",v_cost:"代價",v_cost_note:"改設之費庫銀 {0}；其餘藩屬自危，對朝廷的好感下降；新設的行政區十年裡不穩。",v_cost_rebel:"招安之費庫銀 {0}；歸順之地十年裡不穩。",v_send:"遣使去談",v_send_rebel:"遣使招安",v_force:"強推",v_force_note:"強推不看天平：對方不從，舉兵相抗，其餘藩屬更加離心。",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
+map_tap:"點軍隊選中，再點一座城就是下令；點別國辦外交。雙指放大看山川城池。",map_full:"全螢幕",map_exit:"退出全螢幕",m_diplo:"外交",m_cancel:"取消",intel_live:"軍情：電報隨時可達",intel_at:"軍情截至第 {0} 年 {1} 月 · {2} 月一報",intel_old:"這是 {0} 個月前報來的軍情，眼下未必還在原處。",army_foreign:"{0}之軍",army_about:"約 {0} 人",army_count:"{0} 支",army_foe:"交戰之敵",army_mixed:"{0}等 {1} 國之軍",army_line:"兵力 {0} / {1} · 組織度 {2}",army_home:"駐地 {0}",task_reserve:"留守",task_march:"開赴邊境",task_attack:"進攻",task_defend:"防守",task_retreat:"潰退休整",task_sea:"在海上",army_order:"手令：{0}",army_no_order:"沒有手令，聽朝廷調度",army_writ:"在途：{0}（還要 {1} 月）",army_aim:"下令：去哪座城",army_aim_all:"一併下令",army_release:"撤銷手令",army_group:"{0} 支軍",aim_title:"點一座城",aim_note:"本國的城：開過去駐守。交戰敵國的城：去打它。",aim_miss:"這裡沒有可去的城",aim_bad:"{0}既不是本朝之城，也不是交戰之敵",ly_army:"軍隊",order_post:"駐守 {0}",order_strike:"攻打 {0}",order_delay0:"軍令靠人馬遞送，離都城越遠越久，一到三個月才到。",order_delay1:"軍令走驛路，一兩個月送到。",order_delay2:"軍令走電報，當月就到。",order_go:"下令",order_sent:"軍令已發往 {0}",release_sent:"撤令已發出",g_vassal:"附庸博弈",vk_0:"羈縻之地",vk_1:"世襲封國",vk_2:"封建附庸",vk_3:"朝貢國",vk_4:"接壤小國",vk_5:"起義軍",v_title:"改設為行政區",v_amnesty:"招安",v_list_note:"把藩屬改設成行政區、招安起義軍，都上天平稱。點一家看兩邊的砝碼。",v_note:"朝廷的砝碼不輕於對方的抗拒才談得成。不夠可以加碼，也可以強推。",v_note_rebel:"招安也上天平：砝碼夠了，起義軍罷兵歸順，其地復歸朝廷。",v_resist:"對方的抗拒",v_court:"朝廷的砝碼",v_extras:"加碼",v_cost:"代價",v_cost_note:"改設之費庫銀 {0}；其餘藩屬自危，對朝廷的好感下降；新設的行政區十年裡不穩。",v_cost_rebel:"招安之費庫銀 {0}；歸順之地十年裡不穩。",v_send:"遣使去談",v_send_rebel:"遣使招安",v_force:"強推",v_force_note:"強推不看天平：對方不從，舉兵相抗，其餘藩屬更加離心。",map_reset:"全覽",sight0:"只知接壤",sight1:"驛路與航路所及",sight2:"天下可見",
 note0:"眼下只知道接壤的國家。再遠的地方，要有商路與航海之術才通消息。",note1:"使節到得了的國家都知道；更遠的只有傳聞。",note2:"消息即時可達，天下都看得見。",
 lg_own:"本國",lg_prov:"本朝行政區（深線是行政區界）",m_prov:"本朝之地",m_prov_cities:"看各城",lg_known:"已知之國",lg_rumour:"僅有傳聞",lg_fog:"未通之地",m_fog:"未通之地",m_wild:"無主之地",m_water:"水域",m_rumour:"{0}（僅有傳聞）",
 officials:"吏治",corr:"積弊 {0}%",tn0:"奏報大體可信。",tn1:"數字上下有出入，奏報常遲。",tn2:"數字多有虛報，小事常報不上來。",
 f_treasury:"庫銀",f_army:"兵額",f_people:"丁口",approx:"約 {0}",n_book:"帳面",n_roll:"在冊",n_hidden:"隱戶未計",n_true:"實數",
 wars:"戰事",no_wars:"眼下沒有戰事。",w_att:"伐{0}",w_def:"禦{0}",
 provinces:"行政區與藩屬",provinces_note:"朝廷治下的各行政區、羈縻之地與封國。點一家看它的各城。",pk_province:"行政區",pk_jimi:"羈縻",pk_fief:"封國",pn_province:"流官治理，政令到得了的城才有確數。",pn_jimi:"羈縻之地自有君長，朝廷只知大概。",pn_fief:"封國自治，朝廷只知大概。",p_cities:"{0} 城",p_seat:"治所",p_more:"另有 {0} 城未列。",cities:"直轄各城",cities_note:"政令到得了的城才有確數。",capital:"都城",c0:"{0} 口 · 村鎮 {1}",c1:"約 {0} 口",c2:"不詳",ctl:"政令 {0}%",cd_leader:"長官：{0}",cd_troops:"駐軍：{0}",cd_treasury:"府庫：{0}",cd_corr:"積弊：{0}%",cd_zones:"轄地：{0} 塊",cd_rural:"鎮 {0} · 村 {1} · 關堡 {2}",cd_admin:"政令：{0}",cd_rough:"政令不暢，只報得上約數。",cd_none:"政令不達，詳情報不上來。"},
-en:{wd_title:"Wardrobe",wd_note:"Paid from the ruler\u2019s own purse. Foreign dress costs double, outdated dress half again, and nothing newer than the present age is for sale. A purchase is worn at once; the wardrobe can be changed at any time.",wd_none:"The tailor is not open yet.",wd_money:"Privy purse",wd_body:"Dress",wd_hat:"Headwear",wd_hair:"Hair",wd_own:"Wardrobe",wd_default:"Usual attire",wd_default_note:"what rank and age would wear",wd_on:"worn",wd_shop:"For sale",wd_empty:"Nothing for sale right now.",wd_buy:"Buy · {0}",wd_kind_royal:"Royal",wd_kind_court:"Court dress",wd_kind_casual:"Everyday",wd_kind_armor:"Armour",wd_kind_clergy:"Clerical",wd_kind_commoner:"Common",wd_kind_lady:"Ladies\u2019",wd_civ_hx:"Huaxia",wd_civ_nomad:"Steppe",wd_civ_west:"Western",wd_civ_arab:"Arab",wd_civ_jp:"Japanese",wd_civ_any:"Any",wd_p0:"Ancient",wd_p1:"Bronze",wd_p2:"Iron",wd_p3:"Medieval",wd_p4:"Gunpowder",wd_p5:"Industrial",wd_p6:"Modern",rv_title:"Review of officials",rv_note:"No one can see who is corrupt. Compare what can be seen: remittances, the state of his district, who has accused him.",rv_hits:"accused {0}",rv_down:"revenue down",rv_mark_found:"found guilty",rv_mark_clean:"reported clean",rv_mark_wronged:"once wronged",rv_more:"{0} more",rv_less:"Show fewer",rv_sheet_note:"Remittances are silver and cannot be faked; accusations may be true or factional, so look at who makes them.",rv_fac:"Faction",rv_nofac:"none",rv_age:"Age",rv_years:"In office at least",rv_years_v:"{0} years",rv_remit:"Remitted (last year)",rv_was:"year before {0}",rv_corr:"Corruption in his district",rv_unknown:"out of reach, unknown",rv_mark:"Examined",rv_ago:"{0} months ago",rv_charges:"Accusations (last three years)",rv_nohits:"No one has accused him.",rv_hint_many:"Men of several factions accuse him; this is probably not faction-fighting.",rv_hint_one:"Only one faction accuses him; it may be faction-fighting. Check against the remittances.",rv_charge:"Charge him",k_impeach:"Accusation",bk_col_book:"Book",bk_col_real:"Found",bk_title:"Audit the books",bk_ready:"Choose an official to seal the books, then open them",bk_sent:"The books are being sealed",bk_wait:"Less than a year since the last audit: {0} more months",bk_open:"{0} ledgers sealed; closes in {1} months",bk_go:"Open",bk_pick:"Who leads the audit",bk_pick_note:"Abler men may open more ledgers. In a rotten court the auditor himself may be bought, and every ledger will balance.",bk_note:"Each ledger shows only its book figure. Tap one to open it (see the true shortfall) or to hold it to account. Openings are limited; at most two may be held to account, opened or not, and a wrong call wastes one, costs renown and angers the man\u2019s faction. An opened ledger shows its full accounts.",bk_by:"led by {0}",bk_peeks:"{0} openings left",bk_blames:"{0} calls left",bk_left:"closes in {0} months",bk_book:"book {0}",bk_unknown:"unopened",bk_gap:"short {0}",bk_clean:"balances",bk_peek:"Open this ledger",bk_blame:"Hold to account",bk_close:"Close the audit",bk_closed:"This audit is closed.",fs_odd:"does not add up",fs_trend:"Trend (each point is half a year)",fs_trend_wait:"Two periods are needed before a trend shows.",fs_tick:"Y{0} {1}",fs_now_short:"now",fs_title:"Accounts",fs_period:"Year {0}, {1} half",fs_h0:"first",fs_h1:"second",fs_now:"The books now (last six months)",fs_income:"Income",fs_expense:"Spending",fs_balance:"Balance",fs_detail:"Items and districts",fs_note_short:"figures as reported",fs_in:"Income",fs_out:"Spending",fs_places:"Districts · reported revenue / remitted",fs_none:"no books sent",fs_prev:"last {0}",fs_note:"These are the figures sent up from below: the worse the officials, the further from the truth. Remittances are silver in the vault and cannot be faked. Tap a district to send an auditor.",fs_k_tax:"Taxes",fs_k_trade:"State trade and customs",fs_k_tribute:"Tribute",fs_k_other:"Other",fs_k_military:"Military",fs_k_admin:"Salaries and upkeep",fs_k_build:"Building",fs_k_research:"Research",dk_province:"Province",dk_garrison:"Garrison",dk_fief:"Fief",dk_province_note:"Run by appointed officials; follows the court and pays it taxes. Can be dissolved or redrawn later.",dk_garrison_note:"Choose a general as military governor: hereditary, with its own troops and diplomacy. Once created it is beyond Divisions; use Vassals to change it.",dk_fief_note:"Choose a member of the ruling house: hereditary, with its own troops and diplomacy, lightly taxed. Once created it is beyond Divisions; use Vassals to change it.",dv_pick_cities:"Cities to split off",dv_pick_general:"Military governor",dv_pick_lord:"Granted to",dv_no_one:"No one available.",pk_garrison:"Garrison",pn_garrison:"A hereditary military command with its own troops and diplomacy; the court knows only the outline.",k_tax:"Revenue",au_go:"Send an auditor",au_title:"Who audits {0}",au_skill:"ability {0}",au_none:"No official to send.",au_sent:"Sent: {0}",au_note:"One to three months on the road by distance, about {0} months on the books. Abler men dig deeper; a rotten district may buy him off, and he will simply report the books in order.",g_division:"Divisions",dv_note:"Only appointed provinces; hereditary fiefs and tributary districts go through Vassals. Orders leave the capital and take effect next month.",dv_create:"New province, garrison or fief",dv_create_note:"Choose the kind, then pick crown cities to split off; the first one picked becomes the seat.",dv_create_go:"Establish ({0} cities)",dv_direct:"Crown lands",dv_cities:"{0} cities",dv_cap:"capital",dv_seat:"seat",dv_move:"Reassign",dv_move_title:"Reassign {0} to",dv_move_note:"The city moves with its land.",dv_sheet_note:"Tap a city to reassign it. The capital and seats stay; a one-city province can only be dissolved.",dv_dissolve:"Dissolve this province",dv_dissolve_note:"Its cities return to the crown.",tk_money:"Silver",tk_city:"Cities",tk_vassal:"Vassals",tk_title:"Titles",tk_corps:"Armies",m_host:"Order its troops",host_aim:"Orders for {0}: tap a city",host_post:"{0}: garrison {1}",host_strike:"{0}: attack {1}",host_sent:"Orders sent: {0}",host_note:"All its armies (for a city: the armies based there) take the order; it reaches each by its distance.",load_title:"Syncing",load_state:"State of the realm",load_map:"Borders (who holds each plot)",load_terrain:"Terrain",load_armies:"Armies",load_done:"done",load_wait:"on its way",load_note:"The first visit downloads the terrain of the known world; after that only what changed.",m_explore:"Send scouts",m_chart:"Buy its maps",m_chart_of:"Buy the maps of {0}",sv_cost:"About {0} from the treasury",sv_explore_note:"Pay a party to go and look. The round trip takes months and some never return; if they do, the land and realms on the way are drawn on the map.",sv_chart_note:"Send an envoy with silver for its maps: its own land and a ring around it. If it refuses, the trip is wasted but the silver is kept.",ly_world:"World",ly_empire:"Empire",ly_realm:"Realm",ly_city:"City",ly_legend:"Key",terr_wait:"terrain on its way",map_turn:"The four buttons on the right switch the level: by world order, empire, realm or city. Turn the phone sideways to keep the map in view with the other pages in a side column.",lg_lines:"Gold lines are this realm\u2019s frontier, dark lines other borders, thin lines the borders within one house and between cities.",an_lands:"Royal titles within",an_own:"fully held",an_custom:"Type your own (4 letters)",an_lineage:"Lineage",an_clan:"Family",an_history:"Chronicle",an_dejure:"De jure",an_loading:"Fetching the archives…",an_none:"Nothing on record.",an_lg_ruler:"monarch",an_lg_self:"self",an_lg_dead:"deceased",an_tree_hint:"Drag to pan; tap a box for details.",an_year:"Year {0}",an_main:"primary",an_set_main:"Make primary",an_set_main_note:"The realm takes its name from the primary title.",an_name:"Name of the realm",an_prefix:"Prefix",an_suffix:"Suffix",an_blank:"none",an_now:"in use",an_refresh:"Fetch again",tab_annals:"Annals",d_sure:"Confirm",d_go:"Order",d_count:"{0}",d_left_tag:"auto in {0} min",sd_note:"tap a faction to win it over",st_chief_l:"Chief minister",st_seal:"Rescripts",st_offices:"Offices",st_vacant_n:"{0} vacant",spy_sweep_l:"Sweep for spies",spy_sweep_cost:"{0}% of the treasury",i_campaign:"Take the field",i_return:"Return to the capital",i_tour:"Travel in plain dress",sh_tour_note:"Choose a city. The ruler brings back its true figures; illness and danger are possible on the road.",tour_months:"about {0} mo there and back",away_campaign:"The ruler is with the army: the court decides proposals and cases by itself.",away_tour:"The ruler is visiting {0} in plain dress and returns in about {1} months: the court decides proposals and cases by itself.",c_toured:"seen in person",d_pact:"ally",sc_enter:"set terms at the table",sc_note:"Terms are weighed in households, the way the peace table does it: the other side agrees only if it does not lose.",sc_will:"Will they agree",sc_yes:"yes · {0} to spare",sc_no:"no · short by {0}",sc_human:"their ruler decides",sc_quote:"Their price",sc_quote_none:"nothing on offer would be enough",sc_quote_free:"no terms needed",sc_take:"Offer their price",sc_give:"This realm gives",sc_ask:"Asked of them",sc_hu:"{0} households",sc_nothing:"Nothing to put on the table.",sc_send:"Send the envoy",ch_accept:"Agree",ch_refuse:"Refuse",g_law:"Justice",g_spy:"Spies",law_charge:"Bring a charge",law_note:"Pick a notable and a charge; the law takes it from there. A harsh sentence has a cost.",law_nobody:"There is no notable to charge right now.",law_pick_charge:"{0}: which charge",i_recruit:"Raise a new army",sh_recruit_note:"Choose the city to raise it in. The treasury pays.",spy_purse:"The ruler's own purse: {0}",spy_hire:"Send a spy",spy_hire_note:"Paid from the ruler's own purse. A spy brings back one rough figure every {0} months and may be lost each time.",spy_pick:"Which grade of spy for {0}",spy_tier:"Grade {0} · costs {1}",spy_has:"spy in place",spy_none:"No spies are abroad.",spy_row:"{0} · grade {1} · reports in {2} mo",spy_recall:"Recall",spy_sweep:"Sweep for spies · {0}% of treasury",spy_sweeping:"A sweep for spies is under way for another {0} months.",spy_full:"No more spies can be kept abroad.",spy_poor:"the purse is too thin",ch_kill:"Execute",ch_turn:"Turn him",ch_release:"Let him go",k_spy:"Secret",a2hs_fixed:"Open with the fixed address",a2hs_fixed_note:"The fixed address {0} stays the same when the computer's address changes. Switch to it before adding to the home screen.",sh_propose:"Put a proposal forward",sh_propose_note:"Table it on behalf of a court faction; drafting, debate and the decision follow as usual.",sh_heir_note:"Name one of the ruler's living children.",sh_abdicate_note:"After abdicating, this seat is free to take another ruler.",sh_no_heir:"There is no child who can be named.",sh_chief_note:"Only a court with a cabinet can have a chief minister.",sh_holder:"Held by {0}",role_official:"Appointed governor",stale:"The terminal inside the game is an older version. Restart the game before the newer orders can work.",sent_ok:"Order given: {0}. Follow it under Orders; a reply comes when it is done.",sent_fail:"The order was not sent.",tx_none:"Outside any Tianxia",tx_cities:"{0} cities",tx_members:"{0} provinces",g_staff:"Appointments",st_chief:"Chief minister: {0}",st_no_chief:"There is no chief minister",st_make_chief:"Name a chief minister",st_delegate_on:"Let the chief minister decide",st_delegate_off:"Decide in person",st_delegated:"The chief minister decides for now: proposals and cases no longer wait, and the chief minister's faction slowly gains weight.",st_direct:"Proposals are decided in person.",st_vacant:"vacant",st_dismiss:"Dismiss",st_appoint:"Appoint {0}",sd_title:"Where the factions stand",sd_for:"for",sd_wait:"undecided",sd_against:"against",sd_own:"proposer",sd_favor:"favour {0}",chip_grant:"Honorary title",chip_favor:"Call in a favour",chip_silver:"Grant silver",d_gift0:"No gift",d_gift1:"Modest gift · 5% of treasury",d_gift2:"Rich gift · 15% of treasury",d_gift_note:"A gift makes up for low opinion and is paid only if they agree.",cd_road:"Build a road here (about 6 mo, paid by distance)",i_abdicate:"Abdicate",i_rename_realm:"Rename the realm",i_rename_ruler:"Take a new name",g_home:"Home affairs",i_purge:"Spend treasury to clean up the administration",d_tier:"{0}% of the treasury · corruption down about {1}%",d_abdicate_to:"In favour of {0}",d_now:"Now: {0}",d_new_name:"New name (up to 12 characters)",why_abdicated:"{1} has abdicated.",purge_go:"Clean up",a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen. Pair once more after opening it from there.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",tab_decrees:"Orders",d_pending:"Awaiting a decision",d_left:"The court decides by itself in {0} min",d_support:"{0}% of the court in favour",d_chance:"Odds about {0}%",ch_approve:"Approve",ch_reject:"Reject",ch_shelve:"Shelve",ch_law:"Apply the law",ch_redeem:"Let him redeem it",ch_death:"Execute",g_court:"Court",g_palace:"Palace",g_diplomacy:"Diplomacy",d_busy:"The court is already handling a proposal. Wait until it is settled.",d_none_court:"Nothing can be tabled right now.",i_era:"New era name",i_empire:"Proclaim an empire",i_heir:"Name an heir",d_heir_now:"Current heir: {0}",d_age:"age {0}",d_orders:"Orders given",d_no_orders:"No orders given yet.",o_sent:"On its way, about {0} mo",o_done:"Done",o_failed:"Failed",d_confirm:"Confirm: {0}",d_home:"Matters in the capital take about {0} mo; envoys must travel there and back.",d_envoy:"about {0} mo there and back",d_opinion:"opinion {0}",d_no_realm:"No realm is within reach of envoys.",pending_banner:"{0} matters await a decision",k_order:"Reply",app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
+en:{wd_title:"Wardrobe",wd_note:"Paid from the ruler\u2019s own purse. Foreign dress costs double, outdated dress half again, and nothing newer than the present age is for sale. A purchase is worn at once; the wardrobe can be changed at any time.",wd_none:"The tailor is not open yet.",wd_money:"Privy purse",wd_body:"Dress",wd_hat:"Headwear",wd_hair:"Hair",wd_own:"Wardrobe",wd_default:"Usual attire",wd_default_note:"what rank and age would wear",wd_on:"worn",wd_shop:"For sale",wd_empty:"Nothing for sale right now.",wd_buy:"Buy · {0}",wd_kind_royal:"Royal",wd_kind_court:"Court dress",wd_kind_casual:"Everyday",wd_kind_armor:"Armour",wd_kind_clergy:"Clerical",wd_kind_commoner:"Common",wd_kind_lady:"Ladies\u2019",wd_civ_hx:"Huaxia",wd_civ_nomad:"Steppe",wd_civ_west:"Western",wd_civ_arab:"Arab",wd_civ_jp:"Japanese",wd_civ_any:"Any",wd_p0:"Ancient",wd_p1:"Bronze",wd_p2:"Iron",wd_p3:"Medieval",wd_p4:"Gunpowder",wd_p5:"Industrial",wd_p6:"Modern",rv_title:"Review of officials",rv_note:"No one can see who is corrupt. Compare what can be seen: remittances, the state of his district, who has accused him.",rv_hits:"accused {0}",rv_down:"revenue down",rv_mark_found:"found guilty",rv_mark_clean:"reported clean",rv_mark_wronged:"once wronged",rv_more:"{0} more",rv_less:"Show fewer",rv_sheet_note:"Remittances are silver and cannot be faked; accusations may be true or factional, so look at who makes them.",rv_fac:"Faction",rv_nofac:"none",rv_age:"Age",rv_years:"In office at least",rv_years_v:"{0} years",rv_remit:"Remitted (last year)",rv_was:"year before {0}",rv_corr:"Corruption in his district",rv_unknown:"out of reach, unknown",rv_mark:"Examined",rv_ago:"{0} months ago",rv_charges:"Accusations (last three years)",rv_nohits:"No one has accused him.",rv_hint_many:"Men of several factions accuse him; this is probably not faction-fighting.",rv_hint_one:"Only one faction accuses him; it may be faction-fighting. Check against the remittances.",rv_charge:"Charge him",k_impeach:"Accusation",bk_col_book:"Book",bk_col_real:"Found",bk_title:"Audit the books",bk_ready:"Choose an official to seal the books, then open them",bk_sent:"The books are being sealed",bk_wait:"Less than a year since the last audit: {0} more months",bk_open:"{0} ledgers sealed; closes in {1} months",bk_go:"Open",bk_pick:"Who leads the audit",bk_pick_note:"Abler men may open more ledgers. In a rotten court the auditor himself may be bought, and every ledger will balance.",bk_note:"Each ledger shows only its book figure. Tap one to open it (see the true shortfall) or to hold it to account. Openings are limited; at most two may be held to account, opened or not, and a wrong call wastes one, costs renown and angers the man\u2019s faction. An opened ledger shows its full accounts.",bk_by:"led by {0}",bk_peeks:"{0} openings left",bk_blames:"{0} calls left",bk_left:"closes in {0} months",bk_book:"book {0}",bk_unknown:"unopened",bk_gap:"short {0}",bk_clean:"balances",bk_peek:"Open this ledger",bk_blame:"Hold to account",bk_close:"Close the audit",bk_closed:"This audit is closed.",fs_odd:"does not add up",fs_trend:"Trend (each point is half a year)",fs_trend_wait:"Two periods are needed before a trend shows.",fs_tick:"Y{0} {1}",fs_now_short:"now",fs_title:"Accounts",fs_period:"Year {0}, {1} half",fs_h0:"first",fs_h1:"second",fs_now:"The books now (last six months)",fs_income:"Income",fs_expense:"Spending",fs_balance:"Balance",fs_detail:"Items and districts",fs_note_short:"figures as reported",fs_in:"Income",fs_out:"Spending",fs_places:"Districts · reported revenue / remitted",fs_none:"no books sent",fs_prev:"last {0}",fs_note:"These are the figures sent up from below: the worse the officials, the further from the truth. Remittances are silver in the vault and cannot be faked. Tap a district to send an auditor.",fs_k_tax:"Taxes",fs_k_trade:"State trade and customs",fs_k_tribute:"Tribute",fs_k_other:"Other",fs_k_military:"Military",fs_k_admin:"Salaries and upkeep",fs_k_build:"Building",fs_k_research:"Research",dk_province:"Province",dk_garrison:"Garrison",dk_fief:"Fief",dk_province_note:"Run by appointed officials; follows the court and pays it taxes. Can be dissolved or redrawn later.",dk_garrison_note:"Choose a general as military governor: hereditary, with its own troops and diplomacy. Once created it is beyond Divisions; use Vassals to change it.",dk_fief_note:"Choose a member of the ruling house: hereditary, with its own troops and diplomacy, lightly taxed. Once created it is beyond Divisions; use Vassals to change it.",dv_pick_cities:"Cities to split off",dv_pick_general:"Military governor",dv_pick_lord:"Granted to",dv_no_one:"No one available.",pk_garrison:"Garrison",pn_garrison:"A hereditary military command with its own troops and diplomacy; the court knows only the outline.",k_tax:"Revenue",au_go:"Send an auditor",au_title:"Who audits {0}",au_skill:"ability {0}",au_none:"No official to send.",au_sent:"Sent: {0}",au_note:"One to three months on the road by distance, about {0} months on the books. Abler men dig deeper; a rotten district may buy him off, and he will simply report the books in order.",g_division:"Divisions",dv_note:"Only appointed provinces; hereditary fiefs and tributary districts go through Vassals. Orders leave the capital and take effect next month.",dv_create:"New province, garrison or fief",dv_create_note:"Choose the kind, then pick crown cities to split off; the first one picked becomes the seat.",dv_create_go:"Establish ({0} cities)",dv_direct:"Crown lands",dv_cities:"{0} cities",dv_cap:"capital",dv_seat:"seat",dv_move:"Reassign",dv_move_title:"Reassign {0} to",dv_move_note:"The city moves with its land.",dv_sheet_note:"Tap a city to reassign it. The capital and seats stay; a one-city province can only be dissolved.",dv_dissolve:"Dissolve this province",dv_dissolve_note:"Its cities return to the crown.",tk_money:"Silver",tk_city:"Cities",tk_vassal:"Vassals",tk_title:"Titles",tk_corps:"Armies",m_host:"Order its troops",host_aim:"Orders for {0}: tap a city",host_post:"{0}: garrison {1}",host_strike:"{0}: attack {1}",host_sent:"Orders sent: {0}",host_note:"All its armies (for a city: the armies based there) take the order; it reaches each by its distance.",load_title:"Syncing",load_state:"State of the realm",load_map:"Borders (who holds each plot)",load_terrain:"Terrain",load_armies:"Armies",load_done:"done",load_wait:"on its way",load_note:"The first visit downloads the terrain of the known world; after that only what changed.",m_explore:"Send scouts",m_chart:"Buy its maps",m_chart_of:"Buy the maps of {0}",sv_cost:"About {0} from the treasury",sv_explore_note:"Pay a party to go and look. The round trip takes months and some never return; if they do, the land and realms on the way are drawn on the map.",sv_chart_note:"Send an envoy with silver for its maps: its own land and a ring around it. If it refuses, the trip is wasted but the silver is kept.",ly_world:"World",ly_empire:"Empire",ly_realm:"Realm",ly_city:"City",ly_pol:"Realms",ly_dj:"De jure",ly_legend:"Key",terr_wait:"terrain on its way",map_turn:"The four buttons on the right switch the level: by world order, empire, realm or city. Turn the phone sideways to keep the map in view with the other pages in a side column.",lg_lines:"Gold lines are this realm\u2019s frontier, dark lines separate houses, thin lines run within one house and the faintest between cities. Zoomed out only the top level is named; zoom in until a house fills most of the screen and its members are named instead, then its cities.",an_lands:"Royal titles within",an_own:"fully held",an_custom:"Type your own (4 letters)",an_lineage:"Lineage",an_clan:"Family",an_history:"Chronicle",an_dejure:"De jure",an_loading:"Fetching the archives…",an_none:"Nothing on record.",an_lg_ruler:"monarch",an_lg_self:"self",an_lg_dead:"deceased",an_tree_hint:"Drag to pan, pinch to zoom; the fit button top-right shows the whole tree. Tap a box for details.",an_year:"Year {0}",an_main:"primary",an_set_main:"Make primary",an_set_main_note:"The realm takes its name from the primary title.",an_name:"Name of the realm",an_prefix:"Prefix",an_suffix:"Suffix",an_blank:"none",an_now:"in use",an_refresh:"Fetch again",tab_annals:"Annals",d_sure:"Confirm",d_go:"Order",d_count:"{0}",d_left_tag:"auto in {0} min",sd_note:"tap a faction to win it over",st_chief_l:"Chief minister",st_seal:"Rescripts",st_offices:"Offices",st_vacant_n:"{0} vacant",spy_sweep_l:"Sweep for spies",spy_sweep_cost:"{0}% of the treasury",i_campaign:"Take the field",i_return:"Return to the capital",i_tour:"Travel in plain dress",sh_tour_note:"Choose a city. The ruler brings back its true figures; illness and danger are possible on the road.",tour_months:"about {0} mo there and back",away_campaign:"The ruler is with the army: the court decides proposals and cases by itself.",away_tour:"The ruler is visiting {0} in plain dress and returns in about {1} months: the court decides proposals and cases by itself.",c_toured:"seen in person",d_pact:"ally",sc_enter:"set terms at the table",sc_note:"Terms are weighed in households, the way the peace table does it: the other side agrees only if it does not lose.",sc_will:"Will they agree",sc_yes:"yes · {0} to spare",sc_no:"no · short by {0}",sc_human:"their ruler decides",sc_quote:"Their price",sc_quote_none:"nothing on offer would be enough",sc_quote_free:"no terms needed",sc_take:"Offer their price",sc_give:"This realm gives",sc_ask:"Asked of them",sc_hu:"{0} households",sc_nothing:"Nothing to put on the table.",sc_send:"Send the envoy",ch_accept:"Agree",ch_refuse:"Refuse",g_law:"Justice",g_spy:"Spies",law_charge:"Bring a charge",law_note:"Pick a notable and a charge; the law takes it from there. A harsh sentence has a cost.",law_nobody:"There is no notable to charge right now.",law_pick_charge:"{0}: which charge",i_recruit:"Raise a new army",sh_recruit_note:"Choose the city to raise it in. The treasury pays.",spy_purse:"The ruler's own purse: {0}",spy_hire:"Send a spy",spy_hire_note:"Paid from the ruler's own purse. A spy brings back one rough figure every {0} months and may be lost each time.",spy_pick:"Which grade of spy for {0}",spy_tier:"Grade {0} · costs {1}",spy_has:"spy in place",spy_none:"No spies are abroad.",spy_row:"{0} · grade {1} · reports in {2} mo",spy_recall:"Recall",spy_sweep:"Sweep for spies · {0}% of treasury",spy_sweeping:"A sweep for spies is under way for another {0} months.",spy_full:"No more spies can be kept abroad.",spy_poor:"the purse is too thin",ch_kill:"Execute",ch_turn:"Turn him",ch_release:"Let him go",k_spy:"Secret",a2hs_fixed:"Open with the fixed address",a2hs_fixed_note:"The fixed address {0} stays the same when the computer's address changes. Switch to it before adding to the home screen.",sh_propose:"Put a proposal forward",sh_propose_note:"Table it on behalf of a court faction; drafting, debate and the decision follow as usual.",sh_heir_note:"Name one of the ruler's living children.",sh_abdicate_note:"After abdicating, this seat is free to take another ruler.",sh_no_heir:"There is no child who can be named.",sh_chief_note:"Only a court with a cabinet can have a chief minister.",sh_holder:"Held by {0}",role_official:"Appointed governor",stale:"The terminal inside the game is an older version. Restart the game before the newer orders can work.",sent_ok:"Order given: {0}. Follow it under Orders; a reply comes when it is done.",sent_fail:"The order was not sent.",tx_none:"Outside any Tianxia",tx_cities:"{0} cities",tx_members:"{0} provinces",g_staff:"Appointments",st_chief:"Chief minister: {0}",st_no_chief:"There is no chief minister",st_make_chief:"Name a chief minister",st_delegate_on:"Let the chief minister decide",st_delegate_off:"Decide in person",st_delegated:"The chief minister decides for now: proposals and cases no longer wait, and the chief minister's faction slowly gains weight.",st_direct:"Proposals are decided in person.",st_vacant:"vacant",st_dismiss:"Dismiss",st_appoint:"Appoint {0}",sd_title:"Where the factions stand",sd_for:"for",sd_wait:"undecided",sd_against:"against",sd_own:"proposer",sd_favor:"favour {0}",chip_grant:"Honorary title",chip_favor:"Call in a favour",chip_silver:"Grant silver",d_gift0:"No gift",d_gift1:"Modest gift · 5% of treasury",d_gift2:"Rich gift · 15% of treasury",d_gift_note:"A gift makes up for low opinion and is paid only if they agree.",cd_road:"Build a road here (about 6 mo, paid by distance)",i_abdicate:"Abdicate",i_rename_realm:"Rename the realm",i_rename_ruler:"Take a new name",g_home:"Home affairs",i_purge:"Spend treasury to clean up the administration",d_tier:"{0}% of the treasury · corruption down about {1}%",d_abdicate_to:"In favour of {0}",d_now:"Now: {0}",d_new_name:"New name (up to 12 characters)",why_abdicated:"{1} has abdicated.",purge_go:"Clean up",a2hs:"Add to the home screen",a2hs_ios:"iPhone: open this page in Safari, tap Share, then Add to Home Screen. Pair once more after opening it from there.",a2hs_android:"Android: choose Add to Home screen in the browser menu.",tab_decrees:"Orders",d_pending:"Awaiting a decision",d_left:"The court decides by itself in {0} min",d_support:"{0}% of the court in favour",d_chance:"Odds about {0}%",ch_approve:"Approve",ch_reject:"Reject",ch_shelve:"Shelve",ch_law:"Apply the law",ch_redeem:"Let him redeem it",ch_death:"Execute",g_court:"Court",g_palace:"Palace",g_diplomacy:"Diplomacy",d_busy:"The court is already handling a proposal. Wait until it is settled.",d_none_court:"Nothing can be tabled right now.",i_era:"New era name",i_empire:"Proclaim an empire",i_heir:"Name an heir",d_heir_now:"Current heir: {0}",d_age:"age {0}",d_orders:"Orders given",d_no_orders:"No orders given yet.",o_sent:"On its way, about {0} mo",o_done:"Done",o_failed:"Failed",d_confirm:"Confirm: {0}",d_home:"Matters in the capital take about {0} mo; envoys must travel there and back.",d_envoy:"about {0} mo there and back",d_opinion:"opinion {0}",d_no_realm:"No realm is within reach of envoys.",pending_banner:"{0} matters await a decision",k_order:"Reply",app_title:"Terminal",pair_title:"Connect to terminal",pair_hint:"Open the Terminal window in the game to find the six-digit pairing code.",pair_name:"Name (optional)",pair_code:"Pairing code",pair_go:"Pair",
 e_wrong_code:"That code doesn't match",e_locked:"Too many attempts. Try again shortly",e_full:"All seats are taken",e_net:"Can't reach the terminal",e_code:"Enter six digits",
 wait_world:"No world is loaded",wait_world_hint:"This connects by itself once a world is open on the computer.",
 vacant_title:"Choose a ruler",why_none:"This seat has no ruler yet.",why_dead:"{1} of {0} has died.",why_deposed:"{1} has lost the throne of {0}.",why_fallen:"{0} has fallen.",
@@ -454,7 +456,7 @@ span_y:"{0} y {1} m",span_m:"{0} months",real_h:"{0} h {1} min",real_m:"{0} min"
 kpi_wars:"Wars",kpi_new:"New",kpi_trust:"Reports",trust0:"Reliable",trust1:"Uneven",trust2:"Doubtful",
 reports:"Reports",no_reports:"No reports have arrived yet.",k_major:"Urgent",k_ledger:"Accounts",k_foreign:"Abroad",late:"{0} mo late",lost:"Some reports never arrived.",
 d_when:"Happened in year {0}, month {1}.",d_late:"Took {0} months to arrive.",d_prompt:"Arrived the same month.",d_foreign:"Heard through neighbours; may not be accurate.",d_ledger:"Figures as filed by local officials, not audited.",
-map_tap:"Tap an army to select it, then tap a city to give the order; tap a realm for diplomacy. Pinch to zoom in on terrain and cities.",map_full:"Full screen",map_exit:"Exit full screen",m_diplo:"Diplomacy",m_cancel:"Cancel",intel_live:"Army reports: live by telegraph",intel_at:"Army reports as of year {0}, month {1} · every {2} mo",intel_old:"This report is {0} months old; the army may have moved since.",army_foreign:"Army of {0}",army_about:"About {0} men",army_count:"{0} corps",army_foe:"At war with us",army_line:"Strength {0} / {1} · Organisation {2}",army_home:"Home {0}",task_reserve:"In reserve",task_march:"Marching to the border",task_attack:"Attacking",task_defend:"Defending",task_retreat:"Routed, regrouping",task_sea:"At sea",army_order:"Standing order: {0}",army_no_order:"No standing order; the court deploys it",army_writ:"On the way: {0} ({1} mo left)",army_aim:"Order: pick a city",army_aim_all:"Order them all",army_release:"Withdraw the order",army_group:"{0} corps",aim_title:"Tap a city",aim_note:"A city of the realm: march there and garrison it. A city of an enemy at war: attack it.",aim_miss:"No city to go to here",order_post:"Garrison {0}",order_strike:"Attack {0}",order_delay0:"Orders go by courier: one to three months, longer the farther from the capital.",order_delay1:"Orders go by post road: one or two months.",order_delay2:"Orders go by telegraph: this month.",order_go:"Give the order",order_sent:"Order sent toward {0}",release_sent:"Withdrawal sent",g_vassal:"Vassals and rebels",vk_0:"Loose-rein land",vk_1:"Hereditary fief",vk_2:"Feudal vassal",vk_3:"Tributary",vk_4:"Small neighbour",vk_5:"Rebels",v_title:"Make it a province",v_amnesty:"Offer amnesty",v_list_note:"Turning a vassal into a province or buying off rebels is weighed on the scale. Tap one to see both sides.",v_note:"It works only if the court outweighs their resistance. Add to the scale if it falls short, or force it.",v_note_rebel:"Amnesty goes on the scale too: with enough weight the rebels lay down arms and their land returns to the court.",v_resist:"Their resistance",v_court:"The court",v_extras:"Add to the scale",v_cost:"Cost",v_cost_note:"A fee of {0} silver; the other vassals grow wary and like the court less; the new province is unsettled for ten years.",v_cost_rebel:"A fee of {0} silver; the returned land is unsettled for ten years.",v_send:"Send an envoy",v_send_rebel:"Send an envoy with amnesty",v_force:"Force it",v_force_note:"Forcing ignores the scale: they refuse and take up arms, and the other vassals turn further away.",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
+map_tap:"Tap an army to select it, then tap a city to give the order; tap a realm for diplomacy. Pinch to zoom in on terrain and cities.",map_full:"Full screen",map_exit:"Exit full screen",m_diplo:"Diplomacy",m_cancel:"Cancel",intel_live:"Army reports: live by telegraph",intel_at:"Army reports as of year {0}, month {1} · every {2} mo",intel_old:"This report is {0} months old; the army may have moved since.",army_foreign:"Army of {0}",army_about:"About {0} men",army_count:"{0} corps",army_foe:"At war with us",army_mixed:"Armies of {0} and others ({1} realms)",army_line:"Strength {0} / {1} · Organisation {2}",army_home:"Home {0}",task_reserve:"In reserve",task_march:"Marching to the border",task_attack:"Attacking",task_defend:"Defending",task_retreat:"Routed, regrouping",task_sea:"At sea",army_order:"Standing order: {0}",army_no_order:"No standing order; the court deploys it",army_writ:"On the way: {0} ({1} mo left)",army_aim:"Order: pick a city",army_aim_all:"Order them all",army_release:"Withdraw the order",army_group:"{0} corps",aim_title:"Tap a city",aim_note:"A city of the realm: march there and garrison it. A city of an enemy at war: attack it.",aim_miss:"No city to go to here",aim_bad:"{0} is neither ours nor at war with us",ly_army:"Armies",order_post:"Garrison {0}",order_strike:"Attack {0}",order_delay0:"Orders go by courier: one to three months, longer the farther from the capital.",order_delay1:"Orders go by post road: one or two months.",order_delay2:"Orders go by telegraph: this month.",order_go:"Give the order",order_sent:"Order sent toward {0}",release_sent:"Withdrawal sent",g_vassal:"Vassals and rebels",vk_0:"Loose-rein land",vk_1:"Hereditary fief",vk_2:"Feudal vassal",vk_3:"Tributary",vk_4:"Small neighbour",vk_5:"Rebels",v_title:"Make it a province",v_amnesty:"Offer amnesty",v_list_note:"Turning a vassal into a province or buying off rebels is weighed on the scale. Tap one to see both sides.",v_note:"It works only if the court outweighs their resistance. Add to the scale if it falls short, or force it.",v_note_rebel:"Amnesty goes on the scale too: with enough weight the rebels lay down arms and their land returns to the court.",v_resist:"Their resistance",v_court:"The court",v_extras:"Add to the scale",v_cost:"Cost",v_cost_note:"A fee of {0} silver; the other vassals grow wary and like the court less; the new province is unsettled for ten years.",v_cost_rebel:"A fee of {0} silver; the returned land is unsettled for ten years.",v_send:"Send an envoy",v_send_rebel:"Send an envoy with amnesty",v_force:"Force it",v_force_note:"Forcing ignores the scale: they refuse and take up arms, and the other vassals turn further away.",map_reset:"Fit",sight0:"Borders only",sight1:"As far as roads and ships reach",sight2:"Whole world",
 note0:"Only bordering realms are known. Word from farther away needs trade roads and seafaring.",note1:"Realms that envoys can reach are known; beyond them there are only rumours.",note2:"News travels at once and the whole world is visible.",
 lg_own:"This realm",lg_prov:"Provinces of the realm (dark lines are province borders)",m_prov:"Land of the realm",m_prov_cities:"Its cities",lg_known:"Known realm",lg_rumour:"Rumour only",lg_fog:"Unknown land",m_fog:"Unknown land",m_wild:"Unclaimed land",m_water:"Water",m_rumour:"{0} (rumour only)",
 officials:"Officials",corr:"Corruption {0}%",tn0:"Reports are broadly reliable.",tn1:"Figures drift and reports often run late.",tn2:"Figures are padded and small matters often go unreported.",
@@ -1192,9 +1194,11 @@ function loadAnnals(tries){
   },function(){annalsBusy=false});
 }
 // 一棵树：nodes 每项 {id,parent,…}；make(项) 给出这一格里的内容。同辈一行，父在上、子在下，父居子的正中，
-// 连线走直角。整棵树放在一个能左右上下拖的框里，开出来先对着 focus 那一格
+// 连线走直角。整棵树放在一个框里，自己管拖动和缩放(用户 2026-11-12 世系图"完全拖动不了""一屏装不下，想缩小看整棵""有一块被挡住"：
+// 以前靠窗口滚动，框在浮窗里拖不动，也没法缩小)：单指拖、双指捏合、滚轮缩放，右上角看全(整棵缩进框里)、放大、缩小；
+// 开出来先对着 focus 那一格，整棵装得下就直接看全
 function drawTree(host,nodes,make,focus,tap){
-  var by={},roots=[],W=96,H=64,GX=10,GY=28,next=0,deep=0;
+  var by={},roots=[],W=96,H=64,GX=10,GY=28,next=0,deep=0,view={s:1,x:0,y:0,dragged:false};
   nodes.forEach(function(n){by[n.id]={n:n,kids:[],x:0,d:0,done:false}});
   nodes.forEach(function(n){
     var v=by[n.id],p=n.parent!=null?by[n.parent]:null,up=p,loop=false,guard=0;
@@ -1211,11 +1215,12 @@ function drawTree(host,nodes,make,focus,tap){
   roots.forEach(function(r){if(!r.done){place(r,0);next+=0.4}});
   var wide=Math.max(1,Math.ceil(next-0.4))*(W+GX)-GX,tall=(deep+1)*(H+GY)-GY;
   var frame=el("div","tree"),inner=el("div","tree-in");
+  wide+=24;tall+=24;
   inner.style.width=wide+"px";inner.style.height=tall+"px";
   var ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg"),path="";
   svg.setAttribute("width",wide);svg.setAttribute("height",tall);
-  function cx(v){return v.x*(W+GX)+W/2}
-  function top(v){return v.d*(H+GY)}
+  function cx(v){return 12+v.x*(W+GX)+W/2}
+  function top(v){return 12+v.d*(H+GY)}
   Object.keys(by).forEach(function(id){
     var v=by[id];if(!v.shown)return;
     var y0=top(v)+H,mid=y0+GY/2;
@@ -1228,14 +1233,64 @@ function drawTree(host,nodes,make,focus,tap){
   var at=null;
   Object.keys(by).forEach(function(id){
     var v=by[id],n=v.n,box=el("div","node"+(n.ruler?" ruler":"")+(n.self?" self":"")+(n.alive===false?" dead":""));
-    box.style.left=v.x*(W+GX)+"px";box.style.top=top(v)+"px";box.style.width=W+"px";box.style.height=H+"px";
+    box.style.left=(12+v.x*(W+GX))+"px";box.style.top=top(v)+"px";box.style.width=W+"px";box.style.height=H+"px";
     make(n,box);
-    if(tap)box.onclick=function(){tap(n)};
+    if(tap)box.onclick=function(){if(!view.dragged)tap(n)};
     inner.appendChild(box);
     if(focus!=null&&n.id===focus)at=v;
   });
   frame.appendChild(inner);host.appendChild(frame);
-  if(at)setTimeout(function(){frame.scrollLeft=cx(at)-frame.clientWidth/2;frame.scrollTop=top(at)-frame.clientHeight/2+H/2},0);
+  // 看的位置：x、y 是树的左上角在框里的哪儿，s 是缩放
+  function fitScale(){return Math.min(1,frame.clientWidth/wide,frame.clientHeight/tall)}
+  function apply(){
+    var fw=frame.clientWidth,fh=frame.clientHeight,tw=wide*view.s,th=tall*view.s;
+    // 比框小的那一向居中，比框大的不拖出界
+    view.x=tw<=fw?(fw-tw)/2:Math.min(0,Math.max(fw-tw,view.x));
+    view.y=th<=fh?(fh-th)/2:Math.min(0,Math.max(fh-th,view.y));
+    inner.style.transform="translate("+view.x+"px,"+view.y+"px) scale("+view.s+")";
+  }
+  function zoom(f,px,py){
+    var s=Math.min(2,Math.max(Math.min(.25,fitScale()),view.s*f));
+    if(px==null){px=frame.clientWidth/2;py=frame.clientHeight/2}
+    view.x=px-(px-view.x)*s/view.s;view.y=py-(py-view.y)*s/view.s;view.s=s;apply();
+  }
+  function fit(){view.s=fitScale();apply()}
+  var tools=el("div","tree-tools");
+  [["c_fit",fit],["c_in",function(){zoom(1.4)}],["c_out",function(){zoom(1/1.4)}]].forEach(function(x){
+    var b=el("button","act");b.appendChild(ic(x[0],18));b.onclick=function(e){e.stopPropagation();x[1]()};
+    b.onpointerdown=function(e){e.stopPropagation()};tools.appendChild(b);
+  });
+  frame.appendChild(tools);
+  // 拖动、捏合：手指挪过 6 点就算拖，松手时不算点了一格
+  var pts={},last=null;
+  function spread(){var k=Object.keys(pts);if(k.length<2)return null;var a=pts[k[0]],b=pts[k[1]];
+    return{d:Math.hypot(a.x-b.x,a.y-b.y),x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+  frame.addEventListener("pointerdown",function(e){
+    pts[e.pointerId]={x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY};
+    if(Object.keys(pts).length===1)view.dragged=false;
+    last=spread();
+  });
+  frame.addEventListener("pointermove",function(e){
+    var p=pts[e.pointerId];if(!p)return;
+    var dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+    if(Math.hypot(p.x-p.x0,p.y-p.y0)>6)view.dragged=true;
+    var two=spread();
+    if(two&&last){
+      var r=frame.getBoundingClientRect();
+      view.x+=two.x-last.x;view.y+=two.y-last.y;
+      if(last.d>0)zoom(two.d/last.d,two.x-r.left,two.y-r.top);else apply();
+      last=two;
+    }else if(!two){view.x+=dx;view.y+=dy;apply()}
+  });
+  function up(e){delete pts[e.pointerId];last=spread()}
+  frame.addEventListener("pointerup",up);frame.addEventListener("pointercancel",up);frame.addEventListener("pointerleave",up);
+  frame.addEventListener("wheel",function(e){
+    e.preventDefault();var r=frame.getBoundingClientRect();zoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);
+  },{passive:false});
+  setTimeout(function(){
+    if(at&&fitScale()<.75){view.s=1;view.x=frame.clientWidth/2-cx(at);view.y=frame.clientHeight/2-top(at)-H/2;apply()}
+    else fit();
+  },0);
 }
 function nodeSheet(n){
   var lines=(n.detail||[]).slice();
@@ -1879,14 +1934,14 @@ function wardrobeSheet(){
 //   · 地貌(/api/terrain)：整张图的山川，一格一个颜色号，分几片取。迷雾变了才重取(总图里的 ts)。
 //   两样在本地合成一张底图(地貌打底、掺上那块地主人的颜色)，放大缩小拖动都只是把这张图贴到画布上，不用再问游戏；
 //   国界、行政区界、城界是按眼下的视野另画的线，放多大都是细线；城、军队、行军方向也是另画的。
-//   · 层级：天下、帝国、王国、城市四档，换的是按什么上色、哪一级之间画粗线、标谁的名字；
+//   · 图层：政体、法理两种，各是一棵树，拉远只标、只按最上一级上色，拉近逐级展开(见 applyLayer)；
 //   · 军情不是实时的：图上角标着截至哪个月、多久一报；
 //   · 双指捏合、滚轮、加减按钮放大缩小，单指拖动挪地方；没怎么动的一下算点选——点军队选中它(再点一座城就是下令)，
 //     点城、点国家在底下的条子里看是谁、能办什么。
 var FOG=254,WATER=253,WILD=252,NOCITY=65535,NOLAND=255,mv={z:1,x:0,y:0,set:false};
 var armies=null,terr=null,terrBusy=0,sel=null,aim=false,hits=[],armyAt=0;
-var LAYERS=["world","empire","realm","city"],layer=store("ec_layer");
-if(LAYERS.indexOf(layer)<0)layer="empire";
+var LAYERS=["pol","dj"],layer=store("ec_layer"),OPEN=.6,showArmy=store("ec_army")!=="0",aimView=null;
+if(LAYERS.indexOf(layer)<0)layer="pol";
 function rleBin(bin,n){
   var out=new Uint8Array(n),at=0;
   for(var i=0;i+1<bin.length;i+=2){var v=bin.charCodeAt(i),c=bin.charCodeAt(i+1);for(var k=0;k<c&&at<n;k++)out[at++]=v}
@@ -1919,7 +1974,10 @@ function decodeMap(j){
   j.fogB=fb;
   j.empires=(j.empires||[]).map(function(e){e.rgb=hexRgb(e.color);return e});
   j.worlds=j.worlds||[];
-  j.realms.forEach(function(r){r.own=hexRgb(r.color);r.inside=r.tier===0||!!r.prov});
+  j.realms.forEach(function(r,i){r.own=hexRgb(r.color);r.inside=r.tier===0||!!r.prov;r.grp=r.emp!=null?1000+r.emp:i});
+  // 法理：王国法理、帝国法理、天下三张表(城上 dk、de、dt 是下标)
+  var D=j.dejure=j.dejure||{};D.k=D.k||[];D.e=D.e||[];D.t=D.t||[];
+  D.k.concat(D.e).forEach(function(o){o.rgb=o.color?hexRgb(o.color):null});
   // 天下的颜色：图上占地最大的那一家的
   j.worlds.forEach(function(w){w.n=-1});
   j.realms.forEach(function(r){
@@ -1927,39 +1985,92 @@ function decodeMap(j){
     if(w&&(r.n||0)>w.n){w.n=r.n||0;w.rgb=r.emp!=null&&j.empires[r.emp]?j.empires[r.emp].rgb:r.own}
   });
   // 城按要紧的先画：本国都城、各国都城、本国的城、别国的城，同类里大的在前。cityAt 留着原来的次序(zcity 里记的是它的下标)
-  j.cityAt=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.home=!!r&&r.tier===0;c.own=!!r&&r.inside;c.rank=(c.home&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c});
+  j.cityAt=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.home=!!r&&r.tier===0;c.own=!!r&&r.inside;c.foe=!!r&&!!r.war;c.rank=(c.home&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c});
   j.cities=j.cityAt.slice().sort(function(a,b){return a.rank-b.rank});
   if(!mv.set){mv.set=true;mv.z=1;mv.x=x0+(x1-x0+1)/2;mv.y=y0+(y1-y0+1)/2}
   j.gotAt=Date.now();
   return j;
 }
-// 层级：按什么上色(rgb)、哪些国算一家(grp：一家之内是细线，两家之间才是粗的界线)、图上标谁的名字(labels)
+// 图层(用户 2026-11-12 "图层分两种, 一种是政体图层一种是法理图层""天下拉近是帝国, 帝国拉近是王国级法理""在帝国图层,
+// 拉近到一个帝国后就隐藏帝国铭牌, 然后显示那个帝国的行政区, 拉近到某个行政区就显示那个行政区的城市"；层级全靠远近)：
+//   政体：天下 → 帝国 → 国(帝国的行政区、封国) → 城；法理：天下 → 帝国法理 → 王国法理 → 城。
+// 一个图层是一棵树(map.nodes：lvl 0 天下、1 帝国、2 国或王国法理，后者是叶)，每块地挂在一片叶上(map.zLeaf)。
+// 拉远时只标最上一级、按它上色；哪一家拉近到铺满大半个屏幕(OPEN)，就不再标它，改标、改按里头的各家上色，
+// 一级一级往下；拉近到叶，就标它的城、画城界(见 openTree)
 function applyLayer(){
   if(!map)return;
-  var me=map.realms.filter(function(r){return r.tier===0})[0],mine=me?me.own:null,L=[],groups={};
-  map.realms.forEach(function(r,i){
-    var e=r.emp!=null?map.empires[r.emp]:null,w=r.tx!=null?map.worlds[r.tx]:null,major=null;
-    if(layer==="world"){
-      r.grp=w?2000+r.tx:i;r.rgb=w&&w.rgb?mix(w.rgb,r.own,.12):mix(r.own,[120,120,112],.55);
-      if(w&&w.name)major={key:"w"+r.tx,name:w.name};
-    }else if(layer==="empire"){
-      // 本朝的行政区照本国的颜色画、别的帝国照它核心的颜色画，各掺一点自己的颜色：看得出是一家，又分得开
-      r.grp=e?1000+r.emp:i;r.rgb=r.prov&&mine?mix(mine,r.own,.25):e&&r.tier!==0?mix(e.rgb,r.own,.25):r.own;
-      if(e&&e.name)major={key:"e"+r.emp,name:e.name};
-    }else{r.grp=i;r.rgb=r.own}
-    if(r.x==null||!r.name)return;
-    var one={name:r.name,x:r.x,y:r.y,n:r.n||0,home:r.tier===0,prov:!!r.prov,rum:r.tier===2,minor:!!major};
-    if(major){
-      var G=groups[major.key];
-      if(!G){G=groups[major.key]={name:major.name,x:0,y:0,n:0,home:false,rum:true,sum:true};L.push(G)}
-      G.x+=r.x*one.n;G.y+=r.y*one.n;G.n+=one.n;if(r.inside)G.home=true;if(r.tier!==2)G.rum=false;
-      // 一家只有它一个、名字又一样的：不另标
-      if(major.name===r.name)return;
+  var nodes=[],tops=[],byKey={},N=map.w*map.h,zl=new Int32Array(N),leafOf=[],i;
+  zl.fill(-1);
+  function node(key,lvl,name,rgb,parent){
+    var o=byKey[key];
+    if(!o){
+      o=byKey[key]={id:nodes.length,lvl:lvl,name:name||"",rgb:rgb,n:0,sx:0,sy:0,kids:[],parent:parent?parent.id:-1,
+        top:parent?parent.top:nodes.length,home:false,prov:false,rum:false};
+      nodes.push(o);(parent?parent.kids:tops).push(o.id);
     }
-    L.push(one);
+    return o;
+  }
+  if(layer==="dj"){
+    var D=map.dejure;
+    map.cityAt.forEach(function(c){
+      if(c.dk==null||!D.k[c.dk]||leafOf[c.dk])return;
+      var land=c.dt!=null&&D.t[c.dt]?node("t"+c.dt,0,D.t[c.dt].name,null,null):null;
+      var core=c.de!=null&&D.e[c.de]?node("e"+c.de,1,D.e[c.de].name,D.e[c.de].rgb,land):null;
+      leafOf[c.dk]=node("k"+c.dk,2,D.k[c.dk].name,D.k[c.dk].rgb,core||land);
+    });
+    for(i=0;i<N;i++){var ci=map.zcity[i],cc=ci===NOCITY?null:map.cityAt[ci];if(cc&&cc.dk!=null&&leafOf[cc.dk])zl[i]=leafOf[cc.dk].id}
+    map.cityAt.forEach(function(c){c.leaf=c.dk!=null&&leafOf[c.dk]?leafOf[c.dk].id:-1;if(c.leaf>=0&&c.home&&c.cap)nodes[c.leaf].home=true});
+  }else{
+    map.realms.forEach(function(r,i){
+      var e=r.emp!=null?map.empires[r.emp]:null,w=r.tx!=null?map.worlds[r.tx]:null;
+      var land=w&&w.name?node("t"+r.tx,0,w.name,w.rgb,null):null;
+      var emp=e&&e.name?node("e"+r.emp,1,e.name,e.rgb,land):null;
+      var leaf=leafOf[i]=node("r"+i,2,r.name,r.own,emp||land);
+      leaf.home=r.tier===0;leaf.prov=!!r.prov;leaf.rum=r.tier===2;
+    });
+    for(i=0;i<N;i++){var o=map.grid[i];if(o<250&&leafOf[o])zl[i]=leafOf[o].id}
+    map.cityAt.forEach(function(c){c.leaf=leafOf[c.r]?leafOf[c.r].id:-1});
+  }
+  // 各家占几块地、重心在哪：一块地算进它那片叶和叶上头的各级
+  for(i=0;i<N;i++){
+    if(zl[i]<0)continue;
+    var x=i%map.w,y=(i-x)/map.w;
+    for(var up=nodes[zl[i]];up;up=up.parent>=0?nodes[up.parent]:null){up.n++;up.sx+=x;up.sy+=y}
+  }
+  // 上一级的：有本国就算本国那一家；全是传闻之国才算传闻；没颜色的(法理的天下)照里头占地最大的那一家
+  for(i=nodes.length-1;i>=0;i--){
+    var g=nodes[i];g.x=g.n?g.sx/g.n:0;g.y=g.n?g.sy/g.n:0;
+    if(!g.kids.length)continue;
+    var big=null;g.rum=true;
+    g.kids.forEach(function(id){var c=nodes[id];if(c.home||c.prov)g.home=true;if(!c.rum)g.rum=false;if(!big||c.n>big.n)big=c});
+    if(!g.rgb)g.rgb=big&&big.rgb||[136,136,136];
+  }
+  nodes.forEach(function(o){if(!o.rgb)o.rgb=[136,136,136]});
+  map.nodes=nodes;map.tops=tops;map.zLeaf=zl;map.openKey=null;map.off=null;
+}
+// 按眼下的远近定哪几家展开了：shown[叶] 是这片叶眼下按哪一家上色、标名(自己或上头某一级)，cityOpen[叶] 是拉近到叶、该标城了；
+// front 是该标名字的那几家。展开的变了，底图按新的颜色重画
+function openTree(k,short){
+  var nodes=map.nodes,n=nodes.length,lim=OPEN*short,front=[];
+  if(!map.shown||map.shown.length!==n){map.shown=new Int32Array(n);map.cityOpen=new Uint8Array(n)}
+  var shown=map.shown,city=map.cityOpen;
+  function walk(id,s){
+    var o=nodes[id],open=o.n>0&&Math.sqrt(o.n)*k>lim;
+    if(s<0&&!open){s=id;front.push(id)}
+    if(!o.kids.length){shown[id]=s>=0?s:id;city[id]=s<0?1:0;return}
+    o.kids.forEach(function(c){walk(c,s)});
+  }
+  map.tops.forEach(function(id){walk(id,-1)});
+  map.front=front;
+  var key=Array.prototype.join.call(shown,",")+"|"+Array.prototype.join.call(city,"");
+  if(key===map.openKey)return;
+  map.openKey=key;
+  // 叶的颜色：按上头哪一家上色就是那一家的颜色，掺一点自己的(看得出是一家，又分得开)
+  map.leafRgb=nodes.map(function(o,id){
+    if(o.kids.length)return null;
+    var s=nodes[shown[id]];
+    return s===o?o.rgb:mix(s.rgb,o.rgb,s.lvl===0?.12:.25);
   });
-  L.forEach(function(o){if(o.sum&&o.n){o.x/=o.n;o.y/=o.n}});
-  map.labels=L.sort(function(a,b){return(a.minor?1:0)-(b.minor?1:0)||b.n-a.n});
   map.off=null;
 }
 function setLayer(id){
@@ -1972,7 +2083,7 @@ function fogShade(x,y){return((x+y)%4===0)?22:14}
 // 底图：照地貌的格子画(一块地好几个像素)。没有粗的那一版(用户 2026-11-12 "地图不要模糊版，无论放大还是缩小都直接加载精细版")：
 // 山川没取到就不画，等它到；缩小了看时用逐级减半的图(mips)，每一级都是从细图缩出来的，不发虚也不跳格
 function paintMap(){
-  var v=map.view,g=map.grid,W=map.w,H=map.h,rs=map.realms,fb=map.fogB,T=terr;
+  var v=map.view,g=map.grid,W=map.w,H=map.h,rs=map.realms,fb=map.fogB,T=terr,lz=map.zLeaf,lr=map.leafRgb;
   if(!T)return;
   var q=T.step/map.tile;
   var px0=Math.max(0,Math.floor(v.x/q)),py0=Math.max(0,Math.floor(v.y/q));
@@ -1991,9 +2102,9 @@ function paintMap(){
       if(ti===NOLAND){liquid=o===WATER;tc=liquid?[44,74,96]:[96,104,80]}
       else{tc=T.pal[ti]||[96,104,80];liquid=!!T.liq[ti]}
       if(liquid){r=tc[0]*.5+14;gg=tc[1]*.5+20;b=tc[2]*.5+24}
-      else if(o>=250){r=tc[0]*.6+16;gg=tc[1]*.6+18;b=tc[2]*.6+14}
+      else if(o>=250||lz[zi]<0){r=tc[0]*.6+16;gg=tc[1]*.6+18;b=tc[2]*.6+14}
       else{
-        var realm=rs[o],rc=realm?realm.rgb:[136,136,136],m=realm&&realm.tier===2?((px0+x+py0+y)%3===0?.5:.15):.55;
+        var realm=rs[o],rc=lr[lz[zi]],m=realm&&realm.tier===2?((px0+x+py0+y)%3===0?.5:.15):.55;
         r=tc[0]*(1-m)+rc[0]*m;gg=tc[1]*(1-m)+rc[1]*m;b=tc[2]*(1-m)+rc[2]*m;
       }
       var f=fb[zi];
@@ -2015,27 +2126,27 @@ function paintMap(){
   }
   map.mips=mips;
 }
-// 界线：只画眼下看得见的那些地块之间的。本朝对外是金线，别国之间是深线，一家之内(帝国里的各行政区、天下里的各国)是细线，
-// 放大了再画城与城之间的细线。挨着水域、迷雾的不画(海岸本身就是界)
+// 界线：只画眼下看得见的那些地块之间的。本朝对外是金线；眼下标着的各家之间：不同的最上一级(天下、或不属天下的帝国、国)之间是深线，
+// 同一最上一级里头的是细线；一家没展开时里头各家之间是最浅的线；展开到城的、放得很大的，城与城之间也是最浅的线。
+// 挨着水域、迷雾的不画(海岸本身就是界)
 function drawBorders(ctx,x,y,w,h,k,dpr){
   var g=map.grid,W=map.w,H=map.h,rs=map.realms,zc=map.zcity,kc=k/dpr;
   var x0=Math.max(0,Math.floor(x)-1),y0=Math.max(0,Math.floor(y)-1),x1=Math.min(W-1,Math.ceil(x+w)),y1=Math.min(H-1,Math.ceil(y+h));
-  var showCity=kc>=(layer==="city"?5:14),lines=[[],[],[],[]];
-  function edge(a,b,ca,cb,ax,ay,bx,by){
+  var showCity=kc>=14,lines=[[],[],[],[]],lz=map.zLeaf,sh=map.shown,co=map.cityOpen,nodes=map.nodes;
+  function edge(i,j,ax,ay,bx,by){
+    var a=g[i],b=g[j];
     if(a>=253||b>=253)return;
-    var ra=a<250?rs[a]:null,rb=b<250?rs[b]:null,kind;
-    if(a===b){if(!showCity||!ra||ra.tier>1||ca===cb)return;kind=3}
-    else if(!ra&&!rb)return;
-    else{
-      var ia=!!(ra&&ra.inside),ib=!!(rb&&rb.inside);
-      kind=ia!==ib?0:ia||ra&&rb&&ra.grp===rb.grp?2:1;
-    }
+    var ra=a<250?rs[a]:null,rb=b<250?rs[b]:null,la=lz[i],lb=lz[j],kind;
+    if(!!(ra&&ra.inside)!==!!(rb&&rb.inside))kind=0;
+    else if(la===lb){if(la<0||zc[i]===zc[j]||!(co[la]||showCity&&ra&&ra.tier<=1))return;kind=3}
+    else if(la<0||lb<0)kind=1;
+    else kind=sh[la]===sh[lb]?3:nodes[la].top===nodes[lb].top?2:1;
     lines[kind].push(ax,ay,bx,by);
   }
   for(var zy=y0;zy<=y1;zy++)for(var zx=x0;zx<=x1;zx++){
-    var i=zy*W+zx,o=g[i],sx=(zx-x)*k,sy=(zy-y)*k;
-    if(zx+1<W)edge(o,g[i+1],zc[i],zc[i+1],sx+k,sy,sx+k,sy+k);
-    if(zy+1<H)edge(o,g[i+W],zc[i],zc[i+W],sx,sy+k,sx+k,sy+k);
+    var i=zy*W+zx,sx=(zx-x)*k,sy=(zy-y)*k;
+    if(zx+1<W)edge(i,i+1,sx+k,sy,sx+k,sy+k);
+    if(zy+1<H)edge(i,i+W,sx,sy+k,sx+k,sy+k);
   }
   var far=kc<3;
   [[3,"rgba(20,22,15,.38)",1],[2,"rgba(20,22,15,.7)",far?1:1.5],[1,"rgba(20,22,15,.9)",far?1.25:2],[0,"#f3c34a",far?1.5:2.5]].forEach(function(s){
@@ -2102,15 +2213,8 @@ function drawMap(){
   // 图铺满页签栏以外的地方；全屏时整个屏幕都是图
   cssH=mapFull()?window.innerHeight:($("p-map").clientHeight||window.innerHeight);
   cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);cv.style.height=cssH+"px";
-  if(!map.labels)applyLayer();
-  if(!map.off)paintMap();
-  if(!map.off){
-    // 山川还没到：不拿粗图顶着，写一句等它
-    var c0=cv.getContext("2d");c0.fillStyle="#0e0f0c";c0.fillRect(0,0,cv.width,cv.height);
-    c0.fillStyle="#8fa0a8";c0.font=(13*dpr)+"px sans-serif";c0.textAlign="center";c0.textBaseline="middle";
-    c0.fillText(t("terr_wait")+(terrProg?" "+Math.round(terrProg.p/terrProg.n*100)+"%":"…"),cv.width/2,cv.height/2);
-    return;
-  }
+  if(!map.nodes)applyLayer();
+  if(!aim&&aimView){mv.z=aimView.z;mv.x=aimView.x;mv.y=aimView.y;aimView=null}
   // 视野：z = 1 时"所知天下"整个装得下；放大 z 倍。装得下的那一向居中，装不下的不拖出界
   var w0=Math.max(v.w,v.h*cssW/cssH);
   map.maxz=Math.max(8,w0*map.tile/24);
@@ -2120,7 +2224,18 @@ function drawMap(){
   var y=h>=v.h?v.y+v.h/2-h/2:Math.min(Math.max(mv.y-h/2,v.y),v.y+v.h-h);
   mv.x=x+w/2;mv.y=y+h/2;map.win={x:x,y:y,w:w,h:h};
   // k：一块地在画布上占几个像素；kc：占几个屏幕上的点
-  var ctx=cv.getContext("2d"),k=cv.width/w,kc=k/dpr,R=map.offRect,near=layer==="city"?.5:1;
+  var k=cv.width/w,kc=k/dpr;
+  openTree(k,Math.min(cv.width,cv.height));
+  if(!map.off)paintMap();
+  if(!map.off){
+    // 山川还没到：不拿粗图顶着，写一句等它
+    var c0=cv.getContext("2d");c0.fillStyle="#0e0f0c";c0.fillRect(0,0,cv.width,cv.height);
+    c0.fillStyle="#8fa0a8";c0.font=(13*dpr)+"px sans-serif";c0.textAlign="center";c0.textBaseline="middle";
+    c0.fillText(t("terr_wait")+(terrProg?" "+Math.round(terrProg.p/terrProg.n*100)+"%":"…"),cv.width/2,cv.height/2);
+    return;
+  }
+  // near：没展开到城的地方，城和城名要放多大才出来；选目的地时早一些出来，城都点得着
+  var ctx=cv.getContext("2d"),R=map.offRect,near=aim?.6:1;
   ctx.fillStyle="#0e0f0c";ctx.fillRect(0,0,cv.width,cv.height);
   // 挑一级不比画布粗的图贴上去：放大时是细图本身，一格一格清楚；缩小时是减半过的那几级
   var shrink=R.w*k/map.off.width,level=0;
@@ -2135,22 +2250,32 @@ function drawMap(){
     placed.push([bx,by,bw,bh]);return true;
   }
   ctx.textAlign="center";ctx.textBaseline="middle";ctx.lineJoin="round";
-  // 名字：这一层级的大名(天下、帝国、国)先标，装得下再标里头各国的小名
-  map.labels.forEach(function(o){
+  // 名字：眼下该标的那几家(天下、帝国、国，见 openTree)，本国那一家先标、其余大的在前；地方太小写不下的不标，
+  // 和已标的字压着的也不标(本国的照标)
+  ctx.font="600 "+(12*dpr)+"px sans-serif";
+  (aim?[]:map.front).map(function(id){return map.nodes[id]}).sort(function(a,b){return(a.home?0:1)-(b.home?0:1)||b.n-a.n}).forEach(function(o){
     if(!o.name||!o.n)return;
-    ctx.font=o.minor?(11*dpr)+"px sans-serif":"600 "+(12*dpr)+"px sans-serif";
     var tw=ctx.measureText(o.name).width;
-    if(o.minor?Math.sqrt(o.n)*k<tw*1.25:!o.home&&Math.sqrt(o.n)*k<tw*.6)return;
+    if(!o.home&&Math.sqrt(o.n)*k<tw*.6)return;
     var px=(o.x+.5-x)*k,py=(o.y+.5-y)*k;
     if(px<0||py<0||px>cv.width||py>cv.height)return;
-    if(!free(px-tw/2,py-8*dpr,tw,16*dpr)&&o.minor)return;
+    if(!free(px-tw/2,py-8*dpr,tw,16*dpr)&&!o.home)return;
     ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(o.name,px,py);
-    ctx.fillStyle=o.home?"#f3c34a":o.prov?"#ecd98a":o.rum?"#b9b39d":o.minor?"#d6d0bd":"#e8e2cf";ctx.fillText(o.name,px,py);
+    ctx.fillStyle=o.home?"#f3c34a":o.prov?"#ecd98a":o.rum?"#b9b39d":"#e8e2cf";ctx.fillText(o.name,px,py);
   });
-  // 城：都城一直标着，别的城放大了才出来(城市层级出来得早)；名字不压着别的字
+  // 城：本国都城一直标着；拉近到一国(王国法理)，它的城都出来；别处的城放得很大才出来；名字不压着别的字。
+  // 给军队下令时(用户 2026-11-12 "只要我给军人下命令层级就会自动短暂的显示所有附近能去的城市, 或者直接切到城市层级")
+  // 直接到城一级：不标国名，能去的城(本朝之城、交战之敌的城)都标出来，离军队近的先标；去不了的城不画
   ctx.font=(11*dpr)+"px sans-serif";
-  map.cities.forEach(function(c){
-    if(!(c.cap&&c.home)&&kc<(c.cap?2.4:c.own?3.6:5.6)*near)return;
+  var list=map.cities;
+  if(aim){
+    var f=aimFocus();
+    list=map.cities.filter(function(c){return c.own||c.foe}).sort(function(a,b){
+      return Math.hypot(a.x-f.x,a.y-f.y)-Math.hypot(b.x-f.x,b.y-f.y)});
+  }
+  list.forEach(function(c){
+    var open=aim||c.leaf>=0&&map.cityOpen[c.leaf]===1;
+    if(!(c.cap&&c.home)&&!open&&kc<(c.cap?2.4:c.own?3.6:5.6)*near)return;
     var px=(c.x-x)*k,py=(c.y-y)*k;
     if(px<-20||py<-20||px>cv.width+20||py>cv.height+20)return;
     // 都城画皇冠，别的城一个小方块
@@ -2162,7 +2287,7 @@ function drawMap(){
     }
     if(aim){ctx.strokeStyle=c.own?"#7fd8ea":"#ff8a7a";ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.arc(px,py,q+4*dpr,0,6.283);ctx.stroke()}
     hits.push({kind:"city",x:px/dpr,y:py/dpr,c:c});
-    if(kc<(c.cap?3.2:c.own?6:8.4)*near)return;
+    if(!open&&kc<(c.cap?6:c.own?8:10)*near)return;
     var tw=ctx.measureText(c.name).width,ty=py+q+8*dpr;
     if(!free(px-tw/2,ty-6*dpr,tw,12*dpr))return;
     ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(c.name,px,ty);
@@ -2185,16 +2310,36 @@ function armIcon(arm){return arm?pic("arm_"+arm):null}
 // 军队：挨得近的同一方并成一个牌子(右上角写几支)，底下写兵力；本国的军画出开往哪里
 function drawArmies(ctx,x,y,k,dpr,cv){
   if(!armies||!armies.armies)return;
-  // 缩得越小并得越远：看全局时一方在一片地方只留一个牌子(写着几支、共多少人)，放大了才一支一支分开；牌子也跟着小一号
-  var kc=k/dpr,rx=kc<3?64:kc<6?44:kc<10?28:16,ry=rx*.75,small=kc<6;
+  // 缩得越小并得越远：看全局时一方在一片地方只留一个牌子(写着几支、共多少人)，放大了才一支一支分开；牌子也跟着小一号。
+  // 拉远了别国的军也并(用户 2026-11-12 "地图拉远后军队铭牌也没有合并")：中等远近按这一层级的一家(同一帝国、同一天下)并，
+  // 交战之敌并作一个；再远些不交战的各国都并作一个。本国的军始终单独一个
+  var kc=k/dpr,far=kc<4,mid=kc<10,rx=far?90:mid?48:28,ry=rx*.75,small=kc<6;
   var groups=[];
   armies.armies.forEach(function(a){
+    if(!showArmy&&!(a.own&&sel&&sel.indexOf(a.id)>=0))return;
     var px=(a.x-x)*k/dpr,py=(a.y-y)*k/dpr;
     if(px<-30||py<-30||px>cv.width/dpr+30||py>cv.height/dpr+30)return;
-    var side=a.own?"own":"r"+a.r;
-    for(var i=0;i<groups.length;i++){var g=groups[i];if(g.side===side&&Math.abs(g.x-px)<rx&&Math.abs(g.y-py)<ry){g.list.push(a);return}}
-    groups.push({kind:"army",side:side,x:px,y:py,list:[a]});
+    var realm=map.realms[a.r];
+    var side=a.own?"own":!mid?"r"+a.r:a.foe?"foe":far?"other":"g"+(realm&&realm.grp!=null?realm.grp:a.r);
+    for(var i=0;i<groups.length;i++){
+      var g=groups[i];
+      if(g.side===side&&Math.abs(g.ax-px)<rx&&Math.abs(g.ay-py)<ry){g.list.push(a);g.sx+=px;g.sy+=py;return}
+    }
+    groups.push({kind:"army",side:side,ax:px,ay:py,sx:px,sy:py,list:[a]});
   });
+  // 牌子画在并进来的几支的正中
+  groups.forEach(function(g){g.x=g.sx/g.list.length;g.y=g.sy/g.list.length});
+  // 并完了牌子还压着的(连着底下的兵数一个牌子约 44×34)：同一类(本国、交战之敌、其余)的并成一个，并到不压着为止
+  var cls=function(g){return g.list[0].own?0:g.list[0].foe?1:2},moved=true;
+  while(moved){
+    moved=false;
+    for(var i=0;i<groups.length&&!moved;i++)for(var j=i+1;j<groups.length;j++){
+      var A=groups[i],B=groups[j];
+      if(cls(A)!==cls(B)||Math.abs(A.x-B.x)>=44||Math.abs(A.y-B.y)>=34)continue;
+      A.list=A.list.concat(B.list);A.sx+=B.sx;A.sy+=B.sy;A.x=A.sx/A.list.length;A.y=A.sy/A.list.length;
+      groups.splice(j,1);moved=true;break;
+    }
+  }
   ctx.font="600 "+(10*dpr)+"px sans-serif";
   groups.forEach(function(g){
     // 牌子里是兵种的图标(并在一起的画人最多的那一支的)
@@ -2202,7 +2347,9 @@ function drawArmies(ctx,x,y,k,dpr,cv){
     g.list.forEach(function(m){if(m.n>lead.n)lead=m});
     var icon=armIcon(lead.arm);
     g.list.forEach(function(m){total+=m.n;if(m.own&&sel&&sel.indexOf(m.id)>=0)picked=true;if(m.own&&armies.writOf[m.id])waiting=true});
-    var realm=a.own?null:map.realms[a.r],line=a.own?"#f3c34a":a.foe?"#ff6666":realm?realm.color:"#b9b39d";
+    // 并了几国的牌子用素色边
+    var mixed=g.list.some(function(m){return m.r!==a.r});
+    var realm=a.own?null:map.realms[a.r],line=a.own?"#f3c34a":a.foe?"#ff6666":realm&&!mixed?realm.color:"#b9b39d";
     if(a.own&&!small)g.list.forEach(function(m){
       if(m.tx==null)return;
       var tx=(m.tx-x)*k,ty=(m.ty-y)*k,ang=Math.atan2(ty-py,tx-px);
@@ -2258,8 +2405,12 @@ function showArmies(list){
   list.forEach(function(a){total+=a.n});
   aim=false;
   if(!own.length){
-    var first=list[0],realm=map.realms[first.r];sel=null;
-    panel(t("army_foreign",realm?realm.name:"?"),[t("army_about",short(total))+(list.length>1?" · "+t("army_count",list.length):""),first.foe?t("army_foe"):null,intelNote()]);
+    // 拉远时几国并在一个牌子里：写头一国(兵最多的)和共几国
+    var first=list[0],rs=[];
+    list.forEach(function(m){if(m.n>first.n)first=m;if(rs.indexOf(m.r)<0)rs.push(m.r)});
+    var realm=map.realms[first.r],who=realm?realm.name:"?";sel=null;
+    panel(rs.length>1?t("army_mixed",who,rs.length):t("army_foreign",who),
+      [t("army_about",short(total))+(list.length>1?" · "+t("army_count",list.length):""),list.every(function(m){return m.foe})?t("army_foe"):null,intelNote()]);
   }else if(own.length===1){
     var a=own[0],o=armies.orders[a.id],w=armies.writOf[a.id];sel=[a.id];
     panel(a.name,[t("army_line",short(a.n),short(a.full),a.org),t("task_"+a.task)+(a.at?" · "+a.at:"")+(a.home?" · "+t("army_home",a.home):""),
@@ -2276,12 +2427,25 @@ function intelNote(){return!armies||armies.every===0?null:t("intel_old",Math.max
 // 给地方下令：点了行政区或自家的城上的"令其出兵"，再点目的地
 var aimHost=null;
 function startHostAim(key,name){
-  aimHost={key:key,name:name};aim=true;sel=null;
+  aimHost={key:key,name:name};aim=true;sel=null;aimZoom();
   panel(t("host_aim",name),[t("aim_note")],[{label:t("m_cancel"),go:function(){aimHost=null;aim=false;panel();drawMap()}}]);
   drawMap();
 }
+// 下令时看哪儿：选中的本国军的正中；给地方下令(没有军的位置)看眼下的图心
+function aimFocus(){
+  var mine=aimHost?[]:ownArmies();
+  if(!mine.length)return{x:mv.x,y:mv.y};
+  var x=0,y=0;mine.forEach(function(a){x+=a.x;y+=a.y});return{x:x/mine.length,y:y/mine.length};
+}
+// 进入下令：记下眼下的视野(下完令或作罢回到这里)；拉得太远、城挤成一团的，对着军队拉近到城看得清
+function aimZoom(){
+  if(!map||!map.win)return;
+  if(!aimView)aimView={z:mv.z,x:mv.x,y:mv.y};
+  var cssW=$("map").clientWidth||320,w0=map.win.w*mv.z,want=Math.min(maxZ(),6*w0/cssW);
+  if(mv.z<want){var f=aimFocus();mv.z=want;mv.x=f.x;mv.y=f.y}
+}
 function startAim(){
-  aimHost=null;aim=true;
+  aimHost=null;aim=true;aimZoom();
   panel(t("aim_title"),[ownArmies().map(function(a){return a.name}).join("、"),t("aim_note")],[{label:t("m_cancel"),go:function(){showArmies(ownArmies())}}]);
   drawMap();
 }
@@ -2344,6 +2508,7 @@ function pickAt(clientX,clientY){
   var c=x<0||y<0||x>=map.w||y>=map.h?FOG:map.grid[y*map.w+x],r=map.realms[c];
   if(!city&&c<250&&r&&r.tier<=1)city=cityAtCell(gx,gy);
   if(aim){
+    if(city&&!(city.own||city.foe)){toast(t("aim_bad",city.name),true);return}
     if(city)confirmOrder(city);else toast(t("aim_miss"),true);
     return;
   }
@@ -2426,6 +2591,9 @@ function mapRealmActs(r,acts){
   // 层级四档、图例
   var lb=document.querySelectorAll("#map-layers button[data-l]");
   for(var n=0;n<lb.length;n++){lb[n].className=lb[n].getAttribute("data-l")===layer?"on":"";lb[n].onclick=function(){setLayer(this.getAttribute("data-l"))}}
+  // 军队显示与否(用户 2026-11-12 "我需要一个显示军人和不显示军人的按钮")：记在这部手机上
+  $("map-army").className=showArmy?"on":"";
+  $("map-army").onclick=function(){showArmy=!showArmy;store("ec_army",showArmy?"1":"0");this.className=showArmy?"on":"";drawMap()};
   $("map-legend-go").onclick=function(){
     openSheet({title:t("ly_legend"),items:[],custom:function(box){var c=$("map-legend").cloneNode(true);c.removeAttribute("id");c.className="";box.appendChild(c)}});
   };

@@ -68,11 +68,20 @@ public static partial class TerminalHost
     }
 
     // ───────── 总图上的城 ─────────
-    // 本国的城、看得见的别国的城(传闻之国的不知道)：给手机标城名、点选军令的目的地。迷雾里的不给
-    private static JArray MapCities(Seat seat, List<City> all, out Dictionary<long, int> shownAt)
+    // 本国的城、看得见的别国的城(传闻之国的不知道)：给手机标城名、点选军令的目的地。迷雾里的不给。
+    // 各城顺带标上法理(用户 2026-11-12 "图层分两种, 一种是政体图层一种是法理图层""天下拉近是帝国, 帝国拉近是王国级法理")：
+    // dk 王国法理、de 帝国法理、dt 天下，是 dejure 里三张表的下标，表里是名字和法理图层上的颜色
+    private static JArray MapCities(Seat seat, List<City> all, out Dictionary<long, int> shownAt, out JObject dejure)
     {
         var cities = new JArray();
         shownAt = new Dictionary<long, int>();
+        var titles = new JArray();
+        var cores = new JArray();
+        var lands = new JArray();
+        var titleAt = new Dictionary<long, int>();
+        var coreAt = new Dictionary<long, int>();
+        var landAt = new Dictionary<long, int>();
+        dejure = new JObject { ["k"] = titles, ["e"] = cores, ["t"] = lands };
         foreach (City city in all)
         {
             if (cities.Count >= MaxMapCities) break;
@@ -87,10 +96,57 @@ public static partial class TerminalHost
                 ["z"] = city.zones?.Count ?? 0
             };
             if (city.kingdom.capital == city) row["cap"] = true;
+            try
+            {
+                KingdomTitle title = city.GetTitle();
+                if (title?.data != null && !title.isRekt())
+                {
+                    if (!titleAt.TryGetValue(title.id, out int at))
+                    {
+                        titleAt[title.id] = at = titles.Count;
+                        titles.Add(new JObject { ["name"] = TerminalIntel.Strip(title.data.name ?? ""), ["color"] = HexOf(DeJureMap.TitleColor(title)) });
+                    }
+                    row["dk"] = at;
+                }
+                EmpireCore core = DeJureMap.CoreOf(city);
+                if (core != null)
+                {
+                    if (!coreAt.TryGetValue(core.id, out int at))
+                    {
+                        coreAt[core.id] = at = cores.Count;
+                        cores.Add(new JObject
+                        {
+                            ["name"] = TerminalIntel.Strip(EmpireCoreManager.GetDisplayName(core) ?? ""), ["color"] = HexOf(DeJureMap.CoreMeta(core)?.getColor())
+                        });
+                    }
+                    row["de"] = at;
+                }
+                EmpireCore lead = TianxiaSystem.LeadOf(city);
+                if (lead != null)
+                {
+                    if (!landAt.TryGetValue(lead.id, out int at))
+                    {
+                        landAt[lead.id] = at = lands.Count;
+                        lands.Add(new JObject { ["name"] = TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? "") });
+                    }
+                    row["dt"] = at;
+                }
+            }
+            catch (Exception)
+            {
+                // 法理还没排好：这座城先不标
+            }
             shownAt[city.getID()] = cities.Count;
             cities.Add(row);
         }
         return cities;
+    }
+
+    private static string HexOf(ColorAsset color)
+    {
+        if (color == null) return null;
+        Color32 main = color.getColorMain32();
+        return "#" + main.r.ToString("x2") + main.g.ToString("x2") + main.b.ToString("x2");
     }
 
     // ───────── 地貌 ─────────

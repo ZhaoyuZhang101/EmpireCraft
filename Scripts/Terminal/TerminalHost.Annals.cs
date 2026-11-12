@@ -23,7 +23,8 @@ namespace EmpireCraft.Scripts.Terminal;
 // 这些都是自家的事，不过迷雾、不打折。数是手机点进这一页才要的(/api/annals)，主线程备好一份放着，不随每秒的国势一起发。
 public static partial class TerminalHost
 {
-    private const int LineageUp = 12, ClanUp = 3, ClanDown = 2, ClanCap = 140, HistoryCap = 160;
+    // 族谱往上 8 代、往下 3 代、至多 240 人(用户 2026-11-12 手机上的族谱"少了人"：以前上 3 下 2、140 人)
+    private const int LineageUp = 12, ClanUp = 8, ClanDown = 3, ClanCap = 240, HistoryCap = 160;
     private const float AnnalsSeconds = 0.5f;
     private static readonly ConcurrentDictionary<string, bool> AnnalsWant = new();
     private static readonly ConcurrentDictionary<string, string> AnnalsJson = new();
@@ -110,7 +111,7 @@ public static partial class TerminalHost
 
     private static JObject LineageJson(Seat seat, Empire empire)
     {
-        // 历代君主：帝国看史册(只取今上这一朝)，王国看原版记的历任国君
+        // 历代君主：帝国看史册(历朝都列，用户 2026-11-12 世系图"少了人"：以前只取今上这一朝)，王国看原版记的历任国君
         var reigns = new List<(PersonalClanIdentity person, EmpireCraftHistory reign, string name)>();
         string title;
         if (empire != null)
@@ -120,10 +121,11 @@ public static partial class TerminalHost
             EmpireCraftHistory current = empire.data?.currentHistory;
             if (current != null && !all.Contains(current)) all.Add(current);
             all = all.Where(found => !found.is_republic).ToList();
-            string dynasty = current != null ? DynastyOf(current) : all.Count > 0 ? DynastyOf(all[all.Count - 1]) : "";
-            foreach (EmpireCraftHistory reign in all.Where(found => DynastyOf(found) == dynasty))
+            foreach (EmpireCraftHistory reign in all)
                 reigns.Add((reign.id > 0 ? SpecificClanManager.PersonByActorId(reign.id) : null, reign, reign.emperor ?? ""));
-            title = string.Format(LM.Get("lineage_chart_title"), dynasty);
+            // 只有一朝的照朝代叫，换过朝代的照国号叫
+            List<string> dynasties = all.Select(DynastyOf).Distinct().ToList();
+            title = string.Format(LM.Get("lineage_chart_title"), dynasties.Count == 1 ? dynasties[0] : NameOf(seat.Realm));
         }
         else
         {
