@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Pack the terminal’s full-body pixel portraits and wardrobe catalogue (Pillow).
 
-portrait_art.png contains the fitted pixel artwork for each interchangeable layer.
+portrait_art.png and portrait_art.json contain the artwork registered to the
+shared front-facing body grid. See PORTRAIT_STANDARD.md for the layer contract.
 """
 import json
 from pathlib import Path
@@ -13,7 +14,7 @@ ROOT = HERE.parents[1]
 CELL = (88, 136)
 COLUMNS = 10
 THUMB = (20, 1, 48, 60)
-ORDER = ("body", "head", "mark", "beard", "hair", "hat")
+ORDER = ("back", "base", "head", "body", "mark", "beard", "hair", "hat")
 
 # Source tile order, left to right. Periods are inclusive technology-era indices.
 # id, display name, category, allowed sex, first period, last period, preferred period, headwear
@@ -99,14 +100,37 @@ EXTRA = [
     ("west", ("late_dress", "绛紫蕾丝立领裙", "lady", "f", 5, 6, 5, "none")),
     ("jp", ("furisode", "藤色花纹振袖", "lady", "f", 5, 6, 6, "none")),
     ("nomad", ("velvet_coat", "绛红丝绒绣边袍", "lady", "f", 5, 6, 6, "none")),
+    ("any", ("hide", "兽皮衣", "commoner", "any", 0, 0, 0, "none")),
+    ("hx", ("zhaiyi", "深青翟衣", "royal", "f", 2, 5, 4, "fengguan")),
+    ("hx", ("ming_royal", "明黄团龙袍", "royal", "m", 3, 4, 4, "yishan")),
+    ("hx", ("duangua", "对襟短褂", "commoner", "any", 4, 6, 5, "none")),
+    ("west", ("houppelande", "毛缘学士长袍", "court", "any", 3, 4, 3, "none")),
 ]
+ROYAL_HATS = (
+    ("yishan", "乌纱翼善冠", "hx", "royal", 3, 4, "m"),
+    ("fengguan", "凤冠", "hx", "royal", 2, 5, "f"),
+)
+# "all" also hides the rear hair. Other hats cover only the top of the front hair.
+HAT_CLIP = {
+    "mianguan": 16, "futou": 17, "wushamao": 16, "qing_hat": 17,
+    "peaked": 16, "fur_hat": 18, "steppe_helm": "all",
+    "knight_helm": "all", "turban": "all", "high_turban": "all",
+    "keffiyeh": "all", "eboshi": 16, "kabuto": "all", "yishan": 16,
+}
 PALETTES = {
-    "skin": [-12, 0, 8, 16],
+    "skin": [[227, 182, 156], [210, 155, 122], [176, 123, 94], [139, 91, 67]],
     "hair": [
         [0, 0, 0], [17, 6, -4], [33, 12, -8], [75, 51, 13],
         [38, 17, -6], [32, 33, 33], [77, 72, 63],
     ],
     "eye": [[113, 76, 55], [143, 103, 60], [86, 123, 89], [71, 114, 157], [120, 103, 150]],
+}
+DEFAULT_HAIR = {
+    "hx": ["topknot", "high_bun", "loose_bun"],
+    "nomad": ["steppe_braid", "braided_bun", "braided_bun"],
+    "west": ["wavy", "long_waves", "long_waves"],
+    "arab": ["curls", "wrapped_braid", "wrapped_braid"],
+    "jp": ["mage", "taregami", "taregami"],
 }
 HEADS = [
     "eastern", "steppe", "western", "arabian", "eastern_woman", "steppe_woman",
@@ -142,98 +166,106 @@ def garment(name, civ, kind, sex, first=0, last=6):
     return dict(name=name, civ=civ, kind=kind, sex=sex, period=[f"p{i}" for i in range(first, last + 1)])
 
 
-def draw_marks(add):
-    add("mark", "scar").line([(43, 28), (46, 25), (48, 24)], "#ab695f")
-    add("mark", "mole").point((46, 28), "#7d4747")
-    add("mark", "rouge").line([(41, 27), (44, 28), (46, 27)], "#d5807c")
-    add("mark", "stubble").point([(38, 30), (40, 32), (42, 32), (45, 30)], "#92695f")
+def draw_marks(layers):
+    for name, points, color in (
+        ("scar", [(48, 30), (50, 27), (51, 26)], "#ac6960"),
+        ("mole", [(49, 29)], "#734740"),
+        ("rouge", [(39, 29), (40, 29), (48, 29), (49, 29)], "#d08378"),
+        ("stubble", [(41, 33), (43, 34), (45, 34), (47, 33)], "#977066"),
+    ):
+        tile = layers["mark:" + name] = Image.new("RGBA", CELL)
+        draw = ImageDraw.Draw(tile)
+        if name == "scar":
+            draw.line(points, color)
+        else:
+            draw.point(points, color)
 
 
 def main():
+    width, height = CELL
     art = Image.open(HERE / "portrait_art.png").convert("RGBA")
-    layers = {layer: {"none": Image.new("RGBA", CELL)} for layer in ORDER}
+    source = json.loads((HERE / "portrait_art.json").read_text(encoding="utf-8"))
+    if art.width != COLUMNS * width or art.height % height != 0:
+        raise ValueError("portrait_art.png does not match the portrait cell grid")
+    if len(source) != len(set(source.values())):
+        raise ValueError("Two parts are assigned to the same source tile")
+
+    layers = {}
     wardrobe = {slot: {} for slot in ("body", "hat", "hair")}
     presets = []
+    skin_bases = {}
 
-    def add(layer, name):
-        tile = layers[layer][name] = Image.new("RGBA", CELL)
-        return ImageDraw.Draw(tile)
-
-    def raster(layer, name, index):
-        x, y = index % COLUMNS * CELL[0], index // COLUMNS * CELL[1]
-        tile = art.crop((x, y, x + CELL[0], y + CELL[1]))
+    def raster(key):
+        index = source[key]
+        x, y = index % COLUMNS * width, index // COLUMNS * height
+        if not 0 <= y <= art.height - height:
+            raise ValueError(f"Tile {key} is outside the source atlas")
+        tile = art.crop((x, y, x + width, y + height))
         if not tile.getbbox():
-            raise ValueError(f"Empty art tile {index} for {name}")
-        layers[layer][name] = tile
+            raise ValueError(f"Empty tile for {key}")
+        layers[key] = tile
+        skin = sorted((r, g, b) for r, g, b, alpha in tile.getdata() if alpha == 254)
+        if skin:
+            skin_bases[key] = skin[len(skin) // 2]
 
-    for index, name in enumerate(HEADS, 62):
-        raster("head", name, index)
-    for index, (name, (label, civ, sex)) in enumerate(HAIRSTYLES.items(), 74):
+    for sex in ("m", "f"):
+        raster(f"base:{sex}")
+    for name in HEADS:
+        raster(f"head:{name}")
+    for name, (label, civ, sex) in HAIRSTYLES.items():
         if name != "bald":
-            raster("hair", name, index)
-        else:
-            add("hair", name)
+            raster(f"hair:{name}")
+        if f"back:{name}" in source:
+            raster(f"back:{name}")
         wardrobe["hair"][name] = garment(label, civ, "casual", sex)
-    for index, name in enumerate(BEARDS, 86):
-        raster("beard", name, index)
-    draw_marks(add)
-    for index, (name, label, civ, kind, first, last) in enumerate(HATS, 35):
-        raster("hat", name, index)
-        wardrobe["hat"][name] = garment(label, civ, kind, "any", first, last)
+    for name in BEARDS:
+        raster(f"beard:{name}")
+    draw_marks(layers)
+    for name, label, civ, kind, first, last, sex in [(*hat, "any") for hat in HATS] + list(ROYAL_HATS):
+        raster(f"hat:{name}")
+        wardrobe["hat"][name] = garment(label, civ, kind, sex, first, last)
 
-    for civ_index, (civ, costumes) in enumerate(COSTUMES.items()):
-        male_hair = ("topknot", "steppe_braid", "wavy", "curls", "mage")[civ_index]
-        female_hair = ("high_bun", "braided_bun", "long_waves", "wrapped_braid", "taregami")[civ_index]
-        tiles = [(civ_index * 5 + i, item) for i, item in enumerate(costumes)]
-        tiles.extend([(25 + civ_index, WOMEN[civ_index]), (30 + civ_index, COMMON[civ_index])])
-        tiles.extend((i, item) for i, (region, item) in enumerate(EXTRA, 50) if region == civ)
-        for index, item in tiles:
-            name, label, kind, sex, first, last, period, hat = item
-            raster("body", name, index)
-            wardrobe["body"][name] = garment(label, civ, kind, sex, first, last)
+    costumes = []
+    for i, (civ, items) in enumerate(COSTUMES.items()):
+        costumes.extend((civ, item) for item in [*items, WOMEN[i], COMMON[i]])
+    for civ, (name, label, kind, sex, first, last, period, hat) in [*costumes, *EXTRA]:
+        sexes = ("m", "f") if sex == "any" else (sex,)
+        wardrobe["body"][name] = {**garment(label, civ, kind, sex, first, last), "pref": period, "hat": hat}
+        for fit in sexes:
+            raster(f"body:{name}:{fit}")
+            male = fit == "m"
+            faces = FACES.get(civ, FACES["hx"])
+            hair = DEFAULT_HAIR.get(civ, DEFAULT_HAIR["hx"])
             roles = {
-                "royal": ("emperor", "empress"),
-                "court": ("minister", "elder_minister", "clerk", "heir"),
-                "armor": ("general", "old_general"),
-                "lady": ("woman", "empress"),
-                "commoner": ("commoner", "scholar", "woman"),
-                "clergy": ("monk",),
+                "royal": ["emperor" if male else "empress"],
+                "court": ["minister", "heir"],
+                "armor": ["general", "old_general"],
+                "lady": ["woman", "empress"],
+                "commoner": ["commoner" if male else "woman"],
+                "clergy": ["monk"],
             }[kind]
-            if period >= 5 and kind == "court":
-                roles = ("emperor", "empress", *roles, "general", "old_general")
             for role in roles:
-                female = role in ("woman", "empress")
-                old = role.startswith("old_") or role.startswith("elder_")
-                hair = "bald" if role == "monk" else female_hair if female else "short" if period >= 5 else male_hair
-                male_faces, female_faces, elder = FACES[civ]
-                faces = female_faces if female else male_faces
-                head = elder if old else faces[(index + len(role)) % len(faces)]
-                beard = "none"
-                if not female and role not in ("heir", "monk"):
-                    beard = "goatee" if old else "moustache" if role == "emperor" and period < 5 else "none"
+                old = role == "old_general"
+                head = faces[2] if male and old else faces[0 if male else 1][0]
+                hat_item = wardrobe["hat"].get(hat, {})
                 presets.append(dict(
-                    id=f"{name}_{role}", civ=civ, period=f"p{period}", role=role, body=name,
-                    head=head, hair=hair, hat="none" if role == "woman" else hat,
-                    beard=beard, mark="none", skin=(1, 2, 0, 2, 1)[civ_index],
-                    hairColor=5 if old else 1 if civ == "west" else 0, eye=3 if civ == "west" else 0,
+                    id=f"{name}_{fit}_{role}", civ=civ, period=f"p{period}", role=role,
+                    sex=fit, body=name, head=head,
+                    hat=hat if hat_item.get("sex") in ("any", fit) else "none",
+                    hair="bald" if role == "monk" else "short" if male and period >= 5 else hair[0 if male else 1],
+                    beard="goatee" if male and old else "none", mark="none",
+                    skin=1, hairColor=5 if old else 0, eye=0,
                 ))
 
-    offsets = {}
-    width, height = CELL
-    count = sum(len(tiles) - 1 for tiles in layers.values())
-    atlas = Image.new("RGBA", (COLUMNS * width, ((count + COLUMNS - 1) // COLUMNS) * height))
-    index = 0
-    for layer, tiles in layers.items():
-        offsets[layer] = index
-        for name, tile in tiles.items():
-            if name == "none":
-                continue
-            atlas.paste(tile, (index % COLUMNS * width, index // COLUMNS * height))
-            index += 1
+    atlas = Image.new("RGBA", (COLUMNS * width, ((len(layers) + COLUMNS - 1) // COLUMNS) * height))
+    tiles = {}
+    for i, (key, tile) in enumerate(layers.items()):
+        tiles[key] = i
+        atlas.paste(tile, (i % COLUMNS * width, i // COLUMNS * height))
     atlas.save(ROOT / "Terminal" / "portraits.png", optimize=True)
-    parts = dict(cell=CELL, thumb=THUMB, columns=COLUMNS, offsets=offsets, order=ORDER,
-                 rows={name: list(tiles) for name, tiles in layers.items()}, faces=FACES,
-                 palettes=PALETTES, wardrobe=wardrobe, presets=presets)
+    parts = dict(cell=CELL, thumb=THUMB, columns=COLUMNS, tiles=tiles, order=ORDER, faces=FACES,
+                 palettes=PALETTES, skinBases=skin_bases, hairStyle=DEFAULT_HAIR, clip=HAT_CLIP,
+                 wardrobe=wardrobe, presets=presets)
     (HERE / "portrait_parts.json").write_text(json.dumps(parts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
