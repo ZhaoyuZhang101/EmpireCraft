@@ -346,17 +346,28 @@ public static class ScenarioEditing
         _ownersRevision = -1;
     }
 
-    // 在经纬度处立一座城：地区取最近那座城的地区；返回城编号
-    public static string AddCity(float lon, float lat)
+    // 在经纬度处立一座城：地区取最近那座城的地区；返回城编号。
+    // culture 给了(用户 2026-11-12 转群友"剧本编辑器放城市怎么放其他文化的，目前貌似只有华夏的"——导入的图、空白剧本里头一座城
+    // 立的是华夏的地区，后面的城都跟着它)：城的文化就是它所在王国法理的文化，所以所在的王国法理不是这种文化时，几度内有这种文化的
+    // 城就跟它的王国法理，没有就给这座城另立一个(名取城名、城作法理首都)
+    public static string AddCity(float lon, float lat, string culture = null)
     {
         if (Era == null) return null;
         Before();
         EnsureOwnWorld();
         WorldMapCity near = Nearest(lon, lat, null);
         string region = RegionForNewCity(near, lon, lat);
+        bool wanted = CultureService.IsValidCulture(culture), own = false;
+        if (wanted && !string.IsNullOrEmpty(region) && RegionCulture(Region(region)) != culture)
+        {
+            WorldMapCity kin = Nearest(lon, lat, city => RegionCulture(Region(city.region)) == culture);
+            float dx = kin == null ? 0f : (kin.lon - lon) * Mathf.Cos(lat * Mathf.Deg2Rad), dy = kin == null ? 0f : kin.lat - lat;
+            if (kin != null && dx * dx + dy * dy <= NearCityDegrees * NearCityDegrees) region = kin.region;
+            else own = true;
+        }
         if (string.IsNullOrEmpty(region))
         {
-            var created = new WorldMapRegion { id = "r1", culture = "Huaxia" };
+            var created = new WorldMapRegion { id = "r1", culture = wanted ? culture : "Huaxia" };
             created.zh = created.tw = created.en = LM.Get("scenario_editor_new_region");
             Era.regions ??= new List<WorldMapRegion>();
             Era.regions.Add(created);
@@ -368,12 +379,19 @@ public static class ScenarioEditing
         // 按所在地区的文化起名，起不出来才叫"新城 N"(见 ScenarioNaming)
         string name = string.Format(LM.Get("scenario_editor_new_city"), n);
         string zh = name, tw = name, en = name;
-        if (ScenarioNaming.TryCity(CultureOfRegion(region), used => Era.cities.Any(city => city.zh == used),
+        if (ScenarioNaming.TryCity(own ? culture : CultureOfRegion(region), used => Era.cities.Any(city => city.zh == used),
                 out string cityZh, out string cityTw, out string cityEn))
         {
             zh = cityZh;
             tw = cityTw;
             en = cityEn;
+        }
+        if (own)
+        {
+            int r = Era.regions.Count + 1;
+            region = "r" + r;
+            while (Era.regions.Any(entry => entry.id == region)) region = "r" + ++r;
+            Era.regions.Add(new WorldMapRegion { id = region, zh = zh, tw = tw, en = en, title = WorldMapData.Pick(zh, tw, en), capital = id, culture = culture });
         }
         Era.cities.Add(new WorldMapCity { id = id, zh = zh, tw = tw, en = en, lon = lon, lat = lat, region = region, rank = 2 });
         Changed();
@@ -407,6 +425,40 @@ public static class ScenarioEditing
     }
 
     private static string CultureOfRegion(string region) => Regions.FirstOrDefault(entry => entry.id == region)?.culture;
+
+    // 这座城的文化(它所在王国法理的文化)
+    public static string CityCulture(string cityId) => RegionCulture(Region(City(cityId)?.region));
+
+    // 改这座城的文化：王国法理里只有它一座城就改这个王国法理的文化；还有别的城就先以它另立一个王国法理(见 NewRegion)再改，
+    // 别的城不跟着变。算一步撤销
+    public static void SetCityCulture(string cityId, string culture)
+    {
+        WorldMapCity city = City(cityId);
+        if (city == null || Region(city.region) == null || !CultureService.IsValidCulture(culture) || CityCulture(cityId) == culture) return;
+        bool outer = _stroke;
+        if (!outer) BeginStroke();
+        try
+        {
+            if (RegionCityCount(city.region) > 1) NewRegion(cityId);
+            else
+            {
+                Before();
+                EnsureOwnWorld();
+            }
+            WorldMapRegion region = Region(City(cityId)?.region);
+            if (region == null) return;
+            region.culture = culture;
+            Era.culture.Remove(region.id);
+            Changed();
+        }
+        finally
+        {
+            if (!outer) EndStroke();
+        }
+    }
+
+    public static void CycleCityCulture(string cityId, int step) =>
+        SetCityCulture(cityId, Step(CultureService.CultureKeys.ToList(), CityCulture(cityId), step));
 
     public static void MoveCity(string id, float lon, float lat)
     {

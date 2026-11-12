@@ -269,6 +269,13 @@ public static class ScenarioEditorScreen
     private static Text _wildInfo;
     private static Btn _wildSizeBtn, _wildOwnBtn, _developBrushBtn, _developValueBtn, _clearDevelopBtn;
     private static bool _developBrush;
+    // 放城用的文化(空 = 随所在地)；刷地形是不是倒油桶
+    private static string _newCityCulture = "";
+    private static bool _bucket;
+    private static RectTransform _placeCard;
+    private static Text _placeInfo;
+    private static Btn _newCityCultureBtn, _cityCultureBtn, _bucketBtn;
+    private static bool Bucketing => _tool == Tool.Terrain && !_developBrush && _bucket;
     private static int _developValue = 30, _wildInfoVersion = int.MinValue;
     // 预览各像素的地形标记(给无人区预测，见 ScenarioWilderness.CellOf)：地球的烘一次留着，工作的叠刷的地形，改一次 +1
     private static byte[] _earthCells, _baseCells, _cells;
@@ -758,10 +765,20 @@ public static class ScenarioEditorScreen
         _wildOwnBtn = Cycler(_wildCard, LM.Get("scenario_editor_wild_own"), _ => ScenarioEditing.ToggleOwnWilderness());
         _wildInfo = Label(_wildCard, "Info", 14, TextColor, TextAnchor.UpperLeft, true);
 
+        // 放城：新放的城用哪种文化(随所在地，或指定一种，见 ScenarioEditing.AddCity)
+        _placeCard = Card(side, LM.Get("scenario_editor_card_place"));
+        _newCityCultureBtn = Cycler(_placeCard, LM.Get("scenario_editor_culture"), StepNewCityCulture);
+        _placeInfo = Label(_placeCard, "Info", 14, DimText, TextAnchor.UpperLeft, true);
+
         _cityCard = Card(side, LM.Get("scenario_editor_card_city"));
         _cityNameInput = Field(_cityCard, LM.Get("scenario_editor_name"), text =>
         {
             if (_cityId != null) ScenarioEditing.RenameCity(_cityId, text);
+        });
+        // 这座城的文化(就是它所在王国法理的文化；王国法理里还有别的城时给它另立一个再改，见 ScenarioEditing.SetCityCulture)
+        _cityCultureBtn = Cycler(_cityCard, LM.Get("scenario_editor_culture"), step =>
+        {
+            if (_cityId != null) ScenarioEditing.CycleCityCulture(_cityId, step);
         });
         _citySpeciesBtn = Cycler(_cityCard, LM.Get("scenario_editor_species"), step =>
         {
@@ -966,6 +983,7 @@ public static class ScenarioEditorScreen
         _terrainCard = Card(side, LM.Get("scenario_editor_card_terrain"));
         _terrainBrushBtn = Cycler(_terrainCard, LM.Get("scenario_editor_brush"), StepBrush);
         _terrainShapeBtn = Cycler(_terrainCard, LM.Get("scenario_editor_brush_shape"), StepShape);
+        _bucketBtn = MakeButton(_terrainCard, "", ToolColor, () => _bucket = !_bucket);
         _developBrushBtn = MakeButton(_terrainCard, "", ToolColor, () =>
         {
             _developBrush = !_developBrush;
@@ -1332,6 +1350,17 @@ public static class ScenarioEditorScreen
         }
         if (brush && onMap && _dragButton < 0 && !space && (Input.GetMouseButtonDown(0) && !Shift || Input.GetMouseButtonDown(1)))
         {
+            // 油桶：点一下倒一片，不拖(见 BucketAt)
+            if (Bucketing)
+            {
+                ScenarioEditing.BeginStroke();
+                BucketAt(texel, Input.GetMouseButtonDown(1));
+                ScenarioEditing.EndStroke();
+                _fillKey = int.MinValue;
+                RefreshAll();
+                UpdateRing(onMap, texel);
+                return;
+            }
             _brushButton = Input.GetMouseButtonDown(0) ? 0 : 1;
             _brushLast = texel;
             StrokeZones.Clear();
@@ -1432,7 +1461,7 @@ public static class ScenarioEditorScreen
                 if (city != null) SelectCity(city);
                 else if (OnLand(texel))
                 {
-                    _cityId = ScenarioEditing.AddCity(TexelToLon(texel.x), TexelToLat(texel.y));
+                    _cityId = ScenarioEditing.AddCity(TexelToLon(texel.x), TexelToLat(texel.y), _newCityCulture);
                     Say(LM.Get("scenario_editor_city_added") + WildHint(TexelToLon(texel.x), TexelToLat(texel.y)) +
                         (ScenarioEditing.Era?.exact == true ? LM.Get("scenario_editor_city_added_exact") : ""));
                 }
@@ -1698,6 +1727,76 @@ public static class ScenarioEditorScreen
         GridChanged();
     }
 
+    // 油桶(用户 2026-11-12 转群友"画地形给了各种型号的画笔，但问题是涂抹大地形，更需要的是油桶")：刷地形时点一下，把连成一片、
+    // 同一种地表的格子整片换成选中的地表；右键是把这一片里刷过的格子复原成底图。连成一片按上下左右算，同一种按预览上的颜色认。
+    // 一片超过 BucketLimit 格不倒(撤销要存整份刷过的格子，太大了卡)，先用笔刷隔开再倒。只管地形，开发度、刷地块没有油桶
+    private const int BucketLimit = 400000;
+    private static readonly Queue<int> BucketQueue = new();
+    private static readonly (int dx, int dy)[] BucketSides = { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+    private static void BucketAt(Vector2 texel, bool erase)
+    {
+        string type = erase ? null : TerrainPalette[Mathf.Clamp(_terrainType, 0, TerrainPalette.Length - 1)].type;
+        BrushGrid(out float step, out int span, out int offX, out int offY);
+        BrushCellAt(texel, step, out int ci, out int cj);
+        int cols = _w / span, rows = _h / span, sx = ci - offX, sy = cj - offY;
+        if (cols <= 0 || rows <= 0 || sx < 0 || sy < 0 || sx >= cols || sy >= rows) return;
+        Color32 from = _terrainPixels[sy * span * _w + sx * span];
+        bool Same(Color32 color) => color.r == from.r && color.g == from.g && color.b == from.b;
+        if (!erase && Same(EarthTerrain.PreviewColorOf(type)))
+        {
+            Say(LM.Get("scenario_editor_bucket_same"));
+            return;
+        }
+        var seen = new bool[cols * rows];
+        BrushCells.Clear();
+        BrushTexels.Clear();
+        BucketQueue.Clear();
+        seen[sy * cols + sx] = true;
+        BucketQueue.Enqueue(sy * cols + sx);
+        while (BucketQueue.Count > 0)
+        {
+            int at = BucketQueue.Dequeue(), x = at % cols, y = at / cols;
+            BrushCells.Add(ScenarioCells.Pack(x + offX, y + offY));
+            BrushTexels.Add(y * span * _w + x * span);
+            if (BrushCells.Count > BucketLimit)
+            {
+                BrushCells.Clear();
+                BrushTexels.Clear();
+                BucketQueue.Clear();
+                Say(string.Format(LM.Get("scenario_editor_bucket_big"), BucketLimit));
+                return;
+            }
+            foreach ((int dx, int dy) in BucketSides)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= cols || ny >= rows || seen[ny * cols + nx] || !Same(_terrainPixels[ny * span * _w + nx * span])) continue;
+                seen[ny * cols + nx] = true;
+                BucketQueue.Enqueue(ny * cols + nx);
+            }
+        }
+        int changed = ScenarioEditing.PaintTerrain(BrushCells, type);
+        if (changed == 0)
+        {
+            Say(LM.Get(erase ? "scenario_editor_bucket_none" : "scenario_editor_bucket_same"));
+            return;
+        }
+        foreach (int index in BrushTexels) SetTexel(index, type);
+        _terrainDirty = true;
+        _terrainApplied = ScenarioEditing.TerrainRevision;
+        GridChanged();
+        Say(string.Format(LM.Get("scenario_editor_bucket_done"), changed));
+    }
+
+    // 放城用的文化：随所在地、各文化轮着换
+    private static void StepNewCityCulture(int step)
+    {
+        var options = new List<string> { "" };
+        options.AddRange(CultureService.CultureKeys);
+        int at = Mathf.Max(0, options.IndexOf(_newCityCulture ?? ""));
+        _newCityCulture = options[((at + step) % options.Count + options.Count) % options.Count];
+    }
+
     // 现在这支笔刷按哪种格子刷：一格多少度、占几个预览像素、格子编号和预览像素的换算
     private static void BrushGrid(out float step, out int span, out int offX, out int offY)
     {
@@ -1860,7 +1959,8 @@ public static class ScenarioEditorScreen
         {
             BrushGrid(out float step, out int span, out int offX, out int offY);
             BrushCellAt(texel, step, out int i, out int j);
-            int radius = ScenarioBrush.Radii[_brushSize];
+            // 油桶落在一格上：圈画成一格
+            int radius = Bucketing ? 0 : ScenarioBrush.Radii[_brushSize];
             center = new Vector2((i - offX + 0.5f) * span, (j - offY + 0.5f) * span);
             width = (radius * 2 + 1) * span;
             wanted = BrushOutline(_brushShape, radius);
@@ -3018,6 +3118,12 @@ public static class ScenarioEditorScreen
         _modeCard.gameObject.SetActive(showMode);
         _scenarioCard.gameObject.SetActive(showScenario);
         _cityCard.gameObject.SetActive(showCity);
+        _placeCard.gameObject.SetActive(_tool == Tool.City);
+        if (_tool == Tool.City)
+        {
+            _newCityCultureBtn.Set(CultureService.IsValidCulture(_newCityCulture) ? CultureName(_newCityCulture) : LM.Get("scenario_editor_culture_auto"), ViewColor);
+            _placeInfo.text = LM.Get("scenario_editor_place_info");
+        }
         _realmCard.gameObject.SetActive(showRealm);
         _declineCard.gameObject.SetActive(showRealm && ScenarioEditing.Polity(_realmId) != null);
         _regionCard.gameObject.SetActive(showRegion);
@@ -3110,6 +3216,8 @@ public static class ScenarioEditorScreen
     {
         _terrainBrushBtn.Set(BrushText(), ViewColor);
         _terrainShapeBtn.Set(ShapeText(), ViewColor);
+        _bucketBtn.Button.gameObject.SetActive(!_developBrush);
+        _bucketBtn.Set(LM.Get(_bucket ? "scenario_editor_bucket_on" : "scenario_editor_bucket_off"), _bucket ? ActiveColor : ToolColor);
         _developBrushBtn.Set(LM.Get(_developBrush ? "scenario_editor_develop_on" : "scenario_editor_develop_off"), _developBrush ? ActiveColor : ToolColor);
         _developValueBtn.Button.transform.parent.gameObject.SetActive(_developBrush);
         _developValueBtn.Set(_developValue.ToString(), ViewColor);
@@ -3292,6 +3400,7 @@ public static class ScenarioEditorScreen
             owner == null ? LM.Get("scenario_editor_independent") : owner.Name + (capital ? LM.Get("scenario_editor_is_capital") : ""),
             string.Format("{0:0.0}, {1:0.0}", city.lon, city.lat)) + shares + wildLine +
             (ScenarioWilderness.PlaceProblem(city) is string problem ? "\n" + LM.Get(problem).ColorString("#E9A85B") : "");
+        _cityCultureBtn.Set(CultureName(ScenarioEditing.CityCulture(city.id)), ViewColor);
         _rankBtn.Set(LM.Get("scenario_editor_rank_" + Mathf.Clamp(ScenarioEditing.RankOf(city), 1, 3)), ToolColor);
         // 写明立给谁：选中的国家可能不是这座城所在的国
         _capitalBtn.Set(realm == null ? LM.Get("scenario_editor_set_capital") : string.Format(LM.Get("scenario_editor_set_capital_of"),
