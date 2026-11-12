@@ -496,7 +496,8 @@ public static partial class TerminalHost
                 }
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
-                if (seat.Ruler != null && !mapped && now >= seat.NextSight)
+                // 没君主的席位也给一张全图：在图上点国选人(用户 2026-11-12 "选人界面可不可以直接在地图选, 不要给列表")
+                if (!mapped && now >= seat.NextSight)
                 {
                     seat.NextSight = now + (watched ? SightSeconds : IdleSightSeconds);
                     BuildMap(seat);
@@ -646,6 +647,26 @@ public static partial class TerminalHost
         }
     }
 
+    // 网页文件的版本(改的时间，秒)：随 state 发给手机，变了手机就重新载入网页，不接着跑旧代码。至多五秒看一回文件
+    private static long _pageVersion;
+    private static float _pageVersionAt = -100f;
+
+    private static long PageVersion()
+    {
+        float now = Time.realtimeSinceStartup;
+        if (now - _pageVersionAt < 5f) return _pageVersion;
+        _pageVersionAt = now;
+        try
+        {
+            if (_pagePath != null && File.Exists(_pagePath)) _pageVersion = File.GetLastWriteTimeUtc(_pagePath).Ticks / TimeSpan.TicksPerSecond;
+        }
+        catch (Exception)
+        {
+            // 读不到就照上回的
+        }
+        return _pageVersion;
+    }
+
     private static byte[] Page()
     {
         try
@@ -706,7 +727,7 @@ public static partial class TerminalHost
 
     public struct RulerInfo
     {
-        public long Id;
+        public long Id, KingdomId;
         public string Ruler, Realm, Kind, TakenBy;
         // 归在哪个天下、哪个帝国之下(独立的国 Empire 为空；不在任何天下里 Tianxia 为空)
         public string Tianxia, Empire;
@@ -729,7 +750,7 @@ public static partial class TerminalHost
             var lead = heart == null ? null : TianxiaSystem.LeadOf(heart);
             rulers.Add(new RulerInfo
             {
-                Id = kingdom.king.getID(), Ruler = kingdom.king.getName(), Realm = NameOf(kingdom), Kind = Role(kingdom),
+                Id = kingdom.king.getID(), KingdomId = kingdom.getID(), Ruler = kingdom.king.getName(), Realm = NameOf(kingdom), Kind = Role(kingdom),
                 Cities = kingdom.cities?.Count ?? 0, Age = kingdom.king.getAge(), TakenBy = taken == null ? null : SeatLabel(taken),
                 Tianxia = lead == null ? "" : TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), Empire = empire?.data?.name ?? ""
             });
@@ -937,7 +958,7 @@ public static partial class TerminalHost
         {
             ["loaded"] = true, ["v"] = Version, ["lang"] = LocalizedTextManager.instance?.language ?? "en", ["seat"] = SeatLabel(seat),
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent,
-            ["paused"] = global::Config.paused
+            ["paused"] = global::Config.paused, ["page"] = PageVersion()
         };
         if (seat.Ruler == null)
         {
@@ -948,7 +969,7 @@ public static partial class TerminalHost
             foreach (RulerInfo info in Rulers())
                 rulers.Add(new JObject
                 {
-                    ["id"] = info.Id.ToString(), ["ruler"] = info.Ruler, ["realm"] = info.Realm, ["kind"] = info.Kind,
+                    ["id"] = info.Id.ToString(), ["kid"] = info.KingdomId.ToString(), ["ruler"] = info.Ruler, ["realm"] = info.Realm, ["kind"] = info.Kind,
                     ["cities"] = info.Cities, ["age"] = info.Age, ["taken"] = info.TakenBy, ["tianxia"] = info.Tianxia,
                     ["empire"] = info.Empire, ["look"] = Look(World.world.units.get(info.Id))
                 });
@@ -1276,7 +1297,8 @@ public static partial class TerminalHost
             }
             cityAt[at] = cityIdx;
         }
-        int self = kingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
+        // 没君主的席位(选人时)：realm 为空，天下各国都算已知，不加迷雾
+        int self = realm != null && kingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
         // 朝廷还不该知道的叛军：它占的地在图上还算本国的
         if (self >= 0)
             foreach (long hiddenId in seat.Hidden)
@@ -1287,8 +1309,9 @@ public static partial class TerminalHost
 
         // 各国几等：0 本国、1 已知、2 传闻、3 不知
         var tier = new int[kingdoms.Count];
-        Empire empire = realm.GetEmpire();
+        Empire empire = realm?.GetEmpire();
         var enemies = new HashSet<Kingdom>();
+        if (realm != null)
         foreach (War war in realm.getWars())
         {
             if (war?.data == null || war.hasEnded()) continue;
@@ -1308,7 +1331,7 @@ public static partial class TerminalHost
             }
             if (i == self) tier[i] = 0;
             else if (kingdom?.data == null || kingdom.isRekt()) tier[i] = 3;
-            else if (seat.Sight == TerminalIntel.Sight.World || neighbours.Contains(i) || enemies.Contains(kingdom) ||
+            else if (realm == null || seat.Sight == TerminalIntel.Sight.World || neighbours.Contains(i) || enemies.Contains(kingdom) ||
                      empire != null && kingdom.GetEmpire() == empire) tier[i] = 1;
             else if (seat.Sight == TerminalIntel.Sight.Reach)
                 tier[i] = ConnectivitySystem.CanContact(realm, kingdom) == true ? 1
@@ -1388,7 +1411,7 @@ public static partial class TerminalHost
             // (用户 2026-11-12 "地图上也要能看到行政区的边界")
             if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && court == empire) row["prov"] = true;
             // 交战之敌：手机下令时它的城能去(同 FieldDecree 的判法)
-            if (i != self && kingdom?.data != null && realm.isInWarWith(kingdom)) row["war"] = true;
+            if (realm != null && i != self && kingdom?.data != null && realm.isInWarWith(kingdom)) row["war"] = true;
             realms.Add(row);
             sumX.Add(0f);
             sumY.Add(0f);
@@ -1440,7 +1463,7 @@ public static partial class TerminalHost
         if (charted)
             foreach (int cell in seat.Charted)
                 if (reach[cell] < 0) reach[cell] = 0;
-        if (seat.Sight != TerminalIntel.Sight.World) TerminalIntel.ApplyFog(cells, reach, keep, width, height);
+        if (realm != null && seat.Sight != TerminalIntel.Sight.World) TerminalIntel.ApplyFog(cells, reach, keep, width, height);
         for (int i = 0; i < realms.Count; i++)
         {
             realms[i]["n"] = count[i];
@@ -1480,7 +1503,7 @@ public static partial class TerminalHost
             ["tile"] = seat.MapTile, ["cities"] = shown, ["dejure"] = dejure, ["ts"] = seat.MapTs,
             ["zc"] = new JArray(Convert.ToBase64String(TerminalIntel.Rle(cityLow)), Convert.ToBase64String(TerminalIntel.Rle(cityHigh)))
         };
-        City capital = realm.capital;
+        City capital = realm?.capital;
         if (capital?.data != null && !capital.isRekt())
         {
             (double cx, double cy) = CellOf(seat, capital.city_center.x, capital.city_center.y);

@@ -341,7 +341,7 @@ public static partial class TerminalHost
         if (!WorldReady()) return;
         foreach (Seat seat in SeatByToken.Values)
         {
-            if (!seat.TerrainWant || seat.Ruler == null || seat.MapCells == null) continue;
+            if (!seat.TerrainWant || seat.MapCells == null) continue;
             seat.TerrainWant = false;
             try
             {
