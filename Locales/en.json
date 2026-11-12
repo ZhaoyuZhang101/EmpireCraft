@@ -12300,6 +12300,8 @@
   "mod_settings_card_terminal": "Terminal Mode",
   "terminal_mode_toggle": "Terminal Mode",
   "terminal_mode_toggle Description": "Opens a port on this computer so a phone browser can connect and follow reports, the map and the state of the realm as one ruler. Pairing code and seats are in the Terminal window.",
+  "terminal_lightweight_host_toggle": "Lightweight Host Mode",
+  "terminal_lightweight_host_toggle Description": "For a computer that only hosts the terminal: once the terminal is running and the world is loaded, close the windows and let the world run to stop local rendering and sound. The world keeps running and phones stay connected. Use the Restore button on the black screen, or press Ctrl+Shift+F10.",
   "Terminal_Speed_Text": "Terminal World Speed",
   "Terminal_Speed_Text Description": "While any seat holds a ruler, world time runs at this share of normal speed. Otherwise it is unchanged.",
   "Terminal_Port_Text": "Terminal Port",
@@ -12570,5 +12572,14 @@
   "terminal_trade_empty": "An exchange needs something to exchange: put terms on the scale first.",
   "terminal_term_vassal": "the vassal {0}",
   "terminal_term_title": "the title of {0}",
-  "terminal_term_corps": "{0} ({1} men)"
+  "terminal_term_corps": "{0} ({1} men)",
+  "terminal_light_note": "Local rendering and sound are off. The world keeps running and phones stay connected.",
+  "terminal_light_status": "Year {0}, month {1} · {2} fps",
+  "terminal_light_paused": "world paused",
+  "terminal_light_link": "Terminal {0} · pairing code {1} · {2} phones connected",
+  "terminal_light_restore": "Restore display",
+  "terminal_light_key": "or press Ctrl+Shift+F10",
+  "terminal_light_armed": "Lightweight host mode is on: close the windows and let the world run, and local rendering stops.",
+  "terminal_light_need_terminal": "Lightweight host mode only takes effect while terminal mode is on.",
+  "terminal_light_unavailable": "Lightweight host mode cannot hook into this game version and was turned off."
 }

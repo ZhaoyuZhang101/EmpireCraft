@@ -77,7 +77,7 @@ Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 # 要带的数据资源目录（模组运行时要读）
-$includeDirs = @("Locales","Technology","GameResources","InstitutionTrees","WorldMaps","Music","Assets","RegimeEditor")
+$includeDirs = @("Locales","Technology","GameResources","InstitutionTrees","WorldMaps","Music","Assets","RegimeEditor","Terminal")
 # 要带的顶层文件
 $includeFiles = @("mod.json","icon.png","default_config.json",
                   "ClaimRules.json","ConstitutionTemplates.json","IdeologyBureaus.json","ReligionTenets.json",
@@ -85,8 +85,18 @@ $includeFiles = @("mod.json","icon.png","default_config.json",
 
 foreach ($d in $includeDirs) {
     $src = Join-Path $Root $d
-    if (Test-Path $src) { Copy-Item $src $stage -Recurse -Force }
-    else { Warn "缺少数据目录（跳过）：$d" }
+    if (-not (Test-Path $src)) {
+        Warn "缺少数据目录（跳过）：$d"
+        continue
+    }
+    if ($d -eq "RegimeEditor") {
+        # 桌面编辑器的 npm 依赖和本机打包产物不随游戏模组分发。
+        $editorStage = Join-Path $stage $d
+        New-Item -ItemType Directory -Path $editorStage | Out-Null
+        Get-ChildItem -LiteralPath $src -Force | Where-Object { $_.Name -notin @("node_modules", "dist") } |
+            ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $editorStage -Recurse -Force }
+    }
+    else { Copy-Item $src $stage -Recurse -Force }
 }
 foreach ($f in $includeFiles) {
     $src = Join-Path $Root $f
@@ -102,6 +112,9 @@ $dlls = Get-ChildItem $stage -Filter *.dll
 if ($dlls.Count -ne 1) { throw "发布根目录出现了 $($dlls.Count) 个 dll（只应有 EmpireCraft.dll）：$($dlls.Name -join ', ')" }
 $leakedCs = Get-ChildItem $stage -Recurse -Filter *.cs -ErrorAction SilentlyContinue
 if ($leakedCs) { throw "发布包里混进了源码 .cs（$($leakedCs.Count) 个），已中止。请检查白名单。" }
+if (-not (Test-Path -LiteralPath (Join-Path $stage "Terminal/index.html") -PathType Leaf)) {
+    throw "发布包缺少终端网页 Terminal/index.html。"
+}
 
 # —— 4. 压包 ——
 $zip = Join-Path $OutputDir ("EmpireCraft-" + $version + ".zip")

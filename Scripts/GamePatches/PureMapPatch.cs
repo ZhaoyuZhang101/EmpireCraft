@@ -214,6 +214,7 @@ public partial class PureMapPatch : GamePatch
     // 纯净地图的各层(城市平面图、精细层、路网、城墙、标注)每帧跟着色块图层更新
     private static void AfterZoneAnimations(ZoneCalculator __instance)
     {
+        if (EmpireCraft.Scripts.Terminal.LightweightHostMode.SkipDrawing) return;
         if (__instance.sprRnd == null) return;
         // 无人区(用户 2026-10-29)：挂了法理的并进国土(见 WildernessTerritory)，类型色、边线、悬停提示(见 WildernessOverlay)，
         // 纯净地图开没开都要

@@ -105,7 +105,9 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.GeneralSystems.GcPacing.Tick();
         // 终端模式：给手机备状态、办手机发来的事(暂停时也走；没开时什么都不做)
         EmpireCraft.Scripts.Terminal.TerminalHost.Tick();
-        EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
+        EmpireCraft.Scripts.Terminal.LightweightHostMode.Tick();
+        if (!EmpireCraft.Scripts.Terminal.LightweightHostMode.SkipDrawing)
+            EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();
@@ -158,6 +160,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         if (!populationRan)
             using (FrameProfiler.Measure("后台·人口")) EmpireCraft.Scripts.GeneralSystems.CityPopulationSystem.TickFoldsOnly();
     }
+
+    private void OnDisable() => EmpireCraft.Scripts.Terminal.LightweightHostMode.Restore();
 
     public GameObject GetGameObject()
     {

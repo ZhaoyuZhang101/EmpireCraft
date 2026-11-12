@@ -384,6 +384,25 @@ internal static class FmodBridge
         if (Valid(channel)) Api.ChannelStop.Invoke(channel, null);
     }
 
+    // 整台机器的声音(原版的、模组自己放的都从主通道出去)：轻量主机模式停画面时一并静掉，恢复时还原(见 LightweightHostMode)。
+    // 声音引擎还没起来时不成：那边隔两秒再叫一回
+    private static float _masterBefore = -1f;
+
+    internal static void MuteMaster(bool mute)
+    {
+        if (!mute && _masterBefore < 0f) return;
+        if (!EnsureReady() || !Out1(Api.GetMasterChannelGroup, _core, out object master) || master == null) return;
+        if (mute)
+        {
+            if (_masterBefore >= 0f) return;
+            _masterBefore = Out1(Api.GroupGetVolume, master, out object now) && now is float value ? value : 1f;
+            Ok1(Api.GroupSetVolume, master, 0f);
+            return;
+        }
+        Ok1(Api.GroupSetVolume, master, _masterBefore);
+        _masterBefore = -1f;
+    }
+
     internal static void GroupVolume(object group, float volume)
     {
         if (_state == 2 && group != null) Ok1(Api.GroupSetVolume, group, volume);

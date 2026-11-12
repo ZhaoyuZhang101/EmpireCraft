@@ -12314,6 +12314,8 @@
   "mod_settings_card_terminal": "终端模式",
   "terminal_mode_toggle": "终端模式",
   "terminal_mode_toggle Description": "开启后在本机开一个端口，手机浏览器可连上来，以一位君主的身份看奏报、地图、国势。配对码与席位在「终端」窗口里。",
+  "terminal_lightweight_host_toggle": "轻量主机模式",
+  "terminal_lightweight_host_toggle Description": "这台电脑只当终端的主机用时打开：终端在跑、世界读完后，关掉窗口并让世界走起来，本机的画面和声音就停下，世界照常运行，手机终端照常使用。黑屏上有「恢复画面」的按钮，也可按 Ctrl+Shift+F10。",
   "Terminal_Speed_Text": "终端流速",
   "Terminal_Speed_Text Description": "有席位领着君主时，世界时间按这个比例放慢；没有席位领着君主时照常。",
   "Terminal_Port_Text": "终端端口",
@@ -12584,5 +12586,14 @@
   "terminal_trade_empty": "互换总得有东西换：先在天平上摆好条件。",
   "terminal_term_vassal": "属国{0}",
   "terminal_term_title": "{0}法理",
-  "terminal_term_corps": "{0}（{1} 人）"
+  "terminal_term_corps": "{0}（{1} 人）",
+  "terminal_light_note": "本机的画面和声音已停，世界照常运行，手机终端照常使用。",
+  "terminal_light_status": "第 {0} 年 {1} 月 · 每秒 {2} 帧",
+  "terminal_light_paused": "世界暂停中",
+  "terminal_light_link": "终端 {0} · 配对码 {1} · {2} 部手机连着",
+  "terminal_light_restore": "恢复画面",
+  "terminal_light_key": "或按 Ctrl+Shift+F10",
+  "terminal_light_armed": "轻量主机模式已开：关掉窗口、世界走起来后，本机画面就停。",
+  "terminal_light_need_terminal": "轻量主机模式要终端模式开着才起作用。",
+  "terminal_light_unavailable": "这一版游戏接不上轻量主机模式，已关掉。"
 }

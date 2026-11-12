@@ -148,6 +148,10 @@ namespace EmpireCraft.Scripts.Data
             EmpireCraft.Scripts.Terminal.TerminalHost.Enabled = on;
             EmpireCraft.Scripts.Terminal.TerminalHost.Kick();
         }
+        public static void TerminalLightweightHostCallBack(bool on)
+        {
+            EmpireCraft.Scripts.Terminal.LightweightHostMode.Enabled = on;
+        }
         public static void TerminalPortCallBack(string text)
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.Port = SettlementValue(text, 8765, 1024, 65535);

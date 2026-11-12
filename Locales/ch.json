@@ -12306,6 +12306,8 @@
   "mod_settings_card_terminal": "終端模式",
   "terminal_mode_toggle": "終端模式",
   "terminal_mode_toggle Description": "開啟後在本機開一個連接埠，手機瀏覽器可連上來，以一位君主的身份看奏報、地圖、國勢。配對碼與席位在「終端」視窗裡。",
+  "terminal_lightweight_host_toggle": "輕量主機模式",
+  "terminal_lightweight_host_toggle Description": "這台電腦只當終端的主機用時打開：終端在跑、世界讀完後，關掉視窗並讓世界走起來，本機的畫面和聲音就停下，世界照常運行，手機終端照常使用。黑屏上有「恢復畫面」的按鈕，也可按 Ctrl+Shift+F10。",
   "Terminal_Speed_Text": "終端流速",
   "Terminal_Speed_Text Description": "有席位領著君主時，世界時間按這個比例放慢；沒有席位領著君主時照常。",
   "Terminal_Port_Text": "終端連接埠",
@@ -12576,5 +12578,14 @@
   "terminal_trade_empty": "互換總得有東西換：先在天平上擺好條件。",
   "terminal_term_vassal": "屬國{0}",
   "terminal_term_title": "{0}法理",
-  "terminal_term_corps": "{0}（{1} 人）"
+  "terminal_term_corps": "{0}（{1} 人）",
+  "terminal_light_note": "本機的畫面和聲音已停，世界照常運行，手機終端照常使用。",
+  "terminal_light_status": "第 {0} 年 {1} 月 · 每秒 {2} 幀",
+  "terminal_light_paused": "世界暫停中",
+  "terminal_light_link": "終端 {0} · 配對碼 {1} · {2} 部手機連著",
+  "terminal_light_restore": "恢復畫面",
+  "terminal_light_key": "或按 Ctrl+Shift+F10",
+  "terminal_light_armed": "輕量主機模式已開：關掉視窗、世界走起來後，本機畫面就停。",
+  "terminal_light_need_terminal": "輕量主機模式要終端模式開著才起作用。",
+  "terminal_light_unavailable": "這一版遊戲接不上輕量主機模式，已關掉。"
 }
