@@ -91,6 +91,8 @@ public static partial class TerminalHost
     }
 
     // ───────── 世系 ─────────
+    // 世系、族谱里各格的编号一律当字发(用户 2026-11-13 世系图"共 19 位只看到 3 个"、朱由检挂在朱由榔底下、族谱"查不到几代人")：
+    // 族中人的编号是 18 位上下的大数，手机网页里的数只准到十六七位，末几位一舍入，明朝十七位皇帝撞成了同一个编号，互相顶掉
     private sealed class Kin
     {
         public PersonalClanIdentity Person;
@@ -123,6 +125,18 @@ public static partial class TerminalHost
             all = all.Where(found => !found.is_republic).ToList();
             foreach (EmpireCraftHistory reign in all)
                 reigns.Add((reign.id > 0 ? SpecificClanManager.PersonByActorId(reign.id) : null, reign, reign.emperor ?? ""));
+            // 史册记的人对不上的(剧本写的先帝、同一位君主两度在位)：照游戏里的世系窗口(DynastyLineageWindow.Draw)按名字认，重名的不认
+            var unnamed = new HashSet<string>(reigns.Where(found => found.person == null && !string.IsNullOrWhiteSpace(found.name)).Select(found => found.name));
+            if (unnamed.Count > 0)
+            {
+                var byName = new Dictionary<string, PersonalClanIdentity>();
+                foreach (PersonalClanIdentity identity in SpecificClanManager._globalPersonLookup.Values)
+                    if (identity?.name != null && unnamed.Contains(identity.name))
+                        byName[identity.name] = byName.ContainsKey(identity.name) ? null : identity;
+                for (int i = 0; i < reigns.Count; i++)
+                    if (reigns[i].person == null && byName.TryGetValue(reigns[i].name, out PersonalClanIdentity named) && named != null)
+                        reigns[i] = (named, reigns[i].reign, reigns[i].name);
+            }
             // 只有一朝的照朝代叫，换过朝代的照国号叫
             List<string> dynasties = all.Select(DynastyOf).Distinct().ToList();
             title = string.Format(LM.Get("lineage_chart_title"), dynasties.Count == 1 ? dynasties[0] : NameOf(seat.Realm));
@@ -155,13 +169,16 @@ public static partial class TerminalHost
 
         var kin = new Dictionary<long, Kin>();
         var order = new List<Kin>();
+        var reignKin = new List<Kin>();
         for (int i = 0; i < reigns.Count; i++)
         {
             (PersonalClanIdentity person, EmpireCraftHistory reign, _) = reigns[i];
             if (person == null)
             {
                 // 族谱里对不上的(剧本写的先帝)：单独一格
-                order.Add(new Kin { Reign = reign, Order = i, Id = -(i + 1) });
+                var loose = new Kin { Reign = reign, Order = i, Id = -(i + 1) };
+                order.Add(loose);
+                reignKin.Add(loose);
                 continue;
             }
             List<PersonalClanIdentity> chain = chains[i];
@@ -177,14 +194,25 @@ public static partial class TerminalHost
                     node = kin[member.id] = new Kin { Person = member, Id = member.id };
                     order.Add(node);
                 }
-                if (at == 0)
+                if (at == 0 && (node.Order < 0 || reign != null && reign == empire?.data?.currentHistory))
                 {
                     node.Reign = reign;
                     node.Order = i;
                 }
+                if (at == 0) reignKin.Add(node);
                 if (at < top) node.Parent = chain[at + 1].id;
             }
         }
+        // 前后两代君主不在同一棵树上(查不到血缘)：画一条继位线，同游戏里的世系窗口
+        Kin RootOf(Kin node)
+        {
+            for (int guard = 0; guard < 200 && node.Parent > 0 && kin.TryGetValue(node.Parent, out Kin up); guard++) node = up;
+            return node;
+        }
+        var succession = new JArray();
+        for (int i = 1; i < reignKin.Count; i++)
+            if (reignKin[i - 1] != reignKin[i] && RootOf(reignKin[i - 1]) != RootOf(reignKin[i]))
+                succession.Add(new JArray(reignKin[i - 1].Id.ToString(), reignKin[i].Id.ToString()));
 
         PersonalClanIdentity mine = seat.Ruler.GetPersonalIdentity();
         var nodes = new JArray();
@@ -194,7 +222,8 @@ public static partial class TerminalHost
             bool reigning = empire != null ? node.Reign != null && node.Reign == empire.data?.currentHistory : node.Person != null && node.Person == mine;
             var item = new JObject
             {
-                ["id"] = node.Id, ["parent"] = node.Parent > 0 ? node.Parent : null,
+                // 编号当字发(见上头「世系」一节开头)
+                ["id"] = node.Id.ToString(), ["parent"] = node.Parent > 0 ? node.Parent.ToString() : null,
                 ["name"] = TerminalIntel.Strip(node.Person?.name ?? node.Reign?.emperor ?? ""),
                 ["title"] = TerminalIntel.Strip(LineTitle(node, empire, reigning, index)),
                 ["ruler"] = node.Order >= 0, ["alive"] = node.Person?.is_alive ?? reigning,
@@ -215,8 +244,8 @@ public static partial class TerminalHost
         }
         return new JObject
         {
-            ["title"] = title, ["sum"] = string.Format(LM.Get("lineage_chip_total"), reigns.Count), ["nodes"] = nodes,
-            ["focus"] = mine != null && kin.ContainsKey(mine.id) ? mine.id : order.LastOrDefault(found => found.Order >= 0)?.Id
+            ["title"] = title, ["sum"] = string.Format(LM.Get("lineage_chip_total"), reigns.Count), ["nodes"] = nodes, ["succ"] = succession,
+            ["focus"] = mine != null && kin.ContainsKey(mine.id) ? mine.id.ToString() : order.LastOrDefault(found => found.Order >= 0)?.Id.ToString()
         };
     }
 
@@ -363,7 +392,7 @@ public static partial class TerminalHost
             if (person != self) Line(lines, "terminal_an_kin", LineageKinship.Term(self, person));
             nodes.Add(new JObject
             {
-                ["id"] = person.id, ["parent"] = parentOf.TryGetValue(person.id, out long parent) ? parent : null,
+                ["id"] = person.id.ToString(), ["parent"] = parentOf.TryGetValue(person.id, out long parent) ? parent.ToString() : null,
                 ["name"] = TerminalIntel.Strip(person.name ?? ""), ["title"] = TerminalIntel.Strip(person == self ? LM.Get("terminal_an_self") : ShortPost(person)),
                 ["years"] = AgeText(person), ["ruler"] = crowned.Contains(person.actor_id), ["alive"] = person.is_alive,
                 ["self"] = person == self, ["detail"] = lines, ["look"] = LookOf(seat, person, crowned.Contains(person.actor_id))
@@ -374,7 +403,7 @@ public static partial class TerminalHost
         {
             ["title"] = clan?.GetDisplayName() ?? LM.Get("terminal_an_clan"),
             ["sum"] = string.Format(LM.Get("terminal_an_members"), members.Count, living),
-            ["nodes"] = nodes, ["focus"] = self.id
+            ["nodes"] = nodes, ["focus"] = self.id.ToString()
         };
     }
 
