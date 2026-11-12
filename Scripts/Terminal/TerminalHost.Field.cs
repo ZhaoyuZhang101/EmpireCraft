@@ -127,7 +127,8 @@ public static partial class TerminalHost
                     if (!landAt.TryGetValue(lead.id, out int at))
                     {
                         landAt[lead.id] = at = lands.Count;
-                        lands.Add(new JObject { ["name"] = TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? "") });
+                        // 天下的颜色照游戏里的天下图层(TianxiaMap)
+                        lands.Add(new JObject { ["name"] = TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), ["color"] = TianxiaMap.HexOf(lead) });
                     }
                     row["dt"] = at;
                 }
