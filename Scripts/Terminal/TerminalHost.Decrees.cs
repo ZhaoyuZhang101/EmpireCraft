@@ -321,6 +321,12 @@ public static partial class TerminalHost
         return new JObject
         {
             ["groups"] = groups, ["pending"] = pending, ["orders"] = orders, ["home"] = HomeMonths(seat),
+            // 遣官彻查：派得出去的官员(见 TerminalHost.Audit)
+            ["audit"] = AuditJson(seat),
+            // 考课：各官的硬数与被参的记录(见 TerminalHost.Review)
+            ["review"] = ReviewJson(seat),
+            // 查账：到哪一步、封存着的账册(见 TerminalHost.Books)
+            ["books"] = BooksJson(seat),
             // 探路、购舆图眼下各要多少库银(见 TerminalHost.Survey)
             ["survey"] = new JObject
             {
@@ -371,6 +377,8 @@ public static partial class TerminalHost
             SpeedDecree(seat, id, target, choice);
             return;
         }
+        // 查账里当场办的：抽查、问责、结案(见 TerminalHost.Books)
+        if (BooksDecree(seat, id, target)) return;
         if (id == "memorial")
         {
             // 批红：皇帝就在宫里，当场生效
@@ -448,6 +456,14 @@ public static partial class TerminalHost
             made.Kind = "abdicate";
             made.Target = successorId;
             made.Text = string.Format(LM.Get("terminal_order_abdicate"), successor.getName());
+        }
+        else if (id == "books_open")
+        {
+            if (!BooksOrder(seat, made, choice)) return;
+        }
+        else if (id == "audit")
+        {
+            if (!AuditOrder(seat, made, target, choice)) return;
         }
         else if (id == "prov_create" || id == "prov_dissolve" || id == "prov_move")
         {
@@ -776,6 +792,10 @@ public static partial class TerminalHost
                 seat.Abdicated = true;
                 return null;
             }
+            case "audit":
+                return AuditExecute(seat, realm, order);
+            case "books_open":
+                return BooksExecute(seat, realm, order);
             case "prov_create":
             case "prov_dissolve":
             case "prov_move":

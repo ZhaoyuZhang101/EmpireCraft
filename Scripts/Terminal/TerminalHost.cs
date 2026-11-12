@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 14;
+    public const int Version = 15;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -56,6 +56,8 @@ public static partial class TerminalHost
         public double At;
         public int DueMonth, Late;
         public bool Own;
+        // 这道奏报说的是哪座城(岁入见少的那座，手机上点它可以遣官彻查，见 TerminalHost.Audit)
+        public long City;
     }
 
     // 一部配过对的手机
@@ -73,6 +75,23 @@ public static partial class TerminalHost
         internal readonly List<string> KnownNames = new();
         internal readonly List<Report> Reports = new(), Pending = new();
         internal int Lost, LedgerYear = int.MinValue;
+        // 考课与弹章(见 TerminalHost.Review)：近三年的弹章、上回是哪一季看的、各官头一回见到是哪个月、
+        // 各城上缴与积弊的两年之数(上年、前年)、查过的记号
+        internal readonly List<Charge> Charges = new();
+        internal int ChargeQuarter = int.MinValue;
+        internal readonly Dictionary<long, int> Tenure = new();
+        internal readonly Dictionary<long, (long last, long prev)> RemitYears = new();
+        internal readonly Dictionary<long, (double last, double prev)> CorrYears = new();
+        internal readonly Dictionary<long, (int at, string kind)> Marks = new();
+        // 查账(见 TerminalHost.Books)：封存着的账册、哪个月起才能再查；哪些城的账眼下照实报(查账问责过、彻查查实过，记的是哪个月)
+        internal BookCase Books;
+        internal int BooksNext;
+        internal readonly Dictionary<long, int> TrueBooks = new();
+        // 半年财报(见 TerminalHost.Fiscal)：最近几份(新的在前)、上回是哪半年出的
+        internal readonly List<JObject> Fiscals = new();
+        internal int FiscalHalf = int.MinValue;
+        // 上年各城的岁入(每年岁计时记一回，见 TaxWatch)
+        internal readonly Dictionary<long, long> CityIncome = new();
         internal long LedgerTreasury, LedgerPeople, LedgerArmy;
         internal volatile string StateJson, MapJson;
         // 第二期(见 TerminalHost.Decrees.cs)：下了还没办结的命令、待批的案子、等着批红的奏议
@@ -164,6 +183,18 @@ public static partial class TerminalHost
             DecreesCache = null;
             NextDecrees = 0f;
             LedgerYear = int.MinValue;
+            CityIncome.Clear();
+            Fiscals.Clear();
+            Books = null;
+            BooksNext = 0;
+            Charges.Clear();
+            ChargeQuarter = int.MinValue;
+            Tenure.Clear();
+            RemitYears.Clear();
+            CorrYears.Clear();
+            Marks.Clear();
+            TrueBooks.Clear();
+            FiscalHalf = int.MinValue;
             NextSight = NextState = 0f;
             MapJson = null;
             MapCells = null;
@@ -446,6 +477,9 @@ public static partial class TerminalHost
                     seat.Corruption = CorruptionSystem.GetRate(seat.Realm);
                     seat.Sight = TerminalIntel.SightOf(EmpireLawSystem.GetEraTier(seat.Realm), HasTelegraph(seat.Realm));
                     Ledger(seat);
+                    RunFiscal(seat);
+                    RunBooks(seat);
+                    RunReview(seat);
                     Deliver(seat);
                     RunOrders(seat);
                     RunCases(seat);
@@ -804,7 +838,7 @@ public static partial class TerminalHost
         }
     }
 
-    private static void Add(Seat seat, string text, bool own, bool major, string kind)
+    private static void Add(Seat seat, string text, bool own, bool major, string kind, long city = 0L)
     {
         long id = ++_seq;
         uint seed = TerminalIntel.Hash(id, seat.Realm.getID(), MonthNow());
@@ -824,7 +858,7 @@ public static partial class TerminalHost
         seat.Pending.Add(new Report
         {
             Id = id, Text = text, Kind = major ? "major" : kind, At = World.world.getCurWorldTime(), DueMonth = MonthNow() + late,
-            Late = late, Own = own
+            Late = late, Own = own, City = city
         });
     }
 
@@ -860,6 +894,10 @@ public static partial class TerminalHost
             Add(seat, string.Format(LM.Get("terminal_ledger"), treasury, Signed(treasury - seat.LedgerTreasury), people,
                 Signed(people - seat.LedgerPeople), army, Signed(army - seat.LedgerArmy)), true, false, "ledger");
         if (seat.LedgerYear != int.MinValue) FalseReport(seat, year);
+        // 各城岁入同上年比，少得多的报上来(见 TerminalHost.Audit)
+        TaxWatch(seat, seat.LedgerYear != int.MinValue);
+        // 考课用的年数：各城这一年的上缴与积弊(见 TerminalHost.Review)
+        ReviewSnapshot(seat);
         seat.LedgerYear = year;
         seat.LedgerTreasury = treasury;
         seat.LedgerPeople = people;
@@ -948,15 +986,24 @@ public static partial class TerminalHost
         state["away"] = AwayJson(seat);
         state["cities"] = Cities(seat);
         state["provinces"] = Provinces(seat);
+        // 半年财报：最新一份与上一份(手机上对着看)
+        state["fiscal"] = new JArray(seat.Fiscals.Take(2));
+        state["fiscalTrend"] = FiscalTrend(seat);
         var reports = new JArray();
         for (int i = seat.Reports.Count - 1; i >= 0 && reports.Count < 80; i--)
         {
             Report report = seat.Reports[i];
-            reports.Add(new JObject
+            var row = new JObject
             {
                 ["id"] = report.Id, ["text"] = report.Text, ["kind"] = report.Kind, ["own"] = report.Own, ["late"] = report.Late,
                 ["year"] = Date.getYear(report.At), ["month"] = Date.getMonth(report.At)
-            });
+            };
+            if (report.City > 0)
+            {
+                row["city"] = report.City.ToString();
+                row["cityName"] = World.world.cities.get(report.City)?.data?.name ?? "";
+            }
+            reports.Add(row);
         }
         state["reports"] = reports;
         return state;
@@ -1016,7 +1063,9 @@ public static partial class TerminalHost
                      .Take(MaxProvinces).ToList())
         {
             bool jimi = JimiSystem.IsJimiAdministration(member);
-            string kind = jimi ? "jimi" : member.IsAdministrativeKingdomType() || !Hereditary(member) ? "province" : "fief";
+            // 世袭的军府(藩镇)单算一类：它算行政区的类型，却是世袭的
+            bool garrison = !jimi && EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.IsHereditaryGarrison(member, member.GetRegime());
+            string kind = jimi ? "jimi" : garrison ? "garrison" : member.IsAdministrativeKingdomType() || !Hereditary(member) ? "province" : "fief";
             var rows = new JArray();
             long people = 0;
             List<City> cities = (member.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt()).ToList();
