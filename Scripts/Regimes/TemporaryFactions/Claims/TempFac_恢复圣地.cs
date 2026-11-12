@@ -47,7 +47,8 @@ public class TempFac_恢复圣地 : TemporaryFaction
                                         !actor.isKing() && !CityPopulationSystem.IsVehicle(actor);
         Actor founder = Fit(city.leader) ? city.leader : city.units?.FirstOrDefault(Fit);
         if (founder == null) return null;
-        var kingdom = city.makeOwnKingdom(founder);
+        // 立国即入帝国：受命立国，不许自立的闸放行(见 SecessionGate)
+        var kingdom = SecessionGate.Sanctioned(() => city.makeOwnKingdom(founder));
         if (kingdom == null) return null;
         empire.join(kingdom, pForce:true);
         KingdomTitle title = city.GetTitle();

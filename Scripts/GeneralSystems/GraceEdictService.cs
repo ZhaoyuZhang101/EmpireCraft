@@ -92,7 +92,8 @@ public static class GraceEdictService
     private static bool CreateCityFief(Empire empire, Regime parentRegime, City city, Actor son)
     {
         if (city == null || city.isRekt() || EnfeoffmentHelper.IsRealmCapital(city)) return false;
-        Kingdom cityFief = city.makeOwnKingdom(son);
+        // 推恩：受命立国，不许自立的闸放行(见 SecessionGate)
+        Kingdom cityFief = SecessionGate.Sanctioned(() => city.makeOwnKingdom(son));
         if (cityFief == null) return false;
         cityFief.SetRegimeType(parentRegime.type);
         cityFief.LoadRegime();

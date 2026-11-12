@@ -128,6 +128,13 @@ public class CityPatch : GamePatch
             prefix: new HarmonyMethod(GetType(), nameof(makeOwnKingdom))
         );
 
+        // 原版激励掉落(神力)让城当场自立再开战：算神力，不许自立的闸放行(见 SecessionGate)
+        new Harmony(nameof(BeforeInspire)).Patch(
+            AccessTools.Method(typeof(City), nameof(City.useInspire)),
+            prefix: new HarmonyMethod(GetType(), nameof(BeforeInspire)),
+            finalizer: new HarmonyMethod(GetType(), nameof(AfterInspire))
+        );
+
         new Harmony(nameof(addZone)).Patch(
             AccessTools.Method(typeof(City), nameof(City.addZone)),
             prefix: new HarmonyMethod(GetType(), nameof(addZone))
@@ -1153,11 +1160,26 @@ public class CityPatch : GamePatch
         }
     }
 
+    public static void BeforeInspire() => EmpireCraft.Scripts.GeneralSystems.SecessionGate.EnterGod();
+
+    public static Exception AfterInspire(Exception __exception)
+    {
+        EmpireCraft.Scripts.GeneralSystems.SecessionGate.ExitGod();
+        return __exception;
+    }
+
     public static bool makeOwnKingdom(City __instance, Actor pActor, bool pRebellion, bool pFellApart, ref Kingdom __result)
     {
         if (EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(__instance)) return true;
         if (__instance == null || pActor == null)
         {
+            return false;
+        }
+        // 不许自立(见 SecessionGate)：开关开着时城不自立成新国，调用方本来就判空；受命立国、神力、剧本照常
+        if (EmpireCraft.Scripts.GeneralSystems.SecessionGate.Forbids("立国",
+                $"{__instance.data?.name}(属 {__instance.kingdom?.data?.name})"))
+        {
+            __result = null;
             return false;
         }
         // 非文明单位不能当建国者：换城里一个文明居民，找不到就不建

@@ -216,6 +216,8 @@ public static class EmirateSystem
     // 正统 PeacefulLegitimacy(65)以上和平脱离(朝贡、附庸或自立)，不到 65 举兵自立
     private static bool Secede(Empire empire, Kingdom kingdom, int legitimacy, float chance)
     {
+        // 不许自立(见 SecessionGate)：和平脱离也不走(不记叛离，Empire.leave 那道门拦不到)
+        if (SecessionGate.Forbids("埃米尔脱离", kingdom.GetKingdomName())) return false;
         string name = kingdom.GetKingdomName(), emir = kingdom.king?.getName() ?? "", realm = empire.GetEmpireName();
         Kingdom core = empire.CoreKingdom;
         try

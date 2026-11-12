@@ -270,7 +270,9 @@ public static class EmpireCraftWorldLawLibrary
         // 禁止叛乱(默认关)：开了以后一场叛乱都不起——苛政民变、民族独立、土崩瓦解、革命滚雪球、朝局逼反、宗教叛乱、
         // 军阀自立、拥兵自立、藩王索位全停(闸在 RebellionSystem.RebellionsBanned；两个起事入口
         // KingdomExtension.StartLocalRebelling / StartFactionRebelling 另各有一道兜底)。
-        // 给剧本作者用：地图还没铺开时先冻住内乱，铺完再关掉。已经打起来的叛乱不会因此收场
+        // 给剧本作者用：地图还没铺开时先冻住内乱，铺完再关掉。已经打起来的叛乱不会因此收场。
+        // 2026-11-12 起开着时也不许自立(城自成新国、成员叛离帝国，见 SecessionGate)；「禁止AI外交」「禁止AI宣战」开着、
+        // 原版「外交」「叛乱」关着时同样如此
         AssetManager.world_laws_library.add(empirecraft_law_ban_rebellion = new WorldLawAsset()
         {
             id = nameof(empirecraft_law_ban_rebellion),
@@ -286,7 +288,8 @@ public static class EmpireCraftWorldLawLibrary
             icon_path = "ui/icons/iconKingdom",
             default_state = false
         });
-        // 禁止AI宣战(默认关)：AI 不再主动宣战(模组经 WarGate.CanDeclare，原版经 WarTargetPatch)；正在打的仗照打完
+        // 禁止AI宣战(默认关)：AI 不再主动宣战(模组经 WarGate.CanDeclare，原版经 WarTargetPatch)；正在打的仗照打完。
+        // 开着时也不许自立、不起事(见 SecessionGate)
         AssetManager.world_laws_library.add(empirecraft_law_ban_ai_war = new WorldLawAsset()
         {
             id = nameof(empirecraft_law_ban_ai_war),

@@ -106,6 +106,8 @@ public static class EmpireBankruptcySystem
         bool cityLevel = TreasurySystem.Enabled(core);
         // 开国气象(统一战争期间、统一后三十年)财政再难也不解体(见 UnificationSystem)
         if (UnificationSystem.InGrace(core)) return;
+        // 不许自立(见 SecessionGate)：亏空不离心(先离开后开战，Empire.leave 那道门拦不到)
+        if (SecessionGate.Forbids("亏空自立", empire.GetEmpireName())) return;
         float chance = Mathf.Min(MaxChance, BaseChance + ChancePerYear * years);
         List<Kingdom> rebels = RebellionSnowballSystem.FindRebels(empire, core).ToList();
         // 新入帝国十年内、神力拉入未满期的不因亏空离去(见 MembershipCooldown)

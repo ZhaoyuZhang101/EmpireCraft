@@ -114,9 +114,10 @@ public static class PuppetStateSystem
         if (master?.data == null || master.isRekt() || seat?.data == null || seat.isRekt() || leader?.data == null || leader.isRekt()) return null;
         Detach(leader);
         if (leader.city != seat) leader.joinCity(seat);
-        Kingdom puppet = seat.makeOwnKingdom(leader, pRebellion: false);
+        // 立傀儡(占领、剧本)：受命立国，不许自立的闸放行(见 SecessionGate)
+        Kingdom puppet = SecessionGate.Sanctioned(() => seat.makeOwnKingdom(leader, pRebellion: false));
         if (puppet?.data == null) return null;
-        if (puppet.IsInEmpire()) puppet.GetEmpire()?.leave(puppet, true, true);
+        if (puppet.IsInEmpire()) SecessionGate.Sanctioned(() => puppet.GetEmpire()?.leave(puppet, true, true));
         if (CultureService.IsValidCulture(culture)) RealmCultureSystem.Convert(puppet, culture, wholeEmpire: false);
         else CultureService.ApplyLocalCulture(puppet, seat);
         puppet.ClearAdministrativeTitle();

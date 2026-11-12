@@ -210,7 +210,8 @@ public static class ScenarioEventSystem
             try
             {
                 if (!(item.when ?? new List<WorldMapEventStep>()).All(Holds)) continue;
-                List<int> failed = Fire(item, pending);
+                // 剧本写好的起兵、立国照常(不许自立的闸放行，见 SecessionGate)
+                List<int> failed = SecessionGate.Scenario(() => Fire(item, pending));
                 if (!item.repeat && failed.Count > 0) _state.retry[i] = failed;
                 else _state.retry.Remove(i);
                 if (!fired) _state.fired.Add(i);

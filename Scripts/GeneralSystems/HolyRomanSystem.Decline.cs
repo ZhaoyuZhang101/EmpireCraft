@@ -177,6 +177,8 @@ public static partial class HolyRomanSystem
 
     private static void TryProtectorLeague(Empire empire, HolyRomanState state)
     {
+        // 不许自立(见 SecessionGate)：诸侯不投外国保护者
+        if (SecessionGate.Forbids()) return;
         (Kingdom protector, List<Kingdom> departing) = FindProtector(empire, state);
         if (protector == null) return;
         double now = World.world.getCurWorldTime();

@@ -280,6 +280,8 @@ public static partial class GentrySystem
     // 据城自守：族中名望最高的人(实体优先，没有把郡望之城的虚拟族人落成实体)据郡望之城自立
     private static bool Autonomy(SpecificClan clan, City seat, string key)
     {
+        // 不许自立(见 SecessionGate)：立国前先动了城主，在这里先问
+        if (SecessionGate.Forbids()) return false;
         if (seat?.kingdom == null || seat.kingdom.capital == seat) return false;
         Kingdom former = seat.kingdom;
         List<PersonalClanIdentity> living = clan.LivingPeople;

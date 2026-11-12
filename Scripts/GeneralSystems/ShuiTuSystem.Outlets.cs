@@ -289,6 +289,8 @@ public static partial class ShuiTuSystem
             {
                 List<City> own = member.cities?.Where(Valid).ToList() ?? new List<City>();
                 if (own.Count == 0 || own.Count(IsDryCity) * 2 >= own.Count) continue;
+                // 不许自立(见 SecessionGate)：农地成员不脱离(不记叛离，Empire.leave 那道门拦不到)
+                if (SecessionGate.Forbids("北归脱离", member.data?.name)) continue;
                 empire.leave(member);
                 left++;
             }

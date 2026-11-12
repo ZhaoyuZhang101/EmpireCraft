@@ -24,7 +24,9 @@ public static class CreateProvinceButton
             if (pTile.zone_city.kingdom.IsEmpire())
             {
                 Empire empire = pTile.zone_city.kingdom.GetEmpire();
-                Kingdom kingdom = pTile.zone_city.makeOwnKingdom(pTile.zone_city?.leader??pTile.zone_city?.units.GetRandom());
+                // 神力设省：不许自立的闸放行(见 SecessionGate)
+                Kingdom kingdom = EmpireCraft.Scripts.GeneralSystems.SecessionGate.Sanctioned(() =>
+                    pTile.zone_city.makeOwnKingdom(pTile.zone_city?.leader??pTile.zone_city?.units.GetRandom()));
                 if (kingdom != null)
                 {
                     // 神力设的省：十五年内不因离心自行离开(见 MembershipCooldown)

@@ -281,7 +281,8 @@ public static partial class TerminalHost
                 if (!Grantable(seat, head) || kind == "fief" && head == realm.GetHeir()) return LM.Get("terminal_fail_prov_person");
                 if (kind == "garrison" && realm.GetRegime()?.type != RegimeType.LvLing) return LM.Get("terminal_fail_prov");
             }
-            Kingdom province = seatCity.makeOwnKingdom(head);
+            // 终端分省、分封：受命立国，不许自立的闸放行(见 SecessionGate)
+            Kingdom province = SecessionGate.Sanctioned(() => seatCity.makeOwnKingdom(head));
             if (province == null) return LM.Get("terminal_fail_prov");
             for (int i = 1; i < picked.Count; i++)
                 if (picked[i].kingdom == realm) picked[i].joinAnotherKingdom(province);

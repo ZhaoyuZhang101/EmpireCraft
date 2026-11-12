@@ -374,7 +374,8 @@ public static class ImperialLegitimacyChallengeService
                 .FirstOrDefault(city => city != null && !city.isRekt());
             if (retirementCity != null)
             {
-                retirementKingdom = retirementCity.makeOwnKingdom(formerEmperor);
+                // 失位之君退守一城(帝号之争收场)：不许自立的闸放行(见 SecessionGate)
+                retirementKingdom = SecessionGate.Sanctioned(() => retirementCity.makeOwnKingdom(formerEmperor));
                 retirementKingdom?.setCapital(retirementCity);
             }
         }

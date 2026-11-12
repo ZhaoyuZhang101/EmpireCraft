@@ -250,6 +250,8 @@ public static class NomadCycleSystem
     public static bool DeclareIndependence(Kingdom kingdom, Empire empire, string reasonKey)
     {
         if (kingdom?.data == null || kingdom.isRekt() || empire?.CoreKingdom == null || kingdom.capital == null) return false;
+        // 不许自立(见 SecessionGate)：先开战后离开，要在开战前问
+        if (EmpireCraft.Scripts.GeneralSystems.SecessionGate.Forbids("据地自立", kingdom.GetKingdomName())) return false;
         RebellionCauseData cause = RebellionSystem.Capture(kingdom, kingdom.capital, reasonKey);
         War war = DiplomacyHelpers.wars.newWar(kingdom, empire.CoreKingdom, WarTypeLibrary.normal);
         if (war == null) return false;
@@ -281,6 +283,8 @@ public static class NomadCycleSystem
     public static bool CollapseDue(Empire empire)
     {
         if (!IsKhanate(empire) || World.world == null || empire.Legitimacy >= CollapseLegitimacy) return false;
+        // 不许自立(见 SecessionGate)：换汗不崩解
+        if (EmpireCraft.Scripts.GeneralSystems.SecessionGate.Forbids("汗国崩解", empire.GetEmpireName())) return false;
         Kingdom core = empire.CoreKingdom;
         if (core == null || RulerTraitSystem.FounderShield(core)) return false;
         if (SchismSystem.StageOf(empire) != SchismSystem.Contest) return true;
@@ -374,6 +378,8 @@ public static class NomadCycleSystem
     public static void UlusDrift(Empire empire)
     {
         if (!IsKhanate(empire) || World.world == null) return;
+        // 不许自立(见 SecessionGate)：兀鲁思不离心
+        if (EmpireCraft.Scripts.GeneralSystems.SecessionGate.Forbids()) return;
         double now = World.world.getCurWorldTime();
         if (DriftYear.TryGetValue(empire.id, out double last) && now >= last && Date.getYearsSince(last) < 1) return;
         DriftYear[empire.id] = now;

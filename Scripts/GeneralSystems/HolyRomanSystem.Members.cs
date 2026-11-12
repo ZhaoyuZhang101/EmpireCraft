@@ -119,7 +119,8 @@ public static partial class HolyRomanSystem
     private static Kingdom SpinOff(Empire empire, City city, Actor ruler, LeaderSelectMethod method, int estate)
     {
         if (ruler.city != city) ruler.joinCity(city);
-        Kingdom realm = city.makeOwnKingdom(ruler);
+        // 立为帝国成员：受命立国，不许自立的闸放行(见 SecessionGate)
+        Kingdom realm = SecessionGate.Sanctioned(() => city.makeOwnKingdom(ruler));
         if (realm?.data == null) return null;
         realm.SetRegimeType(RegimeType.Feudalism);
         realm.LoadRegime();

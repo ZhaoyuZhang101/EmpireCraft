@@ -791,6 +791,8 @@ public static class ZhouEraSystem
     // 三家分晋：六城以上的大国，国君年幼或年老时更易被权臣瓜分为三
     private static bool TryPartition(Empire empire, ZhouEraState state, Kingdom vassal)
     {
+        // 不许自立(见 SecessionGate)：权臣不瓜分
+        if (SecessionGate.Forbids()) return false;
         List<City> cities = vassal.cities?.Where(city => city != null && !city.isRekt()).ToList();
         if (cities == null || cities.Count < 6 || vassal.capital == null) return false;
         Actor ruler = vassal.king;

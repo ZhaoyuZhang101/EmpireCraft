@@ -38,7 +38,8 @@ public class TempFac_设置行政区 : TemporaryFaction
                     .First();
                 if (king != null)
                 {
-                    k = title.title_capital.makeOwnKingdom(king); 
+                    // 设行政区：受命立国，不许自立的闸放行(见 SecessionGate)
+                    k = SecessionGate.Sanctioned(() => title.title_capital.makeOwnKingdom(king));
                     empire.AddMandate(10);
                 }
             }

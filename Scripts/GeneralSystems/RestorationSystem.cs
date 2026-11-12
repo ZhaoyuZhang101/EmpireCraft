@@ -123,10 +123,12 @@ public static class RestorationSystem
         // 护国运动：各省按共和思想的比例宣布独立，独立性强的、军府更积极
         float republican = RepublicanShare(empire);
         Kingdom core = empire.CoreKingdom;
+        // 不许自立(见 SecessionGate)：各省不宣布独立(先离开后开战，Empire.leave 那道门拦不到)
+        bool forbidden = SecessionGate.Forbids("护国独立", empire.GetEmpireFullName());
         foreach (Kingdom member in empire.kingdoms_list.ToList())
         {
             // 新入帝国十年内、神力拉入未满期的不响应(见 MembershipCooldown)
-            if (member == null || member.isRekt() || member == core || !member.hasKing() ||
+            if (forbidden || member == null || member.isRekt() || member == core || !member.hasKing() ||
                 member.IsFactionRebelling() || member.IsLocalRebelling() || !MembershipCooldown.Settled(member)) continue;
             bool autonomous = member.GetKingdomType() == Regimes.KingdomType.LvLing_jiedushi ||
                               member.GetRegime()?.IsAllowArmy() == true;

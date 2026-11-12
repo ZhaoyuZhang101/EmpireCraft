@@ -409,6 +409,8 @@ public static partial class PapacySystem
     // 没有议会的帝国：皇帝仍奉旧教，改奉新教的成员国起兵脱离(有议会的走诸侯同盟，见 HolyRomanSystem.Leagues)
     private static void ReformRevolts(Religion old)
     {
+        // 不许自立(见 SecessionGate)：先开战后离开，要在开战前问
+        if (SecessionGate.Forbids()) return;
         double now = World.world.getCurWorldTime();
         foreach (Empire empire in ModClass.EMPIRE_MANAGER?.ToList() ?? new List<Empire>())
         {

@@ -66,6 +66,8 @@ public static class NomadAppanageSystem
 
     private static bool Due(Kingdom kingdom, Actor khan)
     {
+        // 不许自立(见 SecessionGate)：分出的帐独立，不分
+        if (SecessionGate.Forbids("诸子分帐", kingdom.GetKingdomName())) return false;
         if (!Alive(kingdom) || khan?.data == null || World.world == null || kingdom.IsInEmpire() || kingdom.capital == null ||
             !KingdomExtension.IsTrueNomad(kingdom) || Compatibility.AncientWarfareCompatibility.Owns(kingdom)) return false;
         int cities = kingdom.cities?.Count ?? 0;

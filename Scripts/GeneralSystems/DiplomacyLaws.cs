@@ -38,6 +38,9 @@ public static class DiplomacyLaws
         finally { _forced--; }
     }
 
+    // 正在神力推满的诉求里(不许自立的闸也放行，见 SecessionGate)
+    public static bool Forced => _forced > 0;
+
     public static bool Blocked(Kind kind)
     {
         // 玩家强制的一律放行

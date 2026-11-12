@@ -832,7 +832,9 @@ public class Empire : MetaObject<EmpireData>
                 {
                     if (_completingMinisterUsurpation) break;
                     // 新入帝国未满十年、神力拉入未满期的不随改朝离去(见 MembershipCooldown.Settled)
-                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20&&MembershipCooldown.Settled(k))
+                    // 不许自立时不离去(见 SecessionGate；不记叛离，leave 那道门拦不到)
+                    if (!k.isOpinionTowardsKingdomGood(CoreKingdom)&&Legitimacy<20&&MembershipCooldown.Settled(k)&&
+                        !SecessionGate.Forbids("改朝离心", k.data?.name))
                     {
                         this.leave(k);
                         // 不服新朝、离心而去记在各国之主身上(量刑天平的叛逆砝码)
@@ -2802,6 +2804,12 @@ public class Empire : MetaObject<EmpireData>
             if (pRecalc) recalculate();
             return;
         }
+        // 不许自立(见 SecessionGate)：开关开着时成员国不叛离；已经在叛乱、在跟中央打的照原规矩收尾。
+        // 调用方离开后都看 GetEmpire / IsInEmpire 判成没成
+        if (isLeave && pKingdom != CoreKingdom && !pKingdom.isRekt() && !pKingdom.IsLocalRebelling() &&
+            !pKingdom.IsFactionRebelling() && (CoreKingdom == null || !pKingdom.isInWarWith(CoreKingdom)) &&
+            SecessionGate.Forbids("叛离帝国", $"{pKingdom.data?.name}(离 {data?.name})"))
+            return;
         if (isLeave)
         {
             pKingdom.RememberRebellionOrigin(this);
@@ -4190,6 +4198,8 @@ public class Empire : MetaObject<EmpireData>
     private void ResolveMinisterOpposition(Actor minister, int? influence = null)
     {
         if (EmpireCraft.Scripts.GeneralSystems.UnificationSystem.InGrace(CoreKingdom)) return;
+        // 不许自立(见 SecessionGate)：成员国君领头时先开战后起事，要在开战前问
+        if (SecessionGate.Forbids("逼反权臣", data?.name)) return;
         int ministerInfluence = influence ?? minister.renown;
         if (!PowerfulMinisterRules.ShouldRiseAgainstMinister(ministerInfluence, 501, true)) return;
         // Snapshot before creating kingdoms: each successful revolt changes empire membership.

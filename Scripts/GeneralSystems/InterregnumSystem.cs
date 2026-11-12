@@ -62,6 +62,8 @@ public static class InterregnumSystem
     public static bool TryFracture(Empire empire, PersonalClanIdentity predecessor, Actor court, string opening = null)
     {
         if (!Applies(empire) || court?.data == null || court.isRekt() || !court.isAlive()) return false;
+        // 不许自立(见 SecessionGate)：不裂土，照旧议立
+        if (SecessionGate.Forbids("绝嗣裂土", empire.GetEmpireFullName())) return false;
         Kingdom core = empire.CoreKingdom;
         List<Kingdom> regions = empire.kingdoms_list
             .Where(kingdom => kingdom?.data != null && !kingdom.isRekt() && kingdom != core && kingdom.capital != null &&

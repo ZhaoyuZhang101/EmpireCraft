@@ -750,6 +750,8 @@ public static class AdministrativeControlSystem
         form = null;
         City seed = cluster?.FirstOrDefault();
         if (realm?.data == null || !Valid(seed)) return null;
+        // 不许自立(见 SecessionGate)：管不到的、飞地、水土北归都不放出；立国前要先给城补首领，在这里先问
+        if (SecessionGate.Forbids("放给当地首领", seed.data.name)) return null;
         Kingdom former = seed.kingdom;
         if (!seed.hasLeader()) CityPopulationSystem.EnsureLeader(seed);
         Actor leader = LocalLeader(seed);

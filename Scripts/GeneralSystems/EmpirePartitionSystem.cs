@@ -204,6 +204,8 @@ public static class EmpirePartitionSystem
         Kingdom sourceCore = source.CoreKingdom;
         City capital = sourceCore?.capital;
         if (ruler?.data == null || ruler.isRekt() || !ruler.isAlive() || seat?.data == null || capital == null) return null;
+        // 不许自立(见 SecessionGate)：分立先动了君主、城主，在这里先问
+        if (SecessionGate.Forbids("东西分立", source.GetEmpireFullName())) return null;
         string side = Side(seat.city_center, capital.city_center);
         Kingdom newCore;
         if (ownKingdom != null)

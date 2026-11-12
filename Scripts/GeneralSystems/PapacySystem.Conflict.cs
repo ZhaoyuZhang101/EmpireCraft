@@ -168,6 +168,8 @@ public static partial class PapacySystem
     // 绝罚期间教皇党成员国倒戈：离开帝国另立(地方独立)
     private static void Defections(Empire empire, Religion religion)
     {
+        // 不许自立(见 SecessionGate)：先开战后离开，要在开战前问
+        if (SecessionGate.Forbids()) return;
         Kingdom core = empire.CoreKingdom;
         foreach (Kingdom member in PartyMembers(empire, PartyPope))
         {

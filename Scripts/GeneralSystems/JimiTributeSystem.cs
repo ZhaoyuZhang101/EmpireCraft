@@ -118,6 +118,8 @@ public static class JimiTributeSystem
     // 叛：朝廷先看能否安抚，不能就由它叛去、发兵征讨
     private static bool Revolt(Empire empire, Kingdom core, Kingdom region)
     {
+        // 不许自立(见 SecessionGate)：羁縻不叛去
+        if (SecessionGate.Forbids("羁縻叛去", region.GetKingdomName())) return false;
         // 新入帝国十年内、神力拉入未满期的不叛去(见 MembershipCooldown)
         if (RulerTraitSystem.FounderShield(region) || region.isInWarWith(core) || region.IsLocalRebelling() ||
             !MembershipCooldown.Settled(region)) return false;

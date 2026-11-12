@@ -2036,7 +2036,9 @@ public static class CityExtension
                     continue;
                 }
 
-                otherCity.makeOwnKingdom(collapseLeader, pRebellion: false, pFellApart: true);
+                // 打着的仗里国君死在被占的都城、王国瓦解：照原规矩收尾，不许自立的闸放行(见 SecessionGate)
+                EmpireCraft.Scripts.GeneralSystems.SecessionGate.Sanctioned(() =>
+                    otherCity.makeOwnKingdom(collapseLeader, pRebellion: false, pFellApart: true));
                 otherCity.ClearOccupiedStatus();
             }
 

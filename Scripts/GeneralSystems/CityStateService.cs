@@ -170,7 +170,8 @@ public static class CityStateService
 
     private static Kingdom SpinOff(City city, Actor leader, Kingdom parent)
     {
-        Kingdom state = city.makeOwnKingdom(leader);
+        // 攻下的城立为城邦(战果)：不许自立的闸放行(见 SecessionGate)
+        Kingdom state = SecessionGate.Sanctioned(() => city.makeOwnKingdom(leader));
         if (state == null) return null;
         // 同文化的殖民城邦先继承母邦现行制度，之后再由各国逐步完成封建化。
         if (parent != null && IsCityState(parent) &&

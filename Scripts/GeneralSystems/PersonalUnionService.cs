@@ -274,7 +274,8 @@ public static class PersonalUnionService
                 continue;
             }
             if (holder.king?.city == seat) holder.kingFledCity();
-            Kingdom realm = seat.makeOwnKingdom(founder);
+            // 索取的法理另立一国由胜者兼领(战果)：不许自立的闸放行(见 SecessionGate)
+            Kingdom realm = SecessionGate.Sanctioned(() => seat.makeOwnKingdom(founder));
             if (realm == null)
             {
                 remaining.Add(titleId);

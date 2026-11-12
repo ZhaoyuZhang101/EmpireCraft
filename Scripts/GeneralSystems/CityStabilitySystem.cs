@@ -644,6 +644,8 @@ public static class CityStabilitySystem
         GuardCounts.Remove(city);
         if (authority.GetOrCreate().last_stability_release >= 0d &&
             Date.getYearsSince(authority.GetOrCreate().last_stability_release) < 1) return;
+        // 不许自立(见 SecessionGate)：撤守之城不据城自立、成员国不离开(不记叛离，Empire.leave 那道门拦不到)
+        if (SecessionGate.Forbids("撤守自立", city.data?.name)) return;
         Kingdom independent;
         if (city == origin.capital)
         {

@@ -303,7 +303,8 @@ public static class ColonySystem
         if (kingdom?.data == null || metropole?.data == null || kingdom.isRekt() || metropole.isRekt() || kingdom == metropole) return false;
         if (kingdom.IsEmpire() && kingdom.GetEmpire()?.kingdoms_list?.Count > 1) return false;
         if (WarlordEraSystem.Dependent(kingdom)) return false;
-        if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) kingdom.GetEmpire()?.leave(kingdom, true, true);
+        // 立为保护国(战果、议和)：不许自立的闸放行(见 SecessionGate)
+        if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) SecessionGate.Sanctioned(() => kingdom.GetEmpire()?.leave(kingdom, true, true));
         DiplomacyActions.EndWars(metropole, kingdom);
         Annex(metropole, kingdom, ColonyState.Protectorate, "");
         TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_protectorate_imposed"), metropole.GetKingdomFullName(),

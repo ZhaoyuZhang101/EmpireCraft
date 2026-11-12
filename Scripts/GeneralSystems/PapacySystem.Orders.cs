@@ -217,7 +217,8 @@ public static partial class PapacySystem
         if (order == null || master == null || holy?.data == null) return false;
         Kingdom former = Host(order);
         master.joinCity(holy);
-        Kingdom state = holy.makeOwnKingdom(master, false, false);
+        // 圣战收复圣地(战果)：不许自立的闸放行(见 SecessionGate)
+        Kingdom state = SecessionGate.Sanctioned(() => holy.makeOwnKingdom(master, false, false));
         if (state?.data == null) return false;
         holy.setReligion(religion);
         state.data.name = order.name;

@@ -227,6 +227,8 @@ public static class ForeignLandSystem
     // 全部自立：都城是三代未附之地的成员国离开，中央直辖的(京城所在的王国法理除外)按王国法理各自立国
     private static void Break(Empire empire, List<City> cities, int legitimacy)
     {
+        // 不许自立(见 SecessionGate)：异族之地不自立(不记叛离，Empire.leave 那道门拦不到)
+        if (SecessionGate.Forbids("异族之地自立", empire.GetEmpireName())) return;
         Kingdom core = empire.CoreKingdom;
         string realm = empire.GetEmpireName();
         int total = UpheavalGuard.Cities(empire);
