@@ -114,6 +114,10 @@ ICONS = {
     'tk_vassal': 'TabDependencies.png',
     'tk_title': 'TitleAcquire.png',
     'tk_corps': 'TabMilitary.png',
+    # 行政区划
+    'g_division': 'ui/icons/iconToolProvinceCreate.png',
+    'dv_add': 'ui/icons/iconToolProvinceAdd.png',
+    'dv_remove': 'ui/icons/iconToolProvinceRemove.png',
 }
 
 # 模组里没有的几个操作符号(全屏、退出全屏、放大、缩小、全览、关)：照像素图标的画法现画——象牙白的笔画，四周一圈深色描边

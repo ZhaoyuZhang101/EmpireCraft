@@ -12588,5 +12588,11 @@
   "terminal_light_armed": "輕量主機模式已開：關掉視窗、世界走起來後，本機畫面就停。",
   "terminal_light_need_terminal": "輕量主機模式要終端模式開著才起作用。",
   "terminal_light_unavailable": "這一版遊戲接不上輕量主機模式，已關掉。",
-  "terminal_era_wait": "距上次定年號未滿 {0} 年，還要再等 {1} 年"
+  "terminal_era_wait": "距上次定年號未滿 {0} 年，還要再等 {1} 年",
+  "terminal_order_prov_create": "以{0}為治所新設行政區（共 {1} 城）",
+  "terminal_order_prov_dissolve": "撤銷{0}，各城收歸直轄",
+  "terminal_order_prov_move": "{0}改隸{1}",
+  "terminal_direct": "朝廷直轄",
+  "terminal_fail_prov": "區劃已有變動，這道令辦不了",
+  "terminal_fail_prov_nobody": "治所城裡無人可任長官"
 }

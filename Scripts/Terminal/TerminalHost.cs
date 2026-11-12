@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 13;
+    public const int Version = 14;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;

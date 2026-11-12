@@ -12582,5 +12582,11 @@
   "terminal_light_armed": "Lightweight host mode is on: close the windows and let the world run, and local rendering stops.",
   "terminal_light_need_terminal": "Lightweight host mode only takes effect while terminal mode is on.",
   "terminal_light_unavailable": "Lightweight host mode cannot hook into this game version and was turned off.",
-  "terminal_era_wait": "less than {0} years since the era name was set; {1} more to wait"
+  "terminal_era_wait": "less than {0} years since the era name was set; {1} more to wait",
+  "terminal_order_prov_create": "New province seated at {0} ({1} cities)",
+  "terminal_order_prov_dissolve": "Dissolve {0}; its cities return to the crown",
+  "terminal_order_prov_move": "{0} reassigned to {1}",
+  "terminal_direct": "the crown",
+  "terminal_fail_prov": "the divisions have changed; the order cannot be carried out",
+  "terminal_fail_prov_nobody": "no one in the seat city can serve as governor"
 }

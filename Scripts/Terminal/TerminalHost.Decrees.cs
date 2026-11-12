@@ -303,6 +303,8 @@ public static partial class TerminalHost
 
         // 附庸博弈与招安(见 TerminalHost.Vassal.cs)
         AddVassals(seat, groups);
+        // 行政区划：新设、撤销、改隶(见 TerminalHost.Division.cs)
+        AddDivision(seat, groups);
         AddOffers(seat, pending);
         AddIntrigue(seat, groups, pending);
 
@@ -446,6 +448,10 @@ public static partial class TerminalHost
             made.Kind = "abdicate";
             made.Target = successorId;
             made.Text = string.Format(LM.Get("terminal_order_abdicate"), successor.getName());
+        }
+        else if (id == "prov_create" || id == "prov_dissolve" || id == "prov_move")
+        {
+            if (!DivisionOrder(seat, made, id, target, choice)) return;
         }
         else if (id == "explore" || id == "buy_map")
         {
@@ -770,6 +776,10 @@ public static partial class TerminalHost
                 seat.Abdicated = true;
                 return null;
             }
+            case "prov_create":
+            case "prov_dissolve":
+            case "prov_move":
+                return DivisionExecute(seat, realm, order);
             case "explore":
             case "buy_map":
                 return SurveyExecute(seat, realm, order);

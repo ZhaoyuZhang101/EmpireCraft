@@ -126,24 +126,12 @@ public static partial class TerminalHost
                 if (subject.GetEmpire() != court)
                     MembershipCooldown.ByGod(() => court.join(subject, pForce: true, pLegitimacyTransfer: true));
                 if (subject.GetEmpire() != court) return;
-                if (province)
+                if (province) AsProvince(subject, taker);
+                else
                 {
-                    RegimeType type = taker.GetRegime()?.type ?? RegimeType.LvLing;
-                    if (subject.GetRegime()?.type != type)
-                    {
-                        subject.SetRegimeType(type);
-                        subject.LoadRegime();
-                    }
-                    Regime regime = subject.GetRegime();
-                    if (regime != null)
-                    {
-                        regime.SetAllowDiplomacy(false);
-                        regime.SetLeaderSelectMethod(LeaderSelectMethod.Exam);
-                        TreasurySystem.EnsureCollectsTax(regime);
-                    }
+                    subject.GetOrCreate().last_kingdom_status_ts = -1d;
+                    EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(subject);
                 }
-                subject.GetOrCreate().last_kingdom_status_ts = -1d;
-                EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(subject);
             }
             else if (term.Kind == "title")
             {
