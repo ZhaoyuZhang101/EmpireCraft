@@ -234,7 +234,7 @@ public static partial class TerminalHost
                     seat.Hidden.Add(rebel.getID());
                     if (!string.IsNullOrEmpty(rebel.data.name)) seat.HiddenNames.Add(rebel.data.name);
                 }
-                else Notify(seat, string.Format(LM.Get("terminal_rebel_known"), rebel.data.name), "major");
+                else Notify(seat, string.Format(LM.Get("terminal_rebel_known"), NameOf(rebel)), "major");
             }
             if (month >= due) RebellionNoticed[id] = -1;
         }

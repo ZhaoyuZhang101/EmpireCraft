@@ -95,7 +95,7 @@ public static partial class TerminalHost
             (string tianxia, string inEmpire) = Belong(other);
             targets.Add(new JObject
             {
-                ["id"] = id.ToString(), ["name"] = other.data.name, ["tianxia"] = tianxia, ["empire"] = inEmpire, ["kind"] = Role(other),
+                ["id"] = id.ToString(), ["name"] = NameOf(other), ["tianxia"] = tianxia, ["empire"] = inEmpire, ["kind"] = Role(other),
                 ["cities"] = other.cities?.Count ?? 0, ["has"] = seat.Spies.Any(spy => spy.Target == id)
             });
         }
@@ -175,8 +175,8 @@ public static partial class TerminalHost
                 return true;
             }
             seat.Ruler.spendMoney(SpyCost[skill]);
-            seat.Spies.Add(new Spy { Id = ++_seq, Target = kingdomId, TargetName = other.data.name, Skill = skill, Next = month + SpyMonths });
-            Notify(seat, string.Format(LM.Get("terminal_spy_sent"), other.data.name));
+            seat.Spies.Add(new Spy { Id = ++_seq, Target = kingdomId, TargetName = NameOf(other), Skill = skill, Next = month + SpyMonths });
+            Notify(seat, string.Format(LM.Get("terminal_spy_sent"), NameOf(other)));
             return true;
         }
         if (id == "spy.recall")
@@ -257,9 +257,9 @@ public static partial class TerminalHost
                 seat.Spies.RemoveAt(i);
                 if (swept)
                 {
-                    host.Caught.Add(new CaughtSpy { Id = ++_seq, Owner = seat, Spy = spy, From = seat.Realm.data.name, Since = Time.realtimeSinceStartup });
+                    host.Caught.Add(new CaughtSpy { Id = ++_seq, Owner = seat, Spy = spy, From = NameOf(seat.Realm), Since = Time.realtimeSinceStartup });
                     host.NextDecrees = 0f;
-                    Notify(host, string.Format(LM.Get("terminal_caught"), seat.Realm.data.name));
+                    Notify(host, string.Format(LM.Get("terminal_caught"), NameOf(seat.Realm)));
                 }
                 else Notify(seat, string.Format(LM.Get("terminal_spy_lost"), spy.TargetName));
                 continue;
@@ -280,7 +280,7 @@ public static partial class TerminalHost
             if (item == "treasury" || item == "army" || item == "people") shown = TerminalIntel.RoundSig(shown, spy.Skill >= 3 ? 2 : 1);
             else if (item == "corruption") shown = Math.Max(0, Math.Min(100, shown));
             else shown = Math.Max(1, shown);
-            string line = string.Format(LM.Get("terminal_spy_" + item), other.data.name, shown);
+            string line = string.Format(LM.Get("terminal_spy_" + item), NameOf(other), shown);
             spy.Last = line;
             if (!seat.Dossiers.TryGetValue(spy.Target, out Dictionary<string, string> known)) seat.Dossiers[spy.Target] = known = new Dictionary<string, string>();
             known[item] = string.Format(LM.Get("terminal_spy_dated"), line, Date.getCurrentYear());

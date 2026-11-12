@@ -24,6 +24,16 @@ public class TerminalPatch : GamePatch
         {
             LogService.LogWarning($"[EmpireCraft][终端] 流速没接上: {exception.Message}");
         }
+        // 终端模式开着时山川水陆不许改(见 TerminalHost.TerrainLocked)
+        try
+        {
+            new Harmony(nameof(TerminalPatch) + "Terrain").Patch(AccessTools.Method(typeof(MapAction), nameof(MapAction.terraformTile)),
+                prefix: new HarmonyMethod(typeof(TerminalPatch), nameof(BeforeTerraform)));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][终端] 地形锁没接上: {exception.Message}");
+        }
         // 第二期：廷议已毕的奏议等手机批红、要人失职的案子等手机裁决(见 TerminalHost.Decrees.cs)；没有席位领着这位君主时原样放行
         try
         {
@@ -49,6 +59,24 @@ public class TerminalPatch : GamePatch
     {
         if (!TerminalHost.HoldsCase(actor, type, kingdom, reasonKey, accuser)) return true;
         __result = null;
+        return false;
+    }
+
+    private static float _nextTerrainTip;
+
+    // 改的是底下那一层(山、丘、土、沙、水——挖山填海、炸出坑、陨石、酸雨蚀地)：不许。只动表层的(草木荣枯、开田、修路、烧荒)照常，
+    // 城要盖房种地。读档、生成世界不走这里。拿着神力画不上去时在屏幕上说一声，免得以为是坏了
+    public static bool BeforeTerraform(WorldTile pTile, TileType pNewTypeMain, TerraformOptions pOptions)
+    {
+        if (!TerminalHost.TerrainLocked || pTile == null) return true;
+        bool deeper = pNewTypeMain != null && pNewTypeMain != pTile.main_type || pOptions != null && pOptions.remove_water && pTile.Type != null && pTile.Type.ocean;
+        if (!deeper) return true;
+        float now = UnityEngine.Time.realtimeSinceStartup;
+        if (now >= _nextTerrainTip && World.world.isAnyPowerSelected())
+        {
+            _nextTerrainTip = now + 6f;
+            WorldTip.showNow(NeoModLoader.General.LM.Get("terminal_terrain_locked"), false, "top", 3f);
+        }
         return false;
     }
 

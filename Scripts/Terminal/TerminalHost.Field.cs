@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
 using Newtonsoft.Json.Linq;
@@ -14,29 +15,32 @@ namespace EmpireCraft.Scripts.Terminal;
 // 舆图(用户 2026-11-12 "地图那一栏是不是太小了, 要是能全屏就好了""放大后应该显示更多的细节而不是单纯的像素块"
 // "地图那里应该有更多的功能比如微操军队""但是会有延迟""也会显示军队""只不过不是实时更新的""科技越厉害更新越实时"
 // "军队应该在地图上显示, 手指点击下达命令")：
-//   · 细节：手机放大到一定程度，把眼下看的那一片(按总图的格)报上来，这边照世界的地块重新取样——山川地貌的颜色、
-//     各国各城的界线——回给它；总图上是迷雾的格照旧是迷雾。一次只备一片，手机拿到之前先看着放大的总图；
+//   · 地貌：图是手机自己画的(群里的意见 "应该把一些东西放到本地去计算，而不是服务器发包图像过来")。总图(TerminalHost.BuildMap)
+//     给每块地归哪国哪城，这里给整张图的山川地貌，手机拿两样在本地合成，放大缩小拖动都不用再问这边；迷雾里的山川不发；
 //   · 军情：本国各军、看得见的地方的别国军队画在图上。军情是驿报送来的，不是眼前的事：只知接壤的三个月一报，
 //     驿路航路通了一个月一报，有了电报随时报(TerminalIntel.Sight 三档)。图上标着是哪个月的军情；
 //   · 军令：点一支本国的军、再点一座城，就是一道手令(CorpsDirectOrders)——本国的城(帝国之主连同各行政区、封国的城)去驻守，
 //     交战敌国的城去打。
 //     令在路上要走：都城到那支军越远越久(一到三个月，驿路通了快一档，有电报当月到)；令到了回一条奏报，
-//     军团下个月起照办。新令顶旧令；撤令也是一道令，同样要走
+//     军团下个月起照办。新令顶旧令；撤令也是一道令，同样要走；
+//   · 给地方下令(用户 2026-11-12 "玩家既然可以指定单个军队进攻，也可以直接给州府行政区下命令让他们派兵去干嘛")：
+//     点一个本朝的行政区、或一座自家的城，再点目的地——那个行政区的各军、驻地在那座城的各军一并奉令，
+//     各军的手令照各自的远近走
 public static partial class TerminalHost
 {
-    private const int ViewWidth = 200, ViewMaxHeight = 360, MaxMapCities = 400, MaxArmies = 160, MaxWrits = 60;
-    private const float ViewSeconds = 0.25f, LiveArmySeconds = 3f;
-    private const byte NoCity = 255;
+    private const int TerrainMaxWidth = 1024, TerrainMaxHeight = 768, TerrainPart = 120 * 1024, MaxMapCities = 1500, MaxArmies = 160, MaxWrits = 200;
+    private const float TerrainTick = 0.25f, TerrainSeconds = 120f, LiveArmySeconds = 3f;
+    // 地貌里的记号：这一格在迷雾里(颜色号到不了这么大)
+    private const byte NoTerrain = 255, KeepTerrain = 254;
 
     internal sealed class Writ
     {
-        public long Id, Corps, City;
-        public bool Release;
+        // Kingdom：这支军是哪一国的(0 = 本国；给行政区下的令是它的军)。Quiet：一道令里除头一支军以外的，送到了不另报
+        public long Id, Corps, City, Kingdom;
+        public bool Release, Quiet;
         public int Due;
         public string Text;
     }
-
-    private static float _nextView;
 
     // 军情几个月一报
     private static int ArmyEvery(Seat seat) =>
@@ -65,10 +69,11 @@ public static partial class TerminalHost
 
     // ───────── 总图上的城 ─────────
     // 本国的城、看得见的别国的城(传闻之国的不知道)：给手机标城名、点选军令的目的地。迷雾里的不给
-    private static JArray MapCities(Seat seat, RealmMiniMap.MapData map)
+    private static JArray MapCities(Seat seat, List<City> all, out Dictionary<long, int> shownAt)
     {
         var cities = new JArray();
-        foreach (City city in map.Cities)
+        shownAt = new Dictionary<long, int>();
+        foreach (City city in all)
         {
             if (cities.Count >= MaxMapCities) break;
             if (city?.data == null || city.isRekt() || city.kingdom == null) continue;
@@ -82,141 +87,179 @@ public static partial class TerminalHost
                 ["z"] = city.zones?.Count ?? 0
             };
             if (city.kingdom.capital == city) row["cap"] = true;
+            shownAt[city.getID()] = cities.Count;
             cities.Add(row);
         }
         return cities;
     }
 
-    // ───────── 细节 ─────────
-    // 手机报上来想看的那一片(总图的格：左、上、宽、高)。网络线程只记下来，主线程每 ViewSeconds 备一片
-    private static TerminalServer.Reply ViewReply(Seat seat, string body)
+    // ───────── 地貌 ─────────
+    // 整张地图的山川地貌：一格一个颜色号(地块种类的颜色，另附哪几号是水)，世界太大时隔几格取一格。全图取一回各席位共用，
+    // 隔 TerrainSeconds 秒有人看着才重取，同上回不一样才算新的一版。发给哪部手机之前先把它迷雾里的抹掉(看不到的山川不出这台电脑)。
+    // 头一回发整份；之后手机报上它手上是哪一版，同这边记的对得上就只补发变了的格(迷雾揭开的、草木田地变了的)，没变的写 KeepTerrain
+    private sealed class Terrain
     {
-        if (!int.TryParse(Field(body, "x"), out int x) || !int.TryParse(Field(body, "y"), out int y) ||
-            !int.TryParse(Field(body, "w"), out int w) || !int.TryParse(Field(body, "h"), out int h) ||
-            w < 1 || h < 1 || w > 4096 || h > 4096 || x < -4096 || y < -4096 || x > 8192 || y > 8192)
-            return TerminalServer.Reply.Error(400, "bad_request");
-        string want = x + "," + y + "," + w + "," + h;
-        seat.ViewWant = want;
-        string built = seat.ViewJson;
-        return TerminalServer.Reply.Json(built != null && seat.ViewKey == want ? built : "{\"ready\":false}");
+        public MapBox World;
+        public float At;
+        public int Step, Width, Height, Version;
+        public uint Hash;
+        public byte[] Index;
+        public readonly List<int> Palette = new();
     }
 
-    private static void RunViews(float now)
+    private static Terrain _terrain;
+    private static int _terrainVersion;
+    private static float _nextTerrain;
+
+    private static Terrain TerrainNow(bool refresh)
     {
-        if (now < _nextView) return;
-        _nextView = now + ViewSeconds;
+        MapBox world = World.world;
+        float now = Time.realtimeSinceStartup;
+        if (_terrain != null && ReferenceEquals(_terrain.World, world) && (!refresh || now - _terrain.At < TerrainSeconds && now >= _terrain.At))
+            return _terrain;
+        int step = Mathf.Max(1, Mathf.CeilToInt(MapBox.width / (float)TerrainMaxWidth), Mathf.CeilToInt(MapBox.height / (float)TerrainMaxHeight));
+        var built = new Terrain
+        {
+            World = world, At = now, Step = step, Width = Mathf.Max(1, MapBox.width / step), Height = Mathf.Max(1, MapBox.height / step)
+        };
+        built.Index = new byte[built.Width * built.Height];
+        var paletteAt = new Dictionary<int, byte>();
+        // 头一号留给图外：水
+        Color32 sea = RealmMiniMap.Water;
+        built.Palette.Add(1 << 24 | sea.r << 16 | sea.g << 8 | sea.b);
+        // 颜色号接着上回的排：补发时没变的格还照旧号认颜色
+        if (_terrain != null && ReferenceEquals(_terrain.World, world) && _terrain.Palette.Count > 0 && _terrain.Palette[0] == built.Palette[0])
+            for (int i = 1; i < _terrain.Palette.Count; i++) built.Palette.Add(_terrain.Palette[i]);
+        for (int i = built.Palette.Count - 1; i >= 0; i--) paletteAt[built.Palette[i]] = (byte)i;
+        uint hash = 2166136261u;
+        for (int py = 0; py < built.Height; py++)
+        for (int px = 0; px < built.Width; px++)
+        {
+            int tileX = px * step + step / 2, tileY = MapBox.height - 1 - (py * step + step / 2);
+            WorldTile tile = tileX < 0 || tileY < 0 || tileX >= MapBox.width || tileY >= MapBox.height ? null : world.GetTile(tileX, tileY);
+            byte index = 0;
+            if (tile?.Type != null)
+            {
+                Color32 color = tile.getColor();
+                int key = (tile.Type.liquid ? 1 << 24 : 0) | color.r << 16 | color.g << 8 | color.b;
+                if (!paletteAt.TryGetValue(key, out index))
+                {
+                    // 颜色号用完了(NoTerrain 以上留作记号)：归到头一号
+                    if (built.Palette.Count < KeepTerrain - 4)
+                    {
+                        index = (byte)built.Palette.Count;
+                        built.Palette.Add(key);
+                    }
+                    paletteAt[key] = index;
+                }
+            }
+            built.Index[py * built.Width + px] = index;
+            unchecked
+            {
+                hash = (hash ^ index) * 16777619u;
+            }
+        }
+        built.Hash = hash;
+        if (_terrain == null || !ReferenceEquals(_terrain.World, world) || _terrain.Hash != hash || _terrain.Width != built.Width ||
+            _terrain.Height != built.Height || _terrain.Palette.Count != built.Palette.Count)
+            _terrainVersion++;
+        built.Version = _terrainVersion;
+        return _terrain = built;
+    }
+
+    // 手机来取地貌的第 p 片(ts 是它在总图里看到的那一版)。没备好、备的不是这一版：记下来，主线程备
+    private static TerminalServer.Reply TerrainReply(Seat seat, string body)
+    {
+        if (!int.TryParse(Field(body, "p"), out int part) || part < 0) return TerminalServer.Reply.Error(400, "bad_request");
+        int.TryParse(Field(body, "have"), out int have);
+        string[] parts = seat.TerrainParts;
+        // 备好的是补发的、补的又不是手机手上那一版：重备
+        if (parts == null || seat.TerrainTs != seat.MapTs || seat.TerrainFrom != 0 && seat.TerrainFrom != have)
+        {
+            seat.TerrainHave = have;
+            seat.TerrainWant = true;
+            return TerminalServer.Reply.Json("{\"ready\":false}");
+        }
+        return part < parts.Length ? TerminalServer.Reply.Json(parts[part]) : TerminalServer.Reply.Error(400, "bad_request");
+    }
+
+    private static void RunTerrain(float now)
+    {
+        if (now < _nextTerrain) return;
+        _nextTerrain = now + TerrainTick;
         if (!WorldReady()) return;
         foreach (Seat seat in SeatByToken.Values)
         {
-            string want = seat.ViewWant;
-            if (want == null || want == seat.ViewKey || seat.Ruler == null || seat.MapCells == null) continue;
+            if (!seat.TerrainWant || seat.Ruler == null || seat.MapCells == null) continue;
+            seat.TerrainWant = false;
             try
             {
-                seat.ViewJson = BuildView(seat, want);
+                seat.TerrainParts = TerrainFor(seat, TerrainNow(false), seat.MapTs, seat.TerrainHave);
+                seat.TerrainTs = seat.MapTs;
             }
             catch (Exception exception)
             {
-                seat.ViewJson = "{\"ready\":false}";
-                NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][终端] 细节图没备成: {exception.Message}");
+                NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][终端] 地貌没备成: {exception.Message}");
             }
-            seat.ViewKey = want;
-            // 一回只备一片：取样要扫几万块地
+            // 一回只备一部手机的：要扫几十万格
             return;
         }
     }
 
-    private static string BuildView(Seat seat, string want)
+    private static string[] TerrainFor(Seat seat, Terrain terrain, int ts, int have)
     {
-        string[] parts = want.Split(',');
-        int x = int.Parse(parts[0]), y = int.Parse(parts[1]), w = int.Parse(parts[2]), h = int.Parse(parts[3]);
-        x = Mathf.Clamp(x, 0, seat.MapW - 1);
-        y = Mathf.Clamp(y, 0, seat.MapH - 1);
-        w = Mathf.Clamp(w, 1, seat.MapW - x);
-        h = Mathf.Clamp(h, 1, seat.MapH - y);
-        int tile = seat.MapTile;
-        int step = Mathf.Max(1, Mathf.CeilToInt(w * tile / (float)ViewWidth), Mathf.CeilToInt(h * tile / (float)ViewMaxHeight));
-        int width = Mathf.Max(1, w * tile / step), height = Mathf.Max(1, h * tile / step);
-        int left = x * tile, top = (seat.MapH - y) * tile;
-        var terrain = new byte[width * height];
-        var owner = new byte[width * height];
-        var cityAt = new byte[width * height];
-        var palette = new List<int>();
-        var paletteIndex = new Dictionary<int, byte>();
-        var zoneInfo = new Dictionary<TileZone, (byte owner, byte city)>();
-        var cityIndex = new Dictionary<long, byte>();
-        var cities = new JArray();
-        MapBox world = World.world;
-        long self = seat.Realm.getID();
-
-        byte Shade(Color32 color)
+        var masked = (byte[])terrain.Index.Clone();
+        int step = terrain.Step, tile = seat.MapTile;
+        for (int py = 0; py < terrain.Height; py++)
         {
-            int rgb = color.r << 16 | color.g << 8 | color.b;
-            if (paletteIndex.TryGetValue(rgb, out byte index)) return index;
-            if (palette.Count >= 250) return 0;
-            palette.Add(rgb);
-            return paletteIndex[rgb] = (byte)(palette.Count - 1);
+            int row = (py * step + step / 2) / tile;
+            if (row >= seat.MapH) row = seat.MapH - 1;
+            for (int px = 0; px < terrain.Width; px++)
+            {
+                int column = (px * step + step / 2) / tile;
+                if (column >= seat.MapW) column = seat.MapW - 1;
+                if (seat.MapCells[row * seat.MapW + column] == TerminalIntel.Fog) masked[py * terrain.Width + px] = NoTerrain;
+            }
         }
-
-        // 迷雾、图外都用头一色(不画出来)
-        Shade(new Color32(14, 15, 12, 255));
-        for (int py = 0; py < height; py++)
-        for (int px = 0; px < width; px++)
+        byte[] send = masked, old = seat.TerrainBase;
+        bool patchOnly = have != 0 && have == seat.TerrainBaseTs && old != null && old.Length == masked.Length;
+        if (patchOnly)
         {
-            int at = py * width + px;
-            int tileX = left + px * step + step / 2, tileY = top - 1 - (py * step + step / 2);
-            cityAt[at] = NoCity;
-            if (Fogged(seat, tileX, tileY))
-            {
-                owner[at] = TerminalIntel.Fog;
-                continue;
-            }
-            WorldTile found = tileX < 0 || tileY < 0 || tileX >= MapBox.width || tileY >= MapBox.height ? null : world.GetTile(tileX, tileY);
-            if (found?.Type == null)
-            {
-                owner[at] = TerminalIntel.Water;
-                terrain[at] = Shade(RealmMiniMap.Water);
-                continue;
-            }
-            terrain[at] = Shade(found.getColor());
-            if (found.Type.liquid || found.zone == null)
-            {
-                owner[at] = TerminalIntel.Water;
-                continue;
-            }
-            if (!zoneInfo.TryGetValue(found.zone, out (byte owner, byte city) info))
-            {
-                City city = found.zone.city;
-                if (city?.data == null || city.isRekt()) city = null;
-                Kingdom kingdom = city?.kingdom ?? WildernessSystem.OwnerOf(found.zone);
-                if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) kingdom = null;
-                info = (TerminalIntel.Wild, NoCity);
-                if (kingdom != null && seat.Slots.TryGetValue(kingdom.getID(), out int slot))
-                {
-                    info.owner = (byte)slot;
-                    // 城界只给本国与已知之国的(传闻之国只知道大概在哪)；朝廷还不知道的叛军占的城照旧算本国的
-                    if (city != null && seat.SlotTier[slot] <= 1 && cities.Count < 250)
-                    {
-                        if (!cityIndex.TryGetValue(city.getID(), out byte index))
-                        {
-                            cityIndex[city.getID()] = index = (byte)cities.Count;
-                            cities.Add(new JObject { ["id"] = city.getID().ToString(), ["name"] = city.data.name, ["own"] = kingdom.getID() == self || seat.SlotProv[slot] });
-                        }
-                        info.city = index;
-                    }
-                }
-                zoneInfo[found.zone] = info;
-            }
-            owner[at] = info.owner;
-            cityAt[at] = info.city;
+            send = new byte[masked.Length];
+            for (int i = 0; i < send.Length; i++) send[i] = masked[i] == old[i] ? KeepTerrain : masked[i];
         }
+        seat.TerrainBase = masked;
+        seat.TerrainBaseTs = ts;
+        seat.TerrainFrom = patchOnly ? have : 0;
+        byte[] packed = TerminalIntel.Rle(send);
+        int count = Math.Max(1, (packed.Length + TerrainPart - 1) / TerrainPart);
         var colors = new JArray();
-        foreach (int rgb in palette) colors.Add("#" + rgb.ToString("x6"));
-        return new JObject
+        var liquid = new JArray();
+        foreach (int key in terrain.Palette)
         {
-            ["ready"] = true, ["key"] = want, ["x"] = x, ["y"] = y, ["w"] = w, ["h"] = h, ["cw"] = width, ["ch"] = height, ["pal"] = colors,
-            ["t"] = Convert.ToBase64String(TerminalIntel.Rle(terrain)), ["o"] = Convert.ToBase64String(TerminalIntel.Rle(owner)),
-            ["c"] = Convert.ToBase64String(TerminalIntel.Rle(cityAt)), ["cities"] = cities
-        }.ToString(Newtonsoft.Json.Formatting.None);
+            colors.Add("#" + (key & 0xffffff).ToString("x6"));
+            liquid.Add(key >> 24 & 1);
+        }
+        var parts = new string[count];
+        for (int i = 0; i < count; i++)
+        {
+            int from = i * TerrainPart, length = Math.Min(TerrainPart, packed.Length - from);
+            var json = new JObject
+            {
+                ["ready"] = true, ["ts"] = ts, ["p"] = i, ["n"] = count, ["d"] = Convert.ToBase64String(packed, from, Math.Max(0, length))
+            };
+            if (i == 0)
+            {
+                json["w"] = terrain.Width;
+                json["h"] = terrain.Height;
+                json["step"] = step;
+                json["pal"] = colors;
+                json["liq"] = liquid;
+                if (patchOnly) json["from"] = have;
+            }
+            parts[i] = json.ToString(Newtonsoft.Json.Formatting.None);
+        }
+        return parts;
     }
 
     // ───────── 军情 ─────────
@@ -271,7 +314,9 @@ public static partial class TerminalHost
             {
                 ["id"] = corps.id.ToString(), ["own"] = true, ["name"] = TerminalIntel.Strip(CorpsSystem.Name(corps)),
                 ["n"] = Mathf.RoundToInt(corps.strength), ["full"] = Mathf.RoundToInt(corps.full), ["org"] = Mathf.RoundToInt(corps.org),
-                ["task"] = corps.embarked ? "sea" : corps.task ?? "reserve", ["x"] = x, ["y"] = y
+                ["task"] = corps.embarked ? "sea" : corps.task ?? "reserve", ["x"] = x, ["y"] = y,
+                // 兵种：图上的牌子画这个兵种的图标(用户 2026-11-12 "军队为什么不用兵种图标")
+                ["arm"] = CorpsArmSystem.Of(corps).ToString().ToLowerInvariant()
             };
             WorldTile to = corps.target_zone_id == corps.zone_id ? null : CorpsSystem.ZoneById(corps.target_zone_id)?.centerTile;
             if (to != null)
@@ -307,7 +352,11 @@ public static partial class TerminalHost
                 WorldTile at = CorpsSystem.Zone(corps)?.centerTile;
                 if (at == null || Fogged(seat, at.x, at.y)) continue;
                 (double x, double y) = CellOf(seat, at.x, at.y);
-                var row = new JObject { ["r"] = slot, ["n"] = Math.Max(1000, Mathf.RoundToInt(corps.strength / 1000f) * 1000), ["x"] = x, ["y"] = y };
+                var row = new JObject
+                {
+                    ["r"] = slot, ["n"] = Math.Max(1000, Mathf.RoundToInt(corps.strength / 1000f) * 1000), ["x"] = x, ["y"] = y,
+                    ["arm"] = CorpsArmSystem.Of(corps).ToString().ToLowerInvariant()
+                };
                 if (foe) row["foe"] = true;
                 if (corps.embarked) row["task"] = "sea";
                 armies.Add(row);
@@ -320,6 +369,7 @@ public static partial class TerminalHost
     // 手机发来：corps_order(target = 军 id，choice = 城 id)、corps_release(target = 军 id)。是这两样返回 true
     private static bool FieldDecree(Seat seat, string id, string target, string choice)
     {
+        if (id == "host_order") return HostOrder(seat, target, choice) || true;
         if (id != "corps_order" && id != "corps_release") return false;
         Kingdom realm = seat.Realm;
         CorpsData corps = long.TryParse(target, out long corpsId) ? realm.GetOrCreate().corps?.FirstOrDefault(found => found.id == corpsId) : null;
@@ -359,28 +409,91 @@ public static partial class TerminalHost
         return true;
     }
 
+    // 给地方下的令：target 是 k王国号(本国或本朝的行政区、封国) 或 c城号(自家的城：驻地在它的各军)，choice 是目的地的城
+    private static bool HostOrder(Seat seat, string target, string choice)
+    {
+        Kingdom realm = seat.Realm;
+        if (string.IsNullOrEmpty(target) || target.Length < 2 || !long.TryParse(target.Substring(1), out long hostId)) return true;
+        City goal = long.TryParse(choice, out long goalId) ? World.world.cities.get(goalId) : null;
+        if (goal?.data == null || goal.isRekt() || goal.kingdom == null) return true;
+        Empire court = realm.GetEmpire() is { } found && found.CoreKingdom == realm ? found : null;
+        bool Mine(Kingdom kingdom) => kingdom == realm || court != null && kingdom?.GetEmpire() == court;
+        Kingdom host;
+        City home = null;
+        string hostName;
+        if (target[0] == 'c')
+        {
+            home = World.world.cities.get(hostId);
+            if (home?.data == null || home.isRekt() || !Mine(home.kingdom)) return true;
+            host = home.kingdom;
+            hostName = home.data.name;
+        }
+        else
+        {
+            host = World.world.kingdoms.get(hostId);
+            if (host?.data == null || host.isRekt() || !Mine(host)) return true;
+            hostName = NameOf(host);
+        }
+        bool foe = realm.isInWarWith(goal.kingdom) || host.isInWarWith(goal.kingdom);
+        bool own = !foe && Mine(goal.kingdom);
+        if (!own && !foe)
+        {
+            Notify(seat, string.Format(LM.Get("terminal_writ_not_enemy"), goal.data.name));
+            return true;
+        }
+        var troops = (host.GetOrCreate().corps ?? new List<CorpsData>())
+            .Where(corps => corps.strength >= 1f && (home == null || CorpsSystem.Home(corps) == home)).ToList();
+        if (troops.Count == 0)
+        {
+            Notify(seat, string.Format(LM.Get("terminal_host_none"), hostName));
+            return true;
+        }
+        string text = string.Format(LM.Get(own ? "terminal_host_post" : "terminal_host_strike"), hostName, goal.data.name);
+        int month = MonthNow(), longest = 0;
+        bool first = true;
+        foreach (CorpsData corps in troops)
+        {
+            int months = WritMonths(seat, corps);
+            longest = Math.Max(longest, months);
+            seat.Writs.RemoveAll(old => old.Corps == corps.id);
+            seat.Writs.Add(new Writ
+            {
+                Id = ++_seq, Corps = corps.id, City = goalId, Kingdom = host == realm ? 0 : host.getID(), Due = month + months, Quiet = !first,
+                Text = text
+            });
+            first = false;
+        }
+        if (host != realm) seat.HostOrdered.Add(host.getID());
+        while (seat.Writs.Count > MaxWrits) seat.Writs.RemoveAt(0);
+        seat.ArmyDirty = true;
+        Notify(seat, string.Format(LM.Get("terminal_host_sent"), text, troops.Count, longest));
+        if (longest <= 0) RunWrits(seat);
+        return true;
+    }
+
     // 每秒：到了日子的手令送到军前
     private static void RunWrits(Seat seat)
     {
         if (seat.Writs.Count == 0) return;
         int month = MonthNow();
-        List<CorpsData> list = seat.Realm.GetOrCreate().corps;
+        List<CorpsData> own = seat.Realm.GetOrCreate().corps;
         for (int index = seat.Writs.Count - 1; index >= 0; index--)
         {
             Writ writ = seat.Writs[index];
             if (writ.Due > month) continue;
             seat.Writs.RemoveAt(index);
             seat.ArmyDirty = true;
+            List<CorpsData> list = writ.Kingdom == 0 ? own : World.world.kingdoms.get(writ.Kingdom)?.GetOrCreate().corps;
             CorpsData corps = list?.FirstOrDefault(found => found.id == writ.Corps);
             City city = writ.Release ? null : World.world.cities.get(writ.City);
             if (corps == null || !writ.Release && (city?.data == null || city.isRekt()))
             {
-                Notify(seat, string.Format(LM.Get("terminal_writ_void"), writ.Text));
+                if (!writ.Quiet) Notify(seat, string.Format(LM.Get("terminal_writ_void"), writ.Text));
                 continue;
             }
             if (writ.Release) CorpsDirectOrders.Clear(corps);
             else CorpsDirectOrders.Set(corps, city);
-            Notify(seat, string.Format(LM.Get("terminal_writ_arrived"), writ.Text));
+            if (!writ.Quiet) Notify(seat, string.Format(LM.Get("terminal_writ_arrived"), writ.Text));
         }
     }
 }

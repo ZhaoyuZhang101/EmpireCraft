@@ -39,14 +39,15 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 12;
+    public const int Version = 13;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
 
     private const float StateSeconds = 2f, SightSeconds = 15f, IdleSightSeconds = 60f, ClientSeconds = 30f, RetrySeconds = 30f;
     private const int MaxReports = 200, MaxPending = 500, MaxCities = 40, MaxRulers = 120;
-    private const int MapWidth = 220, BorderGap = 3, FogRadius = 5;
+    // 眼界的远近按地块(TileZone，8×8 格)算：隔着水、无主地至多 BorderGap 块算接壤，看得见的地往外 FogRadius 块以内的山川也看得见
+    private const int BorderGap = 2, FogRadius = 3;
 
     internal sealed class Report
     {
@@ -113,13 +114,27 @@ public static partial class TerminalHost
         internal int[] SlotTier = new int[0];
         // 图上哪些编号是本朝的行政区、羁縻、封国(帝国之主才有，见 BuildMap)
         internal bool[] SlotProv = new bool[0];
-        internal volatile string ViewWant, ViewKey, ViewJson, ArmyJson;
+        internal volatile string ArmyJson;
+        // 探路的人走过、买来的舆图上画着的地方(总图的格，见 TerminalHost.Survey)：不在眼界里也看得见
+        internal readonly HashSet<int> Charted = new();
+        internal int ChartedW, ChartedH;
+        // 总图：上回发的那一份(不带 stamp)、第几版；地貌：眼下该是哪一版(MapTs)、备好的是哪一版、各片、手机来要过没有
+        internal string MapBody;
+        internal volatile int MapStamp, MapTs, TerrainTs;
+        internal volatile string[] TerrainParts;
+        // 上回发给这部手机的地貌(抹过迷雾的)是哪一版；手机报上来它手上是哪一版；备好的这几片是补在哪一版上的(0 = 整份)
+        internal byte[] TerrainBase;
+        internal int TerrainBaseTs;
+        internal volatile int TerrainHave, TerrainFrom;
+        internal volatile bool TerrainWant;
         internal JArray ArmySeen;
         internal string ArmySeenText;
         internal int ArmyMonth, ArmyStamp;
         internal float NextArmy;
         internal bool ArmyDirty;
         internal readonly List<Writ> Writs = new();
+        // 给哪些行政区的军下过手令(席位腾空时一并撤掉)
+        internal readonly HashSet<long> HostOrdered = new();
 
         public bool Watched => DateTime.UtcNow.Ticks - Interlocked.Read(ref LastClientTicks) < TimeSpan.FromSeconds(ClientSeconds).Ticks;
 
@@ -153,7 +168,11 @@ public static partial class TerminalHost
             MapJson = null;
             MapCells = null;
             Slots.Clear();
-            ViewWant = ViewKey = ViewJson = ArmyJson = null;
+            ArmyJson = MapBody = null;
+            Charted.Clear();
+            TerrainParts = null;
+            TerrainBase = null;
+            TerrainWant = false;
             ArmySeen = null;
             ArmyDirty = false;
             Writs.Clear();
@@ -163,6 +182,10 @@ public static partial class TerminalHost
         {
             // 君主不在位了：点名调过的军交还朝廷自己调度(见 CorpsDirectOrders)
             if (Realm != null) CorpsDirectOrders.ClearKingdom(Realm);
+            foreach (long hostId in Writs.Where(writ => writ.Kingdom != 0).Select(writ => writ.Kingdom).Distinct().ToList())
+                CorpsDirectOrders.ClearKingdom(World.world?.kingdoms?.get(hostId));
+            foreach (long hostId in HostOrdered) CorpsDirectOrders.ClearKingdom(World.world?.kingdoms?.get(hostId));
+            HostOrdered.Clear();
             RulerId = -1;
             Ruler = null;
             Realm = null;
@@ -198,6 +221,9 @@ public static partial class TerminalHost
     public static float SpeedFactor => Enabled && _anyWatching ? Mathf.Clamp(SpeedPercent, 1, 100) / 100f : 1f;
     // 世界眼下是不是按终端流速走着(终端窗口显示用)
     public static bool Slowed => Enabled && _anyWatching;
+    // 终端模式开着、世界在跑：山川水陆不许改(用户 2026-11-12 "服务端终端模式开启后禁止地形的变更")。
+    // 手机上的山川是整份取下来的，各位君主也是照着这张图调兵的；见 TerminalPatch.BeforeTerraform
+    public static bool TerrainLocked => Enabled && WorldReady();
 
     public static void NewCode() => Pairing.NewCodeNow();
 
@@ -392,7 +418,7 @@ public static partial class TerminalHost
                 LogService.LogWarning($"[EmpireCraft][终端] 命令没办成: {exception.Message}");
             }
         }
-        RunViews(now);
+        RunTerrain(now);
         RunAnnals(now);
         if (now < _nextTick) return;
         _nextTick = now + 1f;
@@ -403,7 +429,11 @@ public static partial class TerminalHost
             if (!ready)
             {
                 seat.StateJson = "{\"loaded\":false}";
-                seat.MapJson = null;
+                seat.MapJson = seat.MapBody = null;
+                seat.TerrainParts = null;
+                seat.TerrainBase = null;
+                // 换了世界：地貌下回重取
+                _terrain = null;
                 continue;
             }
             try
@@ -441,6 +471,8 @@ public static partial class TerminalHost
                     AddSpeed(built, seat);
                     // 军情有没有新的(见 TerminalHost.Field)：手机见这个数变了才去取
                     built["armyStamp"] = seat.ArmyStamp;
+                    // 总图有没有新的(见 BuildMap)：同上
+                    built["mapStamp"] = seat.MapStamp;
                     built["monthNo"] = MonthNow();
                     seat.StateJson = built.ToString(Newtonsoft.Json.Formatting.None);
                 }
@@ -514,7 +546,7 @@ public static partial class TerminalHost
         if (method == "GET" && path == "/api/state") return TerminalServer.Reply.Json(mine.StateJson ?? "{\"loaded\":false}");
         if (method == "GET" && path == "/api/map") return TerminalServer.Reply.Json(mine.MapJson ?? "{\"ready\":false}");
         if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(mine.ArmyJson ?? "{\"ready\":false}");
-        if (method == "POST" && path == "/api/view") return ViewReply(mine, body);
+        if (method == "POST" && path == "/api/terrain") return TerrainReply(mine, body);
         if (method == "POST" && path == "/api/annals") return AnnalsReply(mine);
         if (method == "POST" && path == "/api/choose")
         {
@@ -623,7 +655,7 @@ public static partial class TerminalHost
             seat.Ruler = actor;
             seat.Realm = actor.kingdom;
             seat.FormerRuler = actor.getName();
-            seat.FormerRealm = seat.Realm.data.name;
+            seat.FormerRealm = NameOf(seat.Realm);
             return;
         }
         // 驾崩、失位、亡国：席位不撤，等着再挑一位(用户："死后终端也不结束，可以再选地图上存活的任意君主")
@@ -655,7 +687,7 @@ public static partial class TerminalHost
             var lead = heart == null ? null : TianxiaSystem.LeadOf(heart);
             rulers.Add(new RulerInfo
             {
-                Id = kingdom.king.getID(), Ruler = kingdom.king.getName(), Realm = kingdom.data.name, Kind = Role(kingdom),
+                Id = kingdom.king.getID(), Ruler = kingdom.king.getName(), Realm = NameOf(kingdom), Kind = Role(kingdom),
                 Cities = kingdom.cities?.Count ?? 0, Age = kingdom.king.getAge(), TakenBy = taken == null ? null : SeatLabel(taken),
                 Tianxia = lead == null ? "" : TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), Empire = empire?.data?.name ?? ""
             });
@@ -740,7 +772,7 @@ public static partial class TerminalHost
                 // 朝廷还不该知道的叛乱：开战的消息、提到叛军的消息都不报(见 TerminalHost.Journey.cs)
                 if (about != null && seat.Hidden.Contains(about.getID()) || seat.HiddenNames.Any(text.Contains) ||
                     id.Contains("war") && FreshRebellionAgainst(seat)) continue;
-                string realmName = seat.Realm.data.name;
+                string realmName = NameOf(seat.Realm);
                 bool own = about == seat.Realm || !string.IsNullOrEmpty(realmName) && text.Contains(realmName);
                 // 皇帝治下各行政区的事也算本国的，照吏治迟报、缺报；只是小事另丢一半(皇权不下乡)
                 if (!own && about != null && OwnEmpire(seat) is { } court && about.GetEmpire() == court)
@@ -883,7 +915,7 @@ public static partial class TerminalHost
         state["ruler"] = new JObject { ["name"] = seat.Ruler.getName(), ["age"] = seat.Ruler.getAge() };
         state["realm"] = new JObject
         {
-            ["name"] = realm.data.name, ["color"] = Hex(RealmMiniMap.KingdomColor(realm)), ["role"] = Role(realm),
+            ["name"] = NameOf(realm), ["color"] = Hex(RealmMiniMap.KingdomColor(realm)), ["role"] = Role(realm),
             ["empire"] = empire?.data?.name, ["era"] = TechnologySystem.GetEraName(TechnologySystem.GetCultureOf(realm)),
             ["sight"] = (int)seat.Sight, ["cities"] = realm.cities?.Count ?? 0
         };
@@ -997,7 +1029,7 @@ public static partial class TerminalHost
             }
             var item = new JObject
             {
-                ["id"] = member.getID().ToString(), ["name"] = member.data.name, ["kind"] = kind, ["n"] = cities.Count, ["cities"] = rows
+                ["id"] = member.getID().ToString(), ["name"] = NameOf(member), ["kind"] = kind, ["n"] = cities.Count, ["cities"] = rows
             };
             if (people > 0) item["people"] = TerminalIntel.RoundSig(people, 2);
             if (member.king != null && member.king.isAlive()) item["ruler"] = member.king.getName();
@@ -1050,37 +1082,95 @@ public static partial class TerminalHost
         }
     }
 
+    // 手机上写的国名。改过名的国(自定国名，见 rename_realm)照显示的全称：存名每月按法理重拼，改的名不在那里头
+    // (群里 2026-11-12 "我改的国号怎么消失了")；其余照存名
+    internal static string NameOf(Kingdom kingdom)
+    {
+        if (kingdom?.data == null) return "";
+        try
+        {
+            if (kingdom.HasCustomCountryNaming())
+            {
+                string full = kingdom.GetKingdomFullName();
+                if (!string.IsNullOrWhiteSpace(full)) return TerminalIntel.Strip(full);
+            }
+        }
+        catch (Exception)
+        {
+            // 国号还拼不出来：照存名
+        }
+        return kingdom.data.name ?? "";
+    }
+
     private static string Hex(Color32 color) => "#" + color.r.ToString("x2") + color.g.ToString("x2") + color.b.ToString("x2");
 
     // ───────── 地图与眼界 ─────────
-    // 从天下简图(RealmMiniMap)再缩一档取样；谁看得见按眼界定：本国、同一帝国、交战国、接壤(隔 BorderGap 格水或无主地也算)的都知道，
-    // 眼界到"通达"档时使节到得了的也知道、通达层里有一点往来的算传闻；看得见的国四周 FogRadius 格以内的山川也看得见，其余是迷雾
+    // 手机上的舆图是它自己画的(用户 2026-11-12 转来的意见："应该把一些东西放到本地去计算，而不是服务器发包图像过来"
+    // "首先服务器发过来地图结构，然后就算每个地块的政治数据，在本地进行计算")。这里只给数据：
+    //   · 每块地(TileZone，8×8 格)归哪国、哪座城——就是这一份，变了手机才来取(state 里的 mapStamp)；
+    //   · 山川地貌另发一份(TerminalHost.Field 的 /api/terrain)，迷雾变了才重发(这一份里的 ts)；
+    //   · 各国属哪个帝国、哪个天下：手机上分层级看(用户 "地图可以像模组一样分层级")。
+    // 谁看得见按眼界定：本国、同一帝国、交战国、接壤(隔 BorderGap 块水或无主地也算)的都知道，
+    // 眼界到"通达"档时使节到得了的也知道、通达层里有一点往来的算传闻；看得见的国四周 FogRadius 块以内的山川也看得见，其余是迷雾
     private static void BuildMap(Seat seat)
     {
         Kingdom realm = seat.Realm;
-        RealmMiniMap.MapData map = RealmMiniMap.Snapshot();
-        int factor = Mathf.Max(1, Mathf.CeilToInt(map.Width / (float)MapWidth));
-        int width = Mathf.Max(1, map.Width / factor), height = Mathf.Max(1, map.Height / factor);
+        ZoneCalculator calc = World.world.zone_calculator;
+        int width = calc.zones_total_x, height = calc.zones_total_y;
+        if (width < 1 || height < 1) return;
         var owner = new int[width * height];
         var cityAt = new int[width * height];
+        var kingdoms = new List<Kingdom>();
+        var kingdomIndex = new Dictionary<long, int>();
+        var cities = new List<City>();
+        var cityIndex = new Dictionary<long, int>();
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
-            int sx = Math.Min(map.Width - 1, x * factor + factor / 2), sy = Math.Min(map.Height - 1, y * factor + factor / 2);
-            owner[y * width + x] = map.Owner[sy * map.Width + sx];
-            cityAt[y * width + x] = map.City[sy * map.Width + sx];
+            int at = y * width + x;
+            owner[at] = -1;
+            cityAt[at] = -1;
+            TileZone zone = calc.getZone(x, y);
+            if (zone == null)
+            {
+                owner[at] = -2;
+                continue;
+            }
+            City city = zone.city;
+            if (city?.data == null || city.isRekt()) city = null;
+            Kingdom kingdom = city?.kingdom ?? WildernessSystem.OwnerOf(zone);
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild) kingdom = null;
+            if (kingdom == null)
+            {
+                // 没有主的：正中是水的算水域，其余是无主之地
+                if (zone.centerTile?.Type == null || zone.centerTile.Type.liquid) owner[at] = -2;
+                continue;
+            }
+            if (!kingdomIndex.TryGetValue(kingdom.getID(), out int kingdomAt))
+            {
+                kingdomIndex[kingdom.getID()] = kingdomAt = kingdoms.Count;
+                kingdoms.Add(kingdom);
+            }
+            owner[at] = kingdomAt;
+            if (city == null) continue;
+            if (!cityIndex.TryGetValue(city.getID(), out int cityIdx))
+            {
+                cityIndex[city.getID()] = cityIdx = cities.Count;
+                cities.Add(city);
+            }
+            cityAt[at] = cityIdx;
         }
-        int self = map.KingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
+        int self = kingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
         // 朝廷还不该知道的叛军：它占的地在图上还算本国的
         if (self >= 0)
             foreach (long hiddenId in seat.Hidden)
-                if (map.KingdomIndex.TryGetValue(hiddenId, out int rebelIndex))
+                if (kingdomIndex.TryGetValue(hiddenId, out int rebelIndex))
                     for (int cell = 0; cell < owner.Length; cell++)
                         if (owner[cell] == rebelIndex) owner[cell] = self;
         HashSet<int> neighbours = Neighbours(owner, width, height, self);
 
         // 各国几等：0 本国、1 已知、2 传闻、3 不知
-        var tier = new int[map.Kingdoms.Count];
+        var tier = new int[kingdoms.Count];
         Empire empire = realm.GetEmpire();
         var enemies = new HashSet<Kingdom>();
         foreach (War war in realm.getWars())
@@ -1092,9 +1182,9 @@ public static partial class TerminalHost
         seat.Known.Clear();
         seat.KnownNames.Clear();
         seat.Rumoured.Clear();
-        for (int i = 0; i < map.Kingdoms.Count; i++)
+        for (int i = 0; i < kingdoms.Count; i++)
         {
-            Kingdom kingdom = map.Kingdoms[i];
+            Kingdom kingdom = kingdoms[i];
             if (kingdom != null && seat.Hidden.Contains(kingdom.getID()))
             {
                 tier[i] = 3;
@@ -1114,9 +1204,25 @@ public static partial class TerminalHost
             if (!string.IsNullOrEmpty(kingdom.data.name)) seat.KnownNames.Add(kingdom.data.name);
         }
 
-        // 看得见的国重新编号(行 0 在上：游戏里 y 朝上，这里翻过来)
-        var slot = new int[map.Kingdoms.Count];
+        // 探路的人走过、买来的舆图上画着的地方(见 TerminalHost.Survey)：那里的国至少算有了传闻
+        bool charted = seat.Charted.Count > 0 && seat.ChartedW == width && seat.ChartedH == height;
+        if (charted)
+            foreach (int cell in seat.Charted)
+            {
+                int who = owner[(height - 1 - cell / width) * width + cell % width];
+                if (who < 0 || tier[who] != 3 || kingdoms[who]?.data == null || kingdoms[who].isRekt() || seat.Hidden.Contains(kingdoms[who].getID())) continue;
+                tier[who] = 2;
+                seat.Rumoured.Add(kingdoms[who].getID());
+            }
+
+        // 看得见的国重新编号(行 0 在上：游戏里 y 朝上，这里翻过来)。各国顺带标上属哪个帝国、哪个天下：
+        // 手机上按天下、帝国、王国、城四个层级看这张图
+        var slot = new int[kingdoms.Count];
         var realms = new JArray();
+        var empires = new JArray();
+        var worlds = new JArray();
+        var empireAt = new Dictionary<Empire, int>();
+        var worldAt = new Dictionary<object, int>();
         var sumX = new List<float>();
         var sumY = new List<float>();
         var count = new List<int>();
@@ -1124,28 +1230,60 @@ public static partial class TerminalHost
         {
             slot[i] = -1;
             if (tier[i] > 2 || realms.Count >= TerminalIntel.MaxRealms) continue;
+            Kingdom kingdom = kingdoms[i];
             slot[i] = realms.Count;
-            realms.Add(new JObject
+            var row = new JObject
             {
-                ["id"] = map.Kingdoms[i].getID().ToString(), ["name"] = map.Kingdoms[i].data.name,
-                ["color"] = Hex(RealmMiniMap.KingdomColor(map.Kingdoms[i])), ["tier"] = tier[i]
-            });
+                ["id"] = kingdom.getID().ToString(), ["name"] = NameOf(kingdom),
+                ["color"] = Hex(RealmMiniMap.KingdomColor(kingdom)), ["tier"] = tier[i]
+            };
+            Empire court = kingdom.GetEmpire();
+            if (court?.data != null)
+            {
+                if (!empireAt.TryGetValue(court, out int courtAt))
+                {
+                    empireAt[court] = courtAt = empires.Count;
+                    empires.Add(new JObject
+                    {
+                        ["name"] = TerminalIntel.Strip(court.data.name ?? ""), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom))
+                    });
+                }
+                row["emp"] = courtAt;
+            }
+            try
+            {
+                City heart = (court?.CoreKingdom ?? kingdom).capital;
+                var lead = heart == null ? null : TianxiaSystem.LeadOf(heart);
+                if (lead != null)
+                {
+                    if (!worldAt.TryGetValue(lead, out int leadAt))
+                    {
+                        worldAt[lead] = leadAt = worlds.Count;
+                        worlds.Add(new JObject { ["name"] = TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? "") });
+                    }
+                    row["tx"] = leadAt;
+                }
+            }
+            catch (Exception)
+            {
+                // 天下还没排好：这一国先不标
+            }
             // 帝国之主的图上，帝国的成员(行政区、羁縻、封国)标成本朝之地：手机照本国的颜色画，彼此之间画行政区界
             // (用户 2026-11-12 "地图上也要能看到行政区的边界")
-            if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && map.Kingdoms[i].GetEmpire() == empire)
-                realms[realms.Count - 1]["prov"] = true;
+            if (tier[i] == 1 && empire != null && empire.CoreKingdom == realm && court == empire) row["prov"] = true;
+            realms.Add(row);
             sumX.Add(0f);
             sumY.Add(0f);
             count.Add(0);
         }
-        // 细节图、军情都按这回的编号与几等认国(见 TerminalHost.Field)；朝廷还不知道的叛军算在本国头上
+        // 军情、点选都按这回的编号与几等认国(见 TerminalHost.Field)；朝廷还不知道的叛军算在本国头上
         seat.Slots.Clear();
         seat.SlotTier = new int[realms.Count];
         seat.SlotProv = new bool[realms.Count];
         for (int i = 0; i < slot.Length; i++)
         {
             if (slot[i] < 0) continue;
-            seat.Slots[map.Kingdoms[i].getID()] = slot[i];
+            seat.Slots[kingdoms[i].getID()] = slot[i];
             seat.SlotTier[slot[i]] = tier[i];
             seat.SlotProv[slot[i]] = realms[slot[i]]["prov"] != null;
         }
@@ -1154,11 +1292,11 @@ public static partial class TerminalHost
         var cells = new byte[width * height];
         var keep = new bool[cells.Length];
         var reach = new int[cells.Length];
-        // 本国各城看得到多远按政令(都城看满)；已知的别国只看得到它的地、往外两格
-        var cityReach = new int[map.Cities.Count];
+        // 本国各城看得到多远按政令(都城看满)；已知的别国只看得到它的地、往外一块
+        var cityReach = new int[cities.Count];
         for (int i = 0; i < cityReach.Length; i++)
         {
-            City city = map.Cities[i];
+            City city = cities[i];
             if (city?.data == null || city.kingdom != realm) continue;
             float control = city == realm.capital || !AdministrativeControlSystem.Known(city) ? 1f : AdministrativeControlSystem.Get(city);
             cityReach[i] = TerminalIntel.CityReach(control, FogRadius);
@@ -1174,13 +1312,16 @@ public static partial class TerminalHost
             {
                 int index = slot[who];
                 cells[to] = (byte)index;
-                reach[to] = who == self ? (cityAt[from] >= 0 ? cityReach[cityAt[from]] : 1) : tier[who] == 1 ? 2 : -1;
+                reach[to] = who == self ? (cityAt[from] >= 0 ? cityReach[cityAt[from]] : 1) : tier[who] == 1 ? 1 : -1;
                 keep[to] = tier[who] == 2;
                 sumX[index] += x;
                 sumY[index] += height - 1 - y;
                 count[index]++;
             }
         }
+        if (charted)
+            foreach (int cell in seat.Charted)
+                if (reach[cell] < 0) reach[cell] = 0;
         if (seat.Sight != TerminalIntel.Sight.World) TerminalIntel.ApplyFog(cells, reach, keep, width, height);
         for (int i = 0; i < realms.Count; i++)
         {
@@ -1192,21 +1333,50 @@ public static partial class TerminalHost
         seat.MapCells = cells;
         seat.MapW = width;
         seat.MapH = height;
-        seat.MapTile = Mathf.Max(1, map.Step * factor);
+        seat.MapTile = Mathf.Max(1, MapBox.width / width);
+        // 图上的城，和每块地是哪座城的(两个字节，城多的图一个字节不够)；迷雾里的、不知道的国的不给
+        JArray shown = MapCities(seat, cities, out Dictionary<long, int> shownAt);
+        var cityLow = new byte[cells.Length];
+        var cityHigh = new byte[cells.Length];
+        uint fog = 2166136261u;
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int from = y * width + x, to = (height - 1 - y) * width + x, index = 0xFFFF;
+            bool fogged = cells[to] == TerminalIntel.Fog;
+            if (!fogged && cityAt[from] >= 0 && shownAt.TryGetValue(cities[cityAt[from]].getID(), out int at)) index = at;
+            cityLow[to] = (byte)index;
+            cityHigh[to] = (byte)(index >> 8);
+            unchecked
+            {
+                fog = (fog ^ (fogged ? 1u : 0u)) * 16777619u;
+            }
+        }
+        // 地貌那一份跟着迷雾走：迷雾变了、山川改了，这个数就变，手机见了重新取(见 TerminalHost.Field)
+        int terrainVersion = TerrainNow(seat.Watched).Version;
+        seat.MapTs = (int)(unchecked(fog * 31u + (uint)terrainVersion) & 0x7fffffff) | 1;
         var json = new JObject
         {
             ["ready"] = true, ["w"] = width, ["h"] = height, ["sight"] = (int)seat.Sight,
-            ["cells"] = Convert.ToBase64String(TerminalIntel.Rle(cells)), ["realms"] = realms,
-            ["tile"] = seat.MapTile, ["cities"] = MapCities(seat, map)
+            ["cells"] = Convert.ToBase64String(TerminalIntel.Rle(cells)), ["realms"] = realms, ["empires"] = empires, ["worlds"] = worlds,
+            ["tile"] = seat.MapTile, ["cities"] = shown, ["ts"] = seat.MapTs,
+            ["zc"] = new JArray(Convert.ToBase64String(TerminalIntel.Rle(cityLow)), Convert.ToBase64String(TerminalIntel.Rle(cityHigh)))
         };
         City capital = realm.capital;
         if (capital?.data != null && !capital.isRekt())
         {
-            // 整张图的快照从地图左下角取起，都城的地块坐标直接换成格
-            float cx = capital.city_center.x / map.Step / factor, cy = capital.city_center.y / map.Step / factor;
-            json["capital"] = new JArray(Math.Round(cx, 1), Math.Round(height - 1 - cy, 1));
+            (double cx, double cy) = CellOf(seat, capital.city_center.x, capital.city_center.y);
+            json["capital"] = new JArray(cx, cy);
         }
-        seat.MapJson = json.ToString(Newtonsoft.Json.Formatting.None);
+        string text = json.ToString(Newtonsoft.Json.Formatting.None);
+        // 同上回一样就不算新图：手机见 state 里的 mapStamp 变了才来取
+        if (text != seat.MapBody)
+        {
+            seat.MapBody = text;
+            seat.MapStamp++;
+            json["stamp"] = seat.MapStamp;
+            seat.MapJson = json.ToString(Newtonsoft.Json.Formatting.None);
+        }
     }
 
     // 本国的格往外走，隔着水、无主地至多 BorderGap 格碰到的国

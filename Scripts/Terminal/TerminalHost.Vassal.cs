@@ -56,7 +56,7 @@ public static partial class TerminalHost
                 extras.Add(new JObject { ["id"] = extra.Id, ["label"] = ExtraLabel(extra), ["value"] = extra.Value, ["money"] = extra.Tier >= 0 });
             items.Add(new JObject
             {
-                ["id"] = other.getID().ToString(), ["name"] = other.data.name, ["kind"] = kind, ["cities"] = other.cities?.Count ?? 0,
+                ["id"] = other.getID().ToString(), ["name"] = NameOf(other), ["kind"] = kind, ["cities"] = other.cities?.Count ?? 0,
                 ["need"] = scale.Need, ["have"] = scale.Have, ["fee"] = scale.Fee, ["resist"] = WeightsJson(scale.Resist), ["court"] = WeightsJson(scale.Court),
                 ["extras"] = extras, ["human"] = HostOf(other, seat) != null, ["months"] = VassalMonths(seat, other, kind),
                 ["force"] = kind != VassalReductionRules.Rebel
@@ -79,7 +79,7 @@ public static partial class TerminalHost
         made.Target = id;
         made.Due = MonthNow() + VassalMonths(seat, other, kind);
         string key = force ? "terminal_order_vassal_force" : kind == VassalReductionRules.Rebel ? "terminal_order_amnesty" : "terminal_order_vassal";
-        made.Text = string.Format(LM.Get(key), other.data.name);
+        made.Text = string.Format(LM.Get(key), NameOf(other));
         if (force) return true;
         List<VassalReduction.Extra> extras = VassalReduction.Pick(realm, other, Math.Max(1, PeaceTermRules.RealmValue(other)), choice);
         made.Extra = string.Join(",", extras.Select(extra => extra.Id));
@@ -98,7 +98,7 @@ public static partial class TerminalHost
         {
             string reason = VassalReduction.Rise(realm, other, kind);
             if (reason != null) return Words(reason);
-            if (host != null) Notify(host, string.Format(LM.Get("terminal_vassal_forced"), realm.data.name));
+            if (host != null) Notify(host, string.Format(LM.Get("terminal_vassal_forced"), NameOf(realm)));
             return null;
         }
         if (host != null)
@@ -106,17 +106,17 @@ public static partial class TerminalHost
             string action = kind == VassalReductionRules.Rebel ? "amnesty" : "provincialize";
             host.Offers.Add(new Offer
             {
-                Id = ++_seq, From = seat, FromRealm = realm.getID(), FromName = realm.data.name, Action = action, Terms = order.Extra ?? "",
+                Id = ++_seq, From = seat, FromRealm = realm.getID(), FromName = NameOf(realm), Action = action, Terms = order.Extra ?? "",
                 Since = Time.realtimeSinceStartup
             });
             host.NextDecrees = host.NextState = 0f;
-            Notify(host, string.Format(LM.Get("terminal_offer_came"), realm.data.name, Words("diplomacy_act_" + action)));
+            Notify(host, string.Format(LM.Get("terminal_offer_came"), NameOf(realm), Words("diplomacy_act_" + action)));
             return Waiting;
         }
         VassalReduction.Scale scale = VassalReduction.Weigh(realm, other, kind);
         List<VassalReduction.Extra> extras = VassalReduction.Pick(realm, other, scale.Basis, order.Extra);
         int have = scale.Have + extras.Sum(extra => extra.Value);
-        if (have < scale.Need) return string.Format(LM.Get("terminal_fail_scale"), other.data.name, scale.Need - have);
+        if (have < scale.Need) return string.Format(LM.Get("terminal_fail_scale"), NameOf(other), scale.Need - have);
         string failure = VassalReduction.Settle(realm, other, kind, extras);
         return failure == null ? null : Words(failure);
     }
@@ -139,7 +139,7 @@ public static partial class TerminalHost
         seat.NextDecrees = seat.NextState = 0f;
         Kingdom from = World.world.kingdoms.get(offer.FromRealm);
         bool fromThere = offer.From?.Ruler != null && offer.From.Realm == from && SeatByToken.ContainsKey(offer.From.Token);
-        string what = Words("diplomacy_act_" + offer.Action), mine = seat.Realm.data.name;
+        string what = Words("diplomacy_act_" + offer.Action), mine = NameOf(seat.Realm);
         int kind = from?.data == null || from.isRekt() ? -1 : VassalReduction.KindOf(from, seat.Realm);
         string failure = null;
         if (accept)

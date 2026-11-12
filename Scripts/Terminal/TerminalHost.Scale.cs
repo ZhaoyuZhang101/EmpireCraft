@@ -17,22 +17,28 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 乙那边的账 = 甲出的 − 甲索的 − 要价，不小于零才肯；
 //   · 乙不是真人：它自己开价(够抵要价的最省的一组条件)，照它的开价去准成；乙是真人：提议递到他手里待批，肯不肯由他裁，不看天平；
 //   · 谈成了才落地：库银走赔款的路子(WarReparationsSystem.Impose)，割城排队换主(WarGoalSystem.QueueCession)。
-// 议和照旧走议和台本身；对面是真人时同样递给他裁
+// 议和照旧走议和台本身；对面是真人时同样递给他裁。
+// 互换(用户 2026-11-12 "城市王国 法理 军队 都可以交换")：不搭着结盟和亲，单是两边换东西，也是一桩走天平的事("trade")，
+// 它本身不要价，乙那边不亏就肯(真人由他裁)。台上能摆的除了库银和城，还有属国、法理、军队(见 TerminalHost.Trade.cs)
 public static partial class TerminalHost
 {
     // 走天平的事 → (对乙值乙全境的几成, 乙好感到多少就不要价)
     private static readonly Dictionary<string, (double share, int line)> ScaleDeals = new()
     {
-        ["ally"] = (0.08d, 40), ["marry"] = (0.04d, 20), ["pact"] = (0.03d, 20)
+        ["ally"] = (0.08d, 40), ["marry"] = (0.04d, 20), ["pact"] = (0.03d, 20), [Trade] = (0d, 0)
     };
 
-    private const int MaxTermCities = 4;
+    private const int MaxTermCities = 10;
+    // 互换：不是游戏里的外交动作，只在终端的天平上有
+    private const string Trade = "trade";
     // Execute 的返回：提议已递到对面真人手里，等他回话(不算办成也不算没成)
     private const string Waiting = "\u0001waiting";
 
     internal sealed class Term
     {
-        public string Id, Label;
+        // Kind：money 库银、city 城、vassal 属国、title 法理、corps 军(后三样的 RefId 是王国、法理、军团的编号)
+        public string Id, Label, Kind = "city";
+        public long RefId;
         public bool Give, Money;
         public int Tier, Value;
         public long CityId;
@@ -72,7 +78,7 @@ public static partial class TerminalHost
                 if (money <= 0) continue;
                 terms.Add(new Term
                 {
-                    Id = side + ":m:" + tier, Give = give, Money = true, Tier = tier, Value = PeaceTermRules.MoneyValue(payer, money),
+                    Id = side + ":m:" + tier, Give = give, Money = true, Kind = "money", Tier = tier, Value = PeaceTermRules.MoneyValue(payer, money),
                     Label = string.Format(LM.Get("terminal_term_money"), Math.Round(PeaceTermRules.IndemnityTiers[tier].share * 100d))
                 });
             }
@@ -83,6 +89,8 @@ public static partial class TerminalHost
                     Id = side + ":c:" + city.getID(), Give = give, CityId = city.getID(), Value = PeaceTermRules.CityValue(city),
                     Label = string.Format(LM.Get("terminal_term_city"), city.data.name)
                 });
+            // 属国、法理、军队(见 TerminalHost.Trade.cs)
+            AddTradeTerms(terms, payer, give ? to : from, give, side);
         }
         return terms;
     }
@@ -127,7 +135,10 @@ public static partial class TerminalHost
         }
         var list = new JArray();
         foreach (Term term in terms)
-            list.Add(new JObject { ["id"] = term.Id, ["give"] = term.Give, ["money"] = term.Money, ["value"] = term.Value, ["label"] = term.Label });
+            list.Add(new JObject
+            {
+                ["id"] = term.Id, ["give"] = term.Give, ["money"] = term.Money, ["value"] = term.Value, ["label"] = term.Label, ["kind"] = term.Kind
+            });
         return new JObject { ["deals"] = deals, ["terms"] = list, ["human"] = HostOf(other, seat) != null };
     }
 
@@ -160,7 +171,8 @@ public static partial class TerminalHost
     // force：两位真人谈成的结盟——不查条件、照神力的口径在游戏里尽量结上，结不上也不算没成(盟约记在终端这头)
     private static string Settle(Kingdom from, Kingdom to, DiplomacyActions.Action action, List<Term> terms, bool force = false)
     {
-        string result = force
+        // 互换没有搭着的事(action 为空)：只兑现条件
+        string result = action == null ? null : force
             ? MembershipCooldown.ByGod(() => action.run(from, to, DiplomacyActions.Goals[0]))
             : DiplomacyActions.Do(action, from, to, DiplomacyActions.Goals[0]);
         if (result != null && !force) return Words(result);
@@ -172,11 +184,12 @@ public static partial class TerminalHost
                 (double share, bool installments) = PeaceTermRules.IndemnityTiers[term.Tier];
                 WarReparationsSystem.Impose(payer, taker, share, installments);
             }
-            else
+            else if (term.Kind == "city")
             {
                 City city = World.world.cities.get(term.CityId);
                 if (city?.data != null && !city.isRekt() && city.kingdom == payer) WarGoalSystem.QueueCession(city, taker);
             }
+            else SettleTrade(term, payer, taker);
         }
         return null;
     }
@@ -199,14 +212,14 @@ public static partial class TerminalHost
                 return Waiting;
             }
             PeaceTable.Mediate(war);
-            return PeaceTable.Sign(war, false) ? null : string.Format(LM.Get("terminal_fail_refused"), other.data.name);
+            return PeaceTable.Sign(war, false) ? null : string.Format(LM.Get("terminal_fail_refused"), NameOf(other));
         }
         if (order.Arg == "leave_alliance" && Allied(realm, other))
         {
             // 背盟：终端这头的盟约当场解除，游戏里有同盟的也退(退不了不管)；对面是真人的告诉他一声
             Unbind(realm, other);
             DiplomacyActions.Do(action, realm, other, DiplomacyActions.Goals[0]);
-            if (host != null) Notify(host, string.Format(LM.Get("terminal_pact_broken"), realm.data.name));
+            if (host != null) Notify(host, string.Format(LM.Get("terminal_pact_broken"), NameOf(realm)));
             return null;
         }
         if (!ScaleDeals.ContainsKey(order.Arg))
@@ -223,7 +236,7 @@ public static partial class TerminalHost
         List<Term> terms = ParseTerms(order.Extra, realm, other);
         int total = terms.Where(term => term.Give).Sum(term => term.Value) - terms.Where(term => !term.Give).Sum(term => term.Value) -
                     Need(order.Arg, realm, other);
-        return total < 0 ? string.Format(LM.Get("terminal_fail_scale"), other.data.name, -total) : Settle(realm, other, action, terms);
+        return total < 0 ? string.Format(LM.Get("terminal_fail_scale"), NameOf(other), -total) : Settle(realm, other, action, terms);
     }
 
     // 把提议递到对面真人手里
@@ -231,11 +244,11 @@ public static partial class TerminalHost
     {
         host.Offers.Add(new Offer
         {
-            Id = ++_seq, From = from, FromRealm = from.Realm.getID(), FromName = from.Realm.data.name, Action = order.Arg, Terms = order.Extra ?? "",
+            Id = ++_seq, From = from, FromRealm = from.Realm.getID(), FromName = NameOf(from.Realm), Action = order.Arg, Terms = order.Extra ?? "",
             Since = Time.realtimeSinceStartup
         });
         host.NextDecrees = host.NextState = 0f;
-        Notify(host, string.Format(LM.Get("terminal_offer_came"), from.Realm.data.name, Words("diplomacy_act_" + order.Arg)));
+        Notify(host, string.Format(LM.Get("terminal_offer_came"), NameOf(from.Realm), Words("diplomacy_act_" + order.Arg)));
     }
 
     private static void AddOffers(Seat seat, JArray pending)
@@ -273,7 +286,8 @@ public static partial class TerminalHost
         if (accept)
         {
             DiplomacyActions.Action action = OpenActions().FirstOrDefault(found => Suffix(found.key) == offer.Action);
-            if (from?.data == null || from.isRekt() || action == null) failure = LM.Get("terminal_fail_gone");
+            if (from?.data == null || from.isRekt() || action == null && offer.Action != Trade) failure = LM.Get("terminal_fail_gone");
+            else if (offer.Action == Trade) failure = Settle(from, seat.Realm, null, ParseTerms(offer.Terms, from, seat.Realm));
             else if (offer.Action == "peace")
             {
                 War war = WarBetween(seat.Realm, from);
@@ -295,7 +309,7 @@ public static partial class TerminalHost
         }
         bool done = accept && failure == null;
         if (fromThere)
-            Notify(offer.From, string.Format(LM.Get(done ? "terminal_offer_accepted" : "terminal_offer_refused"), seat.Realm.data.name, what) +
+            Notify(offer.From, string.Format(LM.Get(done ? "terminal_offer_accepted" : "terminal_offer_refused"), NameOf(seat.Realm), what) +
                                (failure != null ? "（" + failure + "）" : ""));
         Notify(seat, string.Format(LM.Get(done ? "terminal_offer_did_accept" : "terminal_offer_did_refuse"), offer.FromName, what) +
                      (failure != null ? "（" + failure + "）" : ""));
@@ -341,7 +355,7 @@ public static partial class TerminalHost
             war.joinDefenders(ally);
             Seat seat = SeatByToken.Values.FirstOrDefault(found => found.Ruler != null && found.Realm == ally);
             if (seat != null)
-                Notify(seat, string.Format(LM.Get("terminal_pact_called"), victim.data.name, war.main_attacker?.data?.name ?? ""));
+                Notify(seat, string.Format(LM.Get("terminal_pact_called"), NameOf(victim), war.main_attacker?.data?.name ?? ""));
         }
     }
 

@@ -238,7 +238,7 @@ public static partial class TerminalHost
         }
         if (realm.GetEmpire() == null || empire != null) palace.Add(new JObject
         {
-            ["id"] = "rename_realm", ["ok"] = true, ["text"] = true, ["current"] = realm.data.name,
+            ["id"] = "rename_realm", ["ok"] = true, ["text"] = true, ["current"] = NameOf(realm),
             ["chance"] = Mathf.RoundToInt(ScaleChance(realm, RealmNameBase, RealmNameSlope) * 100f)
         });
         palace.Add(new JObject
@@ -263,6 +263,7 @@ public static partial class TerminalHost
         var actions = OpenActions().ToList();
         var names = new JObject();
         foreach (DiplomacyActions.Action action in actions) names[Suffix(action.key)] = Words(action.key);
+        names[Trade] = Words("diplomacy_act_" + Trade);
         var realms = new JArray();
         foreach (long id in seat.Known)
         {
@@ -280,10 +281,12 @@ public static partial class TerminalHost
                 if (reason == null) can.Add(Suffix(action.key));
                 else cannot[Suffix(action.key)] = Words(reason);
             }
+            // 互换(见 TerminalHost.Scale)：交战之国之间不谈
+            if (!realm.isInWarWith(other)) can.Add(Trade);
             (string tianxia, string inEmpire) = Belong(other);
             realms.Add(new JObject
             {
-                ["id"] = id.ToString(), ["name"] = other.data.name, ["opinion"] = Opinion(other, realm), ["can"] = can, ["cannot"] = cannot,
+                ["id"] = id.ToString(), ["name"] = NameOf(other), ["opinion"] = Opinion(other, realm), ["can"] = can, ["cannot"] = cannot,
                 ["months"] = EnvoyMonths(seat, other), ["tianxia"] = tianxia, ["empire"] = inEmpire, ["kind"] = Role(other),
                 ["cities"] = other.cities?.Count ?? 0, ["dossier"] = Dossier(seat, id),
                 ["scale"] = ScaleJson(seat, other), ["pact"] = Allied(realm, other)
@@ -310,7 +313,15 @@ public static partial class TerminalHost
                 ["year"] = Date.getYear(order.At), ["month"] = Date.getMonth(order.At), ["left"] = Math.Max(0, order.Due - MonthNow())
             });
         }
-        return new JObject { ["groups"] = groups, ["pending"] = pending, ["orders"] = orders, ["home"] = HomeMonths(seat) };
+        return new JObject
+        {
+            ["groups"] = groups, ["pending"] = pending, ["orders"] = orders, ["home"] = HomeMonths(seat),
+            // 探路、购舆图眼下各要多少库银(见 TerminalHost.Survey)
+            ["survey"] = new JObject
+            {
+                ["explore"] = SurveyCost(realm, ExploreShare, ExploreFloor), ["chart"] = SurveyCost(realm, ChartShare, ChartFloor)
+            }
+        };
     }
 
     private static int Opinion(Kingdom from, Kingdom about)
@@ -433,6 +444,10 @@ public static partial class TerminalHost
             made.Target = successorId;
             made.Text = string.Format(LM.Get("terminal_order_abdicate"), successor.getName());
         }
+        else if (id == "explore" || id == "buy_map")
+        {
+            if (!SurveyOrder(seat, made, id, target)) return;
+        }
         else if (id == "dejure_main" || id == "name_prefix" || id == "name_suffix")
         {
             if (!AnnalsOrder(seat, made, id, target, choice)) return;
@@ -495,16 +510,24 @@ public static partial class TerminalHost
         else if (id.StartsWith("diplo:", StringComparison.Ordinal) && long.TryParse(target, out long otherId))
         {
             Kingdom other = World.world.kingdoms.get(otherId);
-            DiplomacyActions.Action action = OpenActions().FirstOrDefault(a => Suffix(a.key) == id.Substring(6));
-            if (other?.data == null || other.isRekt() || action == null || !seat.Known.Contains(otherId)) return;
+            bool trade = id.Substring(6) == Trade;
+            DiplomacyActions.Action action = trade ? null : OpenActions().FirstOrDefault(a => Suffix(a.key) == id.Substring(6));
+            if (other?.data == null || other.isRekt() || action == null && !trade || !seat.Known.Contains(otherId)) return;
+            // 互换总得有东西换
+            if (trade && (realm.isInWarWith(other) || ParseTerms(choice, realm, other).Count == 0))
+            {
+                Notify(seat, LM.Get("terminal_trade_empty"));
+                return;
+            }
             made.Kind = "diplo";
-            made.Arg = Suffix(action.key);
+            made.Arg = trade ? Trade : Suffix(action.key);
             made.Target = otherId;
             made.Due = MonthNow() + EnvoyMonths(seat, other);
             // 走天平的事(结盟、和亲、通好)带上摆在台上的条件
             if (ScaleDeals.ContainsKey(made.Arg)) made.Extra = string.Join(",", ParseTerms(choice, realm, other).Select(term => term.Id));
             string terms = made.Extra.Length > 0 ? Describe(ParseTerms(made.Extra, realm, other)) : "";
-            made.Text = string.Format(LM.Get("terminal_order_diplo"), other.data.name, Words(action.key)) + (terms.Length > 0 ? "（" + terms + "）" : "");
+            made.Text = string.Format(LM.Get("terminal_order_diplo"), NameOf(other), Words(trade ? "diplomacy_act_" + Trade : action.key)) +
+                        (terms.Length > 0 ? "（" + terms + "）" : "");
         }
         else if (id == "vassal")
         {
@@ -742,6 +765,9 @@ public static partial class TerminalHost
                 seat.Abdicated = true;
                 return null;
             }
+            case "explore":
+            case "buy_map":
+                return SurveyExecute(seat, realm, order);
             case "dejure_main":
             case "name_prefix":
             case "name_suffix":
@@ -750,14 +776,16 @@ public static partial class TerminalHost
             {
                 float chance = ScaleChance(realm, RealmNameBase, RealmNameSlope);
                 if (!ScaleRoll(order, realm, chance)) return string.Format(LM.Get("terminal_fail_era"), Mathf.RoundToInt(chance * 100f));
+                // 照游戏里两个窗口改名的办法落地。王国：记成自定国名(KingdomWindowPatch.BeforeKingdomRename)——只写存名的话，
+                // 每月按法理重拼国名时又改回去(群里 2026-11-12 "我改的国号怎么消失了")；帝国：现代政权、已另有称号的记成
+                // 核心国的自定国名，其余改帝国名号(EmpireWindow.name_change)
                 Empire empire = OwnEmpire(seat);
-                if (empire != null) empire.SetEmpireName(order.Arg);
+                if (empire != null && realm.GetRegime()?.type != RegimeType.Modern && empire.GetEmpireFullName() == empire.GetBaseEmpireFullName())
+                    empire.SetEmpireName(order.Arg);
                 else
                 {
-                    // 独立国战时不改国号(Kingdom.SetKingdomName 会不声不响地不改)
-                    if (realm.GetEmpire() == null && realm.getWars().Any(war => war?.data != null && !war.hasEnded()))
-                        return LM.Get("terminal_fail_wartime");
-                    realm.SetKingdomName(order.Arg);
+                    realm.SetCustomCountryName(order.Arg);
+                    realm.SetCustomCountrySuffix("");
                 }
                 return null;
             }
@@ -829,7 +857,8 @@ public static partial class TerminalHost
             {
                 Kingdom other = World.world.kingdoms.get(order.Target);
                 DiplomacyActions.Action action = OpenActions().FirstOrDefault(a => Suffix(a.key) == order.Arg);
-                if (other?.data == null || other.isRekt() || action == null) return LM.Get("terminal_fail_gone");
+                if (other?.data == null || other.isRekt() || action == null && order.Arg != Trade) return LM.Get("terminal_fail_gone");
+                if (order.Arg == Trade) return realm.isInWarWith(other) ? LM.Get("terminal_fail_gone") : Negotiate(seat, order, other, null);
                 bool free = order.Arg == "ally" && HostOf(other, seat) != null || order.Arg == "leave_alliance" && Allied(realm, other);
                 string reason = free ? null : DiplomacyActions.Check(action, realm, other);
                 if (reason != null) return Words(reason);

@@ -134,7 +134,7 @@ public static partial class TerminalHost
             }
             PersonalClanIdentity self = seat.Ruler.GetPersonalIdentity();
             if (self != null && reigns.All(found => found.person != self)) reigns.Add((self, null, self.name ?? seat.Ruler.getName()));
-            title = string.Format(LM.Get("lineage_chart_title"), seat.Realm.data.name);
+            title = string.Format(LM.Get("lineage_chart_title"), NameOf(seat.Realm));
         }
 
         var rulers = new HashSet<long>(reigns.Where(found => found.person != null).Select(found => found.person.id));
@@ -482,7 +482,7 @@ public static partial class TerminalHost
                     {
                         ["name"] = TerminalIntel.Strip(title.data.name ?? ""),
                         ["sub"] = string.Format(LM.Get("terminal_an_hold"), own, all) +
-                                  (holder?.data != null && !holder.isRekt() && holder != realm ? " · " + holder.data.name : ""),
+                                  (holder?.data != null && !holder.isRekt() && holder != realm ? " · " + NameOf(holder) : ""),
                         ["own"] = all > 0 && own == all
                     });
                 }
