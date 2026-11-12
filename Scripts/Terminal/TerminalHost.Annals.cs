@@ -196,7 +196,8 @@ public static partial class TerminalHost
                 ["name"] = TerminalIntel.Strip(node.Person?.name ?? node.Reign?.emperor ?? ""),
                 ["title"] = TerminalIntel.Strip(LineTitle(node, empire, reigning, index)),
                 ["ruler"] = node.Order >= 0, ["alive"] = node.Person?.is_alive ?? reigning,
-                ["self"] = node.Person != null && node.Person == mine
+                ["self"] = node.Person != null && node.Person == mine,
+                ["look"] = node.Person != null ? LookOf(seat, node.Person, node.Order >= 0) : LookText(true, 40, node.Order >= 0 ? "emperor" : "commoner", seat.Realm)
             };
             if (node.Order >= 0)
             {
@@ -245,6 +246,14 @@ public static partial class TerminalHost
         if (!string.IsNullOrEmpty(person.prince_title)) return person.prince_title;
         if (person.ownedTitleNames != null && person.ownedTitleNames.Count > 0) return person.ownedTitleNames[0];
         return person.officeName ?? "";
+    }
+
+    // 族谱里的人(未必还活着)的外貌依据：活着的照本人，不在了的照族谱上记的性别年岁；做过君主的照君主
+    private static string LookOf(Seat seat, PersonalClanIdentity person, bool ruler)
+    {
+        Actor actor = person.is_alive && person.actor_id > 0 ? World.world.units.get(person.actor_id) : null;
+        if (actor != null && actor.isAlive() && !ruler) return Look(actor);
+        return LookText(person.sex == ActorSex.Male, person.age, ruler ? seat.Realm.IsEmpire() ? "emperor" : "king" : "commoner", seat.Realm);
     }
 
     private static string AgeText(PersonalClanIdentity person)
@@ -355,7 +364,7 @@ public static partial class TerminalHost
                 ["id"] = person.id, ["parent"] = parentOf.TryGetValue(person.id, out long parent) ? parent : null,
                 ["name"] = TerminalIntel.Strip(person.name ?? ""), ["title"] = TerminalIntel.Strip(person == self ? LM.Get("terminal_an_self") : ShortPost(person)),
                 ["years"] = AgeText(person), ["ruler"] = crowned.Contains(person.actor_id), ["alive"] = person.is_alive,
-                ["self"] = person == self, ["detail"] = lines
+                ["self"] = person == self, ["detail"] = lines, ["look"] = LookOf(seat, person, crowned.Contains(person.actor_id))
             });
         }
         SpecificClan clan = seat.Ruler.GetSpecificClan();

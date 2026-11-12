@@ -75,7 +75,7 @@ public static partial class TerminalHost
 
         var people = new JArray();
         foreach ((Actor actor, string post) in Notables(seat))
-            people.Add(new JObject { ["id"] = actor.getID().ToString(), ["name"] = actor.getName(), ["post"] = post });
+            people.Add(new JObject { ["id"] = actor.getID().ToString(), ["name"] = actor.getName(), ["post"] = post, ["look"] = Look(actor) });
         var charges = new JArray();
         foreach (LawType charge in Charges)
             charges.Add(new JObject { ["id"] = charge.ToString(), ["name"] = TerminalIntel.Strip(EmpireLawSystem.GetLawName(charge)) });

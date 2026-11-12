@@ -101,7 +101,7 @@ public static partial class TerminalHost
             {
                 ["id"] = actor.getID().ToString(), ["name"] = actor.getName(), ["post"] = post, ["skill"] = Mathf.RoundToInt(AuditSkill(actor) * 100f),
                 // 近三年被参过几回(挑人时好掂量，见 TerminalHost.Review)
-                ["hits"] = Hits(seat, actor.getID())
+                ["hits"] = Hits(seat, actor.getID()), ["look"] = Look(actor)
             });
         return new JObject { ["people"] = people, ["work"] = AuditWorkMonths };
     }

@@ -227,7 +227,7 @@ public static partial class TerminalHost
             if (candidate == null || !candidate.isAlive() || heirs.Count >= 12) continue;
             heirs.Add(new JObject
             {
-                ["id"] = candidate.getID().ToString(), ["name"] = candidate.getName(), ["age"] = candidate.getAge(), ["now"] = candidate == heir
+                ["id"] = candidate.getID().ToString(), ["name"] = candidate.getName(), ["age"] = candidate.getAge(), ["now"] = candidate == heir, ["look"] = Look(candidate)
             });
         }
         var heirItem = new JObject { ["id"] = "heir", ["ok"] = heirs.Count > 0, ["targets"] = heirs };
@@ -325,6 +325,8 @@ public static partial class TerminalHost
             ["audit"] = AuditJson(seat),
             // 考课：各官的硬数与被参的记录(见 TerminalHost.Review)
             ["review"] = ReviewJson(seat),
+            // 衣冠：君主的私财、衣柜、穿着与铺子的价钱(见 TerminalHost.Wardrobe)
+            ["shop"] = ShopJson(seat),
             // 查账：到哪一步、封存着的账册(见 TerminalHost.Books)
             ["books"] = BooksJson(seat),
             // 探路、购舆图眼下各要多少库银(见 TerminalHost.Survey)
@@ -379,6 +381,8 @@ public static partial class TerminalHost
         }
         // 查账里当场办的：抽查、问责、结案(见 TerminalHost.Books)
         if (BooksDecree(seat, id, target)) return;
+        // 衣冠：买一件、换上(见 TerminalHost.Wardrobe)
+        if (WearDecree(seat, id, target)) return;
         if (id == "memorial")
         {
             // 批红：皇帝就在宫里，当场生效

@@ -159,7 +159,7 @@ public static partial class TerminalHost
         {
             Actor general = corps.general_id < 0 ? null : World.world.units.get(corps.general_id);
             if (!Grantable(seat, general) || generals.Count >= 12 || !seen.Add(general.getID())) continue;
-            generals.Add(new JObject { ["id"] = general.getID().ToString(), ["name"] = general.getName(), ["sub"] = TerminalIntel.Strip(CorpsSystem.Name(corps)) });
+            generals.Add(new JObject { ["id"] = general.getID().ToString(), ["name"] = general.getName(), ["sub"] = TerminalIntel.Strip(CorpsSystem.Name(corps)), ["look"] = Look(general) });
         }
         seen.Clear();
         Actor heir = realm.GetHeir();
@@ -175,7 +175,7 @@ public static partial class TerminalHost
         foreach (Actor person in kin)
         {
             if (!Grantable(seat, person) || person == heir || person.getAge() < 14 || lords.Count >= 12 || !seen.Add(person.getID())) continue;
-            lords.Add(new JObject { ["id"] = person.getID().ToString(), ["name"] = person.getName(), ["sub"] = string.Format(LM.Get("terminal_an_age"), person.getAge()) });
+            lords.Add(new JObject { ["id"] = person.getID().ToString(), ["name"] = person.getName(), ["sub"] = string.Format(LM.Get("terminal_an_age"), person.getAge()), ["look"] = Look(person) });
         }
         groups.Add(new JObject
         {

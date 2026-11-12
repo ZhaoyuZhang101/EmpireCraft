@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 15;
+    public const int Version = 16;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -75,6 +75,9 @@ public static partial class TerminalHost
         internal readonly List<string> KnownNames = new();
         internal readonly List<Report> Reports = new(), Pending = new();
         internal int Lost, LedgerYear = int.MinValue;
+        // 衣冠(见 TerminalHost.Wardrobe)：买来的("哪一样:名字")、眼下穿着的(哪一样 → 名字)
+        internal readonly HashSet<string> Wardrobe = new();
+        internal readonly Dictionary<string, string> Wear = new();
         // 考课与弹章(见 TerminalHost.Review)：近三年的弹章、上回是哪一季看的、各官头一回见到是哪个月、
         // 各城上缴与积弊的两年之数(上年、前年)、查过的记号
         internal readonly List<Charge> Charges = new();
@@ -187,6 +190,8 @@ public static partial class TerminalHost
             Fiscals.Clear();
             Books = null;
             BooksNext = 0;
+            Wardrobe.Clear();
+            Wear.Clear();
             Charges.Clear();
             ChargeQuarter = int.MinValue;
             Tenure.Clear();
@@ -942,7 +947,7 @@ public static partial class TerminalHost
                 {
                     ["id"] = info.Id.ToString(), ["ruler"] = info.Ruler, ["realm"] = info.Realm, ["kind"] = info.Kind,
                     ["cities"] = info.Cities, ["age"] = info.Age, ["taken"] = info.TakenBy, ["tianxia"] = info.Tianxia,
-                    ["empire"] = info.Empire
+                    ["empire"] = info.Empire, ["look"] = Look(World.world.units.get(info.Id))
                 });
             state["rulers"] = rulers;
             return state;
@@ -950,7 +955,10 @@ public static partial class TerminalHost
         Kingdom realm = seat.Realm;
         Empire empire = realm.GetEmpire();
         state["vacant"] = false;
-        state["ruler"] = new JObject { ["name"] = seat.Ruler.getName(), ["age"] = seat.Ruler.getAge() };
+        state["ruler"] = new JObject
+        {
+            ["id"] = seat.Ruler.getID().ToString(), ["name"] = seat.Ruler.getName(), ["age"] = seat.Ruler.getAge(), ["look"] = Look(seat.Ruler)
+        };
         state["realm"] = new JObject
         {
             ["name"] = NameOf(realm), ["color"] = Hex(RealmMiniMap.KingdomColor(realm)), ["role"] = Role(realm),
@@ -1128,6 +1136,49 @@ public static partial class TerminalHost
             string admin = AdministrativeControlSystem.Describe(city);
             if (admin != null) row["admin"] = admin;
             return row;
+        }
+    }
+
+    // 人物的外貌依据(用户 2026-11-12 "预制大概20来个人物立绘要求能换装，换发型胡子面部纹理肤色瞳色，用于表现客户端的各个人物")：
+    // 性别|年岁|身份|文化线|是否近代|科技时代档|穿着(君主自己买来换上的衣着;冠帽;发式，见 TerminalHost.Wardrobe)|肤色|是否清制(施行八旗)。
+    // 长什么样不在这里定——手机按这几样挑一套预制的立绘，再拿人物编号定细处(脸型、胡子…)，同一个人每回都是同一张脸(见网页的 lookParts)
+    internal static string Look(Actor actor)
+    {
+        if (actor?.data == null) return "";
+        try
+        {
+            Kingdom kingdom = actor.kingdom;
+            string role = actor.isKing() ? kingdom != null && kingdom.IsEmpire() ? "emperor" : "king"
+                : kingdom != null && kingdom.GetHeir() == actor ? "heir"
+                : CorpsSystem.IsGeneral(actor) ? "general"
+                : actor.HasOfficeIdentity() ? "minister"
+                : actor.city != null && actor.city.leader == actor ? "governor" : "commoner";
+            return LookText(actor.isSexMale(), actor.getAge(), role, kingdom, WearOf(actor), SkinOf(actor));
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
+    internal static string LookText(bool male, int age, string role, Kingdom kingdom, string wear = "", string skin = "") =>
+        (male ? "m" : "f") + "|" + Math.Max(0, age) + "|" + role + "|" + RealmNamingSystem.LineOf(kingdom) + "|" +
+        (kingdom?.GetRegime()?.type == EmpireCraft.Scripts.Regimes.RegimeType.Modern ? 1 : 0) + "|" + EmpireLawSystem.GetEraTier(kingdom) + "|" +
+        wear + "|" + skin + "|" + (BannerSystem.Organized(kingdom) ? 1 : 0);
+
+    // 这个人在地图上的肤色(原版按亚种的表型与深浅给小人上色，见 PhenotypeLibrary.createShades)，六位十六进制；取不到给空，手机照文化配
+    private static string SkinOf(Actor actor)
+    {
+        try
+        {
+            PhenotypeAsset asset = AssetManager.phenotype_library?.getAssetByPhenotypeIndex(actor.data.phenotype_index);
+            if (asset?.colors == null || asset.colors.Length == 0) return "";
+            Color32 color = asset.colors[Mathf.Clamp(actor.data.phenotype_shade, 0, asset.colors.Length - 1)];
+            return color.r.ToString("x2") + color.g.ToString("x2") + color.b.ToString("x2");
+        }
+        catch (Exception)
+        {
+            return "";
         }
     }
 

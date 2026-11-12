@@ -1,0 +1,3326 @@
+{
+  "cell": [
+    88,
+    136
+  ],
+  "thumb": [
+    20,
+    1,
+    48,
+    60
+  ],
+  "columns": 10,
+  "offsets": {
+    "body": 0,
+    "head": 47,
+    "mark": 59,
+    "beard": 63,
+    "hair": 67,
+    "hat": 80
+  },
+  "order": [
+    "body",
+    "head",
+    "mark",
+    "beard",
+    "hair",
+    "hat"
+  ],
+  "rows": {
+    "body": [
+      "none",
+      "zhou",
+      "tang",
+      "ming",
+      "qing",
+      "zhongshan",
+      "ruqun",
+      "hemp",
+      "qin_armor",
+      "tang_armor",
+      "ming_armor",
+      "field_jacket",
+      "kasaya",
+      "qipao",
+      "fur",
+      "steppe_lamellar",
+      "deel",
+      "khan",
+      "steppe_court",
+      "steppe_lady",
+      "work_deel",
+      "velvet_coat",
+      "toga",
+      "byzantine",
+      "surcoat",
+      "doublet",
+      "uniform",
+      "gown",
+      "jerkin",
+      "bronze_armor",
+      "late_dress",
+      "desert",
+      "caliphate",
+      "abbasid",
+      "mamluk",
+      "bisht",
+      "kaftan",
+      "work_robe",
+      "desert_mail",
+      "yayoi",
+      "heian",
+      "samurai",
+      "kamishimo",
+      "meiji",
+      "kosode",
+      "work_kimono",
+      "tanko",
+      "furisode"
+    ],
+    "head": [
+      "none",
+      "eastern",
+      "steppe",
+      "western",
+      "arabian",
+      "eastern_woman",
+      "steppe_woman",
+      "western_woman",
+      "arabian_woman",
+      "elder_eastern",
+      "elder_western",
+      "eastern_lady",
+      "japanese"
+    ],
+    "mark": [
+      "none",
+      "scar",
+      "mole",
+      "rouge",
+      "stubble"
+    ],
+    "beard": [
+      "none",
+      "moustache",
+      "goatee",
+      "long",
+      "boxed"
+    ],
+    "hair": [
+      "none",
+      "topknot",
+      "steppe_braid",
+      "wavy",
+      "curls",
+      "mage",
+      "high_bun",
+      "braided_bun",
+      "long_waves",
+      "wrapped_braid",
+      "taregami",
+      "short",
+      "loose_bun",
+      "bald"
+    ],
+    "hat": [
+      "none",
+      "mianguan",
+      "futou",
+      "wushamao",
+      "qing_hat",
+      "peaked",
+      "fur_hat",
+      "steppe_helm",
+      "laurel",
+      "crown",
+      "knight_helm",
+      "turban",
+      "high_turban",
+      "keffiyeh",
+      "eboshi",
+      "kabuto"
+    ]
+  },
+  "faces": {
+    "hx": [
+      [
+        "eastern",
+        "japanese"
+      ],
+      [
+        "eastern_woman",
+        "eastern_lady"
+      ],
+      "elder_eastern"
+    ],
+    "nomad": [
+      [
+        "steppe",
+        "eastern"
+      ],
+      [
+        "steppe_woman",
+        "eastern_lady"
+      ],
+      "elder_eastern"
+    ],
+    "west": [
+      [
+        "western",
+        "elder_western"
+      ],
+      [
+        "western_woman"
+      ],
+      "elder_western"
+    ],
+    "arab": [
+      [
+        "arabian",
+        "western"
+      ],
+      [
+        "arabian_woman"
+      ],
+      "arabian"
+    ],
+    "jp": [
+      [
+        "japanese",
+        "eastern"
+      ],
+      [
+        "eastern_lady",
+        "eastern_woman"
+      ],
+      "elder_eastern"
+    ]
+  },
+  "palettes": {
+    "skin": [
+      -12,
+      0,
+      8,
+      16
+    ],
+    "hair": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        17,
+        6,
+        -4
+      ],
+      [
+        33,
+        12,
+        -8
+      ],
+      [
+        75,
+        51,
+        13
+      ],
+      [
+        38,
+        17,
+        -6
+      ],
+      [
+        32,
+        33,
+        33
+      ],
+      [
+        77,
+        72,
+        63
+      ]
+    ],
+    "eye": [
+      [
+        113,
+        76,
+        55
+      ],
+      [
+        143,
+        103,
+        60
+      ],
+      [
+        86,
+        123,
+        89
+      ],
+      [
+        71,
+        114,
+        157
+      ],
+      [
+        120,
+        103,
+        150
+      ]
+    ]
+  },
+  "wardrobe": {
+    "body": {
+      "zhou": {
+        "name": "玄衣纁裳",
+        "civ": "hx",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "tang": {
+        "name": "绯色圆领袍",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3"
+        ]
+      },
+      "ming": {
+        "name": "青罗鹤补服",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p3",
+          "p4"
+        ]
+      },
+      "qing": {
+        "name": "石青龙袍",
+        "civ": "hx",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5"
+        ]
+      },
+      "zhongshan": {
+        "name": "中山装",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "ruqun": {
+        "name": "绯碧襦裙",
+        "civ": "hx",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "hemp": {
+        "name": "青灰麻布交领衣",
+        "civ": "hx",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "qin_armor": {
+        "name": "玄革朱缀甲",
+        "civ": "hx",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "tang_armor": {
+        "name": "虎首明光甲",
+        "civ": "hx",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p3"
+        ]
+      },
+      "ming_armor": {
+        "name": "青布铜钉甲",
+        "civ": "hx",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p4"
+        ]
+      },
+      "field_jacket": {
+        "name": "橄榄色军常服",
+        "civ": "hx",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "kasaya": {
+        "name": "赭色袈裟",
+        "civ": "hx",
+        "kind": "clergy",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "qipao": {
+        "name": "靛蓝绣花旗袍",
+        "civ": "hx",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "fur": {
+        "name": "毛缘皮袍",
+        "civ": "nomad",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "steppe_lamellar": {
+        "name": "草原札甲",
+        "civ": "nomad",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "deel": {
+        "name": "松石色斜襟袍",
+        "civ": "nomad",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4",
+          "p5"
+        ]
+      },
+      "khan": {
+        "name": "赤地绣纹大袍",
+        "civ": "nomad",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "steppe_court": {
+        "name": "金绣礼袍",
+        "civ": "nomad",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "steppe_lady": {
+        "name": "松石色贵女袍",
+        "civ": "nomad",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "work_deel": {
+        "name": "系带粗布袍",
+        "civ": "nomad",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "velvet_coat": {
+        "name": "绛红丝绒绣边袍",
+        "civ": "nomad",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "toga": {
+        "name": "元老托加袍",
+        "civ": "west",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p1",
+          "p2"
+        ]
+      },
+      "byzantine": {
+        "name": "紫衣珠饰礼袍",
+        "civ": "west",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3"
+        ]
+      },
+      "surcoat": {
+        "name": "纹章罩袍",
+        "civ": "west",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "doublet": {
+        "name": "轮领礼服",
+        "civ": "west",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5"
+        ]
+      },
+      "uniform": {
+        "name": "绶饰礼制服",
+        "civ": "west",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "gown": {
+        "name": "翡翠色织锦长裙",
+        "civ": "west",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "jerkin": {
+        "name": "赭色系绳短袍",
+        "civ": "west",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "bronze_armor": {
+        "name": "铜扣皮甲",
+        "civ": "west",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "late_dress": {
+        "name": "绛紫蕾丝立领裙",
+        "civ": "west",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "desert": {
+        "name": "沙色披巾袍",
+        "civ": "arab",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "caliphate": {
+        "name": "象牙色织带长袍",
+        "civ": "arab",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3"
+        ]
+      },
+      "abbasid": {
+        "name": "黑地金绣礼袍",
+        "civ": "arab",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "mamluk": {
+        "name": "马穆鲁克札甲",
+        "civ": "arab",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "bisht": {
+        "name": "金边比什特披袍",
+        "civ": "arab",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "kaftan": {
+        "name": "绛紫绣花长袍",
+        "civ": "arab",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "work_robe": {
+        "name": "砂青布袍",
+        "civ": "arab",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "desert_mail": {
+        "name": "沙巾环锁甲",
+        "civ": "arab",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "yayoi": {
+        "name": "弥生麻衣",
+        "civ": "jp",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "heian": {
+        "name": "平安菊纹束带",
+        "civ": "jp",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3"
+        ]
+      },
+      "samurai": {
+        "name": "赤漆大铠",
+        "civ": "jp",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "kamishimo": {
+        "name": "纹付裃",
+        "civ": "jp",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p3",
+          "p4"
+        ]
+      },
+      "meiji": {
+        "name": "明治金绣大礼服",
+        "civ": "jp",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "kosode": {
+        "name": "叠色花纹小袖",
+        "civ": "jp",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "work_kimono": {
+        "name": "靛蓝条纹小袖",
+        "civ": "jp",
+        "kind": "commoner",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "tanko": {
+        "name": "古坟短甲",
+        "civ": "jp",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2"
+        ]
+      },
+      "furisode": {
+        "name": "藤色花纹振袖",
+        "civ": "jp",
+        "kind": "lady",
+        "sex": "f",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      }
+    },
+    "hat": {
+      "mianguan": {
+        "name": "冕冠",
+        "civ": "hx",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3"
+        ]
+      },
+      "futou": {
+        "name": "软脚幞头",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3"
+        ]
+      },
+      "wushamao": {
+        "name": "乌纱帽",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p3",
+          "p4"
+        ]
+      },
+      "qing_hat": {
+        "name": "红缨凉帽",
+        "civ": "hx",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5"
+        ]
+      },
+      "peaked": {
+        "name": "大檐礼帽",
+        "civ": "any",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p5",
+          "p6"
+        ]
+      },
+      "fur_hat": {
+        "name": "毡边皮帽",
+        "civ": "nomad",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "steppe_helm": {
+        "name": "草原缨盔",
+        "civ": "nomad",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p1",
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "laurel": {
+        "name": "金桂冠",
+        "civ": "west",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p1",
+          "p2"
+        ]
+      },
+      "crown": {
+        "name": "宝石冠",
+        "civ": "west",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4",
+          "p5"
+        ]
+      },
+      "knight_helm": {
+        "name": "开面钢盔",
+        "civ": "west",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "turban": {
+        "name": "素布缠头",
+        "civ": "arab",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "high_turban": {
+        "name": "金线高缠冠",
+        "civ": "arab",
+        "kind": "royal",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "keffiyeh": {
+        "name": "黑箍方巾",
+        "civ": "arab",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "eboshi": {
+        "name": "乌帽子",
+        "civ": "jp",
+        "kind": "court",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      },
+      "kabuto": {
+        "name": "金月兜",
+        "civ": "jp",
+        "kind": "armor",
+        "sex": "any",
+        "period": [
+          "p2",
+          "p3",
+          "p4"
+        ]
+      }
+    },
+    "hair": {
+      "topknot": {
+        "name": "束发",
+        "civ": "hx",
+        "kind": "casual",
+        "sex": "m",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "steppe_braid": {
+        "name": "草原双辫",
+        "civ": "nomad",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "wavy": {
+        "name": "侧分卷发",
+        "civ": "west",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "curls": {
+        "name": "短鬈发",
+        "civ": "arab",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "mage": {
+        "name": "髷",
+        "civ": "jp",
+        "kind": "casual",
+        "sex": "m",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "high_bun": {
+        "name": "高髻",
+        "civ": "hx",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "braided_bun": {
+        "name": "盘辫",
+        "civ": "nomad",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "long_waves": {
+        "name": "披肩卷发",
+        "civ": "west",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "wrapped_braid": {
+        "name": "低盘发",
+        "civ": "arab",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "taregami": {
+        "name": "垂发",
+        "civ": "jp",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "short": {
+        "name": "利落短发",
+        "civ": "any",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "loose_bun": {
+        "name": "松挽侧髻",
+        "civ": "any",
+        "kind": "casual",
+        "sex": "f",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      },
+      "bald": {
+        "name": "剃发",
+        "civ": "any",
+        "kind": "casual",
+        "sex": "any",
+        "period": [
+          "p0",
+          "p1",
+          "p2",
+          "p3",
+          "p4",
+          "p5",
+          "p6"
+        ]
+      }
+    }
+  },
+  "presets": [
+    {
+      "id": "zhou_emperor",
+      "civ": "hx",
+      "period": "p1",
+      "role": "emperor",
+      "body": "zhou",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "mianguan",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhou_empress",
+      "civ": "hx",
+      "period": "p1",
+      "role": "empress",
+      "body": "zhou",
+      "head": "eastern_lady",
+      "hair": "high_bun",
+      "hat": "mianguan",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tang_minister",
+      "civ": "hx",
+      "period": "p3",
+      "role": "minister",
+      "body": "tang",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "futou",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tang_elder_minister",
+      "civ": "hx",
+      "period": "p3",
+      "role": "elder_minister",
+      "body": "tang",
+      "head": "elder_eastern",
+      "hair": "topknot",
+      "hat": "futou",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "tang_clerk",
+      "civ": "hx",
+      "period": "p3",
+      "role": "clerk",
+      "body": "tang",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "futou",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tang_heir",
+      "civ": "hx",
+      "period": "p3",
+      "role": "heir",
+      "body": "tang",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "futou",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "ming_minister",
+      "civ": "hx",
+      "period": "p4",
+      "role": "minister",
+      "body": "ming",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "wushamao",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "ming_elder_minister",
+      "civ": "hx",
+      "period": "p4",
+      "role": "elder_minister",
+      "body": "ming",
+      "head": "elder_eastern",
+      "hair": "topknot",
+      "hat": "wushamao",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "ming_clerk",
+      "civ": "hx",
+      "period": "p4",
+      "role": "clerk",
+      "body": "ming",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "wushamao",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "ming_heir",
+      "civ": "hx",
+      "period": "p4",
+      "role": "heir",
+      "body": "ming",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "wushamao",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qing_emperor",
+      "civ": "hx",
+      "period": "p4",
+      "role": "emperor",
+      "body": "qing",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "qing_hat",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qing_empress",
+      "civ": "hx",
+      "period": "p4",
+      "role": "empress",
+      "body": "qing",
+      "head": "eastern_woman",
+      "hair": "high_bun",
+      "hat": "qing_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_emperor",
+      "civ": "hx",
+      "period": "p6",
+      "role": "emperor",
+      "body": "zhongshan",
+      "head": "japanese",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_empress",
+      "civ": "hx",
+      "period": "p6",
+      "role": "empress",
+      "body": "zhongshan",
+      "head": "eastern_lady",
+      "hair": "high_bun",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_minister",
+      "civ": "hx",
+      "period": "p6",
+      "role": "minister",
+      "body": "zhongshan",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_elder_minister",
+      "civ": "hx",
+      "period": "p6",
+      "role": "elder_minister",
+      "body": "zhongshan",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_clerk",
+      "civ": "hx",
+      "period": "p6",
+      "role": "clerk",
+      "body": "zhongshan",
+      "head": "japanese",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_heir",
+      "civ": "hx",
+      "period": "p6",
+      "role": "heir",
+      "body": "zhongshan",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_general",
+      "civ": "hx",
+      "period": "p6",
+      "role": "general",
+      "body": "zhongshan",
+      "head": "japanese",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "zhongshan_old_general",
+      "civ": "hx",
+      "period": "p6",
+      "role": "old_general",
+      "body": "zhongshan",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "ruqun_woman",
+      "civ": "hx",
+      "period": "p3",
+      "role": "woman",
+      "body": "ruqun",
+      "head": "eastern_woman",
+      "hair": "high_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "ruqun_empress",
+      "civ": "hx",
+      "period": "p3",
+      "role": "empress",
+      "body": "ruqun",
+      "head": "eastern_woman",
+      "hair": "high_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "hemp_commoner",
+      "civ": "hx",
+      "period": "p2",
+      "role": "commoner",
+      "body": "hemp",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "hemp_scholar",
+      "civ": "hx",
+      "period": "p2",
+      "role": "scholar",
+      "body": "hemp",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "hemp_woman",
+      "civ": "hx",
+      "period": "p2",
+      "role": "woman",
+      "body": "hemp",
+      "head": "eastern_lady",
+      "hair": "high_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qin_armor_general",
+      "civ": "hx",
+      "period": "p2",
+      "role": "general",
+      "body": "qin_armor",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qin_armor_old_general",
+      "civ": "hx",
+      "period": "p2",
+      "role": "old_general",
+      "body": "qin_armor",
+      "head": "elder_eastern",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "tang_armor_general",
+      "civ": "hx",
+      "period": "p3",
+      "role": "general",
+      "body": "tang_armor",
+      "head": "eastern",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tang_armor_old_general",
+      "civ": "hx",
+      "period": "p3",
+      "role": "old_general",
+      "body": "tang_armor",
+      "head": "elder_eastern",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "ming_armor_general",
+      "civ": "hx",
+      "period": "p4",
+      "role": "general",
+      "body": "ming_armor",
+      "head": "japanese",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "ming_armor_old_general",
+      "civ": "hx",
+      "period": "p4",
+      "role": "old_general",
+      "body": "ming_armor",
+      "head": "elder_eastern",
+      "hair": "topknot",
+      "hat": "none",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "field_jacket_general",
+      "civ": "hx",
+      "period": "p6",
+      "role": "general",
+      "body": "field_jacket",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "field_jacket_old_general",
+      "civ": "hx",
+      "period": "p6",
+      "role": "old_general",
+      "body": "field_jacket",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "kasaya_monk",
+      "civ": "hx",
+      "period": "p3",
+      "role": "monk",
+      "body": "kasaya",
+      "head": "japanese",
+      "hair": "bald",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qipao_woman",
+      "civ": "hx",
+      "period": "p6",
+      "role": "woman",
+      "body": "qipao",
+      "head": "eastern_lady",
+      "hair": "high_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "qipao_empress",
+      "civ": "hx",
+      "period": "p6",
+      "role": "empress",
+      "body": "qipao",
+      "head": "eastern_lady",
+      "hair": "high_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "fur_commoner",
+      "civ": "nomad",
+      "period": "p0",
+      "role": "commoner",
+      "body": "fur",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "fur_scholar",
+      "civ": "nomad",
+      "period": "p0",
+      "role": "scholar",
+      "body": "fur",
+      "head": "steppe",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "fur_woman",
+      "civ": "nomad",
+      "period": "p0",
+      "role": "woman",
+      "body": "fur",
+      "head": "steppe_woman",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_lamellar_general",
+      "civ": "nomad",
+      "period": "p2",
+      "role": "general",
+      "body": "steppe_lamellar",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "steppe_helm",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_lamellar_old_general",
+      "civ": "nomad",
+      "period": "p2",
+      "role": "old_general",
+      "body": "steppe_lamellar",
+      "head": "elder_eastern",
+      "hair": "steppe_braid",
+      "hat": "steppe_helm",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "deel_minister",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "minister",
+      "body": "deel",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "deel_elder_minister",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "elder_minister",
+      "body": "deel",
+      "head": "elder_eastern",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "deel_clerk",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "clerk",
+      "body": "deel",
+      "head": "steppe",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "deel_heir",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "heir",
+      "body": "deel",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "khan_emperor",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "emperor",
+      "body": "khan",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "fur_hat",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "khan_empress",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "empress",
+      "body": "khan",
+      "head": "eastern_lady",
+      "hair": "braided_bun",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_emperor",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "emperor",
+      "body": "steppe_court",
+      "head": "steppe",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_empress",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "empress",
+      "body": "steppe_court",
+      "head": "steppe_woman",
+      "hair": "braided_bun",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_minister",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "minister",
+      "body": "steppe_court",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_elder_minister",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "elder_minister",
+      "body": "steppe_court",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_clerk",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "clerk",
+      "body": "steppe_court",
+      "head": "steppe",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_heir",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "heir",
+      "body": "steppe_court",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_general",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "general",
+      "body": "steppe_court",
+      "head": "steppe",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_court_old_general",
+      "civ": "nomad",
+      "period": "p5",
+      "role": "old_general",
+      "body": "steppe_court",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "fur_hat",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "steppe_lady_woman",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "woman",
+      "body": "steppe_lady",
+      "head": "eastern_lady",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "steppe_lady_empress",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "empress",
+      "body": "steppe_lady",
+      "head": "eastern_lady",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_deel_commoner",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "commoner",
+      "body": "work_deel",
+      "head": "eastern",
+      "hair": "steppe_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_deel_scholar",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "scholar",
+      "body": "work_deel",
+      "head": "steppe",
+      "hair": "steppe_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_deel_woman",
+      "civ": "nomad",
+      "period": "p3",
+      "role": "woman",
+      "body": "work_deel",
+      "head": "steppe_woman",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "velvet_coat_woman",
+      "civ": "nomad",
+      "period": "p6",
+      "role": "woman",
+      "body": "velvet_coat",
+      "head": "steppe_woman",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "velvet_coat_empress",
+      "civ": "nomad",
+      "period": "p6",
+      "role": "empress",
+      "body": "velvet_coat",
+      "head": "steppe_woman",
+      "hair": "braided_bun",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "toga_minister",
+      "civ": "west",
+      "period": "p2",
+      "role": "minister",
+      "body": "toga",
+      "head": "western",
+      "hair": "wavy",
+      "hat": "laurel",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "toga_elder_minister",
+      "civ": "west",
+      "period": "p2",
+      "role": "elder_minister",
+      "body": "toga",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "laurel",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 5,
+      "eye": 3
+    },
+    {
+      "id": "toga_clerk",
+      "civ": "west",
+      "period": "p2",
+      "role": "clerk",
+      "body": "toga",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "laurel",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "toga_heir",
+      "civ": "west",
+      "period": "p2",
+      "role": "heir",
+      "body": "toga",
+      "head": "western",
+      "hair": "wavy",
+      "hat": "laurel",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "byzantine_emperor",
+      "civ": "west",
+      "period": "p3",
+      "role": "emperor",
+      "body": "byzantine",
+      "head": "western",
+      "hair": "wavy",
+      "hat": "crown",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "byzantine_empress",
+      "civ": "west",
+      "period": "p3",
+      "role": "empress",
+      "body": "byzantine",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "crown",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "surcoat_general",
+      "civ": "west",
+      "period": "p3",
+      "role": "general",
+      "body": "surcoat",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "knight_helm",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "surcoat_old_general",
+      "civ": "west",
+      "period": "p3",
+      "role": "old_general",
+      "body": "surcoat",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "knight_helm",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 5,
+      "eye": 3
+    },
+    {
+      "id": "doublet_emperor",
+      "civ": "west",
+      "period": "p4",
+      "role": "emperor",
+      "body": "doublet",
+      "head": "western",
+      "hair": "wavy",
+      "hat": "crown",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "doublet_empress",
+      "civ": "west",
+      "period": "p4",
+      "role": "empress",
+      "body": "doublet",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "crown",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_emperor",
+      "civ": "west",
+      "period": "p5",
+      "role": "emperor",
+      "body": "uniform",
+      "head": "elder_western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_empress",
+      "civ": "west",
+      "period": "p5",
+      "role": "empress",
+      "body": "uniform",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_minister",
+      "civ": "west",
+      "period": "p5",
+      "role": "minister",
+      "body": "uniform",
+      "head": "western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_elder_minister",
+      "civ": "west",
+      "period": "p5",
+      "role": "elder_minister",
+      "body": "uniform",
+      "head": "elder_western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 5,
+      "eye": 3
+    },
+    {
+      "id": "uniform_clerk",
+      "civ": "west",
+      "period": "p5",
+      "role": "clerk",
+      "body": "uniform",
+      "head": "elder_western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_heir",
+      "civ": "west",
+      "period": "p5",
+      "role": "heir",
+      "body": "uniform",
+      "head": "western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_general",
+      "civ": "west",
+      "period": "p5",
+      "role": "general",
+      "body": "uniform",
+      "head": "elder_western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "uniform_old_general",
+      "civ": "west",
+      "period": "p5",
+      "role": "old_general",
+      "body": "uniform",
+      "head": "elder_western",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 5,
+      "eye": 3
+    },
+    {
+      "id": "gown_woman",
+      "civ": "west",
+      "period": "p3",
+      "role": "woman",
+      "body": "gown",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "gown_empress",
+      "civ": "west",
+      "period": "p3",
+      "role": "empress",
+      "body": "gown",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "jerkin_commoner",
+      "civ": "west",
+      "period": "p3",
+      "role": "commoner",
+      "body": "jerkin",
+      "head": "western",
+      "hair": "wavy",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "jerkin_scholar",
+      "civ": "west",
+      "period": "p3",
+      "role": "scholar",
+      "body": "jerkin",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "jerkin_woman",
+      "civ": "west",
+      "period": "p3",
+      "role": "woman",
+      "body": "jerkin",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "bronze_armor_general",
+      "civ": "west",
+      "period": "p1",
+      "role": "general",
+      "body": "bronze_armor",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "bronze_armor_old_general",
+      "civ": "west",
+      "period": "p1",
+      "role": "old_general",
+      "body": "bronze_armor",
+      "head": "elder_western",
+      "hair": "wavy",
+      "hat": "none",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 5,
+      "eye": 3
+    },
+    {
+      "id": "late_dress_woman",
+      "civ": "west",
+      "period": "p5",
+      "role": "woman",
+      "body": "late_dress",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "late_dress_empress",
+      "civ": "west",
+      "period": "p5",
+      "role": "empress",
+      "body": "late_dress",
+      "head": "western_woman",
+      "hair": "long_waves",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 0,
+      "hairColor": 1,
+      "eye": 3
+    },
+    {
+      "id": "desert_commoner",
+      "civ": "arab",
+      "period": "p0",
+      "role": "commoner",
+      "body": "desert",
+      "head": "western",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "desert_scholar",
+      "civ": "arab",
+      "period": "p0",
+      "role": "scholar",
+      "body": "desert",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "desert_woman",
+      "civ": "arab",
+      "period": "p0",
+      "role": "woman",
+      "body": "desert",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "caliphate_minister",
+      "civ": "arab",
+      "period": "p2",
+      "role": "minister",
+      "body": "caliphate",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "caliphate_elder_minister",
+      "civ": "arab",
+      "period": "p2",
+      "role": "elder_minister",
+      "body": "caliphate",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "caliphate_clerk",
+      "civ": "arab",
+      "period": "p2",
+      "role": "clerk",
+      "body": "caliphate",
+      "head": "western",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "caliphate_heir",
+      "civ": "arab",
+      "period": "p2",
+      "role": "heir",
+      "body": "caliphate",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "abbasid_emperor",
+      "civ": "arab",
+      "period": "p3",
+      "role": "emperor",
+      "body": "abbasid",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "high_turban",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "abbasid_empress",
+      "civ": "arab",
+      "period": "p3",
+      "role": "empress",
+      "body": "abbasid",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "high_turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "mamluk_general",
+      "civ": "arab",
+      "period": "p3",
+      "role": "general",
+      "body": "mamluk",
+      "head": "western",
+      "hair": "curls",
+      "hat": "high_turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "mamluk_old_general",
+      "civ": "arab",
+      "period": "p3",
+      "role": "old_general",
+      "body": "mamluk",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "high_turban",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "bisht_emperor",
+      "civ": "arab",
+      "period": "p5",
+      "role": "emperor",
+      "body": "bisht",
+      "head": "arabian",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_empress",
+      "civ": "arab",
+      "period": "p5",
+      "role": "empress",
+      "body": "bisht",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_minister",
+      "civ": "arab",
+      "period": "p5",
+      "role": "minister",
+      "body": "bisht",
+      "head": "western",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_elder_minister",
+      "civ": "arab",
+      "period": "p5",
+      "role": "elder_minister",
+      "body": "bisht",
+      "head": "arabian",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "bisht_clerk",
+      "civ": "arab",
+      "period": "p5",
+      "role": "clerk",
+      "body": "bisht",
+      "head": "arabian",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_heir",
+      "civ": "arab",
+      "period": "p5",
+      "role": "heir",
+      "body": "bisht",
+      "head": "western",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_general",
+      "civ": "arab",
+      "period": "p5",
+      "role": "general",
+      "body": "bisht",
+      "head": "arabian",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "bisht_old_general",
+      "civ": "arab",
+      "period": "p5",
+      "role": "old_general",
+      "body": "bisht",
+      "head": "arabian",
+      "hair": "short",
+      "hat": "keffiyeh",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "kaftan_woman",
+      "civ": "arab",
+      "period": "p3",
+      "role": "woman",
+      "body": "kaftan",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "kaftan_empress",
+      "civ": "arab",
+      "period": "p3",
+      "role": "empress",
+      "body": "kaftan",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_robe_commoner",
+      "civ": "arab",
+      "period": "p3",
+      "role": "commoner",
+      "body": "work_robe",
+      "head": "western",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_robe_scholar",
+      "civ": "arab",
+      "period": "p3",
+      "role": "scholar",
+      "body": "work_robe",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_robe_woman",
+      "civ": "arab",
+      "period": "p3",
+      "role": "woman",
+      "body": "work_robe",
+      "head": "arabian_woman",
+      "hair": "wrapped_braid",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "desert_mail_general",
+      "civ": "arab",
+      "period": "p2",
+      "role": "general",
+      "body": "desert_mail",
+      "head": "western",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "none",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "desert_mail_old_general",
+      "civ": "arab",
+      "period": "p2",
+      "role": "old_general",
+      "body": "desert_mail",
+      "head": "arabian",
+      "hair": "curls",
+      "hat": "turban",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 2,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "yayoi_commoner",
+      "civ": "jp",
+      "period": "p1",
+      "role": "commoner",
+      "body": "yayoi",
+      "head": "japanese",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "yayoi_scholar",
+      "civ": "jp",
+      "period": "p1",
+      "role": "scholar",
+      "body": "yayoi",
+      "head": "eastern",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "yayoi_woman",
+      "civ": "jp",
+      "period": "p1",
+      "role": "woman",
+      "body": "yayoi",
+      "head": "eastern_woman",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "heian_emperor",
+      "civ": "jp",
+      "period": "p3",
+      "role": "emperor",
+      "body": "heian",
+      "head": "japanese",
+      "hair": "mage",
+      "hat": "eboshi",
+      "beard": "moustache",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "heian_empress",
+      "civ": "jp",
+      "period": "p3",
+      "role": "empress",
+      "body": "heian",
+      "head": "eastern_lady",
+      "hair": "taregami",
+      "hat": "eboshi",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "samurai_general",
+      "civ": "jp",
+      "period": "p3",
+      "role": "general",
+      "body": "samurai",
+      "head": "eastern",
+      "hair": "mage",
+      "hat": "kabuto",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "samurai_old_general",
+      "civ": "jp",
+      "period": "p3",
+      "role": "old_general",
+      "body": "samurai",
+      "head": "elder_eastern",
+      "hair": "mage",
+      "hat": "kabuto",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "kamishimo_minister",
+      "civ": "jp",
+      "period": "p4",
+      "role": "minister",
+      "body": "kamishimo",
+      "head": "eastern",
+      "hair": "mage",
+      "hat": "eboshi",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "kamishimo_elder_minister",
+      "civ": "jp",
+      "period": "p4",
+      "role": "elder_minister",
+      "body": "kamishimo",
+      "head": "elder_eastern",
+      "hair": "mage",
+      "hat": "eboshi",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "kamishimo_clerk",
+      "civ": "jp",
+      "period": "p4",
+      "role": "clerk",
+      "body": "kamishimo",
+      "head": "japanese",
+      "hair": "mage",
+      "hat": "eboshi",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "kamishimo_heir",
+      "civ": "jp",
+      "period": "p4",
+      "role": "heir",
+      "body": "kamishimo",
+      "head": "eastern",
+      "hair": "mage",
+      "hat": "eboshi",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_emperor",
+      "civ": "jp",
+      "period": "p5",
+      "role": "emperor",
+      "body": "meiji",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_empress",
+      "civ": "jp",
+      "period": "p5",
+      "role": "empress",
+      "body": "meiji",
+      "head": "eastern_woman",
+      "hair": "taregami",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_minister",
+      "civ": "jp",
+      "period": "p5",
+      "role": "minister",
+      "body": "meiji",
+      "head": "japanese",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_elder_minister",
+      "civ": "jp",
+      "period": "p5",
+      "role": "elder_minister",
+      "body": "meiji",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "meiji_clerk",
+      "civ": "jp",
+      "period": "p5",
+      "role": "clerk",
+      "body": "meiji",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_heir",
+      "civ": "jp",
+      "period": "p5",
+      "role": "heir",
+      "body": "meiji",
+      "head": "japanese",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_general",
+      "civ": "jp",
+      "period": "p5",
+      "role": "general",
+      "body": "meiji",
+      "head": "eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "meiji_old_general",
+      "civ": "jp",
+      "period": "p5",
+      "role": "old_general",
+      "body": "meiji",
+      "head": "elder_eastern",
+      "hair": "short",
+      "hat": "peaked",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "kosode_woman",
+      "civ": "jp",
+      "period": "p3",
+      "role": "woman",
+      "body": "kosode",
+      "head": "eastern_lady",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "kosode_empress",
+      "civ": "jp",
+      "period": "p3",
+      "role": "empress",
+      "body": "kosode",
+      "head": "eastern_lady",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_kimono_commoner",
+      "civ": "jp",
+      "period": "p3",
+      "role": "commoner",
+      "body": "work_kimono",
+      "head": "japanese",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_kimono_scholar",
+      "civ": "jp",
+      "period": "p3",
+      "role": "scholar",
+      "body": "work_kimono",
+      "head": "eastern",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "work_kimono_woman",
+      "civ": "jp",
+      "period": "p3",
+      "role": "woman",
+      "body": "work_kimono",
+      "head": "eastern_woman",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tanko_general",
+      "civ": "jp",
+      "period": "p2",
+      "role": "general",
+      "body": "tanko",
+      "head": "japanese",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "tanko_old_general",
+      "civ": "jp",
+      "period": "p2",
+      "role": "old_general",
+      "body": "tanko",
+      "head": "elder_eastern",
+      "hair": "mage",
+      "hat": "none",
+      "beard": "goatee",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 5,
+      "eye": 0
+    },
+    {
+      "id": "furisode_woman",
+      "civ": "jp",
+      "period": "p6",
+      "role": "woman",
+      "body": "furisode",
+      "head": "eastern_woman",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    },
+    {
+      "id": "furisode_empress",
+      "civ": "jp",
+      "period": "p6",
+      "role": "empress",
+      "body": "furisode",
+      "head": "eastern_woman",
+      "hair": "taregami",
+      "hat": "none",
+      "beard": "none",
+      "mark": "none",
+      "skin": 1,
+      "hairColor": 0,
+      "eye": 0
+    }
+  ]
+}

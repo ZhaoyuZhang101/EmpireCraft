@@ -149,7 +149,7 @@ public static partial class TerminalHost
             long id = actor.getID();
             var row = new JObject
             {
-                ["id"] = id.ToString(), ["name"] = actor.getName(), ["post"] = post, ["fac"] = FactionName(seat, actor), ["age"] = actor.getAge(),
+                ["id"] = id.ToString(), ["name"] = actor.getName(), ["post"] = post, ["fac"] = FactionName(seat, actor), ["age"] = actor.getAge(), ["look"] = Look(actor),
                 ["years"] = seat.Tenure.TryGetValue(id, out int since) ? Math.Max(0, (month - since) / 12) : 0
             };
             if (city != null)

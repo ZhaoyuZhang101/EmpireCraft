@@ -12613,5 +12613,6 @@
   "terminal_books_closed": "This audit is closed.",
   "terminal_books_wrong_renown": " Renown -{0}.",
   "terminal_books_wrong_faction": " {1}, the faction of {0}, resents it.",
-  "terminal_impeach": "{0} memorialises: {2} of {1} is embezzling."
+  "terminal_impeach": "{0} memorialises: {2} of {1} is embezzling.",
+  "terminal_wear_poor": "The privy purse cannot afford this."
 }

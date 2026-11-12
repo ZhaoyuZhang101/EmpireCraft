@@ -12619,5 +12619,6 @@
   "terminal_books_closed": "這一回查帳已結。",
   "terminal_books_wrong_renown": "威望 -{0}。",
   "terminal_books_wrong_faction": "{0}所屬的{1}心懷不滿。",
-  "terminal_impeach": "{0}上疏，參{1}{2}貪墨。"
+  "terminal_impeach": "{0}上疏，參{1}{2}貪墨。",
+  "terminal_wear_poor": "內帑不足，這一件買不起。"
 }
