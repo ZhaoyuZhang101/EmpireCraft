@@ -59,7 +59,12 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 全图归类只在读档与开关打开时做(每块地 64 格扫一遍)；连片、对旧区域、收地只看地块，几万块地几毫秒。
 // 高原(用户 2026-11-10)：高寒高原格(见 PlateauTerrain)占三成五、连同冻土雪地山地丘陵够八成五的划高原无人区(青藏、帕米尔的高原面
 // 夹着雪山)；黄土高原是农耕之地，不划。法理挂走得到的最近的城(不先给游牧，用户问琼结为何比藏巴多认领那么多无人区后定)，
-// 隔着外缘山脊走不进来(见 Spread)；游牧之国的城能扩进挨着的高原无人区("高原游牧不算荒地"，见 HerdsOnPlateau)。
+// 隔着外缘山脊走不进来(见 Spread)。
+// 高原算国土(用户 2026-11-13 转群友"高原这种难道不是一种特色的地形吗？为什么要当成无人区来用啊，青藏高原怎么办"，问答选"整片都算国土")：
+// 高寒高原格本来就能走能建(宜居三成、只能放牧)，以前成片的整片划走，高原上的城开局只剩城心一块、只有游牧之国能往里扩。
+// 现在城领着的高原地块不划走(见 Regroup 的 anchored)，开局照常铺给城(见 WorldMap.WorldMapZones.Classify)，
+// 哪国的城都能扩进挨着的高原无人区(见 SettlesPlateau；翻不翻外缘另看 PlateauSides)；
+// 只有哪座城都没领的(高原上没有城的图、旧档里已划好的)还连成高原无人区、照旧挂法理，免得留下一片谁也不是的空地。
 // 类型按整数存档(WildRegionData.kind、开发度、县址)：只往后加，不改已有的编号
 public enum WildKind { None = 0, Mountain = 1, Desert = 2, Tundra = 3, Jungle = 4, Swamp = 5, Lava = 6, Plateau = 7 }
 
@@ -399,9 +404,9 @@ public static class WildernessSystem
     public static bool CanTake(City city) =>
         _settling > 0 || CityPlacementSystem.Placing || city?.zones == null || city.zones.Count == 0;
 
-    // 高原游牧不算荒地(用户 2026-11-10)：游牧之国的城能扩进挨着的高原无人区(扩进去的地当即退出无人区，同神力手动划地)
-    public static bool HerdsOnPlateau(City city, TileZone zone) =>
-        city?.kingdom != null && KindOf(zone) == WildKind.Plateau && FrontierRelations.IsNomadRealm(city.kingdom);
+    // 高原算国土(见类头；以前只放游牧之国，用户 2026-11-10 "高原游牧不算荒地")：哪国的城都能扩进挨着的高原无人区
+    // (扩进去的地当即退出无人区，同神力手动划地)
+    public static bool SettlesPlateau(City city, TileZone zone) => city?.kingdom != null && KindOf(zone) == WildKind.Plateau;
 
     // 地块归了城(City.addZone 之后，见 CityExpansionPatch.AfterAddZone)：当即退出无人区，停手后重划
     public static void OnZoneTaken(TileZone zone)
@@ -1235,6 +1240,9 @@ public static class WildernessSystem
         // 照原图分地的剧本(从当前世界导入的)里归城的地块：城还领着就留给城(见 WorldMap.WorldMapWilderness.Keep)
         foreach (int id in WorldMap.WorldMapWilderness.KeptZones)
             if (id >= 0 && id < size && _zones[id]?.city != null) anchored[id] = true;
+        // 高原算国土(见类头)：城领着的高寒高原地块不划走
+        for (int id = 0; id < size && id < _zones.Length; id++)
+            if (_kind[id] == (byte)WildKind.Plateau && _zones[id]?.city != null) anchored[id] = true;
         // 城市边界固定：城领着的地不划走；预设剧本开局定好要转成法理无人区的州府锚点除外(见 WorldMapWilderness.SetAnchors)。
         // 玩家在剧本编辑器里刷给城的(本剧本开无人区，见 WorldMapWilderness.CityClaim)也锁定、不划走(见 RestoreClaims)
         if (CityTerritoryProtection.BordersFixed)

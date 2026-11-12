@@ -6,7 +6,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 高原(用户 2026-11-10 "给地图加个高原地形""起码得挡住敌人吧"，问答定新做原版式地面格；第二轮"这样子就能模拟蒙古高原""国界线也能更合理"
 // "不然东北这一块一点屏障都没有"，加第三种)：
 //   · 高寒高原 alpine_plateau(青藏、帕米尔，随机图里偏冷偏高的)：牧业、不能耕、宜居约草地三成，算牧地(水土、毡帐、放牧)；
-//     战线地形、教化政令阻力按高原(TerrainSystem 的 FrontTerrain.Plateau、TerrainResistance)，成片没城的划高原无人区(WildernessSystem)；
+//     战线地形、教化政令阻力按高原(TerrainSystem 的 FrontTerrain.Plateau、TerrainResistance)；算国土，开局铺给城、哪国的城都能扩进去，
+//     哪座城都没领的才连成高原无人区(WildernessSystem)；
 //   · 黄土高原 loess_plateau：能耕(收成打八折，见 FarmlandSystem)、宜居约七成；战线地形、教化政令阻力同上，不算牧地、不划无人区；
 //   · 草原高原 steppe_plateau(蒙古高原)：牧业为主、能少量耕(收成五折)、宜居约五成，算牧地(游牧在上面不算离草)；
 //     高原面是开阔草原，战线地形、教化政令照平原，不划无人区——屏障全在外缘(大兴安岭、燕山、阴山)。

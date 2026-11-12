@@ -28,6 +28,9 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //     WorldMapScenario.BuildTitles；不称帝的国家都城不是法理首都时另立一块、归它自己，见 OwnTitles)；没挂上法理的，
 //     周边(八邻)的城全属同一国的归那国，否则中立。城的辖地按地形代价从城心往外铺(无人区铺不进去)；离剧本的城太远
 //     (FillerReach 外)的空地开局会补随机小国(见 WorldMapScenario.PlanFillers)，这里记作"补空小国"("f")；
+//   · 高寒高原算国土(用户 2026-11-13，见 WildernessSystem 类头)：开局有城走得到的高原地块归城、不划无人区(见 PlateauReach)，
+//     城周围按远近铺、铺不到的归走得到的最近的城(同 WorldMapZones.FillAll)，不补小国；高原上一座城都没有的才连成高原无人区。
+//     外缘山脊进世界才铺，这里按高原格的多少粗分两边(见 AlpineSide)：城心在平地上的城不领高原面上的地，反过来也一样；
 //   · 只是预演：村镇厂区、立城时平出的河谷绿洲、补空小国的城都不知道，与开局划出来的会差几块。
 // 三段缓存：取样(地形、地图范围、大小档变了才重算；最大一档四万多块地、近三百万格，几十毫秒)；归类、连片、辖地与挂法理的走法
 // (再加城心、刷的开发度、上面两个设置变了才重算，照原图分地的剧本再加刷的地块归属，放城挪城只算这一段)；
@@ -104,6 +107,9 @@ public static class ScenarioWilderness
         // 照原图分地的剧本才有：各块地刷给哪座城(Seats 的下标，没有为 -1)，哪些留给城(见 Claims)
         public int[] Claim;
         public bool[] Kept;
+        // 各块的高寒高原格数；各块走得到的最近的城(Seats 的下标，走不到为 -1；见 PlateauReach)
+        public byte[] Alpine;
+        public int[] Reach;
     }
 
     // 取样的结果：各块的陆地(连同岩浆)、水面、山地、丘陵、冻土、沙地、丛林、沼泽、草木平地、岩浆格数(只读；归类时丛林、沼泽、草木另拷一份再改)
@@ -430,6 +436,12 @@ public static class ScenarioWilderness
             if (layout.Dev[z] >= WildernessDevelopmentSystem.Full && WildernessDevelopmentSystem.Develops((WildKind)layout.Raw[z])) anchored[z] = true;
         }
 
+        // 高寒高原算国土：有城走得到的高原地块留给城
+        layout.Alpine = plateau;
+        layout.Reach = PlateauReach(layout, exact);
+        for (int z = 0; z < n; z++)
+            if (layout.Raw[z] == (byte)WildKind.Plateau && layout.Reach[z] >= 0) anchored[z] = true;
+
         // 五、连片(同 WildernessSystem.Regroup)：同类型四邻连成核心；大的先长，往外收这一类地形过半的地块，长到同类的小片整片并进来
         // (山脉、熔岩连对方零星的核心，见 WildernessSystem.Absorbs)；去掉不到 MinZones 块的
         var piece = new int[n];
@@ -534,6 +546,57 @@ public static class ScenarioWilderness
         Attach(layout);
         History(layout);
         return layout;
+    }
+
+    // 高原哪一边(同 TerrainSystem.PlateauSide 的口径；预览里只数得出高寒高原)：高原格过半是高原面 1，一成五以下是平地 0，其间是外缘 255
+    private const byte RimSide = 255;
+
+    private static byte AlpineSide(Layout layout, int z)
+    {
+        int land = layout.Land[z], alpine = layout.Alpine[z];
+        return land > 0 && alpine * 2 > land ? (byte)1 : land > 0 && alpine > land * 0.15f ? RimSide : (byte)0;
+    }
+
+    // 城心在 seat 那一边的城领不领 side 这一边的地：隔着外缘不领(同 PlateauSides.Differ，外缘那一圈两边都算)
+    private static bool AcrossRim(byte seat, byte side) => seat != side && seat != RimSide && side != RimSide;
+
+    // 各块地走得到的最近的城(四邻、按块数、不限远近；只穿过平常的地与高寒高原，别的荒地、水面不穿，不翻外缘)：
+    // 高寒高原地块有城走得到就留给城(开局铺辖地、铺满会领到它)。照原图分地的剧本开局只按刷的分，这里也只认刷的
+    private static int[] PlateauReach(Layout layout, bool exact)
+    {
+        int n = layout.W * layout.H;
+        var reach = new int[n];
+        if (exact && layout.Claim != null)
+        {
+            Array.Copy(layout.Claim, reach, n);
+            return reach;
+        }
+        for (int z = 0; z < n; z++) reach[z] = -1;
+        var side = new byte[layout.Seats.Count];
+        var queue = new Queue<int>();
+        for (int i = 0; i < layout.Seats.Count; i++)
+        {
+            int z = layout.SeatZone[i];
+            side[i] = AlpineSide(layout, z);
+            if (reach[z] >= 0) continue;
+            reach[z] = i;
+            queue.Enqueue(z);
+        }
+        while (queue.Count > 0)
+        {
+            int z = queue.Dequeue();
+            for (int d = 0; d < 4; d++)
+            {
+                int next = Neighbour(z, d, layout.W, layout.H);
+                if (next < 0 || reach[next] >= 0 || layout.Land[next] < TerritoryLand) continue;
+                byte raw = layout.Raw[next];
+                if (raw != 0 && raw != (byte)WildKind.Plateau) continue;
+                if (AcrossRim(side[reach[z]], AlpineSide(layout, next))) continue;
+                reach[next] = reach[z];
+                queue.Enqueue(next);
+            }
+        }
+        return reach;
     }
 
     // 照原图分地：各块地刷给哪座城。取样点同 WorldMapScenario.PaintTerritory——块中心那一格的左下角，不加半格(加半格的是
@@ -776,6 +839,9 @@ public static class ScenarioWilderness
             layout.Terr[z] = -1;
         }
         var buckets = new List<int>[FillerReach + 1];
+        // 高原外缘作界线：城不领外缘那边的地(见 AcrossRim)
+        var seatSide = new byte[layout.Seats.Count];
+        for (int i = 0; i < layout.Seats.Count; i++) seatSide[i] = AlpineSide(layout, layout.SeatZone[i]);
         for (int i = 0; i < layout.Seats.Count; i++)
         {
             int z = layout.SeatZone[i];
@@ -796,6 +862,7 @@ public static class ScenarioWilderness
                 {
                     int next = Neighbour(z, dir, layout.W, layout.H);
                     if (next < 0 || layout.Region[next] >= 0 || cost[next] == 0) continue;
+                    if (AcrossRim(seatSide[layout.Terr[z]], AlpineSide(layout, next))) continue;
                     int nd = d + cost[next];
                     if (nd > FillerReach || nd >= dist[next]) continue;
                     dist[next] = nd;
@@ -804,6 +871,10 @@ public static class ScenarioWilderness
                 }
             }
         }
+        // 铺不到的高寒高原归走得到的最近的城(同 WorldMapZones.FillAll，不看远近)，不补小国
+        for (int z = 0; z < n; z++)
+            if (layout.Terr[z] < 0 && layout.Region[z] < 0 && layout.Raw[z] == (byte)WildKind.Plateau && layout.Reach[z] >= 0)
+                layout.Terr[z] = layout.Reach[z];
         for (int z = 0; z < n; z++)
             if (layout.Terr[z] < 0 && layout.Region[z] < 0 && layout.Land[z] >= TerritoryLand) layout.Terr[z] = Filler;
     }
@@ -1121,6 +1192,10 @@ public static class ScenarioWilderness
         var wild = new bool[n];
         for (int z = 0; z < n; z++) wild[z] = layout.Region[z] >= 0;
         ScenarioPreviewRules.Spread(layout.W, layout.H, owner, layout.Cost, wild, WallZones(layout, era), allBudget, allCap);
+        // 铺不到的高寒高原归走得到的最近的城(同 WorldMapZones.FillAll)，不补小国
+        for (int z = 0; z < n; z++)
+            if (owner[z] == ScenarioPreviewRules.Filler && layout.Raw[z] == (byte)WildKind.Plateau && layout.Reach[z] >= 0)
+                owner[z] = layout.Reach[z];
         for (int z = 0; z < n; z++)
             if (owner[z] >= seats) owner[z] = NearestSeat(layout, seatCities[owner[z] - seats], z % layout.W * 8 + 4, z / layout.W * 8 + 4);
         return true;
@@ -1316,6 +1391,8 @@ public static class ScenarioWilderness
     {
         int zone = ZoneAt(lon, lat);
         if (!Valid(zone) || _layout.Raw == null) return WildKind.None;
+        // 高寒高原算国土：城放上去，这块连同走得到的高原都归城，不算落在无人区里
+        if (_layout.Raw[zone] == (byte)WildKind.Plateau) return WildKind.None;
         if (_layout.Region[zone] >= 0) return _layout.Pieces[_layout.Region[zone]].Kind;
         // 照原图留给城的地块地形再荒也不划
         if (_layout.Raw[zone] != 0 && _layout.Kept?[zone] != true) return (WildKind)_layout.Raw[zone];
@@ -1326,6 +1403,7 @@ public static class ScenarioWilderness
             int region = next < 0 ? -1 : _layout.Region[next];
             if (region < 0) continue;
             WildKind kind = _layout.Pieces[region].Kind;
+            if (kind == WildKind.Plateau) continue;
             counts[kind] = counts.TryGetValue(kind, out int count) ? count + 1 : 1;
         }
         return counts.Where(pair => pair.Value >= 2).OrderByDescending(pair => pair.Value).Select(pair => pair.Key).FirstOrDefault();
