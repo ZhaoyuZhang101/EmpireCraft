@@ -187,6 +187,12 @@ namespace EmpireCraft.Scripts.Data
         {
             EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, 100);
         }
+        // 席位上限：至多几部手机各领一位君主(管理员在手机上也能改，见 TerminalHost.Admin)
+        public static void TerminalMaxSeatsCallBack(string text)
+        {
+            EmpireCraft.Scripts.Terminal.TerminalPairing.Limit =
+                SettlementValue(text, 8, 1, EmpireCraft.Scripts.Terminal.TerminalPairing.MaxSeats);
+        }
 
         // 纯净地图模式(见 PureMapMode)下次启动生效：启动读设置时定下本次是否开启，游戏中切换只存下来、提示重启
         private static bool _pureMapLoaded;

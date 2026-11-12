@@ -12,7 +12,8 @@ namespace EmpireCraft.Scripts.UI.Windows;
 // 终端(「卷册」宽窗口；模组设置左栏的「终端」按钮打开)：终端模式的电脑这一头，见 TerminalHost。
 //   · 左栏：开没开、手机该填的地址与六位配对码 → 开关终端模式、换配对码；
 //   · 右栏：主指标(席位几个、领着君主的几个、世界流速) → 席位卡(一部配过对的手机一行，点一行选中；选中的可以收回君主、除名)
-//     → 在世君主卡(点一位，交给选中的席位；别的席位领着的标出来、点不动)。
+//     → 在世君主卡(点一位，交给选中的席位；别的席位领着的标出来、点不动)；
+//     手机连接卡下面是管理员卡(管理员码只在这里显示、换码、席位上限，见 TerminalHost.Admin)。
 // 手机上没有所领之君时自己也能挑；这里是离开电脑前先替它定好(用户 2026-11-11 "离开电脑前先选定一个政体")
 public class TerminalWindow : WideScrollWindow<TerminalWindow>
 {
@@ -167,6 +168,35 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         }
     }
 
+    // 「管理员」(见 TerminalHost.Admin)：管理员码只在这张卡上显示——二维码、手机连接卡(设置页里也有一张)、大厅都不带它。
+    // 换码后已登入的管理员一并作废；席位上限在这里也能调(同设置里那一项)
+    private void DrawAdmin(AutoVertLayoutGroup page)
+    {
+        if (!TerminalHost.Running) return;
+        var card = page.BeginCard(PageWidth, "terminal_card_admin", WideKit.Gold);
+        card.AddParagraph(PageWidth, LM.Get("terminal_admin_note"), 6, WideKit.Muted);
+        card.AddValueRow(PageWidth, 0, LM.Get("terminal_admin_code"), TerminalHost.AdminCode, WideKit.Gold);
+        card.AddValueRow(PageWidth, 1, LM.Get("terminal_admin_count"),
+            string.Format(LM.Get("terminal_admin_count_value"), TerminalHost.AdminCount, TerminalHost.AdminOnline), WideKit.Cyan);
+        card.AddValueRow(PageWidth, 2, LM.Get("terminal_admin_limit"),
+            string.Format(LM.Get("terminal_admin_limit_value"), TerminalHost.Seats().Count, TerminalPairing.Limit), WideKit.Cyan);
+        void Limit(int to)
+        {
+            to = Mathf.Clamp(to, 1, TerminalPairing.MaxSeats);
+            ModSettingsWindow.SetText("Terminal_Max_Seats_Text", to.ToString());
+            TerminalPairing.Limit = to;
+            Refresh();
+        }
+        card.AddButtonRow(PageWidth,
+            ("terminal_admin_renew", LM.Get("terminal_admin_renew"), () =>
+            {
+                TerminalHost.RenewAdmin();
+                Refresh();
+            }),
+            ("terminal_admin_limit_down", LM.Get("terminal_admin_limit_down"), () => Limit(TerminalPairing.Limit - 1)),
+            ("terminal_admin_limit_up", LM.Get("terminal_admin_limit_up"), () => Limit(TerminalPairing.Limit + 1)));
+    }
+
     private static void RailNote(AutoVertLayoutGroup card, string text) =>
         card.AddRailText(text.ColorString(WideKit.Muted), 6,
             Mathf.Ceil((UIHelper.EstimateTextWidth(text, 6) * 1.1f + 6f) / (UIHelper.RailWidth - 8f)) * 8f + 2f, wrap: true);
@@ -178,7 +208,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
         int ruling = seats.Count(seat => seat.Ruler != null);
         page.AddPageHeader(PageWidth, LM.Get("terminal_title"), string.Format(LM.Get("terminal_seat_count"), seats.Count));
         page.AddKpiRow(PageWidth,
-            (LM.Get("terminal_kpi_seats"), seats.Count + "/" + TerminalPairing.MaxSeats, WideKit.Cyan),
+            (LM.Get("terminal_kpi_seats"), seats.Count + "/" + TerminalPairing.Limit, WideKit.Cyan),
             (LM.Get("terminal_kpi_ruling"), ruling.ToString(), WideKit.Gold),
             (LM.Get("terminal_kpi_speed"), TerminalHost.Slowed ? TerminalHost.SpeedPercent + "%" : "100%", WideKit.Green));
 
@@ -188,6 +218,7 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             return;
         }
         TerminalConnectCard.Draw(page, PageWidth);
+        DrawAdmin(page);
         DrawLines(page);
         if (seats.Count == 0)
         {

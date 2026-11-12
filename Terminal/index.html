@@ -325,6 +325,24 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
   body.main.side #win-head{left:calc(var(--navw) + 20px);right:auto;width:calc(var(--side) - 24px);top:20px}
   body.main #toast,body.mapfull #toast{top:10px}
 }
+/* ───── 管理员(见 TerminalHost.Admin；用户 2026-11-13 要的管理员入口) ─────
+   管理员的页签只有 舆图 / 席位 / 房间 三个；席位、房间两页同别的办事页一样是浮在图上的窗口 */
+nav button[data-p=aseats],nav button[data-p=aroom]{display:none}
+body.admin nav button[data-p=aseats],body.admin nav button[data-p=aroom]{display:flex}
+body.admin nav button[data-p=reports],body.admin nav button[data-p=decrees],body.admin nav button[data-p=realm],body.admin nav button[data-p=annals]{display:none}
+body.admin nav div{grid-template-columns:repeat(3,1fr)}
+body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-webkit-overflow-scrolling:touch;
+  left:6px;right:6px;top:calc(var(--barh) + 14px);bottom:calc(var(--navh) + 6px);background:var(--bg);
+  border:12px solid transparent;border-image:url(FactionFrame_dominate.png) 12 / 12px stretch;padding:38px 2px 6px}
+#s-pair #admin-open{display:flex;align-items:center;gap:6px;margin:14px auto 0}
+.adm-code{font:600 17px/1.2 ui-monospace,Menlo,Consolas,monospace;color:var(--gold);letter-spacing:.08em}
+.adm-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.adm-nums button{margin:0;min-height:42px;padding:4px}
+.adm-nums button.on{background:#7a5f1e;color:#fff3cf;box-shadow:inset 0 2px 0 #b08a2e}
+@media (orientation:landscape) and (min-width:640px){
+  body.admin nav div{grid-template-columns:1fr}
+  body.main #p-aseats,body.main #p-aroom{left:calc(var(--navw) + 8px);right:auto;width:var(--side);top:8px;bottom:8px}
+}
 </style>
 </head>
 <body>
@@ -340,6 +358,14 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
     <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" style="margin-top:4px">
     <div class="err" id="pair-err"></div>
     <button class="primary" id="pair-go" style="width:100%" data-t="pair_go"></button>
+  </div>
+  <!-- 管理员入口(见 TerminalHost.Admin)：凭电脑上终端窗口里的管理员码进，公开的房间也一样 -->
+  <button class="act more" id="admin-open"><img class="ic" data-ic="i_lock" width="18" height="18" alt=""><span id="admin-open-t" data-t="adm_entry"></span></button>
+  <div class="card" id="admin-card" hidden>
+    <label class="sub" for="admin-code" data-t="adm_code"></label>
+    <input id="admin-code" maxlength="9" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX" style="margin-top:4px">
+    <div class="err" id="admin-err"></div>
+    <button class="primary" id="admin-go" style="width:100%" data-t="adm_go"></button>
   </div>
 </section>
 
@@ -385,6 +411,7 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
     <p class="sub" id="vacant-why"></p>
     <div id="vacant-next"></div>
     <p class="sub" data-t="pick_hint"></p>
+    <button class="act more" id="vacant-admin" style="margin:2px 0 0"><span id="vacant-admin-t" data-t="adm_entry"></span></button>
   </div>
   <div id="vacant-map"></div>
 </section>
@@ -458,7 +485,10 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
     <div class="card"><h2><img class="ic" data-ic="k_cities" width="20" height="20" alt=""><span data-t="cities"></span></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
     <div class="card" id="review-card" hidden><h2><img class="ic" data-ic="k_officials" width="20" height="20" alt=""><span data-t="rv_title"></span></h2><div class="sub" data-t="rv_note"></div><div id="review" style="margin-top:6px"></div></div>
     <div class="card" id="prov-card" hidden><h2 data-t="provinces"></h2><div class="sub" data-t="provinces_note"></div><div class="rows" id="provinces" style="margin-top:6px"></div></div>
+    <div class="card" id="adm-card"><div id="adm-entry"></div></div>
   </div>
+  <div id="p-aseats" hidden><div id="aseats"></div></div>
+  <div id="p-aroom" hidden><div id="aroom"></div></div>
 </section>
 </div>
 
@@ -471,6 +501,8 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
   <button data-p="decrees"><img class="ic" data-ic="tab_decrees" width="24" height="24" alt=""><span data-t="tab_decrees"></span><i class="badge" id="nb-decrees" hidden></i></button>
   <button data-p="realm"><img class="ic" data-ic="tab_realm" width="24" height="24" alt=""><span data-t="tab_realm"></span></button>
   <button data-p="annals"><img class="ic" data-ic="tab_annals" width="24" height="24" alt=""><span data-t="tab_annals"></span></button>
+  <button data-p="aseats"><img class="ic" data-ic="k_people" width="24" height="24" alt=""><span data-t="tab_aseats"></span></button>
+  <button data-p="aroom"><img class="ic" data-ic="g_staff" width="24" height="24" alt=""><span data-t="tab_aroom"></span></button>
 </div></nav>
 
 <script>
@@ -541,6 +573,60 @@ f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on
 wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
 provinces:"Provinces and vassals",provinces_note:"The provinces, loose-rein lands and fiefs under the court. Tap one to see its cities.",pk_province:"Province",pk_jimi:"Loose rein",pk_fief:"Fief",pn_province:"Governed by appointed officials; only cities within reach of government give firm numbers.",pn_jimi:"A loose-rein land keeps its own chief; the court knows only roughly.",pn_fief:"A fief governs itself; the court knows only roughly.",p_cities:"{0} cities",p_seat:"Seat",p_more:"{0} more cities not listed.",cities:"Directly ruled cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%",cd_leader:"Governor: {0}",cd_troops:"Garrison: {0}",cd_treasury:"City treasury: {0}",cd_corr:"Corruption: {0}%",cd_zones:"Land: {0} zones",cd_rural:"{0} towns · {1} villages · {2} forts",cd_admin:"Control: {0}",cd_rough:"Government reaches here poorly; only rough figures come back.",cd_none:"Government does not reach here; no details come back."}
 };
+// 管理员入口的文字(见 TerminalHost.Admin)
+(function(){var A={
+cz:{adm_entry:"管理员入口",adm_code:"管理员码（八位字母数字，在电脑上的终端窗口里）",adm_go:"以管理员进入",adm_e_code:"管理员码是八位字母数字",adm_e_wrong:"管理员码不对",
+adm_lost:"管理员身份已失效（码换过了），要重新填码",adm_title:"管理员",adm_bar:"席位 {0}/{1} · 在线 {2}",adm_unslowed:"无君主在线，照常速",tab_aseats:"席位",tab_aroom:"房间",
+adm_k_seats:"席位",adm_k_online:"在线",adm_k_ruling:"领君主",adm_seats:"各席位",adm_no_seats:"还没有手机配对",adm_online:"在线",adm_away:"离线",
+adm_seat_ruling:"{0} · {1}",adm_seat_vacant:"未领君主",adm_seats_note:"点一个席位：收回所领的君主（席位留着，手机上再选），或者除名（令牌作废，要重新配对；配对码随之换掉，公开的房间改为凭配对码）。",
+adm_recall:"收回君主",adm_recall_note:"席位留着，那部手机可以另选一位君主。",adm_kick:"除名",adm_kick_note:"令牌作废，那部手机要重新配对才进得来；配对码随之换掉，公开的房间同时改为凭配对码。",
+adm_held:"由席位「{0}」领着",adm_free:"没有席位领着",adm_world:"世界",adm_speed:"世界流速",adm_speed_sub:"有君主在线时世界按这个比例放慢。直接定，不经流速之议",
+adm_speed_note:"定为哪一档；正在议的流速之议当场作罢。",adm_speed_custom:"其他（1~100）",adm_speed_set:"定为 {0}%",
+adm_vote_live:"正在议：{0}提议改为 {1}%（赞成 {2} · 反对 {3} · 共 {4} 位）。直接定流速，这桩议就作罢。",adm_clock:"时间",adm_paused:"已暂停",adm_running:"运行中",adm_pause:"暂停",adm_resume:"继续",
+adm_pair:"配对",adm_code_now:"配对码",adm_code_sub:"普通配对码：六位数字，配成一部手机就换",adm_new_code:"换码",adm_limit:"席位上限",adm_limit_sub:"已配 {0}。调低后已配的照旧留着，满了不再收新的",adm_limit_note:"至多几部手机各领一位君主。",
+adm_lobby:"联机大厅",adm_lobby_off:"未接入（在电脑上的终端窗口里接入）",adm_lobby_on:"已接入 · {0}",adm_lobby_wait:"连接中 · {0}",adm_line_global:"国际线路",adm_line_china:"国内线路",adm_line_custom:"自定大厅",
+adm_open:"进房间",adm_open_on:"公开：大厅里点了就进",adm_open_off:"凭配对码",adm_make_open:"公开",adm_make_private:"改凭码",adm_open_note:"公开不公开，进管理员都只认管理员码。",
+adm_room_name:"房间名",adm_room_auto:"未起名，用世界名「{0}」",adm_room_hint:"至多 24 字，留空用世界名",adm_save:"定下",
+adm_self:"身份",adm_to_seat:"回到君主席位",adm_to_seat_sub:"这部手机另有一个普通席位，切过去领君主（有迷雾）",adm_pair_seat:"配一个普通席位",adm_pair_seat_sub:"要领君主，得用普通配对码另配一个席位",
+adm_logout:"退出管理员",adm_logout_sub:"这部手机不再是管理员，别的管理员不受影响",adm_switch:"切到管理员",adm_switch_sub:"这部手机已登入管理员：全图、席位、房间",adm_entry_sub:"填管理员码进入（码在电脑上的终端窗口里）",
+adm_army_total:"共 {0} 人",adm_n_gone:"那个席位已经不在了",adm_n_kicked:"已除名：{0}",adm_n_recalled:"已收回：{0}",adm_n_speed:"世界流速已定为 {0}%",adm_n_paused:"世界已暂停",adm_n_resumed:"世界已继续",
+adm_n_new_code:"配对码已换",adm_n_room_open:"房间已公开",adm_n_room_private:"房间已改为凭配对码",adm_n_room_name:"房间名：{0}",adm_n_seat_limit:"席位上限：{0}",
+why_recalled:"管理员收回了{0}的{1}，在图上另选一位君主。"},
+ch:{adm_entry:"管理員入口",adm_code:"管理員碼（八位字母數字，在電腦上的終端窗口裡）",adm_go:"以管理員進入",adm_e_code:"管理員碼是八位字母數字",adm_e_wrong:"管理員碼不對",
+adm_lost:"管理員身份已失效（碼換過了），要重新填碼",adm_title:"管理員",adm_bar:"席位 {0}/{1} · 在線 {2}",adm_unslowed:"無君主在線，照常速",tab_aseats:"席位",tab_aroom:"房間",
+adm_k_seats:"席位",adm_k_online:"在線",adm_k_ruling:"領君主",adm_seats:"各席位",adm_no_seats:"還沒有手機配對",adm_online:"在線",adm_away:"離線",
+adm_seat_ruling:"{0} · {1}",adm_seat_vacant:"未領君主",adm_seats_note:"點一個席位：收回所領的君主（席位留著，手機上再選），或者除名（令牌作廢，要重新配對；配對碼隨之換掉，公開的房間改為憑配對碼）。",
+adm_recall:"收回君主",adm_recall_note:"席位留著，那部手機可以另選一位君主。",adm_kick:"除名",adm_kick_note:"令牌作廢，那部手機要重新配對才進得來；配對碼隨之換掉，公開的房間同時改為憑配對碼。",
+adm_held:"由席位「{0}」領著",adm_free:"沒有席位領著",adm_world:"世界",adm_speed:"世界流速",adm_speed_sub:"有君主在線時世界按這個比例放慢。直接定，不經流速之議",
+adm_speed_note:"定為哪一檔；正在議的流速之議當場作罷。",adm_speed_custom:"其他（1~100）",adm_speed_set:"定為 {0}%",
+adm_vote_live:"正在議：{0}提議改為 {1}%（贊成 {2} · 反對 {3} · 共 {4} 位）。直接定流速，這樁議就作罷。",adm_clock:"時間",adm_paused:"已暫停",adm_running:"運行中",adm_pause:"暫停",adm_resume:"繼續",
+adm_pair:"配對",adm_code_now:"配對碼",adm_code_sub:"普通配對碼：六位數字，配成一部手機就換",adm_new_code:"換碼",adm_limit:"席位上限",adm_limit_sub:"已配 {0}。調低後已配的照舊留著，滿了不再收新的",adm_limit_note:"至多幾部手機各領一位君主。",
+adm_lobby:"聯機大廳",adm_lobby_off:"未接入（在電腦上的終端窗口裡接入）",adm_lobby_on:"已接入 · {0}",adm_lobby_wait:"連接中 · {0}",adm_line_global:"國際線路",adm_line_china:"國內線路",adm_line_custom:"自定大廳",
+adm_open:"進房間",adm_open_on:"公開：大廳裡點了就進",adm_open_off:"憑配對碼",adm_make_open:"公開",adm_make_private:"改憑碼",adm_open_note:"公開不公開，進管理員都只認管理員碼。",
+adm_room_name:"房間名",adm_room_auto:"未起名，用世界名「{0}」",adm_room_hint:"至多 24 字，留空用世界名",adm_save:"定下",
+adm_self:"身份",adm_to_seat:"回到君主席位",adm_to_seat_sub:"這部手機另有一個普通席位，切過去領君主（有迷霧）",adm_pair_seat:"配一個普通席位",adm_pair_seat_sub:"要領君主，得用普通配對碼另配一個席位",
+adm_logout:"退出管理員",adm_logout_sub:"這部手機不再是管理員，別的管理員不受影響",adm_switch:"切到管理員",adm_switch_sub:"這部手機已登入管理員：全圖、席位、房間",adm_entry_sub:"填管理員碼進入（碼在電腦上的終端窗口裡）",
+adm_army_total:"共 {0} 人",adm_n_gone:"那個席位已經不在了",adm_n_kicked:"已除名：{0}",adm_n_recalled:"已收回：{0}",adm_n_speed:"世界流速已定為 {0}%",adm_n_paused:"世界已暫停",adm_n_resumed:"世界已繼續",
+adm_n_new_code:"配對碼已換",adm_n_room_open:"房間已公開",adm_n_room_private:"房間已改為憑配對碼",adm_n_room_name:"房間名：{0}",adm_n_seat_limit:"席位上限：{0}",
+why_recalled:"管理員收回了{0}的{1}，在圖上另選一位君主。"},
+en:{adm_entry:"Admin entry",adm_code:"Admin code (8 letters and digits, shown in the terminal window on the computer)",adm_go:"Enter as admin",adm_e_code:"The admin code has 8 letters and digits",adm_e_wrong:"Wrong admin code",
+adm_lost:"Admin sign-in expired (the code was changed). Enter the new code.",adm_title:"Admin",adm_bar:"Seats {0}/{1} · {2} online",adm_unslowed:"no ruler online, full speed",tab_aseats:"Seats",tab_aroom:"Room",
+adm_k_seats:"Seats",adm_k_online:"Online",adm_k_ruling:"Ruling",adm_seats:"Seats",adm_no_seats:"No phone has paired yet",adm_online:"Online",adm_away:"Away",
+adm_seat_ruling:"{0} · {1}",adm_seat_vacant:"No ruler",adm_seats_note:"Tap a seat to recall its ruler (the seat stays and can pick again) or remove it (its token stops working and it must pair again; the pairing code changes and an open room switches to code-only).",
+adm_recall:"Recall ruler",adm_recall_note:"The seat stays; that phone can pick another ruler.",adm_kick:"Remove seat",adm_kick_note:"Its token stops working and that phone must pair again. The pairing code changes and an open room switches to code-only.",
+adm_held:"Held by seat “{0}”",adm_free:"No seat holds this ruler",adm_world:"World",adm_speed:"World speed",adm_speed_sub:"The world slows to this while a ruler is online. Set directly, no vote",
+adm_speed_note:"Pick a speed. Any speed vote in progress is called off.",adm_speed_custom:"Other (1–100)",adm_speed_set:"Set to {0}%",
+adm_vote_live:"Vote in progress: {0} proposes {1}% ({2} for · {3} against · {4} voters). Setting the speed directly calls it off.",adm_clock:"Time",adm_paused:"Paused",adm_running:"Running",adm_pause:"Pause",adm_resume:"Resume",
+adm_pair:"Pairing",adm_code_now:"Pairing code",adm_code_sub:"The ordinary six-digit code. It changes after each phone pairs",adm_new_code:"New code",adm_limit:"Seat limit",adm_limit_sub:"{0} paired. Lowering it keeps existing seats and only refuses new ones",adm_limit_note:"How many phones can each take a ruler.",
+adm_lobby:"Online lobby",adm_lobby_off:"Not connected (connect from the terminal window on the computer)",adm_lobby_on:"Connected · {0}",adm_lobby_wait:"Connecting · {0}",adm_line_global:"International",adm_line_china:"China",adm_line_custom:"Custom lobby",
+adm_open:"Room access",adm_open_on:"Open: join from the lobby",adm_open_off:"Pairing code only",adm_make_open:"Open",adm_make_private:"Code only",adm_open_note:"Either way, admin entry takes the admin code.",
+adm_room_name:"Room name",adm_room_auto:"Unnamed: uses the world name “{0}”",adm_room_hint:"Up to 24 characters; empty uses the world name",adm_save:"Save",
+adm_self:"Identity",adm_to_seat:"Back to the ruler seat",adm_to_seat_sub:"This phone also has an ordinary seat; switch to it to rule (with fog)",adm_pair_seat:"Pair an ordinary seat",adm_pair_seat_sub:"To rule, pair an ordinary seat with the pairing code",
+adm_logout:"Sign out of admin",adm_logout_sub:"This phone stops being admin; other admins are unaffected",adm_switch:"Switch to admin",adm_switch_sub:"This phone is signed in as admin: whole map, seats, room",adm_entry_sub:"Enter the admin code shown in the terminal window on the computer",
+adm_army_total:"{0} men in all",adm_n_gone:"That seat is gone",adm_n_kicked:"Removed: {0}",adm_n_recalled:"Recalled: {0}",adm_n_speed:"World speed set to {0}%",adm_n_paused:"World paused",adm_n_resumed:"World resumed",
+adm_n_new_code:"Pairing code changed",adm_n_room_open:"Room is open",adm_n_room_private:"Room is code-only",adm_n_room_name:"Room name: {0}",adm_n_seat_limit:"Seat limit: {0}",
+why_recalled:"An admin recalled {1} of {0}. Pick another ruler on the map."}
+};for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 var lang=/^zh/i.test(navigator.language||"")?(/tw|hk|hant/i.test(navigator.language)?"ch":"cz"):"en";
 function t(key){var s=(T[lang]||T.en)[key];if(s==null)s=T.en[key]||key;for(var i=1;i<arguments.length;i++)s=s.split("{"+(i-1)+"}").join(arguments[i]);return s}
 function $(id){return document.getElementById(id)}
@@ -558,18 +644,23 @@ function short(v){
 }
 
 // 这份网页要游戏里的终端至少是第几版(见 TerminalHost.Version)
-var NEED=16;
+var NEED=17;
 // 网页所在的路径：直连时是空的；经联机大厅进来是 /r/房间号。接口都接在它后面，令牌也按它分开存(一个大厅域名下有许多房间)
 var BASE=location.pathname.replace(/\/[^\/]*$/,""),TOKEN_KEY="ec_token"+(BASE?":"+BASE:"");
 var token=store(TOKEN_KEY),state=null,map=null,page="map",fails=0,openReport=null,openCity=null,lastMapAt=0;
+// 管理员(见 TerminalHost.Admin)：管理员令牌另存；这部手机眼下用哪个身份(seat 领君主 / admin 管理员)也记着
+var ADMIN_KEY="ec_admin"+(BASE?":"+BASE:""),ROLE_KEY="ec_role"+(BASE?":"+BASE:"");
+var adminToken=store(ADMIN_KEY),role=adminToken&&store(ROLE_KEY)==="admin"?"admin":"seat";
+function asAdmin(){return role==="admin"&&!!adminToken}
 
 function api(method,path,body){
   var opt={method:method,headers:{},cache:"no-store"};
-  if(token)opt.headers["X-Terminal-Token"]=token;
+  var tk=asAdmin()?adminToken:token;
+  if(tk)opt.headers["X-Terminal-Token"]=tk;
   if(body){opt.body=JSON.stringify(body);opt.headers["Content-Type"]="application/json"}
   return fetch(BASE+path,opt).then(function(r){return r.json().then(function(j){return{status:r.status,json:j}},function(){return{status:r.status,json:{}}})});
 }
-function show(id){["s-pair","s-wait","s-load","s-vacant","s-main"].forEach(function(s){$(s).hidden=s!==id});$("nav").hidden=id!=="s-main";document.body.classList.toggle("main",id==="s-main");document.body.classList.toggle("vacant",id==="s-vacant")}
+function show(id){["s-pair","s-wait","s-load","s-vacant","s-main"].forEach(function(s){$(s).hidden=s!==id});$("nav").hidden=id!=="s-main";document.body.classList.toggle("main",id==="s-main");document.body.classList.toggle("admin",id==="s-main"&&asAdmin());document.body.classList.toggle("vacant",id==="s-vacant")}
 
 // 配对
 $("pair-go").onclick=function(){
@@ -586,8 +677,12 @@ $("code").oninput=function(){$("pair-err").textContent=""};
 // 轮询
 var pageAt=null;
 function poll(){
-  if(!token){show("s-pair");autoPair();return}
+  if(!token&&!asAdmin()){show("s-pair");admEntryLabels();autoPair();return}
+  var asked=role;
   api("GET","/api/state").then(function(r){
+    // 换了身份，这一回问的作废
+    if(asked!==role)return;
+    if(r.status===401&&asked==="admin"){adminLost();return}
     if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");autoPair();return}
     fails=0;$("warn").style.display="none";
     state=r.json;
@@ -659,6 +754,7 @@ function loadClock(){
 }
 function render(){
   if(!state.loaded){show("s-wait");return}
+  if(state.admin){renderAdmin();return}
   // 选人页也先过加载界面(用户 2026-11-13 "我的加载界面呢")：疆域、山川都到了再出图，不让人对着一张黑图
   if(state.vacant){
     if(!picking){picking=true;resetMap();mapInto(true)}
@@ -685,7 +781,7 @@ function render(){
   $("stale").hidden=(state.v||0)>=NEED;
   $("away").hidden=!state.away;
   if(state.away)$("away").textContent=state.away.kind==="campaign"?t("away_campaign"):t("away_tour",state.away.city,state.away.left);
-  renderReports();renderRealm();renderSight();renderDecrees();renderMapActs();
+  renderReports();renderRealm();renderSight();renderDecrees();renderMapActs();renderAdminEntry();
   fit();
   if(map&&!map.win)drawMap();
 }
@@ -3136,11 +3232,12 @@ function pickAt(clientX,clientY){
     if(h.kind==="army"&&d<ad){ad=d;army=h}
     if(h.kind==="city"&&d<cd){cd=d;city=h.c}
   });
-  if(army&&!aim){showArmies(army.list);return}
+  if(army&&!aim){if(state&&state.admin)adminArmies(army.list);else showArmies(army.list);return}
   var gx=win.x+px/rect.width*win.w,gy=win.y+py/rect.height*win.h,x=Math.floor(gx),y=Math.floor(gy);
   var c=x<0||y<0||x>=map.w||y>=map.h?FOG:map.grid[y*map.w+x],r=map.realms[c];
   // 点中的那一家描白边(下令时不描)
   mapSelZone=c<250&&!aim?y*map.w+x:-1;
+  if(state&&state.admin){adminRealm(c<250?r:null);drawMap();return}
   if(picking){pickRealm(c<250?r:null);return}
   // 点中的是眼下标着的那一家(用户 2026-11-13 "地图拉远后点击某个政体只能选择城市?为什么不直接选择当前显示的政体""拉近是王国我选择就是王国")：
   // 还没拉近到城一级，点地不落到城上(点城的图标照旧是城；下令时照旧落到城上)
@@ -3254,6 +3351,266 @@ function mapRealmActs(r,acts){
 })();
 window.addEventListener("resize",function(){drawMap()});
 
+// ───────── 管理员(见 TerminalHost.Admin) ─────────
+// 用户 2026-11-13 "我需要终端开启的时候附赠一个管理员账号，只有输入特定的配对码才能进去，无论是否公开，所以我需要一个管理员入口。
+// 管理员可以踢出某个玩家，修改某些配置，可以主动调时间流速不需要投票，也可以上帝模式看全图，直接看"。问答定：独立身份、不占席位、
+// 不领君主；同一部手机可另配一个普通席位，两个身份点一下切换。管理员的舆图是没有迷雾的全图(取法同席位)，各国的军照实兵数；
+// 页签换成 舆图 / 席位 / 房间；办的事走 /api/admin，办完游戏回一句话(state.notes)，这边按编号只提示新的
+ICON.tab_aseats=ICON.k_people;ICON.tab_aroom=ICON.g_staff;
+var admSeen=null,admArm=null,admLimit=null;
+function adminSend(body){
+  return api("POST","/api/admin",body).then(function(r){
+    if(r.status!==200)toast(t("sent_fail"),true);
+    setTimeout(poll,400);setTimeout(poll,1500);return r.status===200;
+  },function(){toast(t("e_net"),true);return false});
+}
+// 换身份：图、军情、加载都从头来(两个身份看到的图不一样)
+function switchRole(r){
+  role=r==="admin"&&adminToken?"admin":"seat";store(ROLE_KEY,role==="admin"?"admin":null);
+  state=null;admSeen=null;admArm=null;closeSheet();
+  if(picking){picking=false;mapInto(false)}
+  resetMap();document.body.classList.remove("admin");
+  if(page!=="map")goPage("map");
+  admEntryLabels();poll();
+}
+// 管理员令牌作废了(电脑前换了管理员码)
+function adminLost(){
+  adminToken=null;store(ADMIN_KEY,null);
+  if(role==="admin"){toast(t("adm_lost"),true);switchRole("seat")}
+}
+function adminLogin(code,err,done){
+  code=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(code.length!==8){err.textContent=t("adm_e_code");return}
+  err.textContent="";
+  api("POST","/api/admin/pair",{code:code}).then(function(r){
+    if(r.status===200&&r.json.token){adminToken=r.json.token;store(ADMIN_KEY,adminToken);if(done)done();switchRole("admin")}
+    else err.textContent=t(r.json.error==="locked"?"e_locked":r.json.error==="wrong_admin"?"adm_e_wrong":"e_net");
+  },function(){err.textContent=t("e_net")});
+}
+// 进管理员：这部手机登入过就直接切过去，没有就弹出来填码
+function adminEntry(){
+  if(adminToken){switchRole("admin");return}
+  openSheet({title:t("adm_entry"),note:t("adm_entry_sub"),items:[],custom:function(box){
+    var inp=el("input");inp.maxLength=9;inp.placeholder="XXXX-XXXX";inp.spellcheck=false;
+    inp.setAttribute("autocapitalize","characters");inp.setAttribute("autocomplete","off");inp.style.marginTop="6px";
+    var err=el("div","err"),go=el("button","pick primary");go.appendChild(el("span",null,t("adm_go")));go.style.justifyContent="center";
+    go.onclick=function(){adminLogin(inp.value,err,closeSheet)};
+    inp.onkeydown=function(e){if(e.key==="Enter")go.onclick()};
+    box.appendChild(inp);box.appendChild(err);box.appendChild(go);setTimeout(function(){inp.focus()},60);
+  }});
+}
+// 各处"管理员入口"的字：登入过的写"切到管理员"
+function admEntryLabels(){
+  var k=adminToken?"adm_switch":"adm_entry";
+  ["admin-open-t","vacant-admin-t"].forEach(function(id){var e=$(id);if(e){e.setAttribute("data-t",k);e.textContent=t(k)}});
+}
+// 国势页底下一张卡：进管理员
+function renderAdminEntry(){
+  var box=$("adm-entry"),k=adminToken?"adm_switch":"adm_entry",sig=k+lang;
+  if(!box||box._sig===sig)return;
+  box._sig=sig;box.textContent="";
+  box.appendChild(hd("i_lock",t("adm_title")));
+  var row=li(t(k),t(adminToken?"adm_switch_sub":"adm_entry_sub"),null,adminEntry);row.style.borderTop="0";
+  box.appendChild(row);
+}
+function renderAdmin(){
+  if(picking){picking=false;mapInto(false);resetMap()}
+  if(syncing())return;
+  show("s-main");
+  $("realm").textContent=t("adm_title");
+  if($("me-face").getAttribute("data-k")!=="admin"){
+    $("me-face").setAttribute("data-k","admin");$("me-face").textContent="";$("me-face").appendChild(ic("i_lock",20));
+    $("me-face").onclick=null;$("me-face").style.cursor="";
+  }
+  var seats=state.seats||[];
+  $("date").textContent=t("date",state.year,state.month);
+  $("ruler").textContent=t("adm_bar",seats.length,state.limit,seats.filter(function(s){return s.online}).length);
+  // 抬头一行放不下"无君主在线"的说明：房间页里写着
+  $("pace").textContent=state.paused?t("paused"):t("pace",state.speed);
+  $("vote-banner").hidden=true;
+  $("stale").hidden=(state.v||0)>=NEED;
+  $("away").hidden=true;
+  adminNotes();renderAdminSeats();renderAdminRoom();
+  fit();
+  if(map&&!map.win)drawMap();
+}
+// 办过的事游戏回的话：头一回只记下编号(重开网页不把旧的再报一遍)
+function adminNotes(){
+  var notes=state.notes||[],top=0;
+  notes.forEach(function(n){if(n.id>top)top=n.id});
+  if(admSeen==null){admSeen=top;return}
+  notes.forEach(function(n){if(n.id>admSeen)toast(t("adm_n_"+n.k,n.a),n.k==="gone")});
+  admSeen=Math.max(admSeen,top);
+}
+function admKpi(icon,label,value){
+  var k=el("div","kpi");k.appendChild(ic(icon,20));k.appendChild(el("span","sub",label));k.appendChild(el("b",null,value));return k;
+}
+// 页面上当场就办的小按钮：收不回来的事点一下先变"确认"，再点才办
+function admArmBtn(key,label,icon,go,cls){
+  var on=admArm===key,b=el("button","act"+(on?" armed":cls?" "+cls:""));
+  if(ICON[icon])b.appendChild(ic(icon,18));
+  b.appendChild(document.createTextNode(on?t("d_confirm",label):label));b.style.margin="0";
+  b.onclick=function(e){
+    e.stopPropagation();
+    if(admArm!==key){admArm=key;renderAdminRoom();return}
+    admArm=null;b.disabled=true;go();
+  };
+  return b;
+}
+// 弹出界面里的一项，同上
+function admPick(key,label,sub,icon,no,go){
+  var on=admArm===key,b=el("button","pick"+(on?" armed":no?" no":"")),lead=el("span","hl"),left=el("span");
+  left.appendChild(el("div",null,on?t("d_confirm",label):label));if(sub)left.appendChild(el("div","sub",sub));
+  if(ICON[icon])lead.appendChild(ic(icon,24));lead.appendChild(left);b.appendChild(lead);
+  b.onclick=function(){if(admArm!==key){admArm=key;renderSheet();return}admArm=null;closeSheet();go()};
+  return b;
+}
+function renderAdminSeats(){
+  var box=$("aseats"),seats=state.seats||[],sig=JSON.stringify([seats,state.limit,lang]);
+  if(box._sig===sig)return;
+  box._sig=sig;box.textContent="";
+  var on=seats.filter(function(s){return s.online}).length,ruling=seats.filter(function(s){return s.ruler}).length;
+  var head=el("div","card gold"),grid=el("div","grid");
+  grid.appendChild(admKpi("k_people",t("adm_k_seats"),seats.length+"/"+state.limit));
+  grid.appendChild(admKpi("i_ok",t("adm_k_online"),String(on)));
+  grid.appendChild(admKpi("i_crown",t("adm_k_ruling"),String(ruling)));
+  head.appendChild(grid);box.appendChild(head);
+  var card=el("div","card");card.appendChild(hd("k_people",t("adm_seats")));
+  if(!seats.length)card.appendChild(el("div","sub",t("adm_no_seats")));
+  seats.forEach(function(s){
+    var tag=el("span","tag "+(s.online?"green":""),t(s.online?"adm_online":"adm_away"));
+    var row=li(s.name,s.ruler?t("adm_seat_ruling",s.realm,s.ruler)+" · "+t("role_"+s.role):t("adm_seat_vacant"),tag,function(){adminSeatSheet(s)});
+    var lead=s.look&&PORTRAIT?portrait(s.look,s.rid,30):ic("i_crown",24);if(!s.ruler)lead.style.opacity=".3";
+    row.insertBefore(lead,row.firstChild);
+    card.appendChild(row);
+  });
+  card.appendChild(el("div","sub",t("adm_seats_note")));
+  box.appendChild(card);
+}
+function adminSeatSheet(s){
+  admArm=null;
+  openSheet({title:s.name,note:(s.ruler?t("adm_seat_ruling",s.realm,s.ruler)+" · "+t("role_"+s.role):t("adm_seat_vacant"))+" · "+t(s.online?"adm_online":"adm_away"),
+    items:[],custom:function(box){
+      if(s.look&&PORTRAIT){var f=el("div","face");f.appendChild(portrait(s.look,s.rid,64));box.appendChild(f)}
+      if(s.ruler)box.appendChild(admPick("recall",t("adm_recall"),t("adm_recall_note"),"i_return",false,function(){adminSend({id:"recall",target:s.key})}));
+      box.appendChild(admPick("kick",t("adm_kick"),t("adm_kick_note"),"dv_remove",true,function(){adminSend({id:"kick",target:s.key})}));
+    }});
+}
+function renderAdminRoom(){
+  var box=$("aroom"),r=state.room||{},v=state.speedVote,seats=state.seats||[];
+  var sig=JSON.stringify([state.speed,state.slowed,state.paused,state.code,state.limit,seats.length,r,v&&[v.id,v.yes,v.no,v.need],admArm,lang,!!token]);
+  if(box._sig===sig)return;
+  box._sig=sig;box.textContent="";
+  // 世界：流速、暂停
+  var world=el("div","card gold");world.appendChild(hd("k_years",t("adm_world")));
+  if(v){var vote=el("div","sub",t("adm_vote_live",v.by,v.percent,v.yes,v.no,v.need));vote.style.color="var(--amber)";world.appendChild(vote)}
+  world.appendChild(li(t("adm_speed"),t("adm_speed_sub")+(state.slowed?"":" · "+t("adm_unslowed")),el("span","tag gold",state.speed+"%"),adminSpeedSheet));
+  var pause=el("button","act"+(state.paused?" primary":""));pause.style.margin="0";
+  pause.appendChild(document.createTextNode(t(state.paused?"adm_resume":"adm_pause")));
+  pause.onclick=function(){pause.disabled=true;adminSend({id:"pause",choice:state.paused?"off":"on"})};
+  world.appendChild(liAct(t("adm_clock"),t(state.paused?"adm_paused":"adm_running"),pause));
+  box.appendChild(world);
+  // 配对：普通配对码、席位上限
+  var pair=el("div","card");pair.appendChild(hd("i_lock",t("adm_pair")));
+  var right=el("span","hl");right.appendChild(el("span","adm-code",state.code||"------"));
+  right.appendChild(admArmBtn("new_code",t("adm_new_code"),"i_office",function(){adminSend({id:"new_code"})}));
+  pair.appendChild(li(t("adm_code_now"),t("adm_code_sub"),right,null));
+  pair.appendChild(li(t("adm_limit"),t("adm_limit_sub",seats.length),el("span","tag gold",String(state.limit)),adminLimitSheet));
+  box.appendChild(pair);
+  // 联机大厅：接没接(只看)、公开与否、房间名
+  var lobby=el("div","card");lobby.appendChild(hd("g_diplomacy",t("adm_lobby")));
+  var line=t("adm_line_"+(r.line||"global"));
+  lobby.appendChild(li(t("adm_lobby"),null,el("span","tag "+(r.lobby&&r.online?"green":r.lobby?"amber":""),
+    !r.lobby?t("adm_lobby_off"):r.online?t("adm_lobby_on",line):t("adm_lobby_wait",line)),null));
+  var open=el("button","act"+(r.open?"":" primary"));open.style.margin="0";
+  open.appendChild(document.createTextNode(t(r.open?"adm_make_private":"adm_make_open")));
+  open.onclick=function(){open.disabled=true;adminSend({id:"room_open",choice:r.open?"off":"on"})};
+  lobby.appendChild(liAct(t("adm_open"),t(r.open?"adm_open_on":"adm_open_off")+" · "+t("adm_open_note"),open));
+  lobby.appendChild(li(t("adm_room_name"),r.name?null:t("adm_room_auto",r.auto||""),el("span","sub",r.name||r.auto||""),adminRoomSheet));
+  box.appendChild(lobby);
+  // 身份：回君主席位(或去配一个)、退出管理员
+  var self=el("div","card");self.appendChild(hd("i_seal",t("adm_self")));
+  self.appendChild(li(t(token?"adm_to_seat":"adm_pair_seat"),t(token?"adm_to_seat_sub":"adm_pair_seat_sub"),null,function(){switchRole("seat")}));
+  self.appendChild(liAct(t("adm_logout"),t("adm_logout_sub"),admArmBtn("logout",t("adm_logout"),"c_close",adminLogout,"no")));
+  box.appendChild(self);
+}
+function adminLogout(){
+  var done=function(){adminToken=null;store(ADMIN_KEY,null);switchRole("seat")};
+  api("POST","/api/admin/logout").then(done,done);
+}
+// 世界流速：五档直接点，别的数自己填
+function adminSpeedSheet(){
+  var choices=state.speedChoices||[5,10,25,50,100];
+  openSheet({title:t("adm_speed"),note:t("adm_speed_note"),items:[],custom:function(box){
+    choices.forEach(function(p){
+      var b=el("button","pick"+(p===state.speed?" primary":"")),lead=el("span","hl");
+      lead.appendChild(ic("k_years",24));lead.appendChild(el("span",null,t("adm_speed_set",p)));b.appendChild(lead);
+      b.onclick=function(){closeSheet();adminSend({id:"speed",choice:String(p)})};
+      box.appendChild(b);
+    });
+    var inp=el("input");inp.type="number";inp.min="1";inp.max="100";inp.inputMode="numeric";inp.placeholder=t("adm_speed_custom");inp.style.marginTop="10px";
+    var go=el("button","pick primary");go.appendChild(el("span",null,t("adm_save")));go.style.justifyContent="center";
+    go.onclick=function(){var p=Math.round(Number(inp.value));if(!(p>=1&&p<=100)){inp.focus();return}closeSheet();adminSend({id:"speed",choice:String(p)})};
+    box.appendChild(inp);box.appendChild(go);
+  }});
+}
+// 席位上限：1 到 16 点一个
+function adminLimitSheet(){
+  admLimit=state.limit;
+  openSheet({title:t("adm_limit"),note:t("adm_limit_note")+" "+t("adm_limit_sub",(state.seats||[]).length),items:[],custom:function(box){
+    var grid=el("div","adm-nums");
+    for(var n=1;n<=(state.maxLimit||16);n++)(function(n){
+      var b=el("button",n===admLimit?"on":"",String(n));
+      b.onclick=function(){closeSheet();if(n!==state.limit)adminSend({id:"seat_limit",choice:String(n)})};
+      grid.appendChild(b);
+    })(n);
+    box.appendChild(grid);
+  }});
+}
+function adminRoomSheet(){
+  var r=state.room||{};
+  openSheet({title:t("adm_room_name"),note:t("adm_room_hint"),items:[],custom:function(box){
+    var inp=el("input");inp.maxLength=24;inp.value=r.name||"";inp.placeholder=r.auto||"";inp.style.marginTop="6px";
+    var go=el("button","pick primary");go.appendChild(el("span",null,t("adm_save")));go.style.justifyContent="center";
+    go.onclick=function(){closeSheet();adminSend({id:"room_name",choice:inp.value.trim()})};
+    inp.onkeydown=function(e){if(e.key==="Enter")go.onclick()};
+    box.appendChild(inp);box.appendChild(go);
+  }});
+}
+// 点图上的国：是哪位君主、哪个席位领着；有席位领着的可以就地收回
+function adminRealm(r){
+  sel=null;aim=false;
+  if(!r){panel(t("m_wild"),[]);return}
+  var who=r.id?(state.rulers||[]).filter(function(x){return x.kid===r.id})[0]:null;
+  if(!who){panel(r.name,[belongOf(r)||null]);return}
+  var seat=(state.seats||[]).filter(function(s){return s.kid===who.kid})[0],acts=[];
+  if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
+  panel(who.realm+" · "+who.ruler,[t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
+    seat?t("adm_held",seat.name):t("adm_free")],acts);
+}
+// 点图上的军：上帝视角，番号、兵数照实
+function adminArmies(list){
+  sel=null;aim=false;mapSelZone=-1;
+  var total=0,rs=[],first=list[0];
+  list.forEach(function(a){total+=a.n;if(rs.indexOf(a.r)<0)rs.push(a.r);if(a.n>first.n)first=a});
+  var realm=map.realms[first.r],who=realm?realm.name:"?";
+  var lines=[t("adm_army_total",num(total))+(list.length>1?" · "+t("army_count",list.length):"")];
+  list.slice().sort(function(a,b){return b.n-a.n}).slice(0,6).forEach(function(a){
+    var rr=map.realms[a.r];lines.push((a.name||"?")+" · "+num(a.n)+(rs.length>1&&rr?" · "+rr.name:""));
+  });
+  panel(rs.length>1?t("army_mixed",who,rs.length):t("army_foreign",who),lines);
+  drawMap();
+}
+// 配对页、选人页上的管理员入口
+$("admin-open").onclick=function(){
+  if(adminToken){switchRole("admin");return}
+  var c=$("admin-card");c.hidden=!c.hidden;if(!c.hidden)$("admin-code").focus();
+};
+$("admin-go").onclick=function(){adminLogin($("admin-code").value,$("admin-err"),function(){$("admin-code").value="";$("admin-card").hidden=true})};
+$("admin-code").onkeydown=function(e){if(e.key==="Enter")$("admin-go").onclick()};
+$("admin-code").oninput=function(){$("admin-err").textContent=""};
+$("vacant-admin").onclick=adminEntry;
+
 // 页签。舆图是底(群里的意见 "这个网页主体就是这个地图，然后功能键移动到侧边或者上面")：办事的那一页是浮在图上的窗口，
 // 再点一下它的页签、点窗口右上角的关、点"地图"页签，都是收起来只看图
 var tabs=document.querySelectorAll("nav button");
@@ -3264,7 +3621,7 @@ function goPage(p){
   $("win-title").textContent=page==="map"?"":t("tab_"+page);
   if(ICON["tab_"+page])$("win-ic").src=ICON["tab_"+page];
   for(var j=0;j<tabs.length;j++)tabs[j].className=tabs[j].getAttribute("data-p")===page?"on":"";
-  ["reports","map","realm","decrees","annals"].forEach(function(q){$("p-"+q).hidden=q!==page});
+  ["reports","map","realm","decrees","annals","aseats","aroom"].forEach(function(q){$("p-"+q).hidden=q!==page});
   document.body.classList.toggle("side",page!=="map");
   if(page==="annals")openAnnals();
   window.scrollTo(0,0);

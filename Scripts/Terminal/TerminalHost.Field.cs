@@ -339,7 +339,8 @@ public static partial class TerminalHost
         if (now < _nextTerrain) return;
         _nextTerrain = now + TerrainTick;
         if (!WorldReady()) return;
-        foreach (Seat seat in SeatByToken.Values)
+        // 管理员看的全图同席位一样来要山川(见 TerminalHost.Admin)
+        foreach (Seat seat in SeatByToken.Values.Concat(AdminByToken.Values))
         {
             if (!seat.TerrainWant || seat.MapCells == null) continue;
             seat.TerrainWant = false;

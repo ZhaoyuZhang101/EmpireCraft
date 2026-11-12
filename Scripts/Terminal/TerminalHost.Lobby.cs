@@ -148,7 +148,7 @@ public static partial class TerminalHost
         info.Append("name=").Append(name);
         info.Append("\nopen=").Append(RoomOpen ? '1' : '0');
         info.Append("\nused=").Append(Pairing.Seats().Count);
-        info.Append("\nmax=").Append(TerminalPairing.MaxSeats);
+        info.Append("\nmax=").Append(TerminalPairing.Limit);
         info.Append("\ncode=").Append(RoomOpen ? Code : "");
         info.Append("\nver=").Append(Version);
         return info.ToString();

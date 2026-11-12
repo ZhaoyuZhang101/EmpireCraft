@@ -206,7 +206,17 @@ public sealed class TerminalServer
 // (用户 2026-11-11 "最好可以兼容多人")。连错 MaxFails 回锁 LockSeconds 秒并换码。网络线程、主线程都会用，里头加锁
 public sealed class TerminalPairing
 {
-    public const int MaxSeats = 8;
+    // 席位至多几个：Limit 是设置里的席位上限(Terminal_Max_Seats_Text，管理员在手机上也能改，见 TerminalHost.Admin)，
+    // 不超过 MaxSeats。上限调低了，已配的席位照旧留着，只是满了不再收新的
+    public const int MaxSeats = 16;
+    private static volatile int _limit = 8;
+
+    public static int Limit
+    {
+        get => _limit;
+        set => _limit = Math.Max(1, Math.Min(MaxSeats, value));
+    }
+
     private const int MaxFails = 5, LockSeconds = 60, MaxName = 16;
     private readonly object _gate = new();
     private readonly List<KeyValuePair<string, string>> _seats = new();
@@ -286,7 +296,7 @@ public sealed class TerminalPairing
                 return null;
             }
             _fails = 0;
-            if (_seats.Count >= MaxSeats)
+            if (_seats.Count >= Limit)
             {
                 full = true;
                 return null;

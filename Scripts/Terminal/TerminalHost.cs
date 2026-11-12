@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 16;
+    public const int Version = 17;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -340,7 +340,7 @@ public static partial class TerminalHost
     {
         var signature = new global::System.Text.StringBuilder();
         signature.Append(Running ? Code : "-").Append(Lan ? 'L' : 'l').Append(Port).Append(LobbyState).Append(RoomOpen ? 'O' : 'o');
-        signature.Append(SpeedPercent).Append(VoteLine() ?? "");
+        signature.Append(SpeedPercent).Append(VoteLine() ?? "").Append(TerminalPairing.Limit).Append(AdminLine());
         foreach (Seat seat in Seats()) signature.Append('|').Append(seat.Token, 0, 4).Append(seat.RulerId).Append(seat.Watched ? '+' : '-');
         string now = signature.ToString();
         if (now == _signature) return;
@@ -523,6 +523,8 @@ public static partial class TerminalHost
                 LogService.LogWarning($"[EmpireCraft][终端] 备状态出错: {exception.Message}");
             }
         }
+        // 管理员看的全图、军情、房间(见 TerminalHost.Admin)
+        RunAdmins(ready, now, ref mapped);
         _anyRuler = any;
         _anyWatching = watching;
         if (ready) RunPacts();
@@ -542,6 +544,8 @@ public static partial class TerminalHost
         Pairing.Load(Path.Combine(ModClass.ModsConfigFolder(), "EmpireCraft.terminal.tokens"));
         foreach (KeyValuePair<string, string> paired in Pairing.Seats())
             SeatByToken.GetOrAdd(paired.Key, token => new Seat { Token = token, Name = paired.Value });
+        // 管理员码与已登入的管理员(见 TerminalHost.Admin)
+        LoadAdmins();
         if (_server.Start(Port))
         {
             LogService.LogInfo($"[EmpireCraft][终端] 已开在 {Port} 端口" + (_server.Lan ? "" : "(只听本机)"));
@@ -581,6 +585,9 @@ public static partial class TerminalHost
             SeatByToken[paired] = new Seat { Token = paired, Name = kept };
             return TerminalServer.Reply.Json("{\"token\":\"" + paired + "\"}");
         }
+        // 管理员(见 TerminalHost.Admin)：凭管理员码登入；令牌是管理员的，走管理员那一头
+        if (method == "POST" && path == "/api/admin/pair") return AdminPair(body);
+        if (!string.IsNullOrEmpty(token) && AdminByToken.TryGetValue(token, out Seat god)) return AdminHandle(god, method, path, body);
         if (string.IsNullOrEmpty(token) || !SeatByToken.TryGetValue(token, out Seat mine))
             return TerminalServer.Reply.Error(401, "unpaired");
         Interlocked.Exchange(ref mine.LastClientTicks, DateTime.UtcNow.Ticks);
