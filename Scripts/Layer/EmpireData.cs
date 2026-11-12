@@ -215,6 +215,8 @@ public class EmpireData : MetaObjectData
     public double timestamp_given_time;
     public CenterOffice centerOffice { get; set; }
     public double newEmperor_timestamp { get; set; }
+    // 在位中途改过元的：眼下这个年号从哪天起算(见 Empire.ChangeYearName)。-1 = 没改过，年号同即位一道起算
+    public double year_name_timestamp { get; set; } = -1d;
     // newEmperor_timestamp 是哪位君主即位登记时记下的(见 Empire.NewEmperor、RepairUnregisteredEmperor)；-1 为旧档
     public long reign_emperor_id { get; set; } = -1L;
     // 旧档里一部自立的部落帝国(以前的 TribalFissionService.FormTribes，10-26 去掉)：读档后、每月撤去

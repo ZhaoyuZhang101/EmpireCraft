@@ -207,8 +207,11 @@ public static partial class TerminalHost
         Empire anyEmpire = realm.GetEmpire();
         if (empire != null)
         {
-            bool allowed = empire.IsAllowToMakeYearName();
-            palace.Add(new JObject { ["id"] = "era", ["ok"] = allowed, ["chance"] = Mathf.RoundToInt(EraChance(realm) * 100f) });
+            // 改元：政体设年号，且距上次定年号满五年(见 Empire.CanChangeYearName)
+            int wait = empire.IsAllowToMakeYearName() ? empire.YearsUntilYearName() : 0;
+            var era = new JObject { ["id"] = "era", ["ok"] = empire.CanChangeYearName(), ["chance"] = Mathf.RoundToInt(EraChance(realm) * 100f) };
+            if (wait > 0) era["why"] = string.Format(LM.Get("terminal_era_wait"), Empire.YearNameIntervalYears, wait);
+            palace.Add(era);
         }
         if (anyEmpire == null)
         {
@@ -720,10 +723,12 @@ public static partial class TerminalHost
             {
                 Empire empire = OwnEmpire(seat);
                 if (empire == null || !empire.IsAllowToMakeYearName()) return LM.Get("terminal_fail_generic");
+                if (!empire.CanChangeYearName())
+                    return string.Format(LM.Get("terminal_era_wait"), Empire.YearNameIntervalYears, empire.YearsUntilYearName());
                 float chance = EraChance(realm);
                 if (TerminalIntel.Unit(TerminalIntel.Hash(order.Id, realm.getID(), order.Due)) >= chance)
                     return string.Format(LM.Get("terminal_fail_era"), Mathf.RoundToInt(chance * 100f));
-                empire.create_year_name();
+                empire.ChangeYearName();
                 TranslateHelper.LogEmperorNewYearName(seat.Ruler, empire);
                 EmpireLawSystem.OnEraNameChanged(empire);
                 return null;

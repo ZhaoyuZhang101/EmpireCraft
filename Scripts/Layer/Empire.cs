@@ -1189,7 +1189,7 @@ public class Empire : MetaObject<EmpireData>
             {
                 if (this.data.year_name != "" || this.data.year_name != null)
                 {
-                    return OverallHelperFunc.JoinNameParts(this.data.year_name, GetEmperorYear() + LM.Get("Year"));
+                    return OverallHelperFunc.JoinNameParts(this.data.year_name, GetYearNameYear() + LM.Get("Year"));
                 }
             }
         }
@@ -1358,6 +1358,43 @@ public class Empire : MetaObject<EmpireData>
     {
         this.data.year_name = YearNameHelper.generateName();
         this.data.newEmperor_timestamp = World.world.getCurWorldTime();
+        this.data.year_name_timestamp = -1d;
+    }
+
+    // ───── 在位中途改元(用户 2026-11-12："改年号的决议为啥一直是灰色的"——那条决议原先要帝国没有年号才能发起，
+    // 而新君一即位就定了年号，所以永远用不了；用户定："加个5年年限") ─────
+    // 距上次定年号(即位，或上回改元)满这么多年才能再改
+    public const int YearNameIntervalYears = 5;
+
+    // 眼下这个年号从哪天起算：在位中途改过元的从改元那天，否则从即位那天
+    public double YearNameSince =>
+        data.year_name_timestamp >= 0d && data.year_name_timestamp >= data.newEmperor_timestamp ? data.year_name_timestamp : data.newEmperor_timestamp;
+
+    // 年号纪年(某某几年)：从这个年号起算。在位几年另看 GetEmperorYear
+    public int GetYearNameYear() => Date.getYearsSince(YearNameSince) + 1;
+
+    // 还要等几年才能再改元(0 = 眼下就能改)
+    public int YearsUntilYearName()
+    {
+        if (!HasYearName()) return 0;
+        double since = YearNameSince;
+        if (since < 0d || World.world == null || World.world.getCurWorldTime() < since) return 0;
+        return Math.Max(0, YearNameIntervalYears - Date.getYearsSince(since));
+    }
+
+    public bool CanChangeYearName() => IsAllowToMakeYearName() && YearsUntilYearName() == 0;
+
+    // 改元：只换年号、年号纪年从头数。即位时间不动——在位几年、各处按"新君即位多久"算的事都不受影响
+    public void ChangeYearName()
+    {
+        string before = data.year_name;
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            data.year_name = YearNameHelper.generateName();
+            if (data.year_name != before) break;
+        }
+        data.year_name_timestamp = World.world.getCurWorldTime();
+        if (data.currentHistory != null) data.currentHistory.year_name = data.year_name;
     }
 
     public bool AddCabinetMember(Actor actor)

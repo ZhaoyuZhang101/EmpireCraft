@@ -377,7 +377,8 @@ public static class ScenarioWorldExport
                 if (empire.data.has_year_name && !string.IsNullOrWhiteSpace(empire.data.year_name))
                 {
                     entry["era_name"] = Clean(empire.data.year_name);
-                    double since = empire.data.newEmperor_timestamp;
+                    // 年号纪年从这个年号起算(在位中途改过元的不是即位那天)
+                    double since = empire.YearNameSince;
                     entry["era_year"] = since >= 0d ? Math.Max(1, Date.getYearsSince(since) + 1) : 1;
                 }
             }

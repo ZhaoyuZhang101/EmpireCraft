@@ -1466,7 +1466,8 @@ namespace EmpireCraft.Scripts.AI
                     if (!kingdom.IsEmpire()) return false;
                     if (!kingdom.IsInEmpire()) return false;
                     if (!kingdom.GetEmpire().IsAllowToMakeYearName()) return false;
-                    if (kingdom.GetEmpire().HasYearName()) return false;
+                    // 已有年号的：距上次定年号满五年才能再改(见 Empire.CanChangeYearName)
+                    if (!kingdom.GetEmpire().CanChangeYearName()) return false;
                     return true;
                 },
                 action = delegate(Actor pActor) 
@@ -1475,7 +1476,8 @@ namespace EmpireCraft.Scripts.AI
                     Empire empire = kingdom?.GetEmpire();
                     if (empire == null) return false;
 
-                    empire.create_year_name();
+                    if (!empire.CanChangeYearName()) return false;
+                    empire.ChangeYearName();
                     TranslateHelper.LogEmperorNewYearName(pActor, empire);
                     EmpireLawSystem.OnEraNameChanged(empire); // 改元大赦
                     return true;

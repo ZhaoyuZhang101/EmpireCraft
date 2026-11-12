@@ -12587,5 +12587,6 @@
   "terminal_light_key": "或按 Ctrl+Shift+F10",
   "terminal_light_armed": "輕量主機模式已開：關掉視窗、世界走起來後，本機畫面就停。",
   "terminal_light_need_terminal": "輕量主機模式要終端模式開著才起作用。",
-  "terminal_light_unavailable": "這一版遊戲接不上輕量主機模式，已關掉。"
+  "terminal_light_unavailable": "這一版遊戲接不上輕量主機模式，已關掉。",
+  "terminal_era_wait": "距上次定年號未滿 {0} 年，還要再等 {1} 年"
 }

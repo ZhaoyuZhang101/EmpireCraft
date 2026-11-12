@@ -1807,7 +1807,7 @@ public class PersonalClanIdentity
         personal_history ??= new List<PersonalHistoryRecord>();
         personal_history.Add(new PersonalHistoryRecord
         {
-            timestamp = empire.data.newEmperor_timestamp,
+            timestamp = empire.YearNameSince,
             date = empire.data.year_name + "\u200A1" + LM.Get("Year"),
             content = content,
             kingdom_name = actor.kingdom?.GetKingdomName() ?? "",

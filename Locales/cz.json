@@ -12595,5 +12595,6 @@
   "terminal_light_key": "或按 Ctrl+Shift+F10",
   "terminal_light_armed": "轻量主机模式已开：关掉窗口、世界走起来后，本机画面就停。",
   "terminal_light_need_terminal": "轻量主机模式要终端模式开着才起作用。",
-  "terminal_light_unavailable": "这一版游戏接不上轻量主机模式，已关掉。"
+  "terminal_light_unavailable": "这一版游戏接不上轻量主机模式，已关掉。",
+  "terminal_era_wait": "距上次定年号未满 {0} 年，还要再等 {1} 年"
 }

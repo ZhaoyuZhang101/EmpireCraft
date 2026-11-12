@@ -12581,5 +12581,6 @@
   "terminal_light_key": "or press Ctrl+Shift+F10",
   "terminal_light_armed": "Lightweight host mode is on: close the windows and let the world run, and local rendering stops.",
   "terminal_light_need_terminal": "Lightweight host mode only takes effect while terminal mode is on.",
-  "terminal_light_unavailable": "Lightweight host mode cannot hook into this game version and was turned off."
+  "terminal_light_unavailable": "Lightweight host mode cannot hook into this game version and was turned off.",
+  "terminal_era_wait": "less than {0} years since the era name was set; {1} more to wait"
 }
