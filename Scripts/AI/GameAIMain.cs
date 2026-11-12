@@ -113,16 +113,25 @@ public static class GameAIMain
         {
             var beh = (GameAICityBase) Activator.CreateInstance(type);
             var id = beh.OriginalBeh.ToString().Split('.').Last();
+            bool placed = false;
             foreach (var bt in lib.list)
             {
                 foreach (var action in bt.list.ToList())
                 {
-                    if (action.id == id)
+                    if (action.id != id) continue;
+                    // 留在原版那一步的位置上(同 addBeh 的命名与初始化)
+                    if (beh.InPlace && !placed)
                     {
-                        bt.list.Remove(action);
+                        bt.list[bt.list.IndexOf(action)] = beh;
+                        beh.id = beh.GetType().ToString();
+                        beh.create();
+                        placed = true;
+                        continue;
                     }
+                    bt.list.Remove(action);
                 }
             }
+            if (placed) continue;
             beh.create();
             t.addBeh(beh);
         }

@@ -18,6 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     许盖的民居数)由 CityLedgerPatch 把台账的数加进去，实体与台账并存时两边相加；
 //   · 营建(见 CityConstructionSystem)：开工只记"在建哪一种"，施工点够了记一座；升级是把一座换成高一级的；
 //   · 仓储：没有仓库实体时货本来就记在 settlement_supplies(见 StateSettlementPatch)，台账下每种货的上限 = 原版单库上限 × 仓库座数；
+//     原版城间转运也改从账面库存出货(见 CityLedgerSupply)；
 //   · 旧建筑并入(Fold)：读档后、以及别处又落成的可记账建筑，分帧记进台账、货挪进账面库存、实体拆掉。
 // 台账里已有的数任何模式下都算数(中途关掉纯净地图，记过账的民居不会凭空没了)；Active 只决定新盖的记账还是落成实体、旧实体并不并入。
 public static class CityLedger

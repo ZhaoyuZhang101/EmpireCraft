@@ -14,7 +14,8 @@ namespace EmpireCraft.Scripts.GamePatches;
 //   · City.updateCityStatus：住房位加上台账里的(排在 NoCommonersPatch 之前，它接着按户数算空房)；
 //   · City.recalculateMaxHouses：许盖的民居数加上台账里的(无小人模式那份在 NoCommonersPatch.AfterRecalculateMaxHouses 里一起算)；
 //   · City.hasSuitableFood / getRandomSuitableFood：仓库实体没有了，粮在账面库存里(settlement_supplies)，留着的实体人物照样吃得到；
-//   · Docks.update：原版"城里只剩码头一座建筑就自毁"，台账里还有建筑时不算只剩它一座。
+//   · Docks.update：原版"城里只剩码头一座建筑就自毁"，台账里还有建筑时不算只剩它一座；
+//   · CityBehSupplyKingdomCities：原版城间转运要仓库实体，没有时改从账面库存出货(见 CityLedgerSupply)。
 // 取数、扣货、入库(getResourcesAmount / takeResource / addResourcesToRandomStockpile)早就接在账面库存上了，见 StateSettlementPatch。
 public class CityLedgerPatch : GamePatch
 {
@@ -34,6 +35,16 @@ public class CityLedgerPatch : GamePatch
         Patch(harmony, typeof(Docks), nameof(Docks.update), prefix: nameof(BeforeDocksUpdate));
         Patch(harmony, typeof(ai.behaviours.CityBehCheckAttackZone), nameof(ai.behaviours.CityBehCheckAttackZone.execute),
             postfix: nameof(AfterAttackZone));
+        Patch(harmony, typeof(ai.behaviours.CityBehSupplyKingdomCities), nameof(ai.behaviours.CityBehSupplyKingdomCities.execute),
+            prefix: nameof(BeforeSupply));
+    }
+
+    // 城间转运：没有仓库实体的城原版原地返回，改从账面库存出货(见 CityLedgerSupply)
+    public static bool BeforeSupply(City pCity, ref ai.behaviours.BehResult __result)
+    {
+        if (!CityLedgerSupply.Takes(pCity)) return true;
+        __result = CityLedgerSupply.Run(pCity);
+        return false;
     }
 
     // 原版出兵挑目标地块：取目标城随便一座建筑脚下那块地；目标城一座建筑实体都没有时，拿的是自己城的地(兵就不出门了)。

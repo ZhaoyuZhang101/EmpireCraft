@@ -6,9 +6,13 @@ using NeoModLoader.services;
 namespace EmpireCraft.Scripts.AI.CityAI;
 
 // 造船：沿用原版码头造船(渔船、商船、运输船)，但运输船要本城文化研究了远洋航海才造，之前改造渔船——
-// 早期不能乘运输船跨海殖民(群友反馈"铜器时代跨州殖民")
+// 早期不能乘运输船跨海殖民(群友反馈"铜器时代跨州殖民")。
+// 留在原版"produce_boat"任务里(InPlace)：并进模组大任务时排在"城市参与叛乱"后面，那一步对帝国都城、无主城返回 Stop，
+// 这些城就永远轮不到造船。仓里金子不够时缺的由城库付(见 BoatFunding)
 public class EmpireCraftBehCheckBoat: GameAICityBase
 {
+    public override bool InPlace => true;
+
     private static bool OceanGoing(City city)
     {
         string culture = EmpireCraft.Scripts.GeneralSystems.TechnologySystem.GetCultureOf(city);
@@ -66,7 +70,8 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         }
         if (dock.countBoatTypes(boatAssetToBuild.boat_type) >= 1)
             return (Actor) null;
-        if (!pCity.hasEnoughResourcesFor(boatAssetToBuild.cost))
+        int money = EmpireCraft.Scripts.GeneralSystems.BoatFunding.Plan(pCity, boatAssetToBuild.cost);
+        if (money < 0)
             return (Actor) null;
         if (dock.tiles_ocean.Count() == 0)
         {
@@ -80,7 +85,7 @@ public class EmpireCraftBehCheckBoat: GameAICityBase
         if (newUnit == null)
             return (Actor) null;
         dock.addBoatToDock(newUnit);
-        pCity.spendResourcesForBuildingAsset(boatAssetToBuild.cost);
+        EmpireCraft.Scripts.GeneralSystems.BoatFunding.Pay(pCity, boatAssetToBuild.cost, money);
         return newUnit;
     }
 }
