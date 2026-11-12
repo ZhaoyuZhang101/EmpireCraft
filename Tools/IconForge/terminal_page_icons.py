@@ -85,7 +85,64 @@ ICONS = {
     'i_chief': 'ui/setOfficer.png',
     'i_office': 'ui/changeOfficer.png',
     'i_seal': 'TabDiet.png',
+    # 舆图右边的层级四档与图例
+    'ly_world': 'ui/icons/godpowers/tianxia_layer.png',
+    'ly_empire': 'ui/icons/godpowers/empire_layer.png',
+    'ly_realm': 'ui/icons/godpowers/realm_culture_kingdom.png',
+    'ly_city': 'ui/icons/godpowers/city_view.png',
+    'ly_legend': 'TabColor.png',
+    # 状态条、加载界面
+    'h_ruler': 'ui/icons/empirelist/head_monarch.png',
+    'l_terrain': 'ui/icons/iconTileLoessPlateau.png',
+    # 图上点中东西后能办的事
+    'm_explore': 'ui/icons/plots/plot_develop_wilderness.png',
+    'm_chart': 'ui/icons/godpowers/market_layer.png',
+    'm_vassal': 'ui/icons/godpowers/force_vassal.png',
+    'm_release': 'ui/iconRemove.png',
+    # 外交里的各件事
+    'd_declare': 'TabWarfare.png',
+    'd_peace': 'ui/icons/plots/plot_force_stop_war.png',
+    'd_ally': 'ui/icons/godpowers/zhou_conference.png',
+    'd_leave_alliance': 'ui/icons/godpowers/release_vassal.png',
+    'd_marry': 'ui/specificClanIcon.png',
+    'd_pact': 'ui/icons/plots/plot_empirecraft_road_treaty.png',
+    'd_opinion_up': 'ui/icons/godpowers/diplomacy.png',
+    'd_trade': 'TabClaimScale.png',
+    # 天平上的条件种类
+    'tk_money': 'ui/icons/godpowers/wealth_layer.png',
+    'tk_city': 'ui/icons/empirelist/stat_cities.png',
+    'tk_vassal': 'TabDependencies.png',
+    'tk_title': 'TitleAcquire.png',
+    'tk_corps': 'TabMilitary.png',
 }
+
+# 模组里没有的几个操作符号(全屏、退出全屏、放大、缩小、全览、关)：照像素图标的画法现画——象牙白的笔画，四周一圈深色描边
+DRAWN = {
+    'c_full': ['####..####', '##......##', '#.#....#.#', '#..#..#..#', '..........', '..........', '#..#..#..#', '#.#....#.#', '##......##', '####..####'],
+    'c_unfull': ['#..#..#..#', '.#.#..#.#.', '..##..##..', '####..####', '..........', '..........', '####..####', '..##..##..', '.#.#..#.#.', '#..#..#..#'],
+    'c_in': ['....##....', '....##....', '....##....', '....##....', '##########', '##########', '....##....', '....##....', '....##....', '....##....'],
+    'c_out': ['..........', '..........', '..........', '..........', '##########', '##########', '..........', '..........', '..........', '..........'],
+    'c_fit': ['###....###', '#........#', '#........#', '..........', '....##....', '....##....', '..........', '#........#', '#........#', '###....###'],
+    'c_close': ['##......##', '###....###', '.###..###.', '..######..', '...####...', '...####...', '..######..', '.###..###.', '###....###', '##......##'],
+}
+INK, EDGE = (242, 238, 226, 255), (20, 22, 15, 255)
+
+
+def drawn(rows):
+    from PIL import Image
+    size = len(rows) + 2
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    lit = {(x + 1, y + 1) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == '#'}
+    for x, y in lit:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if (x + dx, y + dy) not in lit and 0 <= x + dx < size and 0 <= y + dy < size:
+                    img.putpixel((x + dx, y + dy), EDGE)
+    for x, y in lit:
+        img.putpixel((x, y), INK)
+    out = io.BytesIO()
+    img.save(out, 'PNG', optimize=True)
+    return out.getvalue()
 
 
 def main():
@@ -96,6 +153,10 @@ def main():
         if not os.path.exists(path):
             raise SystemExit('missing ' + rel)
         data = open(path, 'rb').read()
+        total += len(data)
+        parts.append('%s:"data:image/png;base64,%s"' % (name, base64.b64encode(data).decode('ascii')))
+    for name, rows in DRAWN.items():
+        data = drawn(rows)
         total += len(data)
         parts.append('%s:"data:image/png;base64,%s"' % (name, base64.b64encode(data).decode('ascii')))
     text = io.open(PAGE, encoding='utf-8', newline='').read()
