@@ -61,7 +61,8 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
         this.owner = null;
         string kingdomName = city.SelectKingdomName();
         data.province_name = title_capital.GetCityName();
-        this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : city.kingdom.GetKingdomName();
+        // 属地借国名的不带"某属"名号(见 ColonySystem.SovereignName)
+        this.data.name = !string.IsNullOrEmpty(kingdomName) ? kingdomName : EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(city.kingdom);
         // 城里没有古国名、借了所属国的名字：那国是道、省这类行政区，或本来就叫城名的，这个法理名就是地名
         this.data.place_name = string.IsNullOrEmpty(kingdomName) && RealmNamingSystem.IsPlaceName(this.data.name);
         this.addCity(city);
@@ -507,7 +508,7 @@ public class KingdomTitle : MetaObject<KingdomTitleData>
                 var titleName = this.title_capital.SelectKingdomName();
                 if (string.IsNullOrWhiteSpace(titleName))
                 {
-                    titleName = this.title_capital.kingdom?.GetKingdomName();
+                    titleName = EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(this.title_capital.kingdom);
                 }
                 if (string.IsNullOrWhiteSpace(titleName))
                 {

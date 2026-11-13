@@ -1670,6 +1670,9 @@ public static class KingdomExtension
         if (!pForce && (!empire.CanAcceptVoluntarySubmission() ||
             !k.CanVoluntarilyBecomeTributaryOf(empire) ||
             !empire.MeetsTributaryPowerThreshold(k))) return;
+        // 宗主链(见 SubjectChain)：这个帝国的中央正从属于这一国的，不向它称臣纳贡；打下来的让中央先翻身，解不开就不立
+        if (empire.CoreKingdom is Kingdom suzerain && SubjectChain.Under(suzerain, k) &&
+            (!pForce || !SubjectChain.Overturn(suzerain, k))) return;
 
         if (k.GetOrCreate().feudal_overlord_kingdom_id >= 0)
             FeudalVassalService.Break(k, restoreOriginalColor: true);
@@ -1711,6 +1714,8 @@ public static class KingdomExtension
             return false;
         if (!RealmDiplomacySystem.CanChooseOverlord(kingdom)) return false;
         if (MembershipCooldown.BlocksVoluntary(kingdom, empire)) return false;
+        // 不向自己的下家称臣(见 SubjectChain)
+        if (empire.CoreKingdom is Kingdom suzerain && SubjectChain.Under(suzerain, kingdom)) return false;
         KingdomTitle mainTitle = kingdom.GetMainTitle();
         if (mainTitle == null)
             return EmpireSubmissionRules.CanVoluntarilyBecomeTributary(false, false);

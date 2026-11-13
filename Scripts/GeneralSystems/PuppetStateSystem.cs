@@ -84,6 +84,8 @@ public static class PuppetStateSystem
         if (puppet.IsInEmpire() && !puppet.IsEmpire()) return "puppet_reason_member";
         if (IsPuppet(master) || PuppetsOf(puppet).Any()) return "puppet_reason_chain";
         if (SameRealm(master, puppet)) return "puppet_reason_member";
+        // 主国正从属于它的：先翻身(见 SubjectChain.Overturn)，解不开就不立
+        if (!SubjectChain.Overturn(master, puppet)) return "puppet_reason_chain";
         DiplomacyActions.EndWars(master, puppet);
         DiplomacyActions.EndWars(Realm(master), puppet);
         KingdomExtension.KingdomExtraData data = puppet.GetOrCreate();

@@ -88,7 +88,8 @@ public static class FeudalVassalService
             Depth(lord) >= MaxDepth - 1 ||
             // 和平途径不能抢走别人的附庸(征服与上帝工具除外)：附庸不再被邻国排队挖走
             GetOverlord(subject) != null && GetOverlord(subject) != lord ||
-            IsInChain(lord, subject)) return false;
+            // 不收自己的上家作附庸：封建这条链之外，朝贡、属地、傀儡、帝国中央也算(见 SubjectChain)
+            IsInChain(lord, subject) || SubjectChain.Under(lord, subject)) return false;
         // 神力放出的保护期内原宗主收不得(见 MembershipCooldown)；这里是挑对象，不记日志
         if (MembershipCooldown.BlocksVassal(subject, lord, log: false)) return false;
         return UsesFeudalVassals(lord) && !TooFar(lord, subject);
@@ -145,7 +146,9 @@ public static class FeudalVassalService
     {
         if (lord?.data == null || subject?.data == null || lord.isRekt() || subject.isRekt() || lord == subject ||
             AncientWarfareCompatibility.Owns(lord) || AncientWarfareCompatibility.Owns(subject) ||
-            (subject.king != null && subject.king == lord.king) || IsInChain(lord, subject)) return false;
+            (subject.king != null && subject.king == lord.king) ||
+            // 强来的：自己正从属于对方的先翻身(见 SubjectChain.Overturn)，解不开就不立
+            !SubjectChain.Overturn(lord, subject) || IsInChain(lord, subject)) return false;
         return BindCore(lord, subject);
     }
 

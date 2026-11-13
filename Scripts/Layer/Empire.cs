@@ -317,7 +317,7 @@ public class Empire : MetaObject<EmpireData>
         try
         {
             coreName = ExtractEmpireCoreName();
-            if (string.IsNullOrWhiteSpace(coreName)) coreName = CoreKingdom?.GetKingdomName() ?? "";
+            if (string.IsNullOrWhiteSpace(coreName)) coreName = EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(CoreKingdom);
         }
         catch
         {
@@ -505,7 +505,7 @@ public class Empire : MetaObject<EmpireData>
         }
         choice ??= EmpireFoundingNameRules.Select(mainTitle?.data?.name,
             ancestralEmpireName, ancestralTitle?.data?.name, ownedTitle?.data?.name, coreName,
-            kingdom?.GetKingdomName());
+            EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(kingdom));
         if (choice.Source == EmpireFoundingNameSource.AncestralEmpire)
         {
             data.directPre = GetDir(ancestralEmpirePosition);
@@ -1708,7 +1708,7 @@ public class Empire : MetaObject<EmpireData>
         // 同一帝国的延续：王号序数的即位记录一并接过去
         newEmpire.data.regnal_records.InsertRange(0, data.regnal_records ?? new List<RegnalRecord>());
         RegnalNameService.OnEmperorCrowned(newEmpire, newKingdom.king, recompute: true);
-        newEmpire.SetEmpireName(newKingdom.GetKingdomName());
+        newEmpire.SetEmpireName(EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(newKingdom));
         newKingdom.GetOrCreate().isEmpire = true;
         newEmpire.data.Mandate = data.Mandate - 50;
         newEmpire.data.directPre = "";
@@ -2394,7 +2394,7 @@ public class Empire : MetaObject<EmpireData>
 
         if (string.IsNullOrWhiteSpace(data.name))
         {
-            string empireName = CoreKingdom.GetKingdomName();
+            string empireName = EmpireCraft.Scripts.GeneralSystems.ColonySystem.SovereignName(CoreKingdom);
             KingdomTitle mainTitle = CoreKingdom.GetMainTitle();
             if (!string.IsNullOrWhiteSpace(mainTitle?.data?.name))
             {

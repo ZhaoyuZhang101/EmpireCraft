@@ -26,6 +26,8 @@ public static class ImperialLegitimacyChallengeService
             EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
         // 现代政体没有僭越称帝：政权只能组建政府(见 ModernStateFormationSystem)
         if (kingdom.GetRegime()?.type == RegimeType.Modern) return false;
+        // 别国的从属(附庸、朝贡国、属地、傀儡)不僭越称帝(见 EmpireFormationService.IsSubject)
+        if (EmpireFormationService.IsSubject(kingdom)) return false;
         // 战国的周诸侯仍奉王室，只称王不称帝；王畿只剩几城，按国力比较人人都能压倒它(王室亡了才各自独立)
         if (ZhouEraSystem.IsDetachedVassal(kingdom)) return false;
         // 原始政体的部落不僭越称帝(用户 2026-10-26 选"部落不再是帝国")：只能打赢收部结成部落联盟(见 TribalFissionService.Incorporate)。

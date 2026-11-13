@@ -196,6 +196,8 @@ public static class ColonySystem
             if (kingdom?.data == null || kingdom.isRekt()) continue;
             try
             {
+                // 旧档里互为上下家的每年核一遍(见 SubjectChain)
+                SubjectChain.Untangle(kingdom);
                 if (Of(kingdom) != null) Colony(kingdom);
                 else
                 {
@@ -280,13 +282,18 @@ public static class ColonySystem
     }
 
     // 外交界面(见 DiplomacyActions)：把现成的一国设为殖民地；立即改派总督；特许公司立即收归国有
-    public static void Annex(Kingdom metropole, Kingdom kingdom, bool company) =>
+    public static void Annex(Kingdom metropole, Kingdom kingdom, bool company)
+    {
+        // 宗主正从属于它的：先翻身(见 SubjectChain.Overturn)，解不开就不设
+        if (!SubjectChain.Overturn(metropole, kingdom)) return;
         Setup(kingdom, metropole, company ? ColonyState.Company : ColonyState.Governorate);
+    }
 
     // 把现成的一国设为某种属地(剧本 colony_of、战争要求)；place 地名("简体|英文|繁体"，空的取首府法理名)
     public static string Annex(Kingdom metropole, Kingdom kingdom, int kind, string place, Kingdom lessor = null, int leaseYears = 0)
     {
         if (kingdom?.data == null || metropole?.data == null || kingdom == metropole) return null;
+        if (!SubjectChain.Overturn(metropole, kingdom)) return null;
         if (Of(kingdom) != null) kingdom.GetOrCreate().colony = null;
         string result = Setup(kingdom, metropole, kind, place);
         if (kind == ColonyState.Lease && Of(kingdom) is ColonyState state)
@@ -303,6 +310,8 @@ public static class ColonySystem
         if (kingdom?.data == null || metropole?.data == null || kingdom.isRekt() || metropole.isRekt() || kingdom == metropole) return false;
         if (kingdom.IsEmpire() && kingdom.GetEmpire()?.kingdoms_list?.Count > 1) return false;
         if (WarlordEraSystem.Dependent(kingdom)) return false;
+        // 打赢了自己的上家：先翻身(见 SubjectChain.Overturn)，解不开就不立
+        if (!SubjectChain.Overturn(metropole, kingdom)) return false;
         // 立为保护国(战果、议和)：不许自立的闸放行(见 SecessionGate)
         if (kingdom.IsInEmpire() && !kingdom.IsEmpire()) SecessionGate.Sanctioned(() => kingdom.GetEmpire()?.leave(kingdom, true, true));
         DiplomacyActions.EndWars(metropole, kingdom);
@@ -419,7 +428,7 @@ public static class ColonySystem
             string seat = colony.capital?.GetCityName() ?? colony.GetKingdomName();
             string core = colony.capital?.GetOrCreate().core_name;
             if (!string.IsNullOrEmpty(core)) seat = core;
-            colony.SetCustomCountryName(metropole.GetKingdomName() + seat);
+            colony.SetCustomCountryName(SovereignName(metropole) + seat);
             colony.SetCustomCountrySuffix(LM.Get("colony_company_suffix"));
             return;
         }
@@ -430,7 +439,7 @@ public static class ColonySystem
             colony.SetCustomCountrySuffix(LM.Get("colony_dominion_suffix"));
             return;
         }
-        colony.SetCustomCountryName(string.Format(LM.Get("colony_prefix_name"), Abbrev(metropole), place, metropole.GetKingdomName()));
+        colony.SetCustomCountryName(string.Format(LM.Get("colony_prefix_name"), Abbrev(metropole), place, SovereignName(metropole)));
         colony.SetCustomCountrySuffix(kind switch
         {
             ColonyState.Mandate => LM.Get("colony_mandate_suffix"),
@@ -439,19 +448,66 @@ public static class ColonySystem
         });
     }
 
-    // 宗主国名的头一个字(英国 → 英、荷兰 → 荷)；美号"大"(大日本、大清)不算
+    // 宗主国名的头一个字(英国 → 英、荷兰 → 荷)；美号"大"(大日本、大清)不算。
+    // 宗主自己也是属地的按它的地名取(用户 2026-11-13 转群友截图"彭属彭其实是彭属莱属彭"：彭的属地"彭属莱"又收了彭作属地，
+    // 拿"彭属莱"取头一个字，成了"彭属彭"；应是"莱属彭")
     public static string Abbrev(Kingdom metropole)
     {
         // 剧本给了简称的照简称(大不列颠帝国→英、大日本帝国→日：国号头一个字不一定是简称)
         string custom = metropole?.data == null ? null : metropole.GetOrCreate().country_abbrev;
         if (!string.IsNullOrWhiteSpace(custom)) return WorldMap.WorldMapData.PickParts(custom);
-        string name = metropole?.GetKingdomName() ?? "";
+        string name = SovereignName(metropole);
         string grand = RealmNamingSystem.GrandPrefix;
         if (!string.IsNullOrEmpty(grand) && name.Length > grand.Length && name.StartsWith(grand, StringComparison.Ordinal) &&
             metropole.GetEmpire()?.data?.directPre == grand)
             name = name.Substring(grand.Length);
         global::System.Globalization.TextElementEnumerator elements = global::System.Globalization.StringInfo.GetTextElementEnumerator(name);
         return elements.MoveNext() ? elements.GetTextElement() : "";
+    }
+
+    // 给法理、帝国起名时借用的国名：属地不带"某属"名号、用地名(用户 2026-11-13 转群友"称帝后宗主灭亡了也不把国号改回正常"：
+    // 属地期间新立的法理借了当时的国名，就叫"某属某地"，帝号又照法理名定，脱离宗主以后清掉的只是属地名号，这两处照旧)；别的照国名
+    public static string SovereignName(Kingdom kingdom) =>
+        kingdom?.data == null ? "" : Of(kingdom) is ColonyState state ? Place(kingdom, state) : kingdom.GetKingdomName();
+
+    // 脱离宗主时把写死成属地名号的名字改回地名：本国主法理、首府所在的法理、帝号(核心名)。
+    // 只改名字正是那个名号的，或"某属"打头的；别的名字不动
+    private static void Unbrand(Kingdom kingdom, string branded, string place)
+    {
+        if (kingdom?.data == null || kingdom.isRekt() || string.IsNullOrWhiteSpace(place)) return;
+        string Plain(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            if (!string.IsNullOrWhiteSpace(branded) && string.Equals(name, branded, StringComparison.Ordinal))
+                return string.Equals(place, name, StringComparison.Ordinal) ? null : place;
+            return name.Length > 2 && (name[1] == '属' || name[1] == '屬') ? name.Substring(2) : null;
+        }
+        try
+        {
+            var renamed = new List<string>();
+            foreach (var title in new[] { kingdom.GetMainTitle(), kingdom.capital?.GetTitle() })
+            {
+                if (title?.data == null || title.isRekt() || Plain(title.data.name) is not string plain) continue;
+                renamed.Add(title.data.name + "→" + plain);
+                title.data.name = plain;
+            }
+            var empire = kingdom.IsEmpire() ? kingdom.GetEmpire() : null;
+            if (empire?.data != null && !empire.isRekt() && empire.CoreKingdom == kingdom && Plain(empire.data.core_name) is string imperial)
+            {
+                renamed.Add(empire.data.core_name + "→" + imperial);
+                empire.SetEmpireName(imperial, preserveEmpireType: true);
+            }
+            else if (empire == null && Plain(kingdom.GetOrCreate().core_name) is string core)
+            {
+                renamed.Add(kingdom.GetOrCreate().core_name + "→" + core);
+                kingdom.SetKingdomCoreName(core);
+            }
+            if (renamed.Count > 0) LogService.LogInfo("[EmpireCraft][殖民] 脱离宗主，名号改回：" + string.Join("、", renamed));
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][殖民] 名号改回失败: {exception.Message}");
+        }
     }
 
     // 地名：剧本给的、或首府所在的王国法理名，都没有用首府城名
@@ -687,6 +743,8 @@ public static class ColonySystem
     {
         if (colony?.data == null || Of(colony) == null) return;
         int kind = Of(colony).kind;
+        // 写死成属地名号的法理名、帝号一会儿改回地名(见 Unbrand)：名号与地名先记下
+        string branded = colony.GetCustomCountryShortName(), place = Place(colony, Of(colony));
         colony.GetOrCreate().colony = null;
         colony.GetOrCreate().regime_manually_selected = false;
         string culture = CultureService.GetRealmCulture(colony);
@@ -694,6 +752,7 @@ public static class ColonySystem
             CultureService.SetRealmCulture(colony, culture, updatePoliticalSystem: true, allowLegacyInstitutions: false);
         colony.SetCustomCountryName("");
         colony.SetCustomCountrySuffix("");
+        Unbrand(colony, branded, place);
         VassalColorService.Clear(colony);
         if (friendly?.data != null && !friendly.isRekt()) DiplomacyActions.ApplyScenario("friend", colony, friendly, value: 40);
         if (!string.IsNullOrEmpty(reason)) TranslateHelper.LogEventMessage(reason, colony);

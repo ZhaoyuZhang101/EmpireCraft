@@ -472,6 +472,8 @@ public static class EmpireFormationService
                 InstitutionSystem.GetNodeName(ImperialNode(CultureService.GetInstitutionCulture(kingdom))));
         if (kingdom.GetMoney() < 0) return $"国库为负({kingdom.GetMoney()})";
         if (FeudalVassalService.GetOverlord(kingdom) != null) return "是别国的附庸";
+        if (kingdom.HasTakenAlliance()) return "向别国称臣纳贡";
+        if (WarlordEraSystem.Dependent(kingdom)) return "是别国的属地、傀儡或流亡政府";
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!kingdom.HasMainTitle() && !CityStateService.IsCityState(kingdom)) return "没有主法理";
         List<Kingdom> bloc = GetBlocMembers(kingdom).ToList();
@@ -489,6 +491,14 @@ public static class EmpireFormationService
         return $"条件都满足(路线 {route}{RealmNamingSystem.DominionNote(kingdom)})，等称帝剧情";
     }
 
+    // 别国的从属不称帝(用户 2026-11-13 转群友"现在好多附庸国都能称帝")：封建附庸、向帝国称臣纳贡的、傀儡、
+    // 属地(连同宗主国不在图上的剧本属地)、流亡政府，先脱离了再说。以前只有 AI 筹备称帝这一条路拦了(见
+    // EmpireCraftKingdomBehCheckEmpire.CanStartEmpireFormation)，僭越争正统、袭掠成雄主称汗、结部落联盟、推戴都不拦，
+    // 朝贡国、保护国照样另立朝廷
+    public static bool IsSubject(Kingdom kingdom) =>
+        kingdom?.data != null && !kingdom.isRekt() &&
+        (FeudalVassalService.GetOverlord(kingdom) != null || kingdom.HasTakenAlliance() || WarlordEraSystem.Dependent(kingdom));
+
     private static bool MeetsBaseRequirements(Kingdom kingdom, bool requireNonNegativeTreasury)
     {
         if (kingdom == null || kingdom.isRekt()) return false;
@@ -504,7 +514,7 @@ public static class EmpireFormationService
         if (!HasImperialRule(kingdom)) return false;
         if (requireNonNegativeTreasury && kingdom.GetMoney() < 0) return false;
         if (!kingdom.hasKing() || kingdom.king == null || kingdom.king.isRekt()) return false;
-        if (kingdom.IsEmpire() || kingdom.IsInEmpire() || FeudalVassalService.GetOverlord(kingdom) != null)
+        if (kingdom.IsEmpire() || kingdom.IsInEmpire() || IsSubject(kingdom))
             return false;
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!CultureService.IsValidCulture(culture)) return false;

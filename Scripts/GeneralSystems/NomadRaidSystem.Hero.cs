@@ -64,6 +64,8 @@ public static partial class NomadRaidSystem
     private static bool HeroEligible(Kingdom leader)
     {
         if (!IsRealm(leader) || !IsNomad(leader) || TribalFissionService.IsTribal(leader)) return false;
+        // 别国的从属不称汗建国(见 EmpireFormationService.IsSubject)；已是汗国的大汗照旧能得雄主之号
+        if (!leader.IsEmpire() && EmpireFormationService.IsSubject(leader)) return false;
         Actor khan = leader.king;
         if (khan == null || !khan.isAlive() || !khan.isAdult() || RulerTraitSystem.FounderReigns(leader)) return false;
         if (!RegimeManager.IsMonarchy(leader.GetRegime()?.type)) return false;

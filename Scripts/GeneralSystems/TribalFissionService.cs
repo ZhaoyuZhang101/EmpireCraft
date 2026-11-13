@@ -285,7 +285,7 @@ public static class TribalFissionService
     // 10-17 起部落不因结盟结成部落联盟，以前每部都是帝国、没有同盟，碰不到这里；如今部落是国、会结盟，照旧不并盟友
     private static Empire Confederation(Kingdom head)
     {
-        if (head.IsInEmpire() || ModClass.EMPIRE_MANAGER == null) return null;
+        if (head.IsInEmpire() || ModClass.EMPIRE_MANAGER == null || EmpireFormationService.IsSubject(head)) return null;
         Alliance alliance = head.hasAlliance() ? head.getAlliance() : null;
         if (alliance != null)
         {
@@ -895,7 +895,7 @@ public static class TribalFissionService
     // 给独立的部落立帝国做周室(推戴，天命同部落联盟)：先退出同盟(帝国与同盟不兼容)
     private static Empire Proclaim(Kingdom head)
     {
-        if (head.IsInEmpire()) return null;
+        if (head.IsInEmpire() || EmpireFormationService.IsSubject(head)) return null;
         if (head.hasAlliance()) head.getAlliance().leave(head);
         Empire empire = ModClass.EMPIRE_MANAGER.NewEmpire(head, allowCultureRival: true, suppressFoundingLog: true);
         if (empire == null || empire.isRekt()) return null;
