@@ -271,6 +271,12 @@ public static class ScenarioEditorScreen
     private static bool _developBrush;
     // 放城用的文化(空 = 随所在地)；刷地形是不是倒油桶
     private static string _newCityCulture = "";
+    // 放城用的种族：空 = 不单设(随文化)，否则新城直接单设这个物种
+    private static string _newCitySpecies = "";
+    private static Btn _newCitySpeciesBtn, _newCityRegionBtn;
+    // 放城时王国法理怎么定：并入近处的，还是每座新城原地另立一个(见 ScenarioEditing.AddCity)
+    private static bool _newCityOwnRegion;
+    private static Text _newCitySpeciesNote;
     private static bool _bucket;
     private static RectTransform _placeCard;
     private static Text _placeInfo;
@@ -768,6 +774,9 @@ public static class ScenarioEditorScreen
         // 放城：新放的城用哪种文化(随所在地，或指定一种，见 ScenarioEditing.AddCity)
         _placeCard = Card(side, LM.Get("scenario_editor_card_place"));
         _newCityCultureBtn = Cycler(_placeCard, LM.Get("scenario_editor_culture"), StepNewCityCulture);
+        _newCitySpeciesBtn = Cycler(_placeCard, LM.Get("scenario_editor_species"), StepNewCitySpecies);
+        _newCitySpeciesNote = Label(_placeCard, "SpeciesNote", 13, DimText, TextAnchor.UpperLeft, true);
+        _newCityRegionBtn = Cycler(_placeCard, LM.Get("scenario_editor_card_region"), _ => _newCityOwnRegion = !_newCityOwnRegion);
         _placeInfo = Label(_placeCard, "Info", 14, DimText, TextAnchor.UpperLeft, true);
 
         _cityCard = Card(side, LM.Get("scenario_editor_card_city"));
@@ -1461,7 +1470,7 @@ public static class ScenarioEditorScreen
                 if (city != null) SelectCity(city);
                 else if (OnLand(texel))
                 {
-                    _cityId = ScenarioEditing.AddCity(TexelToLon(texel.x), TexelToLat(texel.y), _newCityCulture);
+                    _cityId = ScenarioEditing.AddCity(TexelToLon(texel.x), TexelToLat(texel.y), _newCityCulture, _newCitySpecies, _newCityOwnRegion);
                     Say(LM.Get("scenario_editor_city_added") + WildHint(TexelToLon(texel.x), TexelToLat(texel.y)) +
                         (ScenarioEditing.Era?.exact == true ? LM.Get("scenario_editor_city_added_exact") : ""));
                 }
@@ -1795,6 +1804,15 @@ public static class ScenarioEditorScreen
         options.AddRange(CultureService.CultureKeys);
         int at = Mathf.Max(0, options.IndexOf(_newCityCulture ?? ""));
         _newCityCulture = options[((at + step) % options.Count + options.Count) % options.Count];
+    }
+
+    // 放城用的种族：随文化、各物种轮着换
+    private static void StepNewCitySpecies(int step)
+    {
+        var options = new List<string> { "" };
+        options.AddRange(ScenarioEditing.SpeciesKeys);
+        int at = Mathf.Max(0, options.IndexOf(_newCitySpecies ?? ""));
+        _newCitySpecies = options[((at + step) % options.Count + options.Count) % options.Count];
     }
 
     // 现在这支笔刷按哪种格子刷：一格多少度、占几个预览像素、格子编号和预览像素的换算
@@ -3122,6 +3140,13 @@ public static class ScenarioEditorScreen
         if (_tool == Tool.City)
         {
             _newCityCultureBtn.Set(CultureService.IsValidCulture(_newCityCulture) ? CultureName(_newCityCulture) : LM.Get("scenario_editor_culture_auto"), ViewColor);
+            // 种族：没选的随文化(文化也没选就等放下才知道)；选了又和选的文化不配套的，灰字说一声
+            bool cultured = CultureService.IsValidCulture(_newCityCulture);
+            string autoSpecies = cultured ? WorldMapScenario.SpeciesFor(_newCityCulture) : "";
+            _newCitySpeciesBtn.Set(string.IsNullOrEmpty(_newCitySpecies) && !cultured ? LM.Get("scenario_editor_species_auto")
+                : SpeciesText(_newCitySpecies, autoSpecies, false), ViewColor);
+            SetNote(_newCitySpeciesNote, string.IsNullOrEmpty(_newCitySpecies) || !cultured ? "" : SpeciesNote(_newCitySpecies, autoSpecies, _newCityCulture));
+            _newCityRegionBtn.Set(LM.Get(_newCityOwnRegion ? "scenario_editor_place_region_own" : "scenario_editor_place_region_join"), ViewColor);
             _placeInfo.text = LM.Get("scenario_editor_place_info");
         }
         _realmCard.gameObject.SetActive(showRealm);

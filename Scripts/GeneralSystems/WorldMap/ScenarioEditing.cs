@@ -349,8 +349,12 @@ public static class ScenarioEditing
     // 在经纬度处立一座城：地区取最近那座城的地区；返回城编号。
     // culture 给了(用户 2026-11-12 转群友"剧本编辑器放城市怎么放其他文化的，目前貌似只有华夏的"——导入的图、空白剧本里头一座城
     // 立的是华夏的地区，后面的城都跟着它)：城的文化就是它所在王国法理的文化，所以所在的王国法理不是这种文化时，几度内有这种文化的
-    // 城就跟它的王国法理，没有就给这座城另立一个(名取城名、城作法理首都)
-    public static string AddCity(float lon, float lat, string culture = null)
+    // 城就跟它的王国法理，没有就给这座城另立一个(名取城名、城作法理首都)。
+    // species 给了(用户 2026-11-14 转群友"这玩意能够在放置城市之前就设置吗……放进去之后才慢慢改的话要改个猴年马月")：新城直接单设这个种族
+    // ownRegion(用户 2026-11-14 转群友"可以放城市的时候原地生成一个王国法理，而不是立马并入旁边的王国法理")：新城自成一个王国法理
+    // (名取城名、城作法理首都，文化照选的、没选照本来要并入的那块)；本来要并入的那块在哪个帝国法理里，新法理也留在那个帝国法理里，
+    // 省得放一座就掉出帝国法理一座。因文化不同另立的照旧不进帝国法理
+    public static string AddCity(float lon, float lat, string culture = null, string species = null, bool ownRegion = false)
     {
         if (Era == null) return null;
         Before();
@@ -365,7 +369,15 @@ public static class ScenarioEditing
             if (kin != null && dx * dx + dy * dy <= NearCityDegrees * NearCityDegrees) region = kin.region;
             else own = true;
         }
-        if (string.IsNullOrEmpty(region))
+        string core = null;
+        if (ownRegion && !own)
+        {
+            if (!wanted) culture = RegionCulture(Region(region));
+            if (!CultureService.IsValidCulture(culture)) culture = "Huaxia";
+            core = CoreOfRegion(region)?.id;
+            own = true;
+        }
+        if (string.IsNullOrEmpty(region) && !own)
         {
             var created = new WorldMapRegion { id = "r1", culture = wanted ? culture : "Huaxia" };
             created.zh = created.tw = created.en = LM.Get("scenario_editor_new_region");
@@ -388,12 +400,15 @@ public static class ScenarioEditing
         }
         if (own)
         {
+            Era.regions ??= new List<WorldMapRegion>();
             int r = Era.regions.Count + 1;
             region = "r" + r;
             while (Era.regions.Any(entry => entry.id == region)) region = "r" + ++r;
             Era.regions.Add(new WorldMapRegion { id = region, zh = zh, tw = tw, en = en, title = WorldMapData.Pick(zh, tw, en), capital = id, culture = culture });
+            if (Core(core) is WorldMapCore keep) (keep.regions ??= new List<string>()).Add(region);
         }
         Era.cities.Add(new WorldMapCity { id = id, zh = zh, tw = tw, en = en, lon = lon, lat = lat, region = region, rank = 2 });
+        if (!string.IsNullOrEmpty(species)) (Era.species ??= new Dictionary<string, string>())[id] = species;
         Changed();
         return id;
     }
