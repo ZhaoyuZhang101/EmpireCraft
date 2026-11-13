@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EmpireCraft 剧本编辑器</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    body{overflow:hidden}
+    .hint{font-size:12px;color:var(--muted);line-height:1.6}
+    .hint.warn{color:var(--danger) !important}
+    /* 剧本列表 */
+    #start{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;padding:14px;height:calc(100vh - 44px)}
+    #start .panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-content:start}
+    #start h3{margin-top:0}
+    .scn{display:grid;gap:4px;padding:10px 12px;margin-bottom:8px}
+    .scn .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .scn .name{font-size:12px;color:var(--c-gold,#8d6836)}
+    .scn .acts{margin-left:auto;display:flex;gap:6px}
+    .scn .desc{font-size:12px;color:var(--muted);max-height:3.4em;overflow:hidden}
+    /* 编辑 */
+    #editor{display:flex;flex-direction:column;height:calc(100vh - 44px)}
+    .bar{display:flex;align-items:center;gap:6px;padding:6px 12px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+    .bar .name{color:var(--c-gold,#8d6836);margin:0 10px 0 4px}
+    .bar .grow{flex:1}
+    .bar .group{display:flex;align-items:center;gap:4px;padding-right:10px;margin-right:6px;border-right:1px solid var(--line)}
+    .bar .group:last-child{border-right:none}
+    .bar .group > span{color:var(--muted);font-size:12px;margin-right:2px}
+    .bar button.on{background:#b9772a !important;color:#fff !important;box-shadow:inset 0 2px 0 #dc9a45 !important}
+    .work{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 410px}
+    .mapwrap{position:relative;min-width:0;min-height:0;background:#0a0d0a}
+    .mapwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+    .maptip{position:absolute;left:10px;bottom:10px;right:10px;padding:5px 10px;background:rgba(8,8,8,.82);color:#ece4cf;font-size:12px;pointer-events:none;border:1px solid #3c443b}
+    .maptip b{color:#f0c75a}
+    .mapsay{position:absolute;left:50%;top:10px;transform:translateX(-50%);padding:5px 14px;background:rgba(8,8,8,.88);color:#f0c75a;font-size:12px;pointer-events:none;border:1px solid #a8873a;display:none;max-width:80%}
+    .mapsay.show{display:block}
+    #side{overflow:auto;padding:10px;border-left:1px solid var(--line);display:grid;gap:10px;align-content:start;min-height:0}
+    #side .card{padding:10px;display:grid;gap:8px}
+    #side .card > h4{margin:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    #side .card > h4 .acts{margin-left:auto;display:flex;gap:4px}
+    #side details{border-top:1px dashed var(--line);padding-top:6px}
+    #side details > summary{cursor:pointer;color:var(--c-gold,#8d6836)}
+    #side details > div{display:grid;gap:8px;margin-top:8px}
+    .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .row > label.field{flex:1;min-width:70px}
+    .row > .grow{flex:1}
+    label.check{display:inline-flex;align-items:center;gap:2px;color:var(--ink);font-size:12px;white-space:nowrap}
+    .person{border:1px solid var(--line);padding:6px;display:grid;gap:4px}
+    .person .row input,.person .row select{padding:3px 6px}
+    .person .idx{color:var(--muted);font-size:12px;min-width:18px}
+    .swatch{display:inline-block;width:12px;height:12px;border:1px solid #000;vertical-align:middle;margin-right:4px;flex:none}
+    .palette{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+    .palette button{justify-content:flex-start;padding:3px 6px}
+    .list-lines{display:grid;gap:3px;font-size:12px}
+    .list-lines .line{display:flex;gap:6px;align-items:center}
+    .list-lines .line span{flex:1}
+    .step{border:1px solid var(--line);padding:6px;display:grid;gap:4px}
+    textarea.code{min-height:220px !important;font-size:12px}
+    .w60{width:60px !important}.w80{width:80px !important}.w110{width:110px !important}
+    .problems{color:var(--danger);font-size:12px;display:grid;gap:2px}
+    kbd{border:1px solid var(--line);padding:0 4px;font-size:11px}
+  </style>
+  <link rel="stylesheet" href="pixel-theme.css" />
+</head>
+<body>
+  <!-- 剧本列表：自定剧本(能改)与预设剧本(存为自定剧本再改) -->
+  <div id="start">
+    <aside class="side">
+      <h3><img class="ico" src="assets/icons/iconBooksWritten.png" alt="">剧本编辑器</h3>
+      <p class="hint">不开游戏编自定剧本：存出来的 <code>scenario.json</code> 和游戏里剧本编辑器存的是同一种文件，两边都能打开；整个剧本文件夹拷给别人、拷到独立服务器上就能用。</p>
+      <div class="note" id="dirNote">自定剧本文件夹：…</div>
+      <div class="toolbar">
+        <button class="primary" id="newBlankBtn">新建空白剧本</button>
+        <button id="reloadListBtn">刷新</button>
+        <button id="openDirBtn">打开文件夹</button>
+        <button id="chooseDirBtn">换文件夹</button>
+      </div>
+      <label class="field">新建、另存时的地图范围
+        <select id="newFrame">
+          <option value="">生成时再选</option>
+          <option value="eurasia">欧亚非</option>
+          <option value="oldworld">亚欧非全图</option>
+          <option value="eastasia">东亚(半幅)</option>
+          <option value="westworld">欧非西亚(半幅)</option>
+        </select>
+      </label>
+      <p class="hint">上手：① 放城 ② 以城立国 ③ 划城 ④ 看法理 ⑤ 刷地块细修国界 ⑥ 保存，到游戏的世界地图窗口或独立服务器开局。</p>
+      <p class="hint" id="startStatus"></p>
+    </aside>
+    <main class="panel">
+      <section><h3>自定剧本</h3><div id="customList"></div></section>
+      <section><h3>预设剧本</h3><div id="presetList"></div></section>
+    </main>
+  </div>
+
+  <!-- 编辑：上面工具与图层，左地图，右栏随工具换 -->
+  <div id="editor" hidden>
+    <div class="bar">
+      <button id="backBtn">剧本列表</button>
+      <span class="name" id="scnTitle"></span>
+      <button class="primary" id="saveBtn"><img class="ico sm" src="assets/icons/iconSaveLocal.png" alt="">保存</button>
+      <button id="undoBtn">撤销</button>
+      <button id="fitBtn">看全图</button>
+      <button id="folderBtn">打开剧本文件夹</button>
+      <button id="sendBtn">发到服务器</button>
+      <span class="grow"></span>
+      <span class="hint" id="coordInfo"></span>
+    </div>
+    <div class="bar" id="toolBar"></div>
+    <div class="bar" id="layerBar"></div>
+    <div class="work">
+      <div class="mapwrap">
+        <canvas id="map"></canvas>
+        <div class="mapsay" id="mapSay"></div>
+        <div class="maptip" id="mapTip"></div>
+      </div>
+      <aside id="side"></aside>
+    </div>
+  </div>
+
+  <!-- 发到服务器：把这份剧本传给独立服务器，让它照着开局(见 scenario-send.js) -->
+  <dialog id="sendDialog">
+    <h3 style="margin-top:0">发到服务器</h3>
+    <div class="grid" style="min-width:460px;max-width:560px">
+      <div class="hint" id="sendWhat"></div>
+      <label class="field" id="sendServerRow">服务器地址
+        <input id="sendServer" placeholder="1.2.3.4 或 http://1.2.3.4:8765" autocomplete="off" />
+        <span class="hint">只写地址的自动补上 http:// 和端口 8765</span>
+      </label>
+      <div class="hint" id="sendHosted" hidden></div>
+      <div class="row">
+        <label class="field">管理员账号<input id="sendUser" autocomplete="off" /></label>
+        <label class="field">密码<input id="sendPass" type="password" autocomplete="off" /></label>
+      </div>
+      <div class="hint" id="sendTokenNote"></div>
+      <div class="note" id="sendLog" style="min-height:64px;white-space:pre-wrap"></div>
+      <div class="toolbar">
+        <button class="primary" id="sendGo">上传</button>
+        <button id="sendClose">关闭</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="common.js"></script>
+  <script src="scenario-data.js"></script>
+  <script src="scenario-preview.js"></script>
+  <script src="scenario-map.js"></script>
+  <script src="scenario-ui.js"></script>
+  <script src="scenario-send.js"></script>
+  <script src="scenario-panels.js"></script>
+</body>
+</html>

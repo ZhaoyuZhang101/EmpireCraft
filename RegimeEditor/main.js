@@ -6,6 +6,21 @@ const {
   culturesRoot, inModRoot, listCultures, setRegimeInRuleText, createCulture, readLocales, writeLocales
 } = require("./editor-core");
 const { syncEnums } = require("./regime-enum-sync");
+const scenarioCore = require("./scenario-core");
+
+// 剧本编辑器：自定剧本文件夹(默认同游戏，mods_config/EmpireCraft/scenarios；另选过的记在单独一份设置里)
+function scenarioSettingsPath() {
+  return path.join(app.getPath("userData"), "scenario-editor-settings.json");
+}
+
+function savedScenarioDir() {
+  try {
+    const data = JSON.parse(syncFs.readFileSync(scenarioSettingsPath(), "utf8"));
+    return typeof data.scenarioDir === "string" ? data.scenarioDir : "";
+  } catch {
+    return "";
+  }
+}
 
 function stripJsonComments(text) {
   return text
@@ -237,6 +252,41 @@ app.whenReady().then(() => {
       result.push({ file: name, text: (await fs.readFile(path.join(dir, name), "utf8")).replace(/^\uFEFF/, "") });
     }
     return result;
+  });
+
+  // ---------- 剧本编辑器(scenario.html；读写见 scenario-core.js，浏览器版 scenario-server.js 走同一套) ----------
+  const scenarioDir = () => scenarioCore.resolveScenarioDir(resolveModRoot(), savedScenarioDir());
+  ipcMain.handle("scenario-info", async () => {
+    const dir = scenarioDir();
+    return { modRoot: resolveModRoot(), scenarioDir: dir, exists: syncFs.existsSync(dir), mode: "desktop" };
+  });
+  ipcMain.handle("scenario-list", async () => scenarioCore.listScenarios(resolveModRoot(), scenarioDir()));
+  ipcMain.handle("scenario-read", async (_event, folder) => scenarioCore.readScenario(scenarioDir(), folder));
+  ipcMain.handle("scenario-preset", async (_event, id) => scenarioCore.readPreset(resolveModRoot(), id));
+  ipcMain.handle("scenario-reserve", async (_event, base) => scenarioCore.reserveFolder(scenarioDir(), base));
+  ipcMain.handle("scenario-write", async (_event, folder, text) => scenarioCore.writeScenario(scenarioDir(), folder, text));
+  ipcMain.handle("scenario-preview", async (_event, folder, bytes) => scenarioCore.writePreview(scenarioDir(), folder, bytes));
+  ipcMain.handle("scenario-world", async (_event, name) => scenarioCore.readWorldFile(resolveModRoot(), name));
+  ipcMain.handle("scenario-files", async (_event, folder) => scenarioCore.readFolderFiles(scenarioDir(), folder));
+  ipcMain.handle("scenario-file", async (_event, folder, name) => scenarioCore.readFolderFile(scenarioDir(), folder, name));
+  ipcMain.handle("scenario-put-file", async (_event, folder, name, bytes) => scenarioCore.writeFolderFile(scenarioDir(), folder, name, bytes));
+  ipcMain.handle("scenario-delete", async (_event, folder) => scenarioCore.deleteScenario(scenarioDir(), folder));
+  ipcMain.handle("scenario-naming", async () => scenarioCore.cityNaming(resolveModRoot()));
+  ipcMain.handle("scenario-cultures", async () => scenarioCore.listCultureKeys(resolveModRoot()));
+  ipcMain.handle("scenario-choose-dir", async () => {
+    const result = await dialog.showOpenDialog({ title: "选择自定剧本文件夹(里面一个剧本一个文件夹)", properties: ["openDirectory", "createDirectory"] });
+    if (result.canceled || !result.filePaths?.[0]) return { canceled: true };
+    await fs.mkdir(path.dirname(scenarioSettingsPath()), { recursive: true });
+    await fs.writeFile(scenarioSettingsPath(), JSON.stringify({ scenarioDir: result.filePaths[0] }, null, 2), "utf8");
+    return { canceled: false, path: result.filePaths[0] };
+  });
+  ipcMain.handle("scenario-open-folder", async (_event, folder) => {
+    const dir = scenarioDir();
+    const target = folder ? scenarioCore.folderPath(dir, folder) : dir;
+    await fs.mkdir(target, { recursive: true });
+    const error = await shell.openPath(target);
+    if (error) throw new Error(error);
+    return { path: target };
   });
 
   // 同步代码枚举：编辑器自带(regime-enum-sync.js)，不用装 Python；出错时把真正的原因带回去

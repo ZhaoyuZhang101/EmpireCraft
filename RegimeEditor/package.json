@@ -37,6 +37,15 @@
       "pixel-theme.css",
       "preload.js",
       "regime-enum-sync.js",
+      "scenario.html",
+      "scenario-core.js",
+      "scenario-data.js",
+      "scenario-map.js",
+      "scenario-panels.js",
+      "scenario-preview.js",
+      "scenario-send.js",
+      "scenario-server.js",
+      "scenario-ui.js",
       "zh-convert.js"
     ],
     "win": {

@@ -18,7 +18,8 @@ function mountAppBar(active) {
     ["nodes.html", "科技 / 制度节点", "iconKnowledge"],
     ["claims.html", "派系决议规则", "iconPlot"],
     ["military.html", "军制与官阶", "iconArmy"],
-    ["misc.html", "杂项配置", "iconOptions"]
+    ["misc.html", "杂项配置", "iconOptions"],
+    ["scenario.html", "剧本编辑器", "iconBooksWritten"]
   ];
   bar.innerHTML = `<div class="title">${ico("iconWorldInfo")}EmpireCraft 编辑器</div>` +
     pages.map(([href, label, icon]) => `<a href="${href}" class="${href === active ? "active" : ""}">${ico(icon)}${label}</a>`).join("") +
