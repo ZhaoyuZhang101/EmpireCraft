@@ -121,9 +121,18 @@ public sealed class InstitutionReformState
 
 public static class InstitutionStateNormalizer
 {
+    // 改版时删掉的制度节点 → 旧档里换成哪个节点(空串是不换、只删)。2026-11-14 照修复包删了华夏母系氏族，
+    // 父系氏族改为直接接原始群：已在母系阶段的文化不换回原始群就两头不着，再也推不到父系
+    private static readonly Dictionary<string, string> RetiredNodes = new()
+    {
+        { "huaxia_matrilineal_clan", "huaxia_primitive_band" },
+    };
+
     public static void Normalize(InstitutionEmpireState state)
     {
         if (state == null) return;
+        if (state.active_reform != null && state.active_reform.node_id != null && RetiredNodes.ContainsKey(state.active_reform.node_id))
+            state.active_reform = null;
         state.applied_node_ids ??= new List<string>();
         state.class_grievances ??= new Dictionary<SocialClass, float>();
         state.class_grievance_causes ??= new Dictionary<SocialClass, string>();
@@ -157,5 +166,17 @@ public static class InstitutionStateNormalizer
         state.ideology_exposure ??= new Dictionary<string, float>();
         state.seeded_ideologies ??= new List<string>();
         state.discovered_ideologies ??= new List<string>();
+        for (int i = state.enacted_node_ids.Count - 1; i >= 0; i--)
+        {
+            if (!RetiredNodes.TryGetValue(state.enacted_node_ids[i], out string successor)) continue;
+            state.enacted_node_ids.RemoveAt(i);
+            if (!string.IsNullOrEmpty(successor) && !state.enacted_node_ids.Contains(successor)) state.enacted_node_ids.Add(successor);
+        }
+        state.absorbed_node_ids.RemoveAll(RetiredNodes.ContainsKey);
+        if (state.drift_node_id != null && RetiredNodes.ContainsKey(state.drift_node_id))
+        {
+            state.drift_node_id = "";
+            state.drift_progress = 0f;
+        }
     }
 }

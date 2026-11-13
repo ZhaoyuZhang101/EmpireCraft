@@ -112,7 +112,6 @@
           "value": "Low"
         }
       ],
-      "requires_cities": 3,
       "requires_techs": [
         "currency"
       ],
@@ -139,7 +138,7 @@
         "origins_city_state"
       ],
       "requires_techs": [
-        "copper_smelting"
+        "bronze_casting"
       ]
     },
     {
@@ -223,7 +222,6 @@
     },
     {
       "id": "origins_private_ownership",
-      "template": "land_sale_decree",
       "name_key": "institution_origins_private_ownership",
       "description_key": "institution_origins_private_ownership_desc",
       "branch": "production",
@@ -246,6 +244,9 @@
         "oppose_classes": {
           "Peasant": 1
         }
+      },
+      "reform": {
+        "minimum_years": 50
       }
     },
     {

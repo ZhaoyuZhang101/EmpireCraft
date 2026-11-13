@@ -1,7 +1,7 @@
 {
   "name_key": "institution_line_roma",
   "root_nodes": [
-    "western_classical_city_republic"
+    "western_primitive_tribe"
   ],
   "nodes": [
     {
@@ -340,7 +340,7 @@
       "name_key": "institution_western_classical_city_republic",
       "description_key": "institution_western_classical_city_republic_desc",
       "branch": "society",
-      "advancement": 1,
+      "advancement": 2,
       "reform": {
         "minimum_years": 1,
         "allow_force": false
@@ -357,7 +357,123 @@
       "absorb": {
         "enabled": false
       },
-      "regime": "ClassicalRepublic"
+      "regime": "ClassicalRepublic",
+      "requires_techs": [
+        "masonry"
+      ],
+      "requires": [
+        "western_caravan_trade",
+        "western_tribal_meeting"
+      ]
+    },
+    {
+      "id": "western_primitive_tribe",
+      "name_key": "institution_western_primitive_tribe",
+      "description_key": "institution_western_primitive_tribe_desc",
+      "branch": "society",
+      "regime": "Origin",
+      "features": {
+        "no_surname": 1,
+        "primordial_naming": 1
+      }
+    },
+    {
+      "id": "western_tribal_meeting",
+      "name_key": "institution_western_tribal_meeting",
+      "description_key": "institution_western_tribal_meeting_desc",
+      "branch": "society",
+      "requires": [
+        "western_primitive_tribe"
+      ],
+      "reform": {
+        "minimum_years": 20
+      },
+      "features": {
+        "no_surname": 1,
+        "primordial_naming": 1
+      },
+      "requires_techs": [
+        "writing"
+      ]
+    },
+    {
+      "id": "western_caravan_trade",
+      "name_key": "institution_western_caravan_trade",
+      "description_key": "institution_western_caravan_trade_desc",
+      "branch": "finance",
+      "requires": [
+        "western_tribal_meeting"
+      ],
+      "politics": {
+        "support_classes": {
+          "Merchant": 1
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "change_tax_level",
+          "value": "Low"
+        }
+      ],
+      "requires_techs": [
+        "currency"
+      ],
+      "features": {
+        "no_surname": 1,
+        "primordial_naming": 1
+      }
+    },
+    {
+      "id": "western_slavery",
+      "name_key": "institution_western_slavery",
+      "description_key": "institution_western_slavery_desc",
+      "branch": "society",
+      "requires": [
+        "western_private_ownership"
+      ],
+      "politics": {
+        "support_classes": {
+          "SlaveOwner": 1
+        },
+        "oppose_classes": {
+          "Slave": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "requires_techs": [
+        "copper_smelting"
+      ]
+    },
+    {
+      "id": "western_private_ownership",
+      "name_key": "institution_western_private_ownership",
+      "description_key": "institution_western_private_ownership_desc",
+      "branch": "production",
+      "requires": [
+        "western_caravan_trade"
+      ],
+      "effects_on_complete": [
+        {
+          "type": "open_private_land_market"
+        },
+        {
+          "type": "add_mandate",
+          "int_value": 2
+        }
+      ],
+      "politics": {
+        "support_classes": {
+          "Landlord": 1
+        },
+        "oppose_classes": {
+          "Peasant": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 50
+      }
     },
     {
       "id": "western_civic_legion", "requires_techs": ["military_register"],
@@ -367,7 +483,8 @@
       "branch": "military",
       "advancement": 2,
       "requires": [
-        "western_classical_city_republic"
+        "western_classical_city_republic",
+        "western_slavery"
       ],
       "research": {
         "mandate_required": 25
@@ -406,7 +523,7 @@
       ]
     },
     {
-      "id": "western_senate", "requires_techs": ["writing"],
+      "id": "western_senate",
       "name_key": "institution_western_senate",
       "description_key": "institution_western_senate_desc",
       "branch": "society",
@@ -442,7 +559,7 @@
       ],
       "features": {
         "senate_election": 1
-      }
+      }, "requires_techs": ["census"]
     },
     {
       "id": "western_principate", "requires_techs": ["law_code", "military_register"],
@@ -498,7 +615,8 @@
       "branch": "society",
       "advancement": 2,
       "requires": [
-        "western_classical_city_republic"
+        "western_classical_city_republic",
+        "western_primitive_religion"
       ],
       "research": {
         "mandate_required": 28
@@ -529,13 +647,68 @@
       ]
     },
     {
+      "id": "western_primitive_religion",
+      "name_key": "institution_western_primitive_religion",
+      "description_key": "institution_western_primitive_religion_desc",
+      "branch": "society",
+      "advancement": 2,
+      "requires": [
+        "western_primitive_tribe"
+      ],
+      "requires_techs": [
+        "writing"
+      ],
+      "reform": {
+        "minimum_years": 20
+      },
+      "politics": {
+        "support_classes": {
+          "Noble": 1
+        },
+        "support_factions": {
+          "神权": 1
+        }
+      },
+      "effects_on_complete": [
+        {
+          "type": "modify_faction_power",
+          "faction": "神权",
+          "int_value": 1
+        },
+        {
+          "type": "set_regime_option",
+          "option": "option_religion_type",
+          "int_value": 1
+        }
+      ]
+    },
+    {
+      "id": "western_water_conservancy_project",
+      "name_key": "institution_western_water_conservancy_project",
+      "description_key": "institution_western_water_conservancy_project_desc",
+      "branch": "production",
+      "advancement": 2,
+      "politics": {
+        "support_classes": {
+          "Peasant": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 30
+      },
+      "requires_techs": [
+        "bronze_casting"
+      ]
+    },
+    {
       "id": "western_manorial_economy", "requires_techs": ["taxation"],
       "name_key": "institution_western_manorial_economy",
       "description_key": "institution_western_manorial_economy_desc",
       "branch": "finance",
       "advancement": 3,
       "requires": [
-        "western_roman_law"
+        "western_roman_law",
+        "western_water_conservancy_project"
       ],
       "research": {
         "mandate_required": 38
@@ -569,7 +742,10 @@
           "type": "change_tax_level",
           "value": "Low"
         }
-      ]
+      ],
+      "features": {
+        "slavery_abolished": 1
+      }
     },
     {
       "id": "western_feudalization", "requires_techs": ["military_register"],

@@ -19,7 +19,7 @@
       ],
       "reform": {
         "base_progress_per_year": 12.0,
-        "minimum_years": 4
+        "minimum_years": 50
       },
       "resistance": {
         "base_radicalism": 3.0,
@@ -33,7 +33,8 @@
       },
       "features": {
         "imperial_rule": 1
-      }
+      },
+      "requires_cities": 0
     },
     {
       "id": "arabic_gunpowder_army",
@@ -212,7 +213,7 @@
       "regime": "Origin"
     },
     {
-      "id": "arabic_tribal_shura", "requires_techs": ["bronze_casting", "writing"],
+      "id": "arabic_tribal_shura", "requires_techs": ["writing", "copper_smelting"],
       "name_key": "institution_arabic_tribal_shura",
       "description_key": "institution_arabic_tribal_shura_desc",
       "branch": "society",
@@ -248,20 +249,37 @@
       }
     },
     {
+      "id": "arabic_slavery",
+      "name_key": "institution_arabic_slavery",
+      "description_key": "institution_arabic_slavery_desc",
+      "branch": "society",
+      "politics": {
+        "support_classes": {
+          "SlaveOwner": 1
+        },
+        "oppose_classes": {
+          "Slave": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 20
+      },
+      "advancement": 2,
+      "requires": [
+        "arabic_caravan_trade"
+      ]
+    },
+    {
       "id": "arabic_caliphal_diwan", "requires_techs": ["bureaucracy", "postal_roads"],
       "name_key": "institution_arabic_caliphal_diwan",
       "description_key": "institution_arabic_caliphal_diwan_desc",
       "branch": "administration",
       "advancement": 2,
-      "requires": [
-        "arabic_tribal_shura"
-      ],
       "research": {
         "mandate_required": 60
       },
       "reform": {
-        "base_progress_per_year": 6.5,
-        "minimum_years": 12
+        "minimum_years": 10
       },
       "resistance": {
         "base_radicalism": 6.0,
@@ -294,7 +312,11 @@
           "int_value": -5
         }
       ],
-      "regime": "Arabic"
+      "regime": "Arabic",
+      "requires_cities": 0,
+      "requires": [
+        "arabic_imperial_rule"
+      ]
     },
     {
       "id": "arabic_caravan_trade", "requires_techs": ["currency"],
@@ -336,7 +358,29 @@
       "features": {
         "constitution_basis_commerce": 1,
         "caravan_trade": 1
-      }
+      },
+      "requires_cities": 0
+    },
+    {
+      "id": "arabic_water_conservancy_project",
+      "name_key": "institution_arabic_water_conservancy_project",
+      "description_key": "institution_arabic_water_conservancy_project_desc",
+      "branch": "production",
+      "advancement": 2,
+      "politics": {
+        "support_classes": {
+          "Peasant": 1
+        }
+      },
+      "reform": {
+        "minimum_years": 30
+      },
+      "requires": [
+        "arabic_tribal_shura"
+      ],
+      "requires_techs": [
+        "bronze_casting"
+      ]
     },
     {
       "id": "arabic_mamluk_corps", "requires_techs": ["standing_army"],
@@ -397,9 +441,6 @@
       "description_key": "institution_arabic_jizya_tax_desc",
       "branch": "finance",
       "advancement": 3,
-      "requires": [
-        "arabic_caravan_trade"
-      ],
       "research": {
         "mandate_required": 42
       },
@@ -436,7 +477,10 @@
       ],
       "features": {
         "poll_tax": 1
-      }
+      },
+      "requires": [
+        "arabic_slavery"
+      ]
     },
     {
       "id": "arabic_iqta_military_fiscal", "requires_techs": ["taxation", "military_register"],
@@ -701,7 +745,8 @@
       "branch": "finance",
       "advancement": 3,
       "requires": [
-        "arabic_caliphal_diwan"
+        "arabic_caliphal_diwan",
+        "arabic_water_conservancy_project"
       ],
       "research": {
         "mandate_required": 42
@@ -798,7 +843,10 @@
           "int_value": 5,
           "faction": "神权"
         }
-      ]
+      ],
+      "features": {
+        "slavery_abolished": 1
+      }
     },
     {
       "id": "arabic_madrasa_network", "requires_techs": ["paper"],
