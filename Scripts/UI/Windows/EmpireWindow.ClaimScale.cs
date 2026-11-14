@@ -9,7 +9,7 @@ namespace EmpireCraft.Scripts.UI.Windows
     // 量刑见 LawPanel.RenderScaleBoard，诉求见 ClaimScalePanel(用户 2026-11-10 "推动诉求也要加天平页面""这样才能知道成功还是没成功")
     public partial class EmpireWindow
     {
-        // 0 量刑、1 诉求；换帝国不重置(两边都看的人多半来回切)
+        // 0 量刑、1 诉求、2 决议(见 DecisionScalePanel，接可议之事)、3 朝局(见 CourtActionsPanel)；换帝国不重置(两边都看的人多半来回切)
         private static int _scalesPage;
 
         public void ShowScales(WindowMetaTab pArg0)
@@ -20,14 +20,22 @@ namespace EmpireCraft.Scripts.UI.Windows
             AutoVertLayoutGroup page = BeginPage("empire_scales", _scalesPage == 0 && core != null ? LawPanel.Chips(core) : new string[0]);
             page.AddChipRow(MainWidth,
                 (LM.Get("empire_law_scale"), _scalesPage == 0, () => SwitchScales(0)),
-                (LM.Get("empire_claim_scale"), _scalesPage == 1, () => SwitchScales(1)));
+                (LM.Get("empire_claim_scale"), _scalesPage == 1, () => SwitchScales(1)),
+                (LM.Get("empire_decision_scale"), _scalesPage == 2, () => SwitchScales(2)),
+                (LM.Get("empire_court_scale"), _scalesPage == 3, () => SwitchScales(3)));
             try
             {
                 if (_scalesPage == 0)
                 {
                     if (core != null && !core.isRekt()) LawPanel.RenderScaleBoard(page, core, MainWidth);
                 }
-                else ClaimScalePanel.Render(page, _empire, MainWidth, () => ShowScales(null));
+                else if (_scalesPage == 1) ClaimScalePanel.Render(page, _empire, MainWidth, () => ShowScales(null));
+                else if (_scalesPage == 2)
+                {
+                    DecisionScalePanel.Render(page, _empire, MainWidth);
+                    CourtActionsPanel.RenderOptions(page, _empire.CoreKingdom, MainWidth, () => ShowScales(null));
+                }
+                else CourtActionsPanel.RenderCourt(page, _empire, MainWidth, () => ShowScales(null));
             }
             catch (global::System.Exception exception)
             {

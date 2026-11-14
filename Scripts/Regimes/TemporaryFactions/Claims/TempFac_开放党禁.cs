@@ -47,7 +47,7 @@ public class TempFac_开放党禁 : TemporaryFaction
     public override bool CheckCondition()
     {
         Empire empire = GetEmpire();
-        if (GetFaction()?.Ban == true || TechnologySystem.PremodernLocked ||
+        if (GetFaction()?.Ban == true || TechnologySystem.NoNewModern ||
             ClaimAgendaSystem.BuildContext(empire)?.PartyOpening?.HasChallenge != true) return false;
         // 用户 2026-11-10：硬发展门槛——核心繁荣不足的穷/贫瘠国家不能自主开放党禁，
         // 人民革命(本诉求)连立项都不行，只能等外力(战败和约)来逼。已开放的国家不走本诉求，不受影响。

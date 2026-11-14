@@ -1353,7 +1353,7 @@ public static class WildernessSystem
         }
 
         // 对旧区域：重叠最多的先配，一片旧区域只配一片(分成几片的大的那片沿用，并起来的沿用重叠多的那片)
-        var overlap = new Dictionary<long, int>();
+        var overlap = new Dictionary<long, int>(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
         var kept = new List<int>();
         for (int g = 0; g < groups.Count; g++)
         {

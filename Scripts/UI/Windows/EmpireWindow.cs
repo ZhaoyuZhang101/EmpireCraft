@@ -699,8 +699,7 @@ namespace EmpireCraft.Scripts.UI.Windows
 
             bool composite = CompositeEmpireService.IsComposite(empire);
             Actor emperor = empire.Emperor;
-            PlotAsset adoptionPlot = AssetManager.plots_library?.basic_plots?
-                .Find(plot => plot?.id == "adopt_central_plains_institutions");
+            PlotAsset adoptionPlot = AssetManager.plots_library?.get("adopt_central_plains_institutions");
             bool adoptionInProgress = adoptionPlot != null && emperor?.plot?.isSameType(adoptionPlot) == true;
             CompositeEmpireService.AdoptionStatus adoption = composite
                 ? null
@@ -835,8 +834,7 @@ namespace EmpireCraft.Scripts.UI.Windows
         private void StartCompositeEmpireAdoption(Empire empire)
         {
             Actor emperor = empire?.Emperor;
-            PlotAsset plot = AssetManager.plots_library?.basic_plots?
-                .Find(asset => asset?.id == "adopt_central_plains_institutions");
+            PlotAsset plot = AssetManager.plots_library?.get("adopt_central_plains_institutions");
             if (emperor == null || plot?.try_to_start_advanced == null ||
                 !CompositeEmpireService.CanAdoptCentralInstitutions(emperor)) return;
             if (plot.try_to_start_advanced(emperor, plot, true))
@@ -1020,6 +1018,9 @@ namespace EmpireCraft.Scripts.UI.Windows
             AddReconciliation(parent, core, report);
             AddTreasuryChart(parent, TreasurySystem.MonthlyFlows(core));
             AddTaxCollection(parent, _empire);
+            // 开源节流(调税、裁军)与内帑(年例、皇庄、卖官、动用公帑)，见 CourtActionsPanel
+            CourtActionsPanel.RenderLevers(parent, core, MainWidth, () => ShowFinance(pArg0));
+            CourtActionsPanel.RenderPurse(parent, core, MainWidth, () => ShowFinance(pArg0));
             AddStateDebt(parent, core);
 
             // 构成里列了央地拨款，标题的合计也算上它，和下面的条目对得上

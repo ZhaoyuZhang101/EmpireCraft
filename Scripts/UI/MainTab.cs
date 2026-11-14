@@ -179,6 +179,8 @@ internal static class MainTab
         KingdomOverviewWindow.CreateAndInit(nameof(KingdomOverviewWindow), new Vector2(480f, 380f));
         // 一国的律法(国情窗口"去处"打开；帝国治下的国家转到帝国窗口的律法页)
         KingdomLawWindow.CreateAndInit(nameof(KingdomLawWindow), new Vector2(480f, 380f));
+        // 一国的国务(决议、开源节流、内帑；帝国中央转到帝国窗口的天平页)
+        KingdomAffairsWindow.CreateAndInit(nameof(KingdomAffairsWindow), new Vector2(480f, 380f));
         CultureBooksWindow.CreateAndInit(nameof(CultureBooksWindow), new Vector2(480f, 380f));
         // 名臣名将名册(见 FamousTalentSystem)
         FamousTalentWindow.CreateAndInit(nameof(FamousTalentWindow), new Vector2(480f, 380f));
@@ -220,6 +222,7 @@ internal static class MainTab
             [nameof(KingdomMilitaryWindow)] = "iconWar",
             [nameof(KingdomOverviewWindow)] = "iconKingdom",
             [nameof(KingdomLawWindow)] = "iconWorldLaws",
+            [nameof(KingdomAffairsWindow)] = "iconMoney",
             [nameof(FamousTalentWindow)] = "iconKings",
             [nameof(SenateWindow)] = "iconKings",
             [nameof(DiplomacyWindow)] = "iconKingdom",

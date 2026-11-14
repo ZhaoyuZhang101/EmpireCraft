@@ -198,8 +198,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
             if (pKingdom == empire.CoreKingdom && pKingdom.hasKing() &&
                 CompositeEmpireService.CanAdoptCentralInstitutions(pKingdom.king))
             {
-                var adoptionPlot = AssetManager.plots_library.basic_plots
-                    .Find(p => p.id == "adopt_central_plains_institutions");
+                var adoptionPlot = AssetManager.plots_library.get("adopt_central_plains_institutions");
                 if (adoptionPlot?.try_to_start_advanced?.Invoke(pKingdom.king, adoptionPlot, true) == true)
                 {
                     TranslateHelper.LogCompositeEmpireAdoptionStarted(empire,
@@ -220,8 +219,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (empire == null && ModernStateFormationSystem.TryUpdate(pKingdom)) return;
         if (pKingdom.hasKing() && ImperialLegitimacyChallengeService.TryFindTarget(pKingdom, out _))
         {
-            var challengePlot = AssetManager.plots_library.basic_plots
-                .Find(p => p.id == "usurp_imperial_legitimacy");
+            var challengePlot = AssetManager.plots_library.get("usurp_imperial_legitimacy");
             if (challengePlot?.try_to_start_advanced?.Invoke(pKingdom.king, challengePlot, true) == true)
             {
                 pKingdom.GetRegime()?.SetAllowDiplomacy(true);
@@ -232,7 +230,7 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
         if (!pKingdom.hasKing() || pKingdom.king.plot?.isActive() == true) return;
         if (!CanStartEmpireFormation(pKingdom, true)) return;
 
-        var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "become_empire");
+        var plot = AssetManager.plots_library.get("become_empire");
         if (plot == null) return;
         EmpireFormationService.BeginPreparation(pKingdom, EmpireFormationService.GetBestRoute(pKingdom));
         if (plot.try_to_start_advanced?.Invoke(pKingdom.king, plot, true) == true)

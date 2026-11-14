@@ -106,6 +106,7 @@ public static partial class FrontSystem
         MonthLandingSectors.Clear();
         _assignFrame = -1;
         ResetLandings();
+        ResetParallel();
     }
 
     #region 敌我
@@ -236,18 +237,26 @@ public static partial class FrontSystem
     // 同签名第一国没算出登陆的，后面的国也不另算登陆(同以前)
     private static readonly Dictionary<string, (List<Sector> land, bool landing)> SectorCache = new();
 
-    private static List<Sector> CachedSectors(Kingdom side)
+    private static string SectorSignature(Kingdom side)
     {
         var key = new global::System.Text.StringBuilder();
         key.Append(Realm(side).id).Append(':');
         foreach (Kingdom other in _atWar)
             if (Hostile(side, other)) key.Append(other.id).Append(',');
-        string signature = key.ToString();
+        return key.ToString();
+    }
+
+    private static List<Sector> CachedSectors(Kingdom side)
+    {
+        string signature = SectorSignature(side);
         NavySystem.DesiredLanding.Remove(side.id);
         if (SectorCache.TryGetValue(signature, out var shared))
             return shared.landing ? WithLandings(side, shared.land) : shared.land;
-        List<Sector> land = LandSectors(side);
-        List<Sector> sectors = WithLandings(side, land);
+        // 这一帧多核算好了的(见 FrontSystem.Parallel)
+        if (!PrefetchedLand.TryGetValue(signature, out List<Sector> land))
+            using (FrameProfiler.Measure("战线段·陆上")) land = LandSectors(side);
+        List<Sector> sectors;
+        using (FrameProfiler.Measure("战线段·登陆")) sectors = WithLandings(side, land);
         SectorCache[signature] = (land, sectors.Count > land.Count);
         return sectors;
     }
@@ -335,6 +344,7 @@ public static partial class FrontSystem
         double now = World.world.getCurWorldTime();
         if (LandRoutes.TryGetValue(key, out var known) && known.signature == _routeSignature && now >= known.at &&
             Date.getMonthsSince(known.at) < LandRouteMonths) return known.found;
+        using var measure = FrameProfiler.Measure("战线段·陆路搜索");
         if (++_routeStamp == int.MaxValue)
         {
             global::System.Array.Clear(_routeSeen, 0, _routeSeen.Length);
@@ -376,8 +386,12 @@ public static partial class FrontSystem
         HashSet<City> home = HomeCities(side);
         void Collect(City city)
         {
-            if (city?.data == null || city.isRekt() || sectors.ContainsKey(city) || !InReach(side, city, home)) return;
-            List<TileZone> targets = TargetZones(side, city);
+            if (city?.data == null || city.isRekt() || sectors.ContainsKey(city)) return;
+            bool reach;
+            using (FrameProfiler.Measure("战线段·够不够得着")) reach = InReach(side, city, home);
+            if (!reach) return;
+            List<TileZone> targets;
+            using (FrameProfiler.Measure("战线段·可下手地块")) targets = TargetZones(side, city);
             if (targets.Count == 0) return;
             var sector = new Sector { City = city };
             sector.Targets.AddRange(targets);
@@ -503,8 +517,10 @@ public static partial class FrontSystem
     {
         BeginMonth(now);
         using (FrameProfiler.Measure("战线·分派"))
-            foreach (Kingdom kingdom in World.world.kingdoms.ToList())
-                AssignMonth(kingdom);
+        {
+            var queue = new Queue<Kingdom>(World.world.kingdoms.ToList());
+            while (queue.Count > 0) AssignMonth(queue.Dequeue(), queue);
+        }
         EndMonth();
     }
 
@@ -516,6 +532,10 @@ public static partial class FrontSystem
         FactionPurgeSystem.MonthTick();
         _atWar = World.world.kingdoms.Where(kingdom => kingdom?.data != null && !kingdom.isRekt() &&
                                                        (kingdom.hasEnemies() || Realm(kingdom).hasEnemies())).ToList();
+        AtWarSet.Clear();
+        AtWarSet.UnionWith(_atWar);
+        PrefetchedLand.Clear();
+        PendingPrefetch.Clear();
         DefenseByCity.Clear();
         CityDistricts.Reset();
         EncirclementSystem.BeginAssign();
@@ -545,8 +565,10 @@ public static partial class FrontSystem
         _frontsNext.Clear();
     }
 
-    public static void AssignMonth(Kingdom kingdom)
+    // upcoming：队里排在后面、这个月还要分派的国(多核时一起算陆上战线段，见 FrontSystem.Parallel)
+    public static void AssignMonth(Kingdom kingdom, IEnumerable<Kingdom> upcoming = null)
     {
+        if (kingdom != null) PendingPrefetch.Remove(kingdom);
         List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
         if (list == null || list.Count == 0) return;
         // 分几帧分派时，共用的陆上战线段只在同一帧里共用：隔了几帧，逐格推进可能已改了地块归属
@@ -555,6 +577,16 @@ public static partial class FrontSystem
         {
             _assignFrame = frame;
             SectorCache.Clear();
+            PrefetchedLand.Clear();
+            PendingPrefetch.Clear();
+        }
+        try
+        {
+            PrefetchSectors(kingdom, upcoming);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][军团] 战线段多核算失败: {exception}");
         }
         // 一国分派出错只跳过这一国：以前异常直接抛出 MonthTick，后面的交战结算整月不跑——
         // 没有交战提示、战线不结算，军团照旧推着上月的目标，国界来回翻(玩家日志 2026-10-17 连续三百多次)
@@ -573,6 +605,8 @@ public static partial class FrontSystem
     {
         double now = _monthNow;
         SectorCache.Clear();
+        PrefetchedLand.Clear();
+        PendingPrefetch.Clear();
         SwapFronts();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, MonthLandingSectors);

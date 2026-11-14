@@ -67,6 +67,10 @@ public class SaveData
     public RoadTreatyData road_treaties = new RoadTreatyData();
     // 借道：主国许借道国借道，单向，有起止(见 MilitaryAccessSystem)。旧档没有，从无约起
     public MilitaryAccessData military_access = new MilitaryAccessData();
+    // 在办的决议(见 DecisionSystem)
+    // 内帑(见 PrivyPurse)
+    public List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData> privy_purse = new List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData>();
+    public List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase> decisions = new List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase>();
     // 本模组的世界法则(法则 id → 开关)：法则本身是跨存档的玩家选项，这里随存档记一份，读档时还原
     // (见 EmpireCraftWorldLawLibrary.Capture/Apply)。旧档没有，各法则按 default_state
     public Dictionary<string, bool> empirecraft_world_laws = new Dictionary<string, bool>();
@@ -88,4 +92,6 @@ public class SaveData
     public List<float[]> world_map_walls;
     // 剧本世界的日历，科技按年代封顶(见 TechCalendarRules；不是剧本开局的世界、旧档为 null)
     public EmpireCraft.Scripts.GeneralSystems.TechCalendarSave world_map_tech_calendar;
+    // 时代锁定：科技至多到这一档时代，0 不锁(终端管理员定，见 TechnologySystem.EraLock)
+    public int era_lock_tier;
 }

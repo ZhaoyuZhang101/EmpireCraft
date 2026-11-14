@@ -27,7 +27,7 @@ public static class DormantActorAI
     public static bool Dormant(Actor actor) =>
         CityPopulationSystem.AbstractPopulationEnabled && actor?.data != null && !actor.isRekt() && actor.isAlive() &&
         actor.isSapient() && actor.hasCity() && !actor.isKing() && !actor.isCityLeader() && !actor.isWarrior() &&
-        !actor.hasArmy() && actor.plot == null && !actor.isFavorite() && !actor.isCameraFollowingUnit() &&
+        !actor.hasArmy() && (actor.plot == null || EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Manages(actor.plot.getAsset())) && !actor.isFavorite() && !actor.isCameraFollowingUnit() &&
         !CorpsSystem.IsGeneral(actor) && !AncientWarfareCompatibility.OwnsObject(actor);
 
     // 该做的下一件事：到时候了跑一次模组的人物逻辑，或让原版决策一次(返回 null)，否则闲居

@@ -90,7 +90,7 @@ public static class RoadNetwork
     private static readonly List<City> PortCities = new();
     // 小径：规划路线经过的地块、跨过的交界、虚线落到的格(见类头、CollectTrails)
     private static readonly HashSet<int> TrailZones = new(), TrailTiles = new();
-    private static readonly HashSet<long> TrailEdges = new();
+    private static readonly HashSet<long> TrailEdges = new(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
     private static float _nextTick, _nextPorts, _nextScan, _nextTrails;
     private static bool _dirty, _trailsDirty;
     private static object _world;

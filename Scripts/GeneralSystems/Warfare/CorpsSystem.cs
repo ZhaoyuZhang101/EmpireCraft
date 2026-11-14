@@ -177,6 +177,8 @@ public static class CorpsSystem
             _monthStartFrame = frame;
             BeginMonthCycle(now, first);
         }
+        // 战线段多核算用的地形层(打仗时每帧滚动重建一点，见 FrontSystem.Parallel)
+        FrontSystem.ParallelTick();
         if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: false);
         // 平滑国界下的逐格占领(见 FrontSystem.Smooth)
         using (FrameProfiler.Measure("战线·逐格推进")) FrontSystem.SmoothTick();
@@ -269,7 +271,9 @@ public static class CorpsSystem
         {
             // 只看本段自己的用时：后台共用预算(SimulationFrameBudget)在这之前多已被人口等队列用完，看它就只能一帧一国，
             // 几百国的大图一个月结不完
-            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= slice)
+            // 多核一批算好了陆上战线段的国(见 FrontSystem.Parallel)这一帧分派完：留到下一帧就作废了
+            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= slice &&
+                !(_monthPhase == MonthPhase.FrontAssign && MonthQueue.Count > 0 && FrontSystem.PrefetchPending))
             {
                 _stepMs = _stepMs * 0.8d + watch.Elapsed.TotalMilliseconds / done * 0.2d;
                 return;
@@ -310,7 +314,7 @@ public static class CorpsSystem
                     Kingdom assigned = MonthQueue.Dequeue();
                     using (FrameProfiler.Measure("军团·战线月度"))
                     using (FrameProfiler.Measure("战线·分派"))
-                        FrontSystem.AssignMonth(assigned);
+                        FrontSystem.AssignMonth(assigned, MonthQueue);
                     break;
                 case MonthPhase.FrontEnd:
                     if (MonthStep("军团·战线月度", FrontSystem.EndMonth)) FinishMonth();

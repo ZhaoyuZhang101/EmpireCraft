@@ -57,7 +57,7 @@ public static class IdeologySpreadSystem
     public static void TryYearlyScan()
     {
         if (World.world == null || ModClass.IS_CLEAR || ModClass.EMPIRE_MANAGER == null) return;
-        if (TechnologySystem.PremodernLocked) return; // 禁止近代化：理念不再传播
+        if (TechnologySystem.NoNewModern) return; // 禁止近代化、时代锁在工业时代以前：理念不再传播
         // 虚拟人口模式由 ModClass.Update 轮换；普通模式保持原来的调用时机。
         if (!CityPopulationSystem.AbstractPopulationEnabled) IdeologyPopulationSystem.TickContact();
         double now = World.world.getCurWorldTime();

@@ -450,7 +450,8 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(empire);
         if (state == null || World.world == null || empire?.CoreKingdom == null ||
             state.constitutional_monarchy || !IsMonarchy(empire) ||
-            !InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null) return false;
+            !InstitutionDefinitionRegistry.IsConstitutionEnabled(GetLine(empire)) || EraBlocker(empire) != null ||
+            TechnologySystem.EraLockBlocksModern) return false;
         CancelReform(state);
         state.constitutional_monarchy = true;
         MarkCultureConstitutional(empire);
@@ -467,6 +468,8 @@ public static class ConstitutionalEconomySystem
         ConstitutionalEconomyState state = Ensure(loser);
         if (state == null || World.world == null || loser.CoreKingdom == null || victor?.data == null || victor.isRekt())
             return false;
+        // 时代锁在工业时代以前：战胜国也逼不出立宪、党禁
+        if (TechnologySystem.EraLockBlocksModern) return false;
         bool monarchy = IsMonarchy(loser);
         // 君主国：还没立宪、没被迫改造过、本线支持立宪，才谈得上被逼立宪(连带开放党禁)。
         bool imposeMonarchy = monarchy && !state.constitutional_monarchy && !state.forced_modernization &&
@@ -652,6 +655,8 @@ public static class ConstitutionalEconomySystem
         if (!InstitutionDefinitionRegistry.IsConstitutionEnabled(line)) return false;
         if (state.constitutional_monarchy) { reason = "constitution_already_enacted"; return false; }
         if (IsMonarchy(empire) && EraBlocker(empire) is string blocker) { reason = blocker; return false; }
+        // 时代锁在工业时代以前(见 TechnologySystem.EraLock)：不能新立宪；已立的照旧
+        if (TechnologySystem.EraLockBlocksModern) { reason = "constitution_requires_era_lock"; return false; }
         if (state.constitutional_reform_active) { reason = "constitution_reforming"; return false; }
         if (!IsMonarchy(empire)) { reason = "constitution_requires_monarchy"; return false; }
         if (DynasticCycleSystem.TooDecayedToReform(empire)) { reason = "constitution_dynastic_decay"; return false; }
@@ -742,6 +747,8 @@ public static class ConstitutionalEconomySystem
             return;
         }
         if (!state.capitalist_budding || GetParliamentarySupport(empire) < config.support_threshold) return;
+        // 时代锁在工业时代以前：进行中的制宪停在原处，解锁后接着走
+        if (TechnologySystem.EraLockBlocksModern) return;
         int minimumYears = InstitutionSystem.GetReformEnvironment(empire).EffectiveMinimumYears;
         state.constitutional_reform_progress = Math.Min(100f,
             state.constitutional_reform_progress + 100f / Math.Max(1, minimumYears));

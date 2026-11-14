@@ -13,6 +13,8 @@ public static class SimulationFrameBudget
     private static bool Enabled => true;
     private const float MaxSpeedFactor = 3f;
     public static double BudgetMilliseconds => _budget;
+    // 独立服务器(不带游戏的开服工具)：没有画面要画，每一步给后台的时间由它定(按世界流速放宽)；游戏里不设，照下面按帧算
+    public static double? ServerMilliseconds;
     public static float SpeedFactor { get; private set; } = 1f;
     public const double TargetFramesPerSecond = 40d;
     public const double TargetFrameMilliseconds = 1000d / TargetFramesPerSecond;
@@ -46,7 +48,7 @@ public static class SimulationFrameBudget
         _spent = 0d;
         _depth = 0;
         SpeedFactor = Mathf.Clamp(Config.time_scale_asset?.multiplier ?? 1f, 1f, MaxSpeedFactor);
-        _budget = ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d)) * SpeedFactor;
+        _budget = ServerMilliseconds ?? ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d)) * SpeedFactor;
         double seconds = Math.Max(0d, Time.unscaledDeltaTime);
         _sampleSeconds += seconds;
         _sampleFrames++;

@@ -239,6 +239,24 @@ public static partial class TerminalHost
         return total < 0 ? string.Format(LM.Get("terminal_fail_scale"), NameOf(other), -total) : Settle(realm, other, action, terms);
     }
 
+    // 归附：宗主是真人的递给他裁，电脑管的看交情(太差的不收)
+    private const int SubmitOpinionFloor = -20;
+
+    private static string SubmitTo(Seat seat, Order order, Kingdom other)
+    {
+        Kingdom realm = seat.Realm;
+        string why = SubmitBlock(realm, other, out Kingdom lord);
+        if (why != null) return why;
+        Seat host = HostOf(lord, seat);
+        if (host != null)
+        {
+            Present(host, seat, order);
+            return Waiting;
+        }
+        if (DiplomacyLedger.Opinion(lord, realm) < SubmitOpinionFloor) return string.Format(LM.Get("terminal_fail_refused"), NameOf(lord));
+        return DoSubmit(realm, other);
+    }
+
     // 把提议递到对面真人手里
     private static void Present(Seat host, Seat from, Order order)
     {
@@ -286,8 +304,9 @@ public static partial class TerminalHost
         if (accept)
         {
             DiplomacyActions.Action action = OpenActions().FirstOrDefault(found => Suffix(found.key) == offer.Action);
-            if (from?.data == null || from.isRekt() || action == null && offer.Action != Trade) failure = LM.Get("terminal_fail_gone");
+            if (from?.data == null || from.isRekt() || action == null && offer.Action != Trade && offer.Action != Submit) failure = LM.Get("terminal_fail_gone");
             else if (offer.Action == Trade) failure = Settle(from, seat.Realm, null, ParseTerms(offer.Terms, from, seat.Realm));
+            else if (offer.Action == Submit) failure = DoSubmit(from, seat.Realm);
             else if (offer.Action == "peace")
             {
                 War war = WarBetween(seat.Realm, from);

@@ -24,6 +24,8 @@ namespace EmpireCraft.Scripts.Terminal;
 //     各席位的状态里都没有它；它也不会因为房间公开就被大厅替人填上——公开不公开，只有凭这个码才进得了管理员；
 //   · 能办的：除名(令牌作废)、收回君主、直接定世界流速(不经流速之议，正在议的当场作罢)、暂停与继续、换普通配对码、
 //     房间公开与否、房间名、席位上限。终端开关、端口、外网地址、大厅线路不开放：改了会把管理员自己的连接切断；
+//   · 锁定时代(用户 2026-11-13 "管理员可以锁定时代")：科技至多到哪个时代，锁在工业时代以前立宪、政党也不新有，
+//     已有的不收回；跟着存档走(见 TechnologySystem.EraLock)；
 //   · 看的是没有迷雾的全图(借一个不领君主的 Seat 走 BuildMap，没领君主的席位本来就给全图)，各国的军照实兵数都看得见。
 // 都在主线程办(命令队列与每秒那一趟)；网络线程只读备好的字符串
 public static partial class TerminalHost
@@ -35,7 +37,7 @@ public static partial class TerminalHost
     // 网页认席位用的记号(令牌的摘要，不把别人的令牌发给管理员)
     private static readonly Dictionary<string, string> SeatKeys = new();
     private static readonly HashSet<string> AdminIds = new()
-        { "kick", "recall", "speed", "pause", "new_code", "room_open", "room_name", "seat_limit" };
+        { "kick", "recall", "speed", "pause", "new_code", "room_open", "room_name", "seat_limit", "era_lock" };
 
     public static string AdminCode => AdminPass.Code;
     public static int AdminCount => AdminByToken.Count;
@@ -183,7 +185,7 @@ public static partial class TerminalHost
             ["loaded"] = true, ["admin"] = true, ["v"] = Version, ["lang"] = LocalizedTextManager.instance?.language ?? "en",
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent, ["slowed"] = Slowed,
             ["paused"] = global::Config.paused, ["page"] = PageVersion(), ["mapStamp"] = god.MapStamp, ["armyStamp"] = god.ArmyStamp,
-            ["monthNo"] = MonthNow(), ["code"] = Code, ["limit"] = TerminalPairing.Limit, ["maxLimit"] = TerminalPairing.MaxSeats,
+            ["monthNo"] = MonthNow(), ["code"] = Code, ["limit"] = TerminalPairing.Limit, ["maxLimit"] = TerminalPairing.MaxLimit,
             ["admins"] = AdminCount,
             ["room"] = new JObject
             {
@@ -224,7 +226,55 @@ public static partial class TerminalHost
         foreach (Report note in god.Reports) notes.Add(new JObject { ["id"] = note.Id, ["k"] = note.Kind, ["a"] = note.Text });
         state["notes"] = notes;
         AddSpeed(state, god);
+        AddEraLock(state);
         return state;
+    }
+
+    // 时代锁定(见 TechnologySystem.EraLock)：眼下锁在哪一档、最先进的文化到了哪一档、各档的名字与这一档的几项科技
+    private static void AddEraLock(JObject state)
+    {
+        state["eraLock"] = TechnologySystem.EraLockTier;
+        state["industrial"] = TechnologySystem.IndustrialTier;
+        try
+        {
+            state["eraTop"] = TechnologySystem.TopEraTier();
+        }
+        catch (Exception)
+        {
+            // 文化表还没备好：不写
+        }
+        var eras = new JArray();
+        foreach ((int tier, string name) in TechnologySystem.EraChoices())
+            eras.Add(new JObject
+            {
+                ["t"] = tier, ["n"] = name,
+                ["s"] = string.Join(LocalizedTextManager.instance?.language is "cz" or "ch" ? "、" : ", ",
+                    TechnologySystem.Techs.Where(tech => tech.tier == tier).Take(4).Select(tech => TechnologySystem.GetTechName(tech.id)))
+            });
+        state["eras"] = eras;
+    }
+
+    // 锁定或解除时代：各位在位的君主都收到一条(电脑上终端窗口解除时 god 为空)
+    public static void LockEra(int tier) => AdminEraLock(null, tier);
+
+    private static void AdminEraLock(Seat god, int tier)
+    {
+        if (tier == TechnologySystem.EraLockTier) return;
+        TechnologySystem.SetEraLock(tier);
+        tier = TechnologySystem.EraLockTier;
+        string name = tier > 0 ? TechnologySystem.EraNameOfTier(tier) : "";
+        string text = tier <= 0 ? LM.Get("terminal_admin_era_unlock")
+            : string.Format(LM.Get(TechnologySystem.EraLockBlocksModern ? "terminal_admin_era_lock_modern" : "terminal_admin_era_lock"), name);
+        foreach (Seat seat in Seats())
+            if (seat.Ruler != null)
+            {
+                Notify(seat, text);
+                // 政令清单里立宪、制度的能办不能办跟着变
+                seat.DecreesCache = null;
+            }
+        if (god != null) AdminNote(god, tier > 0 ? "era_lock" : "era_unlock", name);
+        foreach (Seat other in AdminByToken.Values) other.NextState = 0f;
+        LogService.LogInfo($"[EmpireCraft][终端] 时代锁定：{(tier > 0 ? name : "解除")}");
     }
 
     private static string SeatKey(Seat seat)
@@ -331,10 +381,17 @@ public static partial class TerminalHost
             }
             case "seat_limit":
             {
-                if (!int.TryParse(choice, out int limit) || limit < 1 || limit > TerminalPairing.MaxSeats) return;
+                if (!int.TryParse(choice, out int limit) || limit < 1 || limit > TerminalPairing.MaxLimit) return;
                 EmpireCraft.Scripts.UI.Windows.ModSettingsWindow.SetText("Terminal_Max_Seats_Text", limit.ToString());
                 TerminalPairing.Limit = limit;
                 AdminNote(god, "seat_limit", limit.ToString());
+                break;
+            }
+            case "era_lock":
+            {
+                // 0 = 解除；锁定跟着存档走，世界没读好时不办
+                if (!WorldReady() || !int.TryParse(choice, out int tier) || tier < 0 || tier > TechnologySystem.MaxEraTier) return;
+                AdminEraLock(god, tier);
                 break;
             }
         }

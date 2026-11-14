@@ -1,0 +1,3958 @@
+Assembly-CSharp  CoreSystemObject`1  refs=6030
+      5969  TData data
+        24  Boolean updateColor(ColorAsset pColor)
+        15  Int32 getAge()
+        14  Void loadData(TData pData)
+         4  Boolean isFavorite()
+         2  Void save()
+         2  String getFoundedDate()
+         0  Void Dispose()
+         0  String name { }
+Assembly-CSharp  Kingdom  refs=4252
+       997  City capital
+       806  List`1 cities
+       805  Actor king
+       194  Religion religion
+       182  Boolean isInWarWith(Kingdom pKingdom)
+       164  Boolean wild
+       161  Boolean hasKing()
+       135  IEnumerable`1 getWars(Boolean pRandom)
+       122  Boolean hasEnemies()
+        80  Int32 countTotalWarriors()
+        74  Boolean hasAlliance()
+        74  Alliance getAlliance()
+        66  Boolean hasReligion()
+        39  Boolean hasCapital()
+        37  Boolean isCiv()
+        29  Boolean isNeutral()
+        29  Boolean isEnemy(Kingdom pKingdomTarget)
+        27  Void setKing(Actor pActor, Boolean pFromLoad)
+        23  Void removeKing()
+        21  Boolean isOpinionTowardsKingdomGood(Kingdom pKingdom)
+        20  Int32 countCities()
+        20  Void setCapital(City pCity)
+        16  Void setReligion(Religion pReligion)
+        16  Boolean isInWarOnSameSide(Kingdom pKingdom)
+        14  Culture culture
+        11  KingdomAsset asset
+         9  Clan getKingClan()
+         9  String getSpecies()
+         7  ListPool`1 getEnemiesKingdoms()
+         5  Int32 getMaxCities()
+         4  Vector3 location
+         4  Boolean isSupreme()
+         3  Int32 countWarriorsMax()
+         3  Void kingFledCity()
+         3  Void setUnitMetas(Actor pActor)
+         3  Boolean hasNearbyKingdoms()
+         3  Int32 power
+         2  AiSystemKingdom ai
+         2  Int32 getPopulationTotalPossible()
+         2  Void copyMetasFromOtherKingdom(Kingdom pKingdom)
+         2  Void setCityMetas(City pCity)
+         2  Boolean hasCulture()
+         2  Int32 getPopulationTotal()
+         2  Void setCulture(Culture pCulture)
+         2  Int32 countTotalFood()
+         2  Void clearKingData()
+         2  static Single distanceBetweenKingdom(Kingdom pKingdom, Kingdom pTarget)
+         2  Sprite getSpeciesIcon()
+         2  String getMotto()
+         2  Language language
+         1  Int32 countBuildings()
+         1  Int32 countZones()
+         1  Boolean isAttacker()
+         1  Void increaseHappinessFromNewCityCapture()
+         1  Void decreaseHappinessFromLostCityCapture(City pCity)
+         1  Void capturedFrom(Kingdom pKingdom)
+         1  ActorAsset getFounderSpecies()
+         1  Int32 countWeapons()
+         1  Boolean hasLanguage()
+         1  Int32 countUnhappyCities()
+         1  Religion getReligion()
+         0  Void Dispose()
+         0  Void newCivKingdom(Actor pActor)
+         0  Void loadData(KingdomData pData)
+         0  Int32 getPopulationPeople()
+         0  ColorAsset getColor()
+Assembly-CSharp  NanoObject  refs=3820
+      2345  Int64 id { }
+       598  Boolean isAlive()
+       291  ColorAsset getColor()
+       281  String name { }
+       264  Int64 getID()
+        19  Void setName(String pName, Boolean pTrack)
+        12  MetaType meta_type { }
+         3  Void setHash(Int32 pHash)
+         3  Void setAlive(Boolean pValue)
+         2  Void Dispose()
+         2  Boolean hasDied()
+         0  Void setDefaultValues()
+Assembly-CSharp  Actor  refs=3769
+       734  ActorData data
+       593  String getName()
+       286  City city
+       254  Boolean isKing()
+       164  Boolean isAdult()
+       157  Boolean hasTrait(String pTraitID)
+       123  ActorAsset asset
+       101  Int32 renown { }
+        88  Int32 getAge()
+        80  Clan clan
+        69  Boolean isCityLeader()
+        67  Void joinCity(City pCity)
+        60  Int32 money { }
+        60  Plot plot
+        48  Boolean isWarrior()
+        47  Culture culture
+        40  Boolean isUnitFitToRule()
+        37  Actor lover
+        37  Family family
+        34  Boolean isSexMale()
+        30  Boolean addTrait(String pTraitID, Boolean pRemoveOpposites)
+        28  IEnumerable`1 getParents()
+        27  Void setReligion(Religion pObject)
+        25  IEnumerable`1 getChildren(Boolean pOnlyCurrentFamily)
+        24  Int32 stewardship { }
+        23  Religion religion
+        21  Boolean hasCulture()
+        21  Void removeTrait(String pTraitID)
+        20  Boolean hasClan()
+        20  Subspecies subspecies
+        18  Int32 warfare { }
+        18  Void addMoney(Int32 pValue)
+        16  Void joinKingdom(Kingdom pKingdom)
+        16  Int32 intelligence { }
+        15  ExecuteEvent goTo(WorldTile pTile, Boolean pPathOnWater, Boolean pWalkOnBlocks, Boolean pWalkOnLava, Int32 pLimitPathfindingRegions)
+        14  Boolean isFavorite()
+        13  Void setKingdom(Kingdom pKingdomToSet)
+        13  Void setClan(Clan pObject)
+        13  Boolean isSexFemale()
+        13  Void removeFromArmy()
+        12  Boolean hasFamily()
+        12  Void setCulture(Culture pCulture)
+        12  Boolean hasArmy()
+        11  Boolean isCameraFollowingUnit()
+        11  Language language
+        10  Boolean hasPlot()
+         9  ActorEquipment equipment
+         9  Boolean isSapient()
+         8  Boolean hasLover()
+         8  Void die(Boolean pDestroy, AttackType pType, Boolean pCountDeath, Boolean pLogFavorite)
+         7  Boolean hasReligion()
+         7  Boolean is_army_captain { }
+         7  Army army
+         7  Boolean has_attack_target
+         6  Int32 age { }
+         6  Void stopBeingWarrior()
+         5  Void setCity(City pCity)
+         5  Void setLover(Actor pActor)
+         4  Int32 level { }
+         4  Int32 diplomacy { }
+         4  ProfessionAsset profession_asset
+         4  Void setTask(String pTaskId, Boolean pClean, Boolean pCleanJob, Boolean pForceAction)
+         4  AnimationContainerUnit animation_container
+         4  Boolean hasReachedOffspringLimit()
+         4  Void setPlot(Plot pObject)
+         3  Void spendMoney(Int32 pCost)
+         3  CitizenJobAsset citizen_job
+         3  Void setProfession(UnitProfession pType, Boolean pCancelBeh)
+         3  Void setLanguage(Language pObject)
+         3  Void setCurrentTilePosition(WorldTile pTile)
+         3  Void createDefaultCultureAndLanguageAndClan(String pCultureName)
+         3  Boolean hasLanguage()
+         3  DecisionAsset[] decisions
+         3  Boolean canBreed()
+         3  Boolean is_visible
+         3  Void cancelAllBeh()
+         3  Boolean isFighting()
+         3  Void setAttackTarget(BaseSimObject pAttackTarget)
+         2  ActorAsset getActorAsset()
+         2  HashSet`1 traits
+         2  Building getHomeBuilding()
+         2  String generateName(MetaType pType, Int64 pSeed, ActorSex pSex)
+         2  Boolean isParentOf(Actor pActor)
+         2  Boolean hasXenophobic()
+         2  Void setArmy(Army pObject)
+         2  Void becomeLoversWith(Actor pTarget)
+         2  NanoObject getMetaObjectOfType(MetaType pType)
+         2  Void setDecisionState(Int32 pIndex, Boolean pState)
+         2  Boolean isImportantPerson()
+         2  Int32 current_children_count { }
+         2  Void clearOldPath()
+         2  PersonalityAsset s_personality
+         2  WorldTile tile_target
+         2  WorldTile beh_tile_target
+         2  WorldTile _next_step_tile
+         2  Int32 loot { }
+         1  Boolean is_profession_citizen { }
+         1  BaseSimObject attackedBy
+         1  Void endJob()
+         1  Int32 getMaxNutrition()
+         1  Boolean understandsHowToUseItems()
+         1  Building beh_building_target
+         1  Boolean hasEnoughMoney(Int32 pCost)
+         1  Boolean canFallInLoveWith(Actor pTarget)
+         1  Void joinLanguage(Language pLanguage)
+         1  Void calcAgeStates()
+         1  Void setParent1(Actor pParentActor, Boolean pIncreaseChildren)
+         1  Void setParent2(Actor pActor, Boolean pIncreaseChildren)
+         1  Boolean is_inside_boat
+         1  Boat inside_boat
+         1  Void disembarkTo(Boat pBoat, WorldTile pTile)
+         1  Void exitBoat()
+         1  T getSimpleComponent()
+         1  Boolean isEgg()
+         1  Boolean isBaby()
+         1  Boolean hasSubspecies()
+         1  Boolean haveNutritionForNewBaby()
+         1  List`1 current_path
+         1  SplitPathStatus split_path
+         1  Boolean changeHappiness(String pID, Int32 pValue)
+         1  Boolean _update_done
+         1  Boolean _beh_skip
+         1  Boolean is_unconscious { }
+         1  Boolean _has_status_possessed
+         1  Boolean isBreedingAge()
+         1  EquipmentAsset getWeaponAsset()
+         1  Boolean dirty_current_tile
+         1  Boolean isInMagnet()
+         1  Void setIsMoving()
+         1  Boolean isImmuneToFire()
+         1  Void setCurrentTile(WorldTile pTile)
+         1  Void checkStepActionForTile(WorldTile pTile)
+         1  Vector2 next_step_position
+         1  Void addRenown(Int32 pValue)
+         1  Void leavePlot()
+         1  Void dieAndDestroy(AttackType pType)
+         1  Void lootEmpty()
+         1  Single getMaturationTimeSeconds()
+         1  Boolean isArmyGroupLeader()
+         1  Boolean isArmyGroupWarrior()
+         1  Void warWon(War pWar)
+         1  Void warLost(War pWar)
+         1  Void madePeace(War pWar)
+         0  Void setFamily(Family pObject)
+         0  Void setDefaultValues()
+         0  Void Dispose()
+         0  Void showTooltip(Object pUiObject)
+         0  Void actionLanded()
+         0  Void updateAge()
+         0  Boolean checkNaturalDeath()
+         0  Void updateStats()
+         0  Void getHit(Single pDamage, Boolean pFlash, AttackType pAttackType, BaseSimObject pAttacker, Boolean pSkipIfShake, Boolean pMetallicWeapon, Boolean pCheckDamageReduction)
+         0  Void updateMovement(Single pElapsed, Single pWalkedDistance)
+         0  Void increaseKills()
+         0  Void giveInventoryResourcesToCity()
+         0  Void u1_checkInside(Single pElapsed)
+         0  Void checkAnimationContainer()
+         0  Sprite calculateMainSprite()
+         0  Boolean isPlacePrivateForBreeding()
+         0  Void updateRotations(Single pElapsed)
+         0  Void updateChangeScale(Single pElapsed)
+         0  Void updateWalkJump(Single pElapsed)
+         0  Void updateFlipRotation(Single pElapsed)
+         0  Void b3_findEnemyTarget(Single pElapsed)
+         0  Void b6_0_updateDecision(Single pElapsed)
+         0  static Single POSSESSION_ATTACK_SECONDS
+         0  static Single FIND_TILE_SQ_DIST
+         0  static Single CUR_SQ_DIST
+         0  static Single NEW_SQ_DIST
+Assembly-CSharp  City  refs=3767
+      1684  Kingdom kingdom
+       341  List`1 zones
+       304  WorldTile getTile(Boolean pForceRecalc)
+       190  Vector2 city_center
+       117  Actor leader
+       100  Religion religion
+        99  HashSet`1 neighbours_cities
+        77  List`1 buildings
+        76  Void joinAnotherKingdom(Kingdom pNewSetKingdom, Boolean pCaptured, Boolean pRebellion)
+        54  Int32 getResourcesAmount(String pResourceID)
+        53  CityStatus status
+        42  Boolean isCapitalCity()
+        35  Boolean hasReligion()
+        34  HashSet`1 neighbours_kingdoms
+        31  Kingdom makeOwnKingdom(Actor pActor, Boolean pRebellion, Boolean pFellApart)
+        23  Boolean hasLeader()
+        23  Void removeLeader()
+        23  Void addZone(TileZone pZone)
+        18  WorldTile _city_tile
+        18  Void takeResource(String pResourceID, Int32 pAmount)
+        17  Int32 countBuildingsType(String pBuildingTypeID, Boolean pCountOnlyFinished)
+        17  Building getBuildingOfType(String pBuildingTypeID, Boolean pCountOnlyFinished, Boolean pRandom, Boolean pOnlyFreeTile, TileIsland pLimitIsland)
+        16  Building under_construction_building
+        15  Culture culture
+        14  Int32 getTotalFood()
+        14  Int32 getLoyalty(Boolean pForceRecalc)
+        13  Int32 addResourcesToRandomStockpile(String pResourceID, Int32 pAmount)
+        12  Boolean hasBuildingType(String pBuildingTypeID, Boolean pCountOnlyFinished, TileIsland pLimitIsland)
+        11  String getSpecies()
+        11  Boolean hasKingdom()
+        10  Int32 getPopulationMaximum()
+        10  Int32 _storage_version
+         9  Int32 countWarriors()
+         9  Kingdom being_captured_by
+         8  Void removeZone(TileZone pZone)
+         8  Void makeWarrior(Actor pActor)
+         8  Void clearCapture()
+         7  Void setLeader(Actor pActor, Boolean pNew)
+         7  List`1 road_tiles_to_build
+         7  Language language
+         6  Void setReligion(Religion pReligion)
+         6  HashSet`1 border_zones
+         6  Boolean checkCanMakeWarrior(Actor pActor)
+         5  Void setStatusDirty()
+         5  Army army
+         5  WorldTileContainer calculated_place_for_farms
+         5  WorldTileContainer calculated_farm_fields
+         5  Single _capture_ticks
+         5  Void finishCapture(Kingdom pNewKingdom)
+         5  Boolean hasZones()
+         4  List`1 _boats
+         4  Void setKingdom(Kingdom pKingdom, Boolean pFromLoad)
+         4  Boolean isNeutral()
+         4  Boolean hasEnoughResourcesFor(ConstructionCost pCost)
+         4  Void spendResourcesForBuildingAsset(ConstructionCost pCost)
+         4  Building getRandomStockpile()
+         4  Subspecies getMainSubspecies()
+         4  Boolean hasBookSlots()
+         4  Building getBuildingWithBookSlot()
+         4  Boolean canGrowZones()
+         4  Void setUnitMetas(Actor pActor)
+         4  Dictionary`2 _capturing_units
+         3  Void removeFromCurrentKingdom()
+         3  Void newForceKingdomEvent(List`1 pUnits, List`1 pBoats, Kingdom pKingdom, String pHappinessEvent)
+         3  Void switchedKingdom()
+         3  Int32 getMaxWarriors()
+         3  Void updateCityStatus()
+         3  CitizenJobs jobs
+         3  Void checkArmyExistence()
+         3  Boolean hasArmy()
+         3  Boolean isHappy()
+         3  WorldTileContainer calculated_grown_wheat
+         3  WorldTileContainer calculated_crops
+         3  Culture getCulture()
+         3  Int32 last_visual_capture_ticks
+         2  Int32 countZones()
+         2  List`1 getBuildingListOfID(String pBuildingID)
+         2  Void turnCityToNeutral()
+         2  Boolean hasCulture()
+         2  Void recalculateMaxHouses()
+         2  Void updateCityCenter()
+         2  Boolean isGettingCaptured()
+         2  Void disbandArmy()
+         2  Double timestamp_shrink
+         2  TileZone target_attack_zone
+         2  Int32 countBuildingsOfID(String pBuildingID)
+         2  Boolean reachableFrom(City pCity)
+         2  Single timer_build_boat
+         1  Void addRoads(List`1 pTiles)
+         1  WorldTile getRoadTileToBuild(Actor pBuilder)
+         1  Boolean hasStockpiles()
+         1  HashSet`1 neighbours_cities_kingdom
+         1  Int32 countBooks()
+         1  Book getRandomBook()
+         1  List`1 getEquipmentList(EquipmentType pType)
+         1  static Boolean giveItem(Actor pActor, List`1 pItems, City pCity)
+         1  Void recalculateCityTile()
+         1  Void setLanguage(Language pLanguage)
+         1  Void newCityEvent(Actor pActor)
+         1  Boolean hasReachedWorldLawLimit()
+         1  Boolean hasFreeHouseSlots()
+         1  Double _loyalty_last_time
+         1  Vector2 last_city_center
+         1  Boolean isZoneToClaimStillGood(Actor pActor, TileZone pZone, WorldTile pCityTile)
+         1  Void setAbandonedZonesDirty()
+         1  City target_attack_city
+         1  Int32 getHouseLimit()
+         1  Void addCapturePoints(BaseSimObject pObject, Int32 pValue)
+         1  Void addCapturePoints(Kingdom pKingdom, Int32 pValue)
+         1  Int32 getLimitOfBuildingsType(BuildOrder pElement)
+         1  Kingdom findKingdomToJoinAfterCapture(Kingdom pKingdom, ListPool`1 pWars)
+         1  Boolean checkRebelWar(Kingdom pKingdomToJoin, ListPool`1 pWars)
+         1  Void removeSoldiers()
+         1  Void recalculateNeighbourCities()
+         1  Void addRuler(Actor pActor)
+         1  ActorAsset getFounderSpecies()
+         1  Single mark_scale_effect
+         1  Boolean isValidTargetForWar()
+         1  Single getArmyMaxMultiplier()
+         1  Int32 countWeapons()
+         1  Religion getReligion()
+         1  Boolean hasSuitableFood(Subspecies pSubspecies)
+         1  ResourceAsset getRandomSuitableFood(Subspecies pSubspecies)
+         1  Int32 countBuildings()
+         0  ResourceAsset getFoodItem(Subspecies pSubspecies, String pFavoriteFood)
+         0  Void eatFoodItem(String pItem)
+         0  Void updateCapture(Single pElapsed)
+         0  ActorAsset getActorAsset()
+         0  Void destroyCity()
+         0  Boolean isArmyOverLimit()
+         0  Void Dispose()
+         0  Void update(Single pElapsed)
+         0  Void useInspire(Actor pActor)
+         0  Boolean tryToMakeWarrior(Actor pActor)
+         0  Int32 getPopulationPeople()
+         0  Void updateConquest(Actor pActor)
+         0  Boolean planAllowsToPlaceBuildingInZone(TileZone pZone, TileZone pCenterZone)
+         0  Void updateAge()
+         0  Boolean hasAnyFood()
+Assembly-CSharp  NanoObjectExtensions  refs=3419
+      3419  static Boolean isRekt(NanoObject pObject)
+Assembly-CSharp  World  refs=3235
+      3227  static MapBox world { }
+         8  static WorldAgeAsset world_era { }
+Assembly-CSharp  MapBox  refs=2945
+       838  Double getCurWorldTime()
+       521  KingdomManager kingdoms
+       461  CityManager cities
+       219  ActorManager units
+       153  ZoneCalculator zone_calculator
+       104  WorldTile GetTile(Int32 pX, Int32 pY)
+        92  DiplomacyManager diplomacy
+        86  WarManager wars
+        60  ReligionManager religions
+        52  static Int32 width
+        47  static Int32 height
+        30  AllianceManager alliances
+        29  MetaTypeAsset getCachedMapMetaAsset()
+        24  PlotManager plots
+        23  WorldTile[] tiles_list
+        20  WorldTile GetTileSimple(Int32 pX, Int32 pY)
+        18  CultureManager cultures
+        18  BuildingManager buildings
+        16  ClanManager clans
+        14  BookManager books
+        13  MapStats map_stats
+         8  WorldTile getMouseTilePosCachedFrame()
+         6  Camera camera { }
+         6  GameStats game_stats
+         6  MapChunkManager map_chunk_manager
+         6  Boolean isBusyWithUI()
+         6  Boolean isSelectedPower(String pPower)
+         5  MoveCamera move_camera { }
+         5  Double getCurSessionTime()
+         5  Vector2 getMousePos()
+         4  Boolean isPaused()
+         4  WorldLaws world_laws
+         3  CityZoneHelper city_zone_helper
+         3  Boolean isAnyPowerSelected()
+         3  ArmyManager armies
+         2  Void loopWithBrush(WorldTile pCenterTile, BrushData pBrush, PowerAction pAction, GodPower pPower)
+         2  AStarParam pathfinding_param
+         2  FamilyManager families
+         2  ItemManager items
+         2  LanguageManager languages
+         2  WorldAgeManager era_manager
+         2  Single getWorldTimeElapsedSince(Double pTime)
+         2  static Boolean isRenderGameplay()
+         2  ZoneCamera zone_camera { }
+         2  static Int32 current_world_seed_id
+         1  PlayerControl player_control
+         1  Boolean calcPath(WorldTile pFrom, WorldTile pTargetTile, List`1 pSavePath)
+         1  Void resetRedrawTimer()
+         1  LoadingScreen transition_screen
+         1  Void redrawTiles()
+         1  Void preloadRenderedSprites()
+         1  Void finishMakingWorld()
+         1  Void lastGC()
+         1  Void addLoadWorldCallbacks()
+         1  Void finishingUpLoading()
+         1  Void addClearWorld(Int32 pNextWidth, Int32 pNextHeight)
+         1  Void setMapSize(Int32 pWidth, Int32 pHeight)
+         1  HotkeyTabsData hotkey_tabs_data
+         1  Void cleanUpWorld(Boolean pSetChunksDirty)
+         1  static Boolean isRenderMiniMap()
+         1  WorldLayer world_layer
+         1  HashSet`1 tiles_dirty
+         0  Void redrawMiniMap(Boolean pForce)
+         0  Void updateMapLayers(Single pElapsed)
+         0  Void updateBuildings(Single pElapsed)
+         0  Void Update()
+         0  Int32 getCivWorldPopulation()
+         0  Actor getActorNearCursor()
+         0  Void checkEventBuildingsDestroy()
+         0  Void startTheGame(Boolean pForceGenerate)
+         0  Void clearWorld()
+         0  Single calculateCurElapsed()
+         0  static Single TRANSITION_EFFECT_ALPHA
+         0  static Single TRANSITION_EFFECT_ALPHA_SPEED
+[hand] UnityEngine.CoreModule  UnityEngine.Mathf  refs=2825
+       409  static Single Max(Single a, Single b)
+       383  static Int32 RoundToInt(Single f)
+       326  static Int32 Max(Int32 a, Int32 b)
+       285  static Single Min(Single a, Single b)
+       178  static Single Clamp01(Single value)
+       172  static Single Clamp(Single value, Single min, Single max)
+       167  static Int32 Min(Int32 a, Int32 b)
+       150  static Int32 FloorToInt(Single f)
+       138  static Int32 Clamp(Int32 value, Int32 min, Int32 max)
+       120  static Single Abs(Single f)
+       109  static Int32 Abs(Int32 value)
+       103  static Int32 CeilToInt(Single f)
+        72  static Single Sqrt(Single f)
+        49  static Single Cos(Single f)
+        45  static Single Sin(Single f)
+        33  static Single Lerp(Single a, Single b, Single t)
+        15  static Single Pow(Single f, Single p)
+        10  static Single Atan2(Single y, Single x)
+         8  static Single MoveTowards(Single current, Single target, Single maxDelta)
+         8  static Single Exp(Single power)
+         7  static Single Floor(Single f)
+         6  static Single Round(Single f)
+         6  static Single DeltaAngle(Single current, Single target)
+         5  static Boolean Approximately(Single a, Single b)
+         5  static Single Log10(Single f)
+         4  static Int32 Max(Int32[] values)
+         4  static Single Log(Single f)
+         2  static Single InverseLerp(Single a, Single b, Single value)
+         2  static Single Ceil(Single f)
+         1  static Single Log(Single f, Single p)
+         1  static Single Min(Single[] values)
+         1  static Int32 Min(Int32[] values)
+         1  static Single Sign(Single f)
+         0  static Single PI
+         0  static Single Infinity
+         0  static Single NegativeInfinity
+         0  static Single Deg2Rad
+         0  static Single Rad2Deg
+         0  static Int32 kMaxDecimals
+[hand] NeoModLoader  NeoModLoader.General.LM  refs=2823
+      2740  static String Get(String key)
+        59  static Boolean Has(String key, String lang)
+        17  static Void LoadLocales(String pFilePath, Char pSep)
+         4  static Void AddToCurrentLocale(String key, String value)
+         3  static Void ApplyLocale(Boolean pUpdateTexts)
+Assembly-CSharp  TileZone  refs=2471
+       888  Int32 id
+       486  City city
+       206  Int32 y
+       204  Int32 x
+       168  WorldTile centerTile
+       126  WorldTile[] tiles
+       117  TileZone[] neighbours_all
+        70  TileZone[] neighbours
+        26  Void resetRenderHelpers()
+        26  Int32 tiles_with_ground
+        22  Boolean world_edge
+        20  TileZone zone_up
+        20  TileZone zone_right
+        19  TileZone zone_down
+        19  TileZone zone_left
+        13  HashSet`1 getHashset(BuildingList pType)
+         7  Boolean visible
+         6  Int32 tiles_with_liquid
+         6  Boolean canStartCityHere()
+         5  Boolean canBeClaimedByCity(City pCity)
+         4  Boolean checkCanSettleInThisBiomes(Subspecies pSubspecies)
+         3  Nullable`1 _last_animated
+         2  Int32 last_drawn_id
+         2  Int32 last_drawn_hashcode
+         2  Int32 last_color_asset_id
+         1  Alliance getAllianceOnZone(Int32 pZoneOption)
+         1  Void setCity(City pCity)
+         1  IMetaObject getKingdomOnZone(Int32 pZoneOption)
+         1  Boolean hasCity()
+         0  Boolean checkShouldReRender(Int32 pHashCode, Int32 pID, Int32 pColorAssetID, Boolean pLastAnimated)
+         0  static Int32 MAX_BUILDING_COLLECTIONS
+Assembly-CSharp  WorldTile  refs=1673
+       502  TileZone zone
+       273  TileTypeBase Type { }
+       222  Int32 x
+       218  Int32 y
+        85  WorldTileData data
+        53  TileType main_type
+        43  Boolean isSameIsland(WorldTile pTile)
+        30  Vector3 posV
+        29  TopTileType top_type
+        27  MapRegion region
+        20  Vector3 posV3
+        19  City zone_city { }
+        19  Int32 Height { }
+        17  Building building
+        14  WorldTile tile_up
+        13  WorldTile tile_left
+        12  WorldTile tile_down
+        11  WorldTile tile_right
+         9  Boolean reachableFrom(WorldTile pFromTile)
+         8  Void setTileTypes(TileType pType, TopTileType pTopTile, Boolean pSetDirty)
+         6  Boolean hasBuilding()
+         6  Void setTileTypes(String pType, TopTileType pTopTile)
+         6  Int32 flash_state
+         5  WorldTile[] neighboursAll
+         4  Boolean isGoodForBoat()
+         3  Boolean hasCity()
+         3  TileIsland road_island
+         3  WorldTile[] neighbours
+         3  Boolean canBuildOn(BuildingAsset pNewTemplate)
+         2  WorldTileZoneBorder world_tile_zone_border
+         2  Boolean isOnFire()
+         2  Vector2Int pos
+         1  Color32 getColor()
+         1  MapChunk chunk
+         1  Void setTileType(String pType)
+         1  ColorArray color_array
+         0  Void setTopTileType(TopTileType pTopTile, Boolean pUpdateStats)
+         0  Void setTileType(TileType pType, Boolean pSetDirty)
+         0  static Int32 DEFAULT_HEALTH
+[hand] NeoModLoader  NeoModLoader.services.LogService  refs=1303
+       668  static Void LogInfo(String message)
+       590  static Void LogWarning(String message)
+        45  static Void LogError(String message)
+         0  static Int32 pool_size
+Assembly-CSharp  BaseSystemData  refs=1143
+       606  String name { }
+       472  Int64 id { }
+        45  Double created_time { }
+        10  CustomDataContainer`1 custom_data_bool
+         3  Double died_time { }
+         3  CustomDataContainer`1 custom_data_string
+         1  Boolean custom_name { }
+         1  Void get(String pKey, Int32& pResult, Int32 pDefault)
+         1  Void get(String pKey, Int64& pResult, Int64 pDefault)
+         1  Void get(String pKey, Single& pResult, Single pDefault)
+Assembly-CSharp  BaseSimObject  refs=1084
+       812  Kingdom kingdom
+       128  WorldTile current_tile
+        33  BaseStats stats
+        25  Boolean hasCity()
+        23  Boolean hasKingdom()
+         9  Actor a
+         7  Boolean isActor()
+         6  Int32 getHealth()
+         6  Vector2 current_position
+         6  Boolean isKingdomCiv()
+         5  Void setHealth(Int32 pValue, Boolean pClamp)
+         5  Boolean hasStatus(String pID)
+         5  TileZone current_zone { }
+         4  Boolean addStatusEffect(String pID, Single pOverrideTimer, Boolean pColorEffect)
+         4  Int32 getMaxHealth()
+         2  Void setStatsDirty()
+         1  Void finishStatusEffect(String pID)
+         1  Void getHitFullHealth(AttackType pAttackType)
+         1  Single getHeight()
+         1  City getCity()
+         0  Void setDefaultValues()
+         0  Void Dispose()
+         0  Void updateStats()
+         0  Void getHit(Single pDamage, Boolean pFlash, AttackType pAttackType, BaseSimObject pAttacker, Boolean pSkipIfShake, Boolean pMetallicWeapon, Boolean pCheckDamageReduction)
+         0  Boolean canAttackTarget(BaseSimObject pTarget, Boolean pCheckForFactions, Boolean pAttackBuildings)
+Assembly-CSharp  War  refs=933
+       178  Boolean hasEnded()
+       115  Kingdom main_attacker { }
+       113  Kingdom main_defender { }
+        81  List`1 _list_attackers
+        73  Boolean isAttacker(Kingdom pKingdom)
+        65  List`1 _list_defenders
+        61  Boolean isDefender(Kingdom pKingdom)
+        57  Kingdom getMainAttacker()
+        40  Boolean hasKingdom(Kingdom pKingdom)
+        40  Kingdom getMainDefender()
+        26  Void joinAttackers(Kingdom pKingdom)
+        25  Void joinDefenders(Kingdom pKingdom)
+        12  WarTypeAsset getAsset()
+        10  Void lostWar(Kingdom pKingdom)
+         9  Boolean isTotalWar()
+         6  Void leaveWar(Kingdom pKingdom)
+         5  IEnumerable`1 getAttackers()
+         3  IEnumerable`1 getDefenders()
+         3  Int32 getDuration()
+         2  Boolean isInWarWith(Kingdom pKingdom, Kingdom pTarget)
+         2  Boolean isMainDefender(Kingdom pKingdom)
+         1  Boolean isSameAs(War pWar)
+         1  Boolean isMainAttacker(Kingdom pKingdom)
+         1  Int32 getDeadDefenders()
+         1  Int32 getDeadAttackers()
+         1  Void setWinner(WarWinner pWinner)
+         1  Void endForSides(WarWinner pWinner)
+         1  Int32 getYearStarted()
+         0  Void removeFromWar(Kingdom pKingdom, Boolean pInPeace)
+         0  Void Dispose()
+         0  Void update()
+Assembly-CSharp  SystemManager`2  refs=783
+       765  TObject get(Int64 pID)
+         8  Void update(Single pElapsed)
+         4  Void removeObject(TObject pObject)
+         2  String type_id
+         2  Void addObject(TObject pObject)
+         2  TObject newObjectFromID(Int64 pID)
+         0  Void clear()
+Assembly-CSharp  AssetLibrary`1  refs=718
+       300  T add(T pAsset)
+       195  T t
+       108  T get(String pID)
+        58  List`1 list
+        43  Dictionary`2 dict
+        10  T clone(String pNew, String pFrom)
+         2  Boolean has(String pID)
+         2  static TA[] a(TA[] pArgs)
+Assembly-CSharp  Date  refs=705
+       499  static Int32 getYearsSince(Double pFrom)
+       131  static Int32 getMonthsSince(Double pFrom)
+        39  static Int32 getCurrentYear()
+        25  static String getDate(Double pTime)
+         5  static Int32 getCurrentMonth()
+         4  static Int32 getMonth(Double pTimestamp)
+         2  static Int32 getYear(Double pTime)
+Assembly-CSharp  Asset  refs=639
+       630  String id
+         7  Void create()
+         2  Int32 _index
+         0  static String DEFAULT_ASSET_ID
+Assembly-CSharp  PlotAsset  refs=603
+        72  PlotCheckerDelegate check_is_possible
+        66  PlotAction action
+        57  Boolean is_basic_plot
+        56  Void .ctor()
+        55  PlotCheckerDelegate check_should_continue
+        54  Single progress_needed
+        53  Boolean can_be_done_by_king
+        50  Int32 min_level
+        38  PlotTryToStart try_to_start_advanced
+        25  PlotCheckerDelegate check_can_be_forced
+        15  Int32 money_cost
+        11  Boolean can_be_done_by_leader
+         8  Boolean requires_diplomacy
+         7  Boolean can_be_done_by_clan_member
+         5  Int32 min_renown_kingdom
+         4  Int32 min_warfare
+         4  Int32 min_renown_actor
+         4  Boolean check_target_war
+         4  Boolean check_target_kingdom
+         3  Int32 min_diplomacy
+         3  PlotActorPlotDelegate check_other_plots
+         2  Boolean isAllowedByWorldLaws()
+         2  Int32 min_stewardship
+         1  PlotAction post_action
+         1  Boolean canBeDoneByRole(Actor pActor)
+         1  Int32 min_intelligence
+         1  Boolean requires_rebellion
+         1  Boolean check_target_alliance
+         0  Boolean checkIsPossible(Actor pActor, Boolean pWorldLawsCheck)
+[hand] UnityEngine.CoreModule  UnityEngine.Vector2  refs=585
+       135  Void .ctor(Single x, Single y)
+        97  Single y
+        93  Single x
+        49  static Single Distance(Vector2 a, Vector2 b)
+        45  static Vector2 op_Subtraction(Vector2 a, Vector2 b)
+        34  static Vector3 op_Implicit(Vector2 v)
+        23  Single sqrMagnitude { }
+        17  static Vector2 zero { }
+        16  static Vector2 op_Implicit(Vector3 v)
+        14  static Vector2 op_Addition(Vector2 a, Vector2 b)
+        12  Single magnitude { }
+         9  static Vector2 op_Division(Vector2 a, Single d)
+         8  static Vector2 Lerp(Vector2 a, Vector2 b, Single t)
+         8  static Single Dot(Vector2 lhs, Vector2 rhs)
+         7  static Vector2 op_Multiply(Vector2 a, Single d)
+         5  static Vector2 one { }
+         4  static Vector2 op_Multiply(Single d, Vector2 a)
+         3  static Single SqrMagnitude(Vector2 a)
+         3  Vector2 normalized { }
+         3  static Vector2 right { }
+         0  static Single kEpsilon
+         0  static Single kEpsilonNormalSqrt
+Assembly-CSharp  MetaObject`1  refs=578
+       283  List`1 units { }
+        59  IEnumerable`1 getCities()
+        55  Int32 getPopulationPeople()
+        36  IEnumerable`1 getUnits()
+        24  ColorAsset _cached_color
+        20  ActorAsset getActorAsset()
+        12  Void .ctor()
+        11  Int32 countUnits()
+        11  Boolean hasCities()
+         9  ColorLibrary getColorLibrary()
+         7  Int32 getRenown()
+         6  MetaTypeAsset meta_type_asset { }
+         5  Void generateColor()
+         4  Boolean _units_dirty
+         3  Sprite getSpriteIcon()
+         2  ColorAsset getColor()
+         2  Int64 getTotalDeaths()
+         2  Int32 countHappyUnits()
+         2  Int32 countChildren()
+         2  Int32 countAdults()
+         2  Void generateBanner()
+         1  Void generateNewMetaObject()
+         1  Void setDefaultValues()
+         1  Int32 countTotalMoney()
+         1  Int32 countSick()
+         1  Int32 countHungry()
+         1  Int32 countStarving()
+         1  Int32 countHomeless()
+         1  IEnumerable`1 getFamilies()
+         1  Boolean hasFamilies()
+         1  Int32 countMales()
+         1  Int32 countFemales()
+         1  Int32 countHoused()
+         1  Actor getRandomUnit()
+         1  Void clearCursorOver()
+         1  Void preserveAlive()
+         1  Void clearListUnits()
+         1  Boolean isCursorOver()
+         1  Int32 countFamilies()
+         1  Int64 getTotalBirths()
+         1  Int64 getTotalKills()
+         1  Void addRenown(Int32 pAmount)
+         0  Void Dispose()
+         0  Boolean isReadyForRemoval()
+[hand] UnityEngine.CoreModule  UnityEngine.Object  refs=523
+       354  static Boolean op_Equality(Object x, Object y)
+       119  static Boolean op_Inequality(Object x, Object y)
+        20  String name { }
+        13  static T Instantiate(T original)
+         8  static Void Destroy(Object obj)
+         3  static Void DontDestroyOnLoad(Object target)
+         2  Int32 GetInstanceID()
+         1  static T[] FindObjectsOfType()
+         1  HideFlags hideFlags { }
+         1  static T Instantiate(T original, Transform parent)
+         1  static Void DestroyImmediate(Object obj)
+         0  static String objectIsNullMessage
+         0  static String cloneDestroyedMessage
+[hand] UnityEngine.CoreModule  UnityEngine.Color32  refs=502
+       246  Void .ctor(Byte r, Byte g, Byte b, Byte a)
+        66  Byte a
+        60  Byte r
+        59  Byte g
+        59  Byte b
+         5  static Color32 Lerp(Color32 a, Color32 b, Single t)
+         4  static Color op_Implicit(Color32 c)
+         3  static Color32 op_Implicit(Color c)
+Assembly-CSharp  WorldLogAsset  refs=491
+        99  WorldLogTextFormatter text_replacer
+        98  Color color
+        97  String group
+        97  String path_icon
+        96  Void .ctor()
+         2  Int32 random_ids
+         1  String getLocaleID(Int32 pIndex)
+         1  String getLocaleID()
+[hand] UnityEngine.CoreModule  UnityEngine.Random  refs=461
+       394  static Single value { }
+        56  static Int32 Range(Int32 minInclusive, Int32 maxExclusive)
+        11  static Single Range(Single minInclusive, Single maxInclusive)
+Assembly-CSharp  MetaTypeAsset  refs=447
+        54  MetaType map_mode
+        54  Int32 getZoneOptionState()
+        19  MetaZoneGetMeta tile_get_metaobject
+        16  MetaZoneDrawAction draw_zones
+        14  MetaZoneGetMetaSimple tile_get_metaobject_0
+        13  MetaZoneTooltipAction check_cursor_tooltip
+        13  String power_option_zone_id
+        12  Boolean isActive(Boolean pOnlyOption)
+        11  MetaZoneHighlightAction check_cursor_highlight
+        11  MetaZoneClickAction click_action_zone
+        10  MetaZoneTooltipAction check_tile_has_meta
+        10  String option_id
+         9  Void .ctor()
+         9  Int32[] ranks
+         9  String window_name
+         9  String power_tab_id
+         9  Boolean force_zone_when_selected
+         9  Boolean set_icon_for_cancel_button
+         9  String icon_list
+         9  String icon_single_path
+         9  Boolean has_dynamic_zones
+         9  String[] reports
+         9  MetaTypeAction window_action_clear
+         9  MetaTypeHistoryAction window_history_action_update
+         9  MetaTypeHistoryAction window_history_action_restore
+         9  MetaTypeListAction get_list
+         9  MetaTypeListHasAction has_any
+         9  MetaSelectedGetter get_selected
+         9  MetaSelectedSetter set_selected
+         9  MetaGetter get
+         9  MetaCheckUnitWindowAction check_unit_has_meta
+         9  MetaUnitSetMetaForWindow set_unit_set_meta_for_meta_for_window
+         5  MetaZoneGetMetaSimple tile_get_metaobject_1
+         5  MetaZoneGetMetaSimple tile_get_metaobject_2
+         5  MetaTooltipShowAction cursor_tooltip_action
+         4  Boolean isMetaZoneOptionSelectedFluid()
+         2  Int32 dynamic_zone_option
+         2  MetaTypeActionAsset selected_tab_action_meta
+         2  MetaZoneDynamicAction dynamic_zones
+         2  MetaStatAction stat_hover
+         2  MetaStatAction stat_click
+         1  OptionAsset option_asset
+         0  Void selectAndInspect(NanoObject pNewNanoObject, Boolean pFromNameplate, Boolean pCheckNameplate, Boolean pClearAction)
+Assembly-CSharp  AssetManager  refs=425
+        87  static PlotsLibrary plots_library
+        41  static NameplateLibrary nameplates_library
+        37  static WorldLawLibrary world_laws_library
+        36  static ResourceLibrary resources
+        25  static BuildingLibrary buildings
+        24  static ActorAssetLibrary actor_library
+        19  static PowerLibrary powers
+        18  static TooltipLibrary tooltips
+        17  static TopTileLibrary top_tiles
+        16  static MetaTypeLibrary meta_type_library
+        14  static CultureColorsLibrary culture_colors_library
+        14  static QuantumSpriteLibrary quantum_sprites
+         7  static ItemLibrary items
+         6  static KingdomColorsLibrary kingdom_colors_library
+         6  static KingdomBannerLibrary kingdom_banners_library
+         6  static BuildOrderLibrary city_build_orders
+         6  static BehaviourTaskKingdomLibrary tasks_kingdom
+         5  static DecisionsLibrary decisions_library
+         4  static KingdomLibrary kingdoms
+         4  static BehaviourTaskActorLibrary tasks_actor
+         3  static ActorTraitLibrary traits
+         3  static TileLibrary tiles
+         3  static LoyaltyLibrary loyalty_library
+         3  static KingdomJobLibrary job_kingdom
+         2  static WorldLogLibrary world_log_library
+         2  static BehaviourTaskCityLibrary tasks_city
+         2  static CultureBannerLibrary culture_banners_library
+         1  static PhenotypeLibrary phenotype_library
+         1  static WindowLibrary window_library
+         1  static ArchitectureLibrary architecture_library
+         1  static WarTypeLibrary war_types_library
+         1  static StatisticsLibrary statistics_library
+         1  static ProjectileLibrary projectiles
+         1  static ActorTraitGroupLibrary trait_groups
+         1  static ActorJobLibrary job_actor
+         1  static CityJobLibrary job_city
+         1  static CitizenJobLibrary citizen_job_library
+         1  static HistoryDataLibrary history_data_library
+         1  static HotkeyLibrary hotkey_library
+         1  static WorldLawGroupLibrary world_law_groups
+         1  static OpinionLibrary opinion_library
+         1  static PlotCategoryLibrary plot_category_library
+Assembly-CSharp  CoreSystemManager`2  refs=424
+       232  List`1 list
+       189  IEnumerator`1 GetEnumerator()
+         2  Void removeObject(TObject pObject)
+         1  Void clear()
+         0  Void addObject(TObject pObject)
+Assembly-CSharp  TileTypeBase  refs=398
+        81  Boolean liquid
+        38  Boolean mountains
+        36  Boolean lava
+        29  Boolean wall
+        25  Boolean farm_field
+        24  String biome_id
+        23  Boolean summit
+        21  Boolean ocean
+        20  Boolean block
+        15  Boolean rocks
+        13  Int32 height_min
+        12  Boolean road
+        10  Boolean can_be_farm
+         7  Boolean sand
+         6  Color32 color
+         5  Boolean ground
+         3  Int32 index_id
+         3  BiomeAsset biome_asset
+         3  Int32[] additional_height
+         2  List`1 getCurrentTiles()
+         2  String decrease_to_id
+         2  TileType decrease_to
+         2  String increase_to_id
+         2  TileType increase_to
+         2  HashSetWorldTile hashset
+         2  Int32 cost
+         2  TileSprites sprites
+         1  String color_hex
+         1  Boolean used_in_generator
+         1  Boolean can_be_biome
+         1  HashSet`1 biome_tags
+         1  Boolean has_biome_tags
+         1  Boolean biome_build_check
+         1  Boolean can_build_on
+         1  String freeze_to_id
+         0  static Int32 BURNED_STAGES
+         0  static Int32 EXPLOSION_STAGES
+         0  static Int32 MAX_HEIGHT
+Assembly-CSharp  ZoneCalculator  refs=328
+        44  TileZone getZone(Int32 pX, Int32 pY)
+        42  List`1 zones
+        41  TileZone getZoneByID(Int32 pID)
+        23  Void dirtyAndClear()
+        22  Void drawBegin()
+        22  Void drawEnd(TileZone pZone)
+        18  Void drawZoneMeta(IMetaObject pMeta, TileZone pZone, Boolean pUp, Boolean pDown, Boolean pLeft, Boolean pRight, MetaObjectData pMetaData, MetaTypeAsset pMetaTypeAsset)
+        17  Void setDrawnZonesDirty()
+        12  Void setDirty()
+        11  MetaTypeAsset _mode_asset
+         6  Int32 zones_total_x
+         6  Int32 zones_total_y
+         6  HashSetTileZone _current_drawn_zones
+         6  Void clearAllRedrawTimers()
+         6  Single _redraw_timer
+         5  Boolean _cached_should_be_clear_color
+         5  NanoObject _selected_nano_object
+         4  Boolean _cached_check_animation
+         4  Boolean isBorderColor_cities(TileZone pZone, City pCityMain, Boolean pCheckFriendly)
+         3  Void drawZoneMeta(TileZone pZone, MetaTypeAsset pMetaTypeAsset, MetaZoneGetMetaSimple pZoneGetDelegate)
+         3  Void drawZoneClear(TileZone pZone)
+         3  Color32 _color_clear
+         3  Boolean shouldShowSelectionFor(IMetaObject pNanoObject)
+         3  Boolean _selection_changed_dirty
+         2  Boolean checkShouldDrawObject(Boolean pMetaFavorite)
+         2  Dictionary`2 _zones_dict_id
+         2  Boolean _dirty
+         1  Boolean _cached_ony_favorited_meta
+         1  Single _night_multiplier
+         1  Void redrawZones()
+         1  NanoObject _cursor_nano_object
+         1  Int32 _last_zone_state
+         1  Boolean _last_should_be_clear_color
+         1  Void drawGenericFluid(ZoneMetaData pData, MetaTypeAsset pMetaTypeAsset)
+         0  Void updateAnimationsAndSelections()
+         0  Boolean shouldBeClearColor()
+         0  Void applyMetaColorsToZone(TileZone pZone, Color32& pColorInside, Color32& pColorOutside, Boolean pUp, Boolean pDown, Boolean pLeft, Boolean pRight)
+         0  Void applyMetaColorsToZoneFull(TileZone pZone, Color32& pColor)
+         0  Void colorZone(TileZone pZone, Color32 pColor)
+         0  Boolean checkFadeAndSelectionColors(TileZone pZone, Color32& pColorBorderInside, Color32& pColorBorderOut, Single pDiff, IMetaObject pMetaObjectToDraw, MetaTypeAsset pMetaTypeAsset, Boolean pFavorite)
+         0  Void checkClearAllZonesToRedraw()
+         0  Void clearCurrentDrawnZones(Boolean pCleanTimer)
+         0  static Single ALPHA_NON_FAVORITED_META
+         0  static Single ALPHA_NON_SELECTED_META
+[hand] UnityEngine.CoreModule  UnityEngine.Time  refs=325
+       144  static Single unscaledTime { }
+        99  static Int32 frameCount { }
+        70  static Single realtimeSinceStartup { }
+        10  static Single unscaledDeltaTime { }
+         1  static Single smoothDeltaTime { }
+         1  static Single timeScale { }
+Assembly-CSharp  WorldLogMessage  refs=319
+        85  Void .ctor(WorldLogAsset pAsset, String pSpecial1, String pSpecial2, String pSpecial3)
+        84  Color color_special1 { }
+        75  Color color_special2 { }
+        47  Color color_special3 { }
+         7  String asset_id { }
+         6  Vector2 location { }
+         5  Kingdom kingdom { }
+         3  String special1 { }
+         2  Int64 kingdom_id { }
+         2  String special2 { }
+         2  String special3 { }
+         1  Int32 timestamp { }
+Assembly-CSharp  ColorAsset  refs=296
+       195  Color _color_text
+        21  String color_text
+        12  Color getColorMain()
+        10  Void initColor()
+        10  Color getColorText()
+         9  static ColorAsset tryMakeNewColorAsset(String pColorMain)
+         8  Color32 getColorBorderInsideAlpha32()
+         6  String color_main
+         5  Color getColorBanner()
+         4  Color32 getColorMainSecond32()
+         3  String color_banner
+         3  Color getColorBorderOut_capture()
+         2  Color32 getColorMain32()
+         2  String color_main_2
+         2  static Int32 _create_last_index_id
+         2  Color getColorMainSecond()
+         1  Void .ctor()
+         1  Int32 index_id
+         0  static Byte ALPHA_BORDER_INSIDE_BYTE
+Assembly-CSharp  BuildingAsset  refs=295
+        59  String type
+        35  Int32 upgrade_level
+        25  String upgrade_to
+        17  ConstructionCost cost
+        13  Int32 construction_progress_needed
+         8  BuildingType building_type
+         8  Boolean hasHousingSlots()
+         8  Boolean wheat
+         7  Boolean can_be_upgraded
+         7  BaseStats base_stats
+         7  String upgraded_from
+         6  Int32 housing_slots
+         6  String sound_built
+         6  String sound_destroyed
+         5  BuildingFundament fundament
+         5  Int32 max_houses
+         4  Int32 book_slots
+         4  Boolean burnable
+         4  String sprite_path
+         4  Boolean has_sprite_construction
+         3  Boolean build_road_to
+         3  BuildingSprites building_sprites
+         3  Int32 priority
+         3  Boolean draw_light_area
+         3  Void setHousingSlots(Int32 pValue)
+         3  Int32 loot_generation
+         3  Int32 housing_happiness
+         2  Boolean docks
+         2  String sound_idle
+         2  Boolean has_kingdom_color
+         2  Boolean flora
+         2  String[] boat_types
+         2  String getBoatAssetIDFromType(String pSpeciesBoat, City pCity)
+         2  Vector3 scale_base
+         2  String sound_hit
+         1  Boolean city_building
+         1  Single growth_time
+         1  Boolean sprites_are_initiated
+         1  Boolean has_sprites_main
+         1  Boolean has_sprites_ruin
+         1  Boolean has_sprites_main_disabled
+         1  Boolean has_sprites_special
+         1  List`1 resources_given
+         1  FloraType flora_type
+         1  Boolean tower
+         1  Boolean remove_buildings_when_dropped
+         1  Boolean remove_civ_buildings
+         1  Boolean can_be_living_house
+         1  Boolean ignore_other_buildings_for_upgrade
+         1  Boolean build_place_batch
+         1  Boolean has_ruins_graphics
+         1  Boolean produce_biome_food
+         1  Boolean has_ruin_state
+         1  ActorAsset getRandomBoatAssetToBuild(City pCity)
+         1  String boat_type_fishing
+Assembly-CSharp  Building  refs=294
+       164  BuildingAsset asset
+        26  Boolean isUnderConstruction()
+        13  Boolean isOnRemove()
+        11  Void startRemove()
+        10  Void startDestroyBuilding()
+         9  BuildingData data
+         7  Boolean upgradeBuilding()
+         6  City city { }
+         5  Boolean isRuin()
+         5  Int32 getConstructionProgress()
+         5  BatchBuildings batch
+         5  Docks component_docks
+         4  Boolean updateBuild(Int32 pProgress)
+         3  Boolean canBeUpgraded()
+         3  Wheat component_wheat
+         3  Boolean isUsable()
+         2  Int32 addResources(String pResourceID, Int32 pAmount)
+         2  BuildingFruitGrowth component_fruit_growth
+         2  Int32 getResourcesAmount(String pResourceID)
+         1  WorldTile door_tile { }
+         1  CityResources resources { }
+         1  Void extractResources(Actor pBy)
+         1  Boolean canRemoveForFarms()
+         1  Boolean chopped
+         1  Void chopTree()
+         1  ListPool`1 components_list
+         1  Boolean isNormal()
+         1  Boolean hasResourcesToCollect()
+         0  Color32 getColorForMinimap(WorldTile pTile)
+         0  Void updateStats()
+         0  Void getHit(Single pDamage, Boolean pFlash, AttackType pAttackType, BaseSimObject pAttacker, Boolean pSkipIfShake, Boolean pMetallicWeapon, Boolean pCheckDamageReduction)
+         0  Void setBuilding(WorldTile pTile, BuildingAsset pAsset, BuildingData pData)
+Assembly-CSharp  NameplateText  refs=286
+        48  KingdomBanner _banner_kingdoms
+        42  Text _text_name
+        19  Image _background_image
+        17  CityBanner _banner_city
+        14  ClanBanner _banner_clan
+        10  Boolean _show_banner_kingdom
+         9  Void setPriority(Int32 pValue)
+         8  Void setupMeta(MetaObjectData pData, ColorAsset pColorAsset)
+         7  Boolean _show_banner_clan
+         6  Void setShowing(Boolean pVal)
+         6  Boolean _show_banner_city
+         6  Void showSpecies(Sprite pSprite)
+         6  Boolean _showing
+         5  Boolean _show_banner_culture
+         5  NanoObject nano_object
+         5  CultureBanner _banner_culture
+         4  Void setText(String pNewText, Vector3 pPos, Int32 pAdditionalWidth)
+         4  Boolean _show_capture_counter
+         4  Void forceScale(Vector3 pScale)
+         3  Image _icon_species
+         3  Void showTextKingdom(Kingdom pMetaObject, Vector2 pPosition)
+         3  Int32 priority_population
+         3  Boolean _active_check_dirty
+         3  HorizontalLayoutGroup layout_group
+         3  NameplateRenderingType _last_mode
+         2  Boolean _show_icon_species
+         2  ReligionBanner _banner_religion
+         2  AllianceBanner _banner_alliance
+         2  ArmyBanner _banner_army
+         2  FamilyBanner _banner_family
+         2  SubspeciesBanner _banner_subspecies
+         2  LanguageBanner _banner_language
+         2  String getStringForNameplate(String pName, Int32 pCount)
+         2  Void setNameplateSprite(String pPath)
+         2  Boolean is_full { }
+         2  Text _conquer_text
+         2  Boolean _show_icon_favorite
+         1  Boolean is_mini { }
+         1  Boolean _show_banner_religion
+         1  Boolean _show_banner_alliance
+         1  Boolean _show_banner_army
+         1  Boolean _show_banner_family
+         1  Boolean _show_banner_subspecies
+         1  Boolean _show_banner_language
+         1  Boolean _show_icon_special
+         1  Void showTextCity(City pMetaObject, Vector2 pPosition)
+         1  RectTransform _container_capture
+         1  Boolean priority_capital
+         1  Void showTextAlliance(Alliance pMetaObject, City pCity)
+         1  Void clearCaches()
+         1  Void updateScale(NanoObject pMeta, Single pGlobalScale, Boolean pNanoObjectSet, NanoObject pSelectedNanoObject)
+         1  Void resetElements()
+         1  Void setAssetAndMeta(NameplateAsset pAsset, NanoObject pNano)
+         1  Void showFavoriteIcon()
+         1  Image _icon_favorite
+         1  Void checkSetActive(Component pComponent, Boolean pShouldBeActive)
+         0  Void prepare(NameplateAsset pAsset, NanoObject pMeta, Single pGlobalScale, NameplateRenderingType pNameplateMode, Boolean pNanoObjectSet, NanoObject pSelectedNanoObject)
+         0  Void showTextClanCity(Clan pMetaObject, City pCity)
+Assembly-CSharp  WorldLogLibrary  refs=238
+       238  Void updateText(String& pText, WorldLogMessage pMessage, String pKey, Int32 pSpecialId)
+[hand] UnityEngine.CoreModule  UnityEngine.Vector2Int  refs=220
+        73  Int32 x { }
+        73  Int32 y { }
+        32  Void .ctor(Int32 x, Int32 y)
+        13  static Vector2Int op_Subtraction(Vector2Int a, Vector2Int b)
+        11  Int32 sqrMagnitude { }
+         7  static Vector2 op_Implicit(Vector2Int v)
+         4  static Single Distance(Vector2Int a, Vector2Int b)
+         3  static Boolean op_Inequality(Vector2Int lhs, Vector2Int rhs)
+         2  static Vector2Int RoundToInt(Vector2 v)
+         1  static Vector2Int zero { }
+         1  Single magnitude { }
+Assembly-CSharp  Tooltip  refs=216
+       101  Void addLineText(String pID, String pValue, String pColor, Boolean pPercent, Boolean pLocalize, Int32 pLimitValue)
+        23  Void setTitle(String pMainText, String pSubText, String pColorHex)
+        19  static Void show(Object pObject, String pType, TooltipData pData)
+        17  Void clear()
+        16  static Void hideTooltip(Object pObjectToSkip, Boolean pOnlySimObjects, String pSkipType)
+        10  Void addBottomDescription(String pDescription, String pColor)
+         9  Void addLineBreak()
+         7  Void addLineIntText(String pID, Int32 pValue, String pColor, Boolean pLocalize)
+         5  Void setDescription(String pDescription, String pColor)
+         3  Void addLineIntText(String pID, Int64 pValue, String pColor, Boolean pLocalize, Int32 pLimitValue)
+         2  Void addDescription(String pDescription, String pColor)
+         2  Void setSpeciesIcon(Sprite pSprite)
+         1  static Void hideTooltip()
+         1  Text name
+         0  static Int32 TOOLTIP_WIDTH
+         0  static Int32 CURSOR_MARGIN
+Assembly-CSharp  ActorAsset  refs=212
+        26  Boolean civ
+        25  Void addSubspeciesTrait(String pTrait)
+        19  Boolean is_boat
+        18  Void addCultureTrait(String pTrait)
+        10  String build_order_template_id
+         9  String banner_id
+         6  String kingdom_id_wild
+         6  Void addReligionTrait(String pTrait)
+         4  ArchitectureAsset architecture_asset
+         4  String kingdom_id_civilization
+         4  Void addClanTrait(String pTrait)
+         3  String name_locale
+         3  String icon
+         3  Void addLanguageTrait(String pTrait)
+         3  String boat_type
+         2  Boolean is_boat_transport
+         2  String getTranslatedName()
+         2  BuildingAsset getBuildingDockAsset()
+         2  String[] skin_warrior
+         2  Int32 civ_base_cities
+         2  String[] name_template_sets
+         2  Void addPreferredColors(String[] pColors)
+         2  String music_theme
+         2  String architecture_id
+         2  String name_taxonomic_kingdom
+         2  String name_taxonomic_phylum
+         2  String name_taxonomic_class
+         2  String name_taxonomic_order
+         2  String name_taxonomic_family
+         2  String name_taxonomic_genus
+         2  String name_taxonomic_species
+         2  String color_hex
+         2  String zombie_color_hex
+         2  Boolean disable_jump_animation
+         2  Void addGenome(ValueTuple`2[] pListGenomePartsIDs)
+         2  String[] production
+         2  Void addKingdomTrait(String pTrait)
+         2  Void addResource(String pID, Int32 pAmount, Boolean pNewList)
+         2  Boolean show_on_meta_layer
+         2  Sprite getSpriteIcon()
+         2  Nullable`1 color
+         2  ConstructionCost cost
+         1  Int32 item_making_skill
+         1  HashSet`1 genome_parts
+         1  String getLocalizedName()
+         1  ActorTextureSubAsset texture_asset
+         1  Boolean has_ai_system
+         1  String collective_term
+         1  Int32 family_limit
+         1  ActorGetSprite get_override_sprite
+         1  Boolean has_override_sprite
+         1  ActorGetSprites get_override_avatar_frames
+         1  Boolean has_override_avatar_frames
+         1  String avatar_prefab
+         1  Boolean has_avatar_prefab
+         1  List`1 decision_ids
+         1  Boolean can_attack_buildings
+Assembly-CSharp  ActorData  refs=182
+        99  Int32 renown { }
+        22  ActorSex sex { }
+        21  Int32 money { }
+        18  Int32 loot { }
+         6  Int32 age_overgrowth { }
+         4  Int64 parent_id_1 { }
+         4  Int64 parent_id_2 { }
+         4  String asset_id { }
+         1  Int32 phenotype_index { }
+         1  Int32 phenotype_shade { }
+         1  Int32 nutrition { }
+         1  Int64 transportID
+Assembly-CSharp  WorldLawAsset  refs=179
+        61  Boolean isEnabled()
+        35  Boolean default_state
+        34  Void .ctor()
+        34  String icon_path
+         7  Void toggle(Boolean pState)
+         5  PlayerOptionAction on_state_change
+         3  PlayerOptionAction on_state_enabled
+[hand] UnityEngine.CoreModule  UnityEngine.Component  refs=159
+        84  GameObject gameObject { }
+        53  Transform transform { }
+        15  T GetComponent()
+         3  T GetComponentInParent(Boolean includeInactive)
+         2  T GetComponentInChildren(Boolean includeInactive)
+         1  T[] GetComponents()
+         1  T[] GetComponentsInChildren()
+Assembly-CSharp  PlotCheckerDelegate  refs=147
+       134  Void .ctor(Object object, IntPtr method)
+        13  Boolean Invoke(Actor pActor)
+Assembly-CSharp  Toolbox  refs=143
+        76  static Color color_log_good
+        28  static Color color_log_warning
+        26  static Int32 SquaredDistTile(WorldTile pT1, WorldTile pT2)
+         4  static Single SquaredDist(Single x1, Single y1, Single x2, Single y2)
+         2  static Single DistVec2Float(Vector2 pT1, Vector2 pT2)
+         2  static Int32 loopIndex(Int32 pIndex, Int32 pLength)
+         1  static Single DistTile(WorldTile pT1, WorldTile pT2)
+         1  static Color makeColor(String pHex)
+         1  static Color32 clear
+         1  static Color color_white
+         1  static Color color_log_neutral
+         0  static String color_positive
+         0  static String color_negative
+         0  static String color_positive_light
+         0  static String color_negative_light
+         0  static String color_report_positive
+         0  static String color_report_negative
+         0  static String color_hex_white
+         0  static String color_hex_black
+         0  static String color_hex_neutral
+         0  static String color_hex_brighter
+         0  static String color_tooltip_hotkey
+         0  static String color_hex_ocean
+         0  static String color_hex_blue
+         0  static String color_hex_red
+         0  static String color_hex_green
+         0  static String color_hex_purple
+         0  static String color_hex_yellow
+         0  static String color_hex_heal
+         0  static String color_hex_plague
+         0  static String color_hex_mush_spores
+         0  static String color_hex_infected
+         0  static String color_hex_poisoned
+Assembly-CSharp  TooltipData  refs=134
+        31  City city
+        24  Void .ctor()
+        20  Kingdom kingdom
+        17  Actor actor
+        14  Single tooltip_scale
+        14  Boolean is_sim_tooltip
+         7  String tip_description { }
+         4  String tip_name { }
+         3  Religion religion
+Assembly-CSharp  Plot  refs=128
+        33  Kingdom target_kingdom
+        25  War target_war
+        16  Boolean isActive()
+        13  Alliance target_alliance
+         8  Boolean isSameType(PlotAsset pAsset)
+         7  PlotAsset getAsset()
+         7  Actor target_actor
+         5  City target_city
+         4  Boolean checkInitiatorAndTargets()
+         2  Actor getAuthor()
+         2  PlotAsset _plot_asset
+         1  Single getProgressMax()
+         1  Single transition_animation
+         1  Sprite getSprite()
+         1  Single getProgressMod()
+         1  Void finishPlot(PlotState pState, Actor pActor)
+         1  Double last_update_progress
+         0  Void save()
+         0  Boolean updateProgressTarget(Actor pActor, Single pIntelligence)
+[hand] UnityEngine.CoreModule  UnityEngine.Vector3  refs=127
+        37  Single y
+        32  Single x
+        22  static Vector3 one { }
+        15  static Vector3 zero { }
+         5  static Vector3 Lerp(Vector3 a, Vector3 b, Single t)
+         5  static Vector3 op_Multiply(Vector3 a, Single d)
+         4  Void .ctor(Single x, Single y, Single z)
+         3  Single z
+         1  static Single Distance(Vector3 a, Vector3 b)
+         1  static Vector3 op_Subtraction(Vector3 a, Vector3 b)
+         1  Single sqrMagnitude { }
+         1  Void .ctor(Single x, Single y)
+         0  static Single kEpsilon
+         0  static Single kEpsilonNormalSqrt
+[hand] UnityEngine.CoreModule  UnityEngine.GameObject  refs=124
+        53  Void SetActive(Boolean value)
+        27  Transform transform { }
+        13  T GetComponent()
+        10  Boolean activeSelf { }
+        10  Void .ctor(String name, Type[] components)
+         9  T AddComponent()
+         1  Void .ctor(String name)
+         1  T GetComponentInParent()
+Assembly-CSharp  StatsWindow  refs=122
+       100  KeyValueField showStatRow(String pId, Object pValue, String pColor, MetaType pMetaType, Int64 pMetaId, Boolean pColorText, String pIconPath, String pTooltipId, TooltipDataGetter pTooltipData, Boolean pLocalize)
+        12  KeyValueField showStatRow(String pId, Object pValue, MetaType pMetaType, Int64 pMetaId, String pIconPath, String pTooltipId, TooltipDataGetter pTooltipData)
+         5  Void tryToShowActor(String pTitle, Int64 pID, String pName, Actor pObject, String pIconPath)
+         2  Void tryToShowMetaSpecies(String pTitle, String pId)
+         1  Void updateStats()
+         1  MetaType meta_type { }
+         1  Void tryToShowMetaReligion(String pTitle, Int64 pID, String pName, Religion pObject)
+         0  Void showStatsRows()
+         0  Void OnEnable()
+         0  static String EMPTY_META_OBJECT_STRING
+Assembly-CSharp  BaseAugmentationAsset  refs=119
+       111  String group_id
+         8  WorldActionTrait action_on_augmentation_add
+Assembly-CSharp  BaseUnlockableAsset  refs=115
+        80  String path_icon
+        31  BaseStats base_stats
+         2  Boolean unlocked_with_achievement
+         1  Sprite cached_sprite
+         1  Boolean show_for_unlockables_ui
+[hand] UnityEngine.CoreModule  UnityEngine.Color  refs=114
+        33  Void .ctor(Single r, Single g, Single b)
+        18  Void .ctor(Single r, Single g, Single b, Single a)
+        11  static Color white { }
+         9  Single r
+         9  Single g
+         9  Single b
+         5  static Color red { }
+         4  static Color green { }
+         4  static Color Lerp(Color a, Color b, Single t)
+         3  static Void RGBToHSV(Color rgbColor, Single& H, Single& S, Single& V)
+         3  static Color HSVToRGB(Single H, Single S, Single V)
+         2  Single a
+         1  static Color gray { }
+         1  static Color black { }
+         1  static Color clear { }
+         1  static Color yellow { }
+Assembly-CSharp  NameplateAsset  refs=100
+        28  MetaType map_mode
+        16  String path_sprite
+        14  Void .ctor()
+        14  NameplateBase action_main
+         7  Int32 padding_left
+         7  Int32 padding_right
+         7  Int32 padding_top
+         6  Int32 max_nameplate_count
+         1  Single banner_only_mode_scale
+Assembly-CSharp  SpriteTextureLoader  refs=97
+        91  static Sprite getSprite(String pPath)
+         5  static Sprite[] getSpriteList(String pPath, Boolean pSkipIfEmpty)
+         1  static Void addSprite(String pPathID, Byte[] pBytes)
+Assembly-CSharp  WorldLogTextFormatter  refs=96
+        95  Void .ctor(Object object, IntPtr method)
+         1  Void Invoke(WorldLogMessage pMessage, String& pText)
+Assembly-CSharp  WarTypeLibrary  refs=95
+        70  static WarTypeAsset normal
+        23  static WarTypeAsset rebellion
+         1  static WarTypeAsset inspire
+         1  static WarTypeAsset whisper_of_war
+Assembly-CSharp  DiplomacyManager  refs=94
+        54  War startWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pAsset, Boolean pLog)
+        26  KingdomOpinion getOpinion(Kingdom k1, Kingdom k2)
+        12  DiplomacyRelation getRelation(Kingdom pK1, Kingdom pK2)
+         2  static Kingdom kingdom_supreme
+Assembly-CSharp  TooltipAsset  refs=92
+        31  Void .ctor()
+        31  TooltipShowAction callback
+        30  String prefab_id
+Assembly-CSharp  OpinionAsset  refs=89
+        28  Void .ctor()
+        28  OpinionDelegateCalc calc
+        18  String translation_key
+        14  String translation_key_negative
+         1  String getTranslationKey(Int32 pValue)
+Assembly-CSharp  QuantumSpriteAsset  refs=88
+        19  Color color
+        15  Single base_scale
+        14  QuantumSpriteUpdater draw_call
+         9  Void .ctor()
+         9  String id_prefab
+         9  Boolean render_map
+         6  Boolean render_gameplay
+         2  QuantumSpriteCreate create_object
+         2  Boolean add_camera_zoom_multiplier
+         1  Boolean selected_city_scale
+         1  Int32 default_amount
+         1  QuantumSpriteGroupSystem group_system
+[hand] UnityEngine.CoreModule  UnityEngine.Transform  refs=76
+        23  Vector3 localScale { }
+        10  Vector3 localPosition { }
+         8  Void SetParent(Transform parent, Boolean worldPositionStays)
+         8  Vector3 position { }
+         6  Transform Find(String n)
+         4  Void SetAsFirstSibling()
+         4  Transform parent { }
+         3  Void SetParent(Transform p)
+         3  IEnumerator GetEnumerator()
+         2  Vector3 lossyScale { }
+         2  Void SetAsLastSibling()
+         2  Int32 childCount { }
+         1  Transform GetChild(Int32 index)
+Assembly-CSharp  WarManager  refs=75
+        42  Void endWar(War pWar, WarWinner pWinner)
+        23  War newWar(Kingdom pAttacker, Kingdom pDefender, WarTypeAsset pType)
+         3  Boolean hasWars(Kingdom pKingdom)
+         3  ListPool`1 getNeutralKingdoms(Kingdom pKingdom, Boolean pOnlyWithoutWars, Boolean pOnlyWithoutAlliances)
+         2  IEnumerable`1 getWars(Kingdom pKingdom, Boolean pRandom)
+         1  Void warStateChanged()
+         1  Boolean hasWars(Alliance pAlliance)
+Assembly-CSharp  Config  refs=74
+        42  static Boolean game_loaded
+        16  static Boolean paused { }
+         3  static Boolean parallel_jobs_updater
+         2  static Boolean isEditor
+         2  static String current_brush { }
+         2  static Kingdom whisper_A
+         2  static Kingdom whisper_B
+         1  static WorldTimeScaleAsset time_scale_asset
+         1  static Boolean disable_db
+         1  static Int32 ZONE_AMOUNT_X
+         1  static Int32 ZONE_AMOUNT_Y
+         1  static Kingdom unity_A
+         0  static Int32 MAP_BLOCK_SIZE
+         0  static Int32 CHUNK_SIZE
+         0  static Int32 TILES_IN_CHUNK
+         0  static Int32 CITY_ZONE_SIZE
+         0  static Int32 CITY_ZONE_TILES
+         0  static Int32 TILES_IN_REGION
+         0  static Int32 PREVIEW_MAP_SIZE
+         0  static Single FOCUS_SCROLL_DELAY_PC
+         0  static Single FOCUS_SCROLL_DELAY_PHONE
+         0  static String firebaseDatabaseURL
+         0  static String baseURL
+         0  static String currencyURL
+[hand] Assembly-CSharp  BaseStats  refs=74
+        69  Single Item { }
+         2  Boolean hasStat(String pID)
+         1  Boolean hasStats()
+         1  Single get(String pID)
+         1  Void .ctor()
+NeoModLoader  NeoModLoader.api.ModDeclare  refs=68
+        66  String FolderPath { }
+         2  String UID { }
+Assembly-CSharp  PlotAction  refs=65
+        61  Void .ctor(Object object, IntPtr method)
+         4  Boolean Invoke(Actor pActor)
+Assembly-CSharp  MapLayer  refs=64
+        43  Color32[] pixels
+         6  SpriteRenderer sprRnd
+         4  Texture2D texture
+         3  Void updatePixels()
+         3  HashSetWorldTile pixels_to_update
+         2  Single timer
+         1  Void draw(Single pElapsed)
+         1  Int32 colors_amount
+         1  Void checkAutoDisable()
+Assembly-CSharp  Alliance  refs=63
+        24  Void leave(Kingdom pKingdom, Boolean pRecalc)
+        16  HashSet`1 kingdoms_hashset
+         6  Boolean join(Kingdom pKingdom, Boolean pRecalc, Boolean pForce)
+         5  List`1 kingdoms_list
+         3  Int32 countWarriors()
+         2  Boolean canJoin(Kingdom pKingdom)
+         2  Boolean hasWars()
+         1  static Boolean isSame(Alliance pAlliance1, Alliance pAlliance2)
+         1  Boolean isForcedType()
+         1  Boolean hasSupremeKingdom()
+         1  Int32 power
+         1  Boolean hasSharedBordersWithKingdom(Kingdom pKingdom)
+UnityEngine.UI  UnityEngine.UI.Text  refs=61
+        20  String text { }
+         9  FontStyle fontStyle { }
+         8  Int32 fontSize { }
+         6  Boolean supportRichText { }
+         5  Font font { }
+         4  HorizontalWrapMode horizontalOverflow { }
+         3  TextAnchor alignment { }
+         2  VerticalWrapMode verticalOverflow { }
+         1  Single preferredWidth { }
+         1  Int32 resizeTextMaxSize { }
+         1  Int32 resizeTextMinSize { }
+         1  Boolean resizeTextForBestFit { }
+         0  Void UpdateGeometry()
+Assembly-CSharp  WorldTileData  refs=60
+        60  Int32 tile_id
+Assembly-CSharp  ListExtensions  refs=57
+        20  static T GetRandom(List`1 list)
+        17  static Boolean Any(List`1 list)
+         8  static T First(List`1 list)
+         7  static T Last(List`1 list)
+         3  static Void Shuffle(List`1 list)
+         1  static T Pop(List`1 list)
+         1  static Void Swap(List`1 list, Int32 i, Int32 j)
+Assembly-CSharp  GodPower  refs=51
+        14  Void .ctor()
+        14  String name
+        12  PowerActionWithID click_action
+         2  Boolean hold_action
+         2  Boolean show_tool_sizes
+         2  Boolean unselect_when_window
+         2  PowerAction click_power_action
+         2  PowerAction click_power_brush_action
+         1  PowerToggleAction toggle_action
+Assembly-CSharp  SmoothLoader  refs=49
+        41  static Boolean isLoading()
+         5  static Void add(MapLoaderAction pAction, String pId, Boolean pSkipFrame, Single pNewWaitTimerValue, Boolean pToEnd)
+         2  static List`1 _actions
+         1  static Void prepare()
+         0  static Single DEFAULT_TIMER_VALUE
+         0  static Int32 MAX_LOG_LENGTH
+EmpireCraft  EmpireCraft.Scripts.UI.Components.TerritoryLabelRenderer  refs=48
+        10  static Void SubmitCities(String id, String text, IEnumerable`1 cities, TerritoryLabelStyle style, Boolean fullyOpaque, Boolean ignoreOverlap, Boolean showCultureLock, Sprite icon, Boolean sealFont, Boolean withWilderness, Boolean followWilderness)
+         9  static Void HideAll()
+         7  static Void BeginFrame(MetaType mode)
+         7  static Void EndFrame()
+         3  static TerritoryLabelStyle KingdomStyle
+         2  static TerritoryLabelStyle EmpireStyle
+         1  static TerritoryLabelStyle TianxiaStyle
+         1  static TerritoryLabelStyle UncoredTianxiaStyle
+         1  static Void ResetWorldState()
+         1  static TerritoryLabelStyle FadedEmpireStyle
+         1  static TerritoryLabelStyle AllianceStyle
+         1  static TerritoryLabelStyle FadedAllianceStyle
+         1  static TerritoryLabelStyle FeudalVassalStyle
+         1  static TerritoryLabelStyle FeudalVassalRebellionStyle
+         1  static TerritoryLabelStyle RebellionKingdomStyle
+         1  static Void RenderLawLayer(Int32 zoneOptionState)
+         0  static Single GeometryRefreshInterval
+         0  static Single LatinOutlineDistance
+         0  static Single CollisionSeparationPixels
+         0  static Single ExhaustedSeconds
+         0  static String AtlasOverflowLog
+         0  static Int32 ProbeFontSize
+         0  static Int32 WildFarZones
+         0  static Int32 WildMidZones
+         0  static Int32 MaxNeutralBridgeZones
+Assembly-CSharp  MetaObjectData  refs=47
+        20  Int32 color_id { }
+        11  Int32 original_color_id { }
+         9  Void setColorID(Int32 pColorID)
+         4  Int32 renown { }
+         3  Void .ctor()
+UnityEngine.CoreModule  UnityEngine.Behaviour  refs=47
+        47  Boolean enabled { }
+Assembly-CSharp  CityStatus  refs=47
+        11  Int32 population
+         9  Int32 housing_total
+         8  Int32 houses_max
+         6  Int32 warrior_slots
+         4  Int32 warriors_current
+         4  Int32 housing_free
+         3  Int32 housing_occupied
+         1  Int32 population_children
+         1  Int32 population_adults
+Assembly-CSharp  BaseSystemManager  refs=45
+        34  Int32 Count { }
+         6  static Int32 _latest_hash
+         3  Void checkLists()
+         1  Boolean isLocked()
+         1  Boolean hasAny()
+         0  Void startCollectHistoryData()
+         0  Void clear()
+Assembly-CSharp  KingdomData  refs=43
+         9  Int32 banner_icon_id { }
+         7  Int32 banner_background_id { }
+         6  String original_actor_asset { }
+         5  Double timestamp_king_rule
+         5  Double timestamp_alliance
+         4  List`1 past_rulers
+         3  Double timestamp_last_war
+         2  Int64 royal_clan_id { }
+         1  Double timestamp_new_conquest
+         1  Single timer_new_king
+Assembly-CSharp  LocalizedTextManager  refs=42
+        14  static LocalizedTextManager instance
+        12  String language
+         8  static Boolean stringExists(String pKey)
+         6  static String getText(String pKey, Text text, Boolean pForceEnglish)
+         1  static Font current_font { }
+         1  Void setLanguage(String pLanguage)
+         0  static String MISSING_LOCALE
+Assembly-CSharp  ArrayExtensions  refs=39
+        22  static Boolean Contains(T[] pArray, T pValue)
+        12  static T Last(T[] pArray)
+         3  static T First(T[] pArray)
+         1  static Int32 IndexOf(T[] pArray, T pValue)
+         1  static T GetRandom(T[] pArray)
+Assembly-CSharp  QuantumSpriteLibrary  refs=39
+        14  static Void colorZones(QuantumSpriteAsset pAsset, List`1 pZones, Color pColor)
+         8  static QuantumSpriteArrows drawArrowQuantumSprite(QuantumSpriteAsset pAsset, Vector3 pStart, Vector3 pEnd, Color& pColor, City pCity)
+         3  static QuantumSprite drawQuantumSprite(QuantumSpriteAsset pAsset, WorldTile pTile, WorldTile pTileTarget, Kingdom pKingdom, City pCity, BattleContainer pBattle)
+         2  static QuantumSprite drawQuantumSprite(QuantumSpriteAsset pAsset, Vector3 pPos, WorldTile pTileTarget, Kingdom pKingdom, City pCity, BattleContainer pBattle, Single pModScale, Boolean pSetColor, Single pForceScaleTo)
+         2  static List`1 _wars_pos_sword_main
+         2  static List`1 _wars_pos_shields_main
+         1  static Void colorZones(QuantumSpriteAsset pAsset, ListPool`1 pZones, Color pColor)
+         1  static Color getColorForLight()
+         1  static Void showLightAt(Vector2 pPos, Color pColor, Single pScale)
+         1  static Single getCameraScaleZoomMultiplier(QuantumSpriteAsset pAsset)
+         1  static Sprite _king_sprite_happy
+         1  static Sprite _king_sprite_normal
+         1  static Sprite _king_sprite_surprised
+         1  static Sprite _king_sprite_angry
+         0  static Void drawLightAreas(QuantumSpriteAsset pAsset)
+         0  static Void drawFires(QuantumSpriteAsset pAsset)
+         0  static Void drawPlotIcon(QuantumSpriteAsset pAsset, Plot pPlot)
+         0  static Void drawWars(QuantumSpriteAsset pAsset)
+         0  static Single STOCKPILE_ITEM_OFFSET
+         0  static Int32 STOCKPILE_MAX_STACKS
+         0  static Int32 STOCKPILE_MAX_ROWS
+         0  static Int32 STOCKPILE_MAX_COLUMNS
+         0  static Single STOCKPILE_ROW_OFFSET
+         0  static Single STOCKPILE_COLUMN_OFFSET
+         0  static Single STOCKPILE_OFFSET_Z
+         0  static Int32 MAX_SLOTS
+Assembly-CSharp  Army  refs=38
+        14  Actor _captain
+        11  City _city
+         5  Kingdom _kingdom
+         3  Kingdom getKingdom()
+         2  Actor getCaptain()
+         1  Void disband()
+         1  Boolean hasCaptain()
+         1  WorldTile _prev_captain_position
+         0  Void save()
+         0  Void loadDataCaptains()
+Assembly-CSharp  DiplomacyHelpers  refs=38
+        29  static WarManager wars { }
+         4  static DiplomacyManager diplomacy { }
+         2  static Boolean areKingdomsClose(Kingdom pMain, Kingdom pTarget)
+         2  static Boolean isWarNeeded(Kingdom pKingdom)
+         1  static Kingdom getWarTarget(Kingdom pInitiatorKingdom)
+         0  static Kingdom getAllianceTarget(Kingdom pKingdomStarter)
+Assembly-CSharp  PlotTryToStart  refs=36
+        25  Void .ctor(Object object, IntPtr method)
+        11  Boolean Invoke(Actor pActor, PlotAsset pPlotAsset, Boolean pForced)
+[hand] Assembly-CSharp  ListPool`1  refs=36
+        13  Enumerator GetEnumerator()
+         9  Void .ctor()
+         7  Void Add(T item)
+         2  Void .ctor(IEnumerable`1 source)
+         2  Void Sort(Comparison`1 comparison)
+         2  Void .ctor(ICollection`1 collection)
+         1  Boolean Contains(T item)
+         0  static Int32 MinimumCapacity
+UnityEngine.UI  UnityEngine.UI.Graphic  refs=34
+        20  Color color { }
+         9  RectTransform rectTransform { }
+         5  Boolean raycastTarget { }
+         0  Void UpdateGeometry()
+Assembly-CSharp  WorldLogMessageExtensions  refs=32
+        31  static Void add(WorldLogMessage pMessage)
+         1  static WorldLogAsset getAsset(WorldLogMessage pMessage)
+Assembly-CSharp  ActorTrait  refs=31
+        21  Void .ctor()
+        10  TraitType type
+[hand] UnityEngine.CoreModule  UnityEngine.Rect  refs=31
+         6  Single xMin { }
+         6  Single yMin { }
+         6  Single xMax { }
+         6  Single yMax { }
+         2  static Rect MinMaxRect(Single xmin, Single ymin, Single xmax, Single ymax)
+         2  Vector2 center { }
+         1  Boolean Contains(Vector2 point)
+         1  Single x { }
+         1  Single y { }
+Assembly-CSharp  ActorTextureSubAsset  refs=31
+        11  String texture_path_main
+         5  String texture_path_leader
+         4  String texture_path_warrior
+         4  String texture_path_king
+         2  String texture_path_baby
+         2  String getTextureSkinBasedOnSex(Actor pActor)
+         1  Boolean has_advanced_textures
+         1  String texture_path_base
+         1  static List`1 all_preloaded_sprites_units
+         0  String getUnitTexturePath(Actor pActor)
+         0  static String skin_civ_default_male
+         0  static String skin_civ_default_female
+Assembly-CSharp  TooltipShowAction  refs=31
+        31  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  NameplateManager  refs=31
+        17  NameplateText prepareNext(NameplateAsset pAsset, NanoObject pMeta)
+         4  Int32 _next_index
+         3  List`1 _active
+         2  Stack`1 _pool
+         1  NameplateText createNew()
+         1  Single _tween_scale
+         1  NameplateRenderingType _nameplate_mode
+         1  Boolean _nano_object_set
+         1  NanoObject _selected_nano_object
+         0  Void updateOverlappingPosition()
+         0  MetaType getCurrentMode()
+Assembly-CSharp  KingdomOpinion  refs=30
+        26  Int32 total
+         4  Dictionary`2 results
+Assembly-CSharp  MetaObjectWithTraits`2  refs=29
+        17  String species_id { }
+        11  Boolean hasTrait(String pTrait)
+         1  Boolean addTrait(String pTraitID, Boolean pRemoveOpposites)
+         0  Void Dispose()
+         0  Void loadData(TData pData)
+[hand] Assembly-CSharp  OnomasticsData  refs=29
+        23  String generateName(ActorSex pSex, Int32 pCalls, Nullable`1 pSeed)
+         3  Dictionary`2 groups
+         1  Void clearTemplateData()
+         1  Void setTemplateData(IReadOnlyList`1 pTemplateData)
+         1  Boolean setGroup(String pID, String pString)
+         0  static Char SEPARATOR_GROUPS
+         0  static Char SEPARATOR_PARTS
+         0  static Char SEPARATOR_PART_CONTAINER
+         0  static Int32 MAX_NAME_LENGTH
+         0  static String DEFAULT_NAME_FAILED
+Assembly-CSharp  LoyaltyAsset  refs=29
+        12  LoyaltyDelegateCalc calc
+         9  String translation_key
+         8  Void .ctor()
+UnityEngine.CoreModule  UnityEngine.RectTransform  refs=28
+         7  Vector2 anchoredPosition { }
+         6  Vector2 sizeDelta { }
+         4  Vector2 anchorMax { }
+         4  Vector2 anchorMin { }
+         3  Vector2 offsetMin { }
+         3  Vector2 offsetMax { }
+         1  Vector2 pivot { }
+Assembly-CSharp  PlayerConfig  refs=28
+        18  static Dictionary`2 dict
+         4  static Int32 getIntValue(String pID)
+         4  static Boolean optionBoolEnabled(String pName)
+         1  static Void saveData()
+         1  static String detectLanguage()
+Assembly-CSharp  ResourceAsset  refs=28
+         8  ResType type
+         3  Int32 supply_give
+         2  Int32 maximum
+         2  Int32 supply_bound_give
+         2  Int32 supply_bound_take
+         2  String getTranslatedName()
+         1  Sprite getSpriteIcon()
+         1  String path_icon
+         1  Int32 restore_nutrition
+         1  Single restore_health
+         1  Int32 restore_mana
+         1  Int32 restore_stamina
+         1  Int32 restore_happiness
+         1  Int32 money_cost
+         1  Boolean food
+Assembly-CSharp  ConstructionCost  refs=28
+        14  Void .ctor(Int32 pWood, Int32 pStone, Int32 pCommonMetals, Int32 pGold)
+         4  Int32 wood
+         4  Int32 stone
+         3  Int32 common_metals
+         3  Int32 gold
+UnityEngine.UI  UnityEngine.UI.LayoutElement  refs=28
+         7  Single preferredWidth { }
+         7  Single minWidth { }
+         7  Single preferredHeight { }
+         7  Single minHeight { }
+Assembly-CSharp  OpinionDelegateCalc  refs=28
+        28  Void .ctor(Object object, IntPtr method)
+UnityEngine.CoreModule  UnityEngine.Camera  refs=27
+        13  Single orthographicSize { }
+         3  Int32 cullingMask { }
+         3  CameraClearFlags clearFlags { }
+         3  Color backgroundColor { }
+         2  Single aspect { }
+         1  static Camera[] allCameras { }
+         1  RenderTexture targetTexture { }
+         1  Vector3 WorldToScreenPoint(Vector3 position)
+         0  static Single kMinAperture
+         0  static Single kMaxAperture
+         0  static Int32 kMinBladeCount
+         0  static Int32 kMaxBladeCount
+Assembly-CSharp  SimGlobals  refs=27
+        27  static SimGlobalAsset m
+Assembly-CSharp  PlayerOptionData  refs=26
+        14  Boolean boolVal
+        11  String stringVal
+         1  Int32 intVal
+Assembly-CSharp  ListPool`1.Enumerator  refs=26
+        13  T& Current { }
+        13  Boolean MoveNext()
+Assembly-CSharp  AnimationContainerUnit  refs=26
+         7  ActorAnimation idle
+         7  ActorAnimation walking
+         6  ActorAnimation swimming
+         2  Boolean has_swimming
+         2  Dictionary`2 sprites
+         1  Boolean has_idle
+         1  Boolean has_walking
+Assembly-CSharp  KingdomBanner  refs=26
+         7  Image background
+         7  Image icon
+         3  Image dead_image
+         3  Image left_image
+         3  Image winner_image
+         3  Image loser_image
+         0  Void setupBanner()
+Assembly-CSharp  BuildOrder  refs=25
+         8  BuildingAsset getBuildingAsset(City pCity, String pOrderID)
+         4  Boolean upgrade
+         3  String[] requirements_orders
+         3  Int32 required_pop
+         2  String[] requirements_types
+         2  Int32 min_zones
+         1  Boolean check_house_limit
+         1  Int32 required_buildings
+         1  Boolean check_full_village
+Assembly-CSharp  BehaviourTaskBase`1  refs=25
+        13  List`1 list
+        12  Void addBeh(T pAction)
+Assembly-CSharp  MetaZoneGetMetaSimple  refs=24
+        16  Void .ctor(Object object, IntPtr method)
+         8  IMetaObject Invoke(TileZone pZone)
+Assembly-CSharp  MapRegion  refs=24
+        21  TileIsland island
+         2  MapChunk chunk
+         1  List`1 neighbours
+Assembly-CSharp  SimGlobalAsset  refs=24
+        10  Int32 minimum_years_between_wars
+         4  Int32 diplomacy_years_war_min_warriors
+         2  Int32 minimum_kingdom_age_for_attack
+         2  Int32 diplomacy_years_war_timeout
+         2  Int32 alliance_timeout
+         1  Single empty_city_borders_shrink_time
+         1  Int32 rebellions_min_age
+         1  Int32 rebellions_min_warriors
+         1  Single rebellions_unhappy_multiplier
+Assembly-CSharp  MetaZoneTooltipAction  refs=23
+        22  Void .ctor(Object object, IntPtr method)
+         1  Boolean Invoke(TileZone pZone, MetaTypeAsset pAsset, Int32 pZoneOption)
+Assembly-CSharp  PlotsLibrary  refs=23
+        12  List`1 basic_plots
+         6  static PlotAsset alliance_create
+         5  static PlotAsset new_war
+Assembly-CSharp  SelectedMetas  refs=23
+        11  static Kingdom selected_kingdom
+         7  static City selected_city
+         3  static War selected_war
+         2  static Religion selected_religion
+Assembly-CSharp  SimSystemManager`2  refs=23
+        15  IEnumerator`1 GetEnumerator()
+         7  List`1 getSimpleList()
+         1  TObject[] getSimpleArray()
+Assembly-CSharp  MoveCamera  refs=23
+         9  static MoveCamera instance
+         6  Single orthographic_size_max
+         5  Camera main_camera
+         1  static Boolean camera_drag_activated
+         1  static Boolean inSpectatorMode()
+         1  Boolean isWithinCameraViewNotPowerBar(Vector2 pPos)
+         0  static Single ORTHOGRAPHIC_SIZE_MIN
+UnityEngine.CoreModule  UnityEngine.RectInt  refs=22
+         4  Void .ctor(Int32 xMin, Int32 yMin, Int32 width, Int32 height)
+         4  Int32 x { }
+         4  Int32 y { }
+         4  Int32 width { }
+         3  Int32 height { }
+         1  Boolean Equals(RectInt other)
+         1  Int32 xMax { }
+         1  Int32 yMax { }
+EmpireCraft  EmpireCraft.Scripts.UI.Components.TerritoryLabelStyle  refs=22
+         2  Void .ctor()
+         2  Color text_color
+         2  Color outline_color
+         2  Single size_multiplier
+         2  Single territory_padding
+         2  Int32 min_font_size
+         2  FontStyle font_style
+         2  Boolean bridge_internal_gaps
+         2  Single arc_curvature
+         1  Boolean wrap_english_name
+         1  Boolean use_gold_gradient
+         1  Color gold_top
+         1  Color gold_bottom
+Assembly-CSharp  NameplateLibrary  refs=22
+        12  Dictionary`2 map_modes_nameplates
+         7  NameplateAsset _plate_city
+         3  NameplateAsset _plate_kingdom
+         0  static Int32 OFFSET_UNIT_Y
+Assembly-CSharp  ScrollWindow  refs=21
+        15  static Void showWindow(String pWindowID)
+         2  static Void hideAllEvent(Boolean pWithAnimation)
+         1  static Boolean isWindowActive()
+         1  static Void addCallbackShowStarted(ScrollWindowNameAction pAction)
+         1  static ScrollWindow get(String pWindowID)
+         1  static ScrollWindow getCurrentWindow()
+         0  Void show(String pDistPosition, String pStartPosition, Boolean pSkipAnimation, Boolean pJustCreated)
+         0  Void clickShowLeft()
+         0  static Int32 WINDOW_POSITION_Y
+         0  static Single SCROLLBAR_POSITION_SHOW
+         0  static Single SCROLLBAR_POSITION_HIDE
+         0  static Single SCROLLBAR_ANIMATION_DURATION
+         0  static Single SCROLLBAR_ANIMATION_DURATION_COLOR
+         0  static Single SCROLLBAR_ANIMATION_DELAY
+         0  static Single SCROLLBAR_ANIMATION_DELAY_COLOR
+         0  static String SCROLLBAR_ACTIVE_COLOR
+         0  static String SCROLLBAR_INACTIVE_COLOR
+Assembly-CSharp  Randy  refs=21
+         8  static Boolean randomChance(Single pVal)
+         6  static Int32 randomInt(Int32 pMinInclusive, Int32 pMaxExclusive)
+         3  static IEnumerable`1 LoopRandom(List`1 list)
+         2  static Single randomFloat(Single pMinInclusive, Single pMaxExclusive)
+         1  static Void resetSeed(Int32 pIntValue)
+         1  static IEnumerable`1 LoopRandom(ListPool`1 list)
+Assembly-CSharp  ai.behaviours.CityBehBuild  refs=20
+         5  static List`1 _possible_buildings
+         3  static WorldTile getDockTile(City pCity)
+         2  static Boolean upgradeBuilding(Building pBuilding, City pCity)
+         2  static List`1 _possible_buildings_no_resources
+         1  static Void makeRoadsBuildings(City pCity, Building pBuilding)
+         1  static Boolean canUseBuildAsset(BuildOrder pBuildAsset, City pCity)
+         1  static Boolean hasResourcesForBuildAsset(BuildOrder pBuildAsset, City pCity)
+         1  static Boolean buildTick(City pCity)
+         1  static Void calcPossibleBuildings(City pCity)
+         1  static Building tryToBuild(City pCity, BuildingAsset pBuildingAsset)
+         1  static Boolean haveRequiredBuildingTypes(String[] pRequiredBuildingTypes, City pCity)
+         1  static WorldTile tryToBuildInZones(List`1 pList, BuildingAsset pBuildingAsset, City pCity, Boolean pForceCenterZone)
+         0  BehResult execute(City pCity)
+         0  static Boolean isGoodTileForBuilding(WorldTile pTile, BuildingAsset pAsset, City pCity)
+Assembly-CSharp  BehaviourActionBase`1  refs=19
+        11  static MapBox world { }
+         8  BehResult execute(T pObject)
+Assembly-CSharp  WorldLawLibrary  refs=19
+         5  static WorldLawAsset world_law_civ_army
+         5  static WorldLawAsset world_law_kingdom_expansion
+         5  static WorldLawAsset world_law_civ_limit_population_100
+         1  static WorldLawAsset world_law_old_age
+         1  static WorldLawAsset world_law_diplomacy
+         1  static WorldLawAsset world_law_rebellions
+         1  static WorldLawAsset world_law_angry_civilians
+Assembly-CSharp  ObjectContainer`1  refs=19
+         6  Void Add(T pObject)
+         4  Void Clear()
+         4  Void checkAddRemove()
+         2  IEnumerator`1 GetEnumerator()
+         2  Boolean Contains(T pObject, Boolean pCheckToAddRemove)
+         1  Void Remove(T pObject)
+Assembly-CSharp  MetaZoneGetMeta  refs=18
+        12  IMetaObject Invoke(TileZone pZone, Int32 pZoneOption)
+         6  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  WorldTip  refs=18
+        14  static Void showNow(String pText, Boolean pTranslate, String pPosition, Single pTime, String pColor)
+         2  static WorldTip instance
+         1  Void setText(String pText, Boolean pAddSKip)
+         1  Void showToolbarText(GodPower pPower, Boolean pShowOnComputer)
+Assembly-CSharp  WarData  refs=18
+         5  String war_type { }
+         3  List`1 list_attackers
+         3  List`1 list_defenders
+         2  Int64 main_attacker { }
+         2  Int64 main_defender { }
+         1  List`1 past_attackers
+         1  List`1 past_defenders
+         1  WarWinner winner
+Assembly-CSharp  AllianceManager  refs=18
+         8  Void dissolveAlliance(Alliance pAlliance)
+         5  Alliance newAlliance(Kingdom pKingdom, Kingdom pKingdom2)
+         2  Sprite[] getBackgroundsList()
+         1  Sprite[] getIconsList()
+         1  Boolean forceAlliance(Kingdom pKingdom1, Kingdom pKingdom2)
+         1  Boolean anyAlliances()
+UnityEngine.CoreModule  UnityEngine.Texture2D  refs=18
+         6  Void .ctor(Int32 width, Int32 height, TextureFormat textureFormat, Boolean mipChain)
+         5  Void SetPixels32(Color32[] colors)
+         3  Void Apply()
+         2  Void Apply(Boolean updateMipmaps)
+         1  Color32[] GetPixels32()
+         1  Color GetPixel(Int32 x, Int32 y)
+         0  static Int32 streamingMipmapsPriorityMin
+         0  static Int32 streamingMipmapsPriorityMax
+Assembly-CSharp  MetaTypeHistoryAction  refs=18
+        18  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MapStats  refs=17
+         6  Int64 citiesRebelled
+         4  String name
+         2  Int64 citiesConquered
+         2  Int64 peacesMade
+         1  Single current_age_progress
+         1  Void .ctor()
+         1  Void initNewWorld()
+Assembly-CSharp  TabbedWindow  refs=17
+        10  WindowMetaTabButtonsContainer tabs { }
+         7  ScrollWindow scroll_window
+Assembly-CSharp  CityData  refs=16
+         4  String original_actor_asset { }
+         3  Single timer_supply
+         2  Int32 total_leaders
+         2  Int64 last_kingdom_id { }
+         1  Double timestamp_kingdom
+         1  Int64 last_leader_id { }
+         1  Int64 leaderID { }
+         1  Int64 founder_id { }
+         1  String founder_name { }
+[hand] UnityEngine.CoreModule  UnityEngine.ColorUtility  refs=16
+         9  static String ToHtmlStringRGB(Color color)
+         6  static Boolean TryParseHtmlString(String htmlString, Color& color)
+         1  static String ToHtmlStringRGBA(Color color)
+Assembly-CSharp  Item  refs=16
+         6  Actor getActor()
+         3  City getCity()
+         2  Boolean shouldbe_removed
+         2  String getName(Boolean pWithMaterial)
+         1  Boolean addMod(String pModId)
+         1  Void clearCity()
+         1  EquipmentAsset asset { }
+Assembly-CSharp  MetaZoneDrawAction  refs=15
+        13  Void .ctor(Object object, IntPtr method)
+         2  Void Invoke(MetaTypeAsset pAsset)
+UnityEngine.UI  UnityEngine.UI.Image  refs=15
+        11  Sprite sprite { }
+         3  Type type { }
+         1  Boolean preserveAspect { }
+Assembly-CSharp  Docks  refs=15
+         8  ListPool`1 tiles_ocean
+         2  Void recalculateOceanTiles()
+         2  Void addBoatToDock(Actor pBoat)
+         1  Boolean ifStayingOnGround()
+         1  Int32 countBoatTypes(String pType)
+         1  Void update(Single pElapsed)
+Assembly-CSharp  DecisionAsset  refs=15
+        15  DecisionAction action_check_launch
+Assembly-CSharp  Zones  refs=15
+         2  static Boolean showKingdomZones(Boolean pCheckOnlyOption)
+         2  static Boolean showCityZones(Boolean pCheckOnlyOption)
+         2  static Boolean showAllianceZones(Boolean pCheckOnlyOption)
+         1  static MetaType getCurrentMapBorderMode(Boolean pCheckOnlyOption)
+         1  static Boolean showCultureZones(Boolean pCheckOnlyOption)
+         1  static Boolean showClanZones(Boolean pCheckOnlyOption)
+         1  static Boolean showSpeciesZones(Boolean pCheckOnlyOption)
+         1  static Boolean showFamiliesZones(Boolean pCheckOnlyOption)
+         1  static Boolean showLanguagesZones(Boolean pCheckOnlyOption)
+         1  static Boolean showReligionZones(Boolean pCheckOnlyOption)
+         1  static Boolean showArmyZones(Boolean pCheckOnlyOption)
+         1  static Boolean showMapNames()
+         0  static MetaTypeAsset getMapMetaAsset()
+         0  static Boolean showMapBorders()
+UnityEngine.CoreModule  UnityEngine.Application  refs=14
+         6  static Boolean isMobilePlatform { }
+         4  static Int32 targetFrameRate { }
+         3  static Boolean runInBackground { }
+         1  static String persistentDataPath { }
+NeoModLoader  NeoModLoader.General.UI.Prefabs.APrefab`1  refs=14
+        13  static T Prefab { }
+         1  Void SetSize(Vector2 pSize)
+Assembly-CSharp  TooltipLibrary  refs=14
+         8  Void setIconValue(Tooltip pTooltip, String pName, Single pMainVal, Nullable`1 pMax, String pColor, Boolean pFloat, String pEnding, Char pSeparator)
+         5  Void showActor(String pSubTitle, Tooltip pTooltip, TooltipData pData)
+         1  Void showTabBannerTip(Tooltip pTooltip, TooltipData pData)
+         0  Void showCity(Tooltip pTooltip, String pType, TooltipData pData)
+         0  Void showCity(String pTitleID, Tooltip pTooltip, TooltipData pData)
+         0  static String ARROW_UP_1
+         0  static String ARROW_UP_2
+         0  static String ARROW_UP_3
+         0  static String ARROW_DOWN_1
+         0  static String ARROW_DOWN_2
+         0  static String ARROW_DOWN_3
+Assembly-CSharp  NameplateBase  refs=14
+        14  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  CityBuildOrderAsset  refs=13
+         9  List`1 list
+         3  BuildOrder addBuilding(String pID, Int32 pLimitType, Int32 pPop, Int32 pBuildings, Boolean pCheckFullVillage, Boolean pCheckHouseLimit, Int32 pMinZones)
+         1  Void addUpgrade(String pID, Int32 pLimitType, Int32 pPop, Int32 pBuildings, Boolean pCheckFullVillage, Boolean pZonesCheck, Int32 pMinZones)
+Assembly-CSharp  PlotManager  refs=13
+        12  Plot newPlot(Actor pAuthor, PlotAsset pAsset, Boolean pForced)
+         1  Boolean isPlotTypeAlreadyRunning(Actor pActor, PlotAsset pPlotAsset)
+Assembly-CSharp  QuantumSpriteUpdater  refs=13
+        11  Void .ctor(Object object, IntPtr method)
+         2  Void Invoke(QuantumSpriteAsset pAsset)
+Assembly-CSharp  BaseCategoryAsset  refs=13
+         6  String name
+         6  String color
+         1  Boolean show_counter
+Assembly-CSharp  ICoreObject  refs=12
+         9  Boolean isAlive()
+         1  Boolean isFavorite()
+         1  String name { }
+         1  Int64 getID()
+Assembly-CSharp  Culture  refs=12
+        12  OnomasticsData getOnomasticData(MetaType pType, Boolean pReset)
+         0  Void createCulture(Actor pActor, Boolean pAddDefaultTraits)
+         0  Void cloneAndEvolveOnomastics(Culture pFrom)
+         0  static Int32 MAX_LEVEL
+Assembly-CSharp  PowerActionWithID  refs=12
+        12  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  BuildingManager  refs=12
+         6  Building addBuilding(BuildingAsset pAsset, WorldTile pTile, Boolean pCheckForBuild, Boolean pSfx, BuildPlacingType pType)
+         4  Boolean canBuildFrom(WorldTile pTile, BuildingAsset pNewBuildingAsset, City pCity, BuildPlacingType pType, Boolean pFloraGrowth)
+         1  Building addBuilding(String pID, WorldTile pTile, Boolean pCheckForBuild, Boolean pSfx, BuildPlacingType pType)
+         1  Int32 countVisibleBuildings()
+Assembly-CSharp  DiplomacyRelationData  refs=12
+        12  Double timestamp_last_war_ended
+EmpireCraft  EmpireCraft.Scripts.UI.Components.ZoneFlipOverlay  refs=12
+         7  static Void Hide(Boolean release)
+         2  static Rect CameraView()
+         1  static Void Begin()
+         1  static Void Card(TileZone zone, Color32[] oldPixels, Color32[] newPixels, Single progress, Boolean vertical, Single lift)
+         1  static Void End()
+         0  static Int32 Zone
+         0  static Int32 AtlasSize
+         0  static Int32 SlotsPerRow
+         0  static Int32 MaxSlots
+         0  static Single Perspective
+         0  static Single SideShade
+Assembly-CSharp  HistoryDataAsset  refs=12
+         2  Void .ctor()
+         2  String statistics_asset
+         2  String color_hex
+         2  String path_icon
+         2  Boolean max
+         2  GraphCategoryGroup category_group
+Assembly-CSharp  MetaTypeLibrary  refs=11
+         9  static Int32[] generateExponentialRanks(Double pBasePoints, Double pGrowthFactor)
+         1  MetaTypeAsset getAsset(MetaType pType)
+         1  static MetaTypeAsset city
+Assembly-CSharp  MetaZoneHighlightAction  refs=11
+        11  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaZoneClickAction  refs=11
+        11  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  Subspecies  refs=11
+         2  SubspeciesTrait mutation_skin_asset { }
+         2  HashSet`1 getAllowedFoodByDiet()
+         1  Boolean has_advanced_communication { }
+         1  String egg_sprite_path { }
+         1  String getSkinWarrior()
+         1  Boolean has_mutation_reskin { }
+         1  SubspeciesTrait egg_asset { }
+         1  Boolean hasReachedPopulationLimit()
+         1  Boolean isReproductionSexual()
+         0  static Single AGE_THRESHOLD_ADULT
+         0  static Single AGE_AGE_BREEDING_CIV
+         0  static Single AGE_THRESHOLD_ADULT_CIV
+         0  static Single AGE_MAX_ADULT
+         0  static Single AGE_EXPONENTIAL_ADULT
+         0  static Single AGE_MULTIPLIER_ADULT
+         0  static String reproduction_neuron
+         0  static String reproduction_basics_1
+         0  static String reproduction_basics_2
+         0  static String reproduction_basics_3
+         0  static String reproduction_basics_4
+         0  static String reproduction_sexual_try
+         0  static String reproduction_acts
+         0  static String reproduction
+         0  static String births
+         0  static String new_adults
+Assembly-CSharp  LoyaltyDelegateCalc  refs=11
+         9  Void .ctor(Object object, IntPtr method)
+         2  Int32 Invoke(City pCity)
+Assembly-CSharp  SelectedUnit  refs=11
+         5  static Actor unit { }
+         3  static Boolean isSet()
+         3  static Actor _unit_main
+Assembly-CSharp  SavedMap  refs=11
+         2  List`1 wars
+         1  List`1 kingdoms
+         1  List`1 cities
+         1  List`1 clans
+         1  List`1 cultures
+         1  List`1 languages
+         1  List`1 religions
+         1  List`1 subspecies
+         1  List`1 families
+         1  List`1 actors_data
+Assembly-CSharp  ReligionManager  refs=10
+        10  Religion newReligion(Actor pFounder, Boolean pAddDefaultTraits)
+UnityEngine.CoreModule  UnityEngine.Sprite  refs=10
+         5  Texture2D texture { }
+         1  Rect textureRect { }
+         1  Rect rect { }
+         1  Vector2 pivot { }
+         1  Single pixelsPerUnit { }
+         1  static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, Single pixelsPerUnit, UInt32 extrude, SpriteMeshType meshType, Vector4 border)
+Assembly-CSharp  ActorAssetLibrary  refs=10
+         7  Void addPhenotype(String pID, String pType)
+         3  Void addTrait(String pTrait)
+         0  static String TEMPLATE_BASIC_UNIT
+         0  static String TEMPLATE_BASIC_UNIT_COLORED
+         0  static String TEMPLATE_ANIMAL_BASE
+         0  static String TEMPLATE_ANIMAL
+         0  static String TEMPLATE_ANIMAL_FUR
+         0  static String TEMPLATE_ANIMAL_SKIN
+         0  static String TEMPLATE_PEACEFUL_ANIMAL
+         0  static String TEMPLATE_CARNIVORE
+         0  static String TEMPLATE_HERBIVORE
+         0  static String TEMPLATE_OMNIVORE
+         0  static String TEMPLATE_CIV_UNIT
+         0  static String TEMPLATE_CIV_ADVANCED_UNIT
+         0  static String TEMPLATE_BOAT
+         0  static String TEMPLATE_BOAT_TRADING
+         0  static String TEMPLATE_BOAT_TRANSPORT
+         0  static String TEMPLATE_MOB_NO_GENES
+         0  static String TEMPLATE_MOB
+         0  static String TEMPLATE_CREEP_MOB
+         0  static String TEMPLATE_ANIMAL_CIV
+         0  static String TEMPLATE_INSECT
+         0  static String TEMPLATE_FLYING_INSECT
+Assembly-CSharp  PlayerControl  refs=10
+         1  Boolean first_click
+         1  Boolean canInspectWithMainTouch()
+         1  Single _over_ui_timeout
+         1  Boolean already_used_zoom
+         1  Boolean already_used_camera_drag
+         1  Boolean isActionHappening()
+         1  Single inspect_timer_click
+         1  Double _last_time_touched_ui
+         1  Vector2 _origin_touch
+         1  Vector2 _current_touch
+         0  Boolean checkClickTouchInspectSelect()
+         0  Void updateControls()
+         0  static Int32 TOUCH_POWER_ACTIVATION_FRAMES
+         0  static Single DRAG_DETECTION_THRESHOLD_PERCENT
+UnityEngine.CoreModule  UnityEngine.Texture  refs=10
+         4  FilterMode filterMode { }
+         2  TextureWrapMode wrapMode { }
+         2  Int32 width { }
+         2  Int32 height { }
+Assembly-CSharp  WorldAgeAsset  refs=10
+         4  Boolean flag_crops_grow
+         4  Boolean flag_winter
+         1  String getLocaleID()
+         1  Boolean overlay_rain
+Assembly-CSharp  WorldLaws  refs=10
+         6  Dictionary`2 dict
+         2  Void updateCaches()
+         1  Void .ctor()
+         1  Void init(Boolean pUpdateCaches)
+Assembly-CSharp  GameStatsData  refs=10
+         6  Int64 citiesRebelled
+         2  Int64 citiesConquered
+         2  Int64 peacesMade
+NeoModLoader  NeoModLoader.General.UI.Prefabs.SimpleButton  refs=10
+         7  Text Text { }
+         3  Void Setup(UnityAction pClickAction, Sprite pIcon, String pText, Vector2 pSize, String pTipType, TooltipData pTipData)
+Assembly-CSharp  WindowMetaGeneric`2  refs=10
+         7  TMetaObject meta_object { }
+         2  Void tryShowPastNames()
+         1  NameInput _name_input
+         0  Void startShowingWindow()
+         0  Boolean onNameChange(String pInput)
+         0  Void OnEnable()
+Assembly-CSharp  DecisionAction  refs=10
+         5  Void .ctor(Object object, IntPtr method)
+         5  Boolean Invoke(Actor pActor)
+Assembly-CSharp  WorldTilemap  refs=10
+         4  HashSet`1 _dirty_zones
+         2  Void prepareToDraw()
+         2  Void checkZoneToRender(TileZone pZone)
+         1  Void redrawAllLayers()
+         1  Void drawFinish()
+         0  static Int32 EMPTY_Z
+         0  static Single WATER_RUNUP_INTERVAL
+         0  static Single WATER_RUNUP_SPEED_CHANGE
+         0  static Single COLOR_WATER_RUNUP_ALPHA_BOUND_MIN
+         0  static Single COLOR_WATER_RUNUP_ALPHA_BOUND_M
+UnityEngine.CoreModule  UnityEngine.Renderer  refs=10
+         4  Boolean enabled { }
+         3  Int32 sortingOrder { }
+         2  String sortingLayerName { }
+         1  Int32 sortingLayerID { }
+Assembly-CSharp  WorldTileZoneBorder  refs=10
+         2  Boolean border
+         2  Boolean border_up
+         2  Boolean border_down
+         2  Boolean border_left
+         2  Boolean border_right
+Assembly-CSharp  HotkeyAsset  refs=10
+         2  Void .ctor()
+         2  KeyCode default_key_1
+         2  Boolean check_window_not_active
+         2  Boolean check_controls_locked
+         2  HotkeyAction just_pressed_action
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.PerformanceTraceFile  refs=9
+         8  static Void Record(String message)
+         1  static Void Configure(String folder)
+         0  static Int32 MaximumPending
+         0  static Int64 MaximumBytes
+Assembly-CSharp  KingdomManager  refs=9
+         5  Kingdom makeNewCivKingdom(Actor pActor, String pID, Boolean pLog)
+         3  Void beginChecksCities()
+         1  Void setDirtyCities()
+         0  Void removeObject(Kingdom pKingdom)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.WildernessOverlay  refs=9
+         5  static Void MarkAround(TileZone zone)
+         1  static Boolean TipShown(TileZone zone)
+         1  static Void CanvasRebuilt()
+         1  static Void MarkZone(TileZone zone)
+         1  static Void Update()
+         0  static Int32 ChunkTiles
+         0  static Double BuildBudgetMs
+         0  static Int32 SweepPerFrame
+         0  static Single FillShare
+         0  static Byte MarkAlpha
+         0  static String TooltipType
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.ModSettingsWindow  refs=9
+         4  static Void SetText(String id, String text)
+         3  static Void SetSwitch(String id, Boolean on)
+         1  static Void RefreshTerminalPage()
+         1  static Boolean Open()
+         0  static String ConfigGroup
+         0  static String TerminalCategory
+UnityEngine.CoreModule  UnityEngine.Resources  refs=9
+         3  static T GetBuiltinResource(String path)
+         3  static T[] FindObjectsOfTypeAll()
+         2  static T Load(String path)
+         1  static T[] LoadAll(String path)
+UnityEngine.CoreModule  UnityEngine.Events.UnityAction  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  CultureData  refs=9
+         3  String creator_species_id
+         3  String original_actor_asset { }
+         2  String creator_city_name
+         1  String creator_kingdom_name
+Assembly-CSharp  BannerAsset  refs=9
+         9  List`1 icons
+Assembly-CSharp  ListPoolExtensions  refs=9
+         5  static Boolean Any(ListPool`1 list)
+         3  static T GetRandom(ListPool`1 list)
+         1  static IEnumerable`1 Where(ListPool`1 pList, Func`2 pPredicate)
+[hand] Assembly-CSharp  CustomDataContainer`1  refs=9
+         4  Void .ctor()
+         2  Dictionary`2 dict
+         2  TType Item { }
+         1  IEnumerable`1 Keys { }
+Assembly-CSharp  MapAction  refs=9
+         6  static Void terraformTop(WorldTile pTile, TopTileType pTopType, TerraformOptions pOptions, Boolean pSkipTerraform)
+         1  static Void createRoadTile(WorldTile pTile)
+         1  static Void terraformTile(WorldTile pTile, TileType pNewTypeMain, TopTileType pTopType, TerraformOptions pOptions, Boolean pSkipTerraform)
+         1  static Void decreaseTile(WorldTile pTile, Boolean pDamage, String pTerraformOption)
+         0  static Void makeRoadBetween(WorldTile pTile1, WorldTile pTile2, City pCity, Boolean pForceFinished)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.CorpsMapRenderer  refs=9
+         2  static Boolean Hovering { }
+         1  static Void ClearLocate()
+         1  static Void EnsureHost()
+         1  static Boolean TryClick()
+         1  static Void ShowCounterTooltip(Tooltip tooltip, String type, TooltipData data)
+         1  static Void ShowBattleTooltip(Tooltip tooltip, String type, TooltipData data)
+         1  static Void ShowFleetTooltip(Tooltip tooltip, String type, TooltipData data)
+         1  static Void ShowNavalTooltip(Tooltip tooltip, String type, TooltipData data)
+         0  static Single CounterWidth
+         0  static Single CounterHeight
+         0  static Single MarkerWidth
+         0  static Single MarkerHeight
+         0  static Single FrameBorder
+         0  static Single HoverScale
+         0  static Single LineWidth
+         0  static Single TooltipRefresh
+         0  static Single LocateSeconds
+         0  static Single FollowEngageZones
+         0  static Single FollowReleaseZones
+         0  static Single MarkerTextSeconds
+         0  static Int32 HoverNone
+         0  static Int32 HoverCounter
+         0  static Int32 HoverMarker
+         0  static Int32 HoverFleet
+         0  static Int32 HoverNaval
+         0  static String CounterTooltip
+         0  static String BattleTooltip
+         0  static String FleetTooltip
+         0  static String NavalTooltip
+         0  static Single NearZonePixels
+         0  static Single FarZonePixels
+         0  static Single FoldMoversFar
+         0  static Single MixRealmsFar
+         0  static Single GlideSeconds
+         0  static Single MinGlideSpeed
+         0  static Single SnapDistance
+         0  static Single MoverMerge
+         0  static Single DashLength
+         0  static Single DashGap
+         0  static Single RouteWidth
+         0  static Int32 MaxDashes
+Assembly-CSharp  DebugConfig  refs=9
+         9  static Boolean isOn(DebugOption pOption)
+NeoModLoader  NeoModLoader.General.UI.Prefabs.TextInput  refs=9
+         8  InputField input { }
+         1  Void Setup(String value, UnityAction`1 value_update, Sprite pIcon, Sprite pBackground)
+Assembly-CSharp  UnitWindow  refs=9
+         9  Actor actor { }
+         0  Void showStatsRows()
+         0  Void OnEnable()
+         0  Boolean onNameChange(String pInput)
+Assembly-CSharp  MetaTypeAction  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaTypeListAction  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaTypeListHasAction  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaSelectedGetter  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaSelectedSetter  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaGetter  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaCheckUnitWindowAction  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaUnitSetMetaForWindow  refs=9
+         9  Void .ctor(Object object, IntPtr method)
+UnityEngine.InputLegacyModule  UnityEngine.Input  refs=8
+         4  static Boolean GetKey(KeyCode key)
+         2  static Boolean GetMouseButton(Int32 button)
+         1  static Boolean GetKeyDown(KeyCode key)
+         1  static Vector3 mousePosition { }
+Assembly-CSharp  LeaderEntry  refs=8
+         2  Int64 id
+         2  String name
+         1  Void .ctor()
+         1  Int32 color_id
+         1  Double timestamp_ago
+         1  Double timestamp_end
+Assembly-CSharp  TopTileLibrary  refs=8
+         6  static TopTileType field
+         1  static TopTileType snow_block
+         1  static TopTileType snow_summit
+         0  static String TEMPLATE_WALL
+Assembly-CSharp  ItemAsset  refs=8
+         3  String material
+         1  String translation_key
+         1  Int32 equipment_value
+         1  String[] item_modifier_ids
+         1  ItemModAsset[] item_modifiers
+         1  String getTranslatedName()
+Assembly-CSharp  PlayerOptionAction  refs=8
+         7  Void .ctor(Object object, IntPtr method)
+         1  Void Invoke(PlayerOptionData pOption)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.SimpleWindowTab  refs=8
+         7  Void Setup(String pName, ScrollWindow window, List`1 contents, Sprite sprite, UnityAction`1 action)
+         1  static Void Forget(ScrollWindow window)
+UnityEngine.UI  UnityEngine.UI.InputField  refs=8
+         8  String text { }
+         0  static Single kHScrollSpeed
+         0  static Single kVScrollSpeed
+         0  static String kEmailSpecialCharacters
+         0  static String kOculusQuestDeviceModel
+         0  static Int32 k_MaxTextLength
+[hand] UnityEngine.CoreModule  UnityEngine.Debug  refs=8
+         4  static Void Log(Object message)
+         3  static Void LogWarning(Object message)
+         1  static Void LogError(Object message)
+Assembly-CSharp  BannerBase  refs=8
+         8  Void load(NanoObject pObject)
+Assembly-CSharp  GroupSpriteObject  refs=8
+         3  Void setColor(Color& pColor)
+         2  Void setSprite(Sprite pSprite)
+         2  SpriteRenderer sprite_renderer
+         1  Void setSharedMat(Material pMaterial)
+Assembly-CSharp  ZoneMetaDataVisualizer  refs=8
+         3  static ZoneMetaData getZoneMetaData(TileZone pZone)
+         2  static Void countMetaZone(TileZone pZone, IMetaObject pMetaObject, Double pTimestamp)
+         1  static Void clearAll()
+         1  static Dictionary`2 zone_data_dict
+         1  static ListPool`1 getZonesWithMeta(IMetaObject pMeta)
+         0  static Single FADE_TIME
+Assembly-CSharp  WorldActionTrait  refs=8
+         8  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  ZoneMetaData  refs=8
+         7  IMetaObject meta_object
+         1  TileZone zone
+Assembly-CSharp  CityManager  refs=7
+         6  City buildNewCity(Actor pActor, TileZone pZone)
+         1  City buildFirstCivilizationCity(Actor pActor)
+         0  Void removeObject(City pObject)
+Assembly-CSharp  Religion  refs=7
+         4  List`1 cities
+         3  List`1 kingdoms
+         0  Void newReligion(Actor pActor, WorldTile pTile, Boolean pAddDefaultTraits)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.CityPlanOverlay  refs=7
+         2  static Void MarkZone(TileZone zone)
+         2  static Void Update()
+         1  static Void PlanRebuilt(City city, Int32 stamp)
+         1  static Void MarkCity(City city)
+         1  static Void ResetWorldState()
+         0  static Int32 ChunkTiles
+         0  static Double BuildBudgetMs
+         0  static Int32 SweepPerFrame
+Assembly-CSharp  CitizenJobLibrary  refs=7
+         2  static CitizenJobAsset miner_deposit
+         1  static CitizenJobAsset gatherer_bushes
+         1  static CitizenJobAsset gatherer_herbs
+         1  static CitizenJobAsset gatherer_honey
+         1  static CitizenJobAsset hunter
+         1  static CitizenJobAsset woodcutter
+Assembly-CSharp  WindowMetaTabButtonsContainer  refs=7
+         7  List`1 _tabs
+UnityEngine.CoreModule  UnityEngine.Events.UnityAction`1  refs=7
+         7  Void .ctor(Object object, IntPtr method)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.WindowBackState  refs=7
+         2  static Boolean Returning
+         1  static Void OnAdded()
+         1  static Void Clear()
+         1  static Void BeforeReturn(ScrollWindow window)
+         1  static Void AfterReturn(ScrollWindow window)
+         1  static Void OnLeaving()
+[hand] NeoModLoader  NeoModLoader.api.ModConfig  refs=6
+         4  Void .ctor(String path, Boolean pIsPersistent)
+         1  Void Save(String path)
+         1  Dictionary`2 Item { }
+         0  Void ApplyCallbacks()
+         0  Void MergeWith(ModConfig pDefaultConfig)
+Assembly-CSharp  ClanManager  refs=6
+         6  Clan newClan(Actor pFounder, Boolean pAddDefaultTraits)
+Assembly-CSharp  GenericBannerLibrary  refs=6
+         2  Sprite getSpriteIcon(Int32 pIndex, String pAssetID)
+         2  Sprite getSpriteBackground(Int32 pIndex, String pAssetID)
+         1  Sprite getSpriteIcon(Int32 pIndex)
+         1  Sprite getSpriteBackground(Int32 pIndex)
+Assembly-CSharp  CanvasMain  refs=6
+         4  static CanvasMain instance
+         2  Canvas canvas_map_names
+         0  static Int32 REFERENCE_SIZE_X
+         0  static Int32 REFERENCE_SIZE_Y
+Assembly-CSharp  PowerAction  refs=6
+         6  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  BuildingFundament  refs=6
+         4  Void .ctor(Int32 pLeft, Int32 pRight, Int32 pTop, Int32 pBottom)
+         1  Int32 width
+         1  Int32 height
+Assembly-CSharp  TerraformOptions  refs=6
+         1  Boolean destroy_buildings
+         1  Boolean remove_top_tile
+         1  Boolean explode_tile
+         1  Boolean damage_buildings
+         1  Boolean transform_to_wasteland
+         1  Boolean remove_water
+Assembly-CSharp  TileLibrary  refs=6
+         2  static TileType hills
+         2  Void setListTo(DepthGeneratorType pVal)
+         1  static TileType mountains
+         1  static TileType summit
+Assembly-CSharp  GameStats  refs=6
+         6  GameStatsData data
+Assembly-CSharp  MapLoaderAction  refs=6
+         6  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  ActorAnimation  refs=6
+         5  Sprite[] frames
+         1  Void .ctor()
+Assembly-CSharp  WildKingdomsManager  refs=6
+         6  static Kingdom neutral
+         0  Void beginChecksBuildings()
+Assembly-CSharp  BannerGeneric`2  refs=6
+         3  Image part_background
+         2  Image part_icon
+         1  TMetaObject meta_object
+         0  Void setupBanner()
+Assembly-CSharp  BaseAssetLibrary  refs=6
+         3  Void linkAssets()
+         3  IEnumerable`1 getList()
+         0  static String ERROR_COLOR_WHITE
+         0  static String ERROR_COLOR_RED
+         0  static String ERROR_COLOR_YELLOW
+         0  static String ERROR_COLOR_MAIN
+Assembly-CSharp  InputHelpers  refs=6
+         6  static Boolean mouseSupported { }
+Assembly-CSharp  ActorManager  refs=5
+         5  Actor createNewUnit(String pStatsID, WorldTile pTile, Boolean pMiracleSpawn, Single pSpawnHeight, Subspecies pSubspecies, Subspecies pSubspeciesMutateFrom, Boolean pSpawnWithItems, Boolean pAdultAge, Boolean pGiveOwnerlessItems, Boolean pSapientSubspecies)
+         0  Void calculateVisibleActors()
+         0  Void checkNewSpecies(ActorAsset pAsset, WorldTile pTile, Actor pActor, Actor& pClosestActor, Boolean pGlobalSearch, Boolean pLookForSapientSubspecies, Subspecies pSubspeciesMutateFrom)
+Assembly-CSharp  ColorLibrary  refs=5
+         3  ColorAsset getNextColor(ActorAsset pActorAsset)
+         1  Int32 getNextColorIndex(ActorAsset pActorAsset)
+         1  ColorAsset getColorByIndex(Int32 pIndex)
+Assembly-CSharp  CultureManager  refs=5
+         3  Void setDirtyCities()
+         2  Culture newCulture(Actor pFounder, Boolean pAddDefaultTraits)
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.EmpireLossDiagnostics  refs=5
+         1  static Void OnDissolveSkipped(Empire empire, Boolean repaired)
+         1  static Void OnDissolving(Empire empire)
+         1  static Void Tick()
+         1  static Void OnCoreMoved(Kingdom kingdom, Int64 from, Int64 to)
+         1  static Void OnLoaded()
+         0  static String Tag
+Assembly-CSharp  CityStorageSlot  refs=5
+         3  String id
+         2  Int32 amount
+NeoModLoader  NCMS.Extensions.DictionaryRange  refs=5
+         5  static Void ForEach(IEnumerable`1 source, Action`1 action)
+Assembly-CSharp  ArchitectureAsset  refs=5
+         5  Dictionary`2 building_ids_for_construction
+Assembly-CSharp  ProfessionAsset  refs=5
+         4  UnitProfession profession_id
+         1  Boolean is_civilian
+Assembly-CSharp  MapGenTemplate  refs=5
+         2  MapGenValues values
+         1  Boolean special_anthill
+         1  Boolean special_checkerboard
+         1  Boolean special_cubicles
+Assembly-CSharp  ResourceContainer  refs=5
+         4  String id
+         1  Int32 amount
+Assembly-CSharp  MapChunkManager  refs=5
+         3  Void allDirty()
+         2  Void update(Single pElapsed, Boolean pForce)
+Assembly-CSharp  TooltipDataGetter  refs=5
+         5  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  WorldLayerEdges  refs=5
+         2  HashSet`1 _dirty_chunks
+         2  HashSet`1 _chunks_to_redraw
+         1  Void redrawTile(WorldTile pTile)
+Assembly-CSharp  JobAsset`2  refs=5
+         5  Void addTask(String pTask)
+Assembly-CSharp  MetaTooltipShowAction  refs=5
+         3  Void Invoke(NanoObject pType)
+         2  Void .ctor(Object object, IntPtr method)
+UnityEngine.CoreModule  UnityEngine.MonoBehaviour  refs=4
+         4  Void .ctor()
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.EmpireCraftDebugProbe  refs=4
+         2  static Boolean Hit(String probe, Func`1 details)
+         1  static Void Initialize()
+         1  static Boolean Observe(String probe, String scope, String state, Func`1 details)
+         0  static String ConfigFileName
+         0  static String LogFileName
+Assembly-CSharp  IMetaObject  refs=4
+         2  ColorAsset getColor()
+         1  Boolean hasUnits()
+         1  Actor getOldestVisibleUnitForNameplatesCached()
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.SpecificClanWindow  refs=4
+         3  static String Post(PersonalClanIdentity identity)
+         1  static Void ShowFor(PersonalClanIdentity identity, Page page)
+         0  static Int32 MaxTreeBranches
+         0  static Int32 MaxDepthIndent
+         0  static Int32 MaxLineRows
+         0  static Int32 ChronicleLimit
+         0  static Int32 MembersPerPage
+         0  static Int32 OverviewRows
+         0  static Int32 NotableCount
+         0  static Single TreeHeight
+Assembly-CSharp  PhenotypeAsset  refs=4
+         4  Color32[] colors
+EmpireCraft  EmpireCraft.Scripts.UI.Components.UIHelper  refs=4
+         3  static String ShortCount(Double value)
+         1  static RectTransform CreateHorizontalLayoutContainer(String name, Vector2 size)
+         0  static Single AvatarScale
+         0  static Single AvatarRefHeight
+         0  static Single WidePanelWidth
+         0  static Single RailWidth
+         0  static Single PageGap
+         0  static Single PageMainWidth
+         0  static Single CardGap
+         0  static Single PageColumnWidth
+         0  static Single WideWindowTopMargin
+         0  static Single RailInset
+         0  static Single RailRowHeight
+         0  static Single FactionTileHeight
+         0  static Single FactionPieSize
+         0  static Single FactionCardHeight
+         0  static Int32 FactionRatioStep
+Assembly-CSharp  BookData  refs=4
+         1  String book_type
+         1  Int64 author_kingdom_id
+         1  Int64 building_id
+         1  Int64 author_city_id
+Assembly-CSharp  BookManager  refs=4
+         4  Book generateNewBook(Actor pActor)
+         0  static String COVER_PATH
+         0  static String ICON_PATH
+EmpireCraft  EmpireCraft.Scripts.UI.Components.RoadOverlay  refs=4
+         2  static Void Update()
+         1  static Color32 CasingColor { }
+         1  static Color32 GradeColor(Int32 grade)
+         0  static Single RedrawSeconds
+         0  static Single MinRedrawSeconds
+         0  static Int32 MajorGrade
+Assembly-CSharp  PlotData  refs=4
+         3  Boolean forced
+         1  Single progress_current
+Assembly-CSharp  CitizenJobAsset  refs=4
+         1  Void .ctor()
+         1  Int32 priority
+         1  DebugOption debug_option
+         1  String path_icon
+Assembly-CSharp  MusicBox  refs=4
+         2  static MusicBox inst
+         1  static Boolean music_on
+         1  static Boolean sounds_on
+         0  EventInstance _music_event
+         0  static Int32 MUSIC_ZONES_SIZE
+         0  static Int32 IDLE_SOUND_TIMER_MIN
+         0  static Int32 IDLE_SOUND_TIMER_MAX
+         0  static Single INTERVAL_UPDATE
+Assembly-CSharp  TerraformLibrary  refs=4
+         4  static TerraformOptions nothing
+UnityEngine.CoreModule  UnityEngine.Scripting.GarbageCollector  refs=4
+         3  static UInt64 incrementalTimeSliceNanoseconds { }
+         1  static Boolean isIncremental { }
+Assembly-CSharp  BaseBuildingComponent  refs=4
+         4  Building building
+         0  Void update(Single pElapsed)
+UnityEngine.CoreModule  UnityEngine.QualitySettings  refs=4
+         4  static Int32 vSyncCount { }
+UnityEngine.ImageConversionModule  UnityEngine.ImageConversion  refs=4
+         3  static Byte[] EncodeToPNG(Texture2D tex)
+         1  static Boolean LoadImage(Texture2D tex, Byte[] data)
+Assembly-CSharp  BabyHelper  refs=4
+         4  static Boolean isMetaLimitsReached(Actor pActor)
+         0  static Void applyParentsMeta(Actor pParent1, Actor pParent2, Actor pBaby)
+         0  static Boolean canMakeBabies(Actor pActor)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.SimpleText  refs=4
+         2  Void Setup(String pText, TextAnchor pAlignment, Vector2 pSize, Sprite pBackground)
+         2  Image background { }
+EmpireCraft  EmpireCraft.Scripts.UI.Components.EmperorMarkerRenderer  refs=4
+         1  static Boolean Hovering { }
+         1  static Void EnsureHost()
+         1  static Void ShowTooltip(Tooltip tooltip, String type, TooltipData data)
+         1  static Void ShowPopeTooltip(Tooltip tooltip, String type, TooltipData data)
+         0  static Single Size
+         0  static Single Lift
+         0  static Single HoverScale
+         0  static Single TooltipRefresh
+         0  static Single Gap
+         0  static Single CrownRefresh
+         0  static Single SeeRefresh
+         0  static String TooltipType
+         0  static String PopeTooltipType
+         0  static String DefaultCrown
+         0  static String PopeCrown
+         0  static String RomaSet
+         0  static String Plain
+Assembly-CSharp  ActorTraitGroupAsset  refs=4
+         4  Void .ctor()
+Assembly-CSharp  ai.behaviours.BehaviourTaskActor  refs=4
+         3  Void .ctor()
+         1  Boolean cancellable_by_reproduction
+Assembly-CSharp  MetaStatAction  refs=4
+         4  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  WindowHistoryData  refs=4
+         2  Kingdom kingdom
+         2  City city
+Assembly-CSharp  TransformExtensions  refs=4
+         2  static Transform FindRecursive(Transform pTransform, String pName)
+         2  static T[] FindAllRecursive(Transform pTransform)
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.TextureUploadCounter  refs=3
+         1  static Void EnsurePatched()
+         1  static Void Reset()
+         1  static String BuildReport(Int32 frames)
+         0  static String Outside
+         0  static Double Megabyte
+         0  static Int32 MaxLabels
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.StackGuard  refs=3
+         3  static Void Probe()
+UnityEngine.CoreModule  UnityEngine.Profiling.Profiler  refs=3
+         1  static Int64 GetMonoUsedSizeLong()
+         1  static Int64 GetMonoHeapSizeLong()
+         1  static Int64 GetTotalAllocatedMemoryLong()
+         0  static UInt32 invalidProfilerArea
+Assembly-CSharp  ReligionData  refs=3
+         2  String creator_species_id
+         1  Int64 creator_kingdom_id
+UnityEngine.UI  UnityEngine.UI.CanvasScaler  refs=3
+         1  ScaleMode uiScaleMode { }
+         1  Vector2 referenceResolution { }
+         1  Single matchWidthOrHeight { }
+         0  static Single kLogBase
+UnityEngine.UI  UnityEngine.UI.Button  refs=3
+         3  ButtonClickedEvent onClick { }
+Assembly-CSharp  BabyMaker  refs=3
+         3  static Actor makeBaby(Actor pParent1, Actor pParent2, ActorSex pForcedSexType, Boolean pCloneTraits, Int32 pMutationRate, WorldTile pTile, Boolean pAddToFamily, Boolean pJoinFamily)
+         0  static Void makeBabyFromMiracle(Actor pActor, ActorSex pSex, Boolean pAddToFamily)
+         0  static Void spawnBabyFromSpore(Actor pActor, Vector3 pPosition)
+Assembly-CSharp  TileIsland  refs=3
+         2  Int32 getTileCount()
+         1  Boolean goodForDocks()
+Assembly-CSharp  BehaviourTaskKingdom  refs=3
+         3  Void .ctor()
+Assembly-CSharp  BehaviourActionKingdom  refs=3
+         3  Void .ctor()
+Assembly-CSharp  KingdomAsset  refs=3
+         3  Boolean civ
+Assembly-CSharp  MetaSystemManager`2  refs=3
+         2  Void .ctor()
+         1  Void addObject(TObject pObject)
+         0  Void updateDirtyUnits()
+         0  Void startCollectHistoryData()
+UnityEngine.CoreModule  UnityEngine.Screen  refs=3
+         2  static Int32 height { }
+         1  static Int32 width { }
+UnityEngine.UI  UnityEngine.UI.Shadow  refs=3
+         2  Color effectColor { }
+         1  Vector2 effectDistance { }
+         0  static Single kMaxEffectDistance
+Assembly-CSharp  MetaTypeExtensions  refs=3
+         3  static MetaTypeAsset getAsset(MetaType pType)
+         0  static String AsString(MetaType pType)
+Assembly-CSharp  ActorEquipment  refs=3
+         2  ActorEquipmentSlot getSlot(EquipmentType pType)
+         1  Void setItem(Item pItem, Actor pActor)
+         0  static Int32 SLOTS_AMOUNT
+         0  static String NONE
+Assembly-CSharp  ItemCrafting  refs=3
+         1  static Boolean craftItem(Actor pActor, String pCreatorName, EquipmentType pType, Int32 pTries, City pCity)
+         1  static Boolean tryToCraftRandomWeapon(Actor pActor, City pCity)
+         1  static Boolean tryToCraftRandomArmor(Actor pActor, City pCity)
+         0  static EquipmentAsset getItemAssetToCraft(Actor pActor, List`1 pItemList, City pCity, Int32 pCurrentItemValue, Boolean pShuffle)
+Assembly-CSharp  BatchBuildings  refs=3
+         3  ObjectContainer`1 c_components
+Assembly-CSharp  MapGenerator  refs=3
+         1  static MapGenTemplate template
+         1  static Void spawnResources()
+         1  static Void spawnVegetation(Int32 pAmount)
+         0  static Void prepare()
+Assembly-CSharp  CitizenJobs  refs=3
+         3  Int32 countCurrentJobs(CitizenJobAsset pJobAsset)
+Assembly-CSharp  BaseObjectData  refs=3
+         3  Int32 health { }
+Assembly-CSharp  CityZoneHelper  refs=3
+         2  CityPlaceFinder city_place_finder
+         1  CityZoneGrowth city_growth
+Assembly-CSharp  CityWindow  refs=3
+         2  LocalizedText village_title
+         1  Void tryShowPastRulers()
+         0  Void startShowingWindow()
+         0  Void showStatsRows()
+Assembly-CSharp  LocalizedText  refs=3
+         3  Void setKeyAndUpdate(String pKey)
+         0  static String DEFAULT_KEY
+         0  static Char LINE_ENDING
+Assembly-CSharp  KeyValueField  refs=3
+         2  UnityAction on_click_value
+         1  Text value
+Assembly-CSharp  StatisticsAsset  refs=3
+         3  StatisticsLongAction long_action
+EmpireCraft  EmpireCraft.Scripts.UI.Components.CityDetailOverlay  refs=3
+         2  static Void Update()
+         1  static Void ResetWorldState()
+         0  static Single MinPixelsPerTile
+         0  static Int32 MaxShown
+         0  static Int32 MaxCached
+         0  static Int32 MaxTextures
+         0  static Int32 CountrysideMargin
+         0  static Single CameraSettleSeconds
+         0  static Int32 BuildEveryFrames
+         0  static Single BoundsSeconds
+Assembly-CSharp  Batch`1  refs=3
+         2  T[] _array
+         1  Int32 _count
+Assembly-CSharp  HistoryHud  refs=3
+         2  List`1 _history_items
+         1  Void makeInactive(HistoryHudItem historyItem)
+         0  Void newHistory(WorldLogMessage pMessage)
+         0  static Int32 HISTORY_ITEM_SIZE
+         0  static Int32 MAX_HISTORY_ITEMS
+         0  static Single START_POSITION
+Assembly-CSharp  HotkeyLibrary  refs=3
+         3  MetaType[] _meta_zones
+UnityEngine.UI  UnityEngine.EventSystems.EventSystem  refs=3
+         1  static EventSystem current { }
+         1  Boolean IsPointerOverGameObject()
+         1  Void RaycastAll(PointerEventData eventData, List`1 raycastResults)
+UnityEngine.UI  UnityEngine.UI.LayoutGroup  refs=3
+         3  RectOffset padding { }
+UnityEngine.CoreModule  UnityEngine.RectOffset  refs=3
+         1  Int32 left { }
+         1  Int32 right { }
+         1  Int32 top { }
+EmpireCraft  EmpireCraft.Scripts.GodPowers.VassalPowerButtons  refs=3
+         2  static Int64 SelectedLordId
+         1  static Kingdom SelectedLord()
+Assembly-CSharp  IntExtensions  refs=3
+         3  static String ToText(Int32 pInt)
+Assembly-CSharp  ai.behaviours.KingdomBehCheckCapital  refs=3
+         3  Void .ctor()
+EmpireCraft  EmpireCraft.Scripts.GodPowers.PlateauPowers  refs=2
+         1  static Void Tick()
+         1  static Void ResetWorldState()
+         0  static Single SettleSeconds
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService  refs=2
+         1  static Void Initialize()
+         1  static String ReplacedConfigPath()
+         0  static Int32 NetworkTimeoutMilliseconds
+         0  static Int64 MaximumPackageBytes
+         0  static Int64 MaximumExtractedBytes
+         0  static Int32 MaximumArchiveEntries
+         0  static String PendingInstallFileName
+         0  static String InstallResultFileName
+         0  static String UpdateSettingsFileName
+         0  static String InstallStateFileName
+         0  static String PendingSwapFileName
+         0  static Int32 SwapAttempts
+UnityEngine.UIModule  UnityEngine.Canvas  refs=2
+         1  RenderMode renderMode { }
+         1  Int32 sortingOrder { }
+UnityEngine.CoreModule  UnityEngine.Events.UnityEvent  refs=2
+         2  Void AddListener(UnityAction call)
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.TerminalWindow  refs=2
+         2  static Void RefreshIfOpen()
+         0  static Int32 MaxListed
+Assembly-CSharp  ClanData  refs=2
+         2  String original_actor_asset { }
+Assembly-CSharp  HashSetExtensions  refs=2
+         2  static T[] ToArray(HashSet`1 pHashSet)
+Assembly-CSharp  AiSystem`5  refs=2
+         2  Void setTask(String pTaskId, Boolean pClean, Boolean pCleanJob, Boolean pForceAction)
+Assembly-CSharp  NameGenerator  refs=2
+         1  static String getName(String pAssetID, ActorSex pSex, Boolean pForceLegacy, String pTemplate, Nullable`1 pSeed, Boolean pIgnoreBlackList)
+         1  static String generateName(Actor pActor, MetaType pType, Int64 pSeed, ActorSex pSex)
+Assembly-CSharp  Globals  refs=2
+         2  static Vector2 POINT_IN_VOID_2
+         0  static String HIDDEN_ID
+         0  static Int32 TOTAL_AGE_SLOTS
+         0  static Int64 NEUTRAL_KINGDOM_NUMERIC_ID
+         0  static Int32 PAST_RULERS_LIMIT
+         0  static Int32 TOTAL_RANKS
+         0  static Single UNIT_COLOR_EFFECT_TIME
+         0  static Single PLOT_REMOVAL_EFFECT_TIME
+         0  static Int32 CITY_ITEMS_MAX
+         0  static Int32 CITY_MIN_ISLAND_TILES
+         0  static Int32 CITY_MIN_CAN_BE_FARMS_TILES
+         0  static Single CITY_TIMER_SUPPLY_DEFAULT
+         0  static Single REGION_UPDATE_TIMEOUT
+         0  static Int32 DEFAULT_CONSTRUCTION_SPEED
+         0  static Int32 HAPPINESS_FROM_BREEDING_ACTION
+         0  static Single FAST_SWIMMING_SPEED_MULTIPLIER
+         0  static Int32 CULTURE_SPREAD_CHANCE_FROM_BOOK
+         0  static Int32 CULTURE_SPREAD_CHANCE_FROM_TALK
+         0  static Int32 LANGUAGE_SPREAD_CHANCE_FROM_TALK
+         0  static Int32 LANGUAGE_SPREAD_CHANCE_FROM_BOOK
+         0  static Int32 RELIGION_SPREAD_CHANCE_FROM_TALK
+         0  static Int32 RELIGION_SPREAD_CHANCE_FROM_BOOK
+         0  static Int32 CITY_POP_FOR_SETTLE_TARGET
+         0  static Single DEFAULT_SCALE_EFFECT
+         0  static Single DEFAULT_SCALE_UNIT
+         0  static Single DEFAULT_SCALE_BUILDING
+         0  static Single DEFAULT_ARROW_START_HEIGHT
+         0  static Single DEFAULT_PROJECTILE_START_HEIGHT
+         0  static Single DEFAULT_SLASH_POSITION
+         0  static Single DEFAULT_UNIT_SPEED
+         0  static Single DEFAULT_UNIT_SPEED_MIN
+         0  static Single SPEED_MULTIPLIER_IN_LIQUID_WITHOUT_STAMINA
+         0  static Single ACCURACY_MIN
+         0  static Single ACCURACY_MAX
+         0  static Single FIRE_EXTINGUISH_CHANCE_FROM_RAIN
+         0  static Int32 BOAT_TYPE_LIMIT_PER_DOCK
+         0  static Int32 CAST_HEIGHT
+         0  static Int32 UNITS_IN_SPAWNER_PER_REGION
+         0  static Int32 PATHFINDER_REGION_LIMIT
+         0  static Single DAYS_IN_YEAR
+         0  static Single DAYS_IN_MONTH
+         0  static Single MONTHS_IN_YEAR
+         0  static Single MONTH_TIME
+         0  static Single YEAR_TIME
+         0  static Int32 ATTRIBUTE_BAD
+         0  static Int32 ATTRIBUTE_NORMAL
+         0  static Int32 ATTRIBUTE_GOOD
+         0  static Int32 BUILDING_TOWER_CAPTURE_POINTS
+         0  static Int32 GENERATOR_MAX_TREES_PER_ZONE
+         0  static Single MIN_ADS_INTERVAL_MINUTES
+         0  static Single ADS_INTERVAL_MINUTES
+         0  static Single SAME_GRASS_CHANCE
+         0  static Int32 GREY_GOO_DAMAGE
+         0  static Int32 DAMAGE_ACID
+         0  static Int32 DAMAGE_HEAT
+         0  static Int32 MINIMUM_UNITS_IN_CITY_BEFORE_POP_POINTS
+         0  static Int32 CITIZEN_FOOD_COST
+         0  static Int32 ZONES_BETWEEN_CITIES
+         0  static Int32 BOMB_RANGE_ATOMIC_NUKE
+         0  static Int32 BOMB_RANGE_CZAR_BOMB
+         0  static Single SHAKE_DURATION
+         0  static Single SHAKE_INTERVAL
+         0  static Single SHAKE_INTENSITY
+         0  static Boolean SHAKE_X
+         0  static Boolean SHAKE_Y
+         0  static Single COUNTER_TWEEN_DURATION
+         0  static Int32 ANIMAL_BABY_MAKING_UNITS_AROUND_LIMIT
+         0  static Int32 FOOD_FROM_FISH
+         0  static Int32 FOOD_FROM_TILE
+         0  static Int32 FOOD_FROM_FARM
+         0  static Int32 FARM_DISTANCE_AREA
+         0  static Int32 ANIMAL_GOOD_FOR_HUNTING_AGE
+         0  static Int32 MAX_UNIT_LEVEL
+         0  static Int32 BOAT_UNITS_LIMIT
+         0  static Int32 TRANSPORT_WAIT_TRY_LIMIT
+         0  static Single COLORS_ZONE_ALPHA
+         0  static Int32 ISLAND_TILES_FOR_DOCKS
+         0  static Int32 FOOD_BUSH_REGROW_TIME
+         0  static Int32 FOOD_BEEHIVE_FULL
+         0  static Int32 REWARD_MINUTES
+         0  static Int32 REWARD_MINUTES_CLOCK
+         0  static Int32 REWARD_HOURS_CLOCK
+         0  static Int32 REWARD_DURATION
+         0  static Int32 REWARD_DURATION_CLOCK
+         0  static Int32 REWARD_SAVESLOT_HOURS
+         0  static Int32 REWARD_SAVESLOT_DURATION
+         0  static Int32 REWARDS_PER_GIFT
+         0  static Int32 FREE_SAVE_SLOTS
+         0  static Int32 REWARD_AD_SAVESLOTS_OLD
+         0  static Int32 REWARD_AD_SAVESLOTS_10HRS
+         0  static Int32 REWARD_AD_SAVESLOTS_20HRS
+         0  static Int32 DISCORD_MEMBERS
+         0  static Int32 FACEBOOK_MEMBERS
+         0  static Int32 TWITTER_MEMBERS
+         0  static Int32 REDDIT_MEMBERS
+         0  static String WB_EXAMPLE_MAP
+         0  static Int32 TIMEOUT_CONQUER
+         0  static String NORMAL
+         0  static Int32 RATE_US_ID
+         0  static String voteLink
+         0  static Int32 TOTAL_WORLD_AGE_SLOTS
+Assembly-CSharp  WorldLog  refs=2
+         1  static Void logNewKingdom(Kingdom pKingdom)
+         1  static Void logWarEnded(War pWar)
+         0  static Void logNewWar(Kingdom pKingdom1, Kingdom pKingdom2)
+         0  static Void logNewTotalWar(Kingdom pKingdom)
+         0  static Int32 WORLDLOG_LIMIT
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.MarketWindow  refs=2
+         1  static Void OpenGood(Kingdom kingdom, String good)
+         1  static Void Open(Kingdom kingdom, Boolean country)
+         0  static Int32 MemberPageSize
+         0  static Single HalfWidth
+Assembly-CSharp  ListSorters  refs=2
+         1  static Actor getUnitSortedByAgeAndTraits(ListPool`1 pUnits, Culture pCulture)
+         1  static Int32 sortUnitByAgeOldFirst(Actor pActor1, Actor pActor2)
+Assembly-CSharp  FamilyData  refs=2
+         2  String species_id
+Assembly-CSharp  Brush  refs=2
+         2  static BrushData get(String pID)
+Assembly-CSharp  EpPathFinding.cs.AStarParam  refs=2
+         1  Void resetParam()
+         1  Boolean roads
+EmpireCraft  EmpireCraft.Scripts.UI.Components.MapWallOverlay  refs=2
+         1  static Color32 StoneAt(Int32 x, Int32 y)
+         1  static Void Update()
+         0  static Int32 TowerSpacing
+Assembly-CSharp  Wheat  refs=2
+         2  Boolean isMaxLevel()
+Assembly-CSharp  BuildingSprites  refs=2
+         1  List`1 animation_data
+         1  BuildingMapIcon map_icon
+Assembly-CSharp  ActorEquipmentSlot  refs=2
+         2  Void takeAwayItem()
+         0  Void setItem(Item pItem, Actor pActor)
+Assembly-CSharp  TileSprites  refs=2
+         1  Void .ctor()
+         1  Void addVariation(Sprite pSprite, String pID)
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.NativeBenchmarkSnapshot  refs=2
+         1  static String ActorPrefixOwners()
+         1  static Void Record()
+Assembly-CSharp  GenomePart  refs=2
+         1  String id
+         1  Single value
+Assembly-CSharp  LanguageData  refs=2
+         2  String creator_species_id
+Assembly-CSharp  WorldAgeManager  refs=2
+         1  Void setDefaultAges()
+         1  Boolean shouldShowLights()
+Assembly-CSharp  Boat  refs=2
+         1  Void removePassenger(Actor pActor)
+         1  Void unloadPassengers(WorldTile pTile, Boolean pRandomForce)
+Assembly-CSharp  ActorSimpleComponent  refs=2
+         2  Actor actor
+Assembly-CSharp  CityZoneGrowth  refs=2
+         1  TileZone getZoneToClaim(Actor pActor, City pCity, Boolean pDebug, HashSet`1 pSetToFill, Int32 pBonusRange)
+         1  TileZone getRandomZone(City pCity)
+         0  static Single MOD_RADIUS
+Assembly-CSharp  CityPlaceFinder  refs=2
+         1  Boolean hasPossibleZones()
+         1  Void setDirty()
+NeoModLoader  NeoModLoader.api.attributes.HotfixableAttribute  refs=2
+         2  Void .ctor()
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.CultureInfoWindow  refs=2
+         2  static Void Open(String culture)
+         0  static Single PanelWidth
+         0  static Single GraphHeight
+Assembly-CSharp  DynamicSprites  refs=2
+         1  static Int64 getBuildingSpriteID(Int32 pBaseSpriteID, ColorAsset pColor)
+         1  static Sprite getIcon(Sprite pSprite, ColorAsset pColorAsset)
+         0  static Sprite getRecoloredBuilding(Sprite pBuildingSprite, ColorAsset pColor, DynamicSpritesAsset pAtlasAsset)
+         0  static Int32 NO_COLOR_ID
+Assembly-CSharp  DynamicSpritesAsset  refs=2
+         1  Sprite getSprite(Int64 pID)
+         1  Void addSprite(Int64 pHashCode, Sprite pSprite)
+Assembly-CSharp  SubspeciesData  refs=2
+         2  String species_id
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.IdeologyInfoWindow  refs=2
+         1  static Void Open(PartyIdeology ideology)
+         1  static Void Open(City city)
+         0  static Single PanelWidth
+         0  static Single Gap
+         0  static Single ChipHeight
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.KingdomOverviewWindow  refs=2
+         2  static Void Open(Kingdom kingdom)
+         0  static Single HalfWidth
+Assembly-CSharp  StringExtension  refs=2
+         1  static String Localize(String pString)
+         1  static String Underscore(String pString)
+Assembly-CSharp  LogHandler  refs=2
+         2  static String log
+         0  static Void ProcessLog(String pLogString, String pStackTrace, LogType pLogType)
+Assembly-CSharp  UnitLayer  refs=2
+         1  List`1 prevTiles
+         1  Single interval
+UnityEngine.CoreModule  UnityEngine.SpriteRenderer  refs=2
+         1  Sprite sprite { }
+         1  Color color { }
+Assembly-CSharp  ZoneCamera  refs=2
+         2  List`1 getVisibleZones()
+Assembly-CSharp  WorldAgeEffects  refs=2
+         2  Dictionary`2 dict_effects
+         0  Void update(Single pElapsed)
+Assembly-CSharp  StatisticsLongAction  refs=2
+         1  Void .ctor(Object object, IntPtr method)
+         1  Int64 Invoke(StatisticsAsset pAsset)
+Assembly-CSharp  MapLoaderContainer  refs=2
+         1  Void .ctor(MapLoaderAction pAction, String pID, Boolean pDebugLog, Single pNewWaitTimerValue)
+         1  String id
+Assembly-CSharp  CircleIconShaderMod  refs=2
+         1  SpriteRenderer sprite_renderer_with_mat
+         1  Void setShaderVal(Single pVal)
+Assembly-CSharp  RegionPathFinder  refs=2
+         1  Void clearRegions()
+         1  List`1 last_globalPath
+         0  PathFinderResult getGlobalPath(WorldTile pFrom, WorldTile pTarget, Boolean pBoat)
+Assembly-CSharp  QuantumSpriteArrows  refs=2
+         2  SpriteRenderer spriteArrowMiddle
+Assembly-CSharp  ButtonExtensions  refs=2
+         1  static Void OnHover(Button button, UnityAction call)
+         1  static Void OnHoverOut(Button button, UnityAction call)
+Assembly-CSharp  ai.behaviours.BehRandomWait  refs=2
+         2  Void .ctor(Single pMin, Single pMax, Boolean pLand)
+Assembly-CSharp  HotkeyAction  refs=2
+         2  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  PowerButtonSelector  refs=2
+         1  static PowerButtonSelector instance
+         1  Void checkToggleIcons()
+         0  static Single TOOLBAR_TEMP_SHOW_DURATION
+         0  static Single TOOLBAR_TEMP_SHOW_ALPHA
+Assembly-CSharp  MetaTypeActionAsset  refs=2
+         2  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  MetaZoneDynamicAction  refs=2
+         2  Void .ctor(Object object, IntPtr method)
+UnityEngine.UI  UnityEngine.EventSystems.PointerEventData  refs=2
+         1  Void .ctor(EventSystem eventSystem)
+         1  Vector2 position { }
+Assembly-CSharp  QuantumSpriteCreate  refs=2
+         2  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  LibraryMaterials  refs=2
+         1  static LibraryMaterials instance
+         1  Material mat_minis
+         0  static String mat_id_world_object
+         0  static String mat_id_world_object_lit_always
+Assembly-CSharp  PlotCategoryAsset  refs=2
+         1  Void .ctor()
+         1  PlotRetryAction plot_retry_action
+EmpireCraft  EmpireCraft.Scripts.UI.Components.HiResIconFilter  refs=1
+         1  static Void Apply()
+         0  static Int32 MinSize
+EmpireCraft  EmpireCraft.Scripts.UI.MainTab  refs=1
+         1  static Void Init()
+         0  static String KINGDOM_TITLE_GROUP
+         0  static String EMPIRE_CORE_GROUP
+         0  static String TIANXIA_GROUP
+         0  static String EMPIRE_GROUP
+         0  static String PROVINCE_GROUP
+         0  static String DISPLAY_GROUP
+         0  static String TOOL_GROUP
+         0  static String DIPLOMACY_GROUP
+         0  static String WAR_GROUP
+         0  static String ZHOU_GROUP
+         0  static String PEOPLE_GROUP
+         0  static String TRANSMIGRANT_GROUP
+         0  static String CULTURE_GROUP
+         0  static String RELIGION_GROUP
+         0  static String TECH_GROUP
+         0  static String CULTURE_BRUSH_GROUP
+         0  static String CITY_GROUP
+         0  static String SETTLEMENT_GROUP
+         0  static String FACTORY_GROUP
+         0  static String ROAD_GROUP
+         0  static String WILD_GROUP
+         0  static String PLATEAU_GROUP
+         0  static String LIVELIHOOD_GROUP
+         0  static String RESOURCE_BRUSH_GROUP
+         0  static String IDEOLOGY_GROUP
+         0  static String IDEOLOGY_SEED_GROUP
+Assembly-CSharp  PhenotypeLibrary  refs=1
+         1  PhenotypeAsset getAssetByPhenotypeIndex(Int32 pIndex)
+         0  static Int32 PHENOTYPE_SHADES
+         0  static Int32 PHENOTYPE_NONE
+Assembly-CSharp  Clan  refs=1
+         1  Actor getChief()
+         0  Void newClan(Actor pFounder, Boolean pAddDefaultTraits)
+         0  Void Dispose()
+Assembly-CSharp  WarTypeAsset  refs=1
+         1  Boolean total_war
+Assembly-CSharp  OptionAsset  refs=1
+         1  PlayerOptionData data { }
+Assembly-CSharp  PowerLibrary  refs=1
+         1  static Void disableAllOtherMapModes(String pMainPower)
+         0  Boolean drawBorderBrush(WorldTile pTile, String pPower)
+         0  Boolean drawScissors(WorldTile pTile, String pPowerID)
+         0  Boolean drawDemolish(WorldTile pTile, String pPowerID)
+         0  static String TEMPLATE_EXPLOSIVE_TILES
+         0  static String TEMPLATE_BOMBS
+         0  static String TEMPLATE_DROPS
+         0  static String TEMPLATE_SEEDS
+         0  static String TEMPLATE_PLANTS
+         0  static String TEMPLATE_DROP_MINERALS
+         0  static String TEMPLATE_DROP_BUILDING
+         0  static String TEMPLATE_PRINTER
+         0  static String TEMPLATE_SPAWN_SPECIAL
+         0  static String TEMPLATE_SPAWN_ACTOR
+         0  static String TEMPLATE_TERRAFORM_TILES
+         0  static String TEMPLATE_WALL
+         0  static String TEMPLATE_DRAW
+         0  static String TEMPLATE_ERASER
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.TianxiaWindow  refs=1
+         1  static Void Open(EmpireCore core)
+         0  static Int32 MaxHouses
+         0  static Int32 MaxRailTianxia
+         0  static Int32 MaxHistory
+Assembly-CSharp  EffectsLibrary  refs=1
+         1  static BaseEffect spawn(String pID, WorldTile pTile, String pParam1, String pParam2, Single pFloatParam1, Single pX, Single pY, Actor pActor)
+Assembly-CSharp  ZoneFlash  refs=1
+         1  Void start(Color pColor, Single pAlpha)
+Assembly-CSharp  ai.ActorTool  refs=1
+         1  static Int32 attributeDice(Actor pActor, Int32 pAmount)
+Assembly-CSharp  LongExtension  refs=1
+         1  static Boolean hasValue(Int64 pLong)
+         0  static Int64 NULL
+Assembly-CSharp  OnomasticsDataGroup  refs=1
+         1  String characters_string
+Assembly-CSharp  WorldTimeScaleAsset  refs=1
+         1  Single multiplier
+Assembly-CSharp  WindowAsset  refs=1
+         1  String icon_path
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.CityStyleWindow  refs=1
+         1  static Void Open(City city)
+         0  static Single CardWidth
+         0  static Single RowWidth
+         0  static Int32 PerRow
+NeoModLoader  NeoModLoader.api.AbstractWideWindow`1  refs=1
+         1  static T CreateAndInit(String pWindowId, Vector2 pSize)
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.CityPlanScreen  refs=1
+         1  static Void Open(City city)
+         0  static Single RefWidth
+         0  static Single RefHeight
+         0  static Single HeaderHeight
+         0  static Single StatusHeight
+         0  static Single Margin
+         0  static Single SideWidth
+         0  static Single SideFolded
+         0  static Single CellWidth
+         0  static Single RenderSeconds
+         0  static Single PanelSeconds
+         0  static Single ConfirmSeconds
+         0  static Single MessageSeconds
+         0  static Single StrokeRenderSeconds
+         0  static Single ClickSlop
+         0  static Int32 RoadBrush
+         0  static Int32 FlagEditable
+         0  static Int32 FlagTown
+         0  static Int32 FlagOwn
+         0  static Int32 FlagAllowed
+Assembly-CSharp  Book  refs=1
+         1  Void increaseReadTimes()
+Assembly-CSharp  CityResources  refs=1
+         1  IEnumerable`1 getSlots()
+Assembly-CSharp  BuildingData  refs=1
+         1  StorageBooks books
+EmpireCraft  EmpireCraft.Scripts.GodPowers.SwitchCivMusicButton  refs=1
+         1  static Boolean On { }
+         0  static String Option
+Assembly-CSharp  CityBehCheckFarms  refs=1
+         1  static Void check(City pCity)
+Assembly-CSharp  ItemManager  refs=1
+         1  Item generateItem(EquipmentAsset pItemAsset, Kingdom pKingdom, String pWho, Int32 pTries, Actor pActor, Int32 pFakeCreationYear, Boolean pByPlayer)
+Assembly-CSharp  BiomeAsset  refs=1
+         1  String tile_high
+Assembly-CSharp  StorageBooks  refs=1
+         1  List`1 list_books
+Assembly-CSharp  MapGenValues  refs=1
+         1  Boolean remove_mountains
+Assembly-CSharp  HashSetWorldTile  refs=1
+         1  Void .ctor()
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.PureMapNoticeWindow  refs=1
+         1  static Void TryShow()
+         0  static String HiddenKey
+         0  static Single DelaySeconds
+         0  static Single Width
+UnityEngine.CoreModule  UnityEngine.SystemInfo  refs=1
+         1  static CopyTextureSupport copyTextureSupport { }
+         0  static String unsupportedIdentifier
+UnityEngine.CoreModule  UnityEngine.Graphics  refs=1
+         1  static Void CopyTexture(Texture src, Int32 srcElement, Int32 srcMip, Int32 srcX, Int32 srcY, Int32 srcWidth, Int32 srcHeight, Texture dst, Int32 dstElement, Int32 dstMip, Int32 dstX, Int32 dstY)
+EmpireCraft  EmpireCraft.Scripts.GodPowers.SwitchBattleSoundButton  refs=1
+         1  static Boolean On { }
+         0  static String Option
+Assembly-CSharp  KingdomListComponent  refs=1
+         1  static Int32 sortByArmy(Kingdom p1, Kingdom p2)
+EmpireCraft  EmpireCraft.Scripts.UI.Components.WorldMapLoadingScreen  refs=1
+         1  static Void Show(WorldMapEra era, String frameName, String sizeName, Vector2Int size)
+         0  static String Gold
+         0  static Single AfterLoadSeconds
+Assembly-CSharp  LoadingScreen  refs=1
+         1  Void startTransition(TransitionAction pAction)
+Assembly-CSharp  LoadingScreen.TransitionAction  refs=1
+         1  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  db.DBManager  refs=1
+         1  static Void createDB()
+Assembly-CSharp  db.DBTables  refs=1
+         1  static Void createOrMigrateTablesLoader(Boolean pCreating)
+Assembly-CSharp  WindowPreloader  refs=1
+         1  static Void addWaitForWindowResources()
+Assembly-CSharp  HotkeyTabsData  refs=1
+         1  Void .ctor()
+Assembly-CSharp  SubspeciesTrait  refs=1
+         1  List`1 skin_warrior
+Assembly-CSharp  ActorAnimationLoader  refs=1
+         1  static AnimationContainerUnit getAnimationContainer(String pTexturePath, ActorAsset pAsset, SubspeciesTrait pEggAsset, SubspeciesTrait pMutationSkinAsset)
+[hand] NeoModLoader  NeoModLoader.api.ModConfigItem  refs=1
+         1  String TextVal { }
+Assembly-CSharp  ZoneConnection  refs=1
+         1  TileZone zone
+Assembly-CSharp  CityZoneWorkerBase  refs=1
+         1  HashSet`1 _zones_checked
+Assembly-CSharp  NameInput  refs=1
+         1  Void setText(String pText)
+Assembly-CSharp  DynamicSpriteCreator  refs=1
+         1  static Sprite createNewSpriteBuilding(DynamicSpritesAsset pAssetAtlas, Int64 pID, Sprite pSource, ColorAsset pKingdomColor)
+Assembly-CSharp  GenericCustomizeWindow`3  refs=1
+         1  LocalizedText title
+         0  Void onBannerChange()
+Assembly-CSharp  StatsMetaRowsContainer  refs=1
+         1  Void tryToShowMetaReligion(String pTitle, Int64 pID, String pName, Religion pObject)
+         0  static String EMPTY_META_OBJECT_STRING
+Assembly-CSharp  StatsRowsContainer  refs=1
+         1  KeyValueField showStatRow(String pId, Object pValue, String pColor, MetaType pMetaType, Int64 pMetaId, Boolean pColorText, String pIconPath, String pTooltipId, TooltipDataGetter pTooltipData, Boolean pLocalize)
+Assembly-CSharp  KingdomWindow  refs=1
+         1  Void tryShowPastRulers()
+         0  Void showStatsRows()
+         0  Boolean onNameChange(String pInput)
+Assembly-CSharp  SuccessionTool  refs=1
+         1  static Actor findNextHeir(Kingdom pKingdom, Actor pExculdeActor)
+Assembly-CSharp  PersonalityAsset  refs=1
+         1  String getTranslatedName()
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.TechWindow  refs=1
+         1  static Void Open(Kingdom kingdom)
+         0  static Single PanelWidth
+         0  static Single GraphHeight
+         0  static Int32 MaterialsPerRow
+         0  static Single ResetConfirmSeconds
+         0  static Single DetailMinHeight
+         0  static Single DetailChrome
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.InstitutionWindow  refs=1
+         1  static Void Open(Kingdom kingdom)
+         0  static Single PanelWidth
+         0  static Single GraphHeight
+         0  static Single CardGap
+         0  static Single CardHeaderHeight
+         0  static Single CardLineHeight
+         0  static Single ChipHeight
+         0  static Single CardSpacing
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.KingdomMilitaryWindow  refs=1
+         1  static Void Open(Kingdom kingdom, IEnumerable`1 focusCorps, Int64 focusCity)
+         0  static Single MainWidth
+         0  static Single HalfWidth
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.KingdomLawWindow  refs=1
+         1  static Void Open(Kingdom kingdom)
+Assembly-CSharp  LavaLayer  refs=1
+         1  Void updateLava()
+Assembly-CSharp  BehaviourActionCity  refs=1
+         1  Void .ctor()
+Assembly-CSharp  WorldBehaviourActionLava  refs=1
+         1  static Boolean hasLava()
+         0  static Int32 CHUNK_MOD_AMOUNT
+Assembly-CSharp  ColorArray  refs=1
+         1  List`1 colors
+EmpireCraft  EmpireCraft.Scripts.UI.Components.MapLabelOverlay  refs=1
+         1  static Void Update()
+         0  static Int32 MaxCities
+         0  static Int32 MaxLabels
+         0  static Single HouseZoom
+         0  static Single StreetSize
+         0  static Single BuildingSize
+         0  static Single HouseSize
+         0  static Single CitySize
+         0  static Single TownSize
+         0  static Single VillageSize
+         0  static Single StreetPixels
+         0  static Single MinPixels
+         0  static Single BackgroundPaddingX
+         0  static Single BackgroundPaddingY
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.ReligionInfoWindow  refs=1
+         1  static Void Open(Religion religion, Page page)
+         0  static Int32 MaxStates
+         0  static Int32 MaxHolders
+         0  static Int32 MaxEvents
+         0  static Int32 MaxRealms
+         0  static Int32 MaxHeads
+         0  static Single ColumnWidth
+         0  static Int32 MaxSyncretismSources
+Assembly-CSharp  ArmyManager  refs=1
+         1  Army newArmy(Actor pActor, City pCity)
+         0  Void update(Single pElapsed)
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.WarInfoWindow  refs=1
+         1  static Void Open(War war, Page page)
+         0  static Int32 MaxTargets
+         0  static Int32 MaxBattles
+         0  static Int32 MaxCorps
+         0  static Int32 MaxParties
+         0  static Int32 MaxPickCitiesAll
+         0  static Int32 MaxPickCities
+         0  static Int32 MaxTipItems
+         0  static Single ColumnWidth
+Assembly-CSharp  ScrollWindowNameAction  refs=1
+         1  Void .ctor(Object object, IntPtr method)
+UnityEngine.CoreModule  UnityEngine.Events.UnityEventBase  refs=1
+         1  Void RemoveAllListeners()
+Assembly-CSharp  BaseTrait`1  refs=1
+         1  String special_locale_description
+Assembly-CSharp  BehaviourTaskCity  refs=1
+         1  Void .ctor()
+Assembly-CSharp  ai.behaviours.BehaviourActionActor  refs=1
+         1  Void .ctor()
+Assembly-CSharp  ai.behaviours.CityBehRandomWait  refs=1
+         1  Void .ctor(Single pMin, Single pMax)
+Assembly-CSharp  ai.behaviours.KingdomBehRandomWait  refs=1
+         1  Void .ctor(Single pMin, Single pMax)
+Assembly-CSharp  PowerToggleAction  refs=1
+         1  Void Invoke(String pPower)
+UnityEngine.UI  UnityEngine.EventSystems.RaycastResult  refs=1
+         1  GameObject gameObject { }
+EmpireCraft  EmpireCraft.Scripts.UI.Components.TerritoryFontSettings  refs=1
+         1  static Boolean SealHuaxiaNames { }
+         0  static String Auto
+         0  static String Game
+         0  static String FallbackClerical
+EmpireCraft  EmpireCraft.Scripts.UI.Components.BundledTerritoryFonts  refs=1
+         1  static Boolean Available { }
+         0  static String Seal
+         0  static String ShuoWen
+         0  static String ZhiMangXing
+UnityEngine.CoreModule  UnityEngine.Vector4  refs=1
+         1  Void .ctor(Single x, Single y, Single z, Single w)
+         0  static Single kEpsilon
+Assembly-CSharp  IFavoriteable  refs=1
+         1  Boolean isFavorite()
+Assembly-CSharp  CapturingZonesCalculator  refs=1
+         1  static Void getListToDraw(City pCity, Int32 pTicks, ListPool`1 pResults)
+Assembly-CSharp  SpriteGroupSystem`1  refs=1
+         1  Boolean is_within_active_index { }
+EmpireCraft  EmpireCraft.Scripts.GodPowers.DiplomacyPower  refs=1
+         1  static Kingdom Selected()
+         0  static String Id
+UnityEngine.CoreModule  UnityEngine.SortingLayer  refs=1
+         1  static Int32 NameToID(String name)
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.WarDisplay  refs=1
+         1  static Void ShowTooltip(Tooltip tooltip, String type, TooltipData data)
+         0  static String AttackBar
+         0  static String DefendBar
+         0  static String AttackText
+         0  static String DefendText
+         0  static String Plain
+         0  static String Bad
+         0  static Int32 LineLimit
+Assembly-CSharp  TooltipItemsRow`1  refs=1
+         1  Void init(Tooltip pTooltip, TooltipData pData)
+Assembly-CSharp  WorldLawGroupAsset  refs=1
+         1  Void .ctor()
+Assembly-CSharp  WorldLawElement  refs=1
+         1  Void updateStatus()
+EmpireCraft  EmpireCraft.Scripts.Diagnostics.SaveIntegrityChecker  refs=1
+         1  static Int32 Run(String trigger)
+         0  static String Tag
+Assembly-CSharp  PlotCategoryLibrary  refs=1
+         1  static Boolean diplomacyRetryAction()
+Assembly-CSharp  PlotRetryAction  refs=1
+         1  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  PlotActorPlotDelegate  refs=1
+         1  Void .ctor(Object object, IntPtr method)
+Assembly-CSharp  DiplomacyHelpersRebellion  refs=1
+         1  static Void startRebellion(Actor pActor, Plot pPlot, Boolean pCheckForHappiness)
+Assembly-CSharp  life.taxi.TaxiManager  refs=1
+         1  static Void newRequest(Actor pActor, WorldTile pTileTarget)
+NeoModLoader  NeoModLoader.api.IMod  refs=0
+NeoModLoader  NeoModLoader.api.IReloadable  refs=0
+NeoModLoader  NeoModLoader.api.ILocalizable  refs=0
+NeoModLoader  NeoModLoader.api.IConfigurable  refs=0
+Assembly-CSharp  MetaType  refs=0
+UnityEngine.CoreModule  UnityEngine.CameraClearFlags  refs=0
+UnityEngine.CoreModule  UnityEngine.KeyCode  refs=0
+UnityEngine.CoreModule  UnityEngine.RenderTexture  refs=0
+UnityEngine.UI  UnityEngine.UI.GraphicRaycaster  refs=0
+         0  static Int32 kNoEventMaskSet
+UnityEngine.UIModule  UnityEngine.RenderMode  refs=0
+UnityEngine.UI  UnityEngine.UI.CanvasScaler.ScaleMode  refs=0
+UnityEngine.TextRenderingModule  UnityEngine.Font  refs=0
+UnityEngine.UI  UnityEngine.UI.Button.ButtonClickedEvent  refs=0
+UnityEngine.TextRenderingModule  UnityEngine.TextAnchor  refs=0
+UnityEngine.TextRenderingModule  UnityEngine.HorizontalWrapMode  refs=0
+UnityEngine.TextRenderingModule  UnityEngine.VerticalWrapMode  refs=0
+Assembly-CSharp  TileType  refs=0
+Assembly-CSharp  TopTileType  refs=0
+Assembly-CSharp  BuildingType  refs=0
+EmpireCraft  EmpireCraft.Scripts.UI.Components.AdvancedButton  refs=0
+NeoModLoader  NeoModLoader.General.UI.Window.Layout.AutoVertLayoutGroup  refs=0
+Assembly-CSharp  ActorSex  refs=0
+Assembly-CSharp  ai.ExecuteEvent  refs=0
+NeoModLoader  NeoModLoader.General.UI.Window.Layout.AutoHoriLayoutGroup  refs=0
+Assembly-CSharp  WarWinner  refs=0
+Assembly-CSharp  KingdomTrait  refs=0
+Assembly-CSharp  CultureColorsLibrary  refs=0
+Assembly-CSharp  KingdomColorsLibrary  refs=0
+Assembly-CSharp  AiSystemKingdom  refs=0
+Assembly-CSharp  KingdomJob  refs=0
+Assembly-CSharp  BehaviourKingdomCondition  refs=0
+Assembly-CSharp  Family  refs=0
+         0  Void newFamily(Actor pActor1, Actor pActor2, WorldTile pTile)
+Assembly-CSharp  KingdomBannerLibrary  refs=0
+         0  BannerAsset get(String pID)
+         0  static String PATH_BANNER_KINGDOMS
+         0  static String PATH_BACKGROUND
+         0  static String PATH_ICON
+UnityEngine.TextRenderingModule  UnityEngine.FontStyle  refs=0
+Assembly-CSharp  ResourceLibrary  refs=0
+         0  static String TEMPLATE_FOOD
+         0  static String TEMPLATE_STRATEGIC_MINERAL
+UnityEngine.UI  UnityEngine.UI.Outline  refs=0
+Assembly-CSharp  BaseEffect  refs=0
+         0  static Int32 MAP_MARGIN_TOP
+         0  static Int32 MAP_OFFSET_BOTTOM_MIN
+         0  static Int32 MAP_OFFSET_BOTTOM_MAX
+         0  static Int32 STATE_START
+         0  static Int32 STATE_ON_DEATH
+         0  static Int32 STATE_KILLED
+Assembly-CSharp  WindowLibrary  refs=0
+Assembly-CSharp  BrushData  refs=0
+Assembly-CSharp  CultureTrait  refs=0
+Assembly-CSharp  ai.behaviours.BehResult  refs=0
+Assembly-CSharp  TraitType  refs=0
+Assembly-CSharp  BuildingList  refs=0
+Assembly-CSharp  AttackType  refs=0
+Assembly-CSharp  BuildingLibrary  refs=0
+         0  static String TEMPLATE_CREEP
+         0  static String TEMPLATE_RESOURCE
+         0  static String TEMPLATE_MINERAL
+         0  static String TEMPLATE_FLORA_SMALL
+         0  static String TEMPLATE_BUILDING
+         0  static String TEMPLATE_WAYPOINT
+         0  static String TEMPLATE_DROP_SPREADER
+         0  static String TEMPLATE_CITY_BUILDING
+         0  static String TEMPLATE_CITY_COLORED_BUILDING
+         0  static String TEMPLATE_WINDMILL_BASE
+         0  static String TEMPLATE_WINDMILL_0
+         0  static String TEMPLATE_WINDMILL_1
+         0  static String TEMPLATE_BUILDING_CIV_HUMAN
+         0  static String TEMPLATE_BUILDING_CIV_ORC
+         0  static String TEMPLATE_BUILDING_CIV_DWARF
+         0  static String TEMPLATE_BUILDING_CIV_ELF
+Assembly-CSharp  BuildOrderLibrary  refs=0
+UnityEngine.CoreModule  UnityEngine.TextureFormat  refs=0
+UnityEngine.CoreModule  UnityEngine.FilterMode  refs=0
+UnityEngine.CoreModule  UnityEngine.TextureWrapMode  refs=0
+Assembly-CSharp  EquipmentType  refs=0
+Assembly-CSharp  FamilyManager  refs=0
+Assembly-CSharp  UnitProfession  refs=0
+Assembly-CSharp  Language  refs=0
+         0  Void newLanguage(Actor pActor, Boolean pAddDefaultTraits)
+Assembly-CSharp  BuildPlacingType  refs=0
+Assembly-CSharp  ResType  refs=0
+Assembly-CSharp  DiplomacyRelation  refs=0
+Assembly-CSharp  ActorTraitLibrary  refs=0
+         0  static Int32 COMBAT_SKILLS_AMOUNT
+Assembly-CSharp  BuildingAnimationData  refs=0
+Assembly-CSharp  WorldTileContainer  refs=0
+FMODUnity  FMOD.Studio.EventInstance  refs=0
+Assembly-CSharp  EquipmentAsset  refs=0
+Assembly-CSharp  ItemLibrary  refs=0
+         0  static String TEMPLATE_EQUIPMENT
+         0  static String TEMPLATE_ARMOR
+         0  static String TEMPLATE_BOOTS
+         0  static String TEMPLATE_HELMET
+         0  static String TEMPLATE_ACCESSORY
+         0  static String TEMPLATE_RING
+         0  static String TEMPLATE_AMULET
+         0  static String TEMPLATE_WEAPON
+         0  static String TEMPLATE_MELEE
+         0  static String TEMPLATE_RANGE
+         0  static String TEMPLATE_BOW
+         0  static String TEMPLATE_SWORD
+         0  static String TEMPLATE_AXE
+         0  static String TEMPLATE_HAMMER
+         0  static String TEMPLATE_SPEAR
+Assembly-CSharp  ItemModAsset  refs=0
+Assembly-CSharp  ItemData  refs=0
+Assembly-CSharp  ArchitectureLibrary  refs=0
+         0  static String TEMPLATE_WITH_GENERATED_BUILDINGS
+Assembly-CSharp  AllianceData  refs=0
+Assembly-CSharp  BuildingFruitGrowth  refs=0
+Assembly-CSharp  BiomeTag  refs=0
+Assembly-CSharp  LoyaltyLibrary  refs=0
+Assembly-CSharp  ArmyData  refs=0
+Assembly-CSharp  HashSetTileZone  refs=0
+UnityEngine.CoreModule  UnityEngine.Rendering.CopyTextureSupport  refs=0
+UnityEngine.CoreModule  UnityEngine.HideFlags  refs=0
+Assembly-CSharp  ClanTrait  refs=0
+Assembly-CSharp  LanguageManager  refs=0
+Assembly-CSharp  LanguageTrait  refs=0
+Assembly-CSharp  MapChunk  refs=0
+         0  static Int32 MAX_TILE_TYPES
+Assembly-CSharp  FloraType  refs=0
+Assembly-CSharp  DepthGeneratorType  refs=0
+Assembly-CSharp  ai.behaviours.BehBoatMakeTrade  refs=0
+         0  BehResult execute(Actor pActor)
+Assembly-CSharp  ActionLibrary  refs=0
+         0  static Void showWhisperTip(String pText)
+         0  static Boolean spawnSkeleton(BaseSimObject pCaster, WorldTile pTile)
+Assembly-CSharp  ai.behaviours.BehCityActorCheckAttack  refs=0
+         0  Boolean isAttackingZoneAvailable(Actor pActor, TileZone pAttackZone, City pAttackCity)
+Assembly-CSharp  BehCheckParthenogenesisReproduction  refs=0
+         0  BehResult execute(Actor pActor)
+Assembly-CSharp  StatusLibrary  refs=0
+         0  Boolean actionBuddingFinish(BaseSimObject pTarget, WorldTile pTile)
+         0  Boolean actionTakingRootsFinish(BaseSimObject pTarget, WorldTile pTile)
+         0  Boolean actionPregnancyFinish(BaseSimObject pTarget, WorldTile pTile)
+         0  static Single DURATION_STRANGE_URGE
+Assembly-CSharp  ActorMove  refs=0
+         0  static ExecuteEvent goTo(Actor pActor, WorldTile pTileTarget, Boolean pPathOnLiquid, Boolean pWalkOnBlocks, Boolean pPathOnLava, Int32 pLimitPathfindingRegions)
+Assembly-CSharp  SplitPathStatus  refs=0
+Assembly-CSharp  BuildingMapIcon  refs=0
+Assembly-CSharp  CityBehCheckLoyalty  refs=0
+         0  BehResult execute(City pCity)
+Assembly-CSharp  CityBehBorderShrink  refs=0
+         0  BehResult execute(City pCity)
+Assembly-CSharp  CityZoneAbandon  refs=0
+         0  Void check(City pCity, Boolean pDebug, HashSet`1 pSetToFill)
+Assembly-CSharp  ai.behaviours.CityBehCheckAttackZone  refs=0
+Assembly-CSharp  ai.behaviours.CityBehSupplyKingdomCities  refs=0
+Assembly-CSharp  DebugOption  refs=0
+Assembly-CSharp  ai.behaviours.CityBehBorderSteal  refs=0
+         0  Boolean tryStealZone(City pCity)
+Assembly-CSharp  WindowMetaTab  refs=0
+Assembly-CSharp  ClanWindow  refs=0
+         0  Boolean onNameChange(String pInput)
+Assembly-CSharp  CursorTooltipHelper  refs=0
+         0  static Void update()
+Assembly-CSharp  DecisionsLibrary  refs=0
+Assembly-CSharp  KingdomCustomizeWindow  refs=0
+         0  Void onBannerChange()
+Assembly-CSharp  FamilyWindow  refs=0
+         0  Void showStatsRows()
+Assembly-CSharp  SaveConverter  refs=0
+         0  static Void convert(SavedMap pData)
+Assembly-CSharp  KingdomLibrary  refs=0
+         0  static String TEMPLATE_MOB
+         0  static String TEMPLATE_MOB_GOOD
+         0  static String TEMPLATE_MOB_VERY_GOOD
+         0  static String TEMPLATE_ANIMAL
+         0  static String TEMPLATE_ANIMAL_NEUTRAL
+         0  static String TEMPLATE_ANIMAL_PEACEFUL
+         0  static String TEMPLATE_CIV
+         0  static String TEMPLATE_CIV_GOOD
+         0  static String TEMPLATE_NOMAD
+         0  static String TEMPLATE_CIV_NEW
+Assembly-CSharp  LightRenderer  refs=0
+UnityEngine.CoreModule  UnityEngine.LogType  refs=0
+Assembly-CSharp  NameplateRenderingType  refs=0
+UnityEngine.UI  UnityEngine.UI.Image.Type  refs=0
+Assembly-CSharp  CityBanner  refs=0
+Assembly-CSharp  PixelFlashEffects  refs=0
+Assembly-CSharp  WorldBehaviourActionBiomes  refs=0
+Assembly-CSharp  QuantumSpriteManager  refs=0
+         0  static Void updateSystems()
+Assembly-CSharp  BatchActors  refs=0
+         0  Void b6_0_updateDecision()
+         0  Void updateVisibility()
+Assembly-CSharp  WorldLayer  refs=0
+Assembly-CSharp  WorldBehaviourActions  refs=0
+         0  static Void updateFarmDecay()
+         0  static Void updateUnitSpawn()
+Assembly-CSharp  DisasterLibrary  refs=0
+Assembly-CSharp  StatisticsLibrary  refs=0
+Assembly-CSharp  ProjectileManager  refs=0
+         0  Projectile spawn(BaseSimObject pInitiator, BaseSimObject pTargetObject, String pAssetID, Vector3 pLaunchPosition, Vector3 pTargetPosition, Single pTargetZ, Single pStartPosZ, Action pKillAction, Kingdom pForcedKingdom)
+         0  static Single COLLISION_DISTANCE
+Assembly-CSharp  Projectile  refs=0
+Assembly-CSharp  ProjectileLibrary  refs=0
+Assembly-CSharp  ProjectileAsset  refs=0
+Assembly-CSharp  FireLayer  refs=0
+         0  Void checkAutoDisable()
+Assembly-CSharp  QuantumSprite  refs=0
+Assembly-CSharp  BattleContainer  refs=0
+Assembly-CSharp  PathFinderResult  refs=0
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.ReligionInfoWindow.Page  refs=0
+Assembly-CSharp  BuildingZonesSystem  refs=0
+Assembly-CSharp  SimObjectsZones  refs=0
+         0  static Single INTERVAL
+Assembly-CSharp  SaveManager  refs=0
+         0  static SavedMap saveMapData(String pFolder, Boolean pCompress)
+         0  Void loadActors()
+         0  Void loadData(SavedMap pData, String pPath)
+         0  static String saveslot_base
+         0  static String workshop_base
+         0  static String autosaves_base
+         0  static String name_main_data_old
+         0  static String name_main_data
+         0  static String name_main_data_non_zip
+         0  static String name_meta_data
+         0  static String name_stats_data
+         0  static String name_png_preview_main
+         0  static String name_png_preview_small
+Assembly-CSharp  HistoryHudItem  refs=0
+Assembly-CSharp  BehKingCheckNewCityFoundation  refs=0
+         0  BehResult execute(Actor pActor)
+         0  static Int32 MAX_MOVED
+Assembly-CSharp  ai.behaviours.BehCheckBuildCity  refs=0
+         0  BehResult execute(Actor pActor)
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.SpecificClanWindow.Page  refs=0
+Assembly-CSharp  MetaSwitchManager  refs=0
+         0  Void updateShowingData()
+         0  static Single POSITION_SHOW
+         0  static Single POSITION_HIDE
+         0  static Single WINDOW_MAX_SIZE_PERCENT
+         0  static Single WINDOW_SIZE_PORTRAIT_START
+         0  static Single WINDOW_SIZE_PORTRAIT_END
+         0  static Single WINDOW_SIZE_PORTRAIT_RATIO_MIN
+         0  static Single WINDOW_SIZE_PORTRAIT_RATIO_MAX
+         0  static Single ANIMATION_DURATION
+Assembly-CSharp  PlotState  refs=0
+Assembly-CSharp  WarWindow  refs=0
+         0  Void showStatsRows()
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.WarInfoWindow.Page  refs=0
+Assembly-CSharp  WindowHistory  refs=0
+         0  static Void clickBack()
+         0  static Void addIntoHistory(ScrollWindow pWindow)
+         0  static Void clear()
+Assembly-CSharp  ButtonClickMaptemplate  refs=0
+Assembly-CSharp  QualityChanger  refs=0
+         0  Void setZoomOrthographic(Single pZoom)
+         0  static Single TIMER_SPEED_MULTIPLIER
+         0  static Single BUILDING_HIDE_VALUE
+         0  static Single BUILDING_SHADER_VALUE_BOUND
+         0  static Single BUILDING_SHADER_VALUE_BOUND_2
+         0  static Single BOUND_RATE_SHADOWS_UNITS
+         0  static Single BOUND_RATE_SHADOWS_BUILDINGS
+         0  static Single BOUND_STRATOSPHERE_ORTHOGRAPHIC
+Assembly-CSharp  ActorTraitGroupLibrary  refs=0
+Assembly-CSharp  ai.behaviours.BehaviourTaskActorLibrary  refs=0
+Assembly-CSharp  ActorJobLibrary  refs=0
+Assembly-CSharp  ActorJob  refs=0
+Assembly-CSharp  BehaviourActorCondition  refs=0
+Assembly-CSharp  ai.behaviours.BehaviourTaskCityLibrary  refs=0
+Assembly-CSharp  CityJobLibrary  refs=0
+Assembly-CSharp  JobCityAsset  refs=0
+Assembly-CSharp  BehaviourCityCondition  refs=0
+Assembly-CSharp  ai.behaviours.BehaviourTaskKingdomLibrary  refs=0
+Assembly-CSharp  KingdomJobLibrary  refs=0
+Assembly-CSharp  HistoryDataLibrary  refs=0
+Assembly-CSharp  GraphCategoryGroup  refs=0
+Assembly-CSharp  ReligionBanner  refs=0
+Assembly-CSharp  CultureBanner  refs=0
+Assembly-CSharp  ClanBanner  refs=0
+Assembly-CSharp  AllianceBanner  refs=0
+Assembly-CSharp  ArmyBanner  refs=0
+Assembly-CSharp  FamilyBanner  refs=0
+Assembly-CSharp  SubspeciesBanner  refs=0
+Assembly-CSharp  LanguageBanner  refs=0
+Assembly-CSharp  CultureBannerLibrary  refs=0
+UnityEngine.CoreModule  UnityEngine.SpriteMeshType  refs=0
+UnityEngine.UI  UnityEngine.UI.HorizontalLayoutGroup  refs=0
+Assembly-CSharp  QuantumSpriteGroupSystem  refs=0
+UnityEngine.CoreModule  UnityEngine.Material  refs=0
+Assembly-CSharp  TooltipKingdomTraitsRow  refs=0
+Assembly-CSharp  ActorGetSprite  refs=0
+Assembly-CSharp  ActorGetSprites  refs=0
+Assembly-CSharp  WorldLawGroupLibrary  refs=0
+Assembly-CSharp  OpinionLibrary  refs=0
+Assembly-CSharp  ai.behaviours.KingdomBehCheckKing  refs=0
+Assembly-CSharp  ai.behaviours.CityBehCheckArmy  refs=0
+Assembly-CSharp  ai.behaviours.CityBehCheckLeader  refs=0
+Assembly-CSharp  ai.behaviours.CityBehProduceBoat  refs=0
+Assembly-CSharp  BehActorGiveTax  refs=0
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.EmpireWindow  refs=0
+         0  static Int32 LineagePageSize
+         0  static Single RailWidth
+         0  static Single MainWidth
+         0  static Single HalfWidth
+         0  static Single RailInset
+         0  static Single RailRowHeight
+         0  static Int32 LineageColumns
+         0  static Single LineageTileHeight
+         0  static Single FinanceRefreshSeconds
+         0  static String RepublicGroupKey
+         0  static Int32 GentryRows
+         0  static Int32 RaiseSeats
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.KingdomTitleWindow  refs=0
+         0  static Single ContentWidth
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.EmpireCoreWindow  refs=0
+         0  static Int32 HistoryPageSize
+         0  static Single ContentWidth
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.WorldMapWindow  refs=0
+         0  static Single CardLine
+         0  static Single CardSubLine
+         0  static String MapIcon
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.RegimeWindow  refs=0
+         0  static Single ContentWidth
+         0  static Single SettingWidth
+         0  static Int32 RegimesPerRow
+EmpireCraft  EmpireCraft.Scripts.UI.Windows.CityNameHistoryWindow  refs=0
+Assembly-CSharp  BehCheckFissionReproduction  refs=0
+EmpireCraft  EmpireCraft.Scripts.UI.Components.WideKit  refs=0
+         0  static String Gold
+         0  static String Cyan
+         0  static String Muted
+         0  static String Green
+         0  static String Red
+         0  static String Orange
+         0  static String Value
+         0  static String Soft
+         0  static Single CardPadding
+         0  static Single SettingControlWidth
+Assembly-CSharp  ILoadable`1  refs=0
+Assembly-CSharp  ReligionTrait  refs=0
+UnityEngine.UI  UnityEngine.UI.MaskableGraphic  refs=0
+EmpireCraft  EmpireCraft.Scripts.UI.Components.WideScrollWindow`1  refs=0
+         0  static Single PageWidth
+UnityEngine.UI  UnityEngine.EventSystems.UIBehaviour  refs=0
+UnityEngine.UI  UnityEngine.EventSystems.BaseRaycaster  refs=0
+UnityEngine.UI  UnityEngine.UI.Selectable  refs=0
+UnityEngine.UI  UnityEngine.UI.VerticalLayoutGroup  refs=0
+NeoModLoader  NeoModLoader.General.UI.Window.AutoLayoutGroup`2  refs=0
+Assembly-CSharp  BaseLibraryWithUnlockables`1  refs=0
+Assembly-CSharp  BehaviourBaseCondition`1  refs=0
+UnityEngine.UI  UnityEngine.UI.BaseMeshEffect  refs=0
+Assembly-CSharp  EffectAsset  refs=0
+Assembly-CSharp  BaseAnimatedObject  refs=0
+NeoModLoader  NeoModLoader.api.AbstractWindow`1  refs=0
+Assembly-CSharp  BehaviourElementAI  refs=0
+Assembly-CSharp  EpPathFinding.cs.ParamBase  refs=0
+Assembly-CSharp  TileLibraryMain`1  refs=0
+Assembly-CSharp  BaseMapObject  refs=0
+Assembly-CSharp  BaseTraitLibrary`1  refs=0
+Assembly-CSharp  ItemAssetLibrary`1  refs=0
+NeoModLoader  NeoModLoader.General.UI.Window.AutoLayoutWindow`1  refs=0
+Assembly-CSharp  KingdomListElement  refs=0
+Assembly-CSharp  ComponentListBase`4  refs=0
+         0  static Int32 PADDING_ELEMENTS
+Assembly-CSharp  ai.behaviours.BehCityActor  refs=0
+Assembly-CSharp  StatusAsset  refs=0
+Assembly-CSharp  WorldBehaviourTilesRunner  refs=0
+Assembly-CSharp  DisasterAsset  refs=0
+Assembly-CSharp  ProjectileData  refs=0
+Assembly-CSharp  BaseCategoryLibrary`1  refs=0
+Assembly-CSharp  BaseTraitGroupAsset  refs=0
+UnityEngine.UI  UnityEngine.EventSystems.BaseEventData  refs=0
+UnityEngine.UI  UnityEngine.UI.HorizontalOrVerticalLayoutGroup  refs=0
+Assembly-CSharp  TooltipTraitsRow`1  refs=0
+Assembly-CSharp  ai.behaviours.BehCitizenActionCity  refs=0
+NeoModLoader  NeoModLoader.General.UI.Window.AutoLayoutElement`1  refs=0
+Assembly-CSharp  BaseWorldObject  refs=0
+Assembly-CSharp  WindowListElementBase`2  refs=0
+UnityEngine.UI  UnityEngine.EventSystems.AbstractEventData  refs=0

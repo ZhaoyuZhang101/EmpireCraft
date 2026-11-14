@@ -267,8 +267,10 @@ public static partial class TerminalHost
         var names = new JObject();
         foreach (DiplomacyActions.Action action in actions) names[Suffix(action.key)] = Words(action.key);
         names[Trade] = Words("diplomacy_act_" + Trade);
+        names[Submit] = Words("diplomacy_act_" + Submit);
         var realms = new JArray();
-        foreach (long id in seat.Known)
+        // 玩家领着的国排在前头：已知之国多了列表要截断，真人的国不能被截掉
+        foreach (long id in seat.Known.OrderByDescending(known => HostOf(World.world.kingdoms.get(known), seat) != null).ToList())
         {
             if (realms.Count >= MaxTargets) break;
             Kingdom other = World.world.kingdoms.get(id);
@@ -286,13 +288,17 @@ public static partial class TerminalHost
             }
             // 互换(见 TerminalHost.Scale)：交战之国之间不谈
             if (!realm.isInWarWith(other)) can.Add(Trade);
+            // 归附：办得成的列出来；对方是帝国、能收属国却办不成的说个缘由，别的国不列
+            string submitWhy = SubmitBlock(realm, other, out Kingdom submitLord);
+            if (submitWhy == null) can.Add(Submit);
+            else if (Heads(submitLord) || FeudalVassalService.UsesFeudalVassals(submitLord)) cannot[Submit] = submitWhy;
             (string tianxia, string inEmpire) = Belong(other);
             realms.Add(new JObject
             {
                 ["id"] = id.ToString(), ["name"] = NameOf(other), ["opinion"] = Opinion(other, realm), ["can"] = can, ["cannot"] = cannot,
                 ["months"] = EnvoyMonths(seat, other), ["tianxia"] = tianxia, ["empire"] = inEmpire, ["kind"] = Role(other),
                 ["cities"] = other.cities?.Count ?? 0, ["dossier"] = Dossier(seat, id),
-                ["scale"] = ScaleJson(seat, other), ["pact"] = Allied(realm, other)
+                ["scale"] = ScaleJson(seat, other), ["pact"] = Allied(realm, other), ["player"] = PlayerOf(other, seat)
             });
         }
         groups.Add(new JObject
@@ -435,6 +441,27 @@ public static partial class TerminalHost
             if (found.claim == null) return;
             made.Text = string.Format(LM.Get("terminal_order_court"), TerminalIntel.Strip(CourtSystem.IssueName(found.claim.type, empire)));
         }
+        else if (PurseOrder(seat, id, made))
+        {
+            // 内帑(见 TerminalHost.Purse)
+        }
+        else if (FiscalOrder(seat, id, made))
+        {
+            // 开源节流：调税、裁军(见 TerminalHost.FiscalLevers)
+        }
+        else if (CourtOrder(seat, id, made))
+        {
+            // 朝局：对各派、对权臣(见 TerminalHost.Court)
+        }
+        else if (id.StartsWith("plot:", StringComparison.Ordinal))
+        {
+            // 亲自发起决议(见 TerminalHost.DecisionScale)：一个月后办，到时再验条件与用度
+            made.Kind = "plot";
+            made.Arg = id.Substring(5);
+            if (EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Def(made.Arg) == null) return;
+            made.Text = string.Format(LM.Get("terminal_order_plot"), DecisionName(made.Arg));
+            seat.NextDecisionOptions = 0f;
+        }
         else if (id == "era" && OwnEmpire(seat) != null)
         {
             made.Kind = "era";
@@ -539,9 +566,9 @@ public static partial class TerminalHost
         else if (id.StartsWith("diplo:", StringComparison.Ordinal) && long.TryParse(target, out long otherId))
         {
             Kingdom other = World.world.kingdoms.get(otherId);
-            bool trade = id.Substring(6) == Trade;
-            DiplomacyActions.Action action = trade ? null : OpenActions().FirstOrDefault(a => Suffix(a.key) == id.Substring(6));
-            if (other?.data == null || other.isRekt() || action == null && !trade || !seat.Known.Contains(otherId)) return;
+            bool trade = id.Substring(6) == Trade, submit = id.Substring(6) == Submit;
+            DiplomacyActions.Action action = trade || submit ? null : OpenActions().FirstOrDefault(a => Suffix(a.key) == id.Substring(6));
+            if (other?.data == null || other.isRekt() || action == null && !trade && !submit || !seat.Known.Contains(otherId)) return;
             // 互换总得有东西换
             if (trade && (realm.isInWarWith(other) || ParseTerms(choice, realm, other).Count == 0))
             {
@@ -549,13 +576,13 @@ public static partial class TerminalHost
                 return;
             }
             made.Kind = "diplo";
-            made.Arg = trade ? Trade : Suffix(action.key);
+            made.Arg = trade ? Trade : submit ? Submit : Suffix(action.key);
             made.Target = otherId;
             made.Due = MonthNow() + EnvoyMonths(seat, other);
             // 走天平的事(结盟、和亲、通好)带上摆在台上的条件
             if (ScaleDeals.ContainsKey(made.Arg)) made.Extra = string.Join(",", ParseTerms(choice, realm, other).Select(term => term.Id));
             string terms = made.Extra.Length > 0 ? Describe(ParseTerms(made.Extra, realm, other)) : "";
-            made.Text = string.Format(LM.Get("terminal_order_diplo"), NameOf(other), Words(trade ? "diplomacy_act_" + Trade : action.key)) +
+            made.Text = string.Format(LM.Get("terminal_order_diplo"), NameOf(other), Words(trade ? "diplomacy_act_" + Trade : submit ? "diplomacy_act_" + Submit : action.key)) +
                         (terms.Length > 0 ? "（" + terms + "）" : "");
         }
         else if (id == "vassal")
@@ -628,9 +655,10 @@ public static partial class TerminalHost
                 continue;
             }
             order.State = failure == null ? "done" : "failed";
-            order.Note = failure ?? "";
+            // 办成时办理的一方可以留一句附注(买官的是谁、挪用有没有被察觉……)，奏报里带上
+            order.Note = failure ?? order.Note ?? "";
             Notify(seat, failure == null
-                ? string.Format(LM.Get("terminal_order_done"), order.Text)
+                ? string.Format(LM.Get("terminal_order_done"), order.Text) + (string.IsNullOrEmpty(order.Note) ? "" : "：" + order.Note)
                 : string.Format(LM.Get("terminal_order_failed"), order.Text, failure));
         }
         // 禅让办成了：这位已不在位，席位空出来等着再挑(用户："跟君主本人，可以立嗣或者禅让")
@@ -763,6 +791,19 @@ public static partial class TerminalHost
                 if (realm.GetEmpire() != null) return LM.Get("terminal_fail_generic");
                 if (!EmpireCraftKingdomBehCheckEmpire.CanStartEmpireFormation(realm)) return Words(EmpireFormationService.Diagnose(realm));
                 return EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(seat.Ruler) ? null : LM.Get("terminal_fail_generic");
+            case "fiscal":
+                return FiscalExecute(seat, order);
+            case "purse":
+                return PurseExecute(seat, order);
+            case "faction":
+            case "minister":
+                return CourtExecute(seat, order);
+            case "plot":
+            {
+                string failed = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Launch(seat.Ruler, order.Arg);
+                seat.NextDecisionOptions = 0f;
+                return failed == null ? null : LM.Get(failed);
+            }
             case "heir":
             {
                 Actor heir = World.world.units.get(order.Target);
@@ -896,8 +937,9 @@ public static partial class TerminalHost
             {
                 Kingdom other = World.world.kingdoms.get(order.Target);
                 DiplomacyActions.Action action = OpenActions().FirstOrDefault(a => Suffix(a.key) == order.Arg);
-                if (other?.data == null || other.isRekt() || action == null && order.Arg != Trade) return LM.Get("terminal_fail_gone");
+                if (other?.data == null || other.isRekt() || action == null && order.Arg != Trade && order.Arg != Submit) return LM.Get("terminal_fail_gone");
                 if (order.Arg == Trade) return realm.isInWarWith(other) ? LM.Get("terminal_fail_gone") : Negotiate(seat, order, other, null);
+                if (order.Arg == Submit) return SubmitTo(seat, order, other);
                 bool free = order.Arg == "ally" && HostOf(other, seat) != null || order.Arg == "leave_alliance" && Allied(realm, other);
                 string reason = free ? null : DiplomacyActions.Check(action, realm, other);
                 if (reason != null) return Words(reason);

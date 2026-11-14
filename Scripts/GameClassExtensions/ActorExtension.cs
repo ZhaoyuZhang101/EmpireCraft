@@ -1670,9 +1670,10 @@ public static class ActorExtension
     }
 
 
+    // 只问有没有：找到第一个就停(决议条件里每个君主都要问，不必把全部法理算完)
     public static bool canTakeTitle(this Actor a)
     {
-        return GetTakeableTitles(a).Count > 0;
+        return TakeableTitles(a).Any();
     }
 
     public static List<KingdomTitle> titleCanBeDestroy(this Actor a)
@@ -1754,34 +1755,41 @@ public static class ActorExtension
         return takedTitles;
     }
 
-    private static List<KingdomTitle> GetTakeableTitles(Actor actor)
+    private static List<KingdomTitle> GetTakeableTitles(Actor actor) => TakeableTitles(actor).ToList();
+
+    // 可取的法理：本国控制的在前，其余不经战争就能取的在后(各算一次)，再按归属筛
+    private static IEnumerable<KingdomTitle> TakeableTitles(Actor actor)
     {
-        if (actor == null || !actor.isKing() || actor.kingdom == null || actor.kingdom.isRekt())
-            return new List<KingdomTitle>();
+        if (actor == null || !actor.isKing() || actor.kingdom == null || actor.kingdom.isRekt()) yield break;
 
         Kingdom kingdom = actor.kingdom;
-        HashSet<KingdomTitle> candidates = kingdom.GetControlledTitle()
-            .Where(title => title != null && !title.isRekt() && title.data != null)
-            .ToHashSet();
-
+        var seen = new HashSet<KingdomTitle>();
+        List<long> ownedTitles = actor.GetOwnedTitle();
+        List<long> acquiredTitles = null;
+        foreach (KingdomTitle title in kingdom.GetControlledTitle())
+        {
+            if (title == null || title.isRekt() || title.data == null || !seen.Add(title)) continue;
+            if (Takeable(title, kingdom.CanAcquireDeJureTitleWithoutWar(title))) yield return title;
+        }
         foreach (KingdomTitle title in ModClass.KINGDOM_TITLE_MANAGER)
         {
-            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) candidates.Add(title);
+            if (title == null || seen.Contains(title) || !kingdom.CanAcquireDeJureTitleWithoutWar(title)) continue;
+            seen.Add(title);
+            if (Takeable(title, true)) yield return title;
         }
 
-        List<long> ownedTitles = actor.GetOwnedTitle();
-        List<long> acquiredTitles = actor.GetAcquireTitle();
-        return candidates.Where(title =>
+        bool Takeable(KingdomTitle title, bool withoutWar)
         {
             if (ownedTitles.Contains(title.id)) return false;
             if (kingdom.IsDeJureTitleHeldBySovereign(title)) return false;
             if (IsLvLingTitleProtected(title, actor, out _)) return false;
-            if (kingdom.CanAcquireDeJureTitleWithoutWar(title)) return true;
+            if (withoutWar) return true;
             Kingdom realmHolder = title.FindRealmTitleHolder();
             if (realmHolder != null && realmHolder != kingdom) return false;
             if (!title.HasOwner() || !title.owner.IsEmperor()) return true;
+            acquiredTitles ??= actor.GetAcquireTitle();
             return title.owner.id != actor.id && !acquiredTitles.Contains(title.id);
-        }).ToList();
+        }
     }
 
     private static bool IsLvLingTitleProtected(KingdomTitle title, Actor claimant, out Empire empire)

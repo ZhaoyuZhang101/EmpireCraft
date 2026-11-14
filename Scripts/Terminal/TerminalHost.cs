@@ -68,6 +68,9 @@ public static partial class TerminalHost
         public Actor Ruler;
         public Kingdom Realm;
         internal string VacantReason = "none", FormerRuler = "", FormerRealm = "";
+        // 流官(见 Resolve)：上一任是不是朝廷派的(不是世袭)，离任后等改派从哪个月起等
+        internal bool Appointed;
+        internal int AwaitSince = int.MinValue;
         internal double Corruption;
         internal TerminalIntel.Sight Sight;
         // 上回算的眼界：已知之国
@@ -126,6 +129,9 @@ public static partial class TerminalHost
         internal int SweepUntil;
         internal float HoldSince, NextDecrees;
         internal JObject DecreesCache;
+        // 可议之事(见 TerminalHost.DecisionScale)：每 DecreeSeconds 秒重算一回
+        internal JArray DecisionOptions;
+        internal float NextDecisionOptions;
         internal long LastClientTicks;
         internal float NextState, NextSight;
         // 舆图(见 TerminalHost.Field.cs)：上回备的总图(格、各国在图上的编号与几等)、手机要的细节那一片、
@@ -442,6 +448,8 @@ public static partial class TerminalHost
         }
         float now = Time.realtimeSinceStartup;
         EnsureServer(now);
+        // 席位上的君主由玩家亲自发起决议，天平不替他办(用户 2026-11-15 选"不代办，只给群臣建议")
+        EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Steered ??= SteeredBySeat;
         // 联机大厅(见 TerminalHost.Lobby)：端口开着才连
         TickLobby(now);
         while (Commands.TryDequeue(out Action command))
@@ -497,7 +505,8 @@ public static partial class TerminalHost
                 bool watched = seat.Watched;
                 // 地图取样费些工夫：一秒里至多给一个席位算
                 // 没君主的席位也给一张全图：在图上点国选人(用户 2026-11-12 "选人界面可不可以直接在地图选, 不要给列表")
-                if (!mapped && now >= seat.NextSight)
+                // 同时在线制下(独立服务器)账号可以很多：离线的席位不算图，回来了再算
+                if (!mapped && now >= seat.NextSight && (watched || !TerminalPairing.ConcurrentMode))
                 {
                     seat.NextSight = now + (watched ? SightSeconds : IdleSightSeconds);
                     BuildMap(seat);
@@ -562,17 +571,20 @@ public static partial class TerminalHost
     // ───────── 网络线程 ─────────
     private static TerminalServer.Reply Handle(string method, string path, string token, string body)
     {
+        // 独立服务器自己的接口(账号、上传剧本、托管编辑器网页)先过一遍；它不管的照常往下走(见 TerminalHost.Standalone)
+        TerminalServer.Reply? extra = ServerRoutes?.Invoke(method, path, token, body);
+        if (extra.HasValue) return extra.Value;
         if (method == "GET" && (path == "/" || path == "/index.html"))
         {
             byte[] page = Page();
             return page == null ? TerminalServer.Reply.Error(404, "no_page") : TerminalServer.Reply.Html(page);
         }
-        // 添加到手机桌面用的清单和图标(Terminal 目录下的几个固定文件)
-        if (method == "GET" && StaticTypes.TryGetValue(path, out string staticType))
+        // 添加到手机桌面的资源和按内容命名的高清立绘分片。
+        if (method == "GET" && (StaticTypes.TryGetValue(path, out string staticType) || TerminalServer.IsPortraitPage(path)))
         {
             byte[] file = StaticFile(path.Substring(1));
             return file == null ? TerminalServer.Reply.Error(404, "not_found")
-                : new TerminalServer.Reply { Status = 200, Type = staticType, Body = file };
+                : new TerminalServer.Reply { Status = 200, Type = staticType ?? "image/webp", Body = file };
         }
         if (method == "POST" && path == "/api/pair")
         {
@@ -717,19 +729,55 @@ public static partial class TerminalHost
             return;
         }
         Actor actor = World.world.units.get(seat.RulerId);
-        if (Eligible(actor))
+        Kingdom ruling = RulingRealm(actor);
+        if (ruling != null)
         {
-            if (seat.Ruler == null) seat.NextSight = 0f;
+            // 新到任(流官改派到别处也是)：地图、眼界重算
+            if (seat.Ruler == null || seat.Realm != ruling) seat.NextSight = seat.NextState = 0f;
             seat.Ruler = actor;
-            seat.Realm = actor.kingdom;
+            seat.Realm = ruling;
             seat.FormerRuler = actor.getName();
             seat.FormerRealm = NameOf(seat.Realm);
+            seat.Appointed = !Hereditary(ruling);
+            seat.AwaitSince = int.MinValue;
             // 身后可以接着领谁(见 TerminalHost.Succession)：在位时记下子孙、国、都城
             RememberLegacy(seat);
             return;
         }
+        // 流官离任、人还在(任满改派、调任别处)：席位跟着这个人，一年之内派到哪里就跟到哪里
+        // (用户 2026-11-14 "流官换执政区后玩家的视角也会换到那个行政区")；这期间也可以另择一君
+        bool alive = actor != null && actor.isAlive();
+        if (alive && seat.Appointed)
+        {
+            int now = MonthNow();
+            if (seat.AwaitSince == int.MinValue) seat.AwaitSince = now;
+            if (now - seat.AwaitSince < TransferMonths)
+            {
+                if (seat.Ruler != null || seat.VacantReason != "transfer")
+                {
+                    long keep = seat.RulerId;
+                    seat.Vacate("transfer");
+                    seat.RulerId = keep;
+                }
+                return;
+            }
+        }
+        seat.AwaitSince = int.MinValue;
         // 驾崩、失位、亡国：席位不撤，等着再挑一位(用户："死后终端也不结束，可以再选地图上存活的任意君主")
-        seat.Vacate(actor == null || !actor.isAlive() ? "dead" : seat.Realm == null || seat.Realm.isRekt() ? "fallen" : "deposed");
+        seat.Vacate(!alive ? "dead" : seat.Realm == null || seat.Realm.isRekt() ? "fallen" : "deposed");
+    }
+
+    // 流官离任后等改派至多几个月
+    private const int TransferMonths = 12;
+
+    // 这人眼下在哪一国为君(流官改派时人还记在旧任上的，也认新任)
+    private static Kingdom RulingRealm(Actor actor)
+    {
+        if (actor == null || !actor.isAlive()) return null;
+        if (Eligible(actor)) return actor.kingdom;
+        foreach (Kingdom kingdom in World.world.kingdoms)
+            if (kingdom?.data != null && kingdom.isAlive() && !kingdom.wild && kingdom.king == actor) return kingdom;
+        return null;
     }
 
     public struct RulerInfo
@@ -805,6 +853,14 @@ public static partial class TerminalHost
 
     public static string SeatLabel(Seat seat) =>
         string.IsNullOrEmpty(seat.Name) ? seat.Token.Substring(0, 4).ToUpperInvariant() : seat.Name;
+
+    // 这一国是哪位玩家在领(不算 except 自己)：给外交、战事、舆图标上。没人领回 null
+    private static JObject PlayerOf(Kingdom kingdom, Seat except)
+    {
+        if (kingdom == null) return null;
+        Seat host = HostOf(kingdom, except);
+        return host == null ? null : new JObject { ["name"] = SeatLabel(host), ["online"] = host.Watched };
+    }
 
     private static string Role(Kingdom kingdom)
     {
@@ -1030,6 +1086,18 @@ public static partial class TerminalHost
         // 半年财报：最新一份与上一份(手机上对着看)
         state["fiscal"] = new JArray(seat.Fiscals.Take(2));
         state["fiscalTrend"] = FiscalTrend(seat);
+        // 决议天平(见 TerminalHost.DecisionScale.cs)、朝局(见 TerminalHost.Court.cs)：出错不拖垮整份国势
+        try
+        {
+            state["decisions"] = DecisionScaleJson(seat);
+            state["court"] = CourtJson(seat);
+            state["fiscalDetail"] = FiscalDetailJson(seat);
+            state["purse"] = PurseJson(seat);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][终端] 备决议天平出错: {exception.Message}");
+        }
         var reports = new JArray();
         for (int i = seat.Reports.Count - 1; i >= 0 && reports.Count < 80; i--)
         {
@@ -1069,7 +1137,7 @@ public static partial class TerminalHost
             wars.Add(new JObject
             {
                 ["enemy"] = enemy?.data?.name ?? "", ["attacker"] = attacker, ["months"] = Date.getMonthsSince(war.data.created_time),
-                ["color"] = enemy == null ? null : Hex(RealmMiniMap.KingdomColor(enemy))
+                ["color"] = enemy == null ? null : Hex(RealmMiniMap.KingdomColor(enemy)), ["player"] = PlayerOf(enemy, seat)
             });
         }
         return wars;
@@ -1383,6 +1451,8 @@ public static partial class TerminalHost
                 ["id"] = kingdom.getID().ToString(), ["name"] = NameOf(kingdom),
                 ["color"] = Hex(RealmMiniMap.KingdomColor(kingdom)), ["tier"] = tier[i]
             };
+            // 哪位玩家领着(传闻之国不说)
+            if (tier[i] <= 1 && PlayerOf(kingdom, seat) is { } player) row["player"] = player;
             Empire court = kingdom.GetEmpire();
             if (court?.data != null)
             {

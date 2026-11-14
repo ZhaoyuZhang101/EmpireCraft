@@ -112,7 +112,7 @@ public static class ProvincialCollapseSystem
 
     // 以前只看技术进了工业时代：制度还停在三省六部、没立宪的帝国，一次土崩瓦解就成了共和革命，全文化跟着进入现代
     private static bool Modern(Empire empire) =>
-        !TechnologySystem.PremodernLocked && (RepublicSystem.CanAbolish(empire) ||
+        !TechnologySystem.NoNewModern && (RepublicSystem.CanAbolish(empire) ||
                                               TechnologySystem.GetEraTier(InstitutionSystem.GetPrimaryCulture(empire)) >= ModernEraTier &&
                                               InstitutionSystem.GetFeature(InstitutionSystem.GetPrimaryCulture(empire), PartySystem.FeaturePartyPolitics) > 0f);
 

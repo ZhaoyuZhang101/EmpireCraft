@@ -24,6 +24,8 @@ public static partial class TerminalHost
     public static readonly (string key, string socket)[] Lobbies =
     {
         ("global", "wss://lobby.cmhgamedev.dpdns.org"),
+        // 国内线路眼下只能用 IP：用户 2026-11-13 有了域名 lobby.cmhai.tech，但没备案的域名指到国内服务器，阿里云按请求里的
+        // 域名整个拦掉(8765 端口也拦，实测回 403 未备案页)。备案通过后换成 wss://lobby.cmhai.tech
         ("china", "ws://8.159.129.136:8765")
     };
     // 选的线路(设置 Terminal_Lobby_Line_Text 里存的键；认不出的按头一条)
@@ -147,7 +149,8 @@ public static partial class TerminalHost
         var info = new StringBuilder();
         info.Append("name=").Append(name);
         info.Append("\nopen=").Append(RoomOpen ? '1' : '0');
-        info.Append("\nused=").Append(Pairing.Seats().Count);
+        // 同时在线制下报的是眼下在线几位(离线的不占位置)
+        info.Append("\nused=").Append(TerminalPairing.ConcurrentMode ? OnlineSeats() : Pairing.Seats().Count);
         info.Append("\nmax=").Append(TerminalPairing.Limit);
         info.Append("\ncode=").Append(RoomOpen ? Code : "");
         info.Append("\nver=").Append(Version);

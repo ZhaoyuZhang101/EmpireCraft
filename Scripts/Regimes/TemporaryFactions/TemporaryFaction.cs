@@ -684,7 +684,7 @@ public abstract class TemporaryFaction
             }
             if (ShowAsPlot)
             {
-                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "empire_plots");
+                var plot = AssetManager.plots_library.get("empire_plots");
                 var emperor = empire?.Emperor;
                 if (emperor != null)
                 {

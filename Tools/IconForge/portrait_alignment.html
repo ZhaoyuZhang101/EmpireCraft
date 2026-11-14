@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>立绘与服饰模板</title>
+<style>
+  :root{color-scheme:dark;font-family:Inter,"Microsoft YaHei",sans-serif;background:#171b18;color:#edf1eb}
+  *{box-sizing:border-box}body{margin:0}main{max-width:1080px;margin:auto;padding:20px}
+  h1{font-size:23px;margin:0 0 16px}nav,.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  nav{margin-bottom:16px}button,input,select{font:inherit}button,select,input[type=number]{border:1px solid #525d52;border-radius:4px;background:#292f29;color:inherit;padding:7px}
+  button,select{cursor:pointer}button[disabled]{opacity:.45;cursor:default}button[aria-pressed=true],button.primary{background:#25483c;border-color:#64a88e}
+  .layout{display:grid;grid-template-columns:minmax(220px,352px) minmax(230px,1fr);gap:20px;align-items:start}
+  [hidden]{display:none!important}.frame{position:relative;width:100%;aspect-ratio:352/544;overflow:hidden;outline-offset:2px;background-color:#282e28;background-image:repeating-conic-gradient(#222822 0% 25%,transparent 0% 50%);background-size:24px 24px;touch-action:none}
+  .frame img,.frame canvas{width:100%;height:100%;display:block;image-rendering:pixelated}.frame img.guide{position:absolute;inset:0;pointer-events:none;opacity:.65}
+  .frame:focus-visible{outline:2px solid #8ad6b9}.panel{display:grid;gap:10px}.panel label{display:grid;gap:4px}.panel .check{display:flex;align-items:center}
+  .cols{display:grid;grid-template-columns:repeat(2,minmax(90px,1fr));gap:8px}.cols input,.cols select{width:100%}
+  .note,small{font-size:13px;color:#bac5bc;margin:0;line-height:1.5}.status{min-height:22px;margin:0;color:#c1e4d4}.status[data-error]{color:#ffc194}a{color:#a6d9c8}
+  @media(max-width:580px){main{padding:12px}.layout{grid-template-columns:1fr}.frame{max-width:352px}.panel{gap:8px}}
+</style>
+<main>
+  <h1>立绘与服饰模板</h1>
+  <nav aria-label="工作区">
+    <button id="live-tab" aria-pressed="true">终端立绘对位</button>
+    <button id="fit-tab" aria-pressed="false">新服装套模板</button>
+  </nav>
+  <section id="live" class="layout">
+    <div id="preview" class="frame" tabindex="0" aria-label="终端立绘预览">
+      <img id="portrait" alt="合成立绘" draggable="false">
+      <img id="live-guide" class="guide" alt="">
+    </div>
+    <div class="panel">
+      <label>衣装与版型<select id="outfit"></select></label>
+      <div class="cols">
+        <label>脸型<select id="head"></select></label><label>发式<select id="hair"></select></label>
+        <label>冠帽<select id="hat"></select></label><label>胡须<select id="beard"></select></label>
+        <label>面纹<select id="mark"></select></label><label>移动图层<select id="layer"></select></label>
+      </div>
+      <div class="cols"><label>横移<input type="number" id="dx" step="1"></label><label>纵移<input type="number" id="dy" step="1"></label></div>
+      <div class="row"><label class="check"><input type="checkbox" id="show-guide" checked> 模板线</label><label class="check"><input type="checkbox" id="solo"> 单独显示图层</label></div>
+      <p class="note">在预览里拖动选中的图层，或用方向键微调。位移以 88×136 画布上的格为单位。</p>
+      <div class="row">
+        <button id="bind">标记衣身颈根并对齐</button>
+        <button id="reset">还原所选图层</button>
+        <button id="save" class="primary">保存到本地终端</button>
+      </div>
+      <p id="live-status" class="status" role="status"></p>
+    </div>
+  </section>
+  <section id="fitting" class="layout" hidden>
+    <div class="frame"><canvas id="garment" width="352" height="544" aria-label="服装和标点预览"></canvas></div>
+    <div class="panel">
+      <label>人体模板<select id="template"></select></label>
+      <p id="template-info" class="note"></p>
+      <div class="row"><a id="template-download" download>下载透明模板 PNG</a></div>
+      <label>载入服装 PNG<input type="file" id="art-file" accept="image/png"></label>
+      <label>载入标点 JSON（可选）<input type="file" id="marks-file" accept=".json,application/json"></label>
+      <label>要标的位置<select id="point"></select></label>
+      <p class="note">在画布上点原画的对应位置。长袍遮住的膝和胯，仍按画中人体位置标注。标点齐全后，自动按关节分段调整衣身。</p>
+      <label class="check"><input type="checkbox" id="auto-fit" checked> 默认自动对齐</label>
+      <div class="cols">
+        <label>横向位置<input type="number" id="art-x" step="any"></label><label>纵向位置<input type="number" id="art-y" step="any"></label>
+        <label>宽度（像素）<input type="number" id="art-width" min="1" step="any"></label><label>高度（像素）<input type="number" id="art-height" min="1" step="any"></label>
+      </div>
+      <div class="row">
+        <button id="fit">按标点对齐</button>
+        <button id="export-art" class="primary" disabled>导出服装 PNG</button>
+        <button id="export-marks" disabled>导出标点 JSON</button>
+        <button id="export-guide" disabled>导出标注图</button>
+      </div>
+      <p id="fit-status" class="status" role="status"></p>
+    </div>
+  </section>
+</main>
+<script src="/runtime.js" defer></script>
+<script src="/editor.js" defer></script>
+</html>

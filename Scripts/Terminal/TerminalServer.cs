@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace EmpireCraft.Scripts.Terminal;
@@ -15,6 +16,9 @@ namespace EmpireCraft.Scripts.Terminal;
 // 这个文件不碰游戏和 Unity：收到请求在网络线程里调 Handler，Handler 只许读主线程备好的字符串、往队列里放命令。
 public sealed class TerminalServer
 {
+    internal static bool IsPortraitPage(string path) =>
+        Regex.IsMatch(path, @"\A/portraits-hd-[0-9]{2}-[0-9a-f]{12}\.webp\z");
+
     public struct Reply
     {
         public int Status;
@@ -32,7 +36,11 @@ public sealed class TerminalServer
     // (方法, 路径, 令牌, 正文) → 回复
     public Func<string, string, string, string, Reply> Handler;
 
-    private const int MaxHead = 8192, MaxBody = 4096, TimeoutMs = 5000;
+    private const int MaxHead = 8192, TimeoutMs = 5000;
+    // 请求正文至多多大。游戏里手机发来的都是短命令；独立服务器要收上传的剧本，开服时调大(见 .server)
+    public static int MaxBody = 4096;
+    // 许不许别处打开的网页直接来调(独立服务器给剧本编辑器用；游戏里不开)
+    public static bool CrossOrigin;
     private TcpListener _listener;
     private Thread _thread;
     private volatile bool _running;
@@ -119,9 +127,12 @@ public sealed class TerminalServer
                 Reply reply;
                 try
                 {
-                    reply = Read(stream, out string method, out string path, out string token, out string body)
-                        ? Handler?.Invoke(method, path, token, body) ?? Reply.Error(503, "not_ready")
-                        : Reply.Error(400, "bad_request");
+                    reply = !Read(stream, out string method, out string path, out string token, out string body)
+                        ? Reply.Error(400, "bad_request")
+                        // 浏览器跨域前先问一声许不许：许
+                        : method == "OPTIONS" && CrossOrigin
+                            ? new Reply { Status = 204, Type = "text/plain" }
+                            : Handler?.Invoke(method, path, token, body) ?? Reply.Error(503, "not_ready");
                 }
                 catch (Exception)
                 {
@@ -190,11 +201,15 @@ public sealed class TerminalServer
         byte[] body = reply.Body ?? Array.Empty<byte>();
         string status = reply.Status switch
         {
-            200 => "200 OK", 400 => "400 Bad Request", 401 => "401 Unauthorized", 403 => "403 Forbidden",
+            200 => "200 OK", 204 => "204 No Content", 400 => "400 Bad Request", 413 => "413 Payload Too Large", 401 => "401 Unauthorized", 403 => "403 Forbidden",
             404 => "404 Not Found", 429 => "429 Too Many Requests", 503 => "503 Service Unavailable", _ => reply.Status + " Error"
         };
         byte[] head = Encoding.ASCII.GetBytes("HTTP/1.1 " + status + "\r\nContent-Type: " + (reply.Type ?? "text/plain") +
                                               "\r\nContent-Length: " + body.Length +
+                                              (CrossOrigin
+                                                  ? "\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Content-Type, X-Terminal-Token" +
+                                                    "\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Max-Age: 600"
+                                                  : "") +
                                               "\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n");
         stream.Write(head, 0, head.Length);
         stream.Write(body, 0, body.Length);
@@ -210,11 +225,16 @@ public sealed class TerminalPairing
     // 不超过 MaxSeats。上限调低了，已配的席位照旧留着，只是满了不再收新的
     public const int MaxSeats = 16;
     private static volatile int _limit = 8;
+    // 独立服务器(不带游戏的开服工具)：席位跟着账号走，注册多少个都行，离线的不占位置；
+    // 这时 Limit 管的是同时在线的人数(见 TerminalHost.Standalone 的 OnlineSeats)，至多 MaxConcurrent
+    public static volatile bool ConcurrentMode;
+    public const int MaxStored = 100000, MaxConcurrent = 64;
+    public static int MaxLimit => ConcurrentMode ? MaxConcurrent : MaxSeats;
 
     public static int Limit
     {
         get => _limit;
-        set => _limit = Math.Max(1, Math.Min(MaxSeats, value));
+        set => _limit = Math.Max(1, Math.Min(MaxLimit, value));
     }
 
     private const int MaxFails = 5, LockSeconds = 60, MaxName = 16;
@@ -250,7 +270,7 @@ public sealed class TerminalPairing
                 foreach (string line in File.ReadAllLines(path))
                 {
                     string[] parts = line.Split((char)9);
-                    if (parts[0].Length == 32 && _seats.Count < MaxSeats)
+                    if (parts[0].Length == 32 && _seats.Count < (ConcurrentMode ? MaxStored : MaxSeats))
                         _seats.Add(new KeyValuePair<string, string>(parts[0], parts.Length > 1 ? parts[1] : ""));
                 }
             }
@@ -272,6 +292,20 @@ public sealed class TerminalPairing
         {
             _seats.RemoveAll(seat => seat.Key == token);
             Save();
+        }
+    }
+
+    // 不凭配对码、直接给一个席位(独立服务器上玩家凭账号密码登录，账号核对过了才到这里)；满了给 null
+    public string Issue(string name, out bool full)
+    {
+        lock (_gate)
+        {
+            full = _seats.Count >= (ConcurrentMode ? MaxStored : Limit);
+            if (full) return null;
+            string token = Hex(16);
+            _seats.Add(new KeyValuePair<string, string>(token, CleanName(name)));
+            Save();
+            return token;
         }
     }
 

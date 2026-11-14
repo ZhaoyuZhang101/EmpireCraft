@@ -101,6 +101,10 @@ public static class EmpireCraftStrategicScheduler
         // 商品市场：各城记账、市场结算、市场间贸易、关税同盟(每年一次分帧，见 CommodityMarketSystem)
         FrameJobs.Run("商品市场", FrameJobs.Priority.Low, CommodityMarketSystem.Tick);
         FrameJobs.Run("帝国改划", FrameJobs.Priority.Low, AdministrationReorganizationSystem.Tick);
+        // 决议：每月推进在办的，按人轮转想发起新的(见 DecisionSystem，自己里面分段计时)
+        // 内帑：年例、皇庄收租(每月一回，只算有人亲自掌着的，见 PrivyPurse)
+        FrameJobs.Run("内帑", FrameJobs.Priority.Low, PrivyPurse.Tick);
+        FrameJobs.Run("决议", FrameJobs.Priority.Normal, EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Tick, measure: false);
 
         float realtime = Time.realtimeSinceStartup;
         if (realtime >= _nextCompatibilityRefresh)

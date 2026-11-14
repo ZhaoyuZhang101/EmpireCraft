@@ -1,0 +1,15 @@
+# 手写接手、不由生成器出壳的：T:类型全名 或 类型全名::成员名
+T:UnityEngine.Mathf
+T:UnityEngine.Vector2
+T:UnityEngine.Vector3
+T:UnityEngine.Vector2Int
+T:UnityEngine.Color
+T:UnityEngine.Color32
+T:UnityEngine.Random
+T:UnityEngine.Time
+T:UnityEngine.Rect
+T:UnityEngine.Object
+T:UnityEngine.Debug
+T:NeoModLoader.General.LM
+T:NeoModLoader.services.LogService
+T:ListPool`1

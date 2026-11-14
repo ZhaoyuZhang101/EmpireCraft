@@ -1108,6 +1108,19 @@ public static class LandEconomySystem
         (actor ?? kingdom?.king)?.RecordPersonalHistory(content, "peasant_land_rebellion");
     }
 
+    // 某宗族在这座城占的私田(点数，同土地买卖的口径)；内帑的皇庄用(见 PrivyPurse)
+    public static float ClanShare(City city, SpecificClan clan) => clan == null ? 0f : GetHouseholdShare(city, $"s:{clan.id}");
+
+    // 买 points 点背景私田的价钱
+    public static float LandPrice(float points) => points * BackgroundLandPrice;
+
+    // 买地的钱给卖地的百姓：交过地税存进民间存款
+    public static void PaySellers(City city, float paid)
+    {
+        CityPopulationData population = CityPopulationSystem.Get(city);
+        if (population != null && paid > 0f) ReceiveLandSale(city, population, paid);
+    }
+
     private static float GetHouseholdShare(City city, string key)
     {
         if (city == null || string.IsNullOrEmpty(key)) return 0f;

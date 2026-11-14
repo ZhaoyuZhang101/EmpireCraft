@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 帝国盒子独立服务器：不带世界盒子、不带 Unity，纯 .NET 的控制台程序，Windows 与 Linux 都能跑。
+       模组的核心玩法源码(Scripts 下除界面、补丁、神力以外的部分)原样编进来，不复制；
+       补丁(GamePatches)也编进来：模组靠它们把自己的逻辑挂到原版的事件上，服务器里照样用 Harmony 挂到替身的同名方法上。
+       它脚下踩的原版、Unity、加载器那一层换成 Shim/ 下的纯数据替身(Generated 是 tools/ShimGen 生成的空壳，其余手写)。
+       目录名以点开头：模组加载器编译模组时不扫点开头的目录，这里的源码不会混进模组。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>EmpireCraftServer</AssemblyName>
+    <RootNamespace>EmpireCraft.Server</RootNamespace>
+    <DefineConstants>$(DefineConstants);EC_SERVER</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WarningLevel>0</WarningLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0108;CS0109;CS0114;CS0162;CS0164;CS0168;CS0169;CS0219;CS0414;CS0649;CS0660;CS0661;CS0618;CS0612;CS1998;CS8632;CS0436;SYSLIB0011;SYSLIB0014;SYSLIB0021;SYSLIB0023;SYSLIB0050;SYSLIB0051</NoWarn>
+    <!-- 垃圾回收用多核：服务器模式按核分堆、并行回收，后台并发回收；DATAS 按负载自己收放堆数，小机器上不白占内存 -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <GarbageCollectionAdaptationMode>1</GarbageCollectionAdaptationMode>
+    <TieredPGO>true</TieredPGO>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- 不能按单文件发布：模组的补丁(Harmony)要在程序旁边找到运行时的 JIT 库，打成单文件就找不到、补丁全挂不上 -->
+    <PublishSingleFile>false</PublishSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tools\**" />
+    <!-- 模组核心源码：原样链接 -->
+    <Compile Include="..\Scripts\**\*.cs"
+             Exclude="..\Scripts\UI\**;..\Scripts\GodPowers\**;..\Scripts\Diagnostics\**;..\Scripts\Layer\Province.cs;..\Scripts\Layer\ProvinceData.cs;..\Scripts\Layer\ProvinceManager.cs"
+             Link="Mod\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Scripts\Diagnostics\FrameProfiler.cs;..\Scripts\Diagnostics\PerfTimer.cs" Link="Mod\Diagnostics\%(Filename)%(Extension)" />
+    <!-- 放在界面、神力目录下、其实是玩法逻辑的几样：无人区的归属、宗教的称谓、营建、简图的国色 -->
+    <Compile Include="..\Scripts\UI\Components\WildernessShape.cs;..\Scripts\UI\Components\WildernessTerritory.cs;..\Scripts\UI\Components\RealmMiniMap.cs;..\Scripts\UI\Windows\ReligionDisplay.cs;..\Scripts\GodPowers\SettlementPowers.cs"
+             Link="Mod\Extra\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+  </ItemGroup>
+</Project>

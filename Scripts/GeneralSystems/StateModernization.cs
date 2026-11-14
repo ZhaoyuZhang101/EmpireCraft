@@ -116,6 +116,8 @@ public static class StateModernization
     // 独立君主国掷一次共和革命；成了改现代政体，史书记一笔(组建政府交给 ModernStateFormationSystem)
     public static bool TryRevolution(Kingdom kingdom)
     {
+        // 时代锁在工业时代以前(见 TechnologySystem.EraLock)：君主国不再新起共和革命
+        if (TechnologySystem.EraLockBlocksModern) return false;
         float chance = RevolutionChance(kingdom);
         if (chance <= 0f || UnityEngine.Random.value >= chance) return false;
         string name = kingdom.GetKingdomName();

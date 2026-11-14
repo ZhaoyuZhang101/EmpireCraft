@@ -210,6 +210,7 @@ public class SaveManagerPatch : GamePatch
         EmpireCraft.Scripts.GeneralSystems.SchismSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.AdministrativeControlSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.ShuiTuSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.CourtActions.ResetWorldState();
         // 读档时世界对象不换(MapBox 还是同一个)，军团、战线、海军的运行记录要在这里清
         // (群友 2026-10-16："换了好几个档这个交战居然还在追我")
         EmpireCraft.Scripts.GeneralSystems.CorpsSystem.ResetWorldState();
@@ -233,6 +234,9 @@ public class SaveManagerPatch : GamePatch
     private static void ClearPersistentWorldState()
     {
         DataManager.ResetCurrentSaveDataPath();
+        // 在办的决议随模组存档(见 DecisionSystem)
+        EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.ResetWorldState();
+        EmpireCraft.Scripts.GeneralSystems.PrivyPurse.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = 0f;
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWilderness.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.ResetWorldState();

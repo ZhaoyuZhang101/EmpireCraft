@@ -179,7 +179,7 @@ public class WarPatch: GamePatch
             var attacker = __instance.getMainAttacker()?.king;
             if (attacker != null)
             {
-                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "force_stop_war");
+                var plot = AssetManager.plots_library.get("force_stop_war");
                 if (!attacker.plot?.isSameType(plot) ?? true)
                 {
                     
@@ -189,7 +189,7 @@ public class WarPatch: GamePatch
             var defender = __instance.getMainDefender()?.king;
             if (defender != null)
             {
-                var plot = AssetManager.plots_library.basic_plots.Find(p => p.id == "force_stop_war");
+                var plot = AssetManager.plots_library.get("force_stop_war");
                 if (!defender.plot?.isSameType(plot) ?? true)
                 {
                     

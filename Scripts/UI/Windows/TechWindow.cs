@@ -562,6 +562,10 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         if (TechnologySystem.Config.culture_level_max_tier.Count > 0)
             requires.Add(Mark(tech.tier <= TechnologySystem.GetMaxTierForCulture(_culture)) +
                          string.Format(LM.Get("tech_requires_culture_level"), needLevel));
+        // 时代锁定(终端管理员定，见 TechnologySystem.EraLock)：锁定时代以后的才写
+        if (TechnologySystem.BeyondEraLock(tech))
+            requires.Add(Mark(false) + string.Format(LM.Get("tech_requires_era_lock"),
+                TechnologySystem.EraNameOfTier(TechnologySystem.EraLockTier)));
         // 剧本世界的年代：只有这一档还没开放才写
         if (tech.tier > TechnologySystem.CalendarMaxTier() && TechnologySystem.CalendarOpenYear(tech.tier) is int opens)
             requires.Add(Mark(!TechnologySystem.BeyondCalendar(_culture, tech)) +

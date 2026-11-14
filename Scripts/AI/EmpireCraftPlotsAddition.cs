@@ -267,15 +267,16 @@ namespace EmpireCraft.Scripts.AI
             }
         }
 
-        private static bool CanRunKingdomGetTitlePlot(Actor actor) => CanContinueKingdomGetTitlePlot(actor) &&
-            actor.kingdom.GetWarsCached(false).Count == 0;
+        // 便宜的先查(在不在打仗、能不能求法理)，可取的头衔(要逐个法理算)放最后
+        private static bool CanRunKingdomGetTitlePlot(Actor actor) => actor?.kingdom != null &&
+            actor.kingdom.GetWarsCached(false).Count == 0 && CanContinueKingdomGetTitlePlot(actor);
 
         private static bool CanContinueKingdomGetTitlePlot(Actor actor)
         {
             if (actor == null || actor.isRekt() || !actor.isAlive() || !actor.isKing() || !actor.hasKingdom()) return false;
             Kingdom kingdom = actor.kingdom;
-            if (kingdom == null || kingdom.isRekt() || kingdom.king != actor || !actor.canTakeTitle()) return false;
-            return kingdom.CanPursueDeJureTitle();
+            if (kingdom == null || kingdom.isRekt() || kingdom.king != actor || !kingdom.CanPursueDeJureTitle()) return false;
+            return actor.canTakeTitle();
         }
 
         private static Kingdom FindTitleReclamationTarget(Empire empire) => empire?.kingdoms_list.Find(kingdom =>

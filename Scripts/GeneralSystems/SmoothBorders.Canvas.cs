@@ -994,7 +994,7 @@ public static partial class SmoothBorders
     private static Empire[] _palEmpire = Array.Empty<Empire>();
     private static int[] _palEpoch = Array.Empty<int>();
     private static int _canvasEpoch;
-    private static readonly Dictionary<long, bool> CanvasHostility = new();
+    private static readonly Dictionary<long, bool> CanvasHostility = new(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
     private static readonly Dictionary<City, Color32[]> CanvasStripes = new();
     private static bool _canvasFront, _canvasGold, _canvasPure, _canvasUnitSet;
     private static object _canvasUnitMeta;

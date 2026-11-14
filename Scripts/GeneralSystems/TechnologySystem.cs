@@ -241,7 +241,7 @@ public enum TechNodeStatus
 //
 // 限制只作用于"被某项技术登记过"的物品和建筑；没登记的(原版特殊武器、别的模组的东西)一律放行。
 // 受限清单保留尚未注册的 ID，兼容晚加载的模组；显示可用内容时按当前资产库检查。
-public static class TechnologySystem
+public static partial class TechnologySystem
 {
     public const string FolderName = "Technology";
     public const string MaterialBranch = "material";
@@ -415,6 +415,7 @@ public static class TechnologySystem
     {
         _loadedFromSave = false;
         _calendar = null;
+        _eraLock = 0;
         _states = new Dictionary<string, CultureTechState>(StringComparer.Ordinal);
         ResearchedCache.Clear();
         Contacts.Clear();
@@ -691,6 +692,8 @@ public static class TechnologySystem
     // 文化制度对技术的约束(科技树关闭时不限制)
     public static bool AreCultureRequirementsMet(string culture, TechNodeConfig tech) =>
         !(PremodernLocked && tech.tier > PremodernMaxTier) &&
+        // 时代锁定(见 TechnologySystem.EraLock)：锁定时代以后的不再研究
+        !BeyondEraLock(tech) &&
         !BeyondCalendar(culture, tech) &&
         // 本文化的主体被迫弃核：停止核研究(见 NuclearDoctrineSystem)
         !EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.IsResearchBanned(culture, tech.id) &&
@@ -1799,6 +1802,8 @@ public static class TechnologySystem
     // 存档里三条线卡在差 0.001 处，储备花不出去
     private static float Advance(string culture, TechNodeConfig tech, float budget, List<City> cities)
     {
+        // 锁定时代以前就开始研的：停在那里，点数不花(见 TechnologySystem.EraLock)
+        if (BeyondEraLock(tech)) return 0f;
         CultureTechState state = GetState(culture);
         float cost = GetCost(culture, tech);
         float progress = GetProgress(culture, tech.id);

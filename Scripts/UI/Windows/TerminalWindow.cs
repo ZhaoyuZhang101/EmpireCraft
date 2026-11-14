@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
+using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Terminal;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
@@ -195,6 +196,16 @@ public class TerminalWindow : WideScrollWindow<TerminalWindow>
             }),
             ("terminal_admin_limit_down", LM.Get("terminal_admin_limit_down"), () => Limit(TerminalPairing.Limit - 1)),
             ("terminal_admin_limit_up", LM.Get("terminal_admin_limit_up"), () => Limit(TerminalPairing.Limit + 1)));
+        // 时代锁定(管理员在手机上定，跟着存档走，见 TechnologySystem.EraLock)：这里看得到、解得开
+        int era = TechnologySystem.EraLockTier;
+        card.AddValueRow(PageWidth, 3, LM.Get("terminal_admin_era"),
+            era > 0 ? TechnologySystem.EraNameOfTier(era) : LM.Get("terminal_admin_era_none"), era > 0 ? WideKit.Orange : WideKit.Cyan);
+        if (era > 0)
+            card.AddButtonRow(PageWidth, ("terminal_admin_era_unlock_button", LM.Get("terminal_admin_era_unlock_button"), () =>
+            {
+                TerminalHost.LockEra(0);
+                Refresh();
+            }));
     }
 
     private static void RailNote(AutoVertLayoutGroup card, string text) =>

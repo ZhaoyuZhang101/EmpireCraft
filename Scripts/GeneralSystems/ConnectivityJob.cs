@@ -245,7 +245,7 @@ public sealed class ConnectivityJob
     private readonly List<ConnectivityLandLink> _links;
     private readonly List<int> _edgeA = new(), _edgeB = new();
     private readonly List<ConnectivityEdge> _edges = new();
-    private readonly HashSet<long> _seaPairs = new();
+    private readonly HashSet<long> _seaPairs = new(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
     private readonly List<int> _coastal = new();
     private readonly List<(bool culture, int index, ConnectivityMode mode)> _tasks = new();
     private readonly int[][] _realmEnemies;
@@ -613,7 +613,7 @@ public sealed class ConnectivityJob
     // 每两块有临海城的陆地之间，连城心最近的一对(跨洋的远航也有一条可走的边)
     private void SeaBetweenLands()
     {
-        var best = new Dictionary<long, (float d, int a, int b)>();
+        var best = new Dictionary<long, (float d, int a, int b)>(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
         for (int i = 0; i < _coastal.Count; i++)
         {
             int a = _coastal[i];

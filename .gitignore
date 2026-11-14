@@ -419,6 +419,8 @@ EmpireCraft.debug.log
 .*
 !.gitignore
 !.gitattribute
+# 独立服务器的源码(目录名以点开头是为了不被模组加载器当成模组源码编译)
+!.server/
 /[Tt]asks/
 /[Tt]ask/
 /Verification/

@@ -82,6 +82,10 @@ public static class WildernessPassage
         return block == 0 || zone.city != null || (block & (1 << Habit(traveller))) == 0;
     }
 
+    // 多线程读(见 FrontSystem.Parallel)：主线程先取，返回眼下的"过不去"表(按地块编号，低三位是军队的走法)，
+    // 地图上没有过不去的无人区时为空(处处能走)。拿去的表只读，主线程不重算时内容不变
+    internal static byte[] BlockSnapshot() => Ensure() ? _block : null;
+
     // 政令走得进这块地：同 Passable，小径、丘陵不算(见类头)
     public static bool CivilPassable(TileZone zone, Kingdom traveller)
     {

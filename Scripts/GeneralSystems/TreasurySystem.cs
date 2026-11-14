@@ -364,6 +364,7 @@ public static class TreasurySystem
         if (stolen <= 0) return;
         kingdom.SubMoney(stolen, TreasuryCategory.Corruption);
         kingdom.king.addMoney(stolen);
+        PrivyPurse.Note(kingdom, PrivyPurse.Graft, stolen);
         RecordTaxCorruption(kingdom.king, stolen);
     }
 }

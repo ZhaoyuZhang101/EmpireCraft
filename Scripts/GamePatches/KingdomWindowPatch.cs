@@ -90,6 +90,13 @@ public class KingdomWindowPatch: GamePatch
             lawTab.Setup("empire_law", __instance.scroll_window,
                 action:(_) => KingdomLawWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"));
         }
+        // 国务：决议、开源节流、内帑(见 KingdomAffairsWindow；帝国中央转到帝国窗口的天平页)
+        if (__instance.tabs._tabs.All(p => p.name != "kingdom_affairs"))
+        {
+            SimpleWindowTab affairsTab = Object.Instantiate(SimpleWindowTab.Prefab);
+            affairsTab.Setup("kingdom_affairs", __instance.scroll_window,
+                action:(_) => KingdomAffairsWindow.Open(_kingdom), sprite:SpriteTextureLoader.getSprite("ui/icons/iconMoney"));
+        }
     }
     public static bool showStatsRows(KingdomWindow __instance)
     {

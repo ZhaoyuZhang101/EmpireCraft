@@ -39,7 +39,7 @@ internal static class WorldMapZones
     // 边墙线段(格坐标)与被它隔开的相邻区块对(见 SetWalls、BuildBlocked)；连着的几道墙(见 FrontierWalls.Build)
     private static readonly List<(Vector2 a, Vector2 b)> _walls = new();
     private static List<FrontierWalls.Line> _lines = new();
-    private static readonly HashSet<long> _blocked = new();
+    private static readonly HashSet<long> _blocked = new(EmpireCraft.Scripts.HelperFunc.PackedKeyComparer.Instance);
     private static readonly (int dx, int dy)[] HalfNeighbours = { (1, 0), (0, 1), (1, 1), (1, -1) };
 
     public const float SeaCost = 6f;

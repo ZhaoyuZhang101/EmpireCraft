@@ -103,6 +103,8 @@ public class KingdomOverviewWindow : WideScrollWindow<KingdomOverviewWindow>
         links.AddRailLink(SpriteTextureLoader.getSprite("TabInstitutions"), LM.Get("kingdom_institutions"), () => InstitutionWindow.Open(kingdom));
         // 律法：独立王国也按本国政体的律法执法(现行律条、宽严与司法、卷宗、在押，见 KingdomLawWindow)
         links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconWorldLaws"), LM.Get("kov_open_law"), () => KingdomLawWindow.Open(kingdom));
+        // 国务：决议、开源节流、内帑(见 KingdomAffairsWindow)
+        links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconMoney"), LM.Get("kingdom_affairs"), () => KingdomAffairsWindow.Open(kingdom));
         links.AddRailLink(SpriteTextureLoader.getSprite("ui/icons/iconKingdom"), LM.Get("kov_open_vanilla"), () =>
         {
             SelectedMetas.selected_kingdom = kingdom;

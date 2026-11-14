@@ -166,6 +166,10 @@ public static class TerrainSystem
     // seatOpen 为假时城心也照交界算(剧本开局铺辖地用，见 WorldMapZones：紧挨城心的一圈也不隔脊领地)
     private const int MinPass = 2;
     private static readonly Dictionary<long, bool> Edges = new();
+    // 上限按地图大小：每块地 8 条交界(四条直、四条斜，两边共用一半)，城心另记一份。以前固定 20 万，第 2 档大图(4.7 万块)
+    // 交界就有近 19 万条，稍多一点就整表清掉重算，战线段地形层一轮要多花几倍(2026-11-14 实测)
+    public static int EdgeFlushes;
+    private static int EdgeCap() => Math.Max(200_000, (World.world?.zone_calculator?.zones?.Count ?? 0) * 10);
 
     public static bool Crossable(TileZone a, TileZone b, bool seatOpen = true)
     {
@@ -176,6 +180,26 @@ public static class TerrainSystem
         if (seatOpen && (Seat(a) || Seat(b) || RoadNetwork.Spans(a, b))) return true;
         // 不看城心时，城心那块的交界另记一份(与总能进的那份分开)
         bool seat = !seatOpen && (Seat(a) || Seat(b));
+        return EdgeOpen(a, b, dx, dy, seatOpen, seat);
+    }
+
+    // 只看地形的 Crossable(seatOpen 为真)：城心随占领挪动、路线随路网改，多核快照另按当时的补上(见 FrontSystem.Parallel)。
+    // Crossable(a, b) = 有一头是城心 || 路线跨过这条交界(RoadNetwork.Spans) || CrossableTerrain(a, b)
+    internal static bool CrossableTerrain(TileZone a, TileZone b)
+    {
+        if (a == null || b == null) return false;
+        if (a == b) return true;
+        int dx = b.x - a.x, dy = b.y - a.y;
+        if (Math.Abs(dx) > 1 || Math.Abs(dy) > 1) return true;
+        return EdgeOpen(a, b, dx, dy, true, false);
+    }
+
+    // 只看地形的 Impassable(同上)：Impassable(zone) = ImpassableTerrain(zone) && 不是城心 && 不是路线(RoadNetwork.IsTrail)
+    internal static bool ImpassableTerrain(TileZone zone) => zone != null && Lookup(zone).Impassable;
+
+    // 交界查表(没有就按格子算出来记下)
+    private static bool EdgeOpen(TileZone a, TileZone b, int dx, int dy, bool seatOpen, bool seat)
+    {
         long key = (a.id < b.id ? (long)a.id * 1_000_000L + b.id : (long)b.id * 1_000_000L + a.id) * (seat ? -1L : 1L);
         if (Edges.TryGetValue(key, out bool cached)) return cached;
         bool open;
@@ -186,7 +210,7 @@ public static class TerrainSystem
             open = Via(zones.getZone(a.x + dx, a.y)) || Via(zones.getZone(a.x, a.y + dy));
         }
         else open = OpenPairs(a, dx, dy) >= MinPass;
-        if (Edges.Count > 200_000) Edges.Clear();
+        if (Edges.Count > EdgeCap()) { EdgeFlushes++; Edges.Clear(); }
         Edges[key] = open;
         return open;
     }

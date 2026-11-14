@@ -25,7 +25,11 @@ namespace EmpireCraft.Scripts.Terminal;
 // 折价的几个数是我定的，用户没逐条确认
 public static partial class TerminalHost
 {
-    private const int MaxTermVassals = 8, MaxTermTitles = 8, MaxTermCorps = 6;
+    private const int MaxTermVassals = 8, MaxTermTitles = 8, MaxTermCorps = 6, MaxTermWars = 4;
+    // 参战：一方答应加入另一方眼下的一场仗(用户 2026-11-14 "外交互换可以拉别人进入战场")，折价 = 敌方主国身价的这一成
+    private const double WarShare = 0.25d;
+    // 归附(用户 2026-11-14 "个人领袖如何选择臣服加入帝国")：不是游戏里的外交动作，终端自己办
+    private const string Submit = "submit";
     private const double TitleShare = 0.15d;
     private const float CorpsHouseholds = 4f;
 
@@ -80,6 +84,18 @@ public static partial class TerminalHost
                         Label = string.Format(LM.Get("terminal_term_title"), title.data.name)
                     });
             }
+            // 参战：taker 眼下在打的仗，payer 帮着打(payer 已经卷进去的、对面是自己或盟友、同在一个帝国里的不列)
+            foreach (War war in taker.getWars().Where(found => found?.data != null && !found.hasEnded()).Take(MaxTermWars))
+            {
+                Kingdom enemy = war.isAttacker(taker) ? war.main_defender : war.main_attacker;
+                if (!CanJoinWar(war, payer, taker, enemy)) continue;
+                terms.Add(new Term
+                {
+                    Id = side + ":w:" + war.getID(), Give = give, Kind = "war", RefId = war.getID(),
+                    Value = Math.Max(1, (int)Math.Round(PeaceTermRules.RealmValue(enemy) * WarShare)),
+                    Label = string.Format(LM.Get("terminal_term_war"), NameOf(enemy))
+                });
+            }
             // 军
             if (taker.capital?.data != null && !taker.capital.isRekt())
                 foreach (CorpsData corps in (payer.GetOrCreate().corps ?? new List<CorpsData>()).Where(Spare).OrderByDescending(corps => corps.strength).Take(MaxTermCorps))
@@ -94,6 +110,47 @@ public static partial class TerminalHost
         {
             LogService.LogWarning($"[EmpireCraft][终端] 互换的条件没列全: {exception.Message}");
         }
+    }
+
+    // joiner 能不能帮 side 打这场仗
+    private static bool CanJoinWar(War war, Kingdom joiner, Kingdom side, Kingdom enemy) =>
+        war?.data != null && !war.hasEnded() && enemy?.data != null && !enemy.isRekt() && joiner != enemy && !war.hasKingdom(joiner) &&
+        (war.isAttacker(side) || war.isDefender(side)) && !joiner.isInWarWith(side) && !Allied(joiner, enemy) &&
+        (joiner.GetEmpire() == null || joiner.GetEmpire() != enemy.GetEmpire());
+
+    // 归附：对方在帝国里(中央或成员)就并入那个帝国，否则认对方作封建宗主。办不成给缘由
+    private static string SubmitBlock(Kingdom realm, Kingdom other, out Kingdom lord)
+    {
+        lord = other?.GetEmpire()?.CoreKingdom ?? other;
+        if (realm?.data == null || lord?.data == null || lord == realm) return LM.Get("terminal_fail_gone");
+        if (realm.IsEmpire()) return Words("terminal_submit_core");
+        Empire court = Heads(lord) ? lord.GetEmpire() : null;
+        if (court != null && realm.GetEmpire() == court) return Words("terminal_submit_already");
+        if (realm.GetEmpire() != null) return Words("terminal_submit_other");
+        if (realm.isInWarWith(lord) || realm.isInWarWith(other)) return Words("terminal_submit_war");
+        if (court == null && !(lord.GetEmpire() == null && FeudalVassalService.UsesFeudalVassals(lord) && !FeudalVassalService.TooFar(lord, realm)))
+            return Words("terminal_submit_cannot");
+        return null;
+    }
+
+    private static string DoSubmit(Kingdom realm, Kingdom other)
+    {
+        string why = SubmitBlock(realm, other, out Kingdom lord);
+        if (why != null) return why;
+        if (FeudalVassalService.GetOverlord(realm) != null) FeudalVassalService.Break(realm, false);
+        if (Heads(lord))
+        {
+            Empire court = lord.GetEmpire();
+            MembershipCooldown.ByGod(() => court.join(realm, pForce: true));
+            if (realm.GetEmpire() != court) return LM.Get("terminal_fail_generic");
+            MembershipCooldown.MarkJoin(realm, court, null);
+            realm.GetOrCreate().last_kingdom_status_ts = -1d;
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(realm);
+            return null;
+        }
+        if (!FeudalVassalService.ForceBind(lord, realm)) return LM.Get("terminal_fail_generic");
+        MembershipCooldown.MarkJoin(realm, null, lord);
+        return null;
     }
 
     // 交得出去的军：不是乡勇、没编在哪支大军里、不在船上、不在阵上
@@ -138,6 +195,15 @@ public static partial class TerminalHost
                 if (term.RefId == payer.GetOrCreate().MainTitle) return;
                 if (payer.GetControlledTitles()?.Any(title => title?.data != null && title.data.id == term.RefId) != true) return;
                 taker.InheritRealmTitles(payer, new[] { term.RefId });
+            }
+            else if (term.Kind == "war")
+            {
+                War war = World.world.wars.get(term.RefId);
+                if (war?.data == null || war.hasEnded()) return;
+                Kingdom enemy = war.isAttacker(taker) ? war.main_defender : war.main_attacker;
+                if (!CanJoinWar(war, payer, taker, enemy)) return;
+                if (war.isAttacker(taker)) war.joinAttackers(payer);
+                else war.joinDefenders(payer);
             }
             else if (term.Kind == "corps")
             {

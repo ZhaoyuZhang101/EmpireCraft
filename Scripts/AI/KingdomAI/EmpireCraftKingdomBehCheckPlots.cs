@@ -68,7 +68,7 @@ public class EmpireCraftKingdomBehCheckPlots : GameAIKingdomBase
                         : null;
         if (plotId == null) return;
 
-        PlotAsset plot = AssetManager.plots_library?.basic_plots?.Find(asset => asset?.id == plotId);
+        PlotAsset plot = AssetManager.plots_library?.get(plotId);
         if (plot?.try_to_start_advanced == null) return;
         if (plot.try_to_start_advanced(minister, plot, true))
         {

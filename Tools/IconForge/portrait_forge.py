@@ -13,7 +13,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 CELL = (88, 136)
 COLUMNS = 10
-THUMB = (20, 1, 48, 60)
+THUMB = (22, 0, 44, 55)
 ORDER = ("back", "base", "head", "body", "mark", "beard", "hair", "hat")
 
 # Source tile order, left to right. Periods are inclusive technology-era indices.
@@ -112,10 +112,10 @@ ROYAL_HATS = (
 )
 # "all" also hides the rear hair. Other hats cover only the top of the front hair.
 HAT_CLIP = {
-    "mianguan": 16, "futou": 17, "wushamao": 16, "qing_hat": 17,
-    "peaked": 16, "fur_hat": 18, "steppe_helm": "all",
+    "mianguan": 18, "futou": 20, "wushamao": 20, "qing_hat": 20,
+    "peaked": 20, "fur_hat": 20, "steppe_helm": "all",
     "knight_helm": "all", "turban": "all", "high_turban": "all",
-    "keffiyeh": "all", "eboshi": 16, "kabuto": "all", "yishan": 16,
+    "keffiyeh": "all", "eboshi": 20, "kabuto": "all", "yishan": 20,
 }
 PALETTES = {
     "skin": [[227, 182, 156], [210, 155, 122], [176, 123, 94], [139, 91, 67]],
@@ -168,10 +168,10 @@ def garment(name, civ, kind, sex, first=0, last=6):
 
 def draw_marks(layers):
     for name, points, color in (
-        ("scar", [(48, 30), (50, 27), (51, 26)], "#ac6960"),
-        ("mole", [(49, 29)], "#734740"),
-        ("rouge", [(39, 29), (40, 29), (48, 29), (49, 29)], "#d08378"),
-        ("stubble", [(41, 33), (43, 34), (45, 34), (47, 33)], "#977066"),
+        ("scar", [(47, 28), (48, 26), (48, 25)], "#ac6960"),
+        ("mole", [(46, 27)], "#734740"),
+        ("rouge", [(40, 27), (41, 27), (46, 27), (47, 27)], "#d08378"),
+        ("stubble", [(43, 30), (44, 31), (45, 30)], "#977066"),
     ):
         tile = layers["mark:" + name] = Image.new("RGBA", CELL)
         draw = ImageDraw.Draw(tile)

@@ -154,7 +154,7 @@ public static partial class InstitutionSystem
         !state.enacted_node_ids.Contains(node.id) && !IsSuperseded(state, node.id) &&
         InstitutionDefinitionRegistry.ArePrerequisitesMet(node, id => IsPrerequisiteHeld(state, id)) &&
         !node.exclusive_with.Any(state.enacted_node_ids.Contains) &&
-        !(TechnologySystem.PremodernLocked && TechnologySystem.IsModernInstitution(node));
+        !TechnologySystem.ModernInstitutionBlocked(node);
 
     // 每年每个文化一行(见 TryYearlyCultureDrift)，记过的数随即清零
     private static void LogCultureProgress(string culture)

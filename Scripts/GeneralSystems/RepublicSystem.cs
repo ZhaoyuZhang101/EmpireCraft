@@ -127,7 +127,7 @@ public static class RepublicSystem
 
     // 万世一系的日本皇室不废(用户 10-29 "天皇不应该是万世一系的吗"；以前废君压力照样把日本改成共和，见 ConstitutionalSuccessionSystem.Unbroken)
     public static bool CanAbolish(Empire empire) =>
-        !TechnologySystem.PremodernLocked &&
+        !TechnologySystem.NoNewModern &&
         empire?.CoreKingdom != null && !IsRepublic(empire) &&
         RegimeManager.IsMonarchy(empire.CoreKingdom.GetRegime()?.type) &&
         InstitutionSystem.GetFeature(empire, FeatureAbolishMonarchy) > 0f &&

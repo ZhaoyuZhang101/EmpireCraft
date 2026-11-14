@@ -132,9 +132,11 @@ document.title=T.title;
 $("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches));
 
 // 两条线路各是各的大厅(同 TerminalHost.Lobbies)：顶上两个页签，眼下这条亮着，点另一条过去
-var LINES=[{key:"global",url:"https://lobby.cmhgamedev.dpdns.org/"},{key:"china",url:"http://8.159.129.136:8765/"}];
+// also：同一条线路的别的地址，从那里打开照样算在这条线路上。国内线路的域名要备案通过才用得上(没备案会被云厂商拦掉)，
+// 到时把 url 换成 https://lobby.cmhai.tech/、把现在的 IP 地址挪进 also(旧版游戏给的房间地址、手机桌面上的旧图标还会开到那里)
+var LINES=[{key:"global",url:"https://lobby.cmhgamedev.dpdns.org/"},{key:"china",url:"http://8.159.129.136:8765/",also:["lobby.cmhai.tech","lobby.cmhai.tech:8765"]}];
 (function(){
-  var box=$("lines"),here=LINES.filter(function(line){return line.url.indexOf("//"+location.host+"/")>=0})[0];
+  var box=$("lines"),here=LINES.filter(function(line){return line.url.indexOf("//"+location.host+"/")>=0||(line.also||[]).indexOf(location.host)>=0})[0];
   if(!here){box.hidden=true;return}
   LINES.forEach(function(line){
     var a=el("a",line===here?"on":"",T["line_"+line.key]);
@@ -161,7 +163,8 @@ function render(rooms){
     meta.appendChild(seats(room.used,room.max));
     info.appendChild(meta);row.appendChild(info);
     var go=el("button",room.open&&!full?"primary":"",T.enter);
-    go.disabled=full;go.onclick=function(){join(room)};
+    // 满了也进得去：已有席位的照常回自己的位置，管理员从里头的管理员入口进；只是新来的要等有人离线
+    go.onclick=function(){join(room)};
     row.appendChild(go);box.appendChild(row);
   });
   if(!rooms.length){var none=el("div","empty");none.appendChild(el("b",null,T.none));none.appendChild(el("span","sub",T.none_sub));box.appendChild(none)}

@@ -26,6 +26,8 @@ public static partial class TerminalHost
         public EmpireCore World;
         // 子孙(单位 id → child、grandchild)：只增不减，身故的留着也无妨
         public readonly Dictionary<long, string> Kin = new();
+        // 族谱里的子孙(族谱编号 → child、grandchild)：无小人、纯净地图下子嗣多记在族谱里，继位时才落成人物，人物编号对不上
+        public readonly Dictionary<long, string> KinIds = new();
         public int Month = int.MinValue;
     }
 
@@ -44,6 +46,7 @@ public static partial class TerminalHost
         if (legacy.RulerId != id)
         {
             legacy.Kin.Clear();
+            legacy.KinIds.Clear();
             legacy.World = null;
             legacy.CapitalId = -1;
             legacy.Capital = "";
@@ -72,6 +75,31 @@ public static partial class TerminalHost
         {
             // 亲子关系取不到：这个月不记，已记的留着
         }
+        try
+        {
+            EmpireCraft.Scripts.System.PersonalClanIdentity self = ruler.GetPersonalIdentity();
+            if (self?.children == null) return;
+            foreach (long childId in new List<long>(self.children))
+            {
+                legacy.KinIds[childId] = "child";
+                if (!EmpireCraft.Scripts.System.SpecificClanManager._globalPersonLookup.TryGetValue(childId, out EmpireCraft.Scripts.System.PersonalClanIdentity child) || child?.children == null) continue;
+                foreach (long grandId in new List<long>(child.children))
+                    if (!legacy.KinIds.ContainsKey(grandId)) legacy.KinIds[grandId] = "grandchild";
+            }
+        }
+        catch (Exception)
+        {
+            // 族谱取不到：这个月不记
+        }
+    }
+
+    // 这人是不是故君的子孙(人物或族谱里认得出就算)：回 child、grandchild，不是回 null
+    private static string KinOf(Legacy legacy, Actor actor)
+    {
+        if (actor == null) return null;
+        if (legacy.Kin.TryGetValue(actor.getID(), out string kin)) return kin;
+        long person = actor.GetPersonalIdentity()?.id ?? -1L;
+        return person >= 0 && legacy.KinIds.TryGetValue(person, out kin) ? kin : null;
     }
 
     // 换世界、读档：以前记的作废
@@ -105,16 +133,17 @@ public static partial class TerminalHost
         {
             if (Eligible(old.king))
             {
-                bool descendant = legacy.Kin.TryGetValue(old.king.getID(), out string kin);
-                Offer(old, descendant ? "heir" : "successor", descendant ? kin : null);
+                string kin = KinOf(legacy, old.king);
+                Offer(old, kin != null ? "heir" : "successor", kin);
             }
             else list.Add(new JObject { ["why"] = "interregnum", ["realm"] = NameOf(old) });
         }
-        // 在别处为君的子孙
-        foreach (KeyValuePair<long, string> pair in legacy.Kin)
+        // 在别处为君的子孙(族谱里认得出的也算)
+        foreach (Kingdom kingdom in World.world.kingdoms)
         {
-            Actor descendant = World.world.units.get(pair.Key);
-            if (Eligible(descendant)) Offer(descendant.kingdom, "heir", pair.Value);
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.wild || !Eligible(kingdom.king)) continue;
+            string kin = KinOf(legacy, kingdom.king);
+            if (kin != null) Offer(kingdom, "heir", kin);
         }
         if (standing) return list;
         // 亡国：占着故都的、受天命的

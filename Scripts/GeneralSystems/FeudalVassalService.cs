@@ -269,14 +269,21 @@ public static class FeudalVassalService
     public static Kingdom FindPeacefulSubmissionTarget(Kingdom lord)
     {
         if (lord == null || World.world?.kingdoms == null) return null;
-        double lordPower = GetWarPower(lord, false);
-        // 先用便宜的条件筛(接壤、好感、国力)，CanBind 里的路程与接壤判定放最后
-        return World.world.kingdoms.Where(subject => subject != null && subject.hasKing() &&
-                GetOverlord(subject) == null && lord.IsNeighbourWith(subject) &&
-                (World.world.diplomacy?.getOpinion(subject, lord)?.total ?? 0) >= 50 &&
-                lordPower > GetWarPower(subject, true) && CanBind(lord, subject))
-            .OrderByDescending(subject => World.world.diplomacy.getOpinion(subject, lord).total)
-            .FirstOrDefault();
+        // 先用便宜的条件筛(接壤、好感)，国力等真有好感够的邻国才算，CanBind 里的路程与接壤判定放最后；取好感最高的
+        double lordPower = double.NaN;
+        Kingdom best = null;
+        int bestOpinion = int.MinValue;
+        foreach (Kingdom subject in World.world.kingdoms)
+        {
+            if (subject == null || subject == lord || !subject.hasKing() || GetOverlord(subject) != null || !lord.IsNeighbourWith(subject)) continue;
+            int opinion = World.world.diplomacy?.getOpinion(subject, lord)?.total ?? 0;
+            if (opinion < 50 || opinion <= bestOpinion) continue;
+            if (double.IsNaN(lordPower)) lordPower = GetWarPower(lord, false);
+            if (lordPower <= GetWarPower(subject, true) || !CanBind(lord, subject)) continue;
+            best = subject;
+            bestOpinion = opinion;
+        }
+        return best;
     }
 
     public static bool CanJoinAlliance(Kingdom subject, Alliance alliance)

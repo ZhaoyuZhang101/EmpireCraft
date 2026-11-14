@@ -100,6 +100,7 @@ public static class DataManager
         InstitutionSystem.ImportCultureStates(saveData?.cultureInstitutionStates);
         TechnologySystem.ImportStates(saveData?.cultureTechStates);
         TechnologySystem.ImportCalendar(saveData?.world_map_tech_calendar);
+        TechnologySystem.ImportEraLock(saveData?.era_lock_tier ?? 0);
         FamousTalentSystem.Import(saveData?.famousTalents);
         if (FactionRatioConverter.DiscardedLegacyEntryCount > 0)
         {
@@ -374,6 +375,8 @@ public static class DataManager
         CityFragmentSystem.Load(saveData.city_fragment_moves);
         RoadTreatySystem.Load(saveData.road_treaties);
         MilitaryAccessSystem.Load(saveData.military_access);
+        EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Load(saveData.decisions);
+        PrivyPurse.Load(saveData.privy_purse);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -564,6 +567,7 @@ public static class DataManager
         saveData.cultureInstitutionStates = InstitutionSystem.ExportCultureStates();
         saveData.cultureTechStates = TechnologySystem.ExportStates();
         saveData.world_map_tech_calendar = TechnologySystem.ExportCalendar();
+        saveData.era_lock_tier = TechnologySystem.EraLockTier;
         saveData.famousTalents = FamousTalentSystem.Export();
         ModClass.EMPIRE_MANAGER.update(-1L);
         ModClass.KINGDOM_TITLE_MANAGER.update(-1L);
@@ -618,6 +622,8 @@ public static class DataManager
         saveData.city_fragment_moves = CityFragmentSystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();
         saveData.military_access = MilitaryAccessSystem.Save();
+        saveData.decisions = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Save();
+        saveData.privy_purse = PrivyPurse.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.world_map_zone_km = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm;

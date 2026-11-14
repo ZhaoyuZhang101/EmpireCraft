@@ -1,0 +1,57 @@
+# 搬进独立服务器的模组代码：命名空间桶(EmpireCraft.Scripts.<桶>)，或 T:类型全名
+GeneralSystems
+Data
+Regimes
+HelperFunc
+Terminal
+GameClassExtensions
+AI
+Enums
+Layer
+Compatibility
+GameLibrary
+GamePatches
+System
+Scripts
+(root)
+
+# 补充清单(+ 开头)：源码比编译出来的 dll 新、或只在 nameof 里出现，生成器从 dll 里看不到的
++T:EmpireCraft.Scripts.UI.Windows.EmpireWindow
++T:EmpireCraft.Scripts.UI.Windows.KingdomTitleWindow
++T:EmpireCraft.Scripts.UI.Windows.EmpireCoreWindow
++ResourceAsset::supply_give
++ResourceAsset::supply_bound_give
++ResourceAsset::supply_bound_take
++CityData::timer_supply
++ConstructionCost::gold
++NameGenerator::generateName
++LocalizedTextManager::setLanguage
++Actor::canFallInLoveWith
+
+# 命名空间落在搬进来的桶里、文件却在没搬的目录(GamePatches 等)下的类型：当外部的出壳
++StatsWindow::tryToShowMetaReligion
++StatsMetaRowsContainer::tryToShowMetaReligion
++Docks::update
++City::hasSuitableFood
++City::getRandomSuitableFood
++City::countBuildings
++City::addCapturePoints
++Actor::warWon
++Actor::warLost
++Actor::madePeace
++T:WorldMapWindow
++T:RegimeWindow
++T:CityNameHistoryWindow
++T:BehCheckFissionReproduction
+
+# 壳里这些类型的字段一上来就建好
+new:BaseStats
+new:CustomDataContainer`1
+
+# 放在界面、神力目录下、其实是玩法逻辑的几个类型：源文件单独搬进来了(见 csproj)
+T:EmpireCraft.Scripts.UI.Components.WildernessShape
+T:EmpireCraft.Scripts.UI.Components.WildernessTerritory
+T:EmpireCraft.Scripts.UI.Components.RealmMiniMap
+T:EmpireCraft.Scripts.UI.Windows.ReligionDisplay
+T:EmpireCraft.Scripts.GodPowers.SettlementPowers
++T:WideKit

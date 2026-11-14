@@ -18,6 +18,16 @@ namespace EmpireCraft.Scripts.UI.Windows
             ScrollWindow.showWindow(nameof(EmpireWindow));
         }
 
+        // 天平页(国务窗口对帝国中央转到这里，见 KingdomAffairsWindow.Open)
+        public static void OpenScales(Empire empire)
+        {
+            if (empire?.CoreKingdom == null || empire.isRekt()) return;
+            SelectedMetas.selected_kingdom = empire.CoreKingdom;
+            EmpireCraftMetaTypeLibrary.selected_empire = empire;
+            _pendingTab = "empire_scales";
+            ScrollWindow.showWindow(nameof(EmpireWindow));
+        }
+
         public void ShowLaw(WindowMetaTab pArg0)
         {
             Clear();
