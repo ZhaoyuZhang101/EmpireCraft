@@ -114,7 +114,7 @@ public static partial class TerminalHost
             {
                 // 换世界、读档：全图、山川、军情都从头取
                 god.ClearIntel();
-                god.StateJson = "{\"loaded\":false,\"admin\":true}";
+                god.StateJson = WaitingJson(true);
                 continue;
             }
             bool watched = god.Watched;

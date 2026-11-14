@@ -267,6 +267,25 @@ public static partial class TerminalHost
     // 手机上的山川是整份取下来的，各位君主也是照着这张图调兵的；见 TerminalPatch.BeforeTerraform
     public static bool TerrainLocked => Enabled && WorldReady();
 
+    // 开局、读档的进度(独立服务器接上，见 .server/Program.cs)：剧本名、百分比、已用秒数；手机等待页画进度条。游戏里不接，为空
+    public static Func<JObject> LoadingProgress;
+
+    private static string WaitingJson(bool admin)
+    {
+        var body = new JObject { ["loaded"] = false };
+        if (admin) body["admin"] = true;
+        try
+        {
+            JObject loading = LoadingProgress?.Invoke();
+            if (loading != null) body["loading"] = loading;
+        }
+        catch (Exception)
+        {
+            // 进度取不到就不带
+        }
+        return body.ToString(Newtonsoft.Json.Formatting.None);
+    }
+
     public static void NewCode() => Pairing.NewCodeNow();
 
     // 设置刚改(开关、端口)：下一帧就重开，不等重试的间隔
@@ -468,12 +487,13 @@ public static partial class TerminalHost
         if (now < _nextTick) return;
         _nextTick = now + 1f;
         bool ready = WorldReady();
+        string waiting = ready ? null : WaitingJson(false);
         bool any = false, watching = false, mapped = false;
         foreach (Seat seat in SeatByToken.Values)
         {
             if (!ready)
             {
-                seat.StateJson = "{\"loaded\":false}";
+                seat.StateJson = waiting;
                 seat.MapJson = seat.MapBody = null;
                 seat.TerrainParts = null;
                 seat.TerrainBase = null;

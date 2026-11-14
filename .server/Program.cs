@@ -190,6 +190,19 @@ public static class Program
         ServerRoutes.Config = _config;
         ServerRoutes.Accounts.Load(Path.Combine(state, "accounts.json"));
         ServerRoutes.StartScenario = (name, frame, givenSize) => StartScenario(name, frame ?? frameId, givenSize ?? _size);
+        // 手机等待页的进度条：开局、读档时报剧本名、做到第几成、用了几秒(见 TerminalHost.LoadingProgress)
+        TerminalHost.LoadingProgress = () =>
+        {
+            bool loading = SmoothLoader.isLoading() || ServerRoutes.ScenarioState == "loading";
+            if (!loading) return null;
+            int total = SmoothLoader.Total, done = SmoothLoader.Done;
+            int pct = total > 0 ? Math.Min(99, done * 100 / total) : 0;
+            return new Newtonsoft.Json.Linq.JObject
+            {
+                ["name"] = DisplayName(ServerRoutes.ScenarioName ?? ""), ["pct"] = pct,
+                ["secs"] = LoadClock.IsRunning ? (int)LoadClock.Elapsed.TotalSeconds : 0
+            };
+        };
         ServerRoutes.DefaultSize = _size;
         // 剧本表、地图范围先读好：管理员在手机上挑剧本时(网络线程)只读不写
         if (!WorldMapData.EnsureLoaded() || !EarthTerrain.EnsureLoaded())
@@ -380,6 +393,13 @@ public static class Program
 
     private static bool _wasLoading;
     private static readonly Stopwatch LoadClock = new();
+
+    // 预设剧本按编号记着(ming_qing)：手机上显示它的名字(明清鼎革)
+    private static string DisplayName(string key)
+    {
+        var era = WorldMapData.Eras?.FirstOrDefault(item => item.id == key);
+        return era != null ? era.Name : key;
+    }
 
     // 主循环的一步：网络线程排过来的事先办；开局的加载步骤没走完就接着走(一步里至多用 50 毫秒)，走完了世界才往前走
     internal static void Step(MapBox world, Action modUpdate, float seconds)

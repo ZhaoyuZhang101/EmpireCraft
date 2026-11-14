@@ -394,7 +394,8 @@ body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-w
 
 <section id="s-wait" hidden>
   <h1 data-t="app_title"></h1>
-  <div class="card"><div id="wait-title" data-t="wait_world"></div><div class="sub" id="wait-hint" data-t="wait_world_hint"></div></div>
+  <div class="card"><div id="wait-title" data-t="wait_world"></div><div class="sub" id="wait-hint" data-t="wait_world_hint"></div>
+    <div id="wait-load" hidden style="margin-top:10px"><div id="wait-load-t"></div><div class="bar"><i id="wait-load-bar" style="background:var(--gold)"></i></div><div class="sub" id="wait-load-sub" style="margin-top:6px"></div></div></div>
   <div class="card" id="wait-srv" hidden></div>
   <button class="act more" id="wait-admin" hidden><span id="wait-admin-t" data-t="adm_entry"></span></button>
 </section>
@@ -602,6 +603,12 @@ f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on
 wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
 provinces:"Provinces and vassals",provinces_note:"The provinces, loose-rein lands and fiefs under the court. Tap one to see its cities.",pk_province:"Province",pk_jimi:"Loose rein",pk_fief:"Fief",pn_province:"Governed by appointed officials; only cities within reach of government give firm numbers.",pn_jimi:"A loose-rein land keeps its own chief; the court knows only roughly.",pn_fief:"A fief governs itself; the court knows only roughly.",p_cities:"{0} cities",p_seat:"Seat",p_more:"{0} more cities not listed.",cities:"Directly ruled cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%",cd_leader:"Governor: {0}",cd_troops:"Garrison: {0}",cd_treasury:"City treasury: {0}",cd_corr:"Corruption: {0}%",cd_zones:"Land: {0} zones",cd_rural:"{0} towns · {1} villages · {2} forts",cd_admin:"Control: {0}",cd_rough:"Government reaches here poorly; only rough figures come back.",cd_none:"Government does not reach here; no details come back."}
 };
+// 开局进度条的文字
+(function(){var A={
+cz:{adm_k_accounts:"账号",wl_title:"正在开局：{0}",wl_title_resume:"正在读档",wl_sub:"{0}% · 已用 {1} 秒，世界好了自动进入"},
+ch:{adm_k_accounts:"帳號",wl_title:"正在開局：{0}",wl_title_resume:"正在讀檔",wl_sub:"{0}% · 已用 {1} 秒，世界好了自動進入"},
+en:{adm_k_accounts:"Accounts",wl_title:"Starting: {0}",wl_title_resume:"Loading the save",wl_sub:"{0}% · {1}s so far; you will be let in when the world is ready"}
+};for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 // 国势分页的菜单(用户 2026-11-15 "我下拉都费劲""好歹给点菜单或者图标啊")
 (function(){var A={
 cz:{rs_purse:"内帑",rs_overview:"总览",rs_fiscal:"财报",rs_court:"朝局",rs_decisions:"决议",rs_war:"战事",rs_cities:"城池",rs_review:"考课"},
@@ -791,7 +798,7 @@ function loadClock(){
   if(k!==loadTipAt){loadTipAt=k;var tip=$("load-tip");tip.textContent=tips[k];tip.classList.remove("in");void tip.offsetWidth;tip.classList.add("in")}
 }
 function render(){
-  if(!state.loaded){show("s-wait");srvWait();return}
+  if(!state.loaded){show("s-wait");srvWait();waitLoad(state.loading);return}
   if(state.admin){renderAdmin();return}
   // 选人页也先过加载界面(用户 2026-11-13 "我的加载界面呢")：疆域、山川都到了再出图，不让人对着一张黑图
   if(state.vacant){
@@ -3855,8 +3862,14 @@ function renderAdminSeats(){
   box._sig=sig;box.textContent="";
   var on=seats.filter(function(s){return s.online}).length,ruling=seats.filter(function(s){return s.ruler}).length;
   var head=el("div","card gold"),grid=el("div","grid");
-  grid.appendChild(admKpi("k_people",t("adm_k_seats"),seats.length+"/"+state.limit));
-  grid.appendChild(admKpi("i_ok",t("adm_k_online"),String(on)));
+  // 独立服务器：注册不设上限，上限管的是同时在线(用户 2026-11-15 "16/32 是什么意思")——账号数单列，在线对着上限看
+  if(SRV){
+    grid.appendChild(admKpi("k_people",t("adm_k_accounts"),String(seats.length)));
+    grid.appendChild(admKpi("i_ok",t("adm_k_online"),on+"/"+state.limit));
+  }else{
+    grid.appendChild(admKpi("k_people",t("adm_k_seats"),seats.length+"/"+state.limit));
+    grid.appendChild(admKpi("i_ok",t("adm_k_online"),String(on)));
+  }
   grid.appendChild(admKpi("i_crown",t("adm_k_ruling"),String(ruling)));
   head.appendChild(grid);box.appendChild(head);
   var card=el("div","card");card.appendChild(hd("k_people",t("adm_seats")));
@@ -4170,6 +4183,14 @@ function srvScenStatus(){
   return srvScen.world?t("srv_scen_running",srvScenName(srvScen.key)):t("srv_scen_none");
 }
 // “世界尚未载入”那一屏：管理员在这里就能挑剧本载入，别的席位等着
+// 开局、读档的进度条(用户 2026-11-15 "怎么没有进度条""我是说终端")：服务器报剧本名、几成、用了几秒
+function waitLoad(l){
+  var box=$("wait-load");if(!box)return;
+  box.hidden=!l;if(!l)return;
+  $("wait-load-t").textContent=l.name?t("wl_title",l.name):t("wl_title_resume");
+  $("wait-load-bar").style.width=Math.max(3,Math.min(100,l.pct||0))+"%";
+  $("wait-load-sub").textContent=t("wl_sub",l.pct||0,l.secs||0);
+}
 function srvWait(){
   if(!SRV)return;
   var hint=$("wait-hint"),box=$("wait-srv");
