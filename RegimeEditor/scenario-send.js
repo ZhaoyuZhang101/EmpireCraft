@@ -2,7 +2,7 @@
 //   登入      POST {server}/api/admin/pair       正文 {"user","password"} → {"token","admin":true}；403 wrong_admin、429 locked
 //             (服务器没设账号密码时，账号留空、密码框里填它启动时打印的管理员码)
 //   上传开局  POST {server}/api/admin/scenario   头 X-Terminal-Token；正文 {"name","files":[{"path","text"|"base64"}],"start":true}
-//             → {"ok":true,"name","starting":true}；400 格式不对、401 没登入或令牌失效(重新登入一次再发)、413 太大
+//             (start:false 只存不开局，以后由管理员在房间里挑它载入) → {"ok":true,"name","starting":true}；400 格式不对、401 没登入或令牌失效(重新登入一次再发)、413 太大
 //   进度      GET  {server}/api/admin/scenario   → {"state":"idle|loading|ready|failed","name","step","detail"}，每秒问一次
 // 服务器地址：网页就是从独立服务器打开的(对当前源 GET /api/server 回 {"server":"empirecraft"})就用当前源，不用填；
 // 否则填地址，只写了地址的补上 http:// 和端口 8765。地址、账号和登入拿到的令牌记在浏览器里，密码不记。
@@ -114,7 +114,7 @@
     current = { folder, name };
     run++;
     const isHosted = await detectHosted();
-    $("sendWhat").textContent = `剧本「${name || folder}」(文件夹 ${folder})整个传过去，服务器照它开局。服务器上存成「${serverName(folder)}」。`;
+    $("sendWhat").textContent = `剧本「${name || folder}」(文件夹 ${folder})整个传到服务器。服务器上存成「${serverName(folder)}」。`;
     $("sendServerRow").hidden = isHosted;
     $("sendServerRow").style.display = isHosted ? "none" : "";
     $("sendHosted").hidden = !isHosted;
@@ -176,8 +176,9 @@
         if (D.S.dirty) throw new Error("保存没成，先把保存的问题解决");
       }
       const files = await UI.IO.files(current.folder);
+      const start = $("sendStart").checked;
       const body = JSON.stringify({
-        name: serverName(current.folder), start: true,
+        name: serverName(current.folder), start,
         files: files.map(file => file.text !== undefined ? { path: file.path, text: file.text } : { path: file.path, base64: file.base64 })
       });
       const size = new Blob([body]).size;
@@ -200,7 +201,9 @@
         result = await call(server, "POST", "/api/admin/scenario", { token, body, timeout: 120000 });
       }
       if (!alive()) return;
-      log(`服务器收下了「${result.name || serverName(current.folder)}」${result.starting ? "，正在开局" : ""}`);
+      const saved = result.name || serverName(current.folder);
+      if (!start) { log(`已存到服务器上「${saved}」，没有开局。管理员在房间里的「剧本」里可以挑它载入。`, "ok"); return; }
+      log(`服务器收下了「${saved}」${result.starting ? "，正在开局" : ""}`);
       await watch(server, token, alive);
     } catch (error) {
       log(error.message, "err");

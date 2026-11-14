@@ -5,7 +5,7 @@
 # 装完以后：systemctl status empirecraft-core 看状态，journalctl -u empirecraft-core -f 看日志(管理员码也在日志里)。
 #
 # 目录：<根目录>/app 是程序(自包含，不用另装 dotnet)；<根目录> 本身是数据目录(Terminal、Locales、WorldMaps……)；
-# 存放目录(server.json、账号、上传的剧本)不动——沿用服务现在用的那个，没有服务时取 core-state、server-state、state
+# 存放目录(server.json、账号、上传的剧本、存档 save/ 与 saves-archive/)不动——沿用服务现在用的那个，没有服务时取 core-state、server-state、state
 # 里有 server.json 的头一个，都没有就新建 core-state。
 set -e
 ROOT="${1:-/opt/empirecraft}"
@@ -28,9 +28,9 @@ fi
 [ -z "$STATE" ] && STATE="$ROOT/core-state"
 mkdir -p "$STATE"
 echo "存放目录：$STATE"
-# 核心的端口照 server.json(没写是 8765)
+# 核心的端口照 server.json(没写是核心的默认 8766)
 PORT="$(grep -o '"port"[^0-9]*[0-9]\+' "$STATE/server.json" 2>/dev/null | grep -o '[0-9]\+$' | head -1)"
-[ -z "$PORT" ] && PORT=8765
+[ -z "$PORT" ] && PORT=8766
 
 # ---- 停旧的。没装成服务以前手动起着的那个也停掉(占着端口，新服务起不来)；这台机器上只跑这一个核心
 systemctl stop "$SERVICE" 2>/dev/null || true
@@ -81,6 +81,8 @@ ExecStart=$ROOT/app/EmpireCraftServer --quiet --data $ROOT --state $STATE
 StandardInput=null
 Restart=always
 RestartSec=5
+# 退出码 4 = 端口开不了(被别的程序占着)：重启也没用，停着等人改 server.json
+RestartPreventExitStatus=4
 NoNewPrivileges=true
 LimitNOFILE=65536
 
