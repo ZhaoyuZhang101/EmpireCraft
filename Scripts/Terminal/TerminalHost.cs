@@ -1617,6 +1617,23 @@ public static partial class TerminalHost
             ["tile"] = seat.MapTile, ["cities"] = shown, ["dejure"] = dejure, ["ts"] = seat.MapTs,
             ["zc"] = new JArray(Convert.ToBase64String(TerminalIntel.Rle(cityLow)), Convert.ToBase64String(TerminalIntel.Rle(cityHigh)))
         };
+        // 没有本国的图(管理员、还没选君主的)：全图的战事，一场一对(攻方主国, 守方主国)，手机在两国最近的两座城之间画箭头
+        // (用户 2026-11-15 "管理员模式也能看到谁在打谁, 有箭头的")
+        if (realm == null)
+        {
+            var wars = new JArray();
+            var seenPairs = new HashSet<(int, int)>();
+            foreach (War war in World.world.wars)
+            {
+                if (war?.data == null || war.hasEnded()) continue;
+                Kingdom attacker = war.main_attacker, defender = war.main_defender;
+                if (attacker?.data == null || defender?.data == null) continue;
+                if (!kingdomIndex.TryGetValue(attacker.getID(), out int a) || !kingdomIndex.TryGetValue(defender.getID(), out int d)) continue;
+                if (slot[a] < 0 || slot[d] < 0 || !seenPairs.Add((slot[a], slot[d]))) continue;
+                wars.Add(new JArray(slot[a], slot[d]));
+            }
+            if (wars.Count > 0) json["warPairs"] = wars;
+        }
         City capital = realm?.capital;
         if (capital?.data != null && !capital.isRekt())
         {

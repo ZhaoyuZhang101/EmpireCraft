@@ -2584,6 +2584,7 @@ function decodeMap(j){
     if(w&&(r.n||0)>w.n){w.n=r.n||0;w.rgb=r.emp!=null&&j.empires[r.emp]?j.empires[r.emp].rgb:r.own}
   });
   // 城按要紧的先画：本国都城、各国都城、本国的城、别国的城，同类里大的在前。cityAt 留着原来的次序(zcity 里记的是它的下标)
+  j.allWars=j.warPairs||null;
   j.cityAt=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.home=!!r&&r.tier===0;c.own=!!r&&r.inside;c.foe=!!r&&!!r.war;c.rank=(c.home&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c});
   j.cities=j.cityAt.slice().sort(function(a,b){return a.rank-b.rank});
   if(!mv.set){mv.set=true;mv.z=1;mv.x=x0+(x1-x0+1)/2;mv.y=y0+(y1-y0+1)/2}
@@ -3296,6 +3297,13 @@ function drawWars(ctx,x,y,k,dpr,cv){
       map.cityAt.forEach(function(a){if(!a.own)return;map.cityAt.forEach(function(b){
         if(b.r!==ri)return;var d=(a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y);if(d<bd){bd=d;best=[a,b]}})});
       if(best)map.wars.push({a:r.atk?best[1]:best[0],b:r.atk?best[0]:best[1]});
+    });
+    // 管理员(没有本国)：全图的战事，每场在攻守两国离得最近的两座城之间，由攻方指向守方
+    (map.allWars||[]).forEach(function(pair){
+      var best=null,bd=1e18;
+      map.cityAt.forEach(function(a){if(a.r!==pair[0])return;map.cityAt.forEach(function(b){
+        if(b.r!==pair[1])return;var d=(a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y);if(d<bd){bd=d;best=[a,b]}})});
+      if(best)map.wars.push({a:best[0],b:best[1]});
     });
   }
   map.wars.forEach(function(wr){
