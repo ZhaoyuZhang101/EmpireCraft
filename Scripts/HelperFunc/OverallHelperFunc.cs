@@ -163,8 +163,10 @@ namespace EmpireCraft.Scripts.HelperFunc
         {
             coreName = coreName.UseLocalizedNameSeparator();
             if (string.IsNullOrWhiteSpace(typeName)) return coreName;
-            return UsesEnglishCountryTypePrefix(cultureName)
-                ? JoinNameParts("The", typeName, "of", coreName)
+            if (UsesEnglishCountryTypePrefix(cultureName)) return JoinNameParts("The", typeName, "of", coreName);
+            // 地名本身已带类别字时不再重复(唐制"道"：关内道 + 道 → 关内道，而不是"关内道 道"；同 FormatKingdomFullName)
+            return coreName != null && coreName.TrimEnd().EndsWith(typeName.Trim(), global::System.StringComparison.Ordinal)
+                ? coreName
                 : JoinNameParts(coreName, typeName);
         }
 
