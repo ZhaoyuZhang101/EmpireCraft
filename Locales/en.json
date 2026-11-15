@@ -12591,6 +12591,8 @@
   "terminal_host_none": "{0} has no troops to send.",
   "terminal_host_sent": "Orders sent: {0} ({1} armies, about {2} months to reach them all)",
   "terminal_terrain_locked": "Terminal mode is on: terrain cannot be changed. Turn terminal mode off in the mod settings first.",
+  "terminal_law_diplomacy": "Diplomacy",
+  "terminal_law_rebellions": "Rebellions",
   "diplomacy_act_trade": "Exchange",
   "terminal_trade_empty": "An exchange needs something to exchange: put terms on the scale first.",
   "terminal_term_vassal": "the vassal {0}",

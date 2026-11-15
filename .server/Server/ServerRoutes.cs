@@ -212,10 +212,18 @@ internal static class ServerRoutes
         WorldLaws world = World.world?.world_laws;
         foreach (WorldLawAsset law in AssetManager.world_laws_library.list.ToArray())
         {
-            if (law?.id == null || !law.id.StartsWith("empirecraft_", StringComparison.Ordinal)) continue;
+            if (law?.id == null) continue;
+            string name = law.id switch
+            {
+                "world_law_diplomacy" => Text("terminal_law_diplomacy", "Diplomacy"),
+                "world_law_rebellions" => Text("terminal_law_rebellions", "Rebellions"),
+                _ when law.id.StartsWith("empirecraft_", StringComparison.Ordinal) => Text(law.id + "_title", law.id),
+                _ => null
+            };
+            if (name == null) continue;
             laws.Add(new JObject
             {
-                ["id"] = law.id, ["name"] = Text(law.id + "_title", law.id), ["desc"] = Text(law.id + "_description", ""),
+                ["id"] = law.id, ["name"] = name, ["desc"] = Text(law.id + "_description", ""),
                 ["on"] = world != null && world.dict.TryGetValue(law.id, out PlayerOptionData option) ? option.boolVal : law.default_state
             });
         }

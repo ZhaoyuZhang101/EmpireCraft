@@ -147,6 +147,8 @@ public partial class AssetManager
                 }
             }
         }
+        WorldLawLibrary.world_law_diplomacy.default_state = true;
+        WorldLawLibrary.world_law_rebellions.default_state = true;
     }
 }
 

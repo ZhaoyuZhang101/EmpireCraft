@@ -12597,6 +12597,8 @@
   "terminal_host_none": "{0}眼下無軍可調。",
   "terminal_host_sent": "軍令已發出：{0}（{1} 軍奉令，約 {2} 月送齊）",
   "terminal_terrain_locked": "終端模式開著：山川水陸不能改。要改地形先在模組設定裡關掉終端模式。",
+  "terminal_law_diplomacy": "外交",
+  "terminal_law_rebellions": "叛亂",
   "diplomacy_act_trade": "互換",
   "terminal_trade_empty": "互換總得有東西換：先在天平上擺好條件。",
   "terminal_term_vassal": "屬國{0}",

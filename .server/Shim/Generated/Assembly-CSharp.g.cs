@@ -1850,13 +1850,6 @@ public static partial class DiplomacyHelpers
     public static global::Kingdom getAllianceTarget(global::Kingdom pKingdomStarter) { return global::EmpireCraft.Server.Shim.Miss<global::Kingdom>("DiplomacyHelpers::getAllianceTarget"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public static global::Kingdom getWarTarget(global::Kingdom pInitiatorKingdom) { return global::EmpireCraft.Server.Shim.Miss<global::Kingdom>("DiplomacyHelpers::getWarTarget"); }
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public static global::System.Boolean isWarNeeded(global::Kingdom pKingdom) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("DiplomacyHelpers::isWarNeeded"); }
-}
-public static partial class DiplomacyHelpersRebellion
-{
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public static void startRebellion(global::Actor pActor, global::Plot pPlot, global::System.Boolean pCheckForHappiness) { global::EmpireCraft.Server.Shim.Miss("DiplomacyHelpersRebellion::startRebellion"); }
 }
 public partial class DiplomacyManager : global::CoreSystemManager<global::DiplomacyRelation, global::DiplomacyRelationData>
 {

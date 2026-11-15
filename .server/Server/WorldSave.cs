@@ -123,7 +123,7 @@ internal static class WorldSave
     {
         MapBox world = World.world;
         WriteTiles(Path.Combine(folder, TilesFile));
-        var root = new JObject
+        var header = new JObject
         {
             ["v"] = Version,
             ["saved"] = DateTime.UtcNow.ToString("o"),
@@ -141,43 +141,85 @@ internal static class WorldSave
                 ["alliances"] = world.alliances.ShimNextId, ["clans"] = world.clans.ShimNextId, ["cultures"] = world.cultures.ShimNextId,
                 ["religions"] = world.religions.ShimNextId, ["languages"] = world.languages.ShimNextId, ["families"] = world.families.ShimNextId,
                 ["relations"] = world.diplomacy.ShimNextId
-            },
-            ["cultures"] = new JArray(world.cultures.Where(Alive).Select(culture => Meta(culture, culture.data, culture.ShimTraitIds, Names(culture)))),
-            ["languages"] = new JArray(world.languages.Where(Alive).Select(language => Meta(language, language.data, language.ShimTraitIds))),
-            ["religions"] = new JArray(world.religions.Where(Alive).Select(religion => Meta(religion, religion.data, religion.ShimTraitIds))),
-            ["clans"] = new JArray(world.clans.Where(Alive).Select(clan => Meta(clan, clan.data, clan.ShimTraitIds))),
-            ["families"] = new JArray(world.families.Where(Alive).Select(family => Meta(family, family.data, null))),
-            ["wild"] = new JArray(world.kingdoms.ShimWildSpecies),
-            ["kingdoms"] = new JArray(world.kingdoms.Where(Alive).Select(Realm)),
-            ["cities"] = new JArray(world.cities.Where(Alive).Select(Town)),
-            ["units"] = new JArray(world.units.Where(Alive).Select(Person)),
-            ["wars"] = new JArray(world.wars.Where(Alive).Select(war => Meta(war, war.data, null))),
-            ["alliances"] = new JArray(world.alliances.Where(Alive).Select(alliance =>
-            {
-                JObject item = Meta(alliance, alliance.data, null);
-                item["m"] = new JArray(alliance.kingdoms_list.Where(Alive).Select(member => member.id));
-                return item;
-            })),
-            ["relations"] = new JArray(world.diplomacy.ShimRelations.Where(pair => Alive(pair.Value)).Select(pair =>
-                new JObject { ["a"] = pair.Key.Item1, ["b"] = pair.Key.Item2, ["d"] = JObject.FromObject(pair.Value.data, Json) }))
+            }
         };
+        // 世界对象仍在内存里。每写完一条记录就释放它的 JSON 树，避免再攒一份完整的世界。
         using (var writer = new StreamWriter(Path.Combine(folder, WorldFile), false, new UTF8Encoding(false)))
         using (var json = new JsonTextWriter(writer))
-            root.WriteTo(json);
+        {
+            json.WriteStartObject();
+            foreach (JProperty property in header.Properties()) property.WriteTo(json);
+            WriteArray(json, "cultures", world.cultures.Where(Alive),
+                (output, culture) => WriteMeta(output, culture, culture.data, culture.ShimTraitIds, Names(culture)));
+            WriteArray(json, "languages", world.languages.Where(Alive),
+                (output, language) => WriteMeta(output, language, language.data, language.ShimTraitIds));
+            WriteArray(json, "religions", world.religions.Where(Alive),
+                (output, religion) => WriteMeta(output, religion, religion.data, religion.ShimTraitIds));
+            WriteArray(json, "clans", world.clans.Where(Alive),
+                (output, clan) => WriteMeta(output, clan, clan.data, clan.ShimTraitIds));
+            WriteArray(json, "families", world.families.Where(Alive),
+                (output, family) => WriteMeta(output, family, family.data, null));
+            WriteArray(json, "wild", world.kingdoms.ShimWildSpecies, (output, species) => output.WriteValue(species));
+            WriteArray(json, "kingdoms", world.kingdoms.Where(Alive), WriteRealm);
+            WriteArray(json, "cities", world.cities.Where(Alive), WriteTown);
+            WriteArray(json, "units", world.units.Where(Alive), WritePerson);
+            WriteArray(json, "wars", world.wars.Where(Alive), (output, war) => WriteMeta(output, war, war.data, null));
+            WriteArray(json, "alliances", world.alliances.Where(Alive), (output, alliance) =>
+                WriteMeta(output, alliance, alliance.data, null, extra: new JObject
+                {
+                    ["m"] = new JArray(alliance.kingdoms_list.Where(Alive).Select(member => member.id))
+                }));
+            WriteArray(json, "relations", world.diplomacy.ShimRelations.Where(pair => Alive(pair.Value)), (output, pair) =>
+            {
+                ArgumentNullException.ThrowIfNull(pair.Value.data);
+                output.WriteStartObject();
+                output.WritePropertyName("a");
+                output.WriteValue(pair.Key.Item1);
+                output.WritePropertyName("b");
+                output.WriteValue(pair.Key.Item2);
+                output.WritePropertyName("d");
+                Json.Serialize(output, pair.Value.data);
+                output.WriteEndObject();
+            });
+            json.WriteEndObject();
+        }
         _wrote = true;
+    }
+
+    private static void WriteArray<T>(JsonWriter writer, string name, IEnumerable<T> items, Action<JsonWriter, T> writeItem)
+    {
+        writer.WritePropertyName(name);
+        writer.WriteStartArray();
+        foreach (T item in items) writeItem(writer, item);
+        writer.WriteEndArray();
     }
 
     private static bool Alive(NanoObject item) => item != null && item.isAlive();
     private static JToken Id(NanoObject item) => Alive(item) ? item.id : JValue.CreateNull();
 
-    private static JObject Meta<TData>(NanoObject item, TData data, IEnumerable<string> traits, JObject names = null)
+    private static void WriteMeta<TData>(JsonWriter writer, NanoObject item, TData data, IEnumerable<string> traits,
+        JObject names = null, JObject extra = null)
     {
-        var saved = new JObject { ["d"] = JObject.FromObject(data, Json) };
+        ArgumentNullException.ThrowIfNull(data);
+        writer.WriteStartObject();
+        writer.WritePropertyName("d");
+        Json.Serialize(writer, data);
         JObject values = Values(item);
-        if (values.Count > 0) saved["f"] = values;
-        if (traits != null && traits.Any()) saved["tr"] = new JArray(traits);
-        if (names != null && names.Count > 0) saved["names"] = names;
-        return saved;
+        if (values.Count > 0)
+        {
+            writer.WritePropertyName("f");
+            values.WriteTo(writer);
+        }
+        if (traits != null && traits.Any())
+            WriteArray(writer, "tr", traits, (output, trait) => output.WriteValue(trait));
+        if (names != null && names.Count > 0)
+        {
+            writer.WritePropertyName("names");
+            names.WriteTo(writer);
+        }
+        if (extra != null)
+            foreach (JProperty property in extra.Properties()) property.WriteTo(writer);
+        writer.WriteEndObject();
     }
 
     // 一种文化的起名模板(人、族、城、国各一套)：模板的各段，和各组的字词
@@ -196,23 +238,25 @@ internal static class WorldSave
         return all;
     }
 
-    private static JObject Realm(Kingdom kingdom)
+    private static void WriteRealm(JsonWriter writer, Kingdom kingdom)
     {
-        JObject saved = Meta(kingdom, kingdom.data, kingdom.ShimTraitIds);
-        saved["as"] = kingdom.asset?.id;
-        saved["cu"] = Id(kingdom.culture);
-        saved["la"] = Id(kingdom.language);
-        saved["re"] = Id(kingdom.religion);
-        saved["cap"] = Id(kingdom.capital);
-        saved["king"] = Id(kingdom.king);
-        saved["ci"] = new JArray(kingdom.cities.Where(Alive).Select(city => city.id));
-        saved["loc"] = new JArray(kingdom.location.x, kingdom.location.y, kingdom.location.z);
-        return saved;
+        var extra = new JObject
+        {
+            ["as"] = kingdom.asset?.id,
+            ["cu"] = Id(kingdom.culture),
+            ["la"] = Id(kingdom.language),
+            ["re"] = Id(kingdom.religion),
+            ["cap"] = Id(kingdom.capital),
+            ["king"] = Id(kingdom.king),
+            ["ci"] = new JArray(kingdom.cities.Where(Alive).Select(city => city.id)),
+            ["loc"] = new JArray(kingdom.location.x, kingdom.location.y, kingdom.location.z)
+        };
+        WriteMeta(writer, kingdom, kingdom.data, kingdom.ShimTraitIds, extra: extra);
     }
 
-    private static JObject Town(City city)
+    private static void WriteTown(JsonWriter writer, City city)
     {
-        JObject saved = Meta(city, city.data, null);
+        var saved = new JObject();
         if (city.status != null) saved["st"] = JObject.FromObject(city.status, Json);
         saved["k"] = Id(city.kingdom);
         saved["cu"] = Id(city.culture);
@@ -223,12 +267,12 @@ internal static class WorldSave
         if (city._city_tile != null) saved["t"] = city._city_tile.data.tile_id;
         saved["cc"] = new JArray(city.city_center.x, city.city_center.y);
         saved["lc"] = new JArray(city.last_city_center.x, city.last_city_center.y);
-        return saved;
+        WriteMeta(writer, city, city.data, null, extra: saved);
     }
 
-    private static JObject Person(Actor actor)
+    private static void WritePerson(JsonWriter writer, Actor actor)
     {
-        JObject saved = Meta(actor, actor.data, actor.ShimTraitIds);
+        var saved = new JObject();
         // 没入国的人挂在本族的"野处"(编号是负的)，照样记编号
         if (actor.kingdom != null && actor.kingdom.isAlive()) saved["k"] = actor.kingdom.id;
         saved["c"] = Id(actor.city);
@@ -244,7 +288,7 @@ internal static class WorldSave
         saved["ab"] = new JArray(actor.stewardship, actor.warfare, actor.intelligence, actor.diplomacy, actor.level);
         if (actor.stats != null && actor.stats.ShimValues.Count > 0)
             saved["st"] = new JObject(actor.stats.ShimValues.Select(stat => new JProperty(stat.Key, stat.Value)));
-        return saved;
+        WriteMeta(writer, actor, actor.data, actor.ShimTraitIds, extra: saved);
     }
 
     // 地形：每格的底层、表层(各记在名字表里的号)和高度
@@ -701,7 +745,7 @@ internal static class WorldSave
                 continue;
             }
             if (value == null || value.Equals(member.Fresh)) continue;
-            values[member.Name] = member.Type.IsEnum ? Convert.ToInt64(value) : JToken.FromObject(value);
+            values[member.Name] = new JValue(member.Type.IsEnum ? Convert.ToInt64(value) : value);
         }
         return values;
     }

@@ -82,7 +82,7 @@ public static class DecisionScale
     public sealed class Snapshot
     {
         public long actor, realm;
-        public bool king, leader;
+        public bool king, leader, skipsWarRulerGate;
         public int standing, renown, realmRenown, intelligence, diplomacy, warfare, stewardship, talent;
         public int money, treasury, wars, busy;
         // 0~1：帝国看天命(正统)，王国看君权
@@ -127,9 +127,11 @@ public static class DecisionScale
     {
         if (!d.lawsAllow) return false;
         if (!(d.byKing && s.king || d.byLeader || d.byClan)) return false;
-        if (s.standing < d.minStanding || s.renown < d.minRenown || s.realmRenown < d.minRealmRenown) return false;
-        return s.intelligence >= d.minIntelligence && s.diplomacy >= d.minDiplomacy && s.warfare >= d.minWarfare &&
-               s.stewardship >= d.minStewardship;
+        bool skipsWarRulerGate = d.id == "empirecraft_war" && s.skipsWarRulerGate;
+        if (!skipsWarRulerGate &&
+            (s.standing < d.minStanding || s.realmRenown < d.minRealmRenown || s.warfare < d.minWarfare)) return false;
+        return s.renown >= d.minRenown && s.intelligence >= d.minIntelligence &&
+               s.diplomacy >= d.minDiplomacy && s.stewardship >= d.minStewardship;
     }
 
     private static float Measure(Snapshot s, DefInfo d, List<ScaleWeight> weights)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using EmpireCraft.Scripts.AI;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
@@ -406,6 +407,7 @@ public static class DecisionSystem
         return new DecisionScale.Snapshot
         {
             actor = actor.getID(), realm = realmId, king = actor.isKing(), leader = actor.isCityLeader(), standing = Standing(actor),
+            skipsWarRulerGate = actor.isKing() && EmpireCraftPlotsAddition.SkipsWarPlotRulerGate(actor),
             renown = actor.renown, intelligence = actor.intelligence, diplomacy = actor.diplomacy, warfare = actor.warfare,
             stewardship = actor.stewardship, talent = (int)Talent(actor), money = actor.money, realmRenown = shared.realmRenown,
             treasury = shared.treasury, wars = shared.wars, busy = shared.busy, authority = shared.authority, month = _month, now = now,

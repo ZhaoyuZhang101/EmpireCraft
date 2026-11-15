@@ -2407,17 +2407,32 @@ namespace EmpireCraft.Scripts.AI
 				    bool pCheckForHappiness = !plot.data.forced;
 				    DiplomacyHelpersRebellion.startRebellion(pActor, plot, pCheckForHappiness);
                     if (pActor.kingdom == null || pActor.kingdom == origin) return false;
+                    Kingdom target = plot.target_kingdom;
+#if EC_SERVER
+                    // 旗下的单城行政区失去治所后已无城可守，由原帝国核心应战。
+                    if (target?.hasCities() != true) target = origin.GetEmpire()?.CoreKingdom;
+#endif
                     War war = null;
                     if (pActor.kingdom.hasEnemies())
                     {
                         war = pActor.kingdom.getWars()?.FirstOrDefault(w => !w.hasEnded() &&
                             (w.isAttacker(origin) || w.isDefender(origin) ||
-                             w.isAttacker(plot.target_kingdom) || w.isDefender(plot.target_kingdom)));
+                             w.isAttacker(target) || w.isDefender(target)));
                     }
                     else
                     {
-                        war = World.world.diplomacy.startWar(pActor.kingdom, plot.target_kingdom, WarTypeLibrary.rebellion);
+                        war = World.world.diplomacy.startWar(pActor.kingdom, target, WarTypeLibrary.rebellion);
                     }
+#if EC_SERVER
+                    if (war == null)
+                    {
+                        Kingdom rebel = pActor.kingdom;
+                        foreach (City city in rebel.cities.ToArray())
+                            if (city != originCity) city.joinAnotherKingdom(origin);
+                        RebellionStartupService.RollbackCitySplit(originCity, origin, rebel);
+                        return false;
+                    }
+#endif
                     if (war != null)
                     {
                         war.SetEmpireWarType(EmpireWarType.地方独立);
@@ -2453,6 +2468,8 @@ namespace EmpireCraft.Scripts.AI
                                                          (stopWarContinue?.Invoke(actor) ?? true);
             }
             PlotAsset vanillaWar = AssetManager.plots_library.get("new_war") ?? PlotsLibrary.new_war;
+            // 独立核心的原版库也有同名占位，只有带原版行为的定义才能用来宣战。
+            if (vanillaWar?.try_to_start_advanced == null || vanillaWar.action == null) vanillaWar = null;
             if (vanillaWar != null)
             {
                 PlotsLibrary.new_war ??= vanillaWar;
@@ -2743,7 +2760,7 @@ namespace EmpireCraft.Scripts.AI
             // 春秋战国：周室诸侯也可以自己开战(见 ZhouEraSystem)
             if (kingdom == null || kingdom.king != actor ||
                 !CanInitiateNormalWar(kingdom.IsEmpire(), kingdom.IsInEmpire()) && !ZhouEraSystem.VassalMayWage(kingdom) ||
-                !IsWarNeededForPlot(kingdom)) return false;
+                DiplomacyLaws.WarBlocked || CorpsSystem.CannotFundWar(kingdom) || !IsWarNeededForPlot(kingdom)) return false;
             // 帝国开战看皇帝的资质(见 RulerQualitySystem.WillsWarThisYear)；诸侯、附庸的君主不定资质，不在此列
             if (kingdom.IsEmpire() && !RulerQualitySystem.WillsWarThisYear(actor)) return false;
             Regime regime = kingdom.GetRegime();
@@ -2782,7 +2799,8 @@ namespace EmpireCraft.Scripts.AI
         {
             Kingdom kingdom = actor?.kingdom;
             Kingdom target = actor?.plot?.target_kingdom;
-            return kingdom != null && target != null && IsWarNeededForPlot(kingdom) &&
+            return kingdom != null && target != null && actor.plot.getAsset()?.isAllowedByWorldLaws() == true &&
+                   !DiplomacyLaws.WarBlocked && IsWarNeededForPlot(kingdom) &&
                    IsValidModWarTarget(kingdom, target);
         }
 
@@ -2879,7 +2897,7 @@ namespace EmpireCraft.Scripts.AI
             // 法理相连且走得通，或隔海相望(见 WarReach.WarNear)；附庸同样只打比自己弱的
             bool neighbours = WarReach.WarNear(initiator, target);
             return neighbours && WarSituation.Power(initiator) > WarSituation.Power(target) &&
-                   FeudalVassalService.CanDeclareExternalWar(initiator, target);
+                   WarGate.CanDeclare(initiator, target);
         }
 
         private static bool IsValidImperialWarTarget(Kingdom initiator, Kingdom target)

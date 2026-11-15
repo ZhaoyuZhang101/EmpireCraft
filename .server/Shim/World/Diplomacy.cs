@@ -5,11 +5,44 @@
 //# hand Alliance: canJoin countWarriors hasWars isSame join leave hasSupremeKingdom hasSharedBordersWithKingdom isForcedType
 //# hand AllianceManager: anyAlliances dissolveAlliance forceAlliance newAlliance
 //# hand DiplomacyManager: getOpinion getRelation startWar
+//# hand DiplomacyHelpers: isWarNeeded
+//# hand DiplomacyHelpersRebellion: startRebellion
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using EmpireCraft.Server;
+using EmpireCraft.Scripts.GeneralSystems;
+
+public static partial class DiplomacyHelpers
+{
+    [MethodImpl(P.N)]
+    public static bool isWarNeeded(Kingdom pKingdom)
+    {
+        if (pKingdom?.data == null || !pKingdom.isAlive() || !pKingdom.hasCapital() || pKingdom.hasEnemies())
+            return false;
+        var rules = SimGlobals.m;
+        double lastWar = pKingdom.data.timestamp_last_war;
+        if (lastWar >= 0d && Date.getYearsSince(lastWar) <= rules.diplomacy_years_war_timeout) return false;
+
+        bool abstractPopulation = CityPopulationSystem.AbstractPopulationEnabled;
+        int troops = abstractPopulation ? CityPopulationSystem.WarPotential(pKingdom) : pKingdom.countTotalWarriors();
+        if (troops <= rules.diplomacy_years_war_min_warriors) return false;
+        int housing = pKingdom.getPopulationTotalPossible();
+        return pKingdom.countCities() >= 4 || housing <= 0 || pKingdom.getPopulationPeople() >= housing * 0.6f;
+    }
+}
+
+public static partial class DiplomacyHelpersRebellion
+{
+    public static void startRebellion(Actor pActor, Plot pPlot, bool pCheckForHappiness)
+    {
+        if (pPlot == null || !RebellionSystem.CanContinueCityPlot(pActor, forced: !pCheckForHappiness)) return;
+        City seat = pActor.city;
+        Kingdom rebel = seat.makeOwnKingdom(pActor, pRebellion: true);
+        if (rebel != null) rebel.setCapital(seat);
+    }
+}
 
 public partial class War
 {
@@ -291,7 +324,12 @@ public partial class DiplomacyManager
     {
         if (pK1 == null || pK2 == null) return null;
         (long, long) key = pK1.id < pK2.id ? (pK1.id, pK2.id) : (pK2.id, pK1.id);
-        if (!_relations.TryGetValue(key, out DiplomacyRelation relation)) _relations[key] = relation = newObject();
+        if (!_relations.TryGetValue(key, out DiplomacyRelation relation))
+        {
+            relation = newObject();
+            relation.data.timestamp_last_war_ended = -1d;
+            _relations[key] = relation;
+        }
         return relation;
     }
 

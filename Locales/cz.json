@@ -12605,6 +12605,8 @@
   "terminal_host_none": "{0}眼下无军可调。",
   "terminal_host_sent": "军令已发出：{0}（{1} 军奉令，约 {2} 月送齐）",
   "terminal_terrain_locked": "终端模式开着：山川水陆不能改。要改地形先在模组设置里关掉终端模式。",
+  "terminal_law_diplomacy": "外交",
+  "terminal_law_rebellions": "叛乱",
   "diplomacy_act_trade": "互换",
   "terminal_trade_empty": "互换总得有东西换：先在天平上摆好条件。",
   "terminal_term_vassal": "属国{0}",
