@@ -34,7 +34,7 @@ public static class FormationDiagnostics
                 {
                     Kingdom best = ranked[0];
                     LogService.LogInfo($"[EmpireCraft][称帝诊断] {culture} 无帝国 {noEmpire:0} 年，最强 {best.GetKingdomName()}" +
-                                       $"(城{best.cities?.Count ?? 0} 人口{best.countUnits()} 国库{best.GetMoney()})：" +
+                                       $"(城{best.cities?.Count ?? 0} 人口{EmpireFormationService.Population(best)} 国库{best.GetMoney()})：" +
                                        EmpireFormationService.Diagnose(best));
                 }
                 if (ranked.Any(kingdom => kingdom.hasEnemies() || YearsSinceWar(kingdom) < QuietYears)) continue;

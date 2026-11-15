@@ -82,7 +82,7 @@ public static class EmpireFormationService
         // 此方法的法理承接规则不限定现代政体：须控制法理首府且可以合法不战而得，不抢现存国家的主法理。
         if (ModernStateFormationSystem.TryClaimSeatTitle(kingdom)) return true;
         // 首府根本未立过法理时，达到通常称帝规模的国家可先立首府头衔，再照常筹备；不覆盖既有法理。
-        if (kingdom.capital.hasTitle() || kingdom.countUnits() < MinimumPopulation || kingdom.cities.Count < MinimumCities ||
+        if (kingdom.capital.hasTitle() || Population(kingdom) < MinimumPopulation || kingdom.cities.Count < MinimumCities ||
             ModClass.KINGDOM_TITLE_MANAGER == null || EmpireCraftWorldLawLibrary.empirecraft_law_ban_empire.isEnabled()) return false;
         KingdomTitle title = ModClass.KINGDOM_TITLE_MANAGER.newKingdomTitle(kingdom.capital);
         if (title == null) return false;
@@ -477,7 +477,7 @@ public static class EmpireFormationService
         string culture = CultureService.GetRealmCulture(kingdom);
         if (!kingdom.HasMainTitle() && !CityStateService.IsCityState(kingdom)) return "没有主法理";
         List<Kingdom> bloc = GetBlocMembers(kingdom).ToList();
-        int population = bloc.Sum(member => member.countUnits()), cities = bloc.Sum(member => member.cities?.Count ?? 0);
+        int population = bloc.Sum(Population), cities = bloc.Sum(member => member.cities?.Count ?? 0);
         float years = GetYearsWithoutEmpire(culture);
         if (!MeetsBaseRequirements(kingdom))
             return $"人口 {population}、城 {cities} 不够(要人口 {MinimumPopulation}、城 {MinimumCities}；无帝国满 {FallbackYears} 年后人口 160、城 2；" +
@@ -495,6 +495,12 @@ public static class EmpireFormationService
     // 属地(连同宗主国不在图上的剧本属地)、流亡政府，先脱离了再说。以前只有 AI 筹备称帝这一条路拦了(见
     // EmpireCraftKingdomBehCheckEmpire.CanStartEmpireFormation)，僭越争正统、袭掠成雄主称汗、结部落联盟、推戴都不拦，
     // 朝贡国、保护国照样另立朝廷
+    // 称帝门槛的人口：开着"无小人"(抽象人口)时实体人物只剩要人，一个三十来城的汗国也只有三十几个，
+    // 按户数算(实体 + 背景人口折户，同朝贡、岁赐的口径，见 CityPopulationSystem.Households)；以前一直数实体，
+    // 无小人、纯净地图(独立服务器也是)下谁都够不上人口 200，天下几十年没人称帝
+    public static int Population(Kingdom kingdom) =>
+        kingdom?.data == null ? 0 : CityPopulationSystem.AbstractPopulationEnabled ? CityPopulationSystem.Households(kingdom) : kingdom.countUnits();
+
     public static bool IsSubject(Kingdom kingdom) =>
         kingdom?.data != null && !kingdom.isRekt() &&
         (FeudalVassalService.GetOverlord(kingdom) != null || kingdom.HasTakenAlliance() || WarlordEraSystem.Dependent(kingdom));
@@ -522,7 +528,7 @@ public static class EmpireFormationService
         // 城邦没有法理，不以主法理作为称帝门槛
         if (!kingdom.HasMainTitle() && !CityStateService.IsCityState(kingdom)) return false;
         List<Kingdom> bloc = GetBlocMembers(kingdom).ToList();
-        int population = bloc.Sum(member => member.countUnits());
+        int population = bloc.Sum(Population);
         int cities = bloc.Sum(member => member.cities?.Count ?? 0);
         bool established = population >= MinimumPopulation && cities >= MinimumCities;
         bool longUnrepresented = yearsWithoutEmpire >= FallbackYears && population >= 160 && cities >= 2;

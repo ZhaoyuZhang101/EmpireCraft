@@ -1485,8 +1485,71 @@ public static class WildernessSystem
                         IsNeutral(id), legacy[id] && carvedNow[id] == null ? OriginOf(_zones[id]) : null);
                 }
         _carved = carvedFrom;
+        Fill(oldOf, regionOf, oldCarved, oldParents, fromSave);
         RefreshOwners();
         return carved;
+    }
+
+    // 空地交给城(用户 2026-11-16 管理员舆图上湖广、云贵一大片"无主之地")：重划时退出了无人区的地块(雨林、山地重划后
+    // 够不上、成了不到 MinZones 块的碎片、开发满了……)以前就空着，原版扩张会慢慢补回来，可开着「城市边界固定」(独立服务器、
+    // 预设剧本都开着)城不往外扩，空地越积越多。这里当场交出去：划出它的城、它跟着的城挨着就给它，否则给四邻里挨得最多的城；
+    // 一轮一轮往里填(内陆的空地等外圈有了城再给)。读档时把旧档里早就空着的、挨着城的陆地也补一遍；开局不动(照剧本分的地)
+    private const int FillPasses = 64;
+
+    private static int Fill(int[] oldOf, int[] regionOf, City[] carved, City[] origins, bool sweepAll)
+    {
+        int size = _zones.Length;
+        var open = new List<int>();
+        for (int id = 0; id < size; id++)
+        {
+            TileZone zone = _zones[id];
+            if (zone == null || zone.city != null || regionOf[id] >= 0) continue;
+            if (!sweepAll && oldOf[id] < 0) continue;
+            if (zone.centerTile?.Type == null || zone.centerTile.Type.liquid || Count(zone).Land < MinLand) continue;
+            open.Add(id);
+        }
+        if (open.Count == 0) return 0;
+        var touched = new HashSet<City>();
+        var near = new Dictionary<City, int>();
+        int count = 0;
+        for (int pass = 0; pass < FillPasses && open.Count > 0; pass++)
+        {
+            var moves = new List<(TileZone zone, City city)>();
+            foreach (int id in open)
+            {
+                TileZone zone = _zones[id];
+                near.Clear();
+                if (zone.neighbours != null)
+                    foreach (TileZone next in zone.neighbours)
+                    {
+                        City city = next?.city;
+                        if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom.wild ||
+                            AncientWarfareCompatibility.OwnsObject(city)) continue;
+                        near[city] = near.TryGetValue(city, out int n) ? n + 1 : 1;
+                    }
+                if (near.Count == 0) continue;
+                City own = carved[id] != null && near.ContainsKey(carved[id]) ? carved[id]
+                    : origins[id] != null && near.ContainsKey(origins[id]) ? origins[id] : null;
+                City pick = own ?? near.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.data.id).First().Key;
+                moves.Add((zone, pick));
+            }
+            if (moves.Count == 0) break;
+            foreach ((TileZone zone, City city) in moves)
+            {
+                if (zone.city != null) continue;
+                using (GamePatches.CityExpansionPatch.Manual()) city.addZone(zone);
+                if (zone.city != city) continue;
+                touched.Add(city);
+                count++;
+            }
+            open.RemoveAll(id => _zones[id].city != null);
+        }
+        if (touched.Count == 0) return 0;
+        CityDistricts.Reset();
+        foreach (City city in touched) PureMapPatch.Redraw(city);
+        World.world.zone_calculator?.setDrawnZonesDirty();
+        LogService.LogInfo($"[EmpireCraft][无人区] {count} 块空地交给了 {touched.Count} 座挨着的城" + (open.Count > 0 ? $"，{open.Count} 块不挨着城、照旧空着" : ""));
+        return count;
     }
 
     // 不重新把旧区分成几个几何连通分量：城镇把一片山脉隔开，地名与编号仍是同一片山脉。

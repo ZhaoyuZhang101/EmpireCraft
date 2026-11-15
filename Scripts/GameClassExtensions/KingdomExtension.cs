@@ -3389,7 +3389,7 @@ public static class KingdomExtension
         string culture = CultureService.GetRealmCulture(k);
         if (!CultureService.IsValidCulture(culture) ||
             !k.IsStrongestEmpireCandidateOfCulture()) return false;
-        if (k.countUnits() < 200) return false;
+        if (EmpireFormationService.Population(k) < EmpireFormationService.MinimumPopulation) return false;
 
         EmpireCore riseCore = EmpireCoreManager.GetRiseCandidateCore(k);
         if (riseCore != null)
