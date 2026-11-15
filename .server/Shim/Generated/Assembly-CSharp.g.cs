@@ -4224,15 +4224,9 @@ public partial class WorldLogAsset : global::Asset
     public global::System.Int32 random_ids;
     public global::WorldLogTextFormatter text_replacer;
     public WorldLogAsset() { }
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public global::System.String getLocaleID() { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("WorldLogAsset::getLocaleID"); }
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public global::System.String getLocaleID(global::System.Int32 pIndex) { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("WorldLogAsset::getLocaleID"); }
 }
 public partial class WorldLogLibrary : global::AssetLibrary<global::WorldLogAsset>
 {
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public void updateText(ref global::System.String pText, global::WorldLogMessage pMessage, global::System.String pKey, global::System.Int32 pSpecialId) { global::EmpireCraft.Server.Shim.Miss("WorldLogLibrary::updateText"); }
     public WorldLogLibrary() { }
 }
 public partial class WorldLogMessage

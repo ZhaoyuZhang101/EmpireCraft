@@ -11,6 +11,8 @@
 //# hand ButtonExtensions: OnHover OnHoverOut
 //# hand WorldLogMessageExtensions: add getAsset
 //# hand WorldLogMessage: ctor
+//# hand WorldLogAsset: getLocaleID
+//# hand WorldLogLibrary: updateText
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -130,6 +132,25 @@ public partial class WorldLogMessage
         special3 = pSpecial3;
         timestamp = (int)(World.world?.getCurWorldTime() ?? 0d);
         kingdom_id = -1L;
+    }
+}
+
+// 世界消息的文字：键是这一种的编号(有几种说法的后面接 _1、_2…)，文字里的 $kingdom$ 之类换成消息带的名字。
+// 以前空着，服务器上世界消息的文字全是空的(手机奏报、编年都收不到原版这几种)
+public partial class WorldLogAsset
+{
+    [MethodImpl(P.N)] public string getLocaleID() => id;
+    [MethodImpl(P.N)] public string getLocaleID(int pIndex) => getLocaleID() + "_" + pIndex;
+}
+
+public partial class WorldLogLibrary
+{
+    [MethodImpl(P.N)]
+    public void updateText(ref string pText, WorldLogMessage pMessage, string pKey, int pSpecialId)
+    {
+        if (pText == null || string.IsNullOrEmpty(pKey)) return;
+        string special = pSpecialId switch { 1 => pMessage?.special1, 2 => pMessage?.special2, 3 => pMessage?.special3, _ => null };
+        pText = pText.Replace(pKey, special ?? "");
     }
 }
 

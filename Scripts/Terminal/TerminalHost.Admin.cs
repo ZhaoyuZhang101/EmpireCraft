@@ -86,6 +86,8 @@ public static partial class TerminalHost
         if (method == "GET" && path == "/api/map") return TerminalServer.Reply.Json(god.MapJson ?? "{\"ready\":false}");
         if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(god.ArmyJson ?? "{\"ready\":false}");
         if (method == "POST" && path == "/api/terrain") return TerrainReply(god, body);
+        // 世界历史：编年、历朝(见 TerminalHost.History)
+        if (method == "POST" && path == "/api/admin/history") return HistoryReply(body);
         if (method == "POST" && path == "/api/admin")
         {
             string id = Field(body, "id"), target = Field(body, "target"), choice = Field(body, "choice");
@@ -108,6 +110,7 @@ public static partial class TerminalHost
     // 没人看着的管理员不备(登入那一下就算看着)；地图取样同席位轮着来，一秒里至多一份
     private static void RunAdmins(bool ready, float now, ref bool mapped)
     {
+        if (ready && AdminByToken.Values.Any(god => god.Watched)) RunHistory(now);
         foreach (Seat god in AdminByToken.Values)
         {
             if (!ready)

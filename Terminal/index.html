@@ -330,11 +330,14 @@ body.main #toast,body.mapfull #toast{bottom:auto;top:calc(var(--barh) + 18px)}
 }
 /* ───── 管理员(见 TerminalHost.Admin；用户 2026-11-13 要的管理员入口) ─────
    管理员的页签只有 舆图 / 席位 / 房间 三个；席位、房间两页同别的办事页一样是浮在图上的窗口 */
-nav button[data-p=aseats],nav button[data-p=aroom]{display:none}
-body.admin nav button[data-p=aseats],body.admin nav button[data-p=aroom]{display:flex}
+nav button[data-p=aseats],nav button[data-p=aroom],nav button[data-p=ahist]{display:none}
+body.admin nav button[data-p=aseats],body.admin nav button[data-p=aroom],body.admin nav button[data-p=ahist]{display:flex}
 body.admin nav button[data-p=reports],body.admin nav button[data-p=decrees],body.admin nav button[data-p=realm],body.admin nav button[data-p=annals]{display:none}
-body.admin nav div{grid-template-columns:repeat(3,1fr)}
-body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-webkit-overflow-scrolling:touch;
+body.admin nav div{grid-template-columns:repeat(4,1fr)}
+.tiles.two{grid-template-columns:repeat(2,1fr)}
+.tiles.three{grid-template-columns:repeat(3,1fr)}
+.dyn-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+body.main #p-aseats,body.main #p-aroom,body.main #p-ahist{position:fixed;z-index:2;overflow:auto;-webkit-overflow-scrolling:touch;
   left:6px;right:6px;top:calc(var(--barh) + 14px);bottom:calc(var(--navh) + 6px);background:var(--bg);
   border:12px solid transparent;border-image:url(FactionFrame_dominate.png) 12 / 12px stretch;padding:38px 2px 6px}
 #s-pair #admin-open{display:flex;align-items:center;gap:6px;margin:14px auto 0}
@@ -344,7 +347,7 @@ body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-w
 .adm-nums button.on{background:#7a5f1e;color:#fff3cf;box-shadow:inset 0 2px 0 #b08a2e}
 @media (orientation:landscape) and (min-width:640px){
   body.admin nav div{grid-template-columns:1fr}
-  body.main #p-aseats,body.main #p-aroom{left:calc(var(--navw) + 8px);right:auto;width:var(--side);top:8px;bottom:8px}
+  body.main #p-aseats,body.main #p-aroom,body.main #p-ahist{left:calc(var(--navw) + 8px);right:auto;width:var(--side);top:8px;bottom:8px}
 }
 </style>
 </head>
@@ -519,6 +522,7 @@ body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-w
   </div>
   <div id="p-aseats" hidden><div id="aseats"></div></div>
   <div id="p-aroom" hidden><div id="aroom"></div></div>
+  <div id="p-ahist" hidden><div id="ahist"></div></div>
 </section>
 </div>
 
@@ -532,6 +536,7 @@ body.main #p-aseats,body.main #p-aroom{position:fixed;z-index:2;overflow:auto;-w
   <button data-p="realm"><img class="ic" data-ic="tab_realm" width="24" height="24" alt=""><span data-t="tab_realm"></span></button>
   <button data-p="annals"><img class="ic" data-ic="tab_annals" width="24" height="24" alt=""><span data-t="tab_annals"></span></button>
   <button data-p="aseats"><img class="ic" data-ic="k_people" width="24" height="24" alt=""><span data-t="tab_aseats"></span></button>
+  <button data-p="ahist"><img class="ic" data-ic="a_history" width="24" height="24" alt=""><span data-t="tab_ahist"></span></button>
   <button data-p="aroom"><img class="ic" data-ic="g_staff" width="24" height="24" alt=""><span data-t="tab_aroom"></span></button>
 </div></nav>
 
@@ -608,6 +613,27 @@ provinces:"Provinces and vassals",provinces_note:"The provinces, loose-rein land
 cz:{adm_k_accounts:"账号",wl_title:"正在开局：{0}",wl_title_resume:"正在读档",wl_sub:"{0}% · 已用 {1} 秒，世界好了自动进入"},
 ch:{adm_k_accounts:"帳號",wl_title:"正在開局：{0}",wl_title_resume:"正在讀檔",wl_sub:"{0}% · 已用 {1} 秒，世界好了自動進入"},
 en:{adm_k_accounts:"Accounts",wl_title:"Starting: {0}",wl_title_resume:"Loading the save",wl_sub:"{0}% · {1}s so far; you will be let in when the world is ready"}
+};for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
+// 管理员「史」的文字
+(function(){var A={
+cz:{tab_ahist:"史",ah_chron:"编年",ah_dyn:"历朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 条",ah_count:"共 {0} 条",ah_none:"还没有记下的事。",
+ah_loading:"正在调阅……",ah_alive:"在位",ah_fallen:"已亡",ah_years:"享国 {0} 年",ah_years_now:"立国 {0} 年",ah_from:"{0} 立国",ah_span:"{0} — {1}",
+ah_ruler_now:"今上 {0}",ah_last:"末代 {0}",ah_reigns:"历代 {0} 位",ah_reign_years:"在位 {0} 年",ah_era:"年号 {0}",ah_no_reigns:"史册里没有这一朝的君主记录。",
+ah_month:"{0}月",ah_note:"天下各国的事都记在这里，随存档保存；大事是各国都听得到的事。点一条看那一国。",
+ah_major_tag:"大事",ah_back:"返回",ah_r_history:"史册",ah_r_lineage:"世系",ah_r_chron:"编年",ah_king_now:"国君 {0}",ah_gone:"这一国已经不在了。",
+ah_no_book:"这一国眼下没有国君，史册与世系无从查起。",ah_open_realm:"看这一国的史册与世系",ah_view:"史册"},
+ch:{tab_ahist:"史",ah_chron:"編年",ah_dyn:"歷朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 條",ah_count:"共 {0} 條",ah_none:"還沒有記下的事。",
+ah_loading:"正在調閱……",ah_alive:"在位",ah_fallen:"已亡",ah_years:"享國 {0} 年",ah_years_now:"立國 {0} 年",ah_from:"{0} 立國",ah_span:"{0} — {1}",
+ah_ruler_now:"今上 {0}",ah_last:"末代 {0}",ah_reigns:"歷代 {0} 位",ah_reign_years:"在位 {0} 年",ah_era:"年號 {0}",ah_no_reigns:"史冊裡沒有這一朝的君主記錄。",
+ah_month:"{0}月",ah_note:"天下各國的事都記在這裡，隨存檔保存；大事是各國都聽得到的事。點一條看那一國。",
+ah_major_tag:"大事",ah_back:"返回",ah_r_history:"史冊",ah_r_lineage:"世系",ah_r_chron:"編年",ah_king_now:"國君 {0}",ah_gone:"這一國已經不在了。",
+ah_no_book:"這一國眼下沒有國君，史冊與世系無從查起。",ah_open_realm:"看這一國的史冊與世系",ah_view:"史冊"},
+en:{tab_ahist:"History",ah_chron:"Chronicle",ah_dyn:"Dynasties",ah_major:"Major only",ah_all:"All",ah_more:"{0} earlier entries",ah_count:"{0} entries",ah_none:"Nothing recorded yet.",
+ah_loading:"Fetching the records…",ah_alive:"Reigning",ah_fallen:"Fallen",ah_years:"Lasted {0} years",ah_years_now:"{0} years so far",ah_from:"Founded {0}",ah_span:"{0} – {1}",
+ah_ruler_now:"Now {0}",ah_last:"Last ruler {0}",ah_reigns:"{0} rulers",ah_reign_years:"{0} years on the throne",ah_era:"Era {0}",ah_no_reigns:"No rulers of this dynasty are recorded.",
+ah_month:"M{0}",ah_note:"What happens in every realm is recorded here and kept with the save; major events are those every realm hears of. Tap an entry to open that realm.",
+ah_major_tag:"Major",ah_back:"Back",ah_r_history:"Annals",ah_r_lineage:"Lineage",ah_r_chron:"Chronicle",ah_king_now:"Ruler {0}",ah_gone:"This realm no longer exists.",
+ah_no_book:"This realm has no ruler at present, so there are no annals or lineage to show.",ah_open_realm:"Open this realm's annals and lineage",ah_view:"Annals"}
 };for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 // 国势分页的菜单(用户 2026-11-15 "我下拉都费劲""好歹给点菜单或者图标啊")
 (function(){var A={
@@ -1832,6 +1858,168 @@ function annalsSend(body,label){
     toast(r.status===200?t("sent_ok",label):t("sent_fail"),r.status!==200);
     setTimeout(poll,600);setTimeout(function(){loadAnnals(0)},1800);
   },function(){toast(t("e_net"),true)});
+}
+// 管理员「史」(见 TerminalHost.History；用户 2026-11-16 "我作为管理员希望能看到世界历史"，又补："就像奏报一样""但是不局限于一国"
+// "只能看不能操作而已""也能单独点开某个国家去看他的历史和君主世系")：
+//   编年——照奏报的样子一条一卡，天下各国的事都在、不打迷雾，新的在前，一次取 120 条，"再往前"接着取；点一条(或它的国名)看那一国；
+//   历朝——按立国先后，点一朝看历代君主，现存的还能看那一国；
+//   一国——史册、君主世系(同席位典册的拼法)、这一国的编年，全是只读
+var AHIST=[["chron","a_history"],["dyn","i_crown"]],ahTab=store("ec_ahist")||"chron",ahMajor=store("ec_ahmajor")!=="0";
+var AHREALM=[["history","a_history"],["lineage","a_lineage"],["chron","tab_reports"]];
+var ahChron=null,ahDyn=null,ahBusy=false,ahRealm=null;
+function openHistory(){ahChron=null;renderHistory();if(ahRealm)loadRealm(0);else loadHistory(true,0)}
+// 编年一页：kid 给了就只取这一国的
+function chronBody(from,kid){var b={part:"chron",from:String(from),major:ahMajor&&!kid?"1":"0"};if(kid)b.kid=kid;return b}
+function loadHistory(fresh,tries){
+  if(ahBusy&&!tries)return;
+  ahBusy=true;
+  var dyn=ahTab==="dyn",from=dyn||fresh||!ahChron?0:ahChron.items.length;
+  api("POST","/api/admin/history",dyn?{part:"dyn"}:chronBody(from)).then(function(r){
+    if(r.status===200&&r.json.ready){
+      ahBusy=false;
+      if(dyn)ahDyn=r.json;
+      else if(fresh||!ahChron)ahChron=r.json;
+      else{ahChron.items=ahChron.items.concat(r.json.items||[]);ahChron.next=r.json.next;ahChron.total=r.json.total}
+      if(page==="ahist"&&!ahRealm)renderHistory();return;
+    }
+    if(r.status===200&&tries<15){setTimeout(function(){loadHistory(fresh,tries+1)},700);return}
+    ahBusy=false;
+  },function(){ahBusy=false});
+}
+// 打开一国(编年里点的、历朝里点的、图上点的)
+function openRealmHistory(id,name){
+  if(!id)return;
+  ahRealm={id:String(id),name:name||"",tab:store("ec_ahrealm")||"history",data:null,chron:null};
+  if(page!=="ahist")goPage("ahist");else{renderHistory();loadRealm(0)}
+}
+function loadRealm(tries){
+  var want=ahRealm;if(!want)return;
+  api("POST","/api/admin/history",{part:"realm",id:want.id}).then(function(r){
+    if(ahRealm!==want)return;
+    if(r.status===200&&r.json.ready){want.data=r.json;if(page==="ahist")renderHistory();return}
+    if(r.status===200&&tries<15)setTimeout(function(){loadRealm(tries+1)},700);
+  },function(){});
+  if(want.tab==="chron"&&!want.chron)loadRealmChron(true);
+}
+function loadRealmChron(fresh){
+  var want=ahRealm;if(!want)return;
+  var from=fresh||!want.chron?0:want.chron.items.length;
+  api("POST","/api/admin/history",chronBody(from,want.id)).then(function(r){
+    if(ahRealm!==want||r.status!==200||!r.json.ready)return;
+    if(fresh||!want.chron)want.chron=r.json;
+    else{want.chron.items=want.chron.items.concat(r.json.items||[]);want.chron.next=r.json.next;want.chron.total=r.json.total}
+    if(page==="ahist")renderHistory();
+  },function(){});
+}
+// 一条编年，照奏报的卡：左边一行字、底下年月；右边那一国、大事
+function chronItem(h,inRealm){
+  var item=el("div","report"),head=el("div","row"),left=el("div"),lead=el("div","hl");lead.style.alignItems="flex-start";
+  left.appendChild(el("div",null,h.x));
+  left.appendChild(el("div","sub",t("date",h.y,h.m)));
+  lead.appendChild(ic(h.j?"k_war":h.k?"g_diplomacy":"tab_reports",20));lead.appendChild(left);head.appendChild(lead);
+  var tags=el("div");tags.style.cssText="display:flex;flex-direction:column;gap:4px;align-items:flex-end";
+  if(h.k&&!inRealm)tags.appendChild(el("span","tag cyan",h.kn||"?"));
+  if(h.j)tags.appendChild(el("span","tag red",t("ah_major_tag")));
+  head.appendChild(tags);item.appendChild(head);
+  if(h.k&&!inRealm)item.onclick=function(){openRealmHistory(h.k,h.kn)};
+  else item.style.cursor="default";
+  return item;
+}
+function chronList(box,data,more,inRealm){
+  if(!data){box.appendChild(el("div","sub",t("ah_loading")));return}
+  var items=data.items||[];
+  if(!items.length)box.appendChild(el("div","sub",t("ah_none")));
+  items.forEach(function(h){box.appendChild(chronItem(h,inRealm))});
+  if(data.next>=0){
+    var b=el("button","act");b.appendChild(document.createTextNode(t("ah_more",Math.max(0,(data.total||0)-items.length))));
+    b.onclick=function(){b.disabled=true;more()};
+    box.appendChild(b);
+  }
+}
+function tileStrip(list,on,pick,prefix){
+  var strip=el("div","tiles"+(list.length===2?" two":" three"));
+  list.forEach(function(x){
+    var tile=el("button","tile"+(x[0]===on?" on":""));
+    tile.appendChild(ic(x[1],28));tile.appendChild(el("span",null,t(prefix+x[0])));
+    tile.onclick=function(){if(x[0]!==on)pick(x[0])};
+    strip.appendChild(tile);
+  });
+  return strip;
+}
+function renderHistory(){
+  var box=$("ahist");box.textContent="";
+  if(ahRealm){renderRealmHistory(box);return}
+  box.appendChild(tileStrip(AHIST,ahTab,function(k){ahTab=k;store("ec_ahist",k);renderHistory();ahBusy=false;loadHistory(true,0)},"ah_"));
+  if(ahTab==="chron"){
+    var card=el("div","card"),head=el("div","row");head.appendChild(hd("a_history",t("ah_chron")));
+    var flip=el("button","act"+(ahMajor?" primary":""));flip.style.margin="0";
+    flip.appendChild(document.createTextNode(t(ahMajor?"ah_major":"ah_all")));
+    flip.onclick=function(){ahMajor=!ahMajor;store("ec_ahmajor",ahMajor?"1":"0");ahChron=null;renderHistory();ahBusy=false;loadHistory(true,0)};
+    head.appendChild(flip);card.appendChild(head);
+    if(ahChron)card.appendChild(el("div","sub",t("ah_count",ahChron.total||0)+" · "+t("ah_note")));
+    box.appendChild(card);
+    var list=el("div");box.appendChild(list);
+    chronList(list,ahChron,function(){loadHistory(false,0)},false);
+    return;
+  }
+  var dc=el("div","card");box.appendChild(dc);
+  dc.appendChild(hd("i_crown",t("ah_dyn")));
+  if(!ahDyn){dc.appendChild(el("div","sub",t("ah_loading")));return}
+  var rows=ahDyn.items||[];
+  if(!rows.length)dc.appendChild(el("div","sub",t("ah_none")));
+  rows.forEach(function(d){
+    var name=el("div");var dot=el("i","dyn-dot");dot.style.background=d.alive?d.color:"#666";name.appendChild(dot);
+    name.appendChild(document.createTextNode(d.name||"?"));
+    var span=d.alive?t("ah_from",d.from)+" · "+t("ah_years_now",d.years):(d.to?t("ah_span",d.from,d.to):t("ah_from",d.from))+" · "+t("ah_years",d.years);
+    var who=d.ruler?(d.alive?t("ah_ruler_now",d.ruler):t("ah_last",d.ruler)):"";
+    var tag=el("span","tag"+(d.alive?" gold":""),t(d.alive?"ah_alive":"ah_fallen"));
+    dc.appendChild(li(name,span+(who?" · "+who:""),tag,function(){dynastySheet(d)}));
+  });
+}
+function renderRealmHistory(box){
+  var r=ahRealm,a=r.data||{};
+  var top=el("div","card gold"),row=el("div","row"),back=el("button","act");back.style.margin="0";
+  back.appendChild(ic("i_return",18));back.appendChild(document.createTextNode(t("ah_back")));
+  back.onclick=function(){ahRealm=null;renderHistory();if(ahTab==="dyn"?!ahDyn:!ahChron)loadHistory(true,0)};
+  var name=el("div");var dot=el("i","dyn-dot");dot.style.background=a.color||"#888";name.appendChild(dot);name.appendChild(el("b",null,a.name||r.name||"?"));
+  row.appendChild(name);row.appendChild(back);top.appendChild(row);
+  if(a.ruler)top.appendChild(el("div","sub",t(a.empire?"ah_ruler_now":"ah_king_now",a.ruler)));
+  box.appendChild(top);
+  box.appendChild(tileStrip(AHREALM,r.tab,function(k){r.tab=k;store("ec_ahrealm",k);renderHistory();if(k==="chron"&&!r.chron)loadRealmChron(true)},"ah_r_"));
+  if(r.tab==="chron"){var list=el("div");box.appendChild(list);chronList(list,r.chron,function(){loadRealmChron(false)},true);return}
+  var card=el("div","card");box.appendChild(card);
+  if(!r.data){card.appendChild(el("div","sub",t("ah_loading")));return}
+  if(a.gone){card.appendChild(el("div","sub",t("ah_gone")));return}
+  var part=r.tab==="lineage"?a.lineage:a.history;
+  if(!part||(!part.items&&!part.nodes)){card.appendChild(el("div","sub",t("ah_no_book")));return}
+  var head=el("div","row");head.appendChild(hd(r.tab==="lineage"?"a_lineage":"a_history",part.title||t("ah_r_"+r.tab)));
+  if(part.sum)head.appendChild(el("span","sub",part.sum));
+  card.appendChild(head);
+  if(part.note)card.appendChild(el("div","sub",part.note));
+  if(r.tab==="lineage"){
+    if(!(part.nodes||[]).length){card.appendChild(el("div","sub",t("an_none")));return}
+    drawTree(card,part.nodes,nodeFace,part.focus,nodeSheet,part.succ);
+    card.appendChild(el("div","sub",t("an_tree_hint")));
+    return;
+  }
+  var items=part.items||[],year=null;
+  if(!items.length)card.appendChild(el("div","sub",t("an_none")));
+  items.forEach(function(h){
+    if(h.head!==year){year=h.head;card.appendChild(el("div","world",h.head||""))}
+    var line=el("div","hist");if(h.when)line.appendChild(el("span","sub",h.when));
+    line.appendChild(el("span",null,h.text));card.appendChild(line);
+  });
+}
+function dynastySheet(d){
+  openSheet({title:d.name,note:(d.alive?t("ah_years_now",d.years):t("ah_years",d.years))+" · "+t("ah_reigns",(d.reigns||[]).length),items:[],custom:function(box){
+    if(d.alive&&d.kid)box.appendChild(li(t("ah_open_realm"),null,null,function(){closeSheet();openRealmHistory(d.kid,d.name)}));
+    var reigns=d.reigns||[];
+    if(!reigns.length){box.appendChild(el("div","sub",t("ah_no_reigns")));return}
+    reigns.forEach(function(r,i){
+      var bits=[];if(r.from)bits.push(r.from);if(r.era&&r.era!=="—"&&r.era!=="-")bits.push(t("ah_era",r.era));if(r.years>0)bits.push(t("ah_reign_years",r.years));
+      box.appendChild(li((r.temple?r.temple+" ":"")+(r.who||"?"),bits.join(" · "),r.now?el("span","tag gold",t("ah_alive")):el("span","sub",String(i+1)),null));
+    });
+  }});
 }
 function renderAnnals(){
   var box=$("annals");box.textContent="";
@@ -3754,7 +3942,7 @@ window.addEventListener("resize",function(){drawMap()});
 // 管理员可以踢出某个玩家，修改某些配置，可以主动调时间流速不需要投票，也可以上帝模式看全图，直接看"。问答定：独立身份、不占席位、
 // 不领君主；同一部手机可另配一个普通席位，两个身份点一下切换。管理员的舆图是没有迷雾的全图(取法同席位)，各国的军照实兵数；
 // 页签换成 舆图 / 席位 / 房间；办的事走 /api/admin，办完游戏回一句话(state.notes)，这边按编号只提示新的
-ICON.tab_aseats=ICON.k_people;ICON.tab_aroom=ICON.g_staff;
+ICON.tab_aseats=ICON.k_people;ICON.tab_aroom=ICON.g_staff;ICON.tab_ahist=ICON.a_history;
 var admSeen=null,admArm=null,admLimit=null;
 function adminSend(body){
   return api("POST","/api/admin",body).then(function(r){
@@ -3988,8 +4176,10 @@ function adminRealm(r){
   sel=null;aim=false;
   if(!r){panel(t("m_wild"),[]);return}
   var who=r.id?(state.rulers||[]).filter(function(x){return x.kid===r.id})[0]:null;
-  if(!who){panel(r.name,[belongOf(r)||null]);return}
+  var view=r.id?{label:t("ah_view"),icon:"a_history",go:function(){openRealmHistory(r.id,r.name)}}:null;
+  if(!who){panel(r.name,[belongOf(r)||null],view?[view]:[]);return}
   var seat=(state.seats||[]).filter(function(s){return s.kid===who.kid})[0],acts=[];
+  if(view)acts.push(view);
   if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
   panel(who.realm+" · "+who.ruler,[t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
     seat?t("adm_held",seat.name):t("adm_free")],acts);
@@ -4032,9 +4222,10 @@ function goPage(p){
   $("win-title").textContent=page==="map"?"":t("tab_"+page);
   if(ICON["tab_"+page])$("win-ic").src=ICON["tab_"+page];
   for(var j=0;j<tabs.length;j++)tabs[j].className=tabs[j].getAttribute("data-p")===page?"on":"";
-  ["reports","map","realm","decrees","annals","aseats","aroom"].forEach(function(q){$("p-"+q).hidden=q!==page});
+  ["reports","map","realm","decrees","annals","aseats","aroom","ahist"].forEach(function(q){$("p-"+q).hidden=q!==page});
   document.body.classList.toggle("side",page!=="map");
   if(page==="annals")openAnnals();
+  if(page==="ahist")openHistory();
   window.scrollTo(0,0);
   if(page!=="map")$("p-"+page).scrollTop=0;
   if(mapShown()){

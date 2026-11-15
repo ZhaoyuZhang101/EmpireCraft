@@ -426,6 +426,7 @@ public static partial class TerminalHost
         }
         RulerPacts.Clear();
         RebellionNoticed.Clear();
+        ResetHistory();
         _campaigning = Array.Empty<Kingdom>();
         _anyRuler = _anyWatching = false;
     }

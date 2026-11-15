@@ -70,14 +70,31 @@ internal static class ShimColors
         "#66b88a", "#e07a52", "#5aa0e8", "#d0933a", "#a47fd8", "#de6f8a", "#6fc0b8", "#bdbc58", "#8a9ae0", "#e0a45a"
     };
 
+    // 国家的颜色表：上面 40 种，再按黄金角补 40 种，次序固定。存档里记的是编号(color_id)，重启后照编号取回同一种颜色。
+    // 以前图层、自定颜色用 tryMakeNewColorAsset 新建的颜色也追加进这张表，表随运行越变越长、次序看先用到哪个图层；
+    // 新国家按表长轮颜色，拿到的编号指着这些临时颜色，重启后表短了，编号取模落到别的颜色上——一片国家整片换色，看着像裂开了
+    private const int Generated = 40;
     private static readonly List<ColorAsset> Palette = new();
+    // tryMakeNewColorAsset 新建的颜色单独放，编号从 CustomBase 起，不占国家颜色表
+    private const int CustomBase = 100000;
+    private static readonly Dictionary<int, ColorAsset> Custom = new();
+
+    private static ColorAsset Entry(string hex, int index)
+    {
+        var asset = new ColorAsset { id = "color_" + index, index_id = index, color_main = hex, color_main_2 = hex, color_text = hex, color_banner = hex };
+        asset.initColor();
+        return asset;
+    }
 
     internal static ColorAsset Make(string hex)
     {
-        var asset = new ColorAsset { id = "color_" + Palette.Count, index_id = Palette.Count, color_main = hex, color_main_2 = hex, color_text = hex, color_banner = hex };
-        asset.initColor();
-        Palette.Add(asset);
-        return asset;
+        lock (Custom)
+        {
+            int index = CustomBase + Custom.Count;
+            ColorAsset asset = Entry(hex, index);
+            Custom[index] = asset;
+            return asset;
+        }
     }
 
     internal static int Count
@@ -85,12 +102,30 @@ internal static class ShimColors
         get
         {
             if (Palette.Count == 0)
-                foreach (string hex in Hex) Make(hex);
+                lock (Palette)
+                    if (Palette.Count == 0)
+                    {
+                        var list = new List<ColorAsset>();
+                        foreach (string hex in Hex) list.Add(Entry(hex, list.Count));
+                        for (int i = 0; i < Generated; i++)
+                        {
+                            float hue = (0.07f + i * 0.618034f) % 1f, sat = i % 2 == 0 ? 0.55f : 0.42f, val = i % 3 == 0 ? 0.62f : 0.74f;
+                            list.Add(Entry("#" + ColorUtility.ToHtmlStringRGB(Color.HSVToRGB(hue, sat, val)), list.Count));
+                        }
+                        Palette.AddRange(list);
+                    }
             return Palette.Count;
         }
     }
 
-    internal static ColorAsset ById(int id) => Palette[((id % Count) + Count) % Count];
+    internal static ColorAsset ById(int id)
+    {
+        if (id >= CustomBase)
+            lock (Custom)
+                if (Custom.TryGetValue(id, out ColorAsset custom)) return custom;
+        int count = Count;
+        return Palette[((id % count) + count) % count];
+    }
 }
 
 // ───────── 集体的共同部分 ─────────

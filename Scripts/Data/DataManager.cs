@@ -377,6 +377,7 @@ public static class DataManager
         MilitaryAccessSystem.Load(saveData.military_access);
         EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Load(saveData.decisions);
         PrivyPurse.Load(saveData.privy_purse);
+        WorldChronicle.Load(saveData.world_chronicle);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
             realNumOption.boolVal = saveData.switch_real_num;
@@ -624,6 +625,7 @@ public static class DataManager
         saveData.military_access = MilitaryAccessSystem.Save();
         saveData.decisions = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Save();
         saveData.privy_purse = PrivyPurse.Save();
+        saveData.world_chronicle = WorldChronicle.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;
         saveData.world_map_zone_km = EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm;

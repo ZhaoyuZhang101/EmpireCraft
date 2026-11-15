@@ -70,6 +70,8 @@ public class SaveData
     // 在办的决议(见 DecisionSystem)
     // 内帑(见 PrivyPurse)
     public List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData> privy_purse = new List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData>();
+    // 编年：世界上发过的消息(见 WorldChronicle)
+    public List<EmpireCraft.Scripts.GeneralSystems.ChronicleEntry> world_chronicle = new List<EmpireCraft.Scripts.GeneralSystems.ChronicleEntry>();
     public List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase> decisions = new List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase>();
     // 本模组的世界法则(法则 id → 开关)：法则本身是跨存档的玩家选项，这里随存档记一份，读档时还原
     // (见 EmpireCraftWorldLawLibrary.Capture/Apply)。旧档没有，各法则按 default_state
