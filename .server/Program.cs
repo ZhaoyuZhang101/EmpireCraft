@@ -452,6 +452,11 @@ public static class Program
                 if (ServerRoutes.ScenarioState == "loading") ServerRoutes.ScenarioState = world.cities.Count > 0 ? "ready" : "failed";
                 if (ServerRoutes.ScenarioState == "failed" && ServerRoutes.ScenarioDetail.Length == 0) ServerRoutes.ScenarioDetail = resumed ? "存档里一座城也没有" : "开局后一座城也没有";
                 Console.WriteLine("  世界已就绪：" + world.kingdoms.Count + " 国，" + world.cities.Count + " 城，" + world.units.Count + " 人，用时 " + LoadClock.ElapsedMilliseconds + " 毫秒");
+                // 旧世界(换剧本、读档前的那一个)这时已全不在了：彻底回收一次、整理大对象堆，把内存还给系统。
+                // 小内存的服务器上不这么做，旧世界占的那一大块迟迟不退，挤进交换区，整台机器卡住(存档、开局一次十几分钟)
+                System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+                Console.WriteLine("  回收旧世界后占用内存 " + (Environment.WorkingSet >> 20) + " MB");
                 _lastSaveAt = Uptime.Elapsed.TotalSeconds;
                 if (resumed) Console.WriteLine("  读回: " + WorldSave.Digest());
                 if (resumed && _verify)

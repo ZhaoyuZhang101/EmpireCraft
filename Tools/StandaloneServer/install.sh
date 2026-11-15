@@ -64,6 +64,16 @@ if ! ldconfig -p 2>/dev/null | grep -q libicu; then
         (command -v apt-get >/dev/null 2>&1 && apt-get install -y libicu-dev) || echo "注意：没装上 ICU 库，程序可能起不来"
 fi
 
+# ---- 小内存机器(不到 4G)：.NET 改用工作站 GC 并尽量省内存。默认的多核 GC 每个核预留一大块堆，2G 的机器上
+#      核心挤进交换区，存档、开局一次十几分钟，大厅也连不上
+MEM_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null)"
+GC_ENV=""
+if [ "${MEM_MB:-0}" -gt 0 ] && [ "${MEM_MB:-0}" -lt 4096 ]; then
+    GC_ENV="Environment=DOTNET_gcServer=0
+Environment=DOTNET_GCConserveMemory=7"
+    echo "本机内存 ${MEM_MB} MB：核心用省内存的 GC"
+fi
+
 # ---- 服务：开机自启，退出(崩溃、被杀)五秒后自动重启
 AFTER="network-online.target"
 systemctl list-unit-files 2>/dev/null | grep -q '^empirecraft-lobby\.service' && AFTER="$AFTER empirecraft-lobby.service"
@@ -77,6 +87,7 @@ Wants=network-online.target
 User=eccore
 WorkingDirectory=$ROOT/app
 Environment=HOME=$STATE
+$GC_ENV
 ExecStart=$ROOT/app/EmpireCraftServer --quiet --data $ROOT --state $STATE
 StandardInput=null
 Restart=always
