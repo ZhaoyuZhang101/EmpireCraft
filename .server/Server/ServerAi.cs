@@ -52,6 +52,8 @@ internal static class ServerAi
     // 换世界：各对象的进度作废
     internal static void Reset()
     {
+        BirthdayQueue.Clear();
+        _birthdayYear = int.MinValue;
         ActorLast.Clear();
         _actorCursor = 0;
     }
@@ -83,7 +85,38 @@ internal static class ServerAi
             }
         }
         using (FrameProfiler.Measure("服务器·人物行为")) StepActors(world);
+        using (FrameProfiler.Measure("服务器·过生日")) Birthdays(world);
         if (++_sweep % SweepEvery == 0) RemoveDeadKingdoms(world);
+    }
+
+    // 过生日(游戏里原版每年给每个人调一次 Actor.updateAge，模组挂在上面的老死、夭折、名望年结跟着跑)：
+    // 服务器以前没人调，人永远不老死，跑久了满世界三百来岁的人。新的一年起把在世的人排进队，每步过 BirthdaysPerStep 个
+    private const int BirthdaysPerStep = 200;
+    private static readonly Queue<Actor> BirthdayQueue = new();
+    private static int _birthdayYear = int.MinValue;
+
+    private static void Birthdays(MapBox world)
+    {
+        int year = Date.getCurrentYear();
+        if (_birthdayYear == int.MinValue) _birthdayYear = year;
+        else if (year != _birthdayYear)
+        {
+            _birthdayYear = year;
+            foreach (Actor unit in world.units.getSimpleList()) if (unit?.data != null && unit.isAlive()) BirthdayQueue.Enqueue(unit);
+        }
+        for (int i = 0; i < BirthdaysPerStep && BirthdayQueue.Count > 0; i++)
+        {
+            Actor actor = BirthdayQueue.Dequeue();
+            if (actor?.data == null || !actor.isAlive()) continue;
+            try
+            {
+                actor.updateAge();
+            }
+            catch (Exception exception)
+            {
+                Report("Actor.updateAge", exception);
+            }
+        }
     }
 
     private const int SweepEvery = 25;

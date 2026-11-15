@@ -282,6 +282,8 @@ public static class Program
                 Console.WriteLine("  战线段多核：" + FrontSystem.ParallelBatches + " 批、" + FrontSystem.ParallelSides + " 份(用 " + ParallelWork.MaxWorkers + " 个线程)" +
                                   "；地形层一轮 " + FrontSystem.LayerZones + " 块、" + FrontSystem.LayerFrames + " 帧、" + FrontSystem.LayerMilliseconds.ToString("0") + " 毫秒" +
                                   (FrontSystem.VerifyParallelSectors ? "；核对 " + FrontSystem.VerifiedSides + " 份，对不上 " + FrontSystem.VerifyMismatches + " 份" : ""));
+                var ages = world.units.getSimpleList().Where(unit => unit?.data != null && unit.isAlive() && unit.isSapient()).Select(unit => unit.getAge()).ToList();
+                Console.WriteLine("  在世的人 " + ages.Count + "，最老 " + (ages.Count > 0 ? ages.Max() : 0) + " 岁，过百岁 " + ages.Count(age => age >= 100) + " 人");
                 Console.WriteLine("  " + EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Summary() + "；过秤 " + EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Planned + " 人次、有候选 " + EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Weighed);
             }
             if (world.cities.Count > 0 && Config.game_loaded)

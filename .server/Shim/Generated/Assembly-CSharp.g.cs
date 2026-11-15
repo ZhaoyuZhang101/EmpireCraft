@@ -144,8 +144,6 @@ public partial class Actor : global::BaseSimObject, global::ILoadable<global::Ac
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public global::System.Boolean understandsHowToUseItems() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("Actor::understandsHowToUseItems"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    public void updateAge() { global::EmpireCraft.Server.Shim.Miss("Actor::updateAge"); }
-    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void updateChangeScale(global::System.Single pElapsed) { global::EmpireCraft.Server.Shim.Miss("Actor::updateChangeScale"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void updateFlipRotation(global::System.Single pElapsed) { global::EmpireCraft.Server.Shim.Miss("Actor::updateFlipRotation"); }

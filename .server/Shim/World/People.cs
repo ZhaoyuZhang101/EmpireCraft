@@ -4,7 +4,7 @@
 //# hand MetaObject`1: units Dispose addRenown clearCursorOver clearListUnits countAdults countChildren countFamilies countFemales countHappyUnits countHomeless countHoused countHungry countMales countSick countStarving countTotalMoney countUnits generateBanner generateColor generateNewMetaObject getActorAsset getCities getColor getColorLibrary getFamilies getPopulationPeople getRandomUnit getRenown getSpriteIcon getTotalBirths getTotalDeaths getTotalKills getUnits hasCities hasFamilies isReadyForRemoval preserveAlive setDefaultValues
 //# hand MetaObjectWithTraits`2: Dispose addTrait hasTrait
 //# hand ColorAsset: getColorBanner getColorBorderInsideAlpha32 getColorBorderOut_capture getColorMain getColorMain32 getColorMainSecond getColorMainSecond32 getColorText initColor tryMakeNewColorAsset
-//# hand Actor: generateName age renown money loot Dispose addMoney addRenown spendMoney hasEnoughMoney addTrait removeTrait hasTrait becomeLoversWith createDefaultCultureAndLanguageAndClan die dieAndDestroy getActorAsset getAge getChildren getParents getName getMetaObjectOfType hasArmy hasClan hasCulture hasFamily hasLanguage hasLover hasPlot hasReligion hasSubspecies isAdult isBaby isBreedingAge isCityLeader isEgg isFavorite isFighting isKing isParentOf isSapient isSexFemale isSexMale isUnitFitToRule isWarrior isImportantPerson isCameraFollowingUnit joinCity joinKingdom joinLanguage leavePlot removeFromArmy setArmy setCity setClan setCulture setCurrentTile setCurrentTilePosition setFamily setKingdom setLanguage setLover setParent1 setParent2 setPlot setProfession setReligion stopBeingWarrior
+//# hand Actor: generateName age updateAge getHitFullHealth renown money loot Dispose addMoney addRenown spendMoney hasEnoughMoney addTrait removeTrait hasTrait becomeLoversWith createDefaultCultureAndLanguageAndClan die dieAndDestroy getActorAsset getAge getChildren getParents getName getMetaObjectOfType hasArmy hasClan hasCulture hasFamily hasLanguage hasLover hasPlot hasReligion hasSubspecies isAdult isBaby isBreedingAge isCityLeader isEgg isFavorite isFighting isKing isParentOf isSapient isSexFemale isSexMale isUnitFitToRule isWarrior isImportantPerson isCameraFollowingUnit joinCity joinKingdom joinLanguage leavePlot removeFromArmy setArmy setCity setClan setCulture setCurrentTile setCurrentTilePosition setFamily setKingdom setLanguage setLover setParent1 setParent2 setPlot setProfession setReligion stopBeingWarrior
 //# hand BaseSimObject: getCity hasCity hasKingdom isActor isKingdomCiv getHealth getMaxHealth setHealth hasStatus
 //# hand SimSystemManager`2: GetEnumerator getSimpleArray getSimpleList
 //# hand ActorManager: createNewUnit
@@ -252,6 +252,13 @@ public partial class Actor
     public override ColorAsset getColor() => kingdom?.getColor() ?? ShimColors.ById(0);
     public string getName() => string.IsNullOrEmpty(data?.name) ? "#" + id : data.name;
     public ActorAsset getActorAsset() => asset;
+
+    // 过一岁：原版每年对每个人调一次(MapBox.updateObjectAge)，服务器每年由 ServerAi.Birthdays 调。
+    // 服务器里人的数据不随年纪变，这里只是挂载点：模组挂在上面的过生日(寿终、皇嗣夭折、名望年结)照常跑
+    [MethodImpl(P.N)] public void updateAge() { }
+
+    // 一下打到没血(模组让人寿终、夭折用的是 AttackType.Age)：服务器里人没有血量，直接身故
+    [MethodImpl(P.N)] public override void getHitFullHealth(AttackType pAttackType) => die(false, pAttackType);
 
     // 年纪按生年算(生年存在数据里的 created_time)，再加上额外添的岁数
     public int getAge() => data == null ? 0 : Math.Max(0, Date.getYearsSince(data.created_time) + data.age_overgrowth);
