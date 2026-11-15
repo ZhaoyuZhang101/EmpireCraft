@@ -47,11 +47,12 @@ def log_text():
 
 
 class Server:
-    def __init__(self, *extra):
+    def __init__(self, *extra, env=None):
         self.mark = len(log_text()) if os.path.exists(LOG) else 0
         self.log = io.open(LOG, "a", encoding="utf-8")
         self.process = subprocess.Popen(["dotnet", os.path.join(HERE, "obj", "out", "EmpireCraftServer.dll"), "--quiet", "--trace", "--state", STATE] + list(extra),
-                                        stdout=self.log, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, cwd=HERE)
+                                        stdout=self.log, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, cwd=HERE,
+                                        env=dict(os.environ, **env) if env else None)
 
     # 这一趟启动以来的输出
     def output(self):
@@ -178,6 +179,32 @@ try:
     check("save.old" in output and "读不出来" in output, "命令行说了哪一份读不出来、读的是哪一份")
     state = seat_state(alice, False)
     check(state.get("loaded") is True and len(state.get("rulers") or []) > 3, "退回来的世界能玩(可选君主 %d 位)" % len(state.get("rulers") or []))
+    server.quit()
+
+    # 在 systemd 底下(这里用 EMPIRECRAFT_RELAUNCH=1 装作)换剧本：进程记下剧本、挪走存档、退出；再拉起时按记下的剧本开局
+    print("换剧本(进程重启)")
+    server = Server(env={"EMPIRECRAFT_RELAUNCH": "1"})
+    check(server.wait_for("读回:"), "接着存档跑")
+    server.wait_for("手机打开", 30)
+    admin = call("POST", "/api/admin/pair", {"user": ADMIN_USER, "password": ADMIN_PASSWORD})[1].get("token")
+    archive = os.path.join(STATE, "saves-archive")
+    before = len(os.listdir(archive)) if os.path.isdir(archive) else 0
+    status, sent = call("POST", "/api/admin/scenario", {"name": "smoke_third", "files": [{"path": "scenario.json", "text": scenario}], "start": True}, token=admin)
+    try:
+        code = server.process.wait(timeout=60)
+    except Exception:
+        code = None
+    exited = server.output()
+    server.log.close()
+    pending = os.path.join(STATE, "pending_scenario.json")
+    check(status == 200 and code == 0 and "进程重启腾出内存后开局" in exited, "换剧本：进程自己退出(退出码 %s)" % code)
+    check(os.path.isfile(pending) and json.load(io.open(pending, encoding="utf-8")).get("scenario") == "custom/smoke_third", "退出前记下了要开的剧本")
+    check(len(os.listdir(archive)) == before + 1, "原来的存档挪进了 saves-archive")
+    check("已存档（退出）" not in exited, "退出时没把旧世界又存回去")
+    server = Server()
+    check(server.wait_for("换剧本后重启") and server.wait_for("世界已就绪"), "再拉起时按记下的剧本开局")
+    check(server.wait_for("已存档（开局）", 30) and json.load(io.open(save_file, encoding="utf-8")).get("scenario") == "smoke_third", "新世界存成了新的存档")
+    check(not os.path.exists(pending), "记录用过就删")
     server.quit()
     server = None
 finally:

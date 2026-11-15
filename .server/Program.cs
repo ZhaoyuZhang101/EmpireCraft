@@ -43,6 +43,9 @@ public static class Program
     private static double _lastSaveAt;
     private static bool _saveWhenReady, _resuming, _verify, _serial;
     internal static volatile string LastSaveResult = "";
+    // 换剧本时进程退出重来(见 StartScenario)：退出时不存档，systemd 拉起后照 pending_scenario.json 开局
+    private static volatile bool _relaunch;
+    private const string PendingFile = "pending_scenario.json";
 
     public static int Main(string[] args)
     {
@@ -154,6 +157,25 @@ public static class Program
         scenario ??= string.IsNullOrWhiteSpace(_config.scenario) ? null : _config.scenario;
         frameId ??= string.IsNullOrWhiteSpace(_config.frame) ? null : _config.frame;
         _size = size ?? _config.size;
+        // 上一个进程换剧本时退出前记下的：这回就按它重新开局
+        string pendingPath = Path.Combine(state, PendingFile);
+        if (File.Exists(pendingPath))
+        {
+            try
+            {
+                var pending = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(pendingPath));
+                scenario = (string)pending["scenario"] ?? scenario;
+                frameId = (string)pending["frame"] ?? frameId;
+                _size = (int?)pending["size"] ?? _size;
+                fresh = true;
+                Console.WriteLine("  换剧本后重启：开局 " + scenario);
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine("  换剧本的记录读不出来，照常启动: " + exception.Message);
+            }
+            try { File.Delete(pendingPath); } catch (Exception) { }
+        }
         float baseSpeed = Math.Max(0.01f, speed ?? _config.speed);
         // 后台模拟(人口、财政、稳定……)每一步能用的时间：服务器不画图，给得比游戏宽，世界走得快就再放宽
         // (游戏里是一帧剩下的 1~4 毫秒；照那么给，流速一高月度结算就排不上，城里收不上税、国库见底)
@@ -340,6 +362,13 @@ public static class Program
             Thread.Sleep(20);
         }
         terminated?.Dispose();
+        if (_relaunch)
+        {
+            TerminalHost.Enabled = false;
+            TerminalHost.Tick();
+            Console.WriteLine("换剧本：进程退出，由系统重新拉起后开局。");
+            return 0;
+        }
         if (Config.game_loaded && !SmoothLoader.isLoading() && world.cities.Count > 0) SaveNow("退出");
         TerminalHost.Enabled = false;
         TerminalHost.Tick();
@@ -486,6 +515,7 @@ public static class Program
     // 按剧本开局：走模组自己的"生成世界地图"那一套。name 是预设剧本的名字、自定剧本的文件夹名，或一个文件夹的路径
     private static bool StartScenario(string scenario, string frameId, int sizeIndex)
     {
+        string requested = scenario;
         if (!WorldMapData.EnsureLoaded() || !EarthTerrain.EnsureLoaded())
         {
             ServerRoutes.ScenarioDetail = "世界地图的数据读不出来(数据目录里要有 WorldMaps)";
@@ -522,6 +552,7 @@ public static class Program
             era.id = "custom/" + Path.GetFileName(folder);
         }
         WorldMapFrame frame = EarthTerrain.Frames.FirstOrDefault(item => item.id == (frameId ?? era.frame)) ?? EarthTerrain.Frames[0];
+        if (RelaunchFor(requested, frame.id, sizeIndex)) return true;
         Console.WriteLine("  剧本: " + era.id + "（" + era.Name + "），范围 " + frame.id + "，大小第 " + sizeIndex + " 档");
         ServerRoutes.ScenarioName = byFolder ? Path.GetFileName(scenario.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) : scenario;
         ServerRoutes.ScenarioState = "loading";
@@ -549,6 +580,36 @@ public static class Program
             Console.Error.WriteLine("  开局没成: " + ServerRoutes.ScenarioDetail);
             return false;
         }
+        return true;
+    }
+
+    // 已经有一个世界时换剧本：在 systemd 底下(Restart=always)不在这个进程里开新局，记下剧本、挪走存档、退出，
+    // 由系统拉起一个干净的进程再开。旧世界的内存在同一进程里回收不干净，小内存的机器上新旧两个世界叠在一起
+    // 就挤进交换区(2G 内存的机器上换到大一档的剧本，核心卡得连不上、大厅里也没了)。
+    // 不在 systemd 底下(自己在电脑上跑)照旧在进程里换，免得退出了没人拉起。
+    private static bool RelaunchFor(string scenario, string frameId, int sizeIndex)
+    {
+        bool hasWorld = World.world != null && (World.world.cities.Count > 0 || SmoothLoader.isLoading());
+        bool supervised = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("INVOCATION_ID"))
+                          || Environment.GetEnvironmentVariable("EMPIRECRAFT_RELAUNCH") == "1";
+        if (!hasWorld || !supervised) return false;
+        try
+        {
+            var pending = new Newtonsoft.Json.Linq.JObject { ["scenario"] = scenario, ["frame"] = frameId, ["size"] = sizeIndex };
+            File.WriteAllText(Path.Combine(WorldSave.Root, PendingFile), pending.ToString());
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine("  换剧本的记录写不了，就在这个进程里换: " + exception.Message);
+            return false;
+        }
+        TerminalHost.ResetWorldState();
+        string archived = WorldSave.ArchiveCurrent();
+        if (archived != null) Console.WriteLine("  原来的存档挪到了 " + archived);
+        Console.WriteLine("  换剧本 " + scenario + "：进程重启腾出内存后开局");
+        ServerRoutes.ScenarioState = "loading";
+        _relaunch = true;
+        _stop = true;
         return true;
     }
 
