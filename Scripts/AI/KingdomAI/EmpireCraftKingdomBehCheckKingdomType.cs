@@ -308,7 +308,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
     }
 
-    public static void SyncKingdomStatus(Kingdom pKingdom)
+    public static void SyncKingdomStatus(Kingdom pKingdom, bool afterIndependence = false)
     {
         var originalKingdomType = pKingdom.GetKingdomType();
         //计算当前国家类别
@@ -407,7 +407,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             !string.IsNullOrWhiteSpace(armedName))
             pKingdom.data.name = armedName.UseLocalizedNameSeparator();
         else
-            pKingdom.SetKingdomName(kingdomName);
+            pKingdom.SetKingdomName(kingdomName, afterIndependence);
         CityType currentCityType = CalcCityType(pKingdom);
         foreach (var city in pKingdom.cities)
         {

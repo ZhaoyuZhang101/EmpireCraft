@@ -443,6 +443,8 @@ public static class DataManager
         // 旧档里一部自立的部落帝国静默撤去(部落不再是帝国，用户 2026-10-26)；要在帝国、法理、制度都读进来以后、
         // 解散诊断记底(EmpireLossDiagnostics.OnLoaded)之前
         Guarded("部落帝国迁移", TribalFissionService.AfterLoad);
+        // 早已脱离帝国、还顶着"某某省"名号和原帝国颜色的国，补改一次(见 LeftEmpireRepair)
+        Guarded("脱离帝国的行政区", LeftEmpireRepair.AfterLoad);
         Guarded("空世界补人口", () =>
         {
             int seeded = CityPopulationSystem.ReseedEmptyWorld();

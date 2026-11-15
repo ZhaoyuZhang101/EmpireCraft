@@ -118,6 +118,25 @@ internal static class ShimColors
         }
     }
 
+    // 国家颜色表做成的颜色库(编号即下标)
+    private static ColorLibrary _library;
+
+    internal static ColorLibrary Library
+    {
+        get
+        {
+            if (_library != null) return _library;
+            int count = Count;
+            var library = new KingdomColorsLibrary();
+            for (int i = 0; i < count; i++)
+            {
+                library.list.Add(Palette[i]);
+                library.dict[Palette[i].id] = Palette[i];
+            }
+            return _library = library;
+        }
+    }
+
     internal static ColorAsset ById(int id)
     {
         if (id >= CustomBase)

@@ -1992,11 +1992,12 @@ public static class KingdomExtension
             kingdom.GetOrCreate().rebellion_origin_empire_ids, empire.getID());
     }
 
-    public static void SetKingdomName(this Kingdom k, string kindomName)
+    public static void SetKingdomName(this Kingdom k, string kindomName, bool afterIndependence = false)
     {
         // 战争中不改名只针对独立国家(防止叛军/交战方名号乱跳)；帝国内的行政区常被动卷入帝国战争，
         // 军阀加入政府后若恰在战时，旧名"某系军阀"会因此永远洗不掉(类别已是省、铭牌还是军阀)
-        if (!k.IsFactionRebelling() && !k.IsLocalRebelling() && (k.getWars().Count() <= 0 || k.IsInEmpire()))
+        if (afterIndependence ||
+            !k.IsFactionRebelling() && !k.IsLocalRebelling() && (k.getWars().Count() <= 0 || k.IsInEmpire()))
         {
             k.RememberInitialRandomKingdomName();
             k.data.name = kindomName.UseLocalizedNameSeparator();
@@ -3730,18 +3731,12 @@ public static class KingdomExtension
         return !string.IsNullOrWhiteSpace(front);
     }
 
-    // 汉化的行政区离了帝国：当场按离开后的类型、自己的法理改名(见 AdministrativeFront)——叛去时紧跟着开战，
-    // 交战中不改名(见 SetKingdomName)，以前一直顶着"安西都护府"的名、后缀换成了新类型
+    // 行政区脱离帝国时立即按新政权的类型和法理改名，正在交战也要换掉旧政区名。
     private static void RenameAfterLeaving(Kingdom kingdom)
     {
         try
         {
-            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
-            if (!kingdom.AdministrativeFront(kingdom.GetKingdomType(), out string front, out _)) return;
-            string name = OverallHelperFunc.FormatCountryTypeName(front, kingdom.GetKingdomTypeSuffixText(),
-                kingdom.GetEmpireCraftCulture() ?? "Western");
-            kingdom.data.name = name.UseLocalizedNameSeparator();
-            kingdom.SetKingdomCoreName(front, kingdom.data.name);
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom, afterIndependence: true);
         }
         catch (Exception exception)
         {
@@ -3864,12 +3859,14 @@ public static class KingdomExtension
     public static void EmpireLeave (this Kingdom kingdom, bool isLeave = true)
     {
         if (kingdom==null) return;
-        if (GetOrCreate(kingdom) == null) return;
+        KingdomExtraData data = GetOrCreate(kingdom);
+        if (data == null) return;
+        bool rename = !kingdom.isRekt() && data.EmpireID >= 0 && !data.isEmpire &&
+                      (kingdom.IsAdministrativeKingdomType() || !string.IsNullOrWhiteSpace(data.admin_name));
         kingdom.RestoreOriginalKingdomColor();
         kingdom.SetEmpireID(-1L);
-        kingdom.GetOrCreate().isEmpire = false;
-        // 汉化的行政区(剧本的都护府)离了帝国：照自己的法理改名
-        if (!string.IsNullOrWhiteSpace(kingdom.GetOrCreate().admin_name)) RenameAfterLeaving(kingdom);
+        data.isEmpire = false;
+        if (rename) RenameAfterLeaving(kingdom);
     }
     public static int GetLevel(this Kingdom kingdom)
     {

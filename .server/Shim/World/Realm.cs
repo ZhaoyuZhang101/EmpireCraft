@@ -22,6 +22,11 @@ public partial class Kingdom
     [MethodImpl(P.N)]
     public override ColorAsset getColor() => base.getColor();
 
+    // 国家的颜色库(原版是国家颜色表)：模组换色都从这里取——离开帝国、脱离宗主换回自己的颜色，附庸、朝贡套宗主色，
+    // 帝国成员随核心换色(见 KingdomColorService、VassalColorService)。以前返回空，这些全都直接跳过：
+    // 省份脱离了帝国还一直顶着帝国的颜色，看不出已经独立
+    public override ColorLibrary getColorLibrary() => ShimColors.Library;
+
     public bool isCiv() => !wild;
     public bool isNeutral() => false;
     public bool hasKing() => king != null && king.isAlive();

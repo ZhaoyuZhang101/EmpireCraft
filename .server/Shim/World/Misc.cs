@@ -19,7 +19,24 @@ public partial class ColorLibrary
 {
     private int _next;
     public ColorAsset getColorByIndex(int pIndex) => ShimColors.ById(pIndex);
-    public int getNextColorIndex(ActorAsset pActorAsset) => _next++ % ShimColors.Count;
+    // 新国家、换色的国家挑哪种颜色：眼下用的国家最少的那种(一样少的按轮到的先后)，少撞色；
+    // 以前按顺序轮，换色的省份常拿到和原来的帝国一样的颜色
+    public int getNextColorIndex(ActorAsset pActorAsset)
+    {
+        int count = ShimColors.Count;
+        var used = new int[count];
+        if (World.world?.kingdoms != null)
+            foreach (Kingdom kingdom in World.world.kingdoms.list)
+                if (kingdom?.data != null && !kingdom.isRekt() && !kingdom.wild)
+                    used[((kingdom.data.color_id % count) + count) % count]++;
+        int start = _next++ % count, best = start;
+        for (int step = 1; step < count; step++)
+        {
+            int index = (start + step) % count;
+            if (used[index] < used[best]) best = index;
+        }
+        return best;
+    }
     public ColorAsset getNextColor(ActorAsset pActorAsset) => ShimColors.ById(getNextColorIndex(pActorAsset));
 }
 
