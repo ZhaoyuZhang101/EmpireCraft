@@ -126,6 +126,8 @@ internal static class WorldSave
         var header = new JObject
         {
             ["v"] = Version,
+            // 这一局的编号(游戏交给核心接手时生成，见 Scripts/Terminal/CoreGameId)：照写，游戏据此认是不是同一局
+            ["game_id"] = EmpireCraft.Scripts.Terminal.CoreGameId.Value,
             ["saved"] = DateTime.UtcNow.ToString("o"),
             ["scenario"] = ServerRoutes.ScenarioName ?? "",
             ["scenario_key"] = ServerRoutes.ScenarioKey ?? "",
@@ -460,6 +462,7 @@ internal static class WorldSave
             tiles[i].Height = tileHeight;
         }
         world.world_time = (double?)root["world_time"] ?? 0d;
+        EmpireCraft.Scripts.Terminal.CoreGameId.Value = (string)root["game_id"];
         world.world_laws.init();
         if (root["laws"] is JObject laws)
             foreach (JProperty law in laws.Properties())

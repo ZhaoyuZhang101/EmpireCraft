@@ -22,7 +22,7 @@ namespace EmpireCraft.Scripts.Terminal;
 //   seats.json               席位所领的君主(接手时没有，写空)
 // 核心一律按纯净地图跑：建筑实体不带(纯净地图下建筑本来就记在模组的建筑台账里)；只带文明的人(智慧种族)，野兽、船不带。
 // 只在主线程、世界读完时调；同步写完，万人的世界几秒。先写进 save.new/，写全了才换上去，原来的 save/ 留作 save.old/
-public static class CoreSaveExport
+public static partial class CoreSaveExport
 {
     private const int Version = 1;
     private const uint TilesMagic = 0x31544345; // "ECT1"
@@ -41,6 +41,13 @@ public static class CoreSaveExport
             error = "还没有世界(或正在读档)，没什么可导出";
             return false;
         }
+        if (!EmpireCraft.Scripts.GeneralSystems.PureMapMode.Enabled)
+        {
+            error = "要先开纯净地图(核心只按纯净地图跑，带回时建筑实体会没)";
+            return false;
+        }
+        // 这一局的编号：头一回交给核心时生成，之后沿用(随模组数据存档；先定下再写模组数据)
+        if (string.IsNullOrEmpty(CoreGameId.Value)) CoreGameId.Value = Guid.NewGuid().ToString("N");
         var clock = Stopwatch.StartNew();
         string fresh = Path.Combine(stateFolder, "save.new"), current = Path.Combine(stateFolder, "save"), previous = Path.Combine(stateFolder, "save.old");
         try
@@ -56,7 +63,7 @@ public static class CoreSaveExport
             }
             WriteTiles(world, Path.Combine(fresh, "tiles.bin"));
             WriteWorld(world, Path.Combine(fresh, "world.json"));
-            File.WriteAllText(Path.Combine(fresh, "seats.json"), "{}");
+            File.WriteAllText(Path.Combine(fresh, "seats.json"), JsonConvert.SerializeObject(TerminalHost.SeatRulers()));
             if (Directory.Exists(previous)) Directory.Delete(previous, true);
             if (Directory.Exists(current)) Directory.Move(current, previous);
             Directory.Move(fresh, current);
@@ -76,6 +83,59 @@ public static class CoreSaveExport
                 // 留着下回覆盖
             }
             return false;
+        }
+    }
+
+    // 状态目录里那份存档是哪一局、走到了哪个世界时刻(只读 world.json 开头，不解析全文)
+    public static bool PeekSave(string stateFolder, out string gameId, out double worldTime)
+    {
+        gameId = null;
+        worldTime = -1d;
+        string path = Path.Combine(stateFolder, "save", "world.json");
+        if (!File.Exists(path)) return false;
+        try
+        {
+            using var reader = new JsonTextReader(new StreamReader(path, Encoding.UTF8));
+            bool gotId = false, gotTime = false;
+            while (reader.Read() && reader.Depth <= 1)
+            {
+                if (reader.TokenType != JsonToken.PropertyName || reader.Depth != 1) continue;
+                string name = (string)reader.Value;
+                if (name == "game_id")
+                {
+                    gameId = reader.ReadAsString();
+                    gotId = true;
+                }
+                else if (name == "world_time")
+                {
+                    worldTime = reader.ReadAsDouble() ?? -1d;
+                    gotTime = true;
+                }
+                else if (name == "cultures") break;
+                if (gotId && gotTime) break;
+            }
+            return gotTime;
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning("[EmpireCraft][核心接手] 读存档开头失败: " + exception.Message);
+            return false;
+        }
+    }
+
+    // 存档里记的席位 → 君主(带回后交给 TerminalHost.RestoreSeatRulers)
+    public static Dictionary<string, long> ReadSeats(string stateFolder)
+    {
+        try
+        {
+            string path = Path.Combine(stateFolder, "save", "seats.json");
+            return File.Exists(path)
+                ? JsonConvert.DeserializeObject<Dictionary<string, long>>(File.ReadAllText(path)) ?? new Dictionary<string, long>()
+                : new Dictionary<string, long>();
+        }
+        catch (Exception)
+        {
+            return new Dictionary<string, long>();
         }
     }
 
@@ -146,6 +206,7 @@ public static class CoreSaveExport
         using var json = new JsonTextWriter(stream);
         json.WriteStartObject();
         Property(json, "v", Version);
+        Property(json, "game_id", CoreGameId.Value);
         Property(json, "saved", DateTime.UtcNow.ToString("o"));
         Property(json, "scenario", "");
         Property(json, "scenario_key", "");

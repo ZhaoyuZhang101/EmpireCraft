@@ -237,6 +237,7 @@ public class SaveManagerPatch : GamePatch
         // 在办的决议随模组存档(见 DecisionSystem)
         EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.PrivyPurse.ResetWorldState();
+        EmpireCraft.Scripts.Terminal.CoreGameId.Value = null;
         EmpireCraft.Scripts.GeneralSystems.WorldChronicle.ResetWorldState();
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapScale.ZoneKm = 0f;
         EmpireCraft.Scripts.GeneralSystems.WorldMap.WorldMapWilderness.ResetWorldState();

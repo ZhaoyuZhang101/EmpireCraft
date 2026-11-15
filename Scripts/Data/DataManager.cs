@@ -377,6 +377,8 @@ public static class DataManager
         MilitaryAccessSystem.Load(saveData.military_access);
         EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Load(saveData.decisions);
         PrivyPurse.Load(saveData.privy_purse);
+        // 模组数据里没记的(旧档、核心读档时已从 world.json 头上取到)不覆盖
+        if (!string.IsNullOrEmpty(saveData.core_game_id)) EmpireCraft.Scripts.Terminal.CoreGameId.Value = saveData.core_game_id;
         WorldChronicle.Load(saveData.world_chronicle);
         if (PlayerConfig.dict.TryGetValue("switch_real_num", out PlayerOptionData realNumOption))
         {
@@ -627,6 +629,7 @@ public static class DataManager
         saveData.military_access = MilitaryAccessSystem.Save();
         saveData.decisions = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Save();
         saveData.privy_purse = PrivyPurse.Save();
+        saveData.core_game_id = EmpireCraft.Scripts.Terminal.CoreGameId.Value;
         saveData.world_chronicle = WorldChronicle.Save();
         saveData.specificClans = SpecificClanManager._specificClans;
         saveData.switch_real_num = ModClass.REAL_NUM_SWITCH;

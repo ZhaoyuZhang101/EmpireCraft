@@ -70,6 +70,8 @@ public class SaveData
     // 在办的决议(见 DecisionSystem)
     // 内帑(见 PrivyPurse)
     public List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData> privy_purse = new List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData>();
+    // 交给服务器核心接手过的局的编号(见 Terminal.CoreGameId)
+    public string core_game_id;
     // 编年：世界上发过的消息(见 WorldChronicle)
     public List<EmpireCraft.Scripts.GeneralSystems.ChronicleEntry> world_chronicle = new List<EmpireCraft.Scripts.GeneralSystems.ChronicleEntry>();
     public List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase> decisions = new List<EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionCase>();
