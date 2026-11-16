@@ -647,9 +647,8 @@ public static class DataManager
         saveData.switch_empire_show_alliance = ModClass.EMPIRE_SHOW_ALLIANCE_SWITCH;
         saveData.empirecraft_world_laws = EmpireCraft.Scripts.GameLibrary.EmpireCraftWorldLawLibrary.Capture();
         double collectMs = saveTimer.Elapsed.TotalMilliseconds;
-        // 流式序列化直接写盘：不再先攒出一个几 MB 的 JSON 大字符串(大对象堆分配 + 复制各一次)
-        using (var writer = new StreamWriter(savePath, false, new global::System.Text.UTF8Encoding(false)))
-            JsonSerializer.CreateDefault().Serialize(writer, saveData);
+        // 流式序列化直接写盘；独立核心上分给几个核同时转文字、主线程按序写盘(见 ParallelSaveWriter)
+        ParallelSaveWriter.Write(savePath, saveData);
         double serializeMs = saveTimer.Elapsed.TotalMilliseconds - collectMs;
         // 序列化完再清掉内存里的派系副本：政体已在内存中的王国不需要它，留着反而会在之后重建政体时被误用
         foreach (KingdomExtraData extra in saveData.kingdomExtraData)

@@ -142,6 +142,10 @@ public static class Program
                     // 排查用：军团战线的陆上战线段多核算完，再照原样逐国算一遍逐城逐块比(见 FrontSystem.Parallel)，收尾时报对不上的份数
                     FrontSystem.VerifyParallelSectors = true;
                     break;
+                case "--verify-save":
+                    // 排查用：模组存档多核写完，再照老办法一个核写一份逐字节比(见 ParallelSaveWriter)，收尾时报
+                    EmpireCraft.Scripts.Data.ParallelSaveWriter.Verify = true;
+                    break;
                 case "--verify-scope":
                     // 排查用：就近动员按敌国名单找出的敌方，再照老办法逐个问一遍核对，收尾时报对不上的次数
                     WarScopeSystem.VerifyHostiles = true;
@@ -232,6 +236,8 @@ public static class Program
         SimulationFrameBudget.ServerMilliseconds = Math.Clamp(12d * baseSpeed, 12d, 250d);
         // 纯数据：多核算的几处(见 ParallelWork)用上全部的核
         if (!_serial) ParallelWork.MaxWorkers = Environment.ProcessorCount;
+        // 存档时模组那份数据分给几个核同时写(见 ParallelSaveWriter)
+        EmpireCraft.Scripts.Data.ParallelSaveWriter.Enabled = !_serial;
 
         LM.Language = lang;
         LM.LoadJson("en", Path.Combine(data, "Locales", "en.json"));
@@ -374,6 +380,12 @@ public static class Program
                 Console.WriteLine("  存前: " + WorldSave.Digest());
                 SaveNow("收尾");
             }
+            Console.WriteLine("  模组存档：多核写 " + EmpireCraft.Scripts.Data.ParallelSaveWriter.Written + " 回(上回 " +
+                              EmpireCraft.Scripts.Data.ParallelSaveWriter.LastMilliseconds.ToString("0") + " 毫秒)，退回一个核 " +
+                              EmpireCraft.Scripts.Data.ParallelSaveWriter.FellBack + " 回" +
+                              (EmpireCraft.Scripts.Data.ParallelSaveWriter.Verify
+                                  ? "；核对 " + EmpireCraft.Scripts.Data.ParallelSaveWriter.Verified + " 回一字不差，对不上 " + EmpireCraft.Scripts.Data.ParallelSaveWriter.Mismatched + " 回"
+                                  : ""));
             Console.WriteLine("还没实现的原版接口 " + Shim.MissingKinds + " 种，调用最多的：");
             Console.Write(Shim.Report(80));
             return 0;
