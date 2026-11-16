@@ -70,7 +70,7 @@ async function openCoreDialog() {
       : "还没有存档";
     box.innerHTML =
       `<h3 style="margin:0 0 8px;display:flex;align-items:center;gap:8px">${ico("iconKingdom")}服务器核心</h3>` +
-      row("iconOptions", "程序", s.exe ? esc(s.exe) : "没找到。在游戏的模组设置里打开一次「用服务器核心」，它会自己下载。", !s.exe) +
+      row("iconOptions", "程序", s.exe ? esc(s.exe) : "没找到。更新到带核心的模组版本，或在游戏的模组设置里打开一次「用服务器核心」。", !s.exe) +
       row("iconSaveLocal", "存档", save, !s.save) +
       row("iconWorldInfo", "眼下", s.running ? `已经开着(端口 ${s.port})，窗口收在托盘里` : "没在运行", !s.running) +
       `<p class="muted" style="margin:10px 0">不用开游戏。核心接着上面那份存档跑，手机照常连；没有存档时，在核心窗口里点「打开网页管理页」挑一个剧本开局。` +

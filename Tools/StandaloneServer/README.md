@@ -9,16 +9,19 @@
 3. 把程序和核心要读的数据(`Terminal`、`WorldMaps`、`Locales`、`Technology`、`InstitutionTrees`、`Scripts` 里的配置文件、根目录的几份 json)压成一个包(四十来兆)。
 4. 传到服务器(上传时显示百分比、速度、剩余时间)，在服务器上解到 `/opt/empirecraft/.incoming` 并跑 `install.sh`，换上新程序和新数据，重启服务，确认它起来了。新版一分钟内没起来会自动换回上一版。
 
-服务器上的存放目录(`server.json`、账号、上传的剧本、存档)不会被覆盖。
+默认保留 Linux 上的配置、账号、上传的剧本和存档。
 
 - `.\update_server.bat local`：只更新游戏目录下已安装的 Windows 核心，适合验证工作区里的改动。
 - `.\update_server.bat nobuild`：把上次编译好的 Linux 版再传一遍。
 - `.\update_server.bat check`：只从这台电脑问一下核心在不在(端口照脚本顶上的 `CORE_PORT`，现在是 8766)。
+- `.\update_server.bat clear-saves`：更新并永久清空 Linux 的世界存档，重启后等待管理员选剧本。
 - 服务器地址、用户名、目录在 `update_server.bat` 顶上改。
 
 `publish_all.bat` 也会执行本机 Windows 更新。它使用当前 Git 提交编译，未提交的改动可用 `update_server.bat local` 在本机验证。
 
-每次更新都会重启核心。核心停的时候会先存档，起来后接着存档跑；没有存档时才照 `server.json` 里写的剧本开局(`scenario` 空着就等管理员在房间里挑)。
+一键发布时可选继续上次的世界（回车默认）或清空线上存档。继续时旧核心先存档再停机，新核心恢复存档。选清空时会跳过停机存档，删除 Linux 当前档、备用档和历史归档，并清除 `server.json` 中的自动开局剧本。账号、上传的剧本和 Windows 本机存档保留。
+
+命令行可用 `.\publish_all.bat -ServerSaves Empty` 预选清空，或用 `-ServerSaves Keep` 预选续玩。`-Yes` 会跳过交互，省略 `-ServerSaves` 时保留存档。
 
 ## 只做一次：让 SSH 不再问密码
 

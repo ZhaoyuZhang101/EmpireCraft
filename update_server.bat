@@ -4,10 +4,11 @@ pushd "%~dp0" || exit /b 1
 
 rem Update the installed Windows core, then build and deploy the Linux service.
 rem   update_server.bat          Windows install (if present) + Linux deploy
+rem   update_server.bat clear-saves  deploy and clear Linux world saves
 rem   update_server.bat local    only update the installed Windows development core
 rem   update_server.bat check    only ask the server whether the core is answering
 rem   update_server.bat nobuild  upload the build that is already in .server\publish\linux-x64
-rem The server keeps its own state folder (server.json, accounts, uploaded scenarios); it is never overwritten.
+rem By default the Linux deployment keeps all server state and saves.
 rem No password prompt if an SSH key is installed on the server (see Tools\StandaloneServer\README.md).
 set "SERVER=8.159.129.136"
 set "SERVER_USER=root"
@@ -20,14 +21,19 @@ set "ROOT=%~dp0"
 set "PUBLISH=%ROOT%.server\publish\linux-x64"
 set "MODE=%~1"
 set "RESULT=0"
+set "SAVE_MODE=keep"
 
 if /i "%MODE%"=="check" goto :check
 if /i "%MODE%"=="local" (
     call :update_local
     goto :finish
 )
+if /i "%MODE%"=="clear-saves" (
+    set "SAVE_MODE=clear-saves"
+    set "MODE="
+)
 if defined MODE if /i not "%MODE%"=="nobuild" (
-    echo Usage: %~nx0 [local^|check^|nobuild]
+    echo Usage: %~nx0 [local^|check^|nobuild^|clear-saves]
     set "RESULT=1"
     goto :finish
 )
@@ -103,7 +109,7 @@ if not "!SCP_RESULT!"=="0" (
     goto :finish
 )
 echo Upload finished. Installing and restarting on the server...
-ssh.exe %SERVER_USER%@%SERVER% "rm -rf %SERVER_DIR%/.incoming && mkdir -p %SERVER_DIR%/.incoming && tar -xzf %SERVER_DIR%/.incoming.tar.gz --no-same-owner -C %SERVER_DIR%/.incoming && rm -f %SERVER_DIR%/.incoming.tar.gz && sed -i 's/\r$//' %SERVER_DIR%/.incoming/install.sh && bash %SERVER_DIR%/.incoming/install.sh %SERVER_DIR%"
+ssh.exe %SERVER_USER%@%SERVER% "rm -rf %SERVER_DIR%/.incoming && mkdir -p %SERVER_DIR%/.incoming && tar -xzf %SERVER_DIR%/.incoming.tar.gz --no-same-owner -C %SERVER_DIR%/.incoming && rm -f %SERVER_DIR%/.incoming.tar.gz && sed -i 's/\r$//' %SERVER_DIR%/.incoming/install.sh && bash %SERVER_DIR%/.incoming/install.sh %SERVER_DIR% %SAVE_MODE%"
 set "SSH_RESULT=%errorlevel%"
 del /q "%ARCHIVE%"
 if not "%SSH_RESULT%"=="0" (

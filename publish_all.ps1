@@ -4,6 +4,7 @@
 #   .\publish_all.bat -NoServer       不更新本机 Windows 核心和 Linux 服务器
 #   .\publish_all.bat -NoClient       不发布模组更新
 #   .\publish_all.bat -Lobby          另外更新联机大厅(update_lobby.bat)
+#   .\publish_all.bat -ServerSaves Empty  清空 Linux 存档，开服后等待选剧本
 # 只发布已经提交的东西：在一个干净的临时副本(当前提交)里编译、打包，工作区里没提交的改动(包括别的会话改到一半的)一概不带。
 # 模组更新那一步要输入 Cloudflare 令牌、服务器那一步可能要输 SSH 密码：都在提示处自己输，脚本不存。
 [CmdletBinding()]
@@ -12,7 +13,9 @@ param(
     [switch]$NoServer,
     [switch]$NoClient,
     [switch]$Lobby,
-    [switch]$Yes
+    [switch]$Yes,
+    [ValidateSet("Keep", "Empty")]
+    [string]$ServerSaves = "Keep"
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,6 +67,20 @@ if ($dirty.Count -gt 0) {
 Write-Host ("  要做：" + (@(
     $(if (-not $NoPush) { "推送" }), "编译检查", $(if (-not $NoServer) { "更新本机核心和服务器" }), $(if (-not $NoClient) { "发布模组更新" }),
     $(if ($Lobby) { "更新大厅" })) | Where-Object { $_ }) -join " → ")
+if (-not $NoServer) {
+    if (-not $Yes -and -not $PSBoundParameters.ContainsKey("ServerSaves")) {
+        Write-Host "  [1] 继续上次的世界（默认）"
+        Write-Host "  [2] 清空线上存档和归档，重启后停在空房间"
+        do { $choice = Read-Host "Linux 服务端存档选 1 或 2（回车选 1）" }
+        until ($choice -in @("", "1", "2"))
+        if ($choice -eq "2") { $ServerSaves = "Empty" }
+    }
+    if ($ServerSaves -eq "Empty") {
+        Write-Host "  将永久清空 Linux 服务端的存档和归档，关闭开服自动载入剧本。" -ForegroundColor Yellow
+    } else {
+        Write-Host "  Linux 服务端将继续上次的世界。"
+    }
+}
 if (-not $Yes) {
     $answer = Read-Host "继续吗？(y/n)"
     if ($answer -notin @("y", "Y", "yes")) { Write-Host "没做任何事。"; exit 0 }
@@ -96,12 +113,24 @@ try {
     if (-not $NoServer) {
         Step "更新本机 Windows 核心和 Linux 服务器"
         $env:EC_NOPAUSE = "1"
-        & cmd.exe /c (Join-Path $Work "update_server.bat")
+        $serverArgs = @()
+        if ($ServerSaves -eq "Empty") { $serverArgs += "clear-saves" }
+        & cmd.exe /c (Join-Path $Work "update_server.bat") @serverArgs
         if ($LASTEXITCODE -ne 0) { $failed += "本机核心或服务器" }
     }
 
     # ── 4. 模组更新 ──
     if (-not $NoClient) {
+        # 核心随模组包一起发(用户 2026-11-16 "服务器核心应该内置到政体编辑器里面去""这应该在一键更新的时候就应该做的""全部打包到一起去")：
+        # 编进干净副本的 RegimeEditor\core\win-x64，release.ps1 打包时把它带上。游戏里「用服务器核心」和政体编辑器都用包里这份，
+        # 不再另外下载。它不进仓库(每回发布现编)，和模组是同一个提交编出来的，版本必然对得上
+        Step "把 Windows 核心打进模组包"
+        $coreOut = Join-Path $Work "RegimeEditor\core\win-x64"
+        & dotnet publish (Join-Path $Work ".server\EmpireCraft.Server.csproj") -c Release -r win-x64 --self-contained true -p:DebugType=none -o $coreOut -v q -nologo
+        if ($LASTEXITCODE -ne 0) { throw "核心编译不过，模组包没打。" }
+        if (-not (Test-Path (Join-Path $coreOut "EmpireCraftServer.exe"))) { throw "核心没编出来：$coreOut 里没有 EmpireCraftServer.exe。" }
+        Write-Host "  $coreOut"
+
         Step "发布模组更新 $version"
         if (-not (Test-Path (Join-Path $Work "release.ps1"))) { throw "找不到 release.ps1(它不在仓库里，要在 $Root 下)。" }
         & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Work "release.ps1")

@@ -1,20 +1,22 @@
 #!/bin/bash
 # EmpireCraft 独立服务器(终端核心)在 Linux 上的安装/更新：由 update_server.bat 把本地编译好的程序和数据传到
 # <根目录>/.incoming 后调用。做的事：换上新程序、换上新数据、装成开机自启并且崩了自动重启的服务、确认它起来了。
-# 用法：bash install.sh [根目录，默认 /opt/empirecraft]        要用 root 运行；重复运行就是更新后重启。
+# 用法：bash install.sh [根目录，默认 /opt/empirecraft] [keep|clear-saves]，要用 root 运行。
 # 装完以后：systemctl status empirecraft-core 看状态，journalctl -u empirecraft-core -f 看日志(管理员码也在日志里)。
 #
 # 目录：<根目录>/app 是程序(自包含，不用另装 dotnet)；<根目录> 本身是数据目录(Terminal、Locales、WorldMaps……)；
-# 存放目录(server.json、账号、上传的剧本、存档 save/ 与 saves-archive/)不动——沿用服务现在用的那个，没有服务时取 core-state、server-state、state
+# 默认保留配置、账号、剧本和存档。沿用服务现在用的存放目录，没有服务时取 core-state、server-state、state
 # 里有 server.json 的头一个，都没有就新建 core-state。
 set -e
 ROOT="${1:-/opt/empirecraft}"
+SAVE_MODE="${2:-keep}"
 IN="$ROOT/.incoming"
 SERVICE=empirecraft-core
 UNIT="/etc/systemd/system/$SERVICE.service"
 
 if [ "$(id -u)" != "0" ]; then echo "请用 root 运行：sudo bash $0"; exit 1; fi
 case "$ROOT" in ""|"/") echo "根目录不对：$ROOT"; exit 1;; esac
+case "$SAVE_MODE" in keep|clear-saves) ;; *) echo "未知的存档模式：$SAVE_MODE"; exit 1;; esac
 if [ ! -f "$IN/linux-x64/EmpireCraftServer" ]; then echo "没找到传上来的程序：$IN/linux-x64/EmpireCraftServer"; exit 1; fi
 
 # ---- 存放目录
@@ -31,17 +33,60 @@ echo "存放目录：$STATE"
 # 核心的端口照 server.json(没写是核心的默认 8766)
 PORT="$(grep -o '"port"[^0-9]*[0-9]\+' "$STATE/server.json" 2>/dev/null | grep -o '[0-9]\+$' | head -1)"
 [ -z "$PORT" ] && PORT=8766
+SAVE_DIRS=(save save.old save.new save.verify saves-archive)
 
 # ---- 停旧的。没装成服务以前手动起着的那个也停掉(占着端口，新服务起不来)；这台机器上只跑这一个核心。
-# 停的时候核心要先存档：老版本装的服务只等 90 秒，大档存不完就被强杀，先把停机限时放宽(新装的服务里本来就写着)
-if [ -f "/etc/systemd/system/$SERVICE.service" ] && ! grep -q '^TimeoutStopSec=' "/etc/systemd/system/$SERVICE.service"; then
-    sed -i 's/^\[Service\]$/[Service]\nTimeoutStopSec=600/' "$UNIT"
-    systemctl daemon-reload
+if [ "$SAVE_MODE" = clear-saves ]; then
+    command -v python3 >/dev/null || { echo "清空存档需要 python3 来更新开局配置。"; exit 1; }
+    if [ "$(realpath -e "$STATE")" != "$(realpath -e "$ROOT")/$(basename "$STATE")" ] || [ -L "$STATE" ]; then
+        echo "存放目录不在服务器根目录下，取消清档：$STATE"
+        exit 1
+    fi
+    for name in "${SAVE_DIRS[@]}"; do
+        if [ -L "$STATE/$name" ]; then echo "存档路径是链接，取消清档：$STATE/$name"; exit 1; fi
+    done
+    if [ -L "$STATE/server.json" ] || [ -d "$STATE/pending_scenario.json" ]; then
+        echo "世界配置路径不符合预期，取消清档。"
+        exit 1
+    fi
+    echo "停下旧核心，跳过即将清除的存档……"
+    if [ "$(systemctl show --value -p LoadState "$SERVICE")" = loaded ]; then
+        # 先让 systemd 接受停止请求，再结束进程，避免 Restart=always 马上拉起旧核心。
+        systemctl stop --no-block "$SERVICE"
+        for attempt in {1..50}; do
+            status="$(systemctl show --value -p ActiveState "$SERVICE")"
+            case "$status" in
+                inactive|failed) break;;
+                deactivating) systemctl kill --signal=SIGKILL "$SERVICE" || true; break;;
+            esac
+            sleep 0.2
+        done
+        case "$status" in
+            inactive|failed|deactivating) ;;
+            *) echo "旧核心没有进入停止状态，取消清档。"; exit 1;;
+        esac
+        systemctl stop "$SERVICE"
+        [ "$(systemctl show --value -p MainPID "$SERVICE")" = 0 ] || exit 1
+    fi
+    # 同一个安装目录可能还有手动启动的核心。等它退出，避免边写档边清理。
+    executable="$(realpath -m "$ROOT/app/EmpireCraftServer")"
+    for proc in /proc/[0-9]*/exe; do
+        if [ "$(readlink "$proc" 2>/dev/null)" = "$executable" ]; then
+            echo "发现手动启动的核心，请先停下再清档。"
+            exit 1
+        fi
+    done
+else
+    # 旧服务只等 90 秒，大档可能存不完。
+    if [ -f "$UNIT" ] && ! grep -q '^TimeoutStopSec=' "$UNIT"; then
+        sed -i 's/^\[Service\]$/[Service]\nTimeoutStopSec=600/' "$UNIT"
+        systemctl daemon-reload
+    fi
+    echo "停下旧核心(先存档，大档要一两分钟)……"
+    systemctl stop "$SERVICE" 2>/dev/null || true
+    pkill -f "EmpireCraftServer" 2>/dev/null || true
+    sleep 1
 fi
-echo "停下旧核心(先存档，大档要一两分钟)……"
-systemctl stop "$SERVICE" 2>/dev/null || true
-pkill -f "EmpireCraftServer" 2>/dev/null || true
-sleep 1
 
 # ---- 换程序(上一版留在 app.old，新版起不来时换回去)
 rm -rf "$ROOT/app.old"
@@ -120,6 +165,44 @@ if [ -n "$HOLDER" ]; then
     echo "  $HOLDER" | sed 's/  */ /g' | cut -c1-160
     echo "核心的端口写在 $STATE/server.json 的 \"port\"，换一个没人用的(联机大厅占着 8765)，再重跑一次更新。"
     exit 2
+fi
+
+if [ "$SAVE_MODE" = clear-saves ]; then
+    # 先确认下次不会自动开局，再删旧档。
+    if [ -f "$STATE/server.json" ]; then
+        python3 - "$STATE/server.json" <<'PY'
+import json
+import os
+import stat
+import sys
+import tempfile
+
+path = sys.argv[1]
+with open(path, encoding="utf-8-sig") as source:
+    config = json.load(source)
+scenarios = [name for name in config if name.casefold() == "scenario" and config[name]]
+if scenarios:
+    original = os.stat(path)
+    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            for name in scenarios:
+                config[name] = ""
+            json.dump(config, output, ensure_ascii=False, indent=2)
+            output.write("\n")
+            os.fchown(output.fileno(), original.st_uid, original.st_gid)
+            os.fchmod(output.fileno(), stat.S_IMODE(original.st_mode))
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+PY
+    fi
+    for name in "${SAVE_DIRS[@]}"; do
+        rm -rf --one-file-system -- "$STATE/$name"
+    done
+    rm -f -- "$STATE/pending_scenario.json"
+    echo "线上存档和归档已清空，核心将启动到空房间。"
 fi
 
 # ---- 起来没有：问本机的 /api/server

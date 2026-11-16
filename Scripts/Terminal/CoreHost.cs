@@ -41,7 +41,8 @@ namespace EmpireCraft.Scripts.Terminal;
 // 游戏本体算一步世界要连原版的整套主循环一起走，关了画面也省不下多少(见 LightweightHostMode)；独立服务器核心(.server)只跑模组
 // 的那一套，多核、不画图。这里把游戏里当前这一局交给本机的核心接着跑，手机连核心，本体停着；停下核心时再把这一局带回游戏。
 //   · 进：设置里打开开关，终端在跑、世界读完、窗口都关了、世界没暂停，就开始(同轻量主机；两个开关只能开一个)；
-//   · 找核心：<persistentDataPath>/EmpireCraftCore/bin/<模组版本>/ 里有 EmpireCraftServer.exe 就用；没有就照更新清单里的 core 一项
+//   · 找核心：模组包里自带一份(RegimeEditor/core/win-x64，见 InstallBundled)，拷到 EmpireCraftCore/bin/current 用；包里没有的才看
+//     <persistentDataPath>/EmpireCraftCore/bin/<模组版本>/ 里有 EmpireCraftServer.exe 就用；没有就照更新清单里的 core 一项
 //     下载、校验、解包(见 EmpireCraftUpdateService.FetchCore)，下载时世界照走。同目录下的 core.path 写着别的目录时先用它(联调用)；
 //   · 只在纯净地图下能用：核心一律按纯净地图跑、建筑只记台账，普通地图交过去再带回，实体建筑就没了；
 //   · 交出去：CoreSaveExport.Export 把当前世界写成核心的存档(状态目录 EmpireCraftCore/state/save/)，写 server.json，把模组设置
@@ -110,8 +111,18 @@ internal static class CoreHost
     private static string HandoffFolder => Path.Combine(Root, "handoff");
     private static string DetachedFile => Path.Combine(Root, "detached.json");
 
+    private static string BundledFolder => Path.Combine(ModClass._declare.FolderPath, "RegimeEditor", "core", "win-x64");
+    private static bool _bundleChecked;
+
     internal static void Tick()
     {
+        // 游戏每回启动：把模组包里自带的核心对到 bin/current(在后台拷，八十多兆)。路径要在主线程上取
+        if (!_bundleChecked)
+        {
+            _bundleChecked = true;
+            string bundled = BundledFolder, current = Path.Combine(Root, "bin", "current");
+            ThreadPool.QueueUserWorkItem(_ => InstallBundled(bundled, current, false));
+        }
         if (Enabled != _wasEnabled)
         {
             _wasEnabled = Enabled;
@@ -899,12 +910,53 @@ internal static class CoreHost
                 string found = ExeIn(File.ReadAllText(hint).Trim().Trim('"'));
                 if (found != null) return found;
             }
+            string current = Path.Combine(Root, "bin", "current");
+            if (InstallBundled(BundledFolder, current, true)) return ExeIn(current);
             return ExeIn(Path.Combine(Root, "bin", EmpireCraftUpdateService.InstalledVersion()));
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    // 模组包里自带的核心(一键发布时编进 RegimeEditor/core/win-x64，见 publish_all.ps1；用户 2026-11-16 "全部打包到一起去")：
+    // 拷到 bin/current 再用，不直接在模组目录里跑——核心跑着时模组目录的文件不被占着，游戏更新模组照常能换。
+    // 目录名不带版本：桌面上的核心快捷方式(政体编辑器放的)指着它，模组更新后还是这个位置。游戏每回启动对一遍(见 Tick)，
+    // 和包里的一样(主程序的大小和修改时间都对得上)就不拷；拷不成(旧的那份正跑着)就接着用旧的，下回启动再对。
+    // 包里没有(从源码跑的开发目录)返回假，照旧找 bin/<版本>，再没有才去下载
+    private static readonly object BundleGate = new();
+
+    private static bool InstallBundled(string bundled, string target, bool log)
+    {
+        lock (BundleGate)
+        {
+            var source = new FileInfo(Path.Combine(bundled, ExeName));
+            if (!source.Exists) return false;
+            var have = new FileInfo(Path.Combine(target, ExeName));
+            if (have.Exists && have.Length == source.Length && have.LastWriteTimeUtc == source.LastWriteTimeUtc) return true;
+            try
+            {
+                string stage = target.TrimEnd('\\', '/') + ".copy";
+                if (Directory.Exists(stage)) Directory.Delete(stage, true);
+                CopyFolder(bundled, stage);
+                if (Directory.Exists(target)) Directory.Delete(target, true);
+                Directory.Move(stage, target);
+                if (log) LogService.LogInfo($"[EmpireCraft][服务器核心] 模组包里自带的核心已装到 {target}");
+            }
+            catch (Exception exception)
+            {
+                if (log) LogService.LogWarning($"[EmpireCraft][服务器核心] 自带的核心没装成({exception.Message})，有旧的就接着用旧的。");
+            }
+            return File.Exists(Path.Combine(target, ExeName));
+        }
+    }
+
+    private static void CopyFolder(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (string file in Directory.GetFiles(from)) File.Copy(file, Path.Combine(to, Path.GetFileName(file)), true);
+        foreach (string folder in Directory.GetDirectories(from)) CopyFolder(folder, Path.Combine(to, Path.GetFileName(folder)));
     }
 
     // 包里带一层目录的也认
