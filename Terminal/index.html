@@ -743,13 +743,40 @@ $("pair-go").onclick=function(){
 $("code").oninput=function(){$("pair-err").textContent=""};
 
 // 轮询
-var pageAt=null;
+var pageAt=null,worldClock=null,pollIssued=0,pollAccepted=0;
+var PollMilliseconds=3000;
+// 用服务端两次取样量出世界实际走了多快；网慢或主机停住时，至多向前推一轮。
+function takeWorldClock(s){
+  var c=s.loaded&&s.clock;
+  if(!Array.isArray(c)||c.length!==3||!c.every(Number.isFinite)){worldClock=null;return}
+  var old=worldClock,same=old&&old.world===c[0]&&c[1]>=old.sample&&c[2]>=old.months;
+  if(same&&c[1]===old.sample)return;
+  var rate=same&&!s.paused&&!old.paused&&s.speed===old.speed?(c[2]-old.months)/(c[1]-old.sample):0;
+  var month=(s.year-1)*12+s.month-1;
+  var continuing=same&&!s.paused;
+  worldClock={world:c[0],sample:c[1],months:c[2],paused:!!s.paused,speed:s.speed,
+    month:month,rate:rate,at:performance.now(),shown:continuing?old.shown:month,lastStep:continuing?old.lastStep:0};
+}
+function renderWorldDate(){
+  if(!state||!state.loaded||$("s-main").hidden)return;
+  var year=state.year,month=state.month,c=worldClock;
+  if(c){
+    var now=performance.now(),elapsed=Math.min(PollMilliseconds,Math.max(0,now-c.at))/1000;
+    var fraction=c.months-Math.floor(c.months);
+    var target=c.month+Math.floor(fraction+c.rate*elapsed);
+    if(target>c.shown&&now-c.lastStep>=125){c.shown++;c.lastStep=now}
+    year=Math.floor(c.shown/12)+1;month=c.shown%12+1;
+  }
+  var text=t("date",year,month),date=$("date");
+  if(date.textContent!==text)date.textContent=text;
+}
 function poll(){
   if(!token&&!asAdmin()){show("s-pair");admEntryLabels();autoPair();return}
-  var asked=role;
+  var asked=role,request=++pollIssued;
   api("GET","/api/state").then(function(r){
     // 换了身份，这一回问的作废
-    if(asked!==role)return;
+    if(asked!==role||request<=pollAccepted)return;
+    pollAccepted=request;
     if(r.status===401&&asked==="admin"){adminLost();return}
     if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");autoPair();return}
     // 独立服务器同时在线到了上限：等着，有人离线了自己接上
@@ -757,6 +784,7 @@ function poll(){
     srvFullNow=null;
     fails=0;$("warn").style.display="none";
     state=r.json;
+    takeWorldClock(state);
     // 网页换了新版(游戏那头的 index.html 改了)：重新载入，不接着跑旧网页里的代码
     if(state.page){if(pageAt==null)pageAt=state.page;else if(state.page!==pageAt){location.reload();return}}
     if(state.lang&&T[state.lang]&&state.lang!==lang){lang=state.lang;applyLang()}
@@ -766,7 +794,7 @@ function poll(){
     // 山川上回没取全就停了：过几秒从头再取(不然图一直是黑的)
     else if(state.loaded&&map&&map.ts&&(!terr||terr.ts!==map.ts)&&!terrBusy&&terrStopAt&&Date.now()-terrStopAt>5000)loadTerrain();
     if(state.loaded&&!state.vacant&&mapShown()&&state.armyStamp!=null&&(!armies||armies.stamp!==state.armyStamp))loadArmies();
-  },function(){if(++fails>=2)$("warn").style.display="block"});
+  },function(){if(asked===role&&request>pollAccepted&&++fails>=2)$("warn").style.display="block"});
 }
 
 // 进来先同步(用户 2026-11-12 "载入服务器时可以给个加载界面，用于下载同步服务端数据")：国势、各地块归属、山川地貌、军情
@@ -845,7 +873,7 @@ function render(){
     // 点自己的人像：进衣冠(换装、买衣服)
     $("me-face").onclick=state.ruler.look!=null&&PORTRAIT?wardrobeSheet:null;$("me-face").style.cursor="pointer";
   }
-  $("date").textContent=t("date",state.year,state.month);
+  renderWorldDate();
   $("ruler").textContent=t("ruler",state.ruler.name,state.ruler.age)+" · "+t("role_"+state.realm.role);
   $("pace").textContent=state.paused?t("paused"):t("pace",state.speed);
   renderVote();
@@ -888,7 +916,7 @@ function renderGrouped(box,items,makeRow,opened,again){
 // 选人(用户 2026-11-12 "选人界面可不可以直接在地图选, 不要给列表")：没君主时舆图挪到这一页，游戏给的是一张没有迷雾的全图，
 // 点哪国，底下的条子里就是这国的君主，点"领此君"
 var picking=false,mapHome=null,mapNext=null;
-function resetMap(){map=null;mv.set=false;armies=null;terr=null;terrProg=null;synced=false;syncAt=0;sel=null;aim=false;aimView=null;panel()}
+function resetMap(){map=null;mv.set=false;armies=null;armyRequest=null;armyGap=armyGot=0;terr=null;terrProg=null;synced=false;syncAt=0;sel=null;aim=false;aimView=null;panel()}
 // 地图挪到选人页，或挪回舆图页原来的地方
 function mapInto(vacant){
   var box=$("mapbox");
@@ -990,7 +1018,7 @@ function renderReports(){
 var pendingSeen=null;
 function commitSeen(){if(pendingSeen){store(pendingSeen.key,pendingSeen.value);pendingSeen=null}}
 window.addEventListener("pagehide",commitSeen);
-document.addEventListener("visibilitychange",function(){if(document.hidden)commitSeen();else poll()});
+document.addEventListener("visibilitychange",function(){if(document.hidden)commitSeen();else{worldClock=null;poll()}});
 
 function figure(id,f,noteVague,noteTrue){
   $(id).textContent=f.vague?t("approx",short(f.v)):short(f.v);
@@ -3031,6 +3059,38 @@ var G3FS=["precision highp float;",
   "float eq(vec3 a,vec3 b){vec3 d=abs(a-b);return step(max(d.x,max(d.y,d.z)),.002);}",
   // 一家的边界噪声(各家错开取样)
   "vec3 sn(vec4 q,vec2 p){vec4 z=nt(p*1.3333+vec2(dot(q.rgb,vec3(311.7,173.3,97.1)),dot(q.rgb,vec3(127.1,269.5,183.3)))*7.);return vec3(.14*(z.x-.5),.1867*z.yz);}",
+  // "家"是画界线时并在一起算的单位：一片叶，或展开到城时一座城里属同一片叶的地。一家的记号是它在家表里的位置(两个字节)加一个散列字节(见 g3Own)；
+  // 家的颜色、属哪一国(uF1)、最上一级与眼下标着的那一家(uF2)照记号查表，不用回头找它的哪一块地——战线推进的过渡里，旧主在这一带可能一块地都不剩
+  "vec2 fuv(vec4 c){return (floor(c.rg*255.+.5)+.5)/256.;}",
+  // 周围九块地归并成至多四家：各家的记号、权、权变化的快慢
+  "float gNc,gW0,gW1,gW2,gW3;vec2 gD0,gD1,gD2,gD3;vec4 gC0,gC1,gC2,gC3;",
+  "void acc(vec4 q,float wk,vec2 gk){",
+  " if(gNc>.5&&eq(q.rgb,gC0.rgb)>.5){gW0+=wk;gD0+=gk;}",
+  " else if(gNc>1.5&&eq(q.rgb,gC1.rgb)>.5){gW1+=wk;gD1+=gk;}",
+  " else if(gNc>2.5&&eq(q.rgb,gC2.rgb)>.5){gW2+=wk;gD2+=gk;}",
+  " else if(gNc>3.5&&eq(q.rgb,gC3.rgb)>.5){gW3+=wk;gD3+=gk;}",
+  " else if(gNc<.5){gC0=q;gW0=wk;gD0=gk;gNc=1.;}",
+  " else if(gNc<1.5){gC1=q;gW1=wk;gD1=gk;gNc=2.;}",
+  " else if(gNc<2.5){gC2=q;gW2=wk;gD2=gk;gNc=3.;}",
+  " else if(gNc<3.5){gC3=q;gW3=wk;gD3=gk;gNc=4.;}}",
+  // 主人同旁边另一家(cj)之间的界：离这条界几个点、是哪一级的界(用户 2026-11-16 "边界还是好乱""你这都接不上")。
+  // 以前只同第二大的那一家比：三家挨着的岔口上，第三家那条粗的国界在线宽之内给细的城界顶掉，粗线到岔口前缺一截、线头对不上。
+  // 现在同周围每一家都比一遍：哪条界的线(连它两边的边色)盖得到这一点，就画级别最高的那条；都盖不到才按最近的那条算
+  "float gS,gFo,gSc,gDl,gLv,gFr,gWd;vec2 gG;vec4 gPa,gOa;",
+  "void ed(vec4 cj,float wj,vec2 dj){",
+  " if(eq(cj.rgb,gOa.rgb)>.5)return;",
+  " vec4 pb=texture2D(uF2,fuv(cj));",
+  " float Fb=fl(cj),d=(gS-wj)*uK/max(length(gG-dj),1e-4),",
+  "  lv=abs(bit(gFo,8.)-bit(Fb,8.))>.5?0.:eq(vec3(gPa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(gPa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.,",
+  // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
+  "  fr=lv<.5&&bit(gFo,64.)+bit(Fb,64.)>.5?1.:0.;",
+  // 管理员(没有本朝)：全图战事的攻守两国相接处(uW 是两两交战表，一家属哪一国记在 uF1 的第四个字节；用户 2026-11-16 "战线不是平滑的")
+  " if(uAdm>.5){float ra=floor(texture2D(uF1,fuv(gOa)).a*255.+.5),rb=floor(texture2D(uF1,fuv(cj)).a*255.+.5);",
+  "  if(ra<249.5&&rb<249.5&&abs(ra-rb)>.5&&texture2D(uW,(vec2(ra,rb)+.5)/256.).r>.5){lv=0.;fr=1.;}}",
+  // 选中的那一家同不选中的相接处(白边)单记
+  " if(abs(bit(gFo,32.)-bit(Fb,32.))>.5)gWd=min(gWd,d);",
+  " float ex=lv<2.5?(uFar>.5?1.6:2.6)*uPx+.5:.5*uPx+.5,sc=d<ex?lv-8.+d*.01:d;",
+  " if(sc<gSc){gSc=sc;gDl=d;gLv=lv;gFr=fr;}}",
   "void main(){",
   " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);vec4 n1=nt(p*1.9);",
   // 归属(照游戏里的平滑国界 SmoothBorders.SmoothedOwnerAt)：周围 3×3 块地按二次 B 样条加权，同一家(叶，或展开到城时的城)的权相加，
@@ -3077,38 +3137,6 @@ var G3FS=["precision highp float;",
   "  if(cp>1.5){wk+=(nt(p*.41+7.3).xw-.5)*(1.1/uQ)*clamp(cp*.2-.2,0.,1.);A.rgb=tx(uA,wk).rgb;}",
   "  C=tx(uC,wk);",
   "  h=B.b*1.6;land=A.a;col=A.rgb*(.9+.18*n1.x);",
-  // "家"是画界线时并在一起算的单位：一片叶，或展开到城时一座城里属同一片叶的地。一家的记号是它在家表里的位置(两个字节)加一个散列字节(见 g3Own)；
-  // 家的颜色、属哪一国(uF1)、最上一级与眼下标着的那一家(uF2)照记号查表，不用回头找它的哪一块地——战线推进的过渡里，旧主在这一带可能一块地都不剩
-  "vec2 fuv(vec4 c){return (floor(c.rg*255.+.5)+.5)/256.;}",
-  // 周围九块地归并成至多四家：各家的记号、权、权变化的快慢
-  "float gNc,gW0,gW1,gW2,gW3;vec2 gD0,gD1,gD2,gD3;vec4 gC0,gC1,gC2,gC3;",
-  "void acc(vec4 q,float wk,vec2 gk){",
-  " if(gNc>.5&&eq(q.rgb,gC0.rgb)>.5){gW0+=wk;gD0+=gk;}",
-  " else if(gNc>1.5&&eq(q.rgb,gC1.rgb)>.5){gW1+=wk;gD1+=gk;}",
-  " else if(gNc>2.5&&eq(q.rgb,gC2.rgb)>.5){gW2+=wk;gD2+=gk;}",
-  " else if(gNc>3.5&&eq(q.rgb,gC3.rgb)>.5){gW3+=wk;gD3+=gk;}",
-  " else if(gNc<.5){gC0=q;gW0=wk;gD0=gk;gNc=1.;}",
-  " else if(gNc<1.5){gC1=q;gW1=wk;gD1=gk;gNc=2.;}",
-  " else if(gNc<2.5){gC2=q;gW2=wk;gD2=gk;gNc=3.;}",
-  " else if(gNc<3.5){gC3=q;gW3=wk;gD3=gk;gNc=4.;}}",
-  // 主人同旁边另一家(cj)之间的界：离这条界几个点、是哪一级的界(用户 2026-11-16 "边界还是好乱""你这都接不上")。
-  // 以前只同第二大的那一家比：三家挨着的岔口上，第三家那条粗的国界在线宽之内给细的城界顶掉，粗线到岔口前缺一截、线头对不上。
-  // 现在同周围每一家都比一遍：哪条界的线(连它两边的边色)盖得到这一点，就画级别最高的那条；都盖不到才按最近的那条算
-  "float gS,gFo,gSc,gDl,gLv,gFr,gWd;vec2 gG;vec4 gPa,gOa;",
-  "void ed(vec4 cj,float wj,vec2 dj){",
-  " if(eq(cj.rgb,gOa.rgb)>.5)return;",
-  " vec4 pb=texture2D(uF2,fuv(cj));",
-  " float Fb=fl(cj),d=(gS-wj)*uK/max(length(gG-dj),1e-4),",
-  "  lv=abs(bit(gFo,8.)-bit(Fb,8.))>.5?0.:eq(vec3(gPa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(gPa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.,",
-  // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
-  "  fr=lv<.5&&bit(gFo,64.)+bit(Fb,64.)>.5?1.:0.;",
-  // 管理员(没有本朝)：全图战事的攻守两国相接处(uW 是两两交战表，一家属哪一国记在 uF1 的第四个字节；用户 2026-11-16 "战线不是平滑的")
-  " if(uAdm>.5){float ra=floor(texture2D(uF1,fuv(gOa)).a*255.+.5),rb=floor(texture2D(uF1,fuv(cj)).a*255.+.5);",
-  "  if(ra<249.5&&rb<249.5&&abs(ra-rb)>.5&&texture2D(uW,(vec2(ra,rb)+.5)/256.).r>.5){lv=0.;fr=1.;}}",
-  // 选中的那一家同不选中的相接处(白边)单记
-  " if(abs(bit(gFo,32.)-bit(Fb,32.))>.5)gWd=min(gWd,d);",
-  " float ex=lv<2.5?(uFar>.5?1.6:2.6)*uPx+.5:.5*uPx+.5,sc=d<ex?lv-8.+d*.01:d;",
-  " if(sc<gSc){gSc=sc;gDl=d;gLv=lv;gFr=fr;}}",
   "  rk=clamp(B.a+smoothstep(.5,.95,h)*.7,0.,1.);col=mix(col,vec3(.48,.44,.39)*(.85+.3*n2.x),rk*.55);",
   "  fo=smoothstep(.3,.7,C.r+(n2.w-.5)*.55);col=mix(col,col*vec3(.62,.76,.6),fo*.8);",
   "  if(det>.2){",
@@ -3180,6 +3208,26 @@ function g3Blur(v,m,w,h,r){
     if(y>=0){row=y*w;for(x=0;x<w;x++){i=row+x;o[i]=m[i]&&ct[x]>.5?cs[x]/ct[x]:v[i]}}}
   return o;
 }
+// 把几张贴图里的种类(山色、岩、林田旱雪)在陆地之间抹圆：横竖各按 1 4 6 4 1 取平均，成块的种类那一圈直角边成了缓坡，
+// 着色器在缓坡上取一道分界就是圆的(见 G3FS 里取种类那几句)。岸边两个点以内的水也填上旁边陆地的值：取样挪到水边时不带出水色。
+// list 是 [贴图, [要抹的通道]] 的表；回"有值的格子"(再抹一遍时把填上的也当陆地)。只在山川换了一版时算一回
+function g3Soft(list,L,w,h){
+  var n=w*h,t=new Float32Array(n),wt=new Float32Array(n),wv=new Float32Array(n),i,x,y,j,row,w2=w*2,end=n*4;
+  for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wt[i]=L[i-2]+4*L[i-1]+6*L[i]+4*L[i+1]+L[i+2]}}
+  for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wv[i]=wt[i-w2]+4*wt[i-w]+6*wt[i]+4*wt[i+w]+wt[i+w2]}}
+  list.forEach(function(it){
+    var d=it[0];
+    it[1].forEach(function(c){
+      // 这一通道处处一样(多数图没有雪、没有荒漠)：不必抹
+      for(i=c,j=d[c];i<end&&d[i]===j;i+=4);
+      if(i>=end)return;
+      for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;j=i*4+c;t[i]=L[i-2]*d[j-8]+4*L[i-1]*d[j-4]+6*L[i]*d[j]+4*L[i+1]*d[j+4]+L[i+2]*d[j+8]}}
+      for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;if(wv[i]>0)d[i*4+c]=(t[i-w2]+4*t[i-w]+6*t[i]+4*t[i+w]+t[i+w2])/wv[i]+.5}}
+    });
+  });
+  for(i=0;i<n;i++)wv[i]=wv[i]>0||L[i]?1:0;
+  return wv;
+}
 function g3Tex(gl,u,w,h,data,lin){
   var t=G3.tx[u]||(G3.tx[u]=gl.createTexture()),f=lin?gl.LINEAR:gl.NEAREST;
   gl.activeTexture(gl.TEXTURE0+u);gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
@@ -3217,6 +3265,9 @@ function g3Terrain(gl){
     if(L[i]){nx=-(hl(x+1,y)-hl(x-1,y))*S;ny=-(hl(x,y+1)-hl(x,y-1))*S;d=Math.sqrt(nx*nx+ny*ny+1);nx/=d;ny/=d;hb=Hl[i]/1.6}
     B[j]=nx*127.5+127.5;B[j+1]=ny*127.5+127.5;B[j+2]=Math.min(1,hb)*255;
   }
+  // 种类的分界抹圆(用户 2026-11-16 "边界还是好乱"：成块的林地、山色露出直角)；一个地貌点不到两成块地的细图抹两遍
+  var soft=[[A,[0,1,2]],[B,[3]],[C,[0,1,2,3]]],Ls=g3Soft(soft,L,tw,th);
+  if(q<.19)g3Soft(soft,Ls,tw,th);
   g3Tex(gl,0,tw,th,A,true);g3Tex(gl,1,tw,th,B,true);g3Tex(gl,2,tw,th,C,true);
   // 网格：一格顶点管几格地貌(顶点不过 65000)，顶点的高低取四周的平均，只有山抬起来(城和军都不在山上)；由南往北排，近的先画
   var s=Math.max(1,Math.ceil(Math.sqrt(n/60000))),vw,vh;
@@ -3229,26 +3280,6 @@ function g3Terrain(gl){
   }
   for(y=vh-2;y>=0;y--)for(x=0;x<vw-1;x++){var a=y*vw+x;I[t++]=a;I[t++]=a+vw;I[t++]=a+1;I[t++]=a+1;I[t++]=a+vw;I[t++]=a+vw+1}
   gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);
-// 把几张贴图里的种类(山色、岩、林田旱雪)在陆地之间抹圆：横竖各按 1 4 6 4 1 取平均，成块的种类那一圈直角边成了缓坡，
-// 着色器在缓坡上取一道分界就是圆的(见 G3FS 里取种类那几句)。岸边两个点以内的水也填上旁边陆地的值：取样挪到水边时不带出水色。
-// list 是 [贴图, [要抹的通道]] 的表；回"有值的格子"(再抹一遍时把填上的也当陆地)。只在山川换了一版时算一回
-function g3Soft(list,L,w,h){
-  var n=w*h,t=new Float32Array(n),wt=new Float32Array(n),wv=new Float32Array(n),i,x,y,j,row,w2=w*2,end=n*4;
-  for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wt[i]=L[i-2]+4*L[i-1]+6*L[i]+4*L[i+1]+L[i+2]}}
-  for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wv[i]=wt[i-w2]+4*wt[i-w]+6*wt[i]+4*wt[i+w]+wt[i+w2]}}
-  list.forEach(function(it){
-    var d=it[0];
-    it[1].forEach(function(c){
-      // 这一通道处处一样(多数图没有雪、没有荒漠)：不必抹
-      for(i=c,j=d[c];i<end&&d[i]===j;i+=4);
-      if(i>=end)return;
-      for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;j=i*4+c;t[i]=L[i-2]*d[j-8]+4*L[i-1]*d[j-4]+6*L[i]*d[j]+4*L[i+1]*d[j+4]+L[i+2]*d[j+8]}}
-      for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;if(wv[i]>0)d[i*4+c]=(t[i-w2]+4*t[i-w]+6*t[i]+4*t[i+w]+t[i+w2])/wv[i]+.5}}
-    });
-  });
-  for(i=0;i<n;i++)wv[i]=wv[i]>0||L[i]?1:0;
-  return wv;
-}
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I,gl.STATIC_DRAW);
   G3.ni=t;G3.terr=terr;G3.tw=tw;G3.th=th;G3.q=q;
 }
@@ -3358,9 +3389,6 @@ function g3Sel(){return mapSelZone>=0&&map.zLeaf[mapSelZone]>=0?map.shown[map.zL
 function g3Init(){
   if(G3.gl||G3.bad)return G3.gl;
   try{
-  // 种类的分界抹圆(用户 2026-11-16 "边界还是好乱"：成块的林地、山色露出直角)；一个地貌点不到两成块地的细图抹两遍
-  var soft=[[A,[0,1,2]],[B,[3]],[C,[0,1,2,3]]],Ls=g3Soft(soft,L,tw,th);
-  if(q<.19)g3Soft(soft,Ls,tw,th);
     var cv=document.createElement("canvas"),gl=cv.getContext("webgl",{antialias:false,alpha:false,depth:true,stencil:false})||cv.getContext("experimental-webgl");
     var hp=gl&&gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT);
     if(!hp||!hp.precision)throw "no highp";
@@ -3388,6 +3416,8 @@ function g3Draw(cv,x,y,w,h,kc){
   var gl=g3Init();
   if(!gl||Math.max(terr.w,terr.h,map.w,map.h)>G3.max){g3Hide();return false}
   try{
+    // 贴图(山川、归属、选中的那一家)同上回画的是不是一份：是的话底图可能不用重画(见下面的 sig)
+    var same=G3.terr===terr&&G3.nodes===map.nodes&&G3.okey===map.openKey&&G3.sc===(kc>=14)&&G3.grid===map.grid&&G3.sel===g3Sel();
     if(G3.terr!==terr)g3Terrain(gl);
     var sc=kc>=14;
     var sel=g3Sel();
@@ -3455,8 +3485,6 @@ function loadTerrain(){
       else if(j.ts!==head.ts){if(tries<6)setTimeout(function(){get(0,tries+1)},300);else stop();return}
       chunks[p]=atob(j.d);terrProg={p:p+1,n:j.n};
       if(!synced&&state)render();
-    // 贴图(山川、归属、选中的那一家)同上回画的是不是一份：是的话底图可能不用重画(见下面的 sig)
-    var same=G3.terr===terr&&G3.nodes===map.nodes&&G3.okey===map.openKey&&G3.sc===(kc>=14)&&G3.grid===map.grid&&G3.sel===g3Sel();
       if(p+1<j.n){get(p+1,0);return}
       var n=head.w*head.h,data=rleBin(chunks.join(""),n);
       if(head.from){
@@ -3476,30 +3504,49 @@ function loadTerrain(){
   get(0,0);
 }
 // 军牌平滑走(用户 2026-11-16 "士兵的移动并不平滑""是闪过去的")：新军情到了不直接跳过去，从眼下画着的地方沿直线走到新位置，
-// 走的时长取上回到这回隔了多久(0.6~4 秒)，所以一直是连着走、慢一拍；离得太远的(换防、上船、新编)直接落过去
-var ARMY_SNAP=60;
+// 走的时长照军情到手的间隔(同前几回取个平均，再放长一成半)：宁可没走完下一份就到、接着走，不要走完了停着等下一份，
+// 所以一直是连着走、慢一拍；离得太远的(换防、上船、新编)直接落过去。
+// 实时军情(armies.every 为 0：管理员、电报时代)每回轮询都来问一声，报上手上是第几份，没变游戏只回一句(用户 2026-11-16
+// "为什么地图的进程总是会顺一会儿卡一会儿"：以前等状态里的数变了才取，两头的拍子错开，隔 3~6 秒才到一份、不等距，军牌走走停停)；
+// 旧版游戏不认这种问法(armyPost 记成 false)，照旧等数变了整份取
+var ARMY_SNAP=60,armyGot=0,armyGap=0,armyPost=null,armyRequest=null;
+function pollLiveArmies(){
+  if(state&&state.loaded&&!state.vacant&&armies&&armies.every===0&&armyPost!==false&&mapShown())loadArmies();
+}
 function armyPos(a,now){
   if(a.fx==null||now>=a.t1)return a;
   var f=(now-a.t0)/(a.t1-a.t0);if(f<0)f=0;
   return {x:a.fx+(a.x-a.fx)*f,y:a.fy+(a.y-a.fy)*f};
 }
 function loadArmies(){
-  var lastAt=armyAt;armyAt=Date.now();
-  api("GET","/api/armies").then(function(r){
-    if(r.status!==200||!r.json.ready)return;
-    var now=Date.now(),was={},dur=Math.max(600,Math.min(4000,lastAt?now-lastAt:0)),moving=false;
+  if(armyRequest)return;
+  var request=armyRequest={};
+  armyAt=Date.now();
+  var ask=!!armies&&armies.every===0&&armies.stamp!=null&&armyPost!==false;
+  (ask?api("POST","/api/armies",{have:armies.stamp}):api("GET","/api/armies")).then(function(r){
+    if(armyRequest!==request)return;
+    armyRequest=null;
+    if(ask&&(r.status===404||r.status===405)){armyPost=false;loadArmies();return}
+    if(r.status!==200||!r.json.ready||r.json.same)return;
+    var now=Date.now(),was={},gap=armyGot&&now-armyGot<15000?now-armyGot:armyGap||3000,movingUntil=0;
+    armyGap=armyGap?(armyGap+gap)/2:gap;armyGot=now;
+    var dur=Math.max(600,Math.min(6000,Math.max(gap,armyGap)*1.15));
     // 没有编号的(旧版服务器发来的别国之军)对不上前后，不走，直接落过去：不然都挤在同一个空编号上，从同一个点滑出去
-    if(armies&&armies.armies)armies.armies.forEach(function(a){if(a.id!=null)was[a.id]=armyPos(a,now)});
+    if(armies&&armies.armies)armies.armies.forEach(function(a){if(a.id!=null)was[a.id]=a});
     r.json.armies&&r.json.armies.forEach(function(a){
-      var p=a.id!=null?was[a.id]:null;
+      var prev=a.id!=null?was[a.id]:null;
+      if(prev&&prev.x===a.x&&prev.y===a.y&&now<prev.t1){
+        a.fx=prev.fx;a.fy=prev.fy;a.t0=prev.t0;a.t1=prev.t1;movingUntil=Math.max(movingUntil,a.t1);return;
+      }
+      var p=prev?armyPos(prev,now):null;
       if(!p||(p.x===a.x&&p.y===a.y)||Math.abs(p.x-a.x)+Math.abs(p.y-a.y)>ARMY_SNAP)return;
-      a.fx=p.x;a.fy=p.y;a.t0=now;a.t1=now+dur;moving=true;
+      a.fx=p.x;a.fy=p.y;a.t0=now;a.t1=now+dur;movingUntil=Math.max(movingUntil,a.t1);
     });
-    armies=r.json;armies.writOf={};armies.until=moving?now+dur:0;
+    armies=r.json;armies.writOf={};armies.until=movingUntil;
     (armies.writs||[]).forEach(function(w){armies.writOf[w.corps]=w});
     drawMap();
     if(sel&&!aim)showArmies(armies.armies.filter(function(a){return a.own&&sel.indexOf(a.id)>=0}));
-  },function(){});
+  },function(){if(armyRequest===request)armyRequest=null});
 }
 // ───────── 国名铭牌贴合国土 ─────────
 // 用户 2026-11-12 "为什么客户端现在拖动地图铭牌会乱动""不会跟随国家""我希望铭牌的逻辑能像模组的一样, 贴合国土"：
@@ -4184,7 +4231,7 @@ function adminSend(body){
 // 换身份：图、军情、加载都从头来(两个身份看到的图不一样)
 function switchRole(r){
   role=r==="admin"&&adminToken?"admin":"seat";store(ROLE_KEY,role==="admin"?"admin":null);
-  state=null;admSeen=null;admArm=null;closeSheet();
+  state=null;worldClock=null;pollAccepted=++pollIssued;admSeen=null;admArm=null;closeSheet();
   if(picking){picking=false;mapInto(false)}
   resetMap();document.body.classList.remove("admin");
   if(page!=="map")goPage("map");
@@ -4242,7 +4289,7 @@ function renderAdmin(){
     $("me-face").onclick=null;$("me-face").style.cursor="";
   }
   var seats=state.seats||[];
-  $("date").textContent=t("date",state.year,state.month);
+  renderWorldDate();
   // 独立核心上席位不设上限，限的是同时在线(用户 2026-11-16 "席位是无限的, 同时在线是有限制的")；游戏当主机时 limit 才是席位上限
   var onl=seats.filter(function(s){return s.online}).length;
   $("ruler").textContent=SRV?t("adm_bar_srv",seats.length,onl,state.limit):t("adm_bar",seats.length,state.limit,onl);
@@ -4418,6 +4465,36 @@ function adminRealm(r,title){
   if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
   panel(title||who.realm+" · "+who.ruler,[title?who.realm+" · "+who.ruler:null,t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
     seat?t("adm_held",seat.name):t("adm_free")],acts);
+  adminFigs(r.id);
+}
+// 点的那一国的基本数值(用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")：年号、正统、王朝积弊、国库、腐败率、人口、兵力，
+// 名目是游戏那头拼好的(见 TerminalHost.Admin 的 RealmFigures)。点开时要一回，条子开着每 5 秒再要；游戏那头还没算好就隔一会儿再问。
+// 条子换了别的(panel 重画时去掉 data-fig)就不再要、回来的也不往上贴
+var admFigTm=0;
+function adminFigs(id){
+  clearTimeout(admFigTm);
+  var box=$("map-panel"),tries=0;
+  if(!id||box.hidden)return;
+  box.setAttribute("data-fig",id);
+  function mine(){return !box.hidden&&box.getAttribute("data-fig")===id}
+  (function ask(){
+    api("POST","/api/admin/realm",{id:id}).then(function(r){
+      if(!mine())return;
+      if(r.status===200&&r.json.ready){
+        var old=box.querySelector(".figs"),figs=r.json.figs||[];
+        if(old)box.removeChild(old);
+        if(figs.length){
+          var d=el("div","sub figs");
+          figs.forEach(function(f,i){
+            if(i)d.appendChild(document.createTextNode(" · "));
+            d.appendChild(document.createTextNode(f[0]+" "));d.appendChild(el("b",null,typeof f[1]==="number"?short(f[1]):f[1]));
+          });
+          box.insertBefore(d,box.querySelector("button.act"));
+        }
+        admFigTm=setTimeout(ask,5000);
+      }else if(++tries<12)admFigTm=setTimeout(ask,700);
+    },function(){if(mine()&&++tries<12)admFigTm=setTimeout(ask,1500)});
+  })();
 }
 // 点图上的军：上帝视角，番号、兵数照实
 function adminArmies(list){
@@ -4475,36 +4552,6 @@ function badge(id,n){var b=$(id);b.hidden=!n;b.textContent=n>99?"99+":n}
 // 抬头有多高：横着拿时左边那一栏的内容从它底下排起
 function fit(){
   var root=document.documentElement.style,before=root.getPropertyValue("--barh")+root.getPropertyValue("--navh");
-  adminFigs(r.id);
-}
-// 点的那一国的基本数值(用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")：年号、正统、王朝积弊、国库、腐败率、人口、兵力，
-// 名目是游戏那头拼好的(见 TerminalHost.Admin 的 RealmFigures)。点开时要一回，条子开着每 5 秒再要；游戏那头还没算好就隔一会儿再问。
-// 条子换了别的(panel 重画时去掉 data-fig)就不再要、回来的也不往上贴
-var admFigTm=0;
-function adminFigs(id){
-  clearTimeout(admFigTm);
-  var box=$("map-panel"),tries=0;
-  if(!id||box.hidden)return;
-  box.setAttribute("data-fig",id);
-  function mine(){return !box.hidden&&box.getAttribute("data-fig")===id}
-  (function ask(){
-    api("POST","/api/admin/realm",{id:id}).then(function(r){
-      if(!mine())return;
-      if(r.status===200&&r.json.ready){
-        var old=box.querySelector(".figs"),figs=r.json.figs||[];
-        if(old)box.removeChild(old);
-        if(figs.length){
-          var d=el("div","sub figs");
-          figs.forEach(function(f,i){
-            if(i)d.appendChild(document.createTextNode(" · "));
-            d.appendChild(document.createTextNode(f[0]+" "));d.appendChild(el("b",null,typeof f[1]==="number"?short(f[1]):f[1]));
-          });
-          box.insertBefore(d,box.querySelector("button.act"));
-        }
-        admFigTm=setTimeout(ask,5000);
-      }else if(++tries<12)admFigTm=setTimeout(ask,700);
-    },function(){if(mine()&&++tries<12)admFigTm=setTimeout(ask,1500)});
-  })();
   root.setProperty("--barh",$("bar").offsetHeight+"px");root.setProperty("--navh",$("nav").offsetHeight+"px");
   // 页签栏的高矮变了(头一回量出来、转了屏)：图跟着重画
   if(before!==root.getPropertyValue("--barh")+root.getPropertyValue("--navh")&&map&&map.win)drawMap();
@@ -4860,7 +4907,8 @@ $("sheet-close").onclick=closeSheet;$("sheet-back").onclick=closeSheet;
 applyLang();
 hashAdminGo();
 poll();
-setInterval(function(){if(!document.hidden)poll()},3000);
+setInterval(function(){if(!document.hidden){pollLiveArmies();poll()}},PollMilliseconds);
+setInterval(function(){if(!document.hidden&&worldClock)renderWorldDate()},125);
 })();
 </script>
 </body>

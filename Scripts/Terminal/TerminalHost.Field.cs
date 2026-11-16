@@ -30,7 +30,32 @@ public static partial class TerminalHost
 {
     // TerrainPart：山川一片多大(RLE 后的字节)。经中转出入境时线路只有十来 KB/s，一片小些才能在中转等得及的时候里送到，取不到也只重取这一片
     private const int TerrainMaxWidth = 1024, TerrainMaxHeight = 768, TerrainPart = 48 * 1024, MaxMapCities = 1500, MaxArmies = 160, MaxWrits = 200;
-    private const float TerrainTick = 0.25f, TerrainSeconds = 120f, LiveArmySeconds = 3f;
+    // 实时军情(管理员、电报时代)多久看一回：要比手机问的间隔(3 秒)短一截，手机每回来问都有新的一份，到手才等距
+    // (用户 2026-11-16 "为什么地图的进程总是会顺一会儿卡一会儿"：以前也是 3 秒，两边拍子错开，军情隔 3~6 秒才到一份，军牌走走停停)
+    private const float TerrainTick = 0.25f, TerrainSeconds = 120f, LiveArmySeconds = 1.5f;
+
+    internal sealed class ArmyReport
+    {
+        internal readonly int Stamp;
+        internal readonly string Body;
+
+        internal ArmyReport(int stamp, JObject report)
+        {
+            Stamp = stamp;
+            report["stamp"] = stamp;
+            Body = report.ToString(Newtonsoft.Json.Formatting.None);
+        }
+    }
+
+    // 手机报上它手上是第几份军情(have)：没变只回一句，不重发整份。实时军情手机每回轮询都来问(见网页 loadArmies)，不等状态里的数变
+    private static TerminalServer.Reply ArmiesReply(Seat seat, string body)
+    {
+        ArmyReport report = seat.ArmySnapshot;
+        if (report == null) return TerminalServer.Reply.Json("{\"ready\":false}");
+        return int.TryParse(Field(body, "have"), out int have) && have == report.Stamp
+            ? TerminalServer.Reply.Json("{\"ready\":true,\"same\":true}")
+            : TerminalServer.Reply.Json(report.Body);
+    }
     // 地貌里的记号：这一格在迷雾里(颜色号到不了这么大)
     private const byte NoTerrain = 255, KeepTerrain = 254;
 
@@ -234,6 +259,12 @@ public static partial class TerminalHost
                 int at = y + d;
                 if (at >= 0 && at < height) sum += rows[at * width + x];
             }
+            for (int dy = -2; dy <= 2; dy += 4)
+            for (int dx = -2; dx <= 2; dx += 4)
+            {
+                int cx = x + dx, cy = y + dy;
+                if (cx >= 0 && cx < width && cy >= 0 && cy < height) sum -= cells[cy * width + cx];
+            }
             sums[y * width + x] = (byte)sum;
         }
         return sums;
@@ -246,12 +277,6 @@ public static partial class TerminalHost
     // 这一块(左上角 x0、自上而下 step 行，地块的 y 朝上)里的水够横穿一道就给一格水(取它的颜色、种类)，不够给 null
     private static WorldTile BlockWater(MapBox world, int x0, int yTop, int step)
     {
-            for (int dy = -2; dy <= 2; dy += 4)
-            for (int dx = -2; dx <= 2; dx += 4)
-            {
-                int cx = x + dx, cy = y + dy;
-                if (cx >= 0 && cx < width && cy >= 0 && cy < height) sum -= cells[cy * width + cx];
-            }
         WorldTile first = null;
         int count = 0;
         for (int dy = 0; dy < step; dy++)
@@ -457,6 +482,7 @@ public static partial class TerminalHost
         bool due = seat.ArmySeen == null || (every == 0 ? now >= seat.NextArmy : month - seat.ArmyMonth >= every || month < seat.ArmyMonth);
         if (due && (seat.Watched || seat.ArmySeen == null))
         {
+            using var profile = FrameProfiler.Measure("终端·席位军情");
             JArray seen = SeeArmies(seat);
             string text = seen.ToString(Newtonsoft.Json.Formatting.None);
             // 有电报时几秒看一回：各军都没动就不算新军情，手机不用再取
@@ -478,12 +504,11 @@ public static partial class TerminalHost
             foreach (CorpsData corps in list)
                 if (CorpsDirectOrders.Target(seat.Realm, corps) is City goal)
                     orders[corps.id.ToString()] = new JObject { ["id"] = goal.getID().ToString(), ["name"] = goal.data.name };
-        seat.ArmyStamp++;
-        seat.ArmyJson = new JObject
+        seat.ArmySnapshot = new ArmyReport(++seat.ArmyStamp, new JObject
         {
-            ["ready"] = true, ["stamp"] = seat.ArmyStamp, ["at"] = seat.ArmyMonth, ["every"] = every, ["armies"] = seat.ArmySeen,
+            ["ready"] = true, ["at"] = seat.ArmyMonth, ["every"] = every, ["armies"] = seat.ArmySeen,
             ["writs"] = writs, ["orders"] = orders
-        }.ToString(Newtonsoft.Json.Formatting.None);
+        });
     }
 
     // 军队条子上的去向与预计几个月到(用户 2026-11-16 "要是能看到这些士兵的当前任务和预计到达时间就好了")：

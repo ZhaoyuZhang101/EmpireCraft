@@ -134,6 +134,8 @@ public static partial class TerminalHost
         internal float NextDecisionOptions;
         internal long LastClientTicks;
         internal float NextState, NextSight;
+        // 上回备总图时战线动到第几回(FrontSystem.TerritoryStamp)
+        internal int FrontSeen;
         // 舆图(见 TerminalHost.Field.cs)：上回备的总图(格、各国在图上的编号与几等)、手机要的细节那一片、
         // 上回报来的军情(哪个月的)、还在路上的手令
         internal byte[] MapCells;
@@ -142,7 +144,8 @@ public static partial class TerminalHost
         internal int[] SlotTier = new int[0];
         // 图上哪些编号是本朝的行政区、羁縻、封国(帝国之主才有，见 BuildMap)
         internal bool[] SlotProv = new bool[0];
-        internal volatile string ArmyJson;
+        internal volatile ArmyReport ArmySnapshot;
+        internal string ArmyJson => ArmySnapshot?.Body;
         // 探路的人走过、买来的舆图上画着的地方(总图的格，见 TerminalHost.Survey)：不在眼界里也看得见
         internal readonly HashSet<int> Charted = new();
         internal int ChartedW, ChartedH;
@@ -210,7 +213,8 @@ public static partial class TerminalHost
             MapJson = null;
             MapCells = null;
             Slots.Clear();
-            ArmyJson = MapBody = null;
+            ArmySnapshot = null;
+            MapBody = null;
             Charted.Clear();
             TerrainParts = null;
             TerrainBase = null;
@@ -247,6 +251,7 @@ public static partial class TerminalHost
     private static DateTime _pageStamp;
     private static float _nextTick, _retryAt;
     private static long _seq;
+    private static int _clockWorld;
     private static volatile bool _anyRuler;
     // 领着君主的席位里有没有手机还连着的(定世界放不放慢，见 SpeedFactor)
     private static volatile bool _anyWatching;
@@ -432,6 +437,7 @@ public static partial class TerminalHost
     // 换世界、读档：各席位所领的君主、奏报都清掉(席位留着)
     public static void ResetWorldState()
     {
+        _clockWorld++;
         foreach (Seat seat in SeatByToken.Values)
         {
             seat.Vacate("none");
@@ -543,7 +549,7 @@ public static partial class TerminalHost
                 // 地图取样费些工夫：一秒里至多给一个席位算
                 // 没君主的席位也给一张全图：在图上点国选人(用户 2026-11-12 "选人界面可不可以直接在地图选, 不要给列表")
                 // 同时在线制下(独立服务器)账号可以很多：离线的席位不算图，回来了再算
-                if (!mapped && now >= seat.NextSight && (watched || !TerminalPairing.ConcurrentMode))
+                if (!mapped && SightDue(seat, now, watched) && (watched || !TerminalPairing.ConcurrentMode))
                 {
                     seat.NextSight = now + (watched ? SightSeconds : IdleSightSeconds);
                     BuildMap(seat);
@@ -553,7 +559,7 @@ public static partial class TerminalHost
                 if (now >= seat.NextState && (watched || seat.StateJson == null))
                 {
                     seat.NextState = now + StateSeconds;
-                    JObject built = BuildState(seat);
+                    JObject built = BuildState(seat, now);
                     // 流速之议(见 TerminalHost.Speed)：各席位都看得到
                     AddSpeed(built, seat);
                     // 军情有没有新的(见 TerminalHost.Field)：手机见这个数变了才去取
@@ -643,6 +649,7 @@ public static partial class TerminalHost
         if (method == "GET" && path == "/api/state") return TerminalServer.Reply.Json(mine.StateJson ?? "{\"loaded\":false}");
         if (method == "GET" && path == "/api/map") return TerminalServer.Reply.Json(mine.MapJson ?? "{\"ready\":false}");
         if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(mine.ArmyJson ?? "{\"ready\":false}");
+        if (method == "POST" && path == "/api/armies") return ArmiesReply(mine, body);
         if (method == "POST" && path == "/api/terrain") return TerrainReply(mine, body);
         if (method == "POST" && path == "/api/annals") return AnnalsReply(mine);
         if (method == "POST" && path == "/api/choose")
@@ -1071,13 +1078,16 @@ public static partial class TerminalHost
             out vague);
 
     // ───────── 状态 ─────────
-    private static JObject BuildState(Seat seat)
+    private static JArray WorldClock(float now) =>
+        new JArray(_clockWorld, now, World.world.getCurWorldTime() / Date.getMonthTime());
+
+    private static JObject BuildState(Seat seat, float now)
     {
         var state = new JObject
         {
             ["loaded"] = true, ["v"] = Version, ["lang"] = LocalizedTextManager.instance?.language ?? "en", ["seat"] = SeatLabel(seat),
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent,
-            ["paused"] = global::Config.paused, ["page"] = PageVersion()
+            ["paused"] = global::Config.paused, ["page"] = PageVersion(), ["clock"] = WorldClock(now)
         };
         if (seat.Ruler == null)
         {
@@ -1397,9 +1407,17 @@ public static partial class TerminalHost
     //   · 各国属哪个帝国、哪个天下：手机上分层级看(用户 "地图可以像模组一样分层级")。
     // 谁看得见按眼界定：本国、同一帝国、交战国、接壤(隔 BorderGap 块水或无主地也算)的都知道，
     // 眼界到"通达"档时使节到得了的也知道、通达层里有一点往来的算传闻；看得见的国四周 FogRadius 块以内的山川也看得见，其余是迷雾
+    // 战线动了(用户 2026-11-16 "而且战线也不是实时推进的")：有人看着的图不等满 SightSeconds，隔 FrontSightSeconds 就重算一回，
+    // 占领一片片推进时手机上跟得上；没打仗、没人看着的照旧
+    private const float FrontSightSeconds = 5f;
+
+    private static bool SightDue(Seat seat, float now, bool watched) =>
+        now >= seat.NextSight || watched && seat.FrontSeen != FrontSystem.TerritoryStamp && now >= seat.NextSight - (SightSeconds - FrontSightSeconds);
+
     private static void BuildMap(Seat seat)
     {
         Kingdom realm = seat.Realm;
+        seat.FrontSeen = FrontSystem.TerritoryStamp;
         ZoneCalculator calc = World.world.zone_calculator;
         int width = calc.zones_total_x, height = calc.zones_total_y;
         if (width < 1 || height < 1) return;
@@ -1444,6 +1462,36 @@ public static partial class TerminalHost
                 cities.Add(city);
             }
             cityAt[at] = cityIdx;
+        }
+        // 被敌军占着的地算占领方的(同游戏里的图，见 SmoothBorders.RealMetaOf)：以前只看城归谁，一座城被一块块打下来在手机上看不出，
+        // 要等整城陷落才一下子换色。城号不动(那块地还是那座城的)；beneath 记下城主，占领方这部手机不认得时照城主画
+        var beneath = new Dictionary<int, int>();
+        for (int i = 0, known = cities.Count; i < known; i++)
+        {
+            City city = cities[i];
+            Dictionary<long, List<int>> occupied = city.GetOrCreate().OccupiedStatus;
+            if (occupied == null || occupied.Count == 0 || city.kingdom == null) continue;
+            foreach (KeyValuePair<long, List<int>> pair in occupied)
+            {
+                if (pair.Value == null || pair.Value.Count == 0) continue;
+                Kingdom occupier = World.world.kingdoms.get(pair.Key);
+                if (occupier?.data == null || occupier.isRekt() || occupier.wild || occupier == city.kingdom ||
+                    occupier.isInWarOnSameSide(city.kingdom) || !FrontSystem.Hostile(city.kingdom, occupier)) continue;
+                if (!kingdomIndex.TryGetValue(occupier.getID(), out int occupierAt))
+                {
+                    kingdomIndex[occupier.getID()] = occupierAt = kingdoms.Count;
+                    kingdoms.Add(occupier);
+                }
+                foreach (int zoneId in pair.Value)
+                {
+                    TileZone zone = CorpsSystem.ZoneById(zoneId);
+                    if (zone == null || zone.x < 0 || zone.y < 0 || zone.x >= width || zone.y >= height) continue;
+                    int at = zone.y * width + zone.x;
+                    if (cityAt[at] != i || owner[at] < 0) continue;
+                    beneath[at] = owner[at];
+                    owner[at] = occupierAt;
+                }
+            }
         }
         // 没君主的席位(选人时)：realm 为空，天下各国都算已知，不加迷雾
         int self = realm != null && kingdomIndex.TryGetValue(realm.getID(), out int found) ? found : -1;
@@ -1615,6 +1663,7 @@ public static partial class TerminalHost
         for (int x = 0; x < width; x++)
         {
             int from = y * width + x, to = (height - 1 - y) * width + x, who = owner[from];
+            if (who >= 0 && slot[who] < 0 && beneath.TryGetValue(from, out int holder)) who = holder;
             reach[to] = -1;
             if (who == -2) cells[to] = TerminalIntel.Water;
             else if (who < 0 || slot[who] < 0) cells[to] = TerminalIntel.Wild;

@@ -88,6 +88,9 @@ public static partial class FrontSystem
 
     public static bool EngagedLastMonth(CorpsData corps) => corps != null && Engaged.Contains(corps.id);
 
+    // 战线动过几回：哪个月有交战(地块可能易手)就加一。手机舆图见它变了就提早重发总图，不等满平时的间隔(见 TerminalHost.SightDue)
+    public static int TerritoryStamp { get; private set; }
+
     public static void ResetWorldState()
     {
         Battles.Clear();
@@ -610,6 +613,7 @@ public static partial class FrontSystem
         SwapFronts();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, MonthLandingSectors);
+        if (Engaged.Count > 0) TerritoryStamp++;
         // 孤块归位：战线后方断了后路的占领区、被围住的残片各归其主，国界保持一条线(见 FrontLineCleanup)
         using (FrameProfiler.Measure("战线·孤块归位")) FrontLineCleanup.Monthly();
         PruneBattles(now);

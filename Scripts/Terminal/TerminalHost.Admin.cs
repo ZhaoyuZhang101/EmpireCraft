@@ -85,12 +85,13 @@ public static partial class TerminalHost
         if (method == "GET" && path == "/api/state") return TerminalServer.Reply.Json(god.StateJson ?? "{\"loaded\":false,\"admin\":true}");
         if (method == "GET" && path == "/api/map") return TerminalServer.Reply.Json(god.MapJson ?? "{\"ready\":false}");
         if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(god.ArmyJson ?? "{\"ready\":false}");
+        if (method == "POST" && path == "/api/armies") return ArmiesReply(god, body);
         if (method == "POST" && path == "/api/terrain") return TerrainReply(god, body);
         // 世界历史：编年、历朝(见 TerminalHost.History)
         if (method == "POST" && path == "/api/admin/history") return HistoryReply(body);
-        if (method == "POST" && path == "/api/admin")
         // 点图上的国：它的基本数值(见 RealmFigures)
         if (method == "POST" && path == "/api/admin/realm") return RealmFiguresReply(body);
+        if (method == "POST" && path == "/api/admin")
         {
             string id = Field(body, "id"), target = Field(body, "target"), choice = Field(body, "choice");
             if (id == null || !AdminIds.Contains(id) || target?.Length > 40 || choice?.Length > 60)
@@ -113,8 +114,8 @@ public static partial class TerminalHost
     private static void RunAdmins(bool ready, float now, ref bool mapped)
     {
         if (ready && AdminByToken.Values.Any(god => god.Watched)) RunHistory(now);
-        foreach (Seat god in AdminByToken.Values)
         if (ready) RunRealmFigures();
+        foreach (Seat god in AdminByToken.Values)
         {
             if (!ready)
             {
@@ -127,7 +128,7 @@ public static partial class TerminalHost
             if (!watched && god.StateJson != null && god.MapJson != null) continue;
             try
             {
-                if (!mapped && now >= god.NextSight)
+                if (!mapped && SightDue(god, now, watched))
                 {
                     god.NextSight = now + (watched ? SightSeconds : IdleSightSeconds);
                     BuildMap(god);
@@ -137,7 +138,7 @@ public static partial class TerminalHost
                 if (now >= god.NextState || god.StateJson == null)
                 {
                     god.NextState = now + StateSeconds;
-                    god.StateJson = AdminState(god).ToString(Newtonsoft.Json.Formatting.None);
+                    god.StateJson = AdminState(god, now).ToString(Newtonsoft.Json.Formatting.None);
                 }
             }
             catch (Exception exception)
@@ -147,7 +148,6 @@ public static partial class TerminalHost
         }
     }
 
-    // 各国的军都在图上，照实兵数(上帝视角不打折扣)；几秒看一回，没动就不算新军情
     // ───────── 点图上的国：基本数值 ─────────
     // 管理员点图上的国，条子里列它的年号、正统、王朝积弊、国库、腐败率、人口、兵力，照实数
     // (用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")。年号、正统、王朝积弊是它所在帝国的(行政区跟着中央)，
@@ -214,9 +214,11 @@ public static partial class TerminalHost
         rows.Add(new JArray(LM.Get("empire_rail_warriors"), kingdom.countTotalWarriors()));
     }
 
+    // 各国的军都在图上，照实兵数(上帝视角不打折扣)；几秒看一回，没动就不算新军情
     private static void GodArmies(Seat god, float now)
     {
         if (god.MapCells == null || now < god.NextArmy && god.ArmyJson != null) return;
+        using var profile = FrameProfiler.Measure("终端·全图军情");
         god.NextArmy = now + LiveArmySeconds;
         var armies = new JArray();
         foreach (Kingdom kingdom in World.world.kingdoms)
@@ -252,15 +254,14 @@ public static partial class TerminalHost
         string text = armies.ToString(Newtonsoft.Json.Formatting.None);
         if (god.ArmyJson != null && text == god.ArmySeenText) return;
         god.ArmySeenText = text;
-        god.ArmyStamp++;
-        god.ArmyJson = new JObject
+        god.ArmySnapshot = new ArmyReport(++god.ArmyStamp, new JObject
         {
-            ["ready"] = true, ["stamp"] = god.ArmyStamp, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies,
+            ["ready"] = true, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies,
             ["writs"] = new JArray(), ["orders"] = new JObject()
-        }.ToString(Newtonsoft.Json.Formatting.None);
+        });
     }
 
-    private static JObject AdminState(Seat god)
+    private static JObject AdminState(Seat god, float now)
     {
         var state = new JObject
         {
@@ -268,6 +269,7 @@ public static partial class TerminalHost
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent, ["slowed"] = Slowed,
             ["paused"] = global::Config.paused, ["page"] = PageVersion(), ["mapStamp"] = god.MapStamp, ["armyStamp"] = god.ArmyStamp,
             ["monthNo"] = MonthNow(), ["code"] = Code, ["limit"] = TerminalPairing.Limit, ["maxLimit"] = TerminalPairing.MaxLimit,
+            ["clock"] = WorldClock(now),
             ["admins"] = AdminCount,
             ["room"] = new JObject
             {
