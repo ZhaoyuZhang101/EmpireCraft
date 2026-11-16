@@ -1,4 +1,7 @@
-// 打包便携版(打包便携版.bat 调它)：编服务器核心 → 收拾核心要读的模组数据 → electron-builder 打成一个 exe。
+// 打包编辑器(打包安装程序.bat、打包便携版.bat 调它)：编服务器核心 → 收拾核心要读的模组数据 → electron-builder 打包。
+//   node pack-editor.js nsis      安装程序：装到自己挑的位置，加开始菜单和桌面图标，之后打开就快(用户 2026-11-16
+//                                 "便携版打开的太慢了有没有安装程序""让我安装在指定的地方并且添加到菜单或者桌面去")
+//   node pack-editor.js portable  便携版：一个 exe 不用装，但每回打开都要先把自己解到临时目录，慢
 // 打出来的编辑器自带核心和数据(见 package.json 的 extraResources、core-launcher.js)：发给别人，不装游戏、不装模组也能把核心开起来。
 // 三步合成一条总进度，一行实时刷新(用户 2026-11-16 "我需要打包的进度条")：
 //   · 拷数据按文件数算，是实打实的进度；
@@ -17,10 +20,22 @@ const logFile = path.join(distDir, "pack.log");
 const timesFile = path.join(distDir, "pack-times.json");
 const version = JSON.parse(fs.readFileSync(path.join(here, "package.json"), "utf8")).version;
 
+// 打哪一种：安装程序(nsis)还是便携版(portable)
+const kinds = {
+  nsis: { label: "安装程序", file: `EmpireCraft Editor Setup ${version}.exe`, last: "(压成安装程序)" },
+  portable: { label: "便携版", file: `EmpireCraft Editor ${version}.exe`, last: "(压成一个 exe)" }
+};
+const kindName = (process.argv[2] || "nsis").toLowerCase();
+const kind = kinds[kindName];
+if (!kind) {
+  console.log(`不认得的打包种类「${process.argv[2]}」：用 nsis(安装程序) 或 portable(便携版)。`);
+  process.exit(1);
+}
+
 const stages = [
   { key: "core", name: "编译服务器核心", weight: 30, estimate: 45 },
   { key: "data", name: "收拾核心数据", weight: 5, estimate: 3 },
-  { key: "pack", name: "打成便携版", weight: 65, estimate: 120 }
+  { key: "pack-" + kindName, name: "打成" + kind.label, weight: 65, estimate: 120 }
 ];
 
 // ---------- 进度条 ----------
@@ -148,11 +163,12 @@ async function main() {
   const times = {};
   try {
     const last = JSON.parse(fs.readFileSync(timesFile, "utf8"));
+    Object.assign(times, last);
     for (const stage of stages) if (last[stage.key] > 0) stage.estimate = last[stage.key];
   } catch {
     // 头一回打包，用默认的估计
   }
-  console.log(`帝国盒子编辑器 ${version} · 便携版(自带服务器核心)`);
+  console.log(`帝国盒子编辑器 ${version} · ${kind.label}(自带服务器核心)`);
   if (tty) timer = setInterval(draw, 200);
 
   enter(0, true);
@@ -168,12 +184,12 @@ async function main() {
 
   enter(2, true);
   // electron-builder 报到哪一步就至少走到哪儿；最费时间的是最后把所有东西压进一个 exe
-  await run(process.execPath, [path.join(here, "node_modules", "electron-builder", "cli.js"), "--win", "portable"], here, line => {
+  await run(process.execPath, [path.join(here, "node_modules", "electron-builder", "cli.js"), "--win", kindName, "--x64"], here, line => {
     if (/packaging/.test(line)) { fraction = Math.max(fraction, 0.1); detail = "(整理文件)"; }
-    else if (/building\s+target=portable/.test(line)) { fraction = Math.max(fraction, 0.3); detail = "(压成一个 exe)"; }
+    else if (/building\s+target=/.test(line)) { fraction = Math.max(fraction, 0.3); detail = kind.last; }
   });
-  const output = path.join(distDir, `EmpireCraft Editor ${version}.exe`);
-  if (!fs.existsSync(output)) throw new Error(`没找到打出来的便携版：${output}`);
+  const output = path.join(distDir, kind.file);
+  if (!fs.existsSync(output)) throw new Error(`没找到打出来的${kind.label}：${output}`);
   leave(times);
 
   clearInterval(timer);
@@ -181,7 +197,7 @@ async function main() {
   fs.writeFileSync(timesFile, JSON.stringify(times), "utf8");
   const mb = bytes => (bytes / 1048576).toFixed(1) + " MB";
   console.log(`打好了，用时 ${clock(Date.now() - began)}`);
-  console.log(`  便携版：${output} (${mb(fs.statSync(output).size)})`);
+  console.log(`  ${kind.label}：${output} (${mb(fs.statSync(output).size)})`);
   console.log(`  里头带着：服务器核心 + 核心数据 ${data.count} 个文件(${mb(data.bytes)})`);
 }
 

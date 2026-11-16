@@ -68,8 +68,8 @@ async function openCoreDialog() {
     const save = s.save
       ? `第 ${s.save.year} 年 ${s.save.month} 月 · 存于 ${esc(coreWhen(s.save.saved))}`
       : "还没有存档";
-    // 这份核心是哪儿来的：编辑器自带的排最前，其次才是联调目录、模组包里的
-    const from = { editor: "编辑器自带", pointer: "联调目录", mod: "模组包自带", download: "以前下载的", dev: "游戏目录旁" }[s.source] || "";
+    // 这份核心是哪儿来的：编辑器自带的排最前，其次才是模组包里的
+    const from = { editor: "编辑器自带", mod: "模组包自带", download: "以前下载的", dev: "游戏目录旁" }[s.source] || "";
     box.innerHTML =
       `<h3 style="margin:0 0 8px;display:flex;align-items:center;gap:8px">${ico("iconKingdom")}服务器核心</h3>` +
       row("iconOptions", "程序", s.exe ? (from ? `<b>${from}</b> · ` : "") + esc(s.exe)
@@ -112,10 +112,10 @@ async function refreshRootLabel() {
   if (!el) return;
   if (!api) { el.textContent = "浏览器模式：无法读写文件，请用 启动桌面版.bat"; return; }
   const r = await api.getModRoot();
-  el.textContent = r.path ? `模组目录：${r.path}` : (r.error || "未找到模组目录");
+  el.textContent = r.path ? (r.own ? `没装模组，用编辑器自带的数据：${r.path}` : `模组目录：${r.path}`) : (r.error || "未找到模组目录");
   el.title = el.textContent;
-  // 没有模组目录的电脑(只拿到一个便携版的人)：编辑不了东西，把「服务器核心」直接摆出来，一回就够
-  if (!r.path && api.core) {
+  // 没装模组的电脑(只拿到编辑器的人)：多半是来开核心的，把「服务器核心」直接摆出来，一回就够
+  if ((!r.path || r.own) && api.core) {
     let shown = false;
     try {
       shown = sessionStorage.getItem("coreDialogShown") === "1";

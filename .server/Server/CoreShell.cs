@@ -404,11 +404,15 @@ internal static class CoreShell
         };
     }
 
-    // 图标用终端网页的那张(Terminal/icon-192.png)，PNG 直接交给系统缩放；读不到用系统默认的程序图标
+    // 图标先用程序自己带的那张(工程里的 ApplicationIcon，各种尺寸都有，资源号 32512)；程序里没带的(旧的发布方式)
+    // 用终端网页的那张(Terminal/icon-192.png)，PNG 直接交给系统缩放；都没有才用系统默认的程序图标
     private static void LoadIcons()
     {
+        IntPtr module = GetModuleHandleW(null);
+        _iconBig = LoadImageW(module, new IntPtr(32512), 1, GetSystemMetrics(11), GetSystemMetrics(12), 0);
+        _iconSmall = LoadImageW(module, new IntPtr(32512), 1, GetSystemMetrics(49), GetSystemMetrics(50), 0);
         string png = Path.Combine(Program.DataRoot ?? "", "Terminal", "icon-192.png");
-        if (File.Exists(png))
+        if ((_iconBig == IntPtr.Zero || _iconSmall == IntPtr.Zero) && File.Exists(png))
         {
             byte[] bytes = File.ReadAllBytes(png);
             _iconBig = CreateIconFromResourceEx(bytes, (uint)bytes.Length, true, 0x00030000, GetSystemMetrics(11), GetSystemMetrics(12), 0);
@@ -546,6 +550,7 @@ internal static class CoreShell
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern IntPtr LoadCursorW(IntPtr instance, IntPtr name);
     [DllImport("user32.dll")] private static extern IntPtr LoadIconW(IntPtr instance, IntPtr name);
+    [DllImport("user32.dll")] private static extern IntPtr LoadImageW(IntPtr instance, IntPtr name, uint type, int width, int height, uint flags);
     [DllImport("user32.dll")]
     private static extern IntPtr CreateIconFromResourceEx(byte[] bits, uint size, bool icon, uint version, int width, int height, uint flags);
     [DllImport("user32.dll")] private static extern IntPtr CreatePopupMenu();

@@ -2,7 +2,7 @@
 // "然后通过核心载入存档""我的建议是用政体编辑器打开""然后政体编辑器可以加一个将核心图标加入到桌面的选项")。
 // 核心是游戏里「用服务器核心」用的同一个程序、同一个存放目录(见 Scripts/Terminal/CoreHost.cs)：
 //   · 程序：打包好的编辑器(便携版)自带一份，连同核心要读的模组数据(见 locate、packagedData)——没装游戏、没有模组的电脑
-//     凭一个便携版就能开核心；其次是 core.path 指的联调目录、模组包里自带的那份(<模组目录>/RegimeEditor/core/win-x64，
+//     凭编辑器自己就能开核心；其次是模组包里自带的那份(<模组目录>/RegimeEditor/core/win-x64，
 //     一键发布时打进去的)。自带的都先拷到 <游戏数据目录>/EmpireCraftCore/bin/ 下再跑(不占着原处的文件)；
 //   · 存放目录：<游戏数据目录>/EmpireCraftCore/state，里头 save/ 是核心的存档(游戏交给核心的那一局)，有就接着跑；
 // 这里不带 --quiet 拉起，所以核心自己出窗口和托盘图标(见 .server/Server/CoreShell.cs)；带 --no-console，核心是控制台程序，
@@ -78,7 +78,6 @@ function packagedCoreDir() {
 
 // 找核心，连同它是哪儿来的(界面上标出来)。先后：
 //   editor   打包好的编辑器自带的(用户 2026-11-16 "服务器核心应该内置到政体编辑器里面去")：拷到 bin/editor 再跑；
-//   pointer  core.path 指的目录(开发联调)；
 //   mod      模组包里自带的(<模组目录>/RegimeEditor/core/win-x64，一键发布时打进去的)：拷到 bin/current，
 //            游戏每回启动也把它对一遍(见 CoreHost.InstallBundled)；
 //   download 以前下载到 bin/<版本> 的；
@@ -87,13 +86,8 @@ function locate(modRoot, install = false) {
   const root = coreRoot();
   const packaged = bundledExe(packagedCoreDir(), "editor", install);
   if (packaged) return { exe: packaged, source: "editor" };
-  try {
-    const pointer = fs.readFileSync(path.join(root, "core.path"), "utf8").replace(/^﻿/, "").trim();
-    const found = exeIn(pointer);
-    if (found) return { exe: found, source: "pointer" };
-  } catch {
-    // 没有 core.path
-  }
+  // core.path(游戏里联调用的指针，见 CoreHost.cs)这里不认：编辑器自带核心以后用不着它，
+  // 还会把人引到别的目录去(用户 2026-11-16 "我不需要这个目录, 因为政体编辑器不是自带核心了吗")
   const bundled = bundledExe(modRoot ? path.join(modRoot, "RegimeEditor", "core", "win-x64") : null, "current", install);
   if (bundled) return { exe: bundled, source: "mod" };
   // 下载下来的各版本里挑最新的
@@ -141,7 +135,12 @@ function packagedData(install) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.rmSync(stage, { recursive: true, force: true });
     fs.cpSync(source, stage, { recursive: true });
-    fs.rmSync(target, { recursive: true, force: true });
+    // 没有模组目录的电脑上，编辑器改的就是这份数据(见 main.js 的 resolveModRoot)：换新版数据时把旧的留一份在 data.old，
+    // 改过的政体、文化还找得回来
+    if (fs.existsSync(target)) {
+      fs.rmSync(target + ".old", { recursive: true, force: true });
+      fs.renameSync(target, target + ".old");
+    }
     fs.renameSync(stage, target);
     return target;
   } catch {
@@ -268,4 +267,4 @@ function shortcut(modRoot) {
   };
 }
 
-module.exports = { status, launch, shortcut, stateDir };
+module.exports = { status, launch, shortcut, stateDir, ownData: () => packagedData(true) };

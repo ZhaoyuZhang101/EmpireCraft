@@ -60,7 +60,16 @@ public static class Program
 
     public static int Main(string[] args)
     {
-        Console.OutputEncoding = new UTF8Encoding(false);
+        // 没有控制台时设置输出编码会抛"句柄无效"：政体编辑器把核心当后台进程拉起、不给它控制台，
+        // 以前核心在这一行就退了(退出码 3762504530，2026-11-16 用户截图"核心刚起来就退了")。接住，照常往下走
+        try
+        {
+            Console.OutputEncoding = new UTF8Encoding(false);
+        }
+        catch (Exception)
+        {
+            // 没有控制台：输出稍后改写进 core.log(见 HideConsole)
+        }
         // 模组里 async 的接续与没接住的异常排回主循环(同 Unity)，不让它们在线程池里把进程带走
         SynchronizationContext.SetSynchronizationContext(new MainThreadContext());
         string data = null, state = null, configPath = null, lang = null, scenario = null, frameId = null;

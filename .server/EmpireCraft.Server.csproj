@@ -11,6 +11,9 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>EmpireCraftServer</AssemblyName>
+    <!-- 程序自己的图标(资源管理器、任务栏、切换窗口里看到的)：用编辑器放桌面快捷方式的那张；
+         窗口和托盘也先用它(见 CoreShell.LoadIcons)。只在 Windows 上起作用 -->
+    <ApplicationIcon>..\RegimeEditor\assets\core-icon.ico</ApplicationIcon>
     <RootNamespace>EmpireCraft.Server</RootNamespace>
     <DefineConstants>$(DefineConstants);EC_SERVER</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

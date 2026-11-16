@@ -1,6 +1,6 @@
 {
   "name": "empirecraft-regime-editor",
-  "version": "0.5.3",
+  "version": "0.5.5",
   "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes, claim rules, military and misc configs.",
   "main": "main.js",
   "author": "Codex",
@@ -69,6 +69,21 @@
           ]
         }
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "帝国盒子编辑器",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052"
+    },
+    "portable": {
+      "unpackDirName": false
     }
   }
 }

@@ -60,7 +60,22 @@ function resolveModRoot() {
     const found = climbToModRoot(candidate);
     if (found) return found;
   }
+  // 没装游戏、没有模组的电脑(用户 2026-11-16 "如果我没安装游戏政体编辑器怎么办")：打包好的编辑器自带一份模组数据
+  // (就是核心读的那份，见 core-launcher.js 的 packagedData)，拿它当模组目录——在这里改的政体、文化、剧本，核心开局直接用。
+  // 里头只有配置和数据、没有源码：「同步代码枚举」这类要动代码的用不了
+  const own = ownDataRoot();
+  if (own) return own;
   throw new Error("未找到模组根目录，请把 RegimeEditor 放在 EmpireCraft 模组根目录下运行。");
+}
+
+let cachedOwnData;
+function ownDataRoot() {
+  if (cachedOwnData === undefined) {
+    const dir = coreLauncher.ownData();
+    cachedOwnData = dir && syncFs.existsSync(path.join(dir, "mod.json")) &&
+      syncFs.existsSync(path.join(dir, "Scripts", "Regimes", "Configs")) ? dir : null;
+  }
+  return cachedOwnData;
 }
 
 function getSettingsPath() {
@@ -128,10 +143,12 @@ app.whenReady().then(() => {
   ipcMain.handle("get-mod-root", async () => {
     try {
       const modRoot = resolveModRoot();
-      if (getSavedModRoot() !== modRoot) {
+      // 用的是编辑器自带的那份数据(这台电脑没有模组)：不记成"上回的模组目录"，界面上另有说明
+      const own = !!cachedOwnData && modRoot === cachedOwnData;
+      if (!own && getSavedModRoot() !== modRoot) {
         await saveModRoot(modRoot);
       }
-      return { path: modRoot };
+      return { path: modRoot, own };
     } catch (error) {
       return { path: null, error: error.message };
     }

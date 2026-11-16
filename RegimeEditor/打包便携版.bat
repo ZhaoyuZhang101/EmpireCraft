@@ -25,12 +25,12 @@ if not exist "node_modules\electron-builder\cli.js" (
   exit /b 1
 )
 
-rem pack-portable.js builds the server core, copies the data the core reads, then runs electron-builder,
+rem pack-editor.js builds the server core, copies the data the core reads, then runs electron-builder,
 rem and draws one progress bar for the whole thing. The packaged editor carries the core and its data
 rem (see "extraResources" in package.json), so it runs the core on a PC without the game or the mod.
 rem UTF-8 console: the script prints Chinese.
 chcp 65001 >nul
-call node pack-portable.js
+call node pack-editor.js portable
 if errorlevel 1 (
   pause
   exit /b 1
