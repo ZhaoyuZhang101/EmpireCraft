@@ -41,7 +41,7 @@ public static class Program
     // 存档：上回存(或读)是什么时候(进程启动起的秒数)、新开的局等世界就绪了先存一份、眼下这趟加载是不是读档
     private static readonly Stopwatch Uptime = Stopwatch.StartNew();
     private static double _lastSaveAt;
-    private static bool _saveWhenReady, _resuming, _verify, _serial, _noBrowser;
+    private static bool _saveWhenReady, _resuming, _verify, _serial, _noBrowser, _noConsole;
     internal static volatile string LastSaveResult = "";
     // 换剧本时进程退出重来(见 StartScenario)：退出时不存档，systemd 拉起后照 pending_scenario.json 开局
     private static volatile bool _relaunch;
@@ -115,6 +115,10 @@ public static class Program
                 case "--new":
                     fresh = true;
                     break;
+                case "--no-console":
+                    // 收起自己的命令行窗口、输出写进 core.log(见 HideConsole；要等存放目录定了才收)
+                    _noConsole = true;
+                    break;
                 case "--no-browser":
                     // 有桌面也不自动亮出核心窗口(托盘图标照有)、不自动开管理页(见 Announce)
                     _noBrowser = true;
@@ -154,7 +158,7 @@ public static class Program
                     i++;
                     break;
                 case "--help" or "-h":
-                    Console.WriteLine("EmpireCraftServer [--data dir] [--state dir] [--config file] [--port 8766] [--lang cz|ch|en] [--scenario name|dir] [--frame id] [--size 0|1|2] [--speed 1] [--new] [--quiet] [--no-browser]");
+                    Console.WriteLine("EmpireCraftServer [--data dir] [--state dir] [--config file] [--port 8766] [--lang cz|ch|en] [--scenario name|dir] [--frame id] [--size 0|1|2] [--speed 1] [--new] [--quiet] [--no-browser] [--no-console]");
                     return 0;
             }
         }
@@ -168,6 +172,7 @@ public static class Program
         state = Path.GetFullPath(state ?? "state");
         Directory.CreateDirectory(state);
         WorldSave.Root = state;
+        if (_noConsole) HideConsole();
         _config = ServerConfig.Load(configPath != null ? Path.GetFullPath(configPath) : Path.Combine(state, "server.json"));
         lang ??= _config.lang;
         scenario ??= string.IsNullOrWhiteSpace(_config.scenario) ? null : _config.scenario;
@@ -429,6 +434,14 @@ public static class Program
         {
             // 管道已经断了也不要紧
         }
+        LogToFile("脱手，游戏 " + exe);
+        // 游戏关了以后，核心在这台电脑上要看得见：起核心窗口(面板)和托盘图标，窗口亮出来
+        CoreShell.Start(show: true);
+    }
+
+    // 往后的输出都写进存放目录的 core.log(脱手后控制台的管道会断；--no-console 时没有控制台)
+    private static void LogToFile(string why)
+    {
         try
         {
             var log = new StreamWriter(new FileStream(Path.Combine(WorldSave.Root, "core.log"), FileMode.Append, FileAccess.Write, FileShare.ReadWrite),
@@ -436,15 +449,32 @@ public static class Program
             TextWriter writer = TextWriter.Synchronized(log);
             Console.SetOut(writer);
             Console.SetError(writer);
-            Console.WriteLine("── " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " 脱手，游戏 " + exe);
+            Console.WriteLine("── " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + why);
         }
         catch (Exception)
         {
             Console.SetOut(TextWriter.Null);
             Console.SetError(TextWriter.Null);
         }
-        // 游戏关了以后，核心在这台电脑上要看得见：起核心窗口(面板)和托盘图标，窗口亮出来
-        CoreShell.Start(show: true);
+    }
+
+    // --no-console(政体编辑器、桌面快捷方式拉起的核心)：核心是控制台程序，双击会多一个黑色命令行窗口；收起它，界面只留核心自己的窗口和托盘
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")] private static extern IntPtr GetConsoleWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
+
+    private static void HideConsole()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        LogToFile("不带控制台启动");
+        try
+        {
+            IntPtr console = GetConsoleWindow();
+            if (console != IntPtr.Zero) ShowWindow(console, 0);
+        }
+        catch (Exception)
+        {
+            // 没有控制台(本来就是隐藏着拉起的)
+        }
     }
 
     // 管理页、面板、托盘上的「停下核心」(见 ServerRoutes /api/admin/return)：主循环一秒后照常退出(退出时存档)。
