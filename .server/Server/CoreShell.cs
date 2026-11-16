@@ -258,6 +258,9 @@ internal static class CoreShell
         {
             // 重载不了就照旧显示
         }
+        // 显示要调两回：核心被别的程序以"隐藏窗口"的方式拉起时(启动信息里带着隐藏)，Windows 把本进程头一回 ShowWindow
+        // 的参数换成启动信息里的那个，窗口照旧藏着(政体编辑器拉起的核心就这样：进程在、端口通，窗口和任务栏上都看不见)
+        ShowWindow(_hwnd, IsIconic(_hwnd) ? 9 : 5);
         ShowWindow(_hwnd, IsIconic(_hwnd) ? 9 : 5);
         SetForegroundWindow(_hwnd);
     }

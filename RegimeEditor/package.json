@@ -1,6 +1,6 @@
 {
   "name": "empirecraft-regime-editor",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes, claim rules, military and misc configs.",
   "main": "main.js",
   "author": "Codex",
@@ -16,6 +16,11 @@
   "build": {
     "appId": "com.empirecraft.regimeeditor",
     "productName": "EmpireCraft Editor",
+    "electronLanguages": [
+      "zh-CN",
+      "zh-TW",
+      "en-US"
+    ],
     "directories": {
       "output": "dist"
     },
@@ -47,6 +52,7 @@
       "scenario-send.js",
       "scenario-server.js",
       "scenario-ui.js",
+      "updater.js",
       "zh-convert.js"
     ],
     "extraResources": [

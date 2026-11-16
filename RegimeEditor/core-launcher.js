@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const net = require("node:net");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, execFile } = require("node:child_process");
 
 const EXE = "EmpireCraftServer.exe";
 const DEFAULT_PORT = 8766;
@@ -76,15 +76,24 @@ function packagedCoreDir() {
   return dir && fs.existsSync(path.join(dir, EXE)) ? dir : null;
 }
 
+// 便携版(一个 exe，每回打开把自己解到临时目录，关掉就删)：它的启动器会设这个环境变量。便携版自带的核心和数据
+// 得先拷到用户数据目录里才能用；装好的编辑器在固定的安装目录里，核心、数据、图标都直接用安装目录里的
+// (用户 2026-11-16 "桌面快捷方式图标为什么不应用政体编辑器的安装目录")
+function isPortable() {
+  return !!process.env.PORTABLE_EXECUTABLE_DIR;
+}
+
 // 找核心，连同它是哪儿来的(界面上标出来)。先后：
-//   editor   打包好的编辑器自带的(用户 2026-11-16 "服务器核心应该内置到政体编辑器里面去")：拷到 bin/editor 再跑；
+//   editor   打包好的编辑器自带的(用户 2026-11-16 "服务器核心应该内置到政体编辑器里面去")：装好的直接用安装目录里的，
+//            便携版拷到 bin/editor 再跑；
 //   mod      模组包里自带的(<模组目录>/RegimeEditor/core/win-x64，一键发布时打进去的)：拷到 bin/current，
 //            游戏每回启动也把它对一遍(见 CoreHost.InstallBundled)；
 //   download 以前下载到 bin/<版本> 的；
 //   dev      从源码发布到游戏目录旁边的
 function locate(modRoot, install = false) {
   const root = coreRoot();
-  const packaged = bundledExe(packagedCoreDir(), "editor", install);
+  const own = packagedCoreDir();
+  const packaged = own && !isPortable() ? path.join(own, EXE) : bundledExe(own, "editor", install);
   if (packaged) return { exe: packaged, source: "editor" };
   // core.path(游戏里联调用的指针，见 CoreHost.cs)这里不认：编辑器自带核心以后用不着它，
   // 还会把人引到别的目录去(用户 2026-11-16 "我不需要这个目录, 因为政体编辑器不是自带核心了吗")
@@ -115,10 +124,13 @@ function findExe(modRoot, install = false) {
 // 核心要读的模组数据(地图、语言、科技、制度、手机页面……清单同 update_server.bat 的 DATA_DIRS)。打包好的编辑器自带一份
 // (pack-portable.js 拷进 core/data，随 extraResources 进包)：没装游戏、没有模组目录的电脑，光凭一个便携版就能把核心开起来
 // (用户 2026-11-16 "我只需要把便携版的exe文件发给玩家他们就能直接打开核心并且玩了""他们也不用下载世界盒子的游戏")。
-// 便携版自己解在临时目录里、关掉就没了，所以拷到 EmpireCraftCore/data 再用；打包时写的 .stamp 对得上就不再拷
+// 装好的编辑器直接用安装目录里的；便携版自己解在临时目录里、关掉就没了，所以拷到 EmpireCraftCore/data 再用，
+// 打包时写的 .stamp 对得上就不再拷
 function packagedData(install) {
   const source = process.resourcesPath ? path.join(process.resourcesPath, "core", "data") : null;
   if (!source || !fs.existsSync(path.join(source, "mod.json"))) return null;
+  // 装好的编辑器：就用安装目录里的那份，不另拷
+  if (!isPortable()) return source;
   const target = path.join(coreRoot(), "data");
   const stamp = dir => {
     try {
@@ -205,13 +217,32 @@ function portOpen(port) {
   });
 }
 
+// 核心的进程在不在(不管端口通没通)。核心读存档要一阵子，这段时间端口还没开：只看端口会以为它没起来，
+// 再点一回就起了第二个，两个核心抢同一份存档、同一个端口(2026-11-16 用户连点两回，后一个报端口只开得了本机退了)
+// 只认"就是这份程序"起的进程(按程序路径比)：别处的核心(游戏拉起的那份、另一处装的)各管各的
+function coreAlive(exe) {
+  if (!exe || process.platform !== "win32") return Promise.resolve(false);
+  return new Promise(resolve => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+      "Get-Process EmpireCraftServer -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }"],
+      { encoding: "utf8", windowsHide: true, timeout: 6000 }, (error, stdout) => {
+        if (error) return resolve(false);
+        const want = path.resolve(exe).toLowerCase();
+        resolve(String(stdout).split(String.fromCharCode(10)).some(line => line.trim() && path.resolve(line.trim()).toLowerCase() === want));
+      });
+  });
+}
+
 async function status(modRoot) {
   const { exe, source } = locate(modRoot);
   const port = readPort();
+  const running = await portOpen(port);
   return {
     supported: process.platform === "win32",
     exe, source, state: stateDir(), port, save: readSave(),
-    running: await portOpen(port)
+    running,
+    // 进程起来了、端口还没通：正在读存档
+    starting: !running && await coreAlive(exe)
   };
 }
 
@@ -224,6 +255,7 @@ async function launch(modRoot) {
   if (!data) return { ok: false, error: "没找到核心要读的模组数据(这份编辑器没带数据，电脑上也没有模组目录)。" };
   const port = readPort();
   if (await portOpen(port)) return { ok: true, running: true, port };
+  if (await coreAlive(exe)) return { ok: true, running: false, starting: true, port };
   const state = stateDir();
   fs.mkdirSync(state, { recursive: true });
   const env = { ...process.env };
@@ -234,7 +266,9 @@ async function launch(modRoot) {
     let child;
     try {
       child = spawn(exe, ["--data", data, "--state", state, "--no-console"], {
-        cwd: path.dirname(exe), env, detached: true, stdio: "ignore", windowsHide: true
+        // 不能带 windowsHide：那是让系统以"隐藏窗口"拉起它，核心头一回显示自己的窗口会被系统吃掉。
+        // detached 的进程本来就不分配控制台，不会多出黑色命令行窗
+        cwd: path.dirname(exe), env, detached: true, stdio: "ignore", windowsHide: false
       });
     } catch (error) {
       finish({ ok: false, error: error.message });
@@ -267,4 +301,9 @@ function shortcut(modRoot) {
   };
 }
 
-module.exports = { status, launch, shortcut, stateDir, ownData: () => packagedData(true) };
+module.exports = {
+  status, launch, shortcut, stateDir,
+  ownData: () => packagedData(true),
+  // 这份程序起的核心还在不在跑(更新编辑器前要先停下它)
+  alive: modRoot => coreAlive(locate(modRoot).exe)
+};

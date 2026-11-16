@@ -8,6 +8,7 @@ const {
 const { syncEnums } = require("./regime-enum-sync");
 const scenarioCore = require("./scenario-core");
 const coreLauncher = require("./core-launcher");
+const updater = require("./updater");
 
 // 剧本编辑器：自定剧本文件夹(默认同游戏，mods_config/EmpireCraft/scenarios；另选过的记在单独一份设置里)
 function scenarioSettingsPath() {
@@ -328,18 +329,48 @@ app.whenReady().then(() => {
     const link = coreLauncher.shortcut(modRootOrNull());
     if (!link) return { ok: false, error: "没找到服务器核心或模组目录。" };
     const file = path.join(app.getPath("desktop"), "帝国盒子核心.lnk");
-    const icon = path.join(coreLauncher.stateDir(), "core-icon.ico");
-    // 便携包的 app.asar 可以由 Electron 读取，Windows 解析 .lnk 时需要一个长期存在的文件。
-    try {
-      const image = await fs.readFile(path.join(__dirname, "assets", "core-icon.ico"));
-      await fs.mkdir(path.dirname(icon), { recursive: true });
-      await fs.writeFile(icon, image);
-    } catch (error) {
-      return { ok: false, error: "核心图标无法保存：" + error.message };
-    }
-    const options = { target: link.target, cwd: link.cwd, args: link.args, description: link.description, icon, iconIndex: 0 };
+    // 快捷方式指着核心程序本身(装好的编辑器就是安装目录里的那个)，图标用程序自己带的那张。
+    // 以前图标另存一份 .ico 到存放目录再指过去，桌面上显示成空白图标
+    const options = { target: link.target, cwd: link.cwd, args: link.args, description: link.description, icon: link.target, iconIndex: 0 };
     const done = shell.writeShortcutLink(file, syncFs.existsSync(file) ? "replace" : "create", options);
     return done ? { ok: true, file } : { ok: false, error: "快捷方式没写成。" };
+  });
+
+  // ---------- 在线更新(见 updater.js) ----------
+  // 只有装好的编辑器能自己更新；便携版、用源码跑的只告诉有没有新版
+  const canSelfUpdate = () => process.platform === "win32" && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR;
+  let updateFound = null, updateCheckedAt = 0, updateFile = null;
+  ipcMain.handle("update-check", async (_event, force) => {
+    // 每个页面一打开都来问：十分钟内不重复去查
+    if (!updateFound || force || Date.now() - updateCheckedAt > 600000) {
+      updateFound = await updater.check(app.getVersion());
+      updateCheckedAt = Date.now();
+    }
+    const { manifest, base, ...shown } = updateFound;
+    return { ...shown, canInstall: canSelfUpdate() };
+  });
+  ipcMain.handle("update-download", async event => {
+    if (!updateFound || !updateFound.available) return { ok: false, error: "没有可下的新版。" };
+    try {
+      updateFile = await updater.download(updateFound, path.join(app.getPath("temp"), "EmpireCraftEditorUpdate"), (received, total) => {
+        if (!event.sender.isDestroyed()) event.sender.send("update-progress", { received, total });
+      });
+      return { ok: true };
+    } catch (error) {
+      updateFile = null;
+      return { ok: false, error: "更新没下成：" + error.message };
+    }
+  });
+  ipcMain.handle("update-install", async () => {
+    if (!canSelfUpdate()) return { ok: false, error: "这一份编辑器不能自己更新(便携版，或是用源码跑的)。" };
+    if (!updateFile || !syncFs.existsSync(updateFile)) return { ok: false, error: "更新还没下好。" };
+    // 核心用的是安装目录里的程序：它开着的时候安装程序换不掉它
+    if (await coreLauncher.alive(modRootOrNull())) {
+      return { ok: false, error: "服务器核心还开着(它用的是安装目录里的程序)：先在核心窗口里把它停下，再来装更新。" };
+    }
+    updater.install(updateFile);
+    setTimeout(() => app.quit(), 300);
+    return { ok: true };
   });
 
   ipcMain.handle("sync-enums", async () => {

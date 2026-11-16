@@ -25,6 +25,16 @@ contextBridge.exposeInMainWorld("regimeEditorDesktop", {
     openState: () => ipcRenderer.invoke("core-open-state"),
     shortcut: () => ipcRenderer.invoke("core-shortcut")
   },
+  // 在线更新
+  update: {
+    check: (force) => ipcRenderer.invoke("update-check", !!force),
+    download: () => ipcRenderer.invoke("update-download"),
+    install: () => ipcRenderer.invoke("update-install"),
+    onProgress: (handler) => {
+      ipcRenderer.removeAllListeners("update-progress");
+      ipcRenderer.on("update-progress", (_event, progress) => handler(progress));
+    }
+  },
   // 剧本编辑器
   scenario: {
     info: () => ipcRenderer.invoke("scenario-info"),
