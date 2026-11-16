@@ -1018,6 +1018,193 @@ public static class EmpireCraftUpdateService
         return archivePath;
     }
 
+    // 眼下装着的模组版本(mod.json)
+    internal static string InstalledVersion() => ReadModVersion(ModClass._declare.FolderPath) ?? "unknown";
+
+    // 服务器核心(见 Terminal/CoreHost)：和模组更新清单放在一起的 EmpireCraftCore_win-x64.json {version,url,sha256,size}，
+    // 是和这一版模组配套的 Windows 核心。下到 folder(整个换掉)，校验、解包的规矩同模组更新包(zip、tar.gz 都认)。
+    // 清单里的核心和装着的模组不是一版的不下——存档对不上
+    private const string CoreManifestName = "EmpireCraftCore_win-x64.json";
+
+    internal static void FetchCore(string wantVersion, string folder, Action<int> progress)
+    {
+        Exception last = null;
+        foreach (string endpoint in ManifestEndpoints)
+        {
+            string package = folder + ".part", stage = folder + ".stage";
+            try
+            {
+                JObject core = ReadCoreManifest(endpoint);
+                string version = core.Value<string>("version")?.Trim();
+                string sha = core.Value<string>("sha256")?.Trim();
+                long size = core.Value<long?>("size") ?? 0L;
+                if (sha == null || sha.Length != 64 || size <= 0 || size > MaximumPackageBytes)
+                    throw new Exception("The server core manifest is invalid.");
+                if (!string.Equals(version, wantVersion, StringComparison.OrdinalIgnoreCase))
+                    throw new Exception($"Server core {version} does not match mod {wantVersion}; update the mod first.");
+                Uri uri = ValidateDownloadUri(core.Value<string>("url")?.Trim());
+                Directory.CreateDirectory(Path.GetDirectoryName(folder));
+                HttpWebRequest request = CreateRequest(uri);
+                // 包本身就是压过的：别让它再按网页的压缩解一遍
+                request.AutomaticDecompression = DecompressionMethods.None;
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                {
+                    if (response.StatusCode != HttpStatusCode.OK)
+                        throw new Exception("Server core download returned HTTP " + (int)response.StatusCode + ".");
+                    using Stream input = response.GetResponseStream();
+                    using var output = new FileStream(package, FileMode.Create, FileAccess.Write, FileShare.None);
+                    var buffer = new byte[64 * 1024];
+                    long total = 0;
+                    int read;
+                    while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        total += read;
+                        if (total > size) throw new Exception("Server core package is larger than the manifest says.");
+                        output.Write(buffer, 0, read);
+                        progress?.Invoke((int)(total * 100L / size));
+                    }
+                    if (total != size) throw new Exception("Server core package size does not match the manifest.");
+                }
+                VerifySha256(package, sha);
+                TryDeleteDirectory(stage);
+                if (uri.AbsolutePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) ExtractArchiveSafely(package, stage);
+                else ExtractTarGzSafely(package, stage);
+                TryDeleteDirectory(folder);
+                Directory.Move(stage, folder);
+                File.Delete(package);
+                return;
+            }
+            catch (Exception exception)
+            {
+                last = exception;
+            }
+        }
+        throw last ?? new Exception("No update server.");
+    }
+
+    // 核心的清单：先读单独的那份；没有的话，模组清单里带 core 一项的也认
+    private static JObject ReadCoreManifest(string endpoint)
+    {
+        try
+        {
+            return JObject.Parse(DownloadText(endpoint.Substring(0, endpoint.LastIndexOf('/') + 1) + CoreManifestName));
+        }
+        catch (Exception)
+        {
+            if (JObject.Parse(DownloadText(endpoint))["core"] is JObject core) return core;
+            throw;
+        }
+    }
+
+    // tar.gz 解包：只要普通文件和目录(链接之类不要)，路径不许出目标目录，总大小、条目数同 zip 那边的上限。
+    // 长文件名认 GNU 的 L 条目和 pax 的 path 记录
+    private static void ExtractTarGzSafely(string archivePath, string destination)
+    {
+        string root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
+        Directory.CreateDirectory(destination);
+        using FileStream file = File.OpenRead(archivePath);
+        using var gzip = new GZipStream(file, CompressionMode.Decompress);
+        var header = new byte[512];
+        var buffer = new byte[64 * 1024];
+        long extracted = 0;
+        int entries = 0;
+        string longName = null;
+        while (ReadFully(gzip, header, 512) == 512)
+        {
+            bool blank = true;
+            for (int i = 0; i < 512 && blank; i++) blank = header[i] == 0;
+            if (blank) break;
+            if (++entries > MaximumArchiveEntries) throw new Exception("Server core package contains too many entries.");
+            string name = TarText(header, 0, 100);
+            if (TarText(header, 257, 5) == "ustar" && TarText(header, 345, 155) is { Length: > 0 } prefix) name = prefix + "/" + name;
+            string sizeText = TarText(header, 124, 12).Trim();
+            long size = sizeText.Length > 0 ? Convert.ToInt64(sizeText, 8) : 0L;
+            long padding = (512 - size % 512) % 512;
+            char type = (char)header[156];
+            if (type is 'L' or 'x' or 'g')
+            {
+                if (size > 1024 * 1024) throw new Exception("Server core package has an oversized name record.");
+                var record = new byte[size];
+                if (ReadFully(gzip, record, (int)size) != size) throw new Exception("Server core package is truncated.");
+                SkipBytes(gzip, padding, buffer);
+                string text = Encoding.UTF8.GetString(record).TrimEnd('\0');
+                if (type == 'L') longName = text;
+                else if (type == 'x')
+                    foreach (string line in text.Split('\n'))
+                    {
+                        int space = line.IndexOf(' ');
+                        if (space >= 0 && line.Substring(space + 1).StartsWith("path=", StringComparison.Ordinal))
+                            longName = line.Substring(space + 6);
+                    }
+                continue;
+            }
+            if (longName != null)
+            {
+                name = longName;
+                longName = null;
+            }
+            string outputPath = Path.GetFullPath(Path.Combine(destination, name));
+            if (!(outputPath + Path.DirectorySeparatorChar).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Server core package contains an unsafe path.");
+            if (type == '5')
+            {
+                Directory.CreateDirectory(outputPath);
+                SkipBytes(gzip, size + padding, buffer);
+                continue;
+            }
+            if (type != '0' && type != '\0')
+            {
+                SkipBytes(gzip, size + padding, buffer);
+                continue;
+            }
+            if (size < 0 || size > MaximumExtractedBytes - extracted)
+                throw new Exception("Server core package exceeds the extracted size limit.");
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+            using (var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                long left = size;
+                while (left > 0)
+                {
+                    int read = gzip.Read(buffer, 0, (int)Math.Min(buffer.Length, left));
+                    if (read <= 0) throw new Exception("Server core package is truncated.");
+                    output.Write(buffer, 0, read);
+                    left -= read;
+                }
+            }
+            extracted += size;
+            SkipBytes(gzip, padding, buffer);
+        }
+    }
+
+    private static int ReadFully(Stream stream, byte[] target, int count)
+    {
+        int total = 0;
+        while (total < count)
+        {
+            int read = stream.Read(target, total, count - total);
+            if (read <= 0) break;
+            total += read;
+        }
+        return total;
+    }
+
+    private static void SkipBytes(Stream stream, long count, byte[] scratch)
+    {
+        while (count > 0)
+        {
+            int read = stream.Read(scratch, 0, (int)Math.Min(scratch.Length, count));
+            if (read <= 0) throw new Exception("Server core package is truncated.");
+            count -= read;
+        }
+    }
+
+    private static string TarText(byte[] header, int offset, int length)
+    {
+        int end = offset;
+        while (end < offset + length && header[end] != 0) end++;
+        return Encoding.UTF8.GetString(header, offset, end - offset);
+    }
+
     private static string ReadModVersion(string folder)
     {
         string path = Path.Combine(folder, "mod.json");

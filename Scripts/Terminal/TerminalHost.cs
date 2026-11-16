@@ -294,7 +294,7 @@ public static partial class TerminalHost
     // 窗口要显示地址和二维码：这就把端口开起来(刚打开开关的那一下，还没轮到 Tick)
     public static void EnsureNow()
     {
-        if (!Enabled || Application.isMobilePlatform || ModClass._declare == null) return;
+        if (!Enabled || Application.isMobilePlatform || ModClass._declare == null || CoreHost.OwnsPort) return;
         if (_server != null && _server.Running && _server.Port == Port) return;
         _retryAt = 0f;
         EnsureServer(Time.realtimeSinceStartup);
@@ -454,7 +454,8 @@ public static partial class TerminalHost
     // 每帧(ModClass.Update，暂停时也走)
     public static void Tick()
     {
-        if (!Enabled || Application.isMobilePlatform)
+        // 服务器核心接手着这一局(见 CoreHost)：端口归它，本体的服务停下
+        if (!Enabled || Application.isMobilePlatform || CoreHost.OwnsPort)
         {
             if (_server != null)
             {

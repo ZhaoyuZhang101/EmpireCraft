@@ -148,9 +148,21 @@ namespace EmpireCraft.Scripts.Data
             EmpireCraft.Scripts.Terminal.TerminalHost.Enabled = on;
             EmpireCraft.Scripts.Terminal.TerminalHost.Kick();
         }
+        // 轻量主机与服务器核心是两种主机方式，只开一个：开这个就把那个拨回去
         public static void TerminalLightweightHostCallBack(bool on)
         {
             EmpireCraft.Scripts.Terminal.LightweightHostMode.Enabled = on;
+            if (!on || !EmpireCraft.Scripts.Terminal.CoreHost.Enabled) return;
+            EmpireCraft.Scripts.Terminal.CoreHost.Enabled = false;
+            EmpireCraft.Scripts.UI.Windows.ModSettingsWindow.SetSwitch(EmpireCraft.Scripts.Terminal.CoreHost.SettingId, false);
+        }
+        // 用服务器核心当主机(见 CoreHost)：把当前这一局交给本机的独立核心跑，停下时带回
+        public static void TerminalCoreHostCallBack(bool on)
+        {
+            EmpireCraft.Scripts.Terminal.CoreHost.Enabled = on;
+            if (!on || !EmpireCraft.Scripts.Terminal.LightweightHostMode.Enabled) return;
+            EmpireCraft.Scripts.Terminal.LightweightHostMode.Enabled = false;
+            EmpireCraft.Scripts.UI.Windows.ModSettingsWindow.SetSwitch(EmpireCraft.Scripts.Terminal.LightweightHostMode.SettingId, false);
         }
         public static void TerminalPortCallBack(string text)
         {

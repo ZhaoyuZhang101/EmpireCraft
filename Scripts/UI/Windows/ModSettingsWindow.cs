@@ -222,6 +222,7 @@ public class ModSettingsWindow : WideScrollWindow<ModSettingsWindow>
                     {
                         Switch("terminal_mode_toggle", false),
                         Switch(EmpireCraft.Scripts.Terminal.LightweightHostMode.SettingId, false),
+                        Switch(EmpireCraft.Scripts.Terminal.CoreHost.SettingId, false),
                         Number("Terminal_Speed_Text", 10, 1, 100, 5, "mod_settings_unit_percent"),
                         Number("Terminal_Port_Text", 8765, 1024, 65535, 1),
                         Number("Terminal_Max_Seats_Text", 8, 1, 16, 1),
