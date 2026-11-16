@@ -15,6 +15,9 @@
       <Compile Remove="Scripts\Layer\Province.cs" />
       <Compile Remove="Scripts\Layer\ProvinceData.cs" />
       <Compile Remove="Scripts\Layer\ProvinceManager.cs" />
+      <!-- 编辑器自带的服务器核心与打包产物(.NET 9 发布文件)：里面的 netstandard.dll、mscorlib.dll 等会被当成候选引用，
+           抢在游戏的同名程序集前头，整个工程报 System.Object 未定义 -->
+      <None Remove="RegimeEditor\core\**;RegimeEditor\dist\**" />
     </ItemGroup>
 
     <ItemGroup>

@@ -2280,6 +2280,8 @@ public static class KingdomExtension
     {
         // 傀儡(伪满这样的帝国也是)显示"傀儡政权"，不显示"帝国"(见 PuppetStateSystem)
         if (EmpireCraft.Scripts.GeneralSystems.PuppetStateSystem.IsPuppet(kingdom)) return "kingdom_type_puppet";
+        // 称了帝又成了属地、朝贡国、附庸的：显示"从属之国"，不显示"帝国"(见 EmpireFormationService.StyledAsSubject)
+        if (EmpireCraft.Scripts.GeneralSystems.EmpireFormationService.StyledAsSubject(kingdom)) return "kingdom_type_subject";
         if (EmpireCraft.Scripts.GeneralSystems.WarlordEraSystem.TryGetNonGovernmentKingdomName(kingdom, out _))
             return "kingdom_type_armed_force";
         return EmpireCraft.Scripts.GeneralSystems.DynastyNaming.KingdomTypeKey(kingdom, kingdom.GetKingdomType());

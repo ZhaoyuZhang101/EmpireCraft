@@ -505,6 +505,14 @@ public static class EmpireFormationService
         kingdom?.data != null && !kingdom.isRekt() &&
         (FeudalVassalService.GetOverlord(kingdom) != null || kingdom.HasTakenAlliance() || WarlordEraSystem.Dependent(kingdom));
 
+    // 从属之国的帝国不用帝号(群友 2026-11-16 "依旧有x属xx称帝"，用户选"只改称呼")：先称了帝、后来才成了属地、保护国、
+    // 朝贡国或封建附庸的，帝国层照旧(朝廷、成员国都在)，从属期间全称不带帝国字样(见 Empire.GetBaseEmpireFullName)、
+    // 君主不称皇帝(见 RepublicSystem.CustomHeadTitle)、类别不显示帝国(见 GetKingdomTypeDisplayKey)，脱离宗主后恢复。
+    // 傀儡照立国时定的(伪满称帝国，另有"傀儡政权"的类别)，流亡政府、宗主不在图上的剧本属地也不改
+    public static bool StyledAsSubject(Kingdom core) =>
+        core?.data != null && !core.isRekt() && core.IsEmpire() && !PuppetStateSystem.IsPuppet(core) &&
+        (FeudalVassalService.GetOverlord(core) != null || core.HasTakenAlliance() || ColonySystem.MetropoleOf(core) != null);
+
     private static bool MeetsBaseRequirements(Kingdom kingdom, bool requireNonNegativeTreasury)
     {
         if (kingdom == null || kingdom.isRekt()) return false;

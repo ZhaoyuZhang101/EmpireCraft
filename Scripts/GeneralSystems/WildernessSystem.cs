@@ -882,6 +882,19 @@ public static class WildernessSystem
         return marks;
     }
 
+    // 纪元(冰封、绝望)临时冻住的格按冻住以前的地面算：原版里这种格只是带着"临时冻结"的标记、显示成冻土雪地，
+    // 顶层格、地面格都没动，天暖了就化回去。永冻土(biome_permafrost)、画上去的雪山雪丘不是临时冻的，照旧算冻原。
+    // 以前按显示出来的冻土算：冰封纪元一来全图草地冻住，成片划成冻原无人区、从各城的版图里抠出去(群友 2026-11-16
+    // "冰封时代会新增无人区，版图变得好丑")。旧档里这样划出去的，读档全图重判时退回去
+    private static TileTypeBase SettledType(WorldTile tile)
+    {
+#if EC_SERVER
+        return tile.Type;
+#else
+        return tile.isTemporaryFrozen() ? (TileTypeBase)tile.top_type ?? tile.main_type ?? tile.Type : tile.Type;
+#endif
+    }
+
     private static int ComputeMarks(TileTypeBase type)
     {
         int marks = 0;
@@ -918,7 +931,7 @@ public static class WildernessSystem
     public static WildKind GroundKind(WorldTile tile, out bool rock, out bool hills)
     {
         rock = hills = false;
-        TileTypeBase type = tile?.Type;
+        TileTypeBase type = tile == null ? null : SettledType(tile);
         if (type == null) return WildKind.None;
         int marks = Marks(type);
         TileTypeBase main = tile.main_type;
@@ -957,7 +970,8 @@ public static class WildernessSystem
         int total = 0, water = 0, rock = 0, hills = 0, frozen = 0, sand = 0, jungle = 0, swamp = 0, lava = 0, plateau = 0, harsh = 0;
         foreach (WorldTile tile in zone.tiles)
         {
-            TileTypeBase type = tile?.Type;
+            // 纪元临时冻住的格按冻住以前的地面算(见 SettledType)
+            TileTypeBase type = tile == null ? null : SettledType(tile);
             if (type == null) continue;
             total++;
             int marks = Marks(type);

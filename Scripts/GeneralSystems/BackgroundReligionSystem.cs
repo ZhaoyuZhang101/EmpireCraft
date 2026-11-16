@@ -42,12 +42,15 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     没有航海渡不过的海不算)，强度直接用图上那条边的，不再逐对查；
 //   · 国教势能 ×(0.4 + 0.6 × 政令控制力)：山后、隔无人区的边地不随朝廷改宗(AdministrativeControlSystem)；
 //   · 以融合御同化：城奉的宗教从某教一系融过教义的，那一系对这城的势能 ×0.85ⁿ(至多 ×0.55，见 ReligionTenets.Pull)。
+// 2026-11-16(群友嫌宗教铺得太广太快，用户："古代没那么强的传播力，哪怕现代都没有")：
+//   · 辐射圈：出了本天下的城按离圣地远近打折，两倍半径外传不过去(见 ReligionReachRules、RangeFactor)；
+//   · 改信、改宗几率的上限减半(AdoptChance 0.15→0.08，ConvertChance 0.04→0.02)。
 public static class BackgroundReligionSystem
 {
     // 传教：无教之城改信几率的上限、本城的惯性；有教之城改宗几率的上限
-    public const float AdoptChance = 0.15f;
+    public const float AdoptChance = 0.08f;
     public const float FolkInertia = 0.5f;
-    public const float ConvertChance = 0.04f;
+    public const float ConvertChance = 0.02f;
     // 势能：国教按本城人口算一份；邻城打折；圣地加成
     public const float StateWeight = 1f;
     public const float NeighbourWeight = 0.5f;
@@ -84,6 +87,7 @@ public static class BackgroundReligionSystem
         if (cities.Count == 0) return;
 
         SyncRulers();
+        Ranges.Clear();
         // 势能按年初的宗教分布算：本年改信的城不当年就往下传
         var faith = new Dictionary<City, Religion>();
         var people = new Dictionary<City, float>();
@@ -217,7 +221,8 @@ public static class BackgroundReligionSystem
         Religion state = city.kingdom.hasReligion() ? city.kingdom.religion : null;
         if (state != null)
             Add(pressure, state, StateWeight * StateFactor(city.kingdom) * ReligionFaith.Mission(state) *
-                                 ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]) * ControlFactor(city));
+                                 ReligionSphere.CrossFactor(state, sphere) * Mathf.Sqrt(people[city]) * ControlFactor(city) *
+                                 Mathf.Max(ReligionReachRules.StateFloor, RangeFactor(state, city, sphere)));
         // 邻城连同图上那条边传过来的强度(通达层没算好、这座城不在图上时强度为 -1，照旧逐对查)
         List<ConnectivityLink> links = ConnectivitySystem.Links(city, ConnectivityMode.Ideas, inbound: true);
         IEnumerable<(City neighbour, float strength)> contacts = links != null
@@ -227,6 +232,8 @@ public static class BackgroundReligionSystem
         {
             if (!faith.TryGetValue(neighbour, out Religion religion) || religion == null) continue;
             float reach = strength >= 0f ? Scale(strength, religion, sphere) : Reach(neighbour, city, religion, sphere);
+            // 出了本天下的城按离圣地远近打折，辐射圈外传不过去(见 RangeFactor)
+            if (reach > 0f) reach *= RangeFactor(religion, city, sphere);
             if (reach <= 0f) continue;
             float weight = NeighbourWeight * ReligionFaith.Mission(religion) * ReligionSphere.CrossFactor(religion, sphere) *
                            Mathf.Sqrt(people[neighbour]) * reach;
@@ -249,6 +256,35 @@ public static class BackgroundReligionSystem
             foreach (Religion rival in pressure.Keys.ToList())
                 if (rival != current) pressure[rival] *= ReligionTenets.Pull(current, rival);
         return pressure;
+    }
+
+    // 各教的圣地所在与辐射半径(格)，年度结算开头清空
+    private static readonly Dictionary<Religion, (WorldTile at, float radius)> Ranges = new();
+
+    // 辐射圈(见 ReligionReachRules)：出了本天下的城按离圣地(教派、地方教会按自己的中心)远近给势能打折；
+    // 本天下之内、没有圣地的宗教不折
+    internal static float RangeFactor(Religion religion, City city, string citySphere)
+    {
+        if (religion?.data == null || city == null) return 1f;
+        string own = ReligionSphere.SphereOf(religion);
+        if (!string.IsNullOrEmpty(own) && own == citySphere) return 1f;
+        if (!Ranges.TryGetValue(religion, out (WorldTile at, float radius) range))
+        {
+            City source = ReligionSphere.Center(religion) ?? ReligionSphere.HolySite(religion) ?? religion.GetCity();
+            WorldTile at = source?.data != null && !source.isRekt() ? source.getTile() : null;
+            float radius = 0f;
+            if (at != null)
+            {
+                string culture = CultureService.GetMainCulture(source, initialize: false);
+                int era = CultureService.IsValidCulture(culture) ? TechnologySystem.GetEraTier(culture) : 1;
+                float diagonal = Mathf.Sqrt((float)MapBox.width * MapBox.width + (float)MapBox.height * MapBox.height);
+                radius = ReligionReachRules.Radius(diagonal, ReligionFaith.IsUniversal(religion), era, TechnologySystem.MaxEraTier);
+            }
+            Ranges[religion] = range = (at, radius);
+        }
+        WorldTile tile = city.getTile();
+        if (range.at == null || tile == null) return 1f;
+        return ReligionReachRules.Factor(Mathf.Sqrt(Toolbox.SquaredDistTile(range.at, tile)), range.radius);
     }
 
     private static void Add(Dictionary<Religion, float> pressure, Religion religion, float weight)

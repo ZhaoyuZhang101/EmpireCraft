@@ -435,6 +435,9 @@ public class Empire : MetaObject<EmpireData>
                     ideologySuffix = extra.ideology_country_suffix = PartySystem.PickCountrySuffix(this, stateIdeology);
             }
             if (!string.IsNullOrWhiteSpace(ideologySuffix)) return OverallHelperFunc.JoinNameParts(coreName, ideologySuffix);
+            // 从属之国不用帝号：全称只称"某国"，不带帝国、朝的后缀与序数、美号(见 EmpireFormationService.StyledAsSubject)
+            if (EmpireFormationService.StyledAsSubject(CoreKingdom))
+                return OverallHelperFunc.FormatEmpireFullName(coreName, LM.Get("subject_realm_suffix"), "", GetNamingCulture());
 
             if (string.IsNullOrWhiteSpace(data.empire_type_key))
                 data.empire_type_key = OverallHelperFunc.ResolveEmpireTypeKey(CoreKingdom?.GetRegime(), CoreKingdom);

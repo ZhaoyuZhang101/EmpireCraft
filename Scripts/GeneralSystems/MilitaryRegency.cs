@@ -62,7 +62,8 @@ public static class MilitaryRegency
         RegimeType? regime = empire?.CoreKingdom?.GetRegime()?.type;
         // 剧本定下的近代君主国(伊朗沙阿、伊拉克、埃及……)：不立苏丹、将军(1937 剧本开局"哈里发礼萨·巴列维退为象征")
         if (empire?.CoreKingdom != null && empire.CoreKingdom.GetOrCreate().scenario_monarchy) return None;
-        if (regime == RegimeType.Bakufu) return Shogun;
+        // 天皇倒幕成功、亲政期间不立将军(见 ShogunateDramaSystem)
+        if (regime == RegimeType.Bakufu) return ShogunateDramaSystem.CourtRules(empire) ? None : Shogun;
         if (regime == RegimeType.Arabic && InstitutionSystem.HasFeature(empire, InstitutionFeatures.Sultanate)) return Sultan;
         return None;
     }
@@ -161,6 +162,17 @@ public static class MilitaryRegency
         if (kind == None || !Eligible(empire, regent)) return false;
         if (Active(empire) && Regent(empire) == regent) return true;
         if (!Establish(empire, kind, regent)) return false;
+        LastCheck[empire.id] = World.world.getCurWorldTime();
+        return true;
+    }
+
+    // 武家拥立的一朝(幕府的南北朝，见 ShogunateDramaSystem)：当场立将军，不看开国之君在位
+    public static bool EstablishNow(Empire empire)
+    {
+        if (empire?.data == null || empire.CoreKingdom == null || World.world == null) return false;
+        if (Active(empire)) return true;
+        int kind = Wanted(empire);
+        if (kind == None || !Establish(empire, kind)) return false;
         LastCheck[empire.id] = World.world.getCurWorldTime();
         return true;
     }

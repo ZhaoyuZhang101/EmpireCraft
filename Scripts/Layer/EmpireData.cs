@@ -142,6 +142,12 @@ public class EmpireData : MetaObjectData
     public long favourite_id = -1L;
     public long favourite_emperor_id = -1L;
     public long regent_clan_id = -1L;
+    // 幕府的倒幕与南北朝(见 ShogunateDramaSystem)：0 寻常、1 天皇亲政(倒幕成功，不立将军)；进入本阶段、上回天皇起兵的时间
+    // (-1 没有，旧档读进来也是)；记过"开幕添势"的将军家(-1 还没记)
+    public int shogunate_stage = 0;
+    public double shogunate_stage_at = -1d;
+    public double shogunate_rising_at = -1d;
+    public long shogunate_opened_clan_id = -1L;
     // 跨文明通好(见 GreatPowerDiplomacy)：对方帝国编号 → 通好的时间
     public Dictionary<long, double> diplomatic_pacts = new();
     // 西方封建帝国的代数：同名封建帝国反复建立时称"第二帝国""第三帝国"(0/1 表示不加序数)

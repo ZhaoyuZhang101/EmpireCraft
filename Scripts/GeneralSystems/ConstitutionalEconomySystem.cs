@@ -256,6 +256,8 @@ public static class ConstitutionalEconomySystem
         ImperialLegitimacyChallengeService.TryLegitimizeFalseCore(empire);
         // 派系失衡：一派独大按其极端方向引发乱局(先于朝政积弊，见 FactionBalanceSystem)
         FactionBalanceSystem.Yearly(empire);
+        // 幕府：天皇起兵倒幕、公家新政、南北朝分立与合一、战国(按三派占比，见 ShogunateDramaSystem)
+        ShogunateDramaSystem.Yearly(empire);
         // 朝政积弊滋生与后果
         MaladySystem.Yearly(empire);
         // 荒淫之君的宫廷开支；诛外戚

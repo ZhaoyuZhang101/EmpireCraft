@@ -650,6 +650,25 @@ public static class CorpsSystem
         return Mathf.Clamp01((float)(budget / Math.Max(0.01f, perSoldier)) / wanted);
     }
 
+    // 养不起兵时留着不裁的军镇(见 GarrisonCutRules)：京畿(本势力的都城、陪都)、边境(邻城里有本势力以外的国，
+    // 蛮荒不算)、驰援(战时本城或邻城正在交战)
+    private static bool KeepsStrength(Kingdom kingdom, Kingdom centre, City city, bool war)
+    {
+        if (city == centre.capital) return true;
+        foreach (City aux in MultiCapitalSystem.AuxiliaryCities(centre))
+            if (aux == city) return true;
+        if (war && FrontSystem.Battles.ContainsKey(city.id)) return true;
+        if (city.neighbours_cities == null) return false;
+        foreach (City next in city.neighbours_cities)
+        {
+            Kingdom other = next?.kingdom;
+            if (next?.data == null || next.isRekt() || other?.data == null) continue;
+            if (war && FrontSystem.Battles.ContainsKey(next.id)) return true;
+            if (other != kingdom && !other.wild && (FrontSystem.Realm(other) ?? other) != centre) return true;
+        }
+        return false;
+    }
+
     // 本国各军按兵种的平均饷银倍数(装备越先进越贵，见 CorpsArmSystem.Upkeep)；入关前的禁旅八旗只领行粮(见 BannerSystem.PayFactor)
     private static float AverageUpkeep(Kingdom kingdom)
     {
@@ -740,7 +759,30 @@ public static class CorpsSystem
         // 校验平衡用：打仗的游牧、阿拉伯国家或与之交战的国家，兵源、军费系数、征兵比例、积弊(限频，见 WarBalanceDiagnostics)
         if (war) WarBalanceDiagnostics.Realm(kingdom, background, pool, budget, doctrine.LevyShare * levyShare);
         bool limited = budget < 0.999f;
-        legionSize = Mathf.Max(1f, legionSize * budget);
+        // 养不起时先裁内地：京畿、边境、邻城正打着仗的军镇先配足，剩下的才给内地(见 GarrisonCutRules)；
+        // 以前各军镇一律按同一个成数缩编
+        Kingdom centre = FrontSystem.Realm(kingdom) ?? kingdom;
+        bool realmStrained = centre != kingdom && CannotFundWar(centre);
+        var kept = new HashSet<City>();
+        float keepFactor = 1f, inlandFactor = 1f;
+        if (limited || realmStrained)
+        {
+            int keepSlots = 0, inlandSlots = 0;
+            foreach (KeyValuePair<City, int> post in posts)
+            {
+                if (post.Value <= 0) continue;
+                if (KeepsStrength(kingdom, centre, post.Key, war))
+                {
+                    kept.Add(post.Key);
+                    keepSlots += post.Value;
+                }
+                else inlandSlots += post.Value;
+            }
+            (keepFactor, inlandFactor) = GarrisonCutRules.Split(keepSlots, inlandSlots, budget, realmStrained);
+            // 内地缩编了也算"养不起"：战时满编照样往下减(见下 corps.full)
+            if (inlandFactor < 0.999f) limited = true;
+        }
+        float fullSize = legionSize;
         // 各军镇的军、各军分出去的渡海先遣军兵力先按驻地、原军归好(以前每座军镇、每支军都把全国的军筛一遍)。
         // 下面只对各军镇自己的正规军补员、退伍、新编，不动先遣军，也不改驻地，归好的不会变
         var byHome = new Dictionary<long, List<CorpsData>>();
@@ -763,6 +805,11 @@ public static class CorpsSystem
             if (!posts.TryGetValue(city, out int legions)) continue;
             int wanted = legions <= 0 ? 0 : Mathf.CeilToInt(legions / (float)LegionsPerCorps);
             var here = byHome.TryGetValue(city.id, out List<CorpsData> stationed) ? stationed : new List<CorpsData>();
+            // 这座军镇每个军团编多少人：留着的军镇、内地各按各的成数(养得起时都是足额)
+            float factor = limited ? kept.Contains(city) ? keepFactor : inlandFactor : 1f;
+            legionSize = Mathf.Max(1f, fullSize * factor);
+            // 这座军镇的兵额缩了没有(配足了的军镇战时照旧只增不减)
+            bool cut = factor < 0.999f;
             // 每支军分到的旧制军团数
             for (int i = 0; i < Mathf.Max(wanted, here.Count); i++)
             {
@@ -779,7 +826,7 @@ public static class CorpsSystem
                 corps.legions = Mathf.Max(share, war ? corps.legions : 0);
                 float full = corps.legions * legionSize;
                 // 战时满编只增不减，除非养不起了
-                if (war && !limited) corps.full = Mathf.Max(corps.full, full);
+                if (war && !cut) corps.full = Mathf.Max(corps.full, full);
                 else corps.full = full;
                 if (corps.full <= 0f)
                 {
@@ -794,7 +841,7 @@ public static class CorpsSystem
                         corps.full - away - corps.strength));
                 // 裁撤按现有兵力的成数：以前按满编的成数，养不起时满编缩到几百，几千欠饷的兵每月只裁几十，
                 // 明的各布政使司开局编了五六千兵，军费系数掉到 0.01 后好几年还养着
-                else if ((!war || limited) && corps.strength + away > corps.full)
+                else if ((!war || cut) && corps.strength + away > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full,
                         Mathf.Max(corps.full, corps.strength) * DemobilizeShare + 1f));
             }

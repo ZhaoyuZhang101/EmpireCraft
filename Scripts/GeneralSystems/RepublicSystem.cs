@@ -116,6 +116,9 @@ public static class RepublicSystem
     public static string CustomHeadTitle(Empire empire)
     {
         EmpireData data = empire?.data;
+        // 从属之国的君主不称皇帝，称国主(见 EmpireFormationService.StyledAsSubject)
+        if (data != null && !IsRepublic(empire) && EmpireFormationService.StyledAsSubject(empire.CoreKingdom))
+            return LM.Get("subject_ruler_title");
         if (data == null || string.IsNullOrWhiteSpace(data.head_title) || IsRepublic(empire) != data.head_title_republic ||
             RestorationSystem.IsProclaimed(empire)) return null;
         string text = WorldMap.WorldMapData.PickParts(data.head_title);

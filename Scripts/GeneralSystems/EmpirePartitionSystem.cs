@@ -974,6 +974,30 @@ public static class EmpirePartitionSystem
 
     #endregion
 
+    #region 武家另立(幕府的南北朝)
+
+    public const string KindShogunate = "shogunate";
+
+    // 武士拥立皇族另一位、在离京城远的一头另立一朝(见 ShogunateDramaSystem)：万世一系的帝国不走遗诏分治、权臣分立
+    // 那几条(见 Eligible)，这里单开一个口。两朝按都城的相对方位各加方位，立即交战。成了返回新的一朝
+    public static Empire SplitRivalCourt(Empire source)
+    {
+        if (source?.data == null || source.isRekt() || source.IsArchived() || Twin(source) != null) return null;
+        City capital = source.CoreKingdom?.capital;
+        Actor emperor = source.Emperor;
+        if (capital == null || emperor?.data == null) return null;
+        City seat = FarSeat(source, capital.city_center, 0.25f, 0.6f, out Plan plan);
+        Actor royal = seat == null ? null : PickRoyal(source, emperor, preferYoung: true);
+        if (royal == null) return null;
+        Empire twin = Split(source, royal, seat, plan, KindShogunate, PrinceStruggleSystem.NoteRaised, source.data.core_name,
+            renameSource: true);
+        if (twin == null) return null;
+        ImperialLegitimacyChallengeService.DeclareDynasticRivals(twin, source, war: true);
+        return twin;
+    }
+
+    #endregion
+
     #region 复归一统
 
     // 一朝皇族绝嗣、群臣迎立另一朝的皇帝兼承大统(SuccessionCouncilSystem)：并入另一朝
@@ -985,7 +1009,9 @@ public static class EmpirePartitionSystem
                SpecificClanManager.SameLineage(heir.EmpireSpecificClan, vacant.EmpireSpecificClan);
     }
 
-    public static bool Reunite(Empire vacant, Empire heir)
+    // historyKey：记史的文案(参数同 partition_reunite_history：{0} 承统的君主、{1} 并入的一朝、{2} 合一后的国号)；
+    // major：不论哪国都上屏(幕府说和、南北朝合一，见 ShogunateDramaSystem)
+    public static bool Reunite(Empire vacant, Empire heir, string historyKey = "partition_reunite_history", bool major = false)
     {
         if (vacant?.data == null || heir?.data == null || heir.isRekt() || heir.IsArchived()) return false;
         string vacantName = vacant.GetEmpireFullName();
@@ -1002,10 +1028,11 @@ public static class EmpirePartitionSystem
         heir.data.directPre = "";
         heir.SetEmpireName(heir.data.core_name);
         heir.recalculate();
-        string text = string.Format(LM.Get("partition_reunite_history"), heir.Emperor?.getName() ?? "", vacantName,
+        string text = string.Format(LM.Get(historyKey), heir.Emperor?.getName() ?? "", vacantName,
             heir.GetEmpireFullName());
         heir.RecordHistory(directContent: text, actorId: heir.Emperor?.id ?? -1L);
-        TranslateHelper.LogEventOnly(text, heir.CoreKingdom);
+        if (major) TranslateHelper.LogMajor(text, heir.CoreKingdom);
+        else TranslateHelper.LogEventOnly(text, heir.CoreKingdom);
         World.world.zone_calculator?.dirtyAndClear();
         return true;
     }

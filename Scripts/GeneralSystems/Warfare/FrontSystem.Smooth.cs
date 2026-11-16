@@ -36,7 +36,7 @@ public static partial class FrontSystem
         // +1 推进 / -1 被推回 / 0 停住
         public int Direction;
         public double Last;
-        public bool Defended, Landing, Confirmed;
+        public bool Defended, Confirmed;
         public readonly List<(long kingdom, long corps)> Corps = new();
         // 上一仗同在场的友军：现任停战、亡国时由它们接着推(见 TryInherit)
         public readonly HashSet<long> Camp = new();
@@ -71,11 +71,11 @@ public static partial class FrontSystem
 
     // 本月这一边在 city 占优。lead 是兵力最多的一家，present 是这一边在场的各军
     private static void SmoothWon(City city, Kingdom lead, List<(Kingdom kingdom, CorpsData corps)> present, bool defended,
-        bool landing, bool retake, bool free = false)
+        bool retake, bool free = false)
     {
         Kingdom side = PushActor(city, lead, present, retake);
         SmoothAdvance(city, side, present.Where(entry => entry.kingdom == side).Select(entry => entry.corps).ToList(),
-            defended, landing, retake, free);
+            defended, retake, free);
         NoteCamp(city, present);
     }
 
@@ -135,7 +135,7 @@ public static partial class FrontSystem
     }
 
     // 城里已有推进线时的交接；返回 true 表示办完了，false 表示旧线已撤、由调用方另起一条
-    private static bool SettleExisting(Push push, City city, Kingdom side, List<CorpsData> spearheads, bool defended, bool landing,
+    private static bool SettleExisting(Push push, City city, Kingdom side, List<CorpsData> spearheads, bool defended,
         bool retake, bool free)
     {
         // 现任已停战、亡国(本帧 Step 还没轮到)：先交接或撤掉，不拿失效的现任比敌我
@@ -148,7 +148,7 @@ public static partial class FrontSystem
         switch (ClaimOf(push, current, side, city.kingdom, retake, free))
         {
             case PushClaim.Own:
-                Renew(push, side, spearheads, zone, defended, landing, free);
+                Renew(push, side, spearheads, zone, defended, free);
                 return true;
             case PushClaim.Rival:
                 push.Direction = -1;
@@ -158,13 +158,13 @@ public static partial class FrontSystem
                 return false;
             case PushClaim.Ally when Valid(push, city, side, zone) && Beside(spearheads, zone) && WildernessPassage.Passable(zone, side):
                 HandOver(push, side);
-                Renew(push, side, spearheads, zone, defended, landing, free);
+                Renew(push, side, spearheads, zone, defended, free);
                 return true;
         }
         // 第三方，或够不着这块地的友军：现任还在这条战线上就停住等它；现任的军都走了，这条线空占着一城一条的名额，
         // 撤掉让本月占优的一家另起(它也没地可推时仍留着，不白白退色)
         if (StillEngaged(push, zone) ||
-            (retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended, landing)) == null)
+            (retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended)) == null)
         {
             push.Direction = 0;
             return true;
@@ -173,11 +173,10 @@ public static partial class FrontSystem
         return false;
     }
 
-    private static void Renew(Push push, Kingdom side, List<CorpsData> spearheads, TileZone zone, bool defended, bool landing, bool free)
+    private static void Renew(Push push, Kingdom side, List<CorpsData> spearheads, TileZone zone, bool defended, bool free)
     {
         push.Direction = 1;
         push.Defended = defended;
-        push.Landing = landing;
         push.Free = free;
         SetCorps(push, spearheads);
         push.Wall = push.Retake ? 1f : WallPaceOf(side, zone, spearheads);
@@ -223,17 +222,17 @@ public static partial class FrontSystem
     }
 
     // side 本月在 city 占优：继续(或开始)推进；城里已有的推进线看它算什么(见 ClaimOf)
-    private static void SmoothAdvance(City city, Kingdom side, List<CorpsData> spearheads, bool defended, bool landing,
+    private static void SmoothAdvance(City city, Kingdom side, List<CorpsData> spearheads, bool defended,
         bool retake, bool free = false)
     {
-        if (Pushes.TryGetValue(city.id, out Push push) && SettleExisting(push, city, side, spearheads, defended, landing, retake, free))
+        if (Pushes.TryGetValue(city.id, out Push push) && SettleExisting(push, city, side, spearheads, defended, retake, free))
             return;
-        TileZone zone = retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended, landing);
+        TileZone zone = retake ? RetakeTarget(city, side, spearheads, free) : AdvanceTarget(city, side, spearheads, defended);
         if (zone == null) return;
         push = new Push
         {
             City = city.id, Side = side.id, Owner = city.kingdom?.id ?? -1L, Zone = zone.id, Retake = retake, Free = free, Direction = 1,
-            Defended = defended, Landing = landing, Confirmed = true, Last = World.world.getCurWorldTime(),
+            Defended = defended, Confirmed = true, Last = World.world.getCurWorldTime(),
             Wall = retake ? 1f : WallPaceOf(side, zone, spearheads)
         };
         SetCorps(push, spearheads);
@@ -260,12 +259,10 @@ public static partial class FrontSystem
         push.Corps.Select(pair => CorpsSystem.Find(World.world.kingdoms.get(pair.kingdom), pair.corps))
             .Where(corps => corps != null).ToList();
 
-    // 推进的目标：紧挨着进攻军团、敌方控制的地块(挑法同 Advance)；守军还在时不拿城中最后一块、城池放到最后，溃散后先取城池
-    private static TileZone AdvanceTarget(City city, Kingdom side, List<CorpsData> spearheads, bool defended, bool landing)
+    // 推进的目标：紧挨着进攻军团、敌方控制的地块(挑法同 Advance，能下手的地块见 AttackZones)；守军还在时不拿城中最后一块、城池放到最后，溃散后先取城池
+    private static TileZone AdvanceTarget(City city, Kingdom side, List<CorpsData> spearheads, bool defended)
     {
-        List<TileZone> targets = TargetZones(side, city);
-        if (targets.Count == 0 && landing) targets = LandingZones(city).Where(zone => Hostile(side, Controller(zone))).ToList();
-        targets = targets.Where(candidate => Beside(spearheads, candidate)).ToList();
+        List<TileZone> targets = AttackZones(side, city, spearheads).Where(candidate => Beside(spearheads, candidate)).ToList();
         if (targets.Count == 0) return null;
         int remaining = CityDistricts.Count(city, zone => !Friendly(side, Controller(zone)) && !TerrainSystem.Impassable(zone));
         if (defended && remaining <= 1) return null;
@@ -433,12 +430,12 @@ public static partial class FrontSystem
         }
         Remove(push, settled);
         if (city.isRekt() || city.kingdom != owner) return;
-        TileZone next = push.Retake ? RetakeTarget(city, side, corps, push.Free) : AdvanceTarget(city, side, corps, push.Defended, push.Landing);
+        TileZone next = push.Retake ? RetakeTarget(city, side, corps, push.Free) : AdvanceTarget(city, side, corps, push.Defended);
         if (next == null) return;
         var chained = new Push
         {
             City = push.City, Side = push.Side, Owner = push.Owner, Zone = next.id, Retake = push.Retake, Free = push.Free, Direction = 1,
-            Defended = push.Defended, Landing = push.Landing, Confirmed = push.Confirmed, Last = push.Last,
+            Defended = push.Defended, Confirmed = push.Confirmed, Last = push.Last,
             Progress = Mathf.Clamp01(leftover), Wall = push.Retake ? 1f : WallPaceOf(side, next, corps)
         };
         chained.Corps.AddRange(push.Corps);
