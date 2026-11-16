@@ -1,6 +1,6 @@
 {
   "name": "empirecraft-regime-editor",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes, claim rules, military and misc configs.",
   "main": "main.js",
   "author": "Codex",
@@ -48,6 +48,16 @@
       "scenario-server.js",
       "scenario-ui.js",
       "zh-convert.js"
+    ],
+    "extraResources": [
+      {
+        "from": "core/win-x64",
+        "to": "core/win-x64"
+      },
+      {
+        "from": "core/data",
+        "to": "core/data"
+      }
     ],
     "win": {
       "icon": "assets/app-icon.ico",

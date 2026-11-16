@@ -133,6 +133,8 @@ try {
 
         Step "发布模组更新 $version"
         if (-not (Test-Path (Join-Path $Work "release.ps1"))) { throw "找不到 release.ps1(它不在仓库里，要在 $Root 下)。" }
+        # 核心目录 RegimeEditor\core 在 .gitignore 里：release.ps1 要求副本干净，不忽略的话刚编进来的核心算没跟踪的文件，
+        # 它直接报 "working tree is not clean"(2026-11-16 头一回实跑就停在这里)。打包时由 release.ps1 另把这个目录拷进包
         & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Work "release.ps1")
         $released = $LASTEXITCODE -eq 0
         # 打好的包拷回项目的 dist\

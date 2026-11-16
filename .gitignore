@@ -405,6 +405,9 @@ FodyWeavers.xsd
 # Local release packages
 dist/
 
+# Server core built into the editor at packaging time (打包便携版.bat, publish_all.ps1); release.ps1 copies it into the mod package
+RegimeEditor/core/
+
 # Local runtime diagnostics
 debug_probe.local.json
 EmpireCraft.debug.log

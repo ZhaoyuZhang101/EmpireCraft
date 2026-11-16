@@ -68,9 +68,12 @@ async function openCoreDialog() {
     const save = s.save
       ? `第 ${s.save.year} 年 ${s.save.month} 月 · 存于 ${esc(coreWhen(s.save.saved))}`
       : "还没有存档";
+    // 这份核心是哪儿来的：编辑器自带的排最前，其次才是联调目录、模组包里的
+    const from = { editor: "编辑器自带", pointer: "联调目录", mod: "模组包自带", download: "以前下载的", dev: "游戏目录旁" }[s.source] || "";
     box.innerHTML =
       `<h3 style="margin:0 0 8px;display:flex;align-items:center;gap:8px">${ico("iconKingdom")}服务器核心</h3>` +
-      row("iconOptions", "程序", s.exe ? esc(s.exe) : "没找到。更新到带核心的模组版本，或在游戏的模组设置里打开一次「用服务器核心」。", !s.exe) +
+      row("iconOptions", "程序", s.exe ? (from ? `<b>${from}</b> · ` : "") + esc(s.exe)
+        : "没找到。用「打包便携版」打出来的编辑器自带核心；也可以更新到带核心的模组版本。", !s.exe) +
       row("iconSaveLocal", "存档", save, !s.save) +
       row("iconWorldInfo", "眼下", s.running ? `已经开着(端口 ${s.port})，窗口收在托盘里` : "没在运行", !s.running) +
       `<p class="muted" style="margin:10px 0">不用开游戏。核心接着上面那份存档跑，手机照常连；没有存档时，在核心窗口里点「打开网页管理页」挑一个剧本开局。` +
@@ -111,6 +114,17 @@ async function refreshRootLabel() {
   const r = await api.getModRoot();
   el.textContent = r.path ? `模组目录：${r.path}` : (r.error || "未找到模组目录");
   el.title = el.textContent;
+  // 没有模组目录的电脑(只拿到一个便携版的人)：编辑不了东西，把「服务器核心」直接摆出来，一回就够
+  if (!r.path && api.core) {
+    let shown = false;
+    try {
+      shown = sessionStorage.getItem("coreDialogShown") === "1";
+      sessionStorage.setItem("coreDialogShown", "1");
+    } catch {
+      // 存不了就每页摆一回
+    }
+    if (!shown) openCoreDialog();
+  }
 }
 
 let toastTimer = null;

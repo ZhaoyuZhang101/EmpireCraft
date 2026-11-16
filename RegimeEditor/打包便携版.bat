@@ -25,13 +25,16 @@ if not exist "node_modules\electron-builder\cli.js" (
   exit /b 1
 )
 
-call node node_modules\electron-builder\cli.js --win portable
+rem pack-portable.js builds the server core, copies the data the core reads, then runs electron-builder,
+rem and draws one progress bar for the whole thing. The packaged editor carries the core and its data
+rem (see "extraResources" in package.json), so it runs the core on a PC without the game or the mod.
+rem UTF-8 console: the script prints Chinese.
+chcp 65001 >nul
+call node pack-portable.js
 if errorlevel 1 (
-  echo Build failed.
   pause
   exit /b 1
 )
 
-echo Build finished. Output folder: dist
 pause
 endlocal
