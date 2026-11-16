@@ -2815,7 +2815,7 @@ function applyLayer(){
       var emp=e&&e.name?node("e"+r.emp,1,e.name,e.rgb,null):null;
       if(emp)emp.ei=r.emp;
       var leaf=leafOf[i]=node("r"+i,2,r.name,r.own,emp);
-      leaf.home=r.tier===0;leaf.prov=!!r.prov;leaf.rum=r.tier===2;
+      leaf.home=r.tier===0;leaf.prov=!!r.prov;leaf.rum=r.tier===2;leaf.ri=i;
     });
     for(i=0;i<N;i++){var o=map.grid[i];if(o<250&&leafOf[o])zl[i]=leafOf[o].id}
     map.cityAt.forEach(function(c){c.leaf=leafOf[c.r]?leafOf[c.r].id:-1});
@@ -3017,7 +3017,7 @@ var G3ATTR=[[0,0,0,0,0],[0,0,255,0,0],[0,255,0,0,0],[0,0,0,255,0],[0,0,0,150,0],
 var G3VS="attribute vec3 aP;uniform vec4 uV;uniform float uTl,uMH;varying vec2 vP;"+
   "void main(){vP=aP.xy;vec2 s=(aP.xy-uV.xy)/uV.zw;s.y-=aP.z*uTl/uV.w;gl_Position=vec4(s.x*2.-1.,1.-s.y*2.,.98-1.96*aP.y/uMH,1.);}";
 var G3FS=["precision highp float;",
-  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3,uN,uR,uW;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer,uAdm;varying vec2 vP;",
+  "uniform sampler2D uA,uB,uC,uF1,uF2,uO3,uN,uP,uW;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer,uAdm,uFlip,uFd;varying vec2 vP;",
   "float hs(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}",
   // 噪声查表(见 g3Noise)：x 值、yz 它的变化(起伏的细纹)、w 另一份噪声。手机上逐点算散列太慢(用户 2026-11-12 "新版的3d地图在客户端真的好卡")
   "vec4 nt(vec2 p){vec4 t=texture2D(uN,p/128.);return vec4(t.r,(t.gb-.5)*6.,t.a);}",
@@ -3035,51 +3035,80 @@ var G3FS=["precision highp float;",
   " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);vec4 n1=nt(p*1.9);",
   // 归属(照游戏里的平滑国界 SmoothBorders.SmoothedOwnerAt)：周围 3×3 块地按二次 B 样条加权，同一家(叶，或展开到城时的城)的权相加，
   // 各家再加一层低频噪声(幅度 .28、噪声一格 6 格地)，最大的那家就是这里的主人；水、迷雾不参与(国土贴着海岸走)。
-  // 界线在头两家打平处：两家之差除以它变化的快慢就是离界线几个点，粗细按屏幕上的点算；哪一级的界看这两家在哪一级上不同。
+  // 界线在主人同另一家打平处：两家之差除以它变化的快慢就是离界线几个点，粗细按屏幕上的点算；哪一级的界看这两家在哪一级上不同(见 ed)。
   // 九块都是同一家(一国腹地，屏幕上大多数点)就不必比
   // 腹地(周围八块同属一家，见 g3Own)只取一块，不必比九块
   " vec2 zc=floor(p),t=p-zc-.5;vec4 Q4=texture2D(uO3,(zc+.5)/uZ);float F4=fl(Q4),vis=bit(F4,16.);",
-  " float s1=-9.,s2=-9.,ka=4.,kb=4.;vec2 g1=vec2(0.),g2=g1;vec4 oa=Q4,ob=oa;",
+  " float s1=-9.;vec2 g1=vec2(0.);vec4 oa=Q4;",
+  " gNc=0.;gW0=0.;gW1=0.;gW2=0.;gW3=0.;gD0=vec2(0.);gD1=gD0;gD2=gD0;gD3=gD0;gC0=vec4(-1.);gC1=gC0;gC2=gC0;gC3=gC0;",
   " if(F4>127.5){if(bit(F4,1.)>.5)s1=1.;}",
   " else{",
   "  vec3 wx=vec3(.5*(.5-t.x)*(.5-t.x),.75-t.x*t.x,.5*(.5+t.x)*(.5+t.x)),wy=vec3(.5*(.5-t.y)*(.5-t.y),.75-t.y*t.y,.5*(.5+t.y)*(.5+t.y));",
-  "  vec3 dx=vec3(t.x-.5,-2.*t.x,.5+t.x),dy=vec3(t.y-.5,-2.*t.y,.5+t.y);",
-  "  vec4 Q[9];float W[9];vec2 G[9];vis=0.;",
-  "  for(int j=0;j<3;j++)for(int i=0;i<3;i++){Q[j*3+i]=texture2D(uO3,(zc+vec2(float(i)-1.,float(j)-1.)+.5)/uZ);",
-  "  W[j*3+i]=wx[i]*wy[j];G[j*3+i]=vec2(dx[i]*wy[j],wx[i]*dy[j]);vis+=W[j*3+i]*bit(fl(Q[j*3+i]),16.);}",
-  "  vec4 c0=vec4(-1.),c1=c0,c2=c0,c3=c0;float w0=0.,w1=0.,w2=0.,w3=0.,k0=0.,k1=0.,k2=0.,k3=0.,nc=0.;vec2 d0=vec2(0.),d1=d0,d2=d0,d3=d0;",
-  "  for(int k=0;k<9;k++){",
-  "   if(bit(fl(Q[k]),1.)<.5)continue;",
-  "   vec3 q=Q[k].rgb;float wk=W[k];vec2 gk=G[k];",
-  "   if(nc>.5&&eq(q,c0.rgb)>.5){w0+=wk;d0+=gk;}",
-  "   else if(nc>1.5&&eq(q,c1.rgb)>.5){w1+=wk;d1+=gk;}",
-  "   else if(nc>2.5&&eq(q,c2.rgb)>.5){w2+=wk;d2+=gk;}",
-  "   else if(nc>3.5&&eq(q,c3.rgb)>.5){w3+=wk;d3+=gk;}",
-  "   else if(nc<.5){c0=Q[k];w0=wk;d0=gk;k0=float(k);nc=1.;}",
-  "   else if(nc<1.5){c1=Q[k];w1=wk;d1=gk;k1=float(k);nc=2.;}",
-  "   else if(nc<2.5){c2=Q[k];w2=wk;d2=gk;k2=float(k);nc=3.;}",
-  "   else if(nc<3.5){c3=Q[k];w3=wk;d3=gk;k3=float(k);nc=4.;}}",
-  "  if(nc>1.5){vec3 z=sn(c0,p);w0+=z.x;d0+=z.yz;z=sn(c1,p);w1+=z.x;d1+=z.yz;",
-  "   if(nc>2.5){z=sn(c2,p);w2+=z.x;d2+=z.yz;}if(nc>3.5){z=sn(c3,p);w3+=z.x;d3+=z.yz;}}",
-  "  if(nc>.5){s1=w0;g1=d0;oa=c0;ka=k0;}",
-  "  if(nc>1.5){if(w1>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w1;g1=d1;oa=c1;ka=k1;}else{s2=w1;g2=d1;ob=c1;kb=k1;}}",
-  "  if(nc>2.5){if(w2>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w2;g1=d2;oa=c2;ka=k2;}else if(w2>s2){s2=w2;g2=d2;ob=c2;kb=k2;}}",
-  "  if(nc>3.5){if(w3>s1){s2=s1;g2=g1;ob=oa;kb=ka;s1=w3;g1=d3;oa=c3;ka=k3;}else if(w3>s2){s2=w3;g2=d3;ob=c3;kb=k3;}}}",
-  " float dl=1e4,lv=4.,fr=0.,Fo=fl(oa);vec4 own=vec4(0.);",
-  " if(s1>-9.){vec2 ua=(zc+vec2(mod(ka,3.)-1.,floor(ka/3.)-1.)+.5)/uZ;own=texture2D(uO1,ua);",
-  "  if(s2>-9.){vec2 ub=(zc+vec2(mod(kb,3.)-1.,floor(kb/3.)-1.)+.5)/uZ;vec4 pa=texture2D(uO2,ua),pb=texture2D(uO2,ub);",
-  "   dl=(s1-s2)*uK/max(length(g1-g2),1e-4);",
-  "   lv=abs(bit(Fo,8.)-bit(fl(ob),8.))>.5?0.:eq(vec3(pa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(pa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.;",
-  // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
-  "   fr=lv<.5&&bit(Fo,64.)+bit(fl(ob),64.)>.5?1.:0.;",
-  // 管理员(没有本朝)：全图战事的攻守两国相接处(uW 是两两交战表，uR 是每块地属哪一国；用户 2026-11-16 "战线不是平滑的")
-  "   if(uAdm>.5){float ra=floor(texture2D(uR,ua).r*255.+.5),rb=floor(texture2D(uR,ub).r*255.+.5);",
-  "    if(ra<249.5&&rb<249.5&&abs(ra-rb)>.5&&texture2D(uW,(vec2(ra,rb)+.5)/256.).r>.5){lv=0.;fr=1.;}}}}",
+  "  vec3 dx=vec3(t.x-.5,-2.*t.x,.5+t.x),dy=vec3(t.y-.5,-2.*t.y,.5+t.y);vis=0.;",
+  "  for(int j=0;j<3;j++)for(int i=0;i<3;i++){",
+  "   vec2 uv=(zc+vec2(float(i)-1.,float(j)-1.)+.5)/uZ;vec4 q=texture2D(uO3,uv);float wk=wx[i]*wy[j];vec2 gk=vec2(dx[i]*wy[j],wx[i]*dy[j]);",
+  "   vis+=wk*bit(fl(q),16.);",
+  "   if(bit(fl(q),1.)<.5)continue;",
+  // 战线推进的过渡(用户 2026-11-16 "而且战线也不是实时推进的""动画不平滑")：新的一份图到了，换了主的地块(uP 记着它的旧主是哪一家)
+  // 不一下跳过去——它的权在旧主、新主之间分：uFlip 从 0 走到 1，离新主原有的地近的先分过去、一层一层往里(uFd 是共几层)，界线就从旧位置连着推到新位置
+  "   if(uFlip<.999){vec4 P=texture2D(uP,uv);if(eq(P.rgb,q.rgb)<.5){",
+  "    float pa=fl(P),pk=mod(pa,32.),fq=fl(q),fb=clamp(uFlip*uFd-floor(pa/32.),0.,1.);",
+  "    P.a=(bit(fq,1.)+2.*bit(pk,1.)+4.*bit(pk,2.)+8.*bit(pk,4.)+16.*bit(fq,16.)+32.*bit(pk,8.)+64.*bit(pk,16.))/255.;",
+  "    acc(P,wk*(1.-fb),gk*(1.-fb));wk*=fb;gk*=fb;}}",
+  "   acc(q,wk,gk);}",
+  "  if(gNc>1.5){vec3 z=sn(gC0,p);gW0+=z.x;gD0+=z.yz;z=sn(gC1,p);gW1+=z.x;gD1+=z.yz;",
+  "   if(gNc>2.5){z=sn(gC2,p);gW2+=z.x;gD2+=z.yz;}if(gNc>3.5){z=sn(gC3,p);gW3+=z.x;gD3+=z.yz;}}",
+  "  if(gNc>.5){s1=gW0;g1=gD0;oa=gC0;}",
+  "  if(gNc>1.5&&gW1>s1){s1=gW1;g1=gD1;oa=gC1;}",
+  "  if(gNc>2.5&&gW2>s1){s1=gW2;g1=gD2;oa=gC2;}",
+  "  if(gNc>3.5&&gW3>s1){s1=gW3;g1=gD3;oa=gC3;}}",
+  " float dl=1e4,lv=4.,fr=0.,wd=1e4,Fo=fl(oa);vec4 own=vec4(0.);",
+  " if(s1>-9.){own=texture2D(uF1,fuv(oa));",
+  "  if(gNc>1.5){gS=s1;gG=g1;gFo=Fo;gOa=oa;gPa=texture2D(uF2,fuv(oa));gSc=1e5;gDl=1e4;gLv=4.;gFr=0.;gWd=1e4;",
+  "   ed(gC0,gW0,gD0);ed(gC1,gW1,gD1);if(gNc>2.5)ed(gC2,gW2,gD2);if(gNc>3.5)ed(gC3,gW3,gD3);",
+  "   dl=gDl;lv=gLv;fr=gFr;wd=gWd;}}",
   // 地面：底色、岩、林、田、沙丘、树、雪(关了地形只取海岸，地面平涂简图的暗色)
   " vec3 col=vec3(.204,.224,.18);float land,rk=0.,fo=0.,h=0.;vec4 B,C;",
   " if(uTer>.5){",
-  "  vec2 wc=c+(n1.xw-.5)*clamp(cp*.3,0.,.9);vec4 A=bs(uA,wc),n2=nt(p*5.3+3.1);B=tx(uB,wc);C=tx(uC,wc);",
+  // 种类的分界(林、田、山色、荒漠、雪)也走圆滑的曲线(用户 2026-11-16 "边界还是好乱"：拉近到城县一级，一个地貌点在屏幕上十几二十个点，
+  // 成块的林地、山色照取样格露出横平竖直的直角，同圆滑的界线对不上)：贴图里各种类先抹圆了(见 g3Soft)，取样处再按一层低频噪声挪开
+  // (两三块地一个起伏、至多挪三成块地)，长的直边成了弯的。海岸、河、山的起伏不跟着挪(城、军都按原位置画)；拉远了不必挪
+  "  vec2 wc=c+(n1.xw-.5)*clamp(cp*.3,0.,.9);vec4 A=bs(uA,wc),n2=nt(p*5.3+3.1);B=tx(uB,wc);vec2 wk=wc;",
+  "  if(cp>1.5){wk+=(nt(p*.41+7.3).xw-.5)*(1.1/uQ)*clamp(cp*.2-.2,0.,1.);A.rgb=tx(uA,wk).rgb;}",
+  "  C=tx(uC,wk);",
   "  h=B.b*1.6;land=A.a;col=A.rgb*(.9+.18*n1.x);",
+  // "家"是画界线时并在一起算的单位：一片叶，或展开到城时一座城里属同一片叶的地。一家的记号是它在家表里的位置(两个字节)加一个散列字节(见 g3Own)；
+  // 家的颜色、属哪一国(uF1)、最上一级与眼下标着的那一家(uF2)照记号查表，不用回头找它的哪一块地——战线推进的过渡里，旧主在这一带可能一块地都不剩
+  "vec2 fuv(vec4 c){return (floor(c.rg*255.+.5)+.5)/256.;}",
+  // 周围九块地归并成至多四家：各家的记号、权、权变化的快慢
+  "float gNc,gW0,gW1,gW2,gW3;vec2 gD0,gD1,gD2,gD3;vec4 gC0,gC1,gC2,gC3;",
+  "void acc(vec4 q,float wk,vec2 gk){",
+  " if(gNc>.5&&eq(q.rgb,gC0.rgb)>.5){gW0+=wk;gD0+=gk;}",
+  " else if(gNc>1.5&&eq(q.rgb,gC1.rgb)>.5){gW1+=wk;gD1+=gk;}",
+  " else if(gNc>2.5&&eq(q.rgb,gC2.rgb)>.5){gW2+=wk;gD2+=gk;}",
+  " else if(gNc>3.5&&eq(q.rgb,gC3.rgb)>.5){gW3+=wk;gD3+=gk;}",
+  " else if(gNc<.5){gC0=q;gW0=wk;gD0=gk;gNc=1.;}",
+  " else if(gNc<1.5){gC1=q;gW1=wk;gD1=gk;gNc=2.;}",
+  " else if(gNc<2.5){gC2=q;gW2=wk;gD2=gk;gNc=3.;}",
+  " else if(gNc<3.5){gC3=q;gW3=wk;gD3=gk;gNc=4.;}}",
+  // 主人同旁边另一家(cj)之间的界：离这条界几个点、是哪一级的界(用户 2026-11-16 "边界还是好乱""你这都接不上")。
+  // 以前只同第二大的那一家比：三家挨着的岔口上，第三家那条粗的国界在线宽之内给细的城界顶掉，粗线到岔口前缺一截、线头对不上。
+  // 现在同周围每一家都比一遍：哪条界的线(连它两边的边色)盖得到这一点，就画级别最高的那条；都盖不到才按最近的那条算
+  "float gS,gFo,gSc,gDl,gLv,gFr,gWd;vec2 gG;vec4 gPa,gOa;",
+  "void ed(vec4 cj,float wj,vec2 dj){",
+  " if(eq(cj.rgb,gOa.rgb)>.5)return;",
+  " vec4 pb=texture2D(uF2,fuv(cj));",
+  " float Fb=fl(cj),d=(gS-wj)*uK/max(length(gG-dj),1e-4),",
+  "  lv=abs(bit(gFo,8.)-bit(Fb,8.))>.5?0.:eq(vec3(gPa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(gPa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.,",
+  // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
+  "  fr=lv<.5&&bit(gFo,64.)+bit(Fb,64.)>.5?1.:0.;",
+  // 管理员(没有本朝)：全图战事的攻守两国相接处(uW 是两两交战表，一家属哪一国记在 uF1 的第四个字节；用户 2026-11-16 "战线不是平滑的")
+  " if(uAdm>.5){float ra=floor(texture2D(uF1,fuv(gOa)).a*255.+.5),rb=floor(texture2D(uF1,fuv(cj)).a*255.+.5);",
+  "  if(ra<249.5&&rb<249.5&&abs(ra-rb)>.5&&texture2D(uW,(vec2(ra,rb)+.5)/256.).r>.5){lv=0.;fr=1.;}}",
+  // 选中的那一家同不选中的相接处(白边)单记
+  " if(abs(bit(gFo,32.)-bit(Fb,32.))>.5)gWd=min(gWd,d);",
+  " float ex=lv<2.5?(uFar>.5?1.6:2.6)*uPx+.5:.5*uPx+.5,sc=d<ex?lv-8.+d*.01:d;",
+  " if(sc<gSc){gSc=sc;gDl=d;gLv=lv;gFr=fr;}}",
   "  rk=clamp(B.a+smoothstep(.5,.95,h)*.7,0.,1.);col=mix(col,vec3(.48,.44,.39)*(.85+.3*n2.x),rk*.55);",
   "  fo=smoothstep(.3,.7,C.r+(n2.w-.5)*.55);col=mix(col,col*vec3(.62,.76,.6),fo*.8);",
   "  if(det>.2){",
@@ -3112,11 +3141,12 @@ var G3FS=["precision highp float;",
   " if(lv<3.5){float far=uFar>.5?1.:0.,bw=(far>.5?1.6:2.6)*uPx;",
   "  if(lv<2.5&&bit(Fo,2.)>.5&&s1>-9.){vec3 bc=clamp(own.rgb*1.12+.03,0.,1.);bc=clamp(mix(vec3(dot(bc,vec3(.3,.59,.11))),bc,1.35),0.,1.);",
   "   col=mix(col,bc*(.82+.18*smoothstep(bw,0.,dl)),clamp(bw+.5-dl,0.,1.)*(lv<1.5?1.:.8));}",
-  // 界线落在水上(过河处)淡下去，让河自己当界(用户 2026-11-16 "边界线真的好乱""也不贴合地形")
-  "  float cw=(lv<.5?(far>.5?2.:3.)*(1.+fr*.4):lv<1.5?1.2:lv<2.5?.9:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.)*mix(lv<.5?.6:.15,1.,la);",
-  "  col=mix(col,lv<.5?(fr>.5?vec3(.91,.24,.15):vec3(.953,.765,.29)):vec3(.06,.065,.045),al*(lv<.5?1.:lv<1.5?.85:lv<2.5?.6:.38));}",
+  // 界线落在水上(过河处)只略淡一点、不断开(用户 2026-11-16 先说 "边界线真的好乱""也不贴合地形"，淡到一成半之后又说 "你这都接不上"：
+  // 国界常沿着河走，线一到河上就没了，成了一截一截的)。行政区之间的线也描实一些(以前只九分粗、六成浓，压在山色上看不出来)
+  "  float cw=(lv<.5?(far>.5?2.:3.)*(1.+fr*.4):lv<1.5?1.5:lv<2.5?1.2:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.)*mix(lv<.5?.85:.7,1.,la);",
+  "  col=mix(col,lv<.5?(fr>.5?vec3(.91,.24,.15):vec3(.953,.765,.29)):vec3(.06,.065,.045),al*(lv<.5?1.:lv<1.5?.9:lv<2.5?.75:.38));}",
   // 选中的那一家：同不选中的相接处描一道白边
-  " if(s2>-9.&&abs(bit(Fo,32.)-bit(fl(ob),32.))>.5)col=mix(col,vec3(1.),clamp((uFar>.5?2.:3.)*uPx*.5+.5-dl,0.,1.)*.95);",
+  " if(wd<1e3)col=mix(col,vec3(1.),clamp((uFar>.5?2.:3.)*uPx*.5+.5-wd,0.,1.)*.95);",
   // 迷雾
   " col=mix(vec3(.055,.06,.047)+.03*n1.x,col,smoothstep(.15,.85,vis+(n1.x-.5)*.35));",
   " gl_FragColor=vec4(col,1.);}"].join("\n");
@@ -3199,36 +3229,128 @@ function g3Terrain(gl){
   }
   for(y=vh-2;y>=0;y--)for(x=0;x<vw-1;x++){var a=y*vw+x;I[t++]=a;I[t++]=a+vw;I[t++]=a+1;I[t++]=a+1;I[t++]=a+vw;I[t++]=a+vw+1}
   gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);
+// 把几张贴图里的种类(山色、岩、林田旱雪)在陆地之间抹圆：横竖各按 1 4 6 4 1 取平均，成块的种类那一圈直角边成了缓坡，
+// 着色器在缓坡上取一道分界就是圆的(见 G3FS 里取种类那几句)。岸边两个点以内的水也填上旁边陆地的值：取样挪到水边时不带出水色。
+// list 是 [贴图, [要抹的通道]] 的表；回"有值的格子"(再抹一遍时把填上的也当陆地)。只在山川换了一版时算一回
+function g3Soft(list,L,w,h){
+  var n=w*h,t=new Float32Array(n),wt=new Float32Array(n),wv=new Float32Array(n),i,x,y,j,row,w2=w*2,end=n*4;
+  for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wt[i]=L[i-2]+4*L[i-1]+6*L[i]+4*L[i+1]+L[i+2]}}
+  for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;wv[i]=wt[i-w2]+4*wt[i-w]+6*wt[i]+4*wt[i+w]+wt[i+w2]}}
+  list.forEach(function(it){
+    var d=it[0];
+    it[1].forEach(function(c){
+      // 这一通道处处一样(多数图没有雪、没有荒漠)：不必抹
+      for(i=c,j=d[c];i<end&&d[i]===j;i+=4);
+      if(i>=end)return;
+      for(y=0;y<h;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;j=i*4+c;t[i]=L[i-2]*d[j-8]+4*L[i-1]*d[j-4]+6*L[i]*d[j]+4*L[i+1]*d[j+4]+L[i+2]*d[j+8]}}
+      for(y=2;y<h-2;y++){row=y*w;for(x=2;x<w-2;x++){i=row+x;if(wv[i]>0)d[i*4+c]=(t[i-w2]+4*t[i-w]+6*t[i]+4*t[i+w]+t[i+w2])/wv[i]+.5}}
+    });
+  });
+  for(i=0;i<n;i++)wv[i]=wv[i]>0||L[i]?1:0;
+  return wv;
+}
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I,gl.STATIC_DRAW);
   G3.ni=t;G3.terr=terr;G3.tw=tw;G3.th=th;G3.q=q;
 }
-// 归属三张小图(一块地一个点)：颜色与记号(陆地、有主、传闻、本朝、看得见)；最上一级与眼下标着的那一家；叶(或城)。
-// 界线分四级：本朝内外不同是金线，最上一级不同是深线，标着的那一家不同是细线，叶或城不同是最浅的线(同 drawBorders)
+// 归属：一张一块地一个点的小图(uO3：这块地属哪一家、它的记号——陆地、有主、传闻、本朝、看得见、选中、交战)，加两张按家排的表
+// (uF1 这一家的颜色与属哪一国，uF2 最上一级与眼下标着的那一家)。"家"是画界线时并在一起算的单位：一片叶；展开到城时是一座城里属同一片叶的地
+// ——一座城被敌军一块块占去，占去的归了别的叶，同原城不再并成一家，中间是国界(总图里地块的归属按实际控制方给，城号不变)。
+// 一家在表里的位置照它的身份(国的编号、法理名、城的编号)散列着排，各家边界的那层噪声跟着记号走：换了一份图、展开收起，别家的界线形状不跟着变。
+// 界线分四级：本朝内外不同是金线，最上一级不同是深线，标着的那一家不同是细线，叶或城不同是最浅的线(同 drawBorders)。
+// 战线推进的过渡(见 G3FS 里取 uP 那一句、loadMap)：新图同上一份图比，换了主的地块在 uP 里记下旧主那一家(没换的同 uO3 一样)，
+// 只政体图层做；旧主已不在图上的直接换。换主的地块连它四周不算腹地
+var G3FLIP=950;
 function g3Own(gl,sc){
-  var M=map,n=M.w*M.h,a=new Uint8Array(n*4),b=new Uint8Array(n*4),c=new Uint8Array(n*4),i,sel=g3Sel();
-  for(i=0;i<n;i++){
-    var o=M.grid[i],la=M.zLeaf[i],r=o<250?M.realms[o]:null,own=la>=0,rgb=own&&M.leafRgb[la]||[0,0,0],j=i*4,z=M.zcity[i],picked=own&&sel>=0&&M.shown[la]===sel;
-    a[j]=rgb[0];a[j+1]=rgb[1];a[j+2]=rgb[2];a[j+3]=((o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0)|(picked?32:0)|(r&&r.war?64:0));
-    var p1=own?M.nodes[la].top:65535,p2=own?M.shown[la]:65535,cl=own&&(M.cityOpen[la]||sc&&r&&r.tier<=1),p3=own?(cl&&z!==NOCITY?8388608+z:la):16777215;
-    b[j]=p1&255;b[j+1]=p1>>8&255;b[j+2]=p2&255;b[j+3]=p2>>8&255;c[j]=p3&255;c[j+1]=p3>>8&255;c[j+2]=p3>>16&255;c[j+3]=a[j+3];
+  var M=map,W=M.w,H=M.h,n=W*H,c=new Uint8Array(n*4),fa=new Uint8Array(n),i,j,sel=g3Sel(),nodes=M.nodes,rs=M.realms;
+  var f1=new Uint8Array(262144),f2=new Uint8Array(262144),used=new Uint8Array(65536),fam=new Map();
+  // 头一格留给无主之地
+  used[0]=1;f1[3]=255;f2[0]=f2[1]=f2[2]=f2[3]=255;
+  function hash(s){var h=2166136261;for(var k=0;k<s.length;k++)h=Math.imul(h^s.charCodeAt(k),16777619);return h>>>0}
+  // 一家的记号(z 是城在 cityAt 里的下标，不分城给 -1；o 是它属哪一国)
+  function famOf(la,z,o){
+    var key=(z+1)*65536+la,v=fam.get(key);
+    if(v!==undefined)return v;
+    var nd=nodes[la],ct=z>=0?M.cityAt[z]:null,h=hash((nd.ri!=null&&rs[nd.ri]?"r"+rs[nd.ri].id:"k"+nd.name)+(ct?"|"+ct.id:"")),s=h&65535;
+    while(used[s])s=s+1&65535;
+    used[s]=1;v=s|(h>>>16&255)<<16;
+    var rgb=M.leafRgb[la]||[0,0,0],q=s*4,p1=nd.top,p2=M.shown[la];
+    f1[q]=rgb[0];f1[q+1]=rgb[1];f1[q+2]=rgb[2];f1[q+3]=o<250?o:255;
+    f2[q]=p1&255;f2[q+1]=p1>>8&255;f2[q+2]=p2&255;f2[q+3]=p2>>8&255;
+    fam.set(key,v);return v;
   }
-  // 腹地：周围八块同属一家、记号也一样，记在 O3 的第 128 位(着色器在这里只取一块)
-  var W=M.w,H=M.h;
+  function flags(o,r,own,la){
+    return(o<WATER?1:0)|(own?2:0)|(r&&r.tier===2?4:0)|(r&&r.inside?8:0)|(o!==FOG?16:0)|(own&&sel>=0&&M.shown[la]===sel?32:0)|(r&&r.war?64:0);
+  }
   for(i=0;i<n;i++){
-    var x=i%W,y=(i-x)/W,j=i*4,ok=1;
+    var o=M.grid[i],la=M.zLeaf[i],r=o<250?rs[o]:null,own=la>=0,z=M.zcity[i],v=0;j=i*4;
+    if(own)v=famOf(la,(M.cityOpen[la]||sc&&r&&r.tier<=1)&&z!==NOCITY?z:-1,o);
+    c[j]=v&255;c[j+1]=v>>8&255;c[j+2]=v>>16&255;c[j+3]=fa[i]=flags(o,r,own,la);
+  }
+  // 过渡：换了主的地块记下旧主那一家(uP 的头三个字节)，第四个字节是旧主的记号(有主 1、传闻 2、本朝 4、选中 8、交战 16)加上
+  // 这块地离新主原有的地隔着几层(乘 32，至多 7)：挨着的先翻，一层一层往里，界线是推过去的，不是一整片同时换
+  var P=c,hot=null,fl=G3.flipOk&&layer==="pol"?M.flip:null;
+  // 法理图层不做：留着的话切回政体图层才补演一遍
+  if(!fl)M.flip=null;
+  if(fl){
+    var slot={},leafOf=[],cityIx={},flips=[],isF=new Uint8Array(n);
+    rs.forEach(function(r,k){slot[r.id]=k});
+    nodes.forEach(function(nd){if(nd.ri!=null)leafOf[nd.ri]=nd.id});
+    M.cityAt.forEach(function(ct,k){cityIx[ct.id]=k});
+    P=new Uint8Array(c);hot=new Uint8Array(n);
+    for(i=0;i<n;i++){
+      var g0=fl.grid[i],g1=M.grid[i];
+      // 水、迷雾不比(迷雾揭开不是换主)
+      if(g0>=250&&g0!==WILD||g1>=250&&g1!==WILD)continue;
+      var id0=g0<250?fl.realms[g0].id:"",id1=g1<250?rs[g1].id:"";
+      if(id0===id1)continue;
+      var pv=0,pk=0;
+      if(id0!==""){
+        var k0=slot[id0],l0=k0!=null?leafOf[k0]:null;
+        // 旧主已不在图上：直接换
+        if(l0==null)continue;
+        var r0=rs[k0],z0=fl.zcity[i],ct0=z0!==NOCITY?fl.cityAt[z0]:null,zi=ct0?cityIx[ct0.id]:null;
+        pv=famOf(l0,(M.cityOpen[l0]||sc&&r0.tier<=1)&&zi!=null?zi:-1,k0);
+        pk=1|(r0.tier===2?2:0)|(r0.inside?4:0)|(sel>=0&&M.shown[l0]===sel?8:0)|(r0.war?16:0);
+      }
+      j=i*4;P[j]=pv&255;P[j+1]=pv>>8&255;P[j+2]=pv>>16&255;P[j+3]=pk;isF[i]=1;flips.push(i);
+      var hx=i%W,hy=(i-hx)/W;
+      for(var ey=-1;ey<=1;ey++)for(var ex=-1;ex<=1;ex++)hot[Math.min(H-1,Math.max(0,hy+ey))*W+Math.min(W-1,Math.max(0,hx+ex))]=1;
+    }
+    if(!flips.length){M.flip=null;P=c;hot=null}
+    else{
+      var di=new Int8Array(n).fill(-1),queue=[],layers=1;
+      var near=function(at,fn){var ax=at%W;if(ax>0)fn(at-1);if(ax<W-1)fn(at+1);if(at>=W)fn(at-W);if(at+W<n)fn(at+W)};
+      flips.forEach(function(at){
+        var g=M.grid[at],hit=false;
+        near(at,function(nb){if(!isF[nb]&&M.grid[nb]===g)hit=true});
+        if(hit){di[at]=0;queue.push(at)}
+      });
+      for(i=0;i<queue.length;i++)(function(at){
+        var g=M.grid[at];
+        near(at,function(nb){if(isF[nb]&&di[nb]<0&&M.grid[nb]===g){di[nb]=Math.min(7,di[at]+1);queue.push(nb)}});
+      })(queue[i]);
+      flips.forEach(function(at){var d=di[at]<0?0:di[at];if(d+1>layers)layers=d+1;P[at*4+3]|=d<<5});
+      fl.layers=layers;fl.dur=500+450*layers;
+      if(!fl.t0)fl.t0=Date.now();
+    }
+  }
+  // 腹地：周围八块同属一家、记号也一样，记在 uO3 的第 128 位(着色器在这里只取一块)
+  for(i=0;i<n;i++){
+    if(hot&&hot[i])continue;
+    var x=i%W,y=(i-x)/W,ok=1;j=i*4;
     for(var dy=-1;dy<=1&&ok;dy++)for(var dx=-1;dx<=1;dx++){
-      var q=(Math.min(H-1,Math.max(0,y+dy))*W+Math.min(W-1,Math.max(0,x+dx)))*4;
-      if(c[q]!==c[j]||c[q+1]!==c[j+1]||c[q+2]!==c[j+2]||a[q+3]!==a[j+3]){ok=0;break}
+      var qi=Math.min(H-1,Math.max(0,y+dy))*W+Math.min(W-1,Math.max(0,x+dx)),q=qi*4;
+      if(c[q]!==c[j]||c[q+1]!==c[j+1]||c[q+2]!==c[j+2]||fa[qi]!==fa[i]){ok=0;break}
     }
     if(ok)c[j+3]|=128;
   }
-  g3Tex(gl,3,M.w,M.h,a,false);g3Tex(gl,4,M.w,M.h,b,false);g3Tex(gl,5,M.w,M.h,c,false);
-  // 管理员战线：每块地属哪一国(uR)、哪两国交战(uW，256×256)
+  g3Tex(gl,3,256,256,f1,false);g3Tex(gl,4,256,256,f2,false);g3Tex(gl,5,W,H,c,false);
+  if(G3.flipOk)g3Tex(gl,7,W,H,P,false);
+  // 管理员战线：哪两国交战(uW，256×256)
   if(G3.war){
-    var rr=new Uint8Array(n*4),ww=new Uint8Array(256*256*4);
-    for(i=0;i<n;i++){var g=M.grid[i];rr[i*4]=g<250?g:255}
+    var ww=new Uint8Array(256*256*4);
     (M.allFronts||[]).forEach(function(p){if(p[0]<250&&p[1]<250){ww[(p[1]*256+p[0])*4]=255;ww[(p[0]*256+p[1])*4]=255}});
-    g3Tex(gl,7,M.w,M.h,rr,false);g3Tex(gl,8,256,256,ww,false);
+    g3Tex(gl,8,256,256,ww,false);
   }
 }
 // 选中的是哪一家：点中的那块地眼下标着的那一家(拉远拉近跟着换级)
@@ -3236,6 +3358,9 @@ function g3Sel(){return mapSelZone>=0&&map.zLeaf[mapSelZone]>=0?map.shown[map.zL
 function g3Init(){
   if(G3.gl||G3.bad)return G3.gl;
   try{
+  // 种类的分界抹圆(用户 2026-11-16 "边界还是好乱"：成块的林地、山色露出直角)；一个地貌点不到两成块地的细图抹两遍
+  var soft=[[A,[0,1,2]],[B,[3]],[C,[0,1,2,3]]],Ls=g3Soft(soft,L,tw,th);
+  if(q<.19)g3Soft(soft,Ls,tw,th);
     var cv=document.createElement("canvas"),gl=cv.getContext("webgl",{antialias:false,alpha:false,depth:true,stencil:false})||cv.getContext("experimental-webgl");
     var hp=gl&&gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT);
     if(!hp||!hp.precision)throw "no highp";
@@ -3244,17 +3369,18 @@ function g3Init(){
     gl.attachShader(pg,sh(gl.VERTEX_SHADER,G3VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,G3FS));gl.bindAttribLocation(pg,0,"aP");gl.linkProgram(pg);
     if(!gl.getProgramParameter(pg,gl.LINK_STATUS))throw gl.getProgramInfoLog(pg);
     gl.useProgram(pg);
-    "uA uB uC uO1 uO2 uO3 uN uV uTl uMH uT uZ uQ uK uPx uFar uTer uAdm".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<7)gl.uniform1i(u[nm],i)});
-    // 管理员战线要两张小图(第 7、8 号)：手机给不了 9 个贴图位的，两张都指到噪声图上、不画管理员战线
-    G3.war=gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>=9;
-    gl.uniform1i(gl.getUniformLocation(pg,"uR"),G3.war?7:6);gl.uniform1i(gl.getUniformLocation(pg,"uW"),G3.war?8:6);
+    "uA uB uC uF1 uF2 uO3 uN uV uTl uMH uT uZ uQ uK uPx uFar uTer uAdm uFlip uFd".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<7)gl.uniform1i(u[nm],i)});
+    // 第 7 号贴图位给战线推进的过渡(uP)，第 8 号给管理员战线(uW)：手机给不了那么多贴图位的，指到噪声图上、不做那一样
+    var units=gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+    G3.flipOk=units>=8;G3.war=units>=9;
+    gl.uniform1i(gl.getUniformLocation(pg,"uP"),G3.flipOk?7:6);gl.uniform1i(gl.getUniformLocation(pg,"uW"),G3.war?8:6);
     g3Noise(gl);
     cv.addEventListener("webglcontextlost",function(e){e.preventDefault();G3.bad=true;G3.gl=null;g3Hide();drawMap()});
     cv.id="map-gl";G3.cv=cv;G3.u=u;G3.vb=gl.createBuffer();G3.ib=gl.createBuffer();G3.max=gl.getParameter(gl.MAX_TEXTURE_SIZE);G3.gl=gl;
   }catch(e){G3.bad=true;if($("map-3d"))$("map-3d").hidden=true;try{console.warn("[3d]",e)}catch(x){}}
   return G3.gl;
 }
-function g3Hide(){if(G3.cv)G3.cv.style.display="none";if($("map"))$("map").style.background=""}
+function g3Hide(){G3.sig=null;if(G3.cv)G3.cv.style.display="none";if($("map"))$("map").style.background=""}
 // 画底图：画成了回 true(上面那张画布只要清空再画城、名字、军队)；不成回 false，照旧平面画
 function g3Draw(cv,x,y,w,h,kc){
   G3.drew=false;
@@ -3266,8 +3392,22 @@ function g3Draw(cv,x,y,w,h,kc){
     var sc=kc>=14;
     var sel=g3Sel();
     if(G3.nodes!==map.nodes||G3.okey!==map.openKey||G3.sc!==sc||G3.grid!==map.grid||G3.sel!==sel){g3Own(gl,sc);G3.nodes=map.nodes;G3.okey=map.openKey;G3.sc=sc;G3.grid=map.grid;G3.sel=sel}
-    var cw=cv.clientWidth,ch=cv.clientHeight,now=Date.now(),busy=now-G3.last<90,pr=Math.min(1.5,window.devicePixelRatio||1),gc=G3.cv,u=G3.u;
-    G3.last=now;clearTimeout(G3.tm);
+    var cw=cv.clientWidth,ch=cv.clientHeight,now=Date.now(),busy=false,pr=Math.min(1.5,window.devicePixelRatio||1),gc=G3.cv,u=G3.u;
+    // 底图同上回一样(视野、大小、地形开关、贴图都没变；往后底图上再有会动的量，也要算进 sig)：军牌走动、铭牌重排只动上面那张画布，
+    // 底图已是清楚的就不重画。以前军队一走动每 40 毫秒整图重画一遍，还被当成拖动、一直按低一档的清晰度画，停下才清楚，
+    // 仗打着的时候总有军在走，图就一阵糊一阵清(用户 2026-11-16 "士兵还是一闪一闪的")
+    // 战线推进的过渡走到几成(见 g3Own、G3FS 的 uFlip)：没走完就隔一帧再画，这几帧照清楚的画(不当成拖动降一档)
+    var fp=1,fd=1;
+    if(map.flip&&map.flip.t0&&G3.flipOk){
+      fp=(now-map.flip.t0)/(map.flip.dur||G3FLIP);fd=map.flip.layers||1;
+      if(fp>=1){fp=1;map.flip=null}else if(!G3.ft)G3.ft=setTimeout(function(){G3.ft=0;drawMap()},33);
+    }
+    var sig=[x,y,w,h,cw,ch,pr,G3.ter?1:0,kc<3?1:0,fp].join(",");
+    if(same&&sig===G3.sig){
+      // 隔一秒半照样重画一回：切到后台再回来，有的手机会把画布清掉
+      if(G3.sharp&&now-G3.at<1500){G3.drew=G3.war;return true}
+    }else{busy=fp>=1&&now-G3.last<90;G3.last=now}
+    G3.sig=sig;G3.sharp=!busy;G3.at=now;clearTimeout(G3.tm);
     if(busy){pr=Math.max(.75,pr*.6);G3.tm=setTimeout(function(){G3.last=0;drawMap()},150)}
     var bw=Math.max(1,Math.round(cw*pr)),bh=Math.max(1,Math.round(ch*pr));
     if(gc.parentNode!==cv.parentNode)cv.parentNode.insertBefore(gc,cv);
@@ -3277,7 +3417,7 @@ function g3Draw(cv,x,y,w,h,kc){
     cv.style.position="relative";cv.style.background="transparent";
     gl.viewport(0,0,bw,bh);gl.clearColor(.055,.06,.047,1);gl.enable(gl.DEPTH_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.uniform4f(u.uV,x,y,w,h);gl.uniform1f(u.uTl,G3.ter?G3.tilt:0);gl.uniform1f(u.uTer,G3.ter?1:0);gl.uniform1f(u.uMH,map.h);gl.uniform2f(u.uT,G3.tw,G3.th);gl.uniform2f(u.uZ,map.w,map.h);
-    gl.uniform1f(u.uQ,G3.q);gl.uniform1f(u.uK,bw/w);gl.uniform1f(u.uPx,pr);gl.uniform1f(u.uFar,kc<3?1:0);gl.uniform1f(u.uAdm,G3.war&&state&&state.admin&&map.allFronts&&map.allFronts.length?1:0);
+    gl.uniform1f(u.uQ,G3.q);gl.uniform1f(u.uK,bw/w);gl.uniform1f(u.uPx,pr);gl.uniform1f(u.uFar,kc<3?1:0);gl.uniform1f(u.uAdm,G3.war&&state&&state.admin&&map.allFronts&&map.allFronts.length?1:0);gl.uniform1f(u.uFlip,fp);gl.uniform1f(u.uFd,fd);
     gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.drawElements(gl.TRIANGLES,G3.ni,gl.UNSIGNED_SHORT,0);
     G3.drew=G3.war;
@@ -3288,7 +3428,11 @@ function loadMap(){
   lastMapAt=Date.now();
   api("GET","/api/map").then(function(r){
     if(r.status!==200||!r.json.ready)return;
-    map=decodeMap(r.json);applyLayer();drawMap();
+    // 上一份图留着同新的比：换了主的地块，界线从旧位置推到新位置(见 g3Own 的过渡)。头一回拿到图、图的大小变了不比
+    var old=map;
+    map=decodeMap(r.json);
+    if(old&&old.grid&&old.w===map.w&&old.h===map.h)map.flip={grid:old.grid,zcity:old.zcity,realms:old.realms,cityAt:old.cityAt,t0:0};
+    applyLayer();drawMap();
     if(map.ts&&(!terr||terr.ts!==map.ts))loadTerrain();
   },function(){});
 }
@@ -3311,6 +3455,8 @@ function loadTerrain(){
       else if(j.ts!==head.ts){if(tries<6)setTimeout(function(){get(0,tries+1)},300);else stop();return}
       chunks[p]=atob(j.d);terrProg={p:p+1,n:j.n};
       if(!synced&&state)render();
+    // 贴图(山川、归属、选中的那一家)同上回画的是不是一份：是的话底图可能不用重画(见下面的 sig)
+    var same=G3.terr===terr&&G3.nodes===map.nodes&&G3.okey===map.openKey&&G3.sc===(kc>=14)&&G3.grid===map.grid&&G3.sel===g3Sel();
       if(p+1<j.n){get(p+1,0);return}
       var n=head.w*head.h,data=rleBin(chunks.join(""),n);
       if(head.from){
@@ -3758,7 +3904,7 @@ function zoomAt(factor,fx,fy){
 function drawSoon(){if(drawSoon.q)return;drawSoon.q=requestAnimationFrame(function(){drawSoon.q=0;drawMap()})}
 // 底下的条子：点中了什么、能办什么
 function panel(title,lines,acts){
-  var box=$("map-panel");box.textContent="";
+  var box=$("map-panel");box.textContent="";box.removeAttribute("data-fig");
   if(!title){mapSelZone=-1;box.hidden=true;return}
   box.hidden=false;
   var head=el("div","row"),close=el("button","x");close.appendChild(ic("c_close",14));
@@ -4266,7 +4412,7 @@ function adminRealm(r,title){
   if(!r){panel(title||t("m_wild"),[]);return}
   var who=r.id?(state.rulers||[]).filter(function(x){return x.kid===r.id})[0]:null;
   var view=r.id?{label:t("ah_view"),icon:"a_history",go:function(){openRealmHistory(r.id,r.name)}}:null;
-  if(!who){panel(title||r.name,[title?r.name:null,belongOf(r)||null],view?[view]:[]);return}
+  if(!who){panel(title||r.name,[title?r.name:null,belongOf(r)||null],view?[view]:[]);adminFigs(r.id);return}
   var seat=(state.seats||[]).filter(function(s){return s.kid===who.kid})[0],acts=[];
   if(view)acts.push(view);
   if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
@@ -4329,6 +4475,36 @@ function badge(id,n){var b=$(id);b.hidden=!n;b.textContent=n>99?"99+":n}
 // 抬头有多高：横着拿时左边那一栏的内容从它底下排起
 function fit(){
   var root=document.documentElement.style,before=root.getPropertyValue("--barh")+root.getPropertyValue("--navh");
+  adminFigs(r.id);
+}
+// 点的那一国的基本数值(用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")：年号、正统、王朝积弊、国库、腐败率、人口、兵力，
+// 名目是游戏那头拼好的(见 TerminalHost.Admin 的 RealmFigures)。点开时要一回，条子开着每 5 秒再要；游戏那头还没算好就隔一会儿再问。
+// 条子换了别的(panel 重画时去掉 data-fig)就不再要、回来的也不往上贴
+var admFigTm=0;
+function adminFigs(id){
+  clearTimeout(admFigTm);
+  var box=$("map-panel"),tries=0;
+  if(!id||box.hidden)return;
+  box.setAttribute("data-fig",id);
+  function mine(){return !box.hidden&&box.getAttribute("data-fig")===id}
+  (function ask(){
+    api("POST","/api/admin/realm",{id:id}).then(function(r){
+      if(!mine())return;
+      if(r.status===200&&r.json.ready){
+        var old=box.querySelector(".figs"),figs=r.json.figs||[];
+        if(old)box.removeChild(old);
+        if(figs.length){
+          var d=el("div","sub figs");
+          figs.forEach(function(f,i){
+            if(i)d.appendChild(document.createTextNode(" · "));
+            d.appendChild(document.createTextNode(f[0]+" "));d.appendChild(el("b",null,typeof f[1]==="number"?short(f[1]):f[1]));
+          });
+          box.insertBefore(d,box.querySelector("button.act"));
+        }
+        admFigTm=setTimeout(ask,5000);
+      }else if(++tries<12)admFigTm=setTimeout(ask,700);
+    },function(){if(mine()&&++tries<12)admFigTm=setTimeout(ask,1500)});
+  })();
   root.setProperty("--barh",$("bar").offsetHeight+"px");root.setProperty("--navh",$("nav").offsetHeight+"px");
   // 页签栏的高矮变了(头一回量出来、转了屏)：图跟着重画
   if(before!==root.getPropertyValue("--barh")+root.getPropertyValue("--navh")&&map&&map.win)drawMap();

@@ -208,7 +208,8 @@ public static partial class TerminalHost
         return (byte)Mathf.Clamp(height, 0, 255);
     }
 
-    // 取样格上 5×5 的和(树的疏密)
+    // 取样格上 5×5 去掉四角的和(树的疏密)。四角不算(用户 2026-11-16 手机舆图 "边界还是好乱"：照整个方框数，
+    // 几棵树就标出一块横平竖直的方林地，手机上是带树点的直角矩形)：一片林地的边是圆的
     private static byte[] BoxCount(byte[] cells, int width, int height)
     {
         var rows = new byte[cells.Length];
@@ -245,6 +246,12 @@ public static partial class TerminalHost
     // 这一块(左上角 x0、自上而下 step 行，地块的 y 朝上)里的水够横穿一道就给一格水(取它的颜色、种类)，不够给 null
     private static WorldTile BlockWater(MapBox world, int x0, int yTop, int step)
     {
+            for (int dy = -2; dy <= 2; dy += 4)
+            for (int dx = -2; dx <= 2; dx += 4)
+            {
+                int cx = x + dx, cy = y + dy;
+                if (cx >= 0 && cx < width && cy >= 0 && cy < height) sum -= cells[cy * width + cx];
+            }
         WorldTile first = null;
         int count = 0;
         for (int dy = 0; dy < step; dy++)

@@ -89,6 +89,8 @@ public static partial class TerminalHost
         // 世界历史：编年、历朝(见 TerminalHost.History)
         if (method == "POST" && path == "/api/admin/history") return HistoryReply(body);
         if (method == "POST" && path == "/api/admin")
+        // 点图上的国：它的基本数值(见 RealmFigures)
+        if (method == "POST" && path == "/api/admin/realm") return RealmFiguresReply(body);
         {
             string id = Field(body, "id"), target = Field(body, "target"), choice = Field(body, "choice");
             if (id == null || !AdminIds.Contains(id) || target?.Length > 40 || choice?.Length > 60)
@@ -112,6 +114,7 @@ public static partial class TerminalHost
     {
         if (ready && AdminByToken.Values.Any(god => god.Watched)) RunHistory(now);
         foreach (Seat god in AdminByToken.Values)
+        if (ready) RunRealmFigures();
         {
             if (!ready)
             {
@@ -145,6 +148,72 @@ public static partial class TerminalHost
     }
 
     // 各国的军都在图上，照实兵数(上帝视角不打折扣)；几秒看一回，没动就不算新军情
+    // ───────── 点图上的国：基本数值 ─────────
+    // 管理员点图上的国，条子里列它的年号、正统、王朝积弊、国库、腐败率、人口、兵力，照实数
+    // (用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")。年号、正统、王朝积弊是它所在帝国的(行政区跟着中央)，
+    // 不在帝国里的国没有这三样。点到哪一国才算哪一国：网络线程记下要看的国，主线程下一秒算好存着，几秒内再问直接给；
+    // 手机没取到就隔一会儿再问(同史册的取法)。名目在这边照游戏里的叫法拼好，手机照着列
+    private const double RealmFigureSeconds = 4d;
+    private static readonly ConcurrentDictionary<long, bool> RealmFigureWant = new();
+    private static readonly ConcurrentDictionary<long, (string json, DateTime at)> RealmFigureCache = new();
+
+    private static TerminalServer.Reply RealmFiguresReply(string body)
+    {
+        if (!long.TryParse(Field(body, "id"), out long id)) return TerminalServer.Reply.Error(400, "bad_request");
+        bool known = RealmFigureCache.TryGetValue(id, out var cached);
+        if (known && (DateTime.UtcNow - cached.at).TotalSeconds < RealmFigureSeconds) return TerminalServer.Reply.Json(cached.json);
+        if (RealmFigureWant.Count < 8) RealmFigureWant[id] = true;
+        // 过了时的先给着，新的下一回到
+        return TerminalServer.Reply.Json(known ? cached.json : "{\"ready\":false}");
+    }
+
+    private static void RunRealmFigures()
+    {
+        if (RealmFigureWant.IsEmpty) return;
+        if (RealmFigureCache.Count > 64) RealmFigureCache.Clear();
+        foreach (long id in RealmFigureWant.Keys.ToList())
+        {
+            RealmFigureWant.TryRemove(id, out _);
+            var rows = new JArray();
+            try
+            {
+                RealmFigures(id, rows);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][终端] 备一国的数值出错: {exception.Message}");
+            }
+            var json = new JObject { ["ready"] = true, ["id"] = id.ToString(), ["figs"] = rows };
+            RealmFigureCache[id] = (json.ToString(Newtonsoft.Json.Formatting.None), DateTime.UtcNow);
+        }
+    }
+
+    // 一行是 [名目, 数(手机照它的写法缩成几万几千)或写好的字]
+    private static void RealmFigures(long id, JArray rows)
+    {
+        Kingdom kingdom = null;
+        foreach (Kingdom each in World.world.kingdoms)
+            if (each?.data != null && !each.isRekt() && !each.wild && each.getID() == id)
+            {
+                kingdom = each;
+                break;
+            }
+        if (kingdom == null) return;
+        var empire = kingdom.GetEmpire();
+        if (empire?.data != null)
+        {
+            string era = TerminalIntel.Strip(empire.GetYearNameWithTime() ?? "");
+            if (!string.IsNullOrWhiteSpace(era)) rows.Add(new JArray(LM.Get("year_name"), era));
+            rows.Add(new JArray(LM.Get(empire.LegitimacyLabelKey), empire.Legitimacy));
+            if (DynasticCycleSystem.Applies(empire))
+                rows.Add(new JArray(LM.Get("label_dynastic_strain"), Mathf.RoundToInt(DynasticCycleSystem.GetPressure(empire))));
+        }
+        rows.Add(new JArray(LM.Get("label_treasury"), kingdom.GetTreasuryBalance()));
+        rows.Add(new JArray(LM.Get("empire_rail_corruption"), Mathf.RoundToInt((float)(CorruptionSystem.GetRate(kingdom) * 100d)) + "%"));
+        rows.Add(new JArray(LM.Get("i_population"), kingdom.getPopulationPeople()));
+        rows.Add(new JArray(LM.Get("empire_rail_warriors"), kingdom.countTotalWarriors()));
+    }
+
     private static void GodArmies(Seat god, float now)
     {
         if (god.MapCells == null || now < god.NextArmy && god.ArmyJson != null) return;
