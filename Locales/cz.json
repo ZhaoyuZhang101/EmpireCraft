@@ -12635,6 +12635,7 @@
   "terminal_core_importing": "正在把这一局带回游戏…",
   "terminal_core_link": "终端 {0}",
   "terminal_core_admin": "管理员码 {0}",
+  "terminal_core_open_admin": "打开管理页",
   "terminal_core_stop": "停下核心，带回这一局",
   "terminal_core_cancel": "取消",
   "terminal_core_failed": "服务器核心没接手成：{0}",

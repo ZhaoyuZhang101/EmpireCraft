@@ -41,7 +41,7 @@ public static class Program
     // 存档：上回存(或读)是什么时候(进程启动起的秒数)、新开的局等世界就绪了先存一份、眼下这趟加载是不是读档
     private static readonly Stopwatch Uptime = Stopwatch.StartNew();
     private static double _lastSaveAt;
-    private static bool _saveWhenReady, _resuming, _verify, _serial;
+    private static bool _saveWhenReady, _resuming, _verify, _serial, _noBrowser;
     internal static volatile string LastSaveResult = "";
     // 换剧本时进程退出重来(见 StartScenario)：退出时不存档，systemd 拉起后照 pending_scenario.json 开局
     private static volatile bool _relaunch;
@@ -104,6 +104,10 @@ public static class Program
                 case "--new":
                     fresh = true;
                     break;
+                case "--no-browser":
+                    // 有桌面也不在本机浏览器里打开管理页(见 OpenAdminPage)
+                    _noBrowser = true;
+                    break;
                 case "--profile":
                     // 排查用：打开模组自带的分段计时，每十秒报一次各段平均每步耗时
                     profile = true;
@@ -139,7 +143,7 @@ public static class Program
                     i++;
                     break;
                 case "--help" or "-h":
-                    Console.WriteLine("EmpireCraftServer [--data dir] [--state dir] [--config file] [--port 8766] [--lang cz|ch|en] [--scenario name|dir] [--frame id] [--size 0|1|2] [--speed 1] [--new] [--quiet]");
+                    Console.WriteLine("EmpireCraftServer [--data dir] [--state dir] [--config file] [--port 8766] [--lang cz|ch|en] [--scenario name|dir] [--frame id] [--size 0|1|2] [--speed 1] [--new] [--quiet] [--no-browser]");
                     return 0;
             }
         }
@@ -393,6 +397,38 @@ public static class Program
         if (TerminalHost.LobbyEnabled) Console.WriteLine("  联机大厅: " + TerminalHost.LobbySocket + (TerminalHost.RoomOpen ? "（公开）" : "（不公开）") + "，接上没有用 status 看");
         if (World.world.cities.Count == 0 && !SmoothLoader.isLoading()) Console.WriteLine("  还没有世界：用管理员账号登进手机网页挑一个剧本载入(也可以用剧本编辑器「发到服务器」，或启动时加 --scenario)");
         Console.WriteLine("  ─────────────────────────────");
+        OpenAdminPage();
+    }
+
+    // 核心的界面就是终端网页的管理员那一页(用户 2026-11-16 "支持gui的服务器可以考虑给核心一个gui或者就直接打开管理员账号""网页版gui")：
+    // 在有桌面的机器上直接跑(双击、桌面上手动开)的，端口一通就在本机浏览器里打开一回，地址带 #admin=管理员码，网页自己登入管理员。
+    // 不开的：--quiet(模组拉起的核心，模组那头自己开，见 CoreHost)、systemd 常驻、经 SSH 登进去跑的、没有桌面的、--no-browser。
+    // 配了账号密码的只打开网页，让人自己登(#admin= 那时不起作用)
+    private static void OpenAdminPage()
+    {
+        if (_noBrowser || LogService.Quiet || !HasDesktop()) return;
+        string url = "http://127.0.0.1:" + TerminalHost.Port + "/" + (_config.AdminByPassword ? "" : "#admin=" + TerminalHost.AdminCode);
+        try
+        {
+            ProcessStartInfo start = OperatingSystem.IsWindows() ? new ProcessStartInfo(url) { UseShellExecute = true }
+                : OperatingSystem.IsMacOS() ? new ProcessStartInfo("open", url)
+                : new ProcessStartInfo("xdg-open", url);
+            Process.Start(start)?.Dispose();
+            Console.WriteLine("  已在本机浏览器打开管理页(不想自动打开就加 --no-browser)");
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine("  本机浏览器打不开(" + exception.Message + ")：自己打开 http://127.0.0.1:" + TerminalHost.Port + "/ 用管理员码登入");
+        }
+    }
+
+    private static bool HasDesktop()
+    {
+        static bool Set(string name) => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name));
+        if (Set("INVOCATION_ID") || Set("EMPIRECRAFT_RELAUNCH") || Set("SSH_CONNECTION") || Set("SSH_TTY")) return false;
+        if (OperatingSystem.IsWindows()) return Environment.UserInteractive;
+        if (OperatingSystem.IsMacOS()) return true;
+        return Set("DISPLAY") || Set("WAYLAND_DISPLAY");
     }
 
     private static void AnnounceAdmin()

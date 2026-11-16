@@ -3962,6 +3962,7 @@ function switchRole(r){
 // 管理员令牌作废了(电脑前换了管理员码)
 function adminLost(){
   adminToken=null;store(ADMIN_KEY,null);
+  if(hashAdmin){hashAdminGo();return}
   if(role==="admin"){toast(t("adm_lost"),true);switchRole("seat")}
 }
 function adminLogin(code,err,done){
@@ -4273,6 +4274,25 @@ var scanned=null,triedScan=false,triedLobby=false;
   try{history.replaceState(null,"",location.pathname)}catch(e){}
   scanned=m[1];
 })();
+// 开服的那台电脑上打开的管理页：地址后面带着管理员码(#admin=，见 CoreHost.OpenAdmin)，记下后从地址栏去掉。
+// 这个浏览器登入过管理员就直接切过去；没登入过、或者令牌作废了(见 adminLost)，才拿这个码登一回——码只用一回，不多占管理员的位子
+var hashAdmin=null;
+(function(){
+  var m=/^#admin=([A-Za-z0-9-]{8,9})$/.exec(location.hash);
+  if(!m)return;
+  hashAdmin=m[1].toUpperCase().replace(/[^A-Z0-9]/g,"");
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
+})();
+function hashAdminGo(){
+  if(!hashAdmin)return;
+  if(adminToken){if(role!=="admin")switchRole("admin");return}
+  var code=hashAdmin,back=function(){if(role==="admin")switchRole("seat")};
+  hashAdmin=null;
+  api("POST","/api/admin/pair",{code:code}).then(function(r){
+    if(r.status===200&&r.json.token){adminToken=r.json.token;store(ADMIN_KEY,adminToken);switchRole("admin")}
+    else back();
+  },back);
+}
 // ───────── 独立服务器 ─────────
 // 不带游戏的开服工具(见 .server)上：玩家凭账号密码进(注册一个账号，换手机登录还是自己那位君主)；管理员可以凭账号密码进，
 // 另管账号(销号)与模组设置、世界法则(服务器没有界面，这些只能从这里改)。
@@ -4567,6 +4587,7 @@ $("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&(window.matchMedia
 })();
 $("sheet-close").onclick=closeSheet;$("sheet-back").onclick=closeSheet;
 applyLang();
+hashAdminGo();
 poll();
 setInterval(function(){if(!document.hidden)poll()},3000);
 })();

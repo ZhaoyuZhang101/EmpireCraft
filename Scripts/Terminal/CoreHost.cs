@@ -67,14 +67,14 @@ internal static class CoreHost
     internal static bool CanStop => State is Phase.Asking or Phase.Starting or Phase.Running;
 
     private const string ExeName = "EmpireCraftServer.exe";
-    private const float StartSeconds = 300f, StopSeconds = 120f, FetchTipSeconds = 3f, LoadSeconds = 600f, LoadGraceSeconds = 5f;
+    private const float StartSeconds = 300f, StopSeconds = 120f, FetchTipSeconds = 3f, LoadSeconds = 600f, LoadGraceSeconds = 5f, AdminWaitSeconds = 4f;
     private const string TokensFile = "EmpireCraft.terminal.tokens";
     private static readonly ConcurrentQueue<string> Lines = new();
     private static Process _process;
     private static string _exe, _address = "", _adminCode, _lastLine = "", _fetchError;
     private static volatile bool _fetchDone;
     private static volatile int _fetchPercent;
-    private static bool _wasEnabled, _loadSeen, _seatsPending, _skipStale;
+    private static bool _wasEnabled, _loadSeen, _seatsPending, _skipStale, _adminOpened;
     // 核心那边没带回的那份存档走到的世界时刻
     private static double _staleTime;
     private static int _phaseFrame;
@@ -170,6 +170,7 @@ internal static class CoreHost
         if (State != Phase.Asking)
         {
             if (index == 0) RequestStop();
+            else if (State == Phase.Running) OpenAdmin();
             return;
         }
         if (index == 0)
@@ -227,8 +228,30 @@ internal static class CoreHost
         _ => "terminal_core_stop"
     });
 
-    // 右边那个按钮：只在问"没带回的进度"时有
-    internal static string SecondButtonText() => State == Phase.Asking ? LM.Get("terminal_core_stale_drop") : null;
+    // 右边那个按钮：问"没带回的进度"时是丢弃它；核心跑着时是在这台电脑上打开管理页
+    internal static string SecondButtonText() => State switch
+    {
+        Phase.Asking => LM.Get("terminal_core_stale_drop"),
+        Phase.Running => LM.Get("terminal_core_open_admin"),
+        _ => null
+    };
+
+    // 核心没有自己的界面，管它就用终端网页里的管理员那一页：在这台电脑的浏览器里打开，管理员码跟在地址后面(# 后头的不发给服务器，
+    // 网页记下就从地址栏去掉)，不用再照着牌子抄一遍。核心一接手自动开一回，之后点牌子上的按钮再开
+    private static void OpenAdmin()
+    {
+        _adminOpened = true;
+        string url = "http://127.0.0.1:" + TerminalHost.Port + "/";
+        if (!string.IsNullOrEmpty(_adminCode)) url += "#admin=" + _adminCode;
+        try
+        {
+            Application.OpenURL(url);
+        }
+        catch (Exception e)
+        {
+            LogService.LogWarning($"[EmpireCraft][服务器核心] 管理页没打开：{e.Message}");
+        }
+    }
 
     private static string Span(float seconds)
     {
@@ -257,6 +280,7 @@ internal static class CoreHost
         // 服务一让出端口就查不到局域网地址了：先记下来给牌子用
         _address = TerminalHost.PublicUrl.Length > 0 ? TerminalHost.PublicUrl : TerminalHost.PrimaryAddress();
         _adminCode = null;
+        _adminOpened = false;
         if (!_skipStale && StaleProgress(out _staleTime))
         {
             Enter(Phase.Asking);
@@ -394,6 +418,9 @@ internal static class CoreHost
             Enter(Phase.Importing);
             return;
         }
+        // 管理员码那行多半先于"世界已就绪"；万一没等到，过几秒也照开(网页里手填)
+        if (State == Phase.Running && !_adminOpened && (!string.IsNullOrEmpty(_adminCode) || Time.unscaledTime - _since > AdminWaitSeconds))
+            OpenAdmin();
         if (State == Phase.Starting && Time.unscaledTime > _deadline)
         {
             Kill();

@@ -12621,6 +12621,7 @@
   "terminal_core_importing": "Bringing this world back into the game…",
   "terminal_core_link": "Terminal {0}",
   "terminal_core_admin": "admin code {0}",
+  "terminal_core_open_admin": "Open the admin page",
   "terminal_core_stop": "Stop the core and bring the world back",
   "terminal_core_cancel": "Cancel",
   "terminal_core_failed": "The server core could not take over: {0}",
