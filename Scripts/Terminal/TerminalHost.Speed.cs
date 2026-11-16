@@ -16,7 +16,11 @@ namespace EmpireCraft.Scripts.Terminal;
 // 电脑前不受此限：设置里随时可以直接改流速。都在主线程(命令队列与每秒那一趟)
 public static partial class TerminalHost
 {
+#if EC_SERVER
+    public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100, 200, 500, 1000 };
+#else
     public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100 };
+#endif
     private const float VoteSeconds = 90f, VoteRestSeconds = 30f;
 
     private sealed class SpeedVote

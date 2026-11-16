@@ -2772,7 +2772,7 @@ function decodeMap(j){
     if(w&&(r.n||0)>w.n){w.n=r.n||0;w.rgb=r.emp!=null&&j.empires[r.emp]?j.empires[r.emp].rgb:r.own}
   });
   // 城按要紧的先画：本国都城、各国都城、本国的城、别国的城，同类里大的在前。cityAt 留着原来的次序(zcity 里记的是它的下标)
-  j.allWars=j.warPairs||null;
+  j.allWars=j.warPairs||null;j.allFronts=j.frontPairs||j.warPairs||null;
   j.cityAt=(j.cities||[]).map(function(c){var r=j.realms[c.r];c.home=!!r&&r.tier===0;c.own=!!r&&r.inside;c.foe=!!r&&!!r.war;c.rank=(c.home&&c.cap?0:c.cap?1:c.own?2:3)*1e6-(c.z||0);return c});
   j.cities=j.cityAt.slice().sort(function(a,b){return a.rank-b.rank});
   if(!mv.set){mv.set=true;mv.z=1;mv.x=x0+(x1-x0+1)/2;mv.y=y0+(y1-y0+1)/2}
@@ -3017,7 +3017,7 @@ var G3ATTR=[[0,0,0,0,0],[0,0,255,0,0],[0,255,0,0,0],[0,0,0,255,0],[0,0,0,150,0],
 var G3VS="attribute vec3 aP;uniform vec4 uV;uniform float uTl,uMH;varying vec2 vP;"+
   "void main(){vP=aP.xy;vec2 s=(aP.xy-uV.xy)/uV.zw;s.y-=aP.z*uTl/uV.w;gl_Position=vec4(s.x*2.-1.,1.-s.y*2.,.98-1.96*aP.y/uMH,1.);}";
 var G3FS=["precision highp float;",
-  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3,uN;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer;varying vec2 vP;",
+  "uniform sampler2D uA,uB,uC,uO1,uO2,uO3,uN,uR,uW;uniform vec2 uT,uZ;uniform float uQ,uK,uPx,uFar,uTer,uAdm;varying vec2 vP;",
   "float hs(vec2 p){p=fract(p*vec2(.1031,.103));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}",
   // 噪声查表(见 g3Noise)：x 值、yz 它的变化(起伏的细纹)、w 另一份噪声。手机上逐点算散列太慢(用户 2026-11-12 "新版的3d地图在客户端真的好卡")
   "vec4 nt(vec2 p){vec4 t=texture2D(uN,p/128.);return vec4(t.r,(t.gb-.5)*6.,t.a);}",
@@ -3030,7 +3030,7 @@ var G3FS=["precision highp float;",
   "float bit(float f,float b){return mod(floor(f/b),2.);}",
   "float eq(vec3 a,vec3 b){vec3 d=abs(a-b);return step(max(d.x,max(d.y,d.z)),.002);}",
   // 一家的边界噪声(各家错开取样)
-  "vec3 sn(vec4 q,vec2 p){vec4 z=nt(p*1.3333+vec2(dot(q.rgb,vec3(311.7,173.3,97.1)),dot(q.rgb,vec3(127.1,269.5,183.3)))*7.);return vec3(.28*(z.x-.5),.3733*z.yz);}",
+  "vec3 sn(vec4 q,vec2 p){vec4 z=nt(p*1.3333+vec2(dot(q.rgb,vec3(311.7,173.3,97.1)),dot(q.rgb,vec3(127.1,269.5,183.3)))*7.);return vec3(.14*(z.x-.5),.1867*z.yz);}",
   "void main(){",
   " vec2 p=vP,c=p/uQ;float cp=uK*uQ,det=clamp(uK/48.,0.,1.);vec4 n1=nt(p*1.9);",
   // 归属(照游戏里的平滑国界 SmoothBorders.SmoothedOwnerAt)：周围 3×3 块地按二次 B 样条加权，同一家(叶，或展开到城时的城)的权相加，
@@ -3071,7 +3071,10 @@ var G3FS=["precision highp float;",
   "   dl=(s1-s2)*uK/max(length(g1-g2),1e-4);",
   "   lv=abs(bit(Fo,8.)-bit(fl(ob),8.))>.5?0.:eq(vec3(pa.rg,0.),vec3(pb.rg,0.))<.5?1.:eq(vec3(pa.ba,0.),vec3(pb.ba,0.))<.5?2.:3.;",
   // 战线：本朝同交战之敌相接处(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")
-  "   fr=lv<.5&&bit(Fo,64.)+bit(fl(ob),64.)>.5?1.:0.;}}",
+  "   fr=lv<.5&&bit(Fo,64.)+bit(fl(ob),64.)>.5?1.:0.;",
+  // 管理员(没有本朝)：全图战事的攻守两国相接处(uW 是两两交战表，uR 是每块地属哪一国；用户 2026-11-16 "战线不是平滑的")
+  "   if(uAdm>.5){float ra=floor(texture2D(uR,ua).r*255.+.5),rb=floor(texture2D(uR,ub).r*255.+.5);",
+  "    if(ra<249.5&&rb<249.5&&abs(ra-rb)>.5&&texture2D(uW,(vec2(ra,rb)+.5)/256.).r>.5){lv=0.;fr=1.;}}}}",
   // 地面：底色、岩、林、田、沙丘、树、雪(关了地形只取海岸，地面平涂简图的暗色)
   " vec3 col=vec3(.204,.224,.18);float land,rk=0.,fo=0.,h=0.;vec4 B,C;",
   " if(uTer>.5){",
@@ -3087,7 +3090,8 @@ var G3FS=["precision highp float;",
   "    float tr=smoothstep(.36,.24,length(tf))*step(hs(ti+9.1),C.r*1.15)*smoothstep(.45,1.,det);col*=1.-tr*(.18+.38*clamp(.5+(tf.x+tf.y)*1.8,0.,1.));}}",
   "  col=mix(col,vec3(.93,.95,.97),max(C.a,smoothstep(.95,1.25,h+(n1.x-.5)*.3))*.9);",
   " }else{land=bs(uA,c).a;B=tx(uB,c);}",
-  " float ae=clamp(.8/cp,.02,.5),la=smoothstep(.5-ae,.5+ae,land);",
+  // 水陆分界取 .38(用户 2026-11-16 "河流太粗了")：一个点宽的河在 B 样条下最低只到 1/3，分界放低河就细；大片水面的岸只往外挪一点
+  " float WL=.38,ae=clamp(.8/cp,.02,.5),la=smoothstep(WL-ae,WL+ae,land);",
   // 国色：本家颜色压在地貌上(传闻之国是斜纹)，靠各家之间界线的一圈深一些；无主之地压暗；选中的那一家提亮
   " if(s1>-9.){if(bit(Fo,2.)>.5){float P=max(.375,7.*uPx/uK),st=mod(floor((p.x+p.y)/P),3.),m=uTer>.5?(bit(Fo,4.)>.5?(st<1.?.5:.15):.55):(bit(Fo,4.)>.5?(st<1.?.75:.3):.92);",
   "  if(lv<2.5)m+=.16*smoothstep(10.*uPx,0.,dl);col=mix(col,own.rgb,m*(1.-rk*.3));if(bit(Fo,32.)>.5)col=mix(col,vec3(1.),.14);}",
@@ -3102,13 +3106,14 @@ var G3FS=["precision highp float;",
   "   wcol=mix(wcol,vec3(.38,.6,.6),smoothstep(.15,.48,land)*.6)*(.94+.08*wn.x);",
   "   wcol+=.12*pow(max(0.,dot(normalize(vec3(-wn.yz*.2,1.)),normalize(Ld+vec3(0.,0.,1.)))),24.);}}",
   " col=mix(wcol,col,la);",
-  " col*=1.-.3*smoothstep(1.3*uPx,0.,abs(land-.5)*cp*1.4)*clamp(cp/4.-.5,0.,1.);",
+  " col*=1.-.3*smoothstep(1.3*uPx,0.,abs(land-WL)*cp*1.4)*clamp(cp/4.-.5,0.,1.);",
   // 界线(参考原版：各国在自己那一边描一道本国的深一档颜色，不透明，用户 2026-11-12 "国家边框变粗点颜色明显点, 参考原游戏")：
   // 各家之间每边各描一道本家的边色，正中一道细暗线把两家分开；本朝疆界正中是金线；一家之内(城界、标着的那一家里各家)只一道浅线
   " if(lv<3.5){float far=uFar>.5?1.:0.,bw=(far>.5?1.6:2.6)*uPx;",
   "  if(lv<2.5&&bit(Fo,2.)>.5&&s1>-9.){vec3 bc=clamp(own.rgb*1.12+.03,0.,1.);bc=clamp(mix(vec3(dot(bc,vec3(.3,.59,.11))),bc,1.35),0.,1.);",
   "   col=mix(col,bc*(.82+.18*smoothstep(bw,0.,dl)),clamp(bw+.5-dl,0.,1.)*(lv<1.5?1.:.8));}",
-  "  float cw=(lv<.5?(far>.5?2.:3.)*(1.+fr*.4):lv<1.5?1.2:lv<2.5?.9:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.);",
+  // 界线落在水上(过河处)淡下去，让河自己当界(用户 2026-11-16 "边界线真的好乱""也不贴合地形")
+  "  float cw=(lv<.5?(far>.5?2.:3.)*(1.+fr*.4):lv<1.5?1.2:lv<2.5?.9:1.)*uPx,al=clamp(cw*.5+.5-dl,0.,1.)*mix(lv<.5?.6:.15,1.,la);",
   "  col=mix(col,lv<.5?(fr>.5?vec3(.91,.24,.15):vec3(.953,.765,.29)):vec3(.06,.065,.045),al*(lv<.5?1.:lv<1.5?.85:lv<2.5?.6:.38));}",
   // 选中的那一家：同不选中的相接处描一道白边
   " if(s2>-9.&&abs(bit(Fo,32.)-bit(fl(ob),32.))>.5)col=mix(col,vec3(1.),clamp((uFar>.5?2.:3.)*uPx*.5+.5-dl,0.,1.)*.95);",
@@ -3218,6 +3223,13 @@ function g3Own(gl,sc){
     if(ok)c[j+3]|=128;
   }
   g3Tex(gl,3,M.w,M.h,a,false);g3Tex(gl,4,M.w,M.h,b,false);g3Tex(gl,5,M.w,M.h,c,false);
+  // 管理员战线：每块地属哪一国(uR)、哪两国交战(uW，256×256)
+  if(G3.war){
+    var rr=new Uint8Array(n*4),ww=new Uint8Array(256*256*4);
+    for(i=0;i<n;i++){var g=M.grid[i];rr[i*4]=g<250?g:255}
+    (M.allFronts||[]).forEach(function(p){if(p[0]<250&&p[1]<250){ww[(p[1]*256+p[0])*4]=255;ww[(p[0]*256+p[1])*4]=255}});
+    g3Tex(gl,7,M.w,M.h,rr,false);g3Tex(gl,8,256,256,ww,false);
+  }
 }
 // 选中的是哪一家：点中的那块地眼下标着的那一家(拉远拉近跟着换级)
 function g3Sel(){return mapSelZone>=0&&map.zLeaf[mapSelZone]>=0?map.shown[map.zLeaf[mapSelZone]]:-1}
@@ -3232,7 +3244,10 @@ function g3Init(){
     gl.attachShader(pg,sh(gl.VERTEX_SHADER,G3VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,G3FS));gl.bindAttribLocation(pg,0,"aP");gl.linkProgram(pg);
     if(!gl.getProgramParameter(pg,gl.LINK_STATUS))throw gl.getProgramInfoLog(pg);
     gl.useProgram(pg);
-    "uA uB uC uO1 uO2 uO3 uN uV uTl uMH uT uZ uQ uK uPx uFar uTer".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<7)gl.uniform1i(u[nm],i)});
+    "uA uB uC uO1 uO2 uO3 uN uV uTl uMH uT uZ uQ uK uPx uFar uTer uAdm".split(" ").forEach(function(nm,i){u[nm]=gl.getUniformLocation(pg,nm);if(i<7)gl.uniform1i(u[nm],i)});
+    // 管理员战线要两张小图(第 7、8 号)：手机给不了 9 个贴图位的，两张都指到噪声图上、不画管理员战线
+    G3.war=gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)>=9;
+    gl.uniform1i(gl.getUniformLocation(pg,"uR"),G3.war?7:6);gl.uniform1i(gl.getUniformLocation(pg,"uW"),G3.war?8:6);
     g3Noise(gl);
     cv.addEventListener("webglcontextlost",function(e){e.preventDefault();G3.bad=true;G3.gl=null;g3Hide();drawMap()});
     cv.id="map-gl";G3.cv=cv;G3.u=u;G3.vb=gl.createBuffer();G3.ib=gl.createBuffer();G3.max=gl.getParameter(gl.MAX_TEXTURE_SIZE);G3.gl=gl;
@@ -3242,6 +3257,7 @@ function g3Init(){
 function g3Hide(){if(G3.cv)G3.cv.style.display="none";if($("map"))$("map").style.background=""}
 // 画底图：画成了回 true(上面那张画布只要清空再画城、名字、军队)；不成回 false，照旧平面画
 function g3Draw(cv,x,y,w,h,kc){
+  G3.drew=false;
   if(!G3.on||G3.bad||!terr||!map||!map.leafRgb){g3Hide();return false}
   var gl=g3Init();
   if(!gl||Math.max(terr.w,terr.h,map.w,map.h)>G3.max){g3Hide();return false}
@@ -3261,9 +3277,10 @@ function g3Draw(cv,x,y,w,h,kc){
     cv.style.position="relative";cv.style.background="transparent";
     gl.viewport(0,0,bw,bh);gl.clearColor(.055,.06,.047,1);gl.enable(gl.DEPTH_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.uniform4f(u.uV,x,y,w,h);gl.uniform1f(u.uTl,G3.ter?G3.tilt:0);gl.uniform1f(u.uTer,G3.ter?1:0);gl.uniform1f(u.uMH,map.h);gl.uniform2f(u.uT,G3.tw,G3.th);gl.uniform2f(u.uZ,map.w,map.h);
-    gl.uniform1f(u.uQ,G3.q);gl.uniform1f(u.uK,bw/w);gl.uniform1f(u.uPx,pr);gl.uniform1f(u.uFar,kc<3?1:0);
+    gl.uniform1f(u.uQ,G3.q);gl.uniform1f(u.uK,bw/w);gl.uniform1f(u.uPx,pr);gl.uniform1f(u.uFar,kc<3?1:0);gl.uniform1f(u.uAdm,G3.war&&state&&state.admin&&map.allFronts&&map.allFronts.length?1:0);
     gl.bindBuffer(gl.ARRAY_BUFFER,G3.vb);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G3.ib);gl.drawElements(gl.TRIANGLES,G3.ni,gl.UNSIGNED_SHORT,0);
+    G3.drew=G3.war;
     return true;
   }catch(e){G3.bad=true;try{console.warn("[3d]",e)}catch(x){}g3Hide();return false}
 }
@@ -3312,11 +3329,27 @@ function loadTerrain(){
   }
   get(0,0);
 }
+// 军牌平滑走(用户 2026-11-16 "士兵的移动并不平滑""是闪过去的")：新军情到了不直接跳过去，从眼下画着的地方沿直线走到新位置，
+// 走的时长取上回到这回隔了多久(0.6~4 秒)，所以一直是连着走、慢一拍；离得太远的(换防、上船、新编)直接落过去
+var ARMY_SNAP=60;
+function armyPos(a,now){
+  if(a.fx==null||now>=a.t1)return a;
+  var f=(now-a.t0)/(a.t1-a.t0);if(f<0)f=0;
+  return {x:a.fx+(a.x-a.fx)*f,y:a.fy+(a.y-a.fy)*f};
+}
 function loadArmies(){
-  armyAt=Date.now();
+  var lastAt=armyAt;armyAt=Date.now();
   api("GET","/api/armies").then(function(r){
     if(r.status!==200||!r.json.ready)return;
-    armies=r.json;armies.writOf={};
+    var now=Date.now(),was={},dur=Math.max(600,Math.min(4000,lastAt?now-lastAt:0)),moving=false;
+    // 没有编号的(旧版服务器发来的别国之军)对不上前后，不走，直接落过去：不然都挤在同一个空编号上，从同一个点滑出去
+    if(armies&&armies.armies)armies.armies.forEach(function(a){if(a.id!=null)was[a.id]=armyPos(a,now)});
+    r.json.armies&&r.json.armies.forEach(function(a){
+      var p=a.id!=null?was[a.id]:null;
+      if(!p||(p.x===a.x&&p.y===a.y)||Math.abs(p.x-a.x)+Math.abs(p.y-a.y)>ARMY_SNAP)return;
+      a.fx=p.x;a.fy=p.y;a.t0=now;a.t1=now+dur;moving=true;
+    });
+    armies=r.json;armies.writOf={};armies.until=moving?now+dur:0;
     (armies.writs||[]).forEach(function(w){armies.writOf[w.corps]=w});
     drawMap();
     if(sel&&!aim)showArmies(armies.armies.filter(function(a){return a.own&&sel.indexOf(a.id)>=0}));
@@ -3475,6 +3508,28 @@ function drawLabel(ctx,o,x,y,k,dpr,cv,boxes,placed,t0){
 // 战争箭头(用户 2026-11-12 "开战的时候还是显示箭头和战线吧, 不然我也不知道我在和谁打仗")：照游戏里的战争标记(WarMarkerPatch)，
 // 画在两边离得最近的两座城之间(本朝连同各行政区、封国的城算一边)，由攻方指向守方(atk：是它打过来的)，正中一个交战的图标；
 // 战线是底图上本朝同交战之敌相接处的朱红界线(见 G3FS)
+// 管理员图上的战线(用户 2026-11-16 "战线也没显示")：底图只描本朝同交战之敌的(管理员没有本朝)。
+// 立体底图画得了就交给它(同国界一样平滑，见 G3FS 的 uAdm)；平面画法时才在这里照全图战事的攻守各国两两一对(frontPairs)把格边描成朱红线
+function drawFronts(ctx,x,y,k,dpr,cv){
+  if(aim||G3.drew||!map.allFronts||!map.allFronts.length||!map.grid)return;
+  if(map.frontSegFor!==map.grid){
+    map.frontSegFor=map.grid;
+    var at={},W=map.w,H=map.h,g=map.grid,seg=[];
+    map.allFronts.forEach(function(p){at[p[0]*256+p[1]]=1;at[p[1]*256+p[0]]=1});
+    for(var yy=0;yy<H;yy++)for(var xx=0;xx<W;xx++){
+      var a=g[yy*W+xx];if(a>=250)continue;
+      if(xx+1<W){var b=g[yy*W+xx+1];if(b<250&&b!==a&&at[a*256+b])seg.push(xx+1,yy,xx+1,yy+1)}
+      if(yy+1<H){var c=g[(yy+1)*W+xx];if(c<250&&c!==a&&at[a*256+c])seg.push(xx,yy+1,xx+1,yy+1)}
+    }
+    map.frontSeg=seg;
+  }
+  var s=map.frontSeg;if(!s.length)return;
+  ctx.save();ctx.lineCap="round";ctx.beginPath();
+  for(var i=0;i<s.length;i+=4){ctx.moveTo((s[i]-x)*k,(s[i+1]-y)*k);ctx.lineTo((s[i+2]-x)*k,(s[i+3]-y)*k)}
+  ctx.strokeStyle="rgba(24,8,6,.55)";ctx.lineWidth=4*dpr;ctx.stroke();
+  ctx.strokeStyle="#e0412e";ctx.lineWidth=2*dpr;ctx.stroke();
+  ctx.restore();
+}
 function drawWars(ctx,x,y,k,dpr,cv){
   if(aim||!map.cityAt)return;
   if(map.warFor!==map.cityAt){
@@ -3601,6 +3656,7 @@ function drawMap(){
     ctx.lineWidth=3*dpr;ctx.strokeStyle="rgba(14,15,12,.85)";ctx.strokeText(c.name,px,ty);
     ctx.fillStyle=c.own?"#fff3cf":"#d6d0bd";ctx.fillText(c.name,px,ty);
   });
+  drawFronts(ctx,x,y,k,dpr,cv);
   drawWars(ctx,x,y,k,dpr,cv);
   drawArmies(ctx,x,y,k,dpr,cv);
   $("z-out").disabled=mv.z<=1.001;$("z-in").disabled=mv.z>=map.maxz-.001;$("z-reset").disabled=mv.z<=1.001;
@@ -3623,10 +3679,12 @@ function drawArmies(ctx,x,y,k,dpr,cv){
   // 拉远了别国的军也并(用户 2026-11-12 "地图拉远后军队铭牌也没有合并")：中等远近按这一层级的一家(同一帝国、同一天下)并，
   // 交战之敌并作一个；再远些不交战的各国都并作一个。本国的军始终单独一个
   var kc=k/dpr,far=kc<4,mid=kc<10,rx=far?90:mid?48:28,ry=rx*.75,small=kc<6;
-  var groups=[];
+  var groups=[],now=Date.now();
+  // 还在走的：约每秒 25 帧接着画，走完就停(不动的时候不白画)
+  if(armies.until>now&&!drawArmies.tick)drawArmies.tick=setTimeout(function(){drawArmies.tick=0;drawSoon()},40);
   armies.armies.forEach(function(a){
     if(!showArmy&&!(a.own&&sel&&sel.indexOf(a.id)>=0))return;
-    var px=(a.x-x)*k/dpr,py=(a.y-y)*k/dpr;
+    var at=armyPos(a,now),px=(at.x-x)*k/dpr,py=(at.y-y)*k/dpr;
     if(px<-30||py<-30||px>cv.width/dpr+30||py>cv.height/dpr+30)return;
     var realm=map.realms[a.r];
     var side=a.own?"own":!mid?"r"+a.r:a.foe?"foe":far?"other":"g"+(realm&&realm.grp!=null?realm.grp:a.r);
@@ -3659,14 +3717,18 @@ function drawArmies(ctx,x,y,k,dpr,cv){
     // 并了几国的牌子用素色边
     var mixed=g.list.some(function(m){return m.r!==a.r});
     var realm=a.own?null:map.realms[a.r],line=a.own?"#f3c34a":a.foe?"#ff6666":realm&&!mixed?realm.color:"#b9b39d";
-    if(a.own&&!small)g.list.forEach(function(m){
+    // 开往哪里：本国的军照旧；管理员看各国的军(用户 2026-11-16 "士兵也没有前进的指针我都不知道他们要去哪儿")，箭头用那一国的颜色
+    var god=!!(state&&state.admin);
+    if((a.own||god)&&!small)g.list.forEach(function(m){
       if(m.tx==null)return;
       var tx=(m.tx-x)*k,ty=(m.ty-y)*k,ang=Math.atan2(ty-py,tx-px);
       if(Math.hypot(tx-px,ty-py)<bw)return;
-      ctx.strokeStyle="rgba(243,195,74,.8)";ctx.lineWidth=1.5*dpr;ctx.setLineDash([4*dpr,3*dpr]);
-      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(tx,ty);ctx.stroke();ctx.setLineDash([]);
+      var mr=m.own?null:map.realms[m.r],hue=m.own?"rgba(243,195,74,.9)":mr&&mr.color||"#e8e2cc";
+      ctx.strokeStyle="rgba(14,15,12,.6)";ctx.lineWidth=3*dpr;ctx.setLineDash([4*dpr,3*dpr]);
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(tx,ty);ctx.stroke();
+      ctx.strokeStyle=hue;ctx.lineWidth=1.5*dpr;ctx.stroke();ctx.setLineDash([]);
       ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx-7*dpr*Math.cos(ang-.45),ty-7*dpr*Math.sin(ang-.45));
-      ctx.lineTo(tx-7*dpr*Math.cos(ang+.45),ty-7*dpr*Math.sin(ang+.45));ctx.closePath();ctx.fillStyle="rgba(243,195,74,.9)";ctx.fill();
+      ctx.lineTo(tx-7*dpr*Math.cos(ang+.45),ty-7*dpr*Math.sin(ang+.45));ctx.closePath();ctx.fillStyle=hue;ctx.fill();
     });
     ctx.fillStyle=a.own?"#2c312a":a.foe?"#3a1c1a":"#262a22";ctx.fillRect(px-bw/2,py-bh/2,bw,bh);
     ctx.strokeStyle=line;ctx.lineWidth=(picked?2.5:1.5)*dpr;ctx.strokeRect(px-bw/2,py-bh/2,bw,bh);
@@ -3806,6 +3868,14 @@ function belongOf(r){
   if(w&&w.name&&w.name!==r.name&&(!e||w.name!==e.name))out.push(w.name);
   return out.join(" · ");
 }
+// 帝国之主：服务器标了核心国(empires[].core)就是它；老版本没标的，照旧挑本帝国里不是行政区、城最多的那一家
+function empireHead(ei){
+  var e=map.empires[ei],head=null;
+  if(e&&e.core)map.realms.forEach(function(o){if(o.id===e.core)head=o});
+  if(head)return head;
+  map.realms.forEach(function(o){if(o.emp===ei&&!o.prov&&(!head||o.tier<head.tier||o.tier===head.tier&&(o.n||0)>(head.n||0)))head=o});
+  return head;
+}
 function pickAt(clientX,clientY){
   if(!map||!map.win)return;
   var rect=$("map").getBoundingClientRect(),win=map.win,px=clientX-rect.left,py=clientY-rect.top;
@@ -3820,11 +3890,16 @@ function pickAt(clientX,clientY){
   var c=x<0||y<0||x>=map.w||y>=map.h?FOG:map.grid[y*map.w+x],r=map.realms[c];
   // 点中的那一家描白边(下令时不描)
   mapSelZone=c<250&&!aim?y*map.w+x:-1;
-  if(state&&state.admin){adminRealm(c<250?r:null);drawMap();return}
-  if(picking){pickRealm(c<250?r:null);return}
   // 点中的是眼下标着的那一家(用户 2026-11-13 "地图拉远后点击某个政体只能选择城市?为什么不直接选择当前显示的政体""拉近是王国我选择就是王国")：
   // 还没拉近到城一级，点地不落到城上(点城的图标照旧是城；下令时照旧落到城上)
   var zl=c<250?map.zLeaf[y*map.w+x]:-1,cityLevel=zl>=0&&map.cityOpen[zl]===1,shownNode=zl>=0&&!cityLevel?map.nodes[map.shown[zl]]:null;
+  // 管理员也一样(用户 2026-11-16 "为什么我放到这么大尺度我点击国家不是国家而是对应位置的行政区")：标着帝国就看帝国之主
+  // 点击跟铭牌同步(用户 "要改成只要铭牌显示的是国家我点击版图他出现的就是国家""点击要和铭牌同步")：法理图层标着法理就以法理为题
+  if(state&&state.admin){
+    var hd=!aim&&layer==="pol"&&shownNode&&shownNode.ei!=null?empireHead(shownNode.ei):null;
+    adminRealm(hd||(c<250?r:null),!aim&&layer==="dj"&&shownNode?shownNode.name:null);drawMap();return;
+  }
+  if(picking){pickRealm(c<250?r:null);return}
   if(!city&&c<250&&r&&r.tier<=1&&(cityLevel||aim))city=cityAtCell(gx,gy);
   if(aim){
     if(city&&!(city.own||city.foe)){toast(t("aim_bad",city.name),true);return}
@@ -3834,7 +3909,7 @@ function pickAt(clientX,clientY){
   sel=null;
   // 标着的是帝国(政体图层还没展开到各国)：按帝国之主办事(外交、出兵都对着它)
   if(!city&&shownNode&&layer==="pol"&&shownNode.ei!=null){
-    var head=null;map.realms.forEach(function(o){if(o.emp===shownNode.ei&&!o.prov&&(!head||o.tier<head.tier||o.tier===head.tier&&(o.n||0)>(head.n||0)))head=o});
+    var head=empireHead(shownNode.ei);
     if(head){r=head;c=map.realms.indexOf(head)}
   }
   var name=c===FOG?t("m_fog"):c===WATER?t("m_water"):c===WILD||!r?t("m_wild"):r.tier===2?t("m_rumour",r.name):r.name,acts=[];
@@ -4143,9 +4218,9 @@ function adminSpeedSheet(){
       b.onclick=function(){closeSheet();adminSend({id:"speed",choice:String(p)})};
       box.appendChild(b);
     });
-    var inp=el("input");inp.type="number";inp.min="1";inp.max="100";inp.inputMode="numeric";inp.placeholder=t("adm_speed_custom");inp.style.marginTop="10px";
+    var inp=el("input");inp.type="number";inp.min="1";inp.max=String(Math.max.apply(null,choices.concat([100])));inp.inputMode="numeric";inp.placeholder=t("adm_speed_custom");inp.style.marginTop="10px";
     var go=el("button","pick primary");go.appendChild(el("span",null,t("adm_save")));go.style.justifyContent="center";
-    go.onclick=function(){var p=Math.round(Number(inp.value));if(!(p>=1&&p<=100)){inp.focus();return}closeSheet();adminSend({id:"speed",choice:String(p)})};
+    go.onclick=function(){var p=Math.round(Number(inp.value));if(!(p>=1&&p<=Math.max.apply(null,choices.concat([100])))){inp.focus();return}closeSheet();adminSend({id:"speed",choice:String(p)})};
     box.appendChild(inp);box.appendChild(go);
   }});
 }
@@ -4173,16 +4248,17 @@ function adminRoomSheet(){
   }});
 }
 // 点图上的国：是哪位君主、哪个席位领着；有席位领着的可以就地收回
-function adminRealm(r){
+// title：法理图层标着的法理名(点击跟铭牌走)，条子以它为题，脚下的国退作一行
+function adminRealm(r,title){
   sel=null;aim=false;
-  if(!r){panel(t("m_wild"),[]);return}
+  if(!r){panel(title||t("m_wild"),[]);return}
   var who=r.id?(state.rulers||[]).filter(function(x){return x.kid===r.id})[0]:null;
   var view=r.id?{label:t("ah_view"),icon:"a_history",go:function(){openRealmHistory(r.id,r.name)}}:null;
-  if(!who){panel(r.name,[belongOf(r)||null],view?[view]:[]);return}
+  if(!who){panel(title||r.name,[title?r.name:null,belongOf(r)||null],view?[view]:[]);return}
   var seat=(state.seats||[]).filter(function(s){return s.kid===who.kid})[0],acts=[];
   if(view)acts.push(view);
   if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
-  panel(who.realm+" · "+who.ruler,[t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
+  panel(title||who.realm+" · "+who.ruler,[title?who.realm+" · "+who.ruler:null,t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
     seat?t("adm_held",seat.name):t("adm_free")],acts);
 }
 // 点图上的军：上帝视角，番号、兵数照实

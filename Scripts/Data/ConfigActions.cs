@@ -197,7 +197,7 @@ namespace EmpireCraft.Scripts.Data
         }
         public static void TerminalSpeedCallBack(string text)
         {
-            EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, 100);
+            EmpireCraft.Scripts.Terminal.TerminalHost.SpeedPercent = SettlementValue(text, 10, 1, EmpireCraft.Scripts.Terminal.TerminalHost.MaxSpeedPercent);
         }
         // 席位上限：至多几部手机各领一位君主(管理员在手机上也能改，见 TerminalHost.Admin)
         public static void TerminalMaxSeatsCallBack(string text)

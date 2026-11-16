@@ -83,6 +83,6 @@ public class TerminalPatch : GamePatch
     public static void AfterElapsed(ref float __result)
     {
         float factor = TerminalHost.SpeedFactor;
-        if (factor < 1f) __result *= factor;
+        if (factor != 1f) __result *= factor;
     }
 }

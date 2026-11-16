@@ -349,6 +349,8 @@ public static class Program
             Time.frameCount++;
             try
             {
+                // 世界流速快过常速时(终端流速，最多 10 倍)：模组后台的分帧活计跟着多给预算，不然月结追不上
+                SimulationFrameBudget.ServerMilliseconds = Math.Clamp(12d * baseSpeed * Math.Max(1f, TerminalHost.SpeedFactor), 12d, 250d);
                 Step(world, modUpdate, Math.Min(delta, 0.25f) * baseSpeed);
             }
             catch (Exception exception)

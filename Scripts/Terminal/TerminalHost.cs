@@ -259,8 +259,23 @@ public static partial class TerminalHost
     public static string FixedAddress => TerminalMdns.FullName + ":" + Port;
     public static bool FixedReady => _mdns?.Running == true && _mdns.Listening > 0;
 
-    // 世界流速的倍数(见 TerminalPatch)：有席位领着君主、手机还连着时放慢；手机都断线了照常速走
-    public static float SpeedFactor => Enabled && _anyWatching ? Mathf.Clamp(SpeedPercent, 1, 100) / 100f : 1f;
+    // 世界流速的倍数(见 TerminalPatch)：有席位领着君主、手机还连着时放慢；手机都断线了照常速走。
+    // 独立核心上还能加快到 MaxSpeedPercent(用户 2026-11-16 "即便流速是100也好慢""最少是能到1000")：快过常速的不论手机连没连着都照快的走；
+    // 游戏里不加快(原版的小人、动画按一帧一步走，一帧跨太长会乱)，封顶 100%
+#if EC_SERVER
+    public const int MaxSpeedPercent = 1000;
+#else
+    public const int MaxSpeedPercent = 100;
+#endif
+    public static float SpeedFactor
+    {
+        get
+        {
+            int percent = Mathf.Clamp(SpeedPercent, 1, MaxSpeedPercent);
+            if (!Enabled || percent == 100) return 1f;
+            return percent > 100 || _anyWatching ? percent / 100f : 1f;
+        }
+    }
     // 世界眼下是不是按终端流速走着(终端窗口显示用)
     public static bool Slowed => Enabled && _anyWatching;
     // 终端模式开着、世界在跑：山川水陆不许改(用户 2026-11-12 "服务端终端模式开启后禁止地形的变更")。
@@ -1519,7 +1534,9 @@ public static partial class TerminalHost
                     empireAt[court] = courtAt = empires.Count;
                     empires.Add(new JObject
                     {
-                        ["name"] = TerminalIntel.Strip(EmpireLabel(court)), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom))
+                        ["name"] = TerminalIntel.Strip(EmpireLabel(court)), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom)),
+                        // 帝国之主(核心国)：舆图拉远标着帝国时，点它就落到这一家(见网页 empireHead)
+                        ["core"] = court.CoreKingdom?.getID().ToString()
                     });
                 }
                 row["emp"] = courtAt;
@@ -1661,16 +1678,36 @@ public static partial class TerminalHost
         {
             var wars = new JArray();
             var seenPairs = new HashSet<(int, int)>();
+            // 战线(用户 2026-11-16 "战线也没显示")：每场战事攻守两边的各国(连同参战的)两两一对，手机把这两国版图相接处描成朱红线
+            var fronts = new JArray();
+            var seenFronts = new HashSet<(int, int)>();
             foreach (War war in World.world.wars)
             {
                 if (war?.data == null || war.hasEnded()) continue;
                 Kingdom attacker = war.main_attacker, defender = war.main_defender;
                 if (attacker?.data == null || defender?.data == null) continue;
-                if (!kingdomIndex.TryGetValue(attacker.getID(), out int a) || !kingdomIndex.TryGetValue(defender.getID(), out int d)) continue;
-                if (slot[a] < 0 || slot[d] < 0 || !seenPairs.Add((slot[a], slot[d]))) continue;
-                wars.Add(new JArray(slot[a], slot[d]));
+                if (kingdomIndex.TryGetValue(attacker.getID(), out int a) && kingdomIndex.TryGetValue(defender.getID(), out int d) &&
+                    slot[a] >= 0 && slot[d] >= 0 && seenPairs.Add((slot[a], slot[d])))
+                    wars.Add(new JArray(slot[a], slot[d]));
+                try
+                {
+                    foreach (Kingdom left in war.getAttackers())
+                    foreach (Kingdom right in war.getDefenders())
+                    {
+                        if (fronts.Count >= 2000) break;
+                        if (left?.data == null || right?.data == null || !kingdomIndex.TryGetValue(left.getID(), out int l) ||
+                            !kingdomIndex.TryGetValue(right.getID(), out int r) || slot[l] < 0 || slot[r] < 0) continue;
+                        int lo = Math.Min(slot[l], slot[r]), hi = Math.Max(slot[l], slot[r]);
+                        if (lo != hi && seenFronts.Add((lo, hi))) fronts.Add(new JArray(lo, hi));
+                    }
+                }
+                catch (Exception)
+                {
+                    // 参战名单一时取不到：这一场只画箭头
+                }
             }
             if (wars.Count > 0) json["warPairs"] = wars;
+            if (fronts.Count > 0) json["frontPairs"] = fronts;
         }
         City capital = realm?.capital;
         if (capital?.data != null && !capital.isRekt())

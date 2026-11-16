@@ -242,6 +242,24 @@ public static partial class TerminalHost
     private static int _terrainVersion;
     private static float _nextTerrain;
 
+    // 这一块(左上角 x0、自上而下 step 行，地块的 y 朝上)里的水够横穿一道就给一格水(取它的颜色、种类)，不够给 null
+    private static WorldTile BlockWater(MapBox world, int x0, int yTop, int step)
+    {
+        WorldTile first = null;
+        int count = 0;
+        for (int dy = 0; dy < step; dy++)
+        for (int dx = 0; dx < step; dx++)
+        {
+            int x = x0 + dx, y = yTop - dy;
+            if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) continue;
+            WorldTile tile = world.GetTile(x, y);
+            if (tile?.Type == null || !tile.Type.liquid) continue;
+            first ??= tile;
+            if (++count >= step) return first;
+        }
+        return null;
+    }
+
     private static Terrain TerrainNow(bool refresh)
     {
         MapBox world = World.world;
@@ -283,6 +301,9 @@ public static partial class TerminalHost
         {
             int tileX = px * step + step / 2, tileY = MapBox.height - 1 - (py * step + step / 2);
             WorldTile tile = tileX < 0 || tileY < 0 || tileX >= MapBox.width || tileY >= MapBox.height ? null : world.GetTile(tileX, tileY);
+            // 河(用户 2026-11-16 "然后就是河流太粗了")：一个点代表 step×step 块地，只看正中一格的话，两格宽的河时有时无，
+            // 有的地方整块成了水，手机上画成一串蓝色大圆斑。块里的水够横穿一道(≥ step 格)就算水，河连成一条线；画细交给手机(见 G3FS 的窄水)
+            if (step > 1 && tile?.Type != null && !tile.Type.liquid) tile = BlockWater(world, px * step, MapBox.height - 1 - py * step, step) ?? tile;
             byte index = 0;
             if (tile?.Type != null)
             {
@@ -513,7 +534,9 @@ public static partial class TerminalHost
                 var row = new JObject
                 {
                     ["r"] = slot, ["n"] = Math.Max(1000, Mathf.RoundToInt(corps.strength / 1000f) * 1000), ["x"] = x, ["y"] = y,
-                    ["arm"] = CorpsArmSystem.Of(corps).ToString().ToLowerInvariant()
+                    ["arm"] = CorpsArmSystem.Of(corps).ToString().ToLowerInvariant(),
+                    // 编号只用来让手机把前后两份军情对上、军牌平滑走过去；别国的去向照旧不给(那是军机)
+                    ["id"] = corps.id.ToString()
                 };
                 if (foe) row["foe"] = true;
                 if (corps.embarked) row["task"] = "sea";
