@@ -18,6 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     一级：吃紧满四个月，范围翻倍，京师禁军出征；二级：吃紧满一年、而且确实危急(都城被占，或三成以上的城有地块被占)，
 //     举国总动员。连续三个月没吃紧降一级，太平时归零(以前吃紧一个月就升一级，打仗总有地块被占，第二个月就举国总动员、
 //     远方的军开往前线)；
+//   · 攻不动也扩大(见 Stalled)：有军在进攻、战果却连着半年没再创新高，范围扩到一级(不往举国总动员上数)，后方的军上得来；
 //   · 远方的援军走决议或中央命令："出征"的国家(求援、驰援邻省、发兵勤王决议通过，或奉中央诏令)至少按一级动员，
 //     军队可以开往任何战线；中央吃紧(一级以上)时诏令听命于中央、随中央参战的成员出征。
 public static class WarScopeSystem
@@ -186,14 +187,23 @@ public static class WarScopeSystem
             data.war_mobilization_level = 0;
             data.war_calm_months = 0;
             data.war_pressure_months = 0;
+            data.war_gain_peak = 0;
+            data.war_stall_months = 0;
             data.expedition_wars?.Clear();
             Shortfall.Remove(kingdom.id);
             return;
         }
         data.expedition_wars?.RemoveAll(id => Alive(World.world.wars.get(id)) == null);
         bool losing = Shortfall.Remove(kingdom.id) || kingdom.cities?.Any(Occupied) == true;
+        bool stalled = Stalled(kingdom, data);
         int before = data.war_mobilization_level;
-        if (losing)
+        if (!losing && stalled)
+        {
+            // 攻不动：不算吃紧(不往举国总动员上数)，范围扩到一级、也不往回降，后方的军才上得来
+            data.war_calm_months = 0;
+            data.war_mobilization_level = Math.Max(before, Wider);
+        }
+        else if (losing)
         {
             data.war_calm_months = 0;
             data.war_pressure_months++;
@@ -221,6 +231,48 @@ public static class WarScopeSystem
         }
         if (data.war_mobilization_level >= Wider) OrderMembers(kingdom);
     }
+
+    // 攻不动(用户 2026-11-16 "大量的士兵都没有进攻欲望"：以前只有本国吃紧才扩大动员，打顺风仗、僵持着的时候后方的军永远不上来)：
+    // 有军在进攻，战果(本国城数 ×1000 + 本国或宗主名下占着的敌方地块数)却连着 StallMonths 个月没再创新高
+    private static bool Stalled(Kingdom kingdom, KingdomExtension.KingdomExtraData data)
+    {
+        bool attacking = false;
+        foreach (EmpireCraft.Scripts.Data.CorpsData corps in data.corps ?? new List<EmpireCraft.Scripts.Data.CorpsData>())
+            if (corps.task == "attack" && corps.strength >= 1f)
+            {
+                attacking = true;
+                break;
+            }
+        if (!attacking)
+        {
+            data.war_stall_months = 0;
+            return false;
+        }
+        int gain = (kingdom.cities?.Count ?? 0) * 1000;
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        foreach (Kingdom other in World.world.kingdoms)
+        {
+            if (other?.data == null || other.isRekt() || other.cities == null || !FrontSystem.Hostile(kingdom, other)) continue;
+            foreach (City city in other.cities)
+            {
+                Dictionary<long, List<int>> occupied = city?.data == null || city.isRekt() ? null : city.GetOrCreate().OccupiedStatus;
+                if (occupied == null || occupied.Count == 0) continue;
+                if (occupied.TryGetValue(kingdom.id, out List<int> own) && own != null) gain += own.Count;
+                if (realm != kingdom && occupied.TryGetValue(realm.id, out List<int> held) && held != null) gain += held.Count;
+            }
+        }
+        if (gain > data.war_gain_peak)
+        {
+            data.war_gain_peak = gain;
+            data.war_stall_months = 0;
+            return false;
+        }
+        // 认定攻不动的那个月把最高数落回眼下：往后比这时多拿一块地就算又动了，不因早先丢过地一直算攻不动
+        if (++data.war_stall_months == StallMonths) data.war_gain_peak = gain;
+        return data.war_stall_months >= StallMonths;
+    }
+
+    private const int StallMonths = 6;
 
     // 中央吃紧：诏令听命于中央、随中央参战的成员出征(战国时天子已号令不动诸侯)
     private static void OrderMembers(Kingdom core)

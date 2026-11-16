@@ -22,6 +22,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //      十块以内算一半、更远算四分之一，免得远在千里的敌军一把首都定为目标就把全军拉回去)；守军不够分时按各城攻势比例分，
 //      不让攻势最大的一座城把军全拿走；没派到的预备军不再全挤在驻地(中央军的驻地都在首都)，分驻本国各城——
 //      先驻都城与边境大城(见 Stations)；
+//      守城只留够用的：守军照来敌的八成留，团练挡得住的小股来犯不分军，一支军是来敌两倍以上就以攻代守
+//      (先收复那座城被占的地，再打来敌最近的一段，见 Assign ①)；
 //      军令(见 CorpsCommandSystem)：固守的城排第一、至少拿六成兵力；攻打的城所在(或离它最近)的一段，出征的军都投那里；
 //   ③ 交战：攻方(兵力×组织度×火力) 对 守方(兵力×组织度×火力×(1.25+堑壕)，无军驻守时由团练抵抗)，
 //      双方按战况伤亡、掉组织度；攻方占优就占领一块紧挨着进攻军团的地块，离它最近的进攻军团随即进驻
@@ -61,6 +63,9 @@ public static partial class FrontSystem
     private const float CasualtyRate = 0.16f;
     private const float RetreatOrg = 10f;
     private const float ReadyOrg = 25f;
+    // 守城分兵(见 Assign ①)：守军照来敌的几成留；团练是来敌的几倍就不专门分军；缺口不到下一支军的几成就不再添；
+    // 一支军是来敌的几倍就以攻代守；反击至多打离那座城几块地的一段
+    private const float DefendShare = 0.8f, MilitiaCover = 1.5f, SmallGap = 0.25f, CounterOvermatch = 2f, CounterReach = 8f;
     // 全线推进(用户 2026-11-09 "为什么不能像钢铁雄心三一样保持战线"，选"全线推进，孤块自动归位")：陆上攻势不再限三路，
     // 挑段时先补还没人攻的段(见 Score 的 spread)，兵多了再往有人攻的段加，沿整条接壤边界一起往前推
     private const int MaxOffensives = int.MaxValue;
@@ -757,39 +762,90 @@ public static partial class FrontSystem
             threatened.Remove(hold);
             threatened.Insert(0, hold);
         }
-        float holdNeed = hold == null ? 0f : Mathf.Min(available, Mathf.Max(Threat(hold) * 0.9f, CorpsCommandSystem.HoldShare * available));
+        float holdNeed = hold == null ? 0f : Mathf.Min(available, Mathf.Max(Threat(hold) * DefendShare, CorpsCommandSystem.HoldShare * available));
+        // 守城只留够用的(用户 2026-11-16 "为什么士兵都忙着防守大量的士兵都没有进攻欲望"：试跑里千人的军守着一两百人的攻势，
+        // 四成多的兵耗在守城上)：
+        //   · 小股来犯、城还一块地没丢、百姓自己挡得住(团练是来敌的一倍半以上)：不专门分军去守；
+        //   · 守军照来敌的八成留(守方另有城防加成与堑壕)，缺口比下一支军的四分之一还小就不再添一支；
+        //   · 以攻代守：轮到的这支军一支就是来敌的两倍以上，不让它蹲在城里，记作这座城的反击军(顶守军的名额)，到 ② 里先收复
+        //     这座城被占的地、没有被占的就打来敌最近的一段，把敌军打回去；够不着任何一段才回来守城。军令固守的城、叛乱初起仓促应战的不这么办
+        Kingdom Raider(City city) => pressure.TryGetValue(city.id, out var entries)
+            ? entries.Where(entry => Hostile(kingdom, entry.attacker)).OrderByDescending(entry => entry.strength)
+                .Select(entry => entry.attacker).FirstOrDefault()
+            : null;
+        bool MilitiaHolds(City city) => city != hold && city.GetOrCreate().OccupiedStatus?.Any(pair => pair.Value?.Count > 0) != true &&
+                                        Raider(city) is Kingdom raider && Militia(city, raider) >= Threat(city) * MilitiaCover;
+        threatened.RemoveAll(MilitiaHolds);
+        var counterOf = new Dictionary<CorpsData, City>();
+        void Garrison(CorpsData corps, City city, TileZone anchor, List<TileZone> line, Dictionary<int, int> load)
+        {
+            if (corps.task != "defend" || corps.sector_city_id != city.id) corps.entrench = 0f;
+            corps.task = "defend";
+            corps.sector_city_id = city.id;
+            // 铺满防线：本城贴着敌占区的地块每块先放一支，放满了再叠
+            corps.target_zone_id = (line.Count > 0 ? Spread(corps, line, load)?.id : anchor?.id) ?? HomeZone(corps);
+            assigned.Add(corps);
+        }
         // 守军不够分：按各城攻势比例分，不让攻势最大的一座城把军全拿走
-        float totalThreat = threatened.Where(city => city != hold).Sum(Threat) * 0.9f, rest = Mathf.Max(0f, available - holdNeed);
+        float totalThreat = threatened.Where(city => city != hold).Sum(Threat) * DefendShare, rest = Mathf.Max(0f, available - holdNeed);
         float shareOfNeed = totalThreat > rest && totalThreat > 0f ? rest / totalThreat : 1f;
         // 各城要的守军合计、分到的合计：分到的不到八成算守城吃紧，不另开登陆(见 FrontSystem.Landing)
         float needTotal = 0f, haveTotal = 0f;
         foreach (City city in threatened)
         {
-            float need = city == hold ? holdNeed : Threat(city) * 0.9f * shareOfNeed, have = 0f;
+            float need = city == hold ? holdNeed : Threat(city) * DefendShare * shareOfNeed, have = 0f;
             TileZone anchor = DefenseZone(kingdom, city);
             List<TileZone> line = DefenseLine(kingdom, city);
             var lineLoad = new Dictionary<int, int>();
-            bool surprised = Surprised(city);
+            bool surprised = Surprised(city), closeEnough = false;
+            bool mayCounter = city != hold && !surprised && sectors.Count > 0;
             foreach (CorpsData corps in ready.Where(corps => !assigned.Contains(corps) && !orderedAttack.ContainsKey(corps) &&
-                                                             Walkable(kingdom, corps, anchor) &&
+                                                             !counterOf.ContainsKey(corps) && Walkable(kingdom, corps, anchor) &&
                                                              (!surprised || corps.task == "defend" && corps.sector_city_id == city.id ||
                                                               CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor) <= MusterSystem.LocalZones))
                          .OrderBy(corps => corps.task == "defend" && corps.sector_city_id == city.id ? -1f
                              : CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor)).ToList())
             {
                 if (have >= need) break;
-                if (corps.task != "defend" || corps.sector_city_id != city.id) corps.entrench = 0f;
-                corps.task = "defend";
-                corps.sector_city_id = city.id;
-                // 铺满防线：本城贴着敌占区的地块每块先放一支，放满了再叠
-                corps.target_zone_id = (line.Count > 0 ? Spread(corps, line, lineLoad)?.id : anchor?.id) ?? HomeZone(corps);
-                assigned.Add(corps);
+                if (have > 0f && need - have < corps.strength * SmallGap)
+                {
+                    closeEnough = true;
+                    break;
+                }
+                if (mayCounter && !PalaceArmySystem.Refuses(corps) && corps.strength >= Threat(city) * CounterOvermatch)
+                {
+                    counterOf[corps] = city;
+                    have += corps.strength;
+                    continue;
+                }
+                Garrison(corps, city, anchor, line, lineLoad);
                 have += corps.strength;
             }
             // 分不出足够的守军：打不过了，下个月扩大动员
-            if (have < need) WarScopeSystem.ReportShortfall(kingdom);
+            if (have < need && !closeEnough) WarScopeSystem.ReportShortfall(kingdom);
             needTotal += need;
             haveTotal += Mathf.Min(have, need);
+        }
+        // 反击军往哪打：先收复它护着的那座城被占的地；没有被占的，打来敌(攻这座城的各国)离这座城最近的一段，太远的不去
+        Sector CounterSector(City guarded, Func<Sector, bool> reachable)
+        {
+            Sector retake = sectors.FirstOrDefault(sector => sector.City == guarded && !sector.Landing);
+            if (retake != null && reachable(retake)) return retake;
+            TileZone at = guarded.getTile()?.zone;
+            if (at == null || !pressure.TryGetValue(guarded.id, out var entries)) return null;
+            Sector best = null;
+            float nearest = CounterReach;
+            foreach (Sector sector in sectors)
+            {
+                Kingdom owner = sector.City?.kingdom;
+                if (sector.Landing || owner == null || sector.Targets.Count == 0 || !Hostile(kingdom, owner) ||
+                    !entries.Any(entry => entry.attacker == owner)) continue;
+                float distance = sector.Targets.Min(zone => CorpsSystem.ZoneDistance(zone, at));
+                if (distance > nearest || !reachable(sector)) continue;
+                nearest = distance;
+                best = sector;
+            }
+            return best;
         }
         // ② 进攻：先铺满各段再加兵(全线推进，见 MaxOffensives)；跨海登陆的军(还没上岸的)兵力合计不超过运输船运力，整军装不下就分出先遣军
         // 军令：集中攻打——出征的军都投那座城所在的一段；城在敌境深处、还不是战线的，投离它最近的一段
@@ -806,7 +862,8 @@ public static partial class FrontSystem
         var attackLoad = new Dictionary<int, int>();
         // 渡海登陆先抽兵(守城不吃紧、有航线与运力时，见 FrontSystem.Landing)，余下的再按胜算挑陆上攻势
         // 守备军不渡海(见 FormationSystem.MayEmbark)
-        CommitLandings(kingdom, sectors, ready.Where(corps => FormationSystem.MayEmbark(corps) && !orderedAttack.ContainsKey(corps)).ToList(),
+        CommitLandings(kingdom, sectors,
+            ready.Where(corps => FormationSystem.MayEmbark(corps) && !orderedAttack.ContainsKey(corps) && !counterOf.ContainsKey(corps)).ToList(),
             assigned, attackOn, attackLoad, focus,
             needTotal > 0f && haveTotal < needTotal * DefenseShortfall, ref shipping);
         // 不奉诏的禁军只守城、不出征(见 PalaceArmySystem)
@@ -830,7 +887,14 @@ public static partial class FrontSystem
             // 奉手令去打某城的：那一段去得了就去那一段
             orderedAttack.TryGetValue(whole, out Sector ordered);
             if (ordered != null && !Boardable(ordered)) ordered = null;
-            Sector choice = ordered ?? keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
+            // 以攻代守的军(见 ①)：它护着的那座城要紧，排在上月的攻势与军令集中攻打前头；没有打得着的一段就不出征，回头守城(见循环后)
+            Sector counter = null;
+            if (ordered == null && counterOf.TryGetValue(whole, out City guarded))
+            {
+                counter = CounterSector(guarded, Boardable);
+                if (counter == null) continue;
+            }
+            Sector choice = ordered ?? counter ?? keep ?? (focus != null && Boardable(focus) ? focus : null) ?? sectors
                 // 三路攻势只算陆上的，登陆战线(每月至多两路)不占名额
                 .Where(sector => (attackOn.ContainsKey(sector) || sector.Landing || LandOffensives(attackOn) < MaxOffensives) &&
                                  Boardable(sector))
@@ -864,6 +928,10 @@ public static partial class FrontSystem
             corps.entrench = 0f;
             assigned.Add(corps);
         }
+        // 以攻代守没打成的(没有够得着的一段、不奉诏、船不够)：回它护着的那座城守着
+        foreach (KeyValuePair<CorpsData, City> pair in counterOf)
+            if (!assigned.Contains(pair.Key))
+                Garrison(pair.Key, pair.Value, DefenseZone(kingdom, pair.Value), DefenseLine(kingdom, pair.Value), new Dictionary<int, int>());
         // ③ 其余：预备，分驻本国各城(见 Stations)
         Dictionary<long, int> reserveStations = Stations(kingdom, list.Where(corps => !assigned.Contains(corps)).ToList());
         foreach (CorpsData corps in list.Where(corps => !assigned.Contains(corps) && corps.task != "retreat"))

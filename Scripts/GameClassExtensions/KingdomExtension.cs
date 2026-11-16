@@ -410,6 +410,9 @@ public static class KingdomExtension
         public int war_calm_months;
         // 战事吃紧了几个月(吃紧加一、缓和减一，见 WarScopeSystem.MonthTick)
         public int war_pressure_months;
+        // 攻不动：打出去的仗的战果(本国城数 ×1000 + 占着的敌方地块数)到过的最高数、连续几个月没再创新高(见 WarScopeSystem.Stalled)
+        public int war_gain_peak;
+        public int war_stall_months;
         public List<long> expedition_wars;
         // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
         public long war_commander_id = -1L;
