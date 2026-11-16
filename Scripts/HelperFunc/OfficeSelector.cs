@@ -87,6 +87,11 @@ public static class OfficeSelector
 
         // 等着起事的流寇不任官(见 ScenarioEventSystem.IsReserved)，换人
         if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsReserved(actor)) actor = null;
+        // 华夏一系的君主国不立女主(见 EmpireCraftKingdomBehCheckHeir.BarredBySex)：择官偏好只是先后，没有合偏好的人时会选出女子——
+        // 君主之位选出女子就换本国一位够格的男子，没有就先空着(无小人模式由王位检查从都城人口里落成一位)
+        if (actor != null && office == pKingdom.GetOffice() && regime != null && RegimeManager.IsMonarchy(regime.type) &&
+            EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.BarredBySex(pKingdom, actor))
+            actor = MaleRuler(office, pKingdom);
         // 选出的人任不上(妃嫔、君主配偶……)就当没选出，下面从人口里补；以前 SetActor 拒掉后官位空着，下一轮又选中同一人
         // (君主之位照旧：选帝、立宪皇位有自己的规矩)
         if (actor != null && office != pKingdom.GetOffice() && !office.Accepts(actor)) actor = null;
@@ -116,6 +121,20 @@ public static class OfficeSelector
                 if (election) HolyRomanSystem.Electing = false;
             }
         }
+    }
+
+    // 本国够格当君主的男子里声望最高的一位
+    private static Actor MaleRuler(OfficeObject office, Kingdom kingdom)
+    {
+        Actor best = null;
+        if (kingdom?.units == null) return null;
+        foreach (Actor unit in kingdom.units)
+        {
+            if (unit == null || unit.isRekt() || !unit.isAlive() || !unit.isSexMale() || !unit.isAdult() || unit.isKing() ||
+                !unit.isUnitFitToRule() || !unit.CanServeOffice(kingdom) || unit.IsSkeleton() || !office.Accepts(unit)) continue;
+            if (best == null || unit.renown > best.renown) best = unit;
+        }
+        return best;
     }
 
     public static Actor TryGetHarem(OfficeObject pOffice, Kingdom pKingdom)

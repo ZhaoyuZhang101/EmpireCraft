@@ -154,9 +154,18 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
 
         // 继承人已是别国君主而按规矩不该入继(华夏，或是别的帝国的皇帝，见 EmpireCraftKingdomBehCheckHeir.ForeignRuler)：
         // 不即位、不并国，重新择立继承人
-        // 华夏一系的继承人是女子(不该有，见 EmpireCraftKingdomBehCheckHeir.BarredBySex)：不即位，重新择立
-        if (lastKingdom != null && EmpireCraftKingdomBehCheckHeir.ForeignRuler(pKingdom, heir) ||
-            EmpireCraftKingdomBehCheckHeir.BarredBySex(pKingdom, heir))
+        // 华夏一系的继承人是女子(不该有，见 EmpireCraftKingdomBehCheckHeir.BarredBySex)：不即位，储位作废，
+        // 当场照继承顺序另立合规的人接着即位(见 ReplaceBarredHeir)；没有合规的人，储位空着，下一轮照无人可立处理
+        if (EmpireCraftKingdomBehCheckHeir.BarredBySex(pKingdom, heir))
+        {
+            Actor barred = heir;
+            heir = EmpireCraftKingdomBehCheckHeir.ReplaceBarredHeir(pKingdom, barred);
+            LogService.LogInfo($"[EmpireCraft][继承] {pKingdom.GetKingdomName()} 的储君 {barred.getName()} 是女子，本国不立女主：" +
+                               (heir == null ? "储位作废，暂无合规的人可立" : $"改立 {heir.getName()}"));
+            if (heir == null) return;
+            lastKingdom = heir.isKing() && heir.kingdom != null && !heir.kingdom.isRekt() ? heir.kingdom : null;
+        }
+        if (lastKingdom != null && EmpireCraftKingdomBehCheckHeir.ForeignRuler(pKingdom, heir))
         {
             pKingdom.RemoveHeir();
             pKingdom.StartToChooseHeir();

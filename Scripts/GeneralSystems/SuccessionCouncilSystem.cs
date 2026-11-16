@@ -67,9 +67,9 @@ public static class SuccessionCouncilSystem
         if (council.gave_up) return (null, "", false);
         if (council.stage < 2) return (null, "", true);
         Actor chosen = World.world.units.get(council.chosen_actor);
-        if (chosen?.data != null && !chosen.isRekt() && chosen.isAlive())
+        if (chosen?.data != null && !chosen.isRekt() && chosen.isAlive() && !EmpireCraftKingdomBehCheckHeir.BarredBySex(core, chosen))
             return (chosen, LM.Get("court_succession_relation").ColorString(pColor: new Color(0.95f, 0.76f, 0.29f)), true);
-        // 迎立的人没等到登基就死了：重新议立
+        // 迎立的人没等到登基就死了，或是不立女主的国定了女子(旧档)：重新议立
         council.attempts++;
         council.gave_up = council.attempts >= MaxAttempts;
         council.stage = -1;
@@ -108,7 +108,8 @@ public static class SuccessionCouncilSystem
                 // 定了人两个月还没登基(玩家截图：迎立外姓重臣入继大统，却一直没有皇帝上位)：直接扶上去
                 Actor chosen = World.world.units.get(council.chosen_actor);
                 if (Date.getMonthsSince(council.stage_time) >= EnthroneMonths && chosen?.data != null && chosen.isAlive() &&
-                    !chosen.isRekt() && empire.InstallHeadOfState(chosen))
+                    !chosen.isRekt() && !EmpireCraftKingdomBehCheckHeir.BarredBySex(empire.CoreKingdom, chosen) &&
+                    empire.InstallHeadOfState(chosen))
                 {
                     LogService.LogInfo($"[EmpireCraft][议立] {empire.GetEmpireFullName()} 定策后迟迟未登基，直接扶 {chosen.getName()} 即位");
                     state.succession = null;
@@ -401,7 +402,9 @@ public static class SuccessionCouncilSystem
                 return;
             }
             Actor actor = Enthrone(empire, core, candidate);
-            if (actor?.data == null || actor.isRekt() || !actor.isAlive()) continue;
+            // 不立女主的国不迎立女子(人选开列时已筛过，这里防旧档里开列好的名单和神力钦定)
+            if (actor?.data == null || actor.isRekt() || !actor.isAlive() ||
+                EmpireCraftKingdomBehCheckHeir.BarredBySex(core, actor)) continue;
             council.chosen = index;
             council.chosen_actor = actor.id;
             council.decider = decider?.getName() ?? "";

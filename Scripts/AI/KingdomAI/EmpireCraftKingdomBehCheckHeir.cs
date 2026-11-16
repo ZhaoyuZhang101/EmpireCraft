@@ -48,7 +48,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static void InstallHeir(Kingdom kingdom, (Actor actor, string relation) heir)
     {
         kingdom.RecoverToDefaultHeir();
-        if (!IsFitCandidate(heir.actor, null) || ForeignRuler(kingdom, heir.actor))
+        // 不立女主的国不立女储君(见 BarredBySex)：各条择立的路都已筛过，这里是最后一道
+        if (!IsFitCandidate(heir.actor, null) || ForeignRuler(kingdom, heir.actor) || BarredBySex(kingdom, heir.actor))
         {
             kingdom.RemoveHeir();
             kingdom.StartToChooseHeir();
@@ -91,6 +92,26 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (kingdom?.data == null || EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom) ||
             !EmpireCraftKingdomBehCheckKing.NeedSuccession(kingdom)) return;
         InstallHeir(kingdom, ResolveHeir(kingdom, true, predecessor));
+    }
+
+    // 储君按规矩即不了位(不立女主的国里储君是女子：旧档留下的、别的途径立的)：储位作废、钦定的名分一并撤掉，
+    // 当场照继承顺序另立一位，返回新储君；没有合规的人返回空(储位空着，君位照无人可立处理，见 EmpireCraftKingdomBehCheckKing)。
+    // 以前只撤储位不撤钦定：下一轮王位检查又把同一个人立回来，君位一直空着，要把储君赐死才解得开
+    public static Actor ReplaceBarredHeir(Kingdom kingdom, Actor barred)
+    {
+        if (kingdom?.data == null) return null;
+        var data = kingdom.GetOrCreate();
+        if (barred != null && data.designated_heir_id == barred.getID()) data.designated_heir_id = -1L;
+        kingdom.RemoveHeir();
+        PrepareForSuccession(kingdom);
+        Actor next = kingdom.GetHeir();
+        if (next == null || next == barred || BarredBySex(kingdom, next) || ForeignRuler(kingdom, next))
+        {
+            kingdom.RemoveHeir();
+            kingdom.StartToChooseHeir();
+            return null;
+        }
+        return next;
     }
 
     public static PersonalClanIdentity PredecessorOf(Kingdom kingdom)
@@ -204,9 +225,31 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static bool InLine(PersonalClanIdentity person, PersonalClanIdentity parent) =>
         SpecificClanManager.SameLineage(person?._specificClan, parent?._specificClan);
 
-    private static bool IsEligibleRelative(PersonalClanIdentity person, PersonalClanIdentity parent, bool allowFemale) =>
+    private static bool IsEligibleRelative(PersonalClanIdentity person, PersonalClanIdentity parent, bool allowFemale,
+        bool maleOnly) =>
         person != null && person.id != parent?.id && person.is_alive && !person.is_concubine &&
-        person._specificClan != null && (person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female);
+        person._specificClan != null && SexEligible(person, parent, maleOnly, allowFemale);
+
+    // 按性别、主次能不能继位。不立女主的国(maleOnly，见 MaleOnlyThrone)只认男子，不看宗族是男子优先还是女子优先：
+    // 宗族的偏好按始祖的文化定，国按本国文化定，两边对不上时(异族宗族入主、母系氏族阶段、旧档里女子优先的宗族)
+    // 以前只挑得出女子，挑出来即位时又被退回，君位一直空着。女子优先的宗族里成了婚的男子记作入赘(is_main 为假)，
+    // 生在本族的照样算，嫁入、入赘来的外姓人不算。其余的国照宗族的偏好，允许女子继承的再放开女子
+    public static bool SexEligible(PersonalClanIdentity person, PersonalClanIdentity parent, bool maleOnly, bool allowFemale)
+    {
+        if (person == null) return false;
+        if (!maleOnly) return person.CanHeir(parent) || allowFemale && person.sex == ActorSex.Female;
+        return person.sex == ActorSex.Male && !person.disinherited && person.id != parent?.id &&
+               (person.is_main || BornInLine(person));
+    }
+
+    // 生在本族：父亲或母亲和本人同一世系
+    private static bool BornInLine(PersonalClanIdentity person)
+    {
+        PersonalClanIdentity father = person.father > 0 ? SpecificClanManager.getPerson(person.father) : null;
+        if (father != null && SpecificClanManager.SameLineage(father._specificClan, person._specificClan)) return true;
+        PersonalClanIdentity mother = person.mother > 0 ? SpecificClanManager.getPerson(person.mother) : null;
+        return mother != null && SpecificClanManager.SameLineage(mother._specificClan, person._specificClan);
+    }
 
     // 钦定的储君：在世、可继位、仍是先君子嗣(新君即位后自然失效)
     // 剧本继承名单里头一位还在本国(帝国连同成员)、还能继位的；死了、被俘、已经即位的划掉
@@ -218,6 +261,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         {
             Actor actor = World.world.units.get(candidate);
             return actor != kingdom.king && IsFitCandidate(actor, null) && !ForeignRuler(kingdom, actor) &&
+                   !BarredBySex(kingdom, actor) &&
                    (actor.kingdom == kingdom || kingdom.IsEmpire() && actor.kingdom?.GetEmpire() == kingdom.GetEmpire());
         });
         return id < 0L ? null : World.world.units.get(id);
@@ -230,21 +274,29 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         Actor actor = World.world.units.get(data.designated_heir_id);
         actor?.CheckSpecificClan(false);
         PersonalClanIdentity identity = actor?.GetPersonalIdentity();
+        // 不立女主的国钦定不了女储君(旧档里已经钦定的在这里作废，照继承顺序另立)
+        bool barred = BarredBySex(kingdom, actor);
         bool valid = identity != null && actor != kingdom.king && IsFitCandidate(actor, parent) && !ForeignRuler(kingdom, actor) &&
-                     ChildrenOf(parent).Any(child => child.id == identity.id) &&
+                     !barred && ChildrenOf(parent).Any(child => child.id == identity.id) &&
                      (!kingdom.IsEmpire() || !ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire()) ||
                       ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor));
         if (!valid) data.designated_heir_id = -1L;
+        if (barred)
+            NeoModLoader.services.LogService.LogInfo(
+                $"[EmpireCraft][继承] {kingdom.GetKingdomName()} 钦定的储君 {actor.getName()} 是女子，本国不立女主：储位作废，照继承顺序另立");
         return valid ? actor : null;
     }
 
-    // 册立储君的候选：先君(在位皇帝)在世、可继位的子嗣
+    // 册立储君的候选：先君(在位皇帝)在世、可继位的子嗣。不立女主的国只列皇子(见 MaleOnlyThrone)：
+    // 以前公主也在列，册立、秘密立储(按才具挑)、手令都能把公主立为储君，君主身故后她即不了位、又一直占着储位
     public static List<Actor> HeirCandidates(Kingdom kingdom)
     {
         PersonalClanIdentity parent = PredecessorOf(kingdom);
         if (parent == null) return new List<Actor>();
+        bool maleOnly = MaleOnlyThrone(kingdom);
         return ChildrenOf(parent).Select(person => person._actor)
-            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor)).Distinct().ToList();
+            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor) &&
+                            !(maleOnly && actor.data.sex != ActorSex.Male)).Distinct().ToList();
     }
 
     // 宗人府废了储的(见 EmpireLawSystem.ApplyRoyalCourt)不再入继承人之列
@@ -297,10 +349,12 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         out PersonalClanIdentity selected)
     {
         bool protectedDynasty = kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire());
+        bool maleOnly = MaleOnlyThrone(kingdom);
         foreach (PersonalClanIdentity person in candidates)
         {
             Actor actor = person.Realize();
-            if (!IsFitCandidate(actor, parent) || ForeignRuler(kingdom, actor) ||
+            // 族谱记的性别和落成的人对不上时以人为准(即位时看的是人，见 BarredBySex)
+            if (!IsFitCandidate(actor, parent) || ForeignRuler(kingdom, actor) || maleOnly && actor.data.sex != ActorSex.Male ||
                 protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
             selected = person;
             return actor;
@@ -312,7 +366,11 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     private static (Actor actor, string relation) CheckHeir(Kingdom kingdom, EmpireHeirLawType selection,
         SuccessionLawType law, PersonalClanIdentity parent)
     {
-        bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(kingdom);
+        // 不立女主的国只在男子里排(见 SexEligible)，政体许不许女子继承、宗族偏好哪一边都不看
+        bool maleOnly = MaleOnlyThrone(kingdom);
+        bool allowFemale = !maleOnly && PersonalUnionService.AllowsFemaleSuccession(kingdom);
+        bool Preferred(PersonalClanIdentity person) =>
+            maleOnly ? person.sex == ActorSex.Male : person._specificClan != null && person.IsHeirPriority();
         string relation = LM.Get(selection.ToString());
         IEnumerable<PersonalClanIdentity> candidates;
         switch (selection)
@@ -322,23 +380,23 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 // 嫡长子继承：嫡长子早逝而身后有子，嫡长孙承重，先于诸叔
                 if (selection == EmpireHeirLawType.eldest_child && law == SuccessionLawType.嫡长子继承法)
                 {
-                    PersonalClanIdentity first = ChildrenOf(parent).Where(person => person.IsHeirPriority() && !person.is_concubine)
+                    PersonalClanIdentity first = ChildrenOf(parent).Where(person => Preferred(person) && !person.is_concubine)
                         .OrderByDescending(person => InLine(person, parent))
                         .ThenByDescending(person => IsBornOfPrimarySpouse(parent, person)).ThenBy(BirthKey).FirstOrDefault();
                     if (first != null && !first.is_alive)
                     {
-                        var grandsons = ChildrenOf(first).Where(person => IsEligibleRelative(person, first, allowFemale))
-                            .OrderByDescending(person => person.IsHeirPriority())
+                        var grandsons = ChildrenOf(first).Where(person => IsEligibleRelative(person, first, allowFemale, maleOnly))
+                            .OrderByDescending(Preferred)
                             .ThenByDescending(person => IsBornOfPrimarySpouse(first, person)).ThenBy(BirthKey);
                         Actor grandson = Pick(kingdom, grandsons, parent, out _);
                         if (grandson != null)
                             return (grandson, LM.Get("heir_relation_eldest_grandson").ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
                     }
                 }
-                var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale));
+                var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly));
                 // 嫡子优先，嫡系没有合适儿子时仍在自己的子嗣中接续，不提前跳到叔伯。
                 // 本宗世系里的子女先于生在别的宗族的(见 InLine)
-                var ordered = children.OrderByDescending(person => InLine(person, parent)).ThenByDescending(person => person.IsHeirPriority())
+                var ordered = children.OrderByDescending(person => InLine(person, parent)).ThenByDescending(Preferred)
                     .ThenByDescending(person => law == SuccessionLawType.嫡长子继承法 && IsBornOfPrimarySpouse(parent, person));
                 candidates = selection == EmpireHeirLawType.smallest_child
                     ? ordered.ThenBy(person => person.age).ThenByDescending(person => person.rank).ThenBy(person => person.id)
@@ -349,13 +407,13 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 return (child, relation.ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
             case EmpireHeirLawType.siblings:
                 candidates = SpecificClanManager.GetSiblingsWithRelation(parent).Select(pair => pair.Item2)
-                    .Where(person => IsEligibleRelative(person, parent, allowFemale))
-                    .OrderByDescending(person => person.IsHeirPriority()).ThenByDescending(person => person.age).ThenBy(person => person.id);
+                    .Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly))
+                    .OrderByDescending(Preferred).ThenByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.grand_child_generation:
                 candidates = SpecificClanManager.GetGrandChildren(parent).Select(pair => pair.Item2)
-                    .Where(person => IsEligibleRelative(person, parent, allowFemale))
-                    .OrderByDescending(person => person.IsHeirPriority()).ThenByDescending(person => person.age).ThenBy(person => person.id);
+                    .Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly))
+                    .OrderByDescending(Preferred).ThenByDescending(person => person.age).ThenBy(person => person.id);
                 break;
             case EmpireHeirLawType.random:
                 if (kingdom.IsEmpire() && ConstitutionalSuccessionSystem.ThroneBound(kingdom.GetEmpire()))
@@ -365,14 +423,15 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                 // 整个世系：本宗和分出去的各支(受封诸王一系)
                 candidates = SpecificClanManager.LineageClans(parent._specificClan).SelectMany(clan => clan.SnapshotPeople());
                 Dictionary<long, int> ancestors = Ancestors(parent);
-                candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale))
+                candidates = candidates.Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly))
                     .OrderBy(person => Kinship(person, ancestors)).ThenByDescending(person => person.age >= 18)
                     .ThenBy(person => Math.Abs(person.age - 30)).ThenBy(person => person.id);
                 relation = LM.Get("heir_relation_collateral");
                 break;
             case EmpireHeirLawType.officer:
                 if (kingdom.IsEmpire()) return (null, relation);
-                Actor officer = kingdom.cities.Select(city => city?.leader).FirstOrDefault(actor => IsFitCandidate(actor, parent));
+                Actor officer = kingdom.cities.Select(city => city?.leader)
+                    .FirstOrDefault(actor => IsFitCandidate(actor, parent) && !(maleOnly && actor.data.sex != ActorSex.Male));
                 return (officer, relation);
             default: return (null, relation);
         }
@@ -390,7 +449,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
             if (person.is_virtual) realized++;
             Actor actor = person.Realize();
             if (!IsFitCandidate(actor, parent) || actor.IsEmperor() || ForeignRuler(kingdom, actor) ||
-                protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
+                BarredBySex(kingdom, actor) || protectedDynasty && !ConstitutionalSuccessionSystem.CanInherit(kingdom.GetEmpire(), actor)) continue;
             return (actor, LM.Get("heir_relation_cognatic").ColorString(pColor: new Color(0.3f, 0.6f, 0.9f)));
         }
         return (null, "");
@@ -401,7 +460,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         var result = new List<(PersonalClanIdentity, int)>();
         if (kingdom == null || parent == null) return result;
-        bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(kingdom);
+        bool maleOnly = MaleOnlyThrone(kingdom);
+        bool allowFemale = !maleOnly && PersonalUnionService.AllowsFemaleSuccession(kingdom);
         Dictionary<long, int> ancestors = Ancestors(parent);
         var people = new Dictionary<long, PersonalClanIdentity>();
         foreach (var pair in SpecificClanManager.GetSiblingsWithRelation(parent))
@@ -414,7 +474,7 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         foreach (PersonalClanIdentity person in clan)
             if (person != null) people[person.id] = person;
         foreach (PersonalClanIdentity person in people.Values)
-            if (IsEligibleRelative(person, parent, allowFemale) && person._actor?.IsEmperor() != true &&
+            if (IsEligibleRelative(person, parent, allowFemale, maleOnly) && person._actor?.IsEmperor() != true &&
                 !ForeignRuler(kingdom, person._actor))
                 result.Add((person, Kinship(person, ancestors)));
         // 先君的子孙不算旁支，照常；旁支入继先从藩王一系里找(见 PrinceLineage)
@@ -470,7 +530,8 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
     {
         IEnumerable<PersonalClanIdentity> pool = ChildrenOf(parent);
         if (!childrenOnly) pool = pool.Concat(SpecificClanManager.GetSiblingsWithRelation(parent).Select(pair => pair.Item2));
-        var candidates = pool.Where(person => IsEligibleRelative(person, parent, false))
+        bool maleOnly = MaleOnlyThrone(kingdom);
+        var candidates = pool.Where(person => IsEligibleRelative(person, parent, false, maleOnly))
             .OrderByDescending(person => person._actor?.GetIdentity()?.TotalPerformance ?? -1d)
             .ThenByDescending(person => person.age).ThenBy(person => person.id);
         return (Pick(kingdom, candidates, parent, out _),

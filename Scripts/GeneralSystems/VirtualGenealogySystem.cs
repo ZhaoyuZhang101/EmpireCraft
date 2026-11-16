@@ -971,8 +971,8 @@ public static partial class VirtualGenealogySystem
     }
 
     private static PersonalClanIdentity PickHeir(IEnumerable<PersonalClanIdentity> people, PersonalClanIdentity last, bool maleOnly) =>
-        people.Where(person => person != null && person.is_alive && person.is_virtual && person.CanHeir(last) &&
-                               (!maleOnly || person.sex == ActorSex.Male))
+        people.Where(person => person != null && person.is_alive && person.is_virtual &&
+                               EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckHeir.SexEligible(person, last, maleOnly, false))
             .OrderByDescending(person => person.age >= HeadMinAge)
             .ThenByDescending(person => person.age)
             .FirstOrDefault();
