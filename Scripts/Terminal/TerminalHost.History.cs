@@ -17,6 +17,8 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 一国(用户 2026-11-16 "就像奏报一样""不局限于一国""只能看不能操作""也能单独点开某个国家去看他的历史和君主世系")：
 //     史册与君主世系照席位「典册」的拼法(LineageJson、HistoryJson)，借一个只读的看客席位按那一国拼，改法理、改国号这些不给(part=realm)；
 //     编年也可只看这一国(kid)。
+//   · 分类(用户 2026-11-16 "世界历史好歹分一下类啊""都挤在一起我怎么看")：每条带类别(WorldChronicle.Kinds)，可只看一类(cat)，
+//     回复里带各类各有几条(cats，按眼下的国、大事筛过、不按类筛)，手机上做成一排类别。
 // 编年：主线程有新条目时把要显示的几样(年、月、文字、大事)抄成一份只读的行，网络线程按页从这份里取，不回主线程；
 // 历朝：网络线程记下"要"，主线程在 RunAdmins 里拼好(至多 DynastySeconds 秒一次)再给。
 public static partial class TerminalHost
@@ -27,7 +29,7 @@ public static partial class TerminalHost
     private sealed class ChronicleRow
     {
         public int Year, Month;
-        public string YearLabel, Text, Kid = "", KingdomName = "";
+        public string YearLabel, Text, Kid = "", KingdomName = "", Kind = WorldChronicle.Other;
         public bool Major;
     }
 
@@ -68,13 +70,18 @@ public static partial class TerminalHost
         if (rows == null) return TerminalServer.Reply.Json("{\"ready\":false}");
         int.TryParse(Field(body, "from"), out int from);
         bool majorOnly = Field(body, "major") == "1";
+        string cat = Field(body, "cat") ?? "";
         var items = new JArray();
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         int seen = 0, next = -1, total = 0;
         // 新的在前
         for (int i = rows.Length - 1; i >= 0; i--)
         {
             ChronicleRow row = rows[i];
             if (majorOnly && !row.Major || only.Length > 0 && row.Kid != only) continue;
+            counts.TryGetValue(row.Kind, out int had);
+            counts[row.Kind] = had + 1;
+            if (cat.Length > 0 && row.Kind != cat) continue;
             total++;
             if (seen++ < from) continue;
             if (items.Count >= ChroniclePage)
@@ -82,7 +89,7 @@ public static partial class TerminalHost
                 if (next < 0) next = from + items.Count;
                 continue;
             }
-            var item = new JObject { ["y"] = row.Year, ["yl"] = row.YearLabel, ["m"] = row.Month, ["x"] = row.Text, ["j"] = row.Major ? 1 : 0 };
+            var item = new JObject { ["y"] = row.Year, ["yl"] = row.YearLabel, ["m"] = row.Month, ["x"] = row.Text, ["j"] = row.Major ? 1 : 0, ["c"] = row.Kind };
             if (row.Kid.Length > 0)
             {
                 item["k"] = row.Kid;
@@ -90,7 +97,11 @@ public static partial class TerminalHost
             }
             items.Add(item);
         }
-        return TerminalServer.Reply.Json(new JObject { ["ready"] = true, ["total"] = total, ["next"] = next, ["items"] = items }
+        var cats = new JObject();
+        foreach (string kind in WorldChronicle.Kinds)
+            if (counts.TryGetValue(kind, out int count))
+                cats[kind] = count;
+        return TerminalServer.Reply.Json(new JObject { ["ready"] = true, ["total"] = total, ["next"] = next, ["cats"] = cats, ["items"] = items }
             .ToString(Newtonsoft.Json.Formatting.None));
     }
 
@@ -152,7 +163,8 @@ public static partial class TerminalHost
                     if (YearLabels.Count > 4096) YearLabels.Clear();
                     YearLabels[year] = label = TerminalIntel.Strip(HistoryDateFormatter.GetYear(entry.t));
                 }
-                entry.View = row = new ChronicleRow { Year = year, Month = Date.getMonth(entry.t), YearLabel = label, Text = entry.text ?? "", Major = entry.major };
+                entry.View = row = new ChronicleRow { Year = year, Month = Date.getMonth(entry.t), YearLabel = label, Text = entry.text ?? "", Major = entry.major,
+                    Kind = string.IsNullOrEmpty(entry.kind) ? WorldChronicle.Other : entry.kind };
                 // 说的是哪一国(按抄行时的国名；国已经没了的不给点)
                 Kingdom about = entry.kingdom >= 0 ? World.world.kingdoms.get(entry.kingdom) : null;
                 if (about?.data != null && !about.isRekt())

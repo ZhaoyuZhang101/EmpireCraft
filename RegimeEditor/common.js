@@ -24,6 +24,7 @@ function mountAppBar(active) {
   bar.innerHTML = `<div class="title">${ico("iconWorldInfo")}EmpireCraft 编辑器</div>` +
     pages.map(([href, label, icon]) => `<a href="${href}" class="${href === active ? "active" : ""}">${ico(icon)}${label}</a>`).join("") +
     `<div class="spacer"></div><span class="root" id="modRootLabel"></span>` +
+    `<button class="small" id="coreBtn" title="不开游戏，直接打开服务器核心">${ico("iconKingdom", "sm")}服务器核心</button>` +
     `<button class="small" id="chooseRootBtn">${ico("iconOptions", "sm")}选择模组目录</button>`;
   document.body.prepend(bar);
   const status = document.createElement("div");
@@ -37,7 +38,70 @@ function mountAppBar(active) {
       if (!r.canceled) location.reload();
     } catch (e) { toast(e.message, true); }
   });
+  bar.querySelector("#coreBtn").addEventListener("click", openCoreDialog);
   refreshRootLabel();
+}
+
+// ---------- 服务器核心：不开游戏直接打开它(见 core-launcher.js) ----------
+function coreWhen(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso || "");
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function openCoreDialog() {
+  if (!api || !api.core) return toast("只有桌面版才能打开服务器核心", true);
+  let box = document.getElementById("coreDialog");
+  if (!box) {
+    box = document.createElement("dialog");
+    box.id = "coreDialog";
+    box.style.cssText = "min-width:520px;max-width:640px";
+    document.body.appendChild(box);
+    box.addEventListener("click", e => { if (e.target === box) box.close(); });
+  }
+  const row = (icon, label, value, muted) =>
+    `<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0">${ico(icon)}<span class="muted" style="flex:none;width:64px">${label}</span>` +
+    `<span style="flex:1;word-break:break-all;${muted ? "opacity:.7" : ""}">${value}</span></div>`;
+  const draw = async () => {
+    const s = await api.core.status();
+    const save = s.save
+      ? `第 ${s.save.year} 年 ${s.save.month} 月 · 存于 ${esc(coreWhen(s.save.saved))}`
+      : "还没有存档";
+    box.innerHTML =
+      `<h3 style="margin:0 0 8px;display:flex;align-items:center;gap:8px">${ico("iconKingdom")}服务器核心</h3>` +
+      row("iconOptions", "程序", s.exe ? esc(s.exe) : "没找到。在游戏的模组设置里打开一次「用服务器核心」，它会自己下载。", !s.exe) +
+      row("iconSaveLocal", "存档", save, !s.save) +
+      row("iconWorldInfo", "眼下", s.running ? `已经开着(端口 ${s.port})，窗口收在托盘里` : "没在运行", !s.running) +
+      `<p class="muted" style="margin:10px 0">不用开游戏。核心接着上面那份存档跑，手机照常连；没有存档时，在核心窗口里点「打开网页管理页」挑一个剧本开局。` +
+      `这样跑出来的进度不会自己回到游戏：在游戏里打开「用服务器核心」时，会问带回还是丢弃。</p>` +
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">` +
+      `<button id="coreState">${ico("iconBooks", "sm")}打开存档文件夹</button>` +
+      `<button id="coreLink" ${s.exe ? "" : "disabled"}>${ico("iconEdit", "sm")}把核心图标放到桌面</button>` +
+      `<button id="coreGo" class="primary" ${s.exe && !s.running ? "" : "disabled"}>${ico("iconKingdom", "sm")}${s.running ? "已经开着" : "打开核心"}</button>` +
+      `<button id="coreClose">关闭</button></div>`;
+    box.querySelector("#coreClose").onclick = () => box.close();
+    box.querySelector("#coreState").onclick = async () => {
+      const r = await api.core.openState();
+      if (!r.ok) toast(r.error, true);
+    };
+    box.querySelector("#coreLink").onclick = async () => {
+      const r = await api.core.shortcut();
+      toast(r.ok ? `已放到桌面：${r.file}` : r.error, !r.ok);
+    };
+    box.querySelector("#coreGo").onclick = async e => {
+      e.target.disabled = true;
+      const r = await api.core.launch();
+      if (!r.ok) toast(r.error, true);
+      else toast(r.running ? "核心已经开着，窗口收在托盘里" : "核心开起来了：它有自己的窗口和托盘图标");
+      // 端口要过一会儿才通，等一等再看
+      setTimeout(draw, 2500);
+    };
+  };
+  try {
+    await draw();
+    if (!box.open) box.showModal();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function refreshRootLabel() {

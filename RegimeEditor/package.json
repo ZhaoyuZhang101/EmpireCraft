@@ -1,6 +1,6 @@
 {
   "name": "empirecraft-regime-editor",
-  "version": "0.3.1",
+  "version": "0.5.0",
   "description": "EmpireCraft editors: regimes, cultures, tech and institution nodes, claim rules, military and misc configs.",
   "main": "main.js",
   "author": "Codex",
@@ -26,6 +26,7 @@
       "claims.html",
       "common.css",
       "common.js",
+      "core-launcher.js",
       "culture.html",
       "editor-core.js",
       "index.html",

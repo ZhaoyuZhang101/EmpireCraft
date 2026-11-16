@@ -92,6 +92,10 @@ input::placeholder{color:#6d6858}
 /* 设置、法则、账号 */
 .scroll{flex:1;min-height:0;overflow:auto;padding-right:2px}
 .head input{width:200px}
+.grp{display:flex;align-items:center;gap:8px;margin:10px 0 4px;padding:3px 8px;color:var(--gold);background:var(--bar);border:1px solid var(--line);border-left:3px solid var(--gold);cursor:pointer}
+.grp:first-child{margin-top:0}
+.grp .n{color:var(--muted);margin-left:auto}
+.grp .fold{color:var(--muted);width:10px;text-align:center}
 .row{display:flex;align-items:center;gap:12px;padding:6px 10px;background:var(--card);border:1px solid var(--line);margin-bottom:4px}
 .row:hover{background:var(--card2)}
 .row .txt{flex:1;min-width:0}
@@ -213,7 +217,7 @@ saving:"已叫核心存档",opened:"已在浏览器里打开管理页",
 stop_title:"停下核心？",stop_game_note:"核心会先存档，再把游戏开起来，随后自己退出；游戏读完后把这一局带回。",stop_note:"核心会先存档再退出，连着的手机都会断开。",
 stopping:"核心正在存档、退出……",ok:"确定",cancel:"取消",close:"关闭",
 seats_none:"还没有手机领过君主。",seat_free:"未领君主",cities:"{0} 城",seat_count:"{0} 位 · {1} 在线",
-find_mod:"搜设置……",find_laws:"搜法则……",count:"{0} 项",none:"没有对得上的。",changed:"已改：{0}",on:"开",off:"关",
+find_mod:"搜设置……",find_laws:"搜法则……",count:"{0} 项",grp_other:"其他",none:"没有对得上的。",changed:"已改：{0}",on:"开",off:"关",
 users_note:"{0} 个账号 · 注册：{1}",reg_open:"开放",reg_code:"凭邀请码",reg_closed:"已关闭",users_none:"还没有人注册。",
 u_user:"账号",u_created:"注册",u_last:"上次登录",u_seat:"席位",u_has:"有",u_no:"已撤",u_delete:"销号",
 del_title:"销号：{0}？",del_note:"账号删掉，席位撤掉，所领的君主交还。不能撤回。",deleted:"已销号：{0}",
@@ -232,7 +236,7 @@ saving:"已叫核心存檔",opened:"已在瀏覽器裡打開管理頁",
 stop_title:"停下核心？",stop_game_note:"核心會先存檔，再把遊戲開起來，隨後自己退出；遊戲讀完後把這一局帶回。",stop_note:"核心會先存檔再退出，連著的手機都會斷開。",
 stopping:"核心正在存檔、退出……",ok:"確定",cancel:"取消",close:"關閉",
 seats_none:"還沒有手機領過君主。",seat_free:"未領君主",cities:"{0} 城",seat_count:"{0} 位 · {1} 在線",
-find_mod:"搜設定……",find_laws:"搜法則……",count:"{0} 項",none:"沒有對得上的。",changed:"已改：{0}",on:"開",off:"關",
+find_mod:"搜設定……",find_laws:"搜法則……",count:"{0} 項",grp_other:"其他",none:"沒有對得上的。",changed:"已改：{0}",on:"開",off:"關",
 users_note:"{0} 個帳號 · 註冊：{1}",reg_open:"開放",reg_code:"憑邀請碼",reg_closed:"已關閉",users_none:"還沒有人註冊。",
 u_user:"帳號",u_created:"註冊",u_last:"上次登入",u_seat:"席位",u_has:"有",u_no:"已撤",u_delete:"銷號",
 del_title:"銷號：{0}？",del_note:"帳號刪掉，席位撤掉，所領的君主交還。不能撤回。",deleted:"已銷號：{0}",
@@ -251,7 +255,7 @@ saving:"Save requested",opened:"Admin page opened in the browser",
 stop_title:"Stop the core?",stop_game_note:"The core saves, starts the game, then exits; the game brings this world back once loaded.",stop_note:"The core saves and exits; connected phones are dropped.",
 stopping:"The core is saving and exiting…",ok:"OK",cancel:"Cancel",close:"Close",
 seats_none:"No phone has taken a ruler yet.",seat_free:"no ruler",cities:"{0} cities",seat_count:"{0} seats · {1} online",
-find_mod:"Search settings…",find_laws:"Search laws…",count:"{0} items",none:"Nothing matches.",changed:"Changed: {0}",on:"on",off:"off",
+find_mod:"Search settings…",find_laws:"Search laws…",count:"{0} items",grp_other:"Other",none:"Nothing matches.",changed:"Changed: {0}",on:"on",off:"off",
 users_note:"{0} accounts · registration: {1}",reg_open:"open",reg_code:"invite code",reg_closed:"closed",users_none:"Nobody has registered yet.",
 u_user:"Account",u_created:"Registered",u_last:"Last login",u_seat:"Seat",u_has:"yes",u_no:"removed",u_delete:"Delete",
 del_title:"Delete {0}?",del_note:"The account is deleted, its seat removed and its ruler released. This cannot be undone.",deleted:"Deleted: {0}",
@@ -457,6 +461,7 @@ $("b-stop").onclick=function(){
 };
 
 // ───── 模组设置、世界法则 ─────
+var folded={};
 function loadLists(){
   api("GET","/api/admin/settings").then(function(r){if(r.status===200){lists=r.json;drawList("mod");drawList("laws")}},function(){});
 }
@@ -466,9 +471,23 @@ function drawList(kind){
   if(document.activeElement&&box.contains(document.activeElement))return;
   var find=$(kind+"-find").value.trim().toLowerCase(),shown=0,top=box.scrollTop;
   box.textContent="";
+  // 核心给了类名(group)和类的先后(order)就按类排，一类一个标题条，点一下收起；搜的时候都摊开
+  var grouped=rows.some(function(it){return !!it.group}),last=null,head=null,inGroup=0;
+  if(grouped)rows=rows.map(function(it,i){return{it:it,i:i}}).sort(function(a,b){return (a.it.order||0)-(b.it.order||0)||a.i-b.i}).map(function(x){return x.it});
   rows.forEach(function(it){
-    if(find&&(it.name+" "+(it.desc||"")+" "+it.id).toLowerCase().indexOf(find)<0)return;
+    if(find&&(it.name+" "+(it.desc||"")+" "+(it.group||"")+" "+it.id).toLowerCase().indexOf(find)<0)return;
     shown++;
+    if(grouped&&it.group!==last){
+      last=it.group;inGroup=0;
+      head=el("div","grp");
+      var shut=!find&&!!folded[kind+":"+last];
+      head.appendChild(el("span","fold",shut?"+":"-"));head.appendChild(el("span",null,last||t("grp_other")));
+      head.appendChild(el("span","n"));
+      head.onclick=(function(name){return function(){folded[kind+":"+name]=!folded[kind+":"+name];drawList(kind)}})(last);
+      box.appendChild(head);
+    }
+    if(head){inGroup++;head.lastChild.textContent=t("count",inGroup)}
+    if(grouped&&!find&&folded[kind+":"+last])return;
     var row=el("div","row"),txt=el("div","txt");
     txt.appendChild(el("div",null,it.name));if(it.desc)txt.appendChild(el("div","d",it.desc));
     row.appendChild(txt);

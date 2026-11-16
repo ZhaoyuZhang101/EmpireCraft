@@ -119,6 +119,25 @@ try:
         status, page2 = history(admin, {"part": "chron", "from": str(chron["next"]), "major": "0"})
         check(status == 200 and len(page2.get("items") or []) > 0 and page2["items"][0] != items[0], "翻到下一页")
 
+    print("分类")
+    kinds = ["war", "throne", "realm", "dipl", "court", "law", "faith", "culture", "econ", "disaster", "story", "other"]
+    cats = chron.get("cats") or {}
+    print("    " + " ".join("%s:%s" % (k, cats.get(k, 0)) for k in kinds))
+    check(all(item.get("c") in kinds for item in items), "每条都有类别")
+    check(sum(cats.values()) == total, "各类加起来等于全部(%d)" % sum(cats.values()))
+    check(len([k for k in cats if k != "other"]) >= 3, "至少分出三类(%d 类)" % len(cats))
+    check(cats.get("other", 0) * 3 < max(total, 1), "其他不到三分之一(%s / %s)" % (cats.get("other", 0), total))
+    busiest = max((k for k in cats if k != "other"), key=lambda k: cats[k], default=None)
+    if busiest:
+        status, one = history(admin, {"part": "chron", "from": "0", "major": "0", "cat": busiest})
+        check(status == 200 and one.get("total") == cats[busiest] and all(i.get("c") == busiest for i in one.get("items") or []),
+              "只看%s(%s 条)" % (busiest, one.get("total")))
+        for item in (one.get("items") or [])[:4]:
+            print("      [%s] %s" % (busiest, item.get("x")[:50]))
+    other_items = [i for i in items if i.get("c") == "other"][:6]
+    for item in other_items:
+        print("      [other] %s" % item.get("x")[:50])
+
     print("历朝")
     status, dyn = history(admin, {"part": "dyn"})
     rows = dyn.get("items") or []

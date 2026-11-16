@@ -18,6 +18,13 @@ contextBridge.exposeInMainWorld("regimeEditorDesktop", {
   openPath: (relPath) => ipcRenderer.invoke("open-path", relPath),
   readLocales: (keys) => ipcRenderer.invoke("read-locales", keys),
   writeLocales: (entries) => ipcRenderer.invoke("write-locales", entries),
+  // 服务器核心
+  core: {
+    status: () => ipcRenderer.invoke("core-status"),
+    launch: () => ipcRenderer.invoke("core-launch"),
+    openState: () => ipcRenderer.invoke("core-open-state"),
+    shortcut: () => ipcRenderer.invoke("core-shortcut")
+  },
   // 剧本编辑器
   scenario: {
     info: () => ipcRenderer.invoke("scenario-info"),

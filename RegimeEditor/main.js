@@ -7,6 +7,7 @@ const {
 } = require("./editor-core");
 const { syncEnums } = require("./regime-enum-sync");
 const scenarioCore = require("./scenario-core");
+const coreLauncher = require("./core-launcher");
 
 // 剧本编辑器：自定剧本文件夹(默认同游戏，mods_config/EmpireCraft/scenarios；另选过的记在单独一份设置里)
 function scenarioSettingsPath() {
@@ -290,6 +291,37 @@ app.whenReady().then(() => {
   });
 
   // 同步代码枚举：编辑器自带(regime-enum-sync.js)，不用装 Python；出错时把真正的原因带回去
+  // ---------- 服务器核心(顶栏「服务器核心」；见 core-launcher.js) ----------
+  const modRootOrNull = () => {
+    try {
+      return resolveModRoot();
+    } catch {
+      return null;
+    }
+  };
+  ipcMain.handle("core-status", async () => coreLauncher.status(modRootOrNull()));
+  ipcMain.handle("core-launch", async () => coreLauncher.launch(modRootOrNull()));
+  ipcMain.handle("core-open-state", async () => {
+    const dir = coreLauncher.stateDir();
+    await fs.mkdir(dir, { recursive: true });
+    const failed = await shell.openPath(dir);
+    return failed ? { ok: false, error: failed } : { ok: true };
+  });
+  ipcMain.handle("core-shortcut", async () => {
+    const link = coreLauncher.shortcut(modRootOrNull());
+    if (!link) return { ok: false, error: "没找到服务器核心或模组目录。" };
+    const file = path.join(app.getPath("desktop"), "帝国盒子核心.lnk");
+    const icon = path.join(__dirname, "assets", "core-icon.ico");
+    // 打包成便携版时图标在压缩包里，快捷方式指不到：那时不带图标(用核心程序自己的)
+    const options = { target: link.target, cwd: link.cwd, args: link.args, description: link.description };
+    if (syncFs.existsSync(icon) && !icon.includes(".asar")) {
+      options.icon = icon;
+      options.iconIndex = 0;
+    }
+    const done = shell.writeShortcutLink(file, syncFs.existsSync(file) ? "replace" : "create", options);
+    return done ? { ok: true, file } : { ok: false, error: "快捷方式没写成。" };
+  });
+
   ipcMain.handle("sync-enums", async () => {
     try {
       const result = syncEnums(resolveModRoot());

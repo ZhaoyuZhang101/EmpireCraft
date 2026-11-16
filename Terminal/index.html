@@ -336,6 +336,21 @@ body.admin nav button[data-p=reports],body.admin nav button[data-p=decrees],body
 body.admin nav div{grid-template-columns:repeat(4,1fr)}
 .tiles.two{grid-template-columns:repeat(2,1fr)}
 .tiles.three{grid-template-columns:repeat(3,1fr)}
+/* 编年按类(用户 2026-11-16 "世界历史好歹分一下类啊""都挤在一起我怎么看")：一排类别、按年一卷、一条一行，左边月份、底下类别 */
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.cats .act{margin:0;min-height:32px;padding:3px 10px;font-size:13px;display:flex;align-items:center;gap:5px}
+.cats .act b{font-weight:400;color:var(--mute);font-size:12px}
+.cats .act.on{background:#7a5f1e;color:#fff3cf;box-shadow:inset 0 2px 0 #b08a2e}.cats .act.on b{color:#f1dca0}
+.cat-dot{display:inline-block;width:8px;height:8px;border-radius:2px;flex:none}
+.cyear{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cyear .world{margin:0 0 4px}
+.crow{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.crow.plain{cursor:default}
+.crow .mon{flex:none;width:34px;color:var(--mute);font-size:12.5px;padding-top:2px;text-align:right}
+.crow .body{flex:1;min-width:0;font-size:14px;line-height:1.45}
+.crow .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;align-items:center}
+.crow .meta .tag{display:inline-flex;align-items:center;gap:4px}
+.crow.major .body>div:first-child{color:var(--gold)}
 .dyn-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
 body.main #p-aseats,body.main #p-aroom,body.main #p-ahist{position:fixed;z-index:2;overflow:auto;-webkit-overflow-scrolling:touch;
   left:6px;right:6px;top:calc(var(--barh) + 14px);bottom:calc(var(--navh) + 6px);background:var(--bg);
@@ -616,22 +631,22 @@ en:{adm_k_accounts:"Accounts",wl_title:"Starting: {0}",wl_title_resume:"Loading 
 };for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 // 管理员「史」的文字
 (function(){var A={
-cz:{tab_ahist:"史",ah_chron:"编年",ah_dyn:"历朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 条",ah_count:"共 {0} 条",ah_none:"还没有记下的事。",
+cz:{tab_ahist:"史",ah_c_all:"全部",ah_c_war:"战事",ah_c_throne:"君位",ah_c_realm:"兴亡",ah_c_dipl:"邦交",ah_c_court:"朝政",ah_c_law:"刑狱",ah_c_faith:"宗教",ah_c_culture:"文教",ah_c_econ:"民生",ah_c_disaster:"灾异",ah_c_story:"史事",ah_c_other:"其他",ah_year_n:"{0} 条",ah_chron:"编年",ah_dyn:"历朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 条",ah_count:"共 {0} 条",ah_none:"还没有记下的事。",
 ah_loading:"正在调阅……",ah_alive:"在位",ah_fallen:"已亡",ah_years:"享国 {0} 年",ah_years_now:"立国 {0} 年",ah_from:"{0} 立国",ah_span:"{0} — {1}",
 ah_ruler_now:"今上 {0}",ah_last:"末代 {0}",ah_reigns:"历代 {0} 位",ah_reign_years:"在位 {0} 年",ah_era:"年号 {0}",ah_no_reigns:"史册里没有这一朝的君主记录。",
-ah_month:"{0}月",ah_note:"天下各国的事都记在这里，随存档保存；大事是各国都听得到的事。点一条看那一国。",
+ah_month:"{0}月",ah_note:"天下各国的事都记在这里，随存档保存；大事(金字)是各国都听得到的事。点一条看那一国。",
 ah_major_tag:"大事",ah_back:"返回",ah_r_history:"史册",ah_r_lineage:"世系",ah_r_chron:"编年",ah_king_now:"国君 {0}",ah_gone:"这一国已经不在了。",
 ah_no_book:"这一国眼下没有国君，史册与世系无从查起。",ah_open_realm:"看这一国的史册与世系",ah_view:"史册"},
-ch:{tab_ahist:"史",ah_chron:"編年",ah_dyn:"歷朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 條",ah_count:"共 {0} 條",ah_none:"還沒有記下的事。",
+ch:{tab_ahist:"史",ah_c_all:"全部",ah_c_war:"戰事",ah_c_throne:"君位",ah_c_realm:"興亡",ah_c_dipl:"邦交",ah_c_court:"朝政",ah_c_law:"刑獄",ah_c_faith:"宗教",ah_c_culture:"文教",ah_c_econ:"民生",ah_c_disaster:"災異",ah_c_story:"史事",ah_c_other:"其他",ah_year_n:"{0} 條",ah_chron:"編年",ah_dyn:"歷朝",ah_major:"只看大事",ah_all:"全部",ah_more:"再往前 {0} 條",ah_count:"共 {0} 條",ah_none:"還沒有記下的事。",
 ah_loading:"正在調閱……",ah_alive:"在位",ah_fallen:"已亡",ah_years:"享國 {0} 年",ah_years_now:"立國 {0} 年",ah_from:"{0} 立國",ah_span:"{0} — {1}",
 ah_ruler_now:"今上 {0}",ah_last:"末代 {0}",ah_reigns:"歷代 {0} 位",ah_reign_years:"在位 {0} 年",ah_era:"年號 {0}",ah_no_reigns:"史冊裡沒有這一朝的君主記錄。",
-ah_month:"{0}月",ah_note:"天下各國的事都記在這裡，隨存檔保存；大事是各國都聽得到的事。點一條看那一國。",
+ah_month:"{0}月",ah_note:"天下各國的事都記在這裡，隨存檔保存；大事(金字)是各國都聽得到的事。點一條看那一國。",
 ah_major_tag:"大事",ah_back:"返回",ah_r_history:"史冊",ah_r_lineage:"世系",ah_r_chron:"編年",ah_king_now:"國君 {0}",ah_gone:"這一國已經不在了。",
 ah_no_book:"這一國眼下沒有國君，史冊與世系無從查起。",ah_open_realm:"看這一國的史冊與世系",ah_view:"史冊"},
-en:{tab_ahist:"History",ah_chron:"Chronicle",ah_dyn:"Dynasties",ah_major:"Major only",ah_all:"All",ah_more:"{0} earlier entries",ah_count:"{0} entries",ah_none:"Nothing recorded yet.",
+en:{tab_ahist:"History",ah_c_all:"All",ah_c_war:"War",ah_c_throne:"Throne",ah_c_realm:"Rise & fall",ah_c_dipl:"Diplomacy",ah_c_court:"Court",ah_c_law:"Justice",ah_c_faith:"Faith",ah_c_culture:"Culture",ah_c_econ:"Economy",ah_c_disaster:"Calamity",ah_c_story:"Story",ah_c_other:"Other",ah_year_n:"{0}",ah_chron:"Chronicle",ah_dyn:"Dynasties",ah_major:"Major only",ah_all:"All",ah_more:"{0} earlier entries",ah_count:"{0} entries",ah_none:"Nothing recorded yet.",
 ah_loading:"Fetching the records…",ah_alive:"Reigning",ah_fallen:"Fallen",ah_years:"Lasted {0} years",ah_years_now:"{0} years so far",ah_from:"Founded {0}",ah_span:"{0} – {1}",
 ah_ruler_now:"Now {0}",ah_last:"Last ruler {0}",ah_reigns:"{0} rulers",ah_reign_years:"{0} years on the throne",ah_era:"Era {0}",ah_no_reigns:"No rulers of this dynasty are recorded.",
-ah_month:"M{0}",ah_note:"What happens in every realm is recorded here and kept with the save; major events are those every realm hears of. Tap an entry to open that realm.",
+ah_month:"M{0}",ah_note:"What happens in every realm is recorded here and kept with the save; major events (in gold) are those every realm hears of. Tap an entry to open that realm.",
 ah_major_tag:"Major",ah_back:"Back",ah_r_history:"Annals",ah_r_lineage:"Lineage",ah_r_chron:"Chronicle",ah_king_now:"Ruler {0}",ah_gone:"This realm no longer exists.",
 ah_no_book:"This realm has no ruler at present, so there are no annals or lineage to show.",ah_open_realm:"Open this realm's annals and lineage",ah_view:"Annals"}
 };for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
@@ -1894,20 +1909,25 @@ function annalsSend(body,label){
 //   一国——史册、君主世系(同席位典册的拼法)、这一国的编年，全是只读
 var AHIST=[["chron","a_history"],["dyn","i_crown"]],ahTab=store("ec_ahist")||"chron",ahMajor=store("ec_ahmajor")!=="0";
 var AHREALM=[["history","a_history"],["lineage","a_lineage"],["chron","tab_reports"]];
-var ahChron=null,ahDyn=null,ahBusy=false,ahRealm=null;
+var ahChron=null,ahDyn=null,ahBusy=false,ahRealm=null,ahCat=store("ec_ahcat")||"";
+// 类别：图标、颜色(与 WorldChronicle.Kinds 对应)
+var AHCATS=[["war","k_war","var(--red)"],["throne","i_crown","var(--gold)"],["realm","i_empire","var(--amber)"],["dipl","g_diplomacy","var(--cyan)"],
+  ["court","g_court","var(--green)"],["law","g_law","#a9b4c4"],["faith","k_mandate","#c39be6"],["culture","i_era","#8fb6e8"],["econ","k_treasury","#d6c27a"],
+  ["disaster","i_dead","#e08a6e"],["story","k_years","#e6c48a"],["other","a_history","var(--soft)"]];
+function ahCatOf(c){for(var i=0;i<AHCATS.length;i++)if(AHCATS[i][0]===c)return AHCATS[i];return AHCATS[AHCATS.length-1]}
 function openHistory(){ahChron=null;renderHistory();if(ahRealm)loadRealm(0);else loadHistory(true,0)}
 // 编年一页：kid 给了就只取这一国的
-function chronBody(from,kid){var b={part:"chron",from:String(from),major:ahMajor&&!kid?"1":"0"};if(kid)b.kid=kid;return b}
+function chronBody(from,kid,cat){var b={part:"chron",from:String(from),major:ahMajor&&!kid?"1":"0"};if(kid)b.kid=kid;if(cat)b.cat=cat;return b}
 function loadHistory(fresh,tries){
   if(ahBusy&&!tries)return;
   ahBusy=true;
   var dyn=ahTab==="dyn",from=dyn||fresh||!ahChron?0:ahChron.items.length;
-  api("POST","/api/admin/history",dyn?{part:"dyn"}:chronBody(from)).then(function(r){
+  api("POST","/api/admin/history",dyn?{part:"dyn"}:chronBody(from,null,ahCat)).then(function(r){
     if(r.status===200&&r.json.ready){
       ahBusy=false;
       if(dyn)ahDyn=r.json;
       else if(fresh||!ahChron)ahChron=r.json;
-      else{ahChron.items=ahChron.items.concat(r.json.items||[]);ahChron.next=r.json.next;ahChron.total=r.json.total}
+      else{ahChron.items=ahChron.items.concat(r.json.items||[]);ahChron.next=r.json.next;ahChron.total=r.json.total;ahChron.cats=r.json.cats}
       if(page==="ahist"&&!ahRealm)renderHistory();return;
     }
     if(r.status===200&&tries<15){setTimeout(function(){loadHistory(fresh,tries+1)},700);return}
@@ -1917,7 +1937,7 @@ function loadHistory(fresh,tries){
 // 打开一国(编年里点的、历朝里点的、图上点的)
 function openRealmHistory(id,name){
   if(!id)return;
-  ahRealm={id:String(id),name:name||"",tab:store("ec_ahrealm")||"history",data:null,chron:null};
+  ahRealm={id:String(id),name:name||"",tab:store("ec_ahrealm")||"history",data:null,chron:null,cat:""};
   if(page!=="ahist")goPage("ahist");else{renderHistory();loadRealm(0)}
 }
 function loadRealm(tries){
@@ -1932,32 +1952,57 @@ function loadRealm(tries){
 function loadRealmChron(fresh){
   var want=ahRealm;if(!want)return;
   var from=fresh||!want.chron?0:want.chron.items.length;
-  api("POST","/api/admin/history",chronBody(from,want.id)).then(function(r){
+  api("POST","/api/admin/history",chronBody(from,want.id,want.cat)).then(function(r){
     if(ahRealm!==want||r.status!==200||!r.json.ready)return;
     if(fresh||!want.chron)want.chron=r.json;
-    else{want.chron.items=want.chron.items.concat(r.json.items||[]);want.chron.next=r.json.next;want.chron.total=r.json.total}
+    else{want.chron.items=want.chron.items.concat(r.json.items||[]);want.chron.next=r.json.next;want.chron.total=r.json.total;want.chron.cats=r.json.cats}
     if(page==="ahist")renderHistory();
   },function(){});
 }
-// 一条编年，照奏报的卡：左边一行字、底下年月；右边那一国、大事
+// 一条编年：左边月份，右边那句话，底下类别、那一国、大事；大事金字
 function chronItem(h,inRealm){
-  var item=el("div","report"),head=el("div","row"),left=el("div"),lead=el("div","hl");lead.style.alignItems="flex-start";
-  left.appendChild(el("div",null,h.x));
-  left.appendChild(el("div","sub",t("date",h.y,h.m)));
-  lead.appendChild(ic(h.j?"k_war":h.k?"g_diplomacy":"tab_reports",20));lead.appendChild(left);head.appendChild(lead);
-  var tags=el("div");tags.style.cssText="display:flex;flex-direction:column;gap:4px;align-items:flex-end";
-  if(h.k&&!inRealm)tags.appendChild(el("span","tag cyan",h.kn||"?"));
-  if(h.j)tags.appendChild(el("span","tag red",t("ah_major_tag")));
-  head.appendChild(tags);item.appendChild(head);
-  if(h.k&&!inRealm)item.onclick=function(){openRealmHistory(h.k,h.kn)};
-  else item.style.cursor="default";
-  return item;
+  var cat=ahCatOf(h.c),row=el("div","crow"+(h.j?" major":"")),body=el("div","body"),meta=el("div","meta");
+  row.appendChild(el("div","mon",t("ah_month",h.m)));
+  body.appendChild(el("div",null,h.x));
+  var tag=el("span","tag");tag.style.color=cat[2];var dot=el("i","cat-dot");dot.style.background=cat[2];tag.appendChild(dot);
+  tag.appendChild(document.createTextNode(t("ah_c_"+cat[0])));meta.appendChild(tag);
+  if(h.k&&!inRealm)meta.appendChild(el("span","tag cyan",h.kn||"?"));
+  if(h.j)meta.appendChild(el("span","tag red",t("ah_major_tag")));
+  body.appendChild(meta);row.appendChild(body);
+  if(h.k&&!inRealm)row.onclick=function(){openRealmHistory(h.k,h.kn)};
+  else row.className+=" plain";
+  return row;
 }
+// 一排类别：全部 + 有条目的各类(选中的那类没有条目也留着)
+function catStrip(data,on,pick){
+  var strip=el("div","cats"),cats=(data&&data.cats)||{},all=0;
+  for(var k in cats)all+=cats[k];
+  function chip(key,label,color,n){
+    var b=el("button","act"+(key===on?" on":""));
+    if(color){var dot=el("i","cat-dot");dot.style.background=color;b.appendChild(dot)}
+    b.appendChild(document.createTextNode(label));b.appendChild(el("b",null,String(n)));
+    b.onclick=function(){if(key!==on)pick(key)};strip.appendChild(b);
+  }
+  chip("",t("ah_c_all"),null,all);
+  AHCATS.forEach(function(c){if(cats[c[0]]||c[0]===on)chip(c[0],t("ah_c_"+c[0]),c[2],cats[c[0]]||0)});
+  return strip;
+}
+// 按年一卷(新的在前)，翻页接着往下
 function chronList(box,data,more,inRealm){
-  if(!data){box.appendChild(el("div","sub",t("ah_loading")));return}
+  if(!data){box.appendChild(el("div","card sub",t("ah_loading")));return}
   var items=data.items||[];
-  if(!items.length)box.appendChild(el("div","sub",t("ah_none")));
-  items.forEach(function(h){box.appendChild(chronItem(h,inRealm))});
+  if(!items.length){box.appendChild(el("div","card sub",t("ah_none")));return}
+  var card=null,count=null,n=0,year=null;
+  items.forEach(function(h){
+    if(h.y!==year||!card){
+      if(count)count.textContent=t("ah_year_n",n);
+      year=h.y;n=0;card=el("div","card");var head=el("div","cyear");
+      head.appendChild(el("div","world",h.yl||String(h.y)));count=el("span","sub","");head.appendChild(count);
+      card.appendChild(head);box.appendChild(card);
+    }
+    n++;card.appendChild(chronItem(h,inRealm));
+  });
+  if(count)count.textContent=t("ah_year_n",n);
   if(data.next>=0){
     var b=el("button","act");b.appendChild(document.createTextNode(t("ah_more",Math.max(0,(data.total||0)-items.length))));
     b.onclick=function(){b.disabled=true;more()};
@@ -1981,9 +2026,10 @@ function renderHistory(){
   if(ahTab==="chron"){
     var card=el("div","card"),head=el("div","row");head.appendChild(hd("a_history",t("ah_chron")));
     var flip=el("button","act"+(ahMajor?" primary":""));flip.style.margin="0";
-    flip.appendChild(document.createTextNode(t(ahMajor?"ah_major":"ah_all")));
+    flip.appendChild(document.createTextNode(t("ah_major")));
     flip.onclick=function(){ahMajor=!ahMajor;store("ec_ahmajor",ahMajor?"1":"0");ahChron=null;renderHistory();ahBusy=false;loadHistory(true,0)};
     head.appendChild(flip);card.appendChild(head);
+    if(ahChron)card.appendChild(catStrip(ahChron,ahCat,function(k){ahCat=k;store("ec_ahcat",k);ahChron.items=[];ahChron.next=-1;renderHistory();ahBusy=false;loadHistory(true,0)}));
     if(ahChron)card.appendChild(el("div","sub",t("ah_count",ahChron.total||0)+" · "+t("ah_note")));
     box.appendChild(card);
     var list=el("div");box.appendChild(list);
@@ -2014,7 +2060,10 @@ function renderRealmHistory(box){
   if(a.ruler)top.appendChild(el("div","sub",t(a.empire?"ah_ruler_now":"ah_king_now",a.ruler)));
   box.appendChild(top);
   box.appendChild(tileStrip(AHREALM,r.tab,function(k){r.tab=k;store("ec_ahrealm",k);renderHistory();if(k==="chron"&&!r.chron)loadRealmChron(true)},"ah_r_"));
-  if(r.tab==="chron"){var list=el("div");box.appendChild(list);chronList(list,r.chron,function(){loadRealmChron(false)},true);return}
+  if(r.tab==="chron"){
+    if(r.chron){var cc=el("div","card");cc.appendChild(catStrip(r.chron,r.cat,function(k){r.cat=k;r.chron.items=[];r.chron.next=-1;renderHistory();loadRealmChron(true)}));
+      cc.lastChild.style.marginTop="0";box.appendChild(cc)}
+    var list=el("div");box.appendChild(list);chronList(list,r.chron,function(){loadRealmChron(false)},true);return}
   var card=el("div","card");box.appendChild(card);
   if(!r.data){card.appendChild(el("div","sub",t("ah_loading")));return}
   if(a.gone){card.appendChild(el("div","sub",t("ah_gone")));return}
@@ -4851,7 +4900,11 @@ function srvSheet(isLaw){
   var list=srvSettings?(isLaw?srvSettings.laws:srvSettings.settings)||[]:[];
   openSheet({title:t(isLaw?"srv_laws":"srv_mod"),note:t(isLaw?"srv_laws_note":"srv_mod_note"),items:[],custom:function(box){
     if(!list.length){box.appendChild(el("div","sub",t("srv_none")));return}
+    // 按类分组(用户 2026-11-16 "模组设置和世界法则我希望你分类")：服务器给了 group/order 就按类排、每类前一行类名；老服务器没给照旧
+    var grouped=list.some(function(it){return it.group}),lastGroup=null;
+    if(grouped)list=list.map(function(it,i){return{it:it,i:i}}).sort(function(a,b){return(a.it.order||0)-(b.it.order||0)||a.i-b.i}).map(function(x){return x.it});
     list.forEach(function(it){
+      if(grouped&&(it.group||"")!==lastGroup){lastGroup=it.group||"";var gh=el("div","sub",lastGroup);gh.style.cssText="margin:12px 0 4px;color:var(--gold);font-weight:600";box.appendChild(gh)}
       var sw=isLaw||it.kind==="switch",on=isLaw?it.on:it.value;
       var tag=el("span","tag "+(sw?(on?"green":""):"gold"),sw?t(on?"srv_on":"srv_off"):String(it.value));
       var desc=it.desc?(it.desc.length>70?it.desc.slice(0,70)+"…":it.desc):null;

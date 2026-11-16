@@ -306,7 +306,9 @@ internal static class ServerRoutes
                 {
                     ["id"] = item.Id, ["name"] = Text(item.Id, item.Id), ["desc"] = Text(item.Id + " Description", ""),
                     ["kind"] = isSwitch ? "switch" : "text",
-                    ["value"] = isSwitch ? item.BoolVal : item.Type == 1 ? item.IntVal : item.Type == 3 ? item.FloatVal : item.TextVal ?? ""
+                    ["value"] = isSwitch ? item.BoolVal : item.Type == 1 ? item.IntVal : item.Type == 3 ? item.FloatVal : item.TextVal ?? "",
+                    // 按类分组(用户 2026-11-16 "模组设置和世界法则我希望你分类")：类名与先后见 SettingGroups
+                    ["group"] = Text(EmpireCraft.Scripts.Data.SettingGroups.OfSetting(item.Id, out int order), ""), ["order"] = order
                 });
             }
         var laws = new JArray();
@@ -325,7 +327,8 @@ internal static class ServerRoutes
             laws.Add(new JObject
             {
                 ["id"] = law.id, ["name"] = name, ["desc"] = Text(law.id + "_description", ""),
-                ["on"] = world != null && world.dict.TryGetValue(law.id, out PlayerOptionData option) ? option.boolVal : law.default_state
+                ["on"] = world != null && world.dict.TryGetValue(law.id, out PlayerOptionData option) ? option.boolVal : law.default_state,
+                ["group"] = Text(EmpireCraft.Scripts.Data.SettingGroups.OfLaw(law.id, out int lawOrder), ""), ["order"] = lawOrder
             });
         }
         return Json(new JObject { ["settings"] = settings, ["laws"] = laws });
