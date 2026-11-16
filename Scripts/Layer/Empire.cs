@@ -418,7 +418,9 @@ public class Empire : MetaObject<EmpireData>
             // 改制共和后国号后缀按执政理念取
             string ideologySuffix = CoreKingdom?.GetOrCreate().ideology_country_suffix;
             // 没经过改制就成了共和国的(直接组建政府、旧存档)补一个后缀，免得国号只剩核心名
-            if (string.IsNullOrWhiteSpace(ideologySuffix) && IsRepublicState && CoreKingdom != null)
+            // 现代政体在年度结算把它标成共和国以前(SyncWithRegime 一年一次)也照此补，不落到政体帝国类别"现代国家"上
+            if (string.IsNullOrWhiteSpace(ideologySuffix) && CoreKingdom != null &&
+                (IsRepublicState || CoreKingdom.GetRegime()?.type == RegimeType.Modern))
                 ideologySuffix = CoreKingdom.GetOrCreate().ideology_country_suffix =
                     PartySystem.PickCountrySuffix(this, IdeologyFamilies.StateIdeology(this));
             // 国号后缀词库更新后(如华夏补了"民国"等后缀)：旧国号的后缀不在本文化、本理念的现行词库里，重新挑一次

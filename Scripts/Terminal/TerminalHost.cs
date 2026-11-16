@@ -1335,6 +1335,23 @@ public static partial class TerminalHost
         return kingdom.data.name ?? "";
     }
 
+    // 手机舆图上的帝国名：照游戏里显示的全称(共和国按理念挑的"民国""共和国"、军阀时期的称谓、复辟帝号都在里头)。
+    // 存名 data.name 是每月按政体拼的"核心名+政体帝国类别"，现代政体那个类别是"现代国家"，直接读就成了"燕现代国家"
+    // (用户 2026-11-16 "这个现代国家的后缀是什么鬼")
+    private static string EmpireLabel(Empire empire)
+    {
+        try
+        {
+            string full = empire.GetEmpireFullName();
+            if (!string.IsNullOrWhiteSpace(full)) return full;
+        }
+        catch (Exception)
+        {
+            // 国号还拼不出来：照存名
+        }
+        return empire.data.name ?? "";
+    }
+
     private static string Hex(Color32 color) => "#" + color.r.ToString("x2") + color.g.ToString("x2") + color.b.ToString("x2");
 
     // ───────── 地图与眼界 ─────────
@@ -1482,7 +1499,7 @@ public static partial class TerminalHost
                     empireAt[court] = courtAt = empires.Count;
                     empires.Add(new JObject
                     {
-                        ["name"] = TerminalIntel.Strip(court.data.name ?? ""), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom))
+                        ["name"] = TerminalIntel.Strip(EmpireLabel(court)), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom))
                     });
                 }
                 row["emp"] = courtAt;
