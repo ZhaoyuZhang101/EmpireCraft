@@ -283,6 +283,18 @@ public static partial class TerminalHost
     }
     // 世界眼下是不是按终端流速走着(终端窗口显示用)
     public static bool Slowed => Enabled && _anyWatching;
+    // 实际流速(百分比，同 SpeedPercent 一个口径)：独立核心每两秒报一回(见 .server/Program.cs 的 Pace)。
+    // 算不过来时世界照算得过来的速度走，这个数就比设定的低，管理页、顶栏上标出来；负数是没在报(游戏里、世界没在走)
+    public static volatile int ActualSpeedPercent = -1;
+    // 算不过来时的实际流速(比眼下该走的流速低一成以上才算)；跟得上、没在报时为负
+    public static int LaggingSpeedPercent
+    {
+        get
+        {
+            int actual = ActualSpeedPercent;
+            return actual >= 0 && actual < SpeedFactor * 90f ? actual : -1;
+        }
+    }
     // 终端模式开着、世界在跑：山川水陆不许改(用户 2026-11-12 "服务端终端模式开启后禁止地形的变更")。
     // 手机上的山川是整份取下来的，各位君主也是照着这张图调兵的；见 TerminalPatch.BeforeTerraform
     public static bool TerrainLocked => Enabled && WorldReady();
@@ -1089,6 +1101,7 @@ public static partial class TerminalHost
             ["year"] = Date.getCurrentYear(), ["month"] = Date.getCurrentMonth(), ["speed"] = SpeedPercent,
             ["paused"] = global::Config.paused, ["page"] = PageVersion(), ["clock"] = WorldClock(now)
         };
+        if (LaggingSpeedPercent >= 0) state["actual"] = LaggingSpeedPercent;
         if (seat.Ruler == null)
         {
             state["vacant"] = true;

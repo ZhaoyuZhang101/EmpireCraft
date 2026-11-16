@@ -222,6 +222,32 @@ public partial class CoreSystemManager<TObject, TData> : Shim.IShimItems<TObject
         list.Clear();
         base.clear();
     }
+
+    // 成批除名(一个个除要把名册挨个挪一遍，上万个时太慢)：除了名的照常销毁，模组挂在销毁上的善后跟着跑
+    internal int ShimRemoveAll(Predicate<TObject> gone)
+    {
+        List<TObject> removed = null;
+        for (int i = 0; i < list.Count; i++)
+            if (list[i] == null || gone(list[i])) (removed ??= new List<TObject>()).Add(list[i]);
+        if (removed == null) return 0;
+        var drop = new HashSet<TObject>(removed);
+        list.RemoveAll(item => item == null || drop.Contains(item));
+        foreach (TObject item in removed)
+        {
+            if (item == null) continue;
+            _byId.Remove(item.id);
+            item.setAlive(false);
+            try
+            {
+                item.Dispose();
+            }
+            catch (Exception exception)
+            {
+                EmpireCraft.Server.ServerAi.Report("除名", exception);
+            }
+        }
+        return removed.Count;
+    }
 }
 
 public partial class MetaSystemManager<TObject, TData>

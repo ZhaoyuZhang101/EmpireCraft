@@ -414,6 +414,35 @@ public static class CityPopulationSystem
     private static bool _foldEconomyDue;
     private static bool _foldsFirst;
     private static bool _waitingForMath;
+    // 月结最后一步在等后台线程算人口增长的城(见 ExecuteFoldPhase)：放在这里等，队列接着结下一座，算完了回头清点收尾。
+    // 以前等的时候整条队列停到下一帧，一帧只结得完一座城——全图六百城至少六百帧才结完一遍；世界走得快、一个月只有二十来帧时
+    // 一遍要拖两年多，超过两年的经济不补(见 PopulationEconomySystem.Settle)，各国收不上税(用户 2026-11-16 的存档各城平均四年才结一次)
+    private static readonly List<(City city, Kingdom owner)> AwaitingGrowth = new();
+    private const int MaxAwaitingGrowth = 64;
+
+    private static void CompleteAwaitingGrowth()
+    {
+        for (int i = AwaitingGrowth.Count - 1; i >= 0; i--)
+        {
+            (City city, Kingdom owner) = AwaitingGrowth[i];
+            if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom != owner)
+            {
+                PopulationParallelSystem.Discard(city);
+                AwaitingGrowth.RemoveAt(i);
+                continue;
+            }
+            if (!PopulationParallelSystem.TryCompleteGrowth(city)) continue;
+            AwaitingGrowth.RemoveAt(i);
+            try
+            {
+                Census(city, Get(city), keepBackground: true);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft] 无小人模式并入普通人失败({city.data?.name}，增长收尾): {exception.Message}");
+            }
+        }
+    }
     private static double _lastFoldPass = -1d;
     private static object _world;
     private static double _lastPass = -1d;
@@ -446,6 +475,7 @@ public static class CityPopulationSystem
         _mobilizingAt = -1d;
         PendingCities.Clear();
         PendingFolds.Clear();
+        AwaitingGrowth.Clear();
         PriorityFolds.Clear();
         _lastPriorityFold = -1d;
         _foldsSincePriority = AosongFiscalRules.PriorityEvery;
@@ -510,7 +540,7 @@ public static class CityPopulationSystem
                 _homelessRemaining = _homelessCursor = _homelessFolded = 0;
                 SimulationFrameBudget.Reset();
                 AnimalHusbandrySystem.ResetWorldState();
-                PendingFolds.Clear(); PriorityFolds.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = _lastPriorityFold = -1d;
+                PendingFolds.Clear(); PriorityFolds.Clear(); AwaitingGrowth.Clear(); _foldCity = null; _foldOwner = null; _lastFoldPass = _lastPriorityFold = -1d;
             }
             _populationMode = enabled;
         }
@@ -524,7 +554,7 @@ public static class CityPopulationSystem
             // 预算用完也照样推进(TickFolds 里每帧至少一步)：并入普通人是减负的活，不能被慢帧饿着
             if (!_foldsFirst) TickFolds(world, now);
         }
-        else { PendingFolds.Clear(); PriorityFolds.Clear(); _foldCity = null; _foldOwner = null; }
+        else { PendingFolds.Clear(); PriorityFolds.Clear(); AwaitingGrowth.Clear(); _foldCity = null; _foldOwner = null; }
         if (enabled && SimulationFrameBudget.HasTime) TickHomeless();
         if (_yearEndStep > 0) RunYearEndStep();
         if (PendingCities.Count == 0)
@@ -1306,10 +1336,21 @@ public static class CityPopulationSystem
             if (city != _foldCity && !PriorityFolds.Contains(city)) PriorityFolds.Enqueue(city);
     }
 
+    // 纯净地图下城市月结每一步的时间片。游戏里是固定的 4 毫秒；独立核心按这一步跨了多少世界时间给(后台预算的六成，
+    // 见 SimulationFrameBudget.ServerMilliseconds)：以前流速调快了还是每步 4 毫秒，全图一遍从一个月拖到好几年
+    // (用户 2026-11-16 的存档：各城平均四年才结一次经济，超过两年的部分不补，各国一年的收入只剩常速的五分之一，到处欠饷、打不起仗)
+    private static double FoldSliceMs()
+    {
+        double basic = SliceBudgetMs * 2d;
+        double? server = SimulationFrameBudget.ServerMilliseconds;
+        return server.HasValue ? Math.Max(basic, server.Value * 0.6d) : basic;
+    }
+
     // 每个游戏月把全部城市排队检查一次，分帧处理(与年度结算共用每帧时间上限)；澳宋的城另走每月优先的队列
     private static void TickFolds(MapBox world, double now)
     {
         _waitingForMath = false;
+        if (AwaitingGrowth.Count > 0) CompleteAwaitingGrowth();
         EnqueuePriorityFolds(now);
         if (_foldCity == null && PendingFolds.Count == 0)
         {
@@ -1331,8 +1372,9 @@ public static class CityPopulationSystem
         // 每帧至少推进一步；纯净地图模式(要接近零实体)只看本段时间片，不看全局帧预算
         int steps = 0;
         bool pure = PureMapMode.Enabled;
+        double slice = pure ? FoldSliceMs() : SliceBudgetMs;
         while ((_foldCity != null || PendingFolds.Count > 0 || PriorityFolds.Count > 0) &&
-               (steps++ == 0 || watch.Elapsed.TotalMilliseconds < (pure ? SliceBudgetMs * 2d : SliceBudgetMs) &&
+               (steps++ == 0 || watch.Elapsed.TotalMilliseconds < slice &&
                    (pure || SimulationFrameBudget.HasTime)))
         {
             if (_foldCity == null)
@@ -1358,6 +1400,8 @@ public static class CityPopulationSystem
                 int phase = _foldPhase;
                 long phaseStarted = PerfTimer.Begin();
                 bool finished = ExecuteFoldPhase(city, Get(city), _foldNow, _foldPhase++);
+                // 性能诊断开着时月结各步分开计时(看哪一步是大头)
+                if (FrameProfiler.Enabled) FrameProfiler.Record(FoldPhaseLabel(phase), Stopwatch.GetTimestamp() - phaseStarted);
                 if (PerfTimer.Slow(phaseStarted, out double phaseMs)) PerfTimer.Warn($"城市月度步骤 {phase} ({city.data?.name})", phaseMs);
                 if (finished) _foldCity = null;
                 if (_waitingForMath) break;
@@ -1373,6 +1417,15 @@ public static class CityPopulationSystem
             }
         }
     }
+
+    private static readonly string[] FoldPhaseLabels =
+    {
+        "月结·00 补底", "月结·01 并入与清点", "月结·02 征召", "月结·03 开赴与劳力", "月结·04 农田", "月结·05 农田", "月结·06 农田", "月结·07 农田",
+        "月结·08 农田", "月结·09 经济", "月结·10 市场", "月结·11 围城", "月结·12 扩张", "月结·13 营建", "月结·14 焦土", "月结·15 迁徙",
+        "月结·16 疫病", "月结·17 读书", "月结·18 增长", "月结·19 收尾"
+    };
+
+    private static string FoldPhaseLabel(int phase) => FoldPhaseLabels[phase < 0 ? 0 : phase >= FoldPhaseLabels.Length ? FoldPhaseLabels.Length - 1 : phase];
 
     // 每个步骤完成后即可让出这一帧；同一次城市结算使用同一个时间，避免分帧重复扣粮/增长。
     private static bool ExecuteFoldPhase(City city, CityPopulationData data, double now, int phase)
@@ -1411,7 +1464,15 @@ public static class CityPopulationSystem
             case 18: GrowBackground(city, data, now); break;
             default:
                 if (!PopulationParallelSystem.TryCompleteGrowth(city))
-                { _foldPhase = 19; _waitingForMath = true; return false; }
+                {
+                    // 后台还没算完：这座城先放到一边等(见 AwaitingGrowth)，接着结下一座；等着的太多才停下来等
+                    if (AwaitingGrowth.Count < MaxAwaitingGrowth)
+                    {
+                        if (!AwaitingGrowth.Contains((city, _foldOwner))) AwaitingGrowth.Add((city, _foldOwner));
+                        return true;
+                    }
+                    _foldPhase = 19; _waitingForMath = true; return false;
+                }
                 Census(city, data, keepBackground: true);
                 return true;
         }
@@ -1420,6 +1481,7 @@ public static class CityPopulationSystem
 
     public static void FlushPendingGrowth()
     {
+        AwaitingGrowth.Clear();
         if (!AbstractPopulationEnabled) { PopulationParallelSystem.ResetWorldState(); return; }
         foreach (City city in PopulationParallelSystem.FlushGrowth())
             if (city?.data != null && !city.isRekt()) Census(city, Get(city), keepBackground: true);

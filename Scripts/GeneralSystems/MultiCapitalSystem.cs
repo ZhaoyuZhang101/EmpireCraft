@@ -81,22 +81,28 @@ public static partial class MultiCapitalSystem
         if (empire?.data == null) return;
         empire.data.jing ??= new List<JingRecord>();
         HuaxiaCourtStage stage = Eligible(empire) ? DynastyNaming.StageOf(empire) : HuaxiaCourtStage.None;
+        // 奉诏设的陪京(见 MultiCapitalSystem.Decreed)排在前头、不看阶段；奉诏设了直隶的，直隶设在那座陪京
+        List<(EmpireCore core, City city)> decreed = DecreedCapitals(empire);
+        (EmpireCore core, City city) decreedSeat = DecreedZhiliSeat(empire, decreed);
         if (stage == HuaxiaCourtStage.Tang)
         {
-            ReleaseZhili(empire, "jing_reason_stage");
-            Arrange(empire, CandidateCapitals(empire, MaxCapitals - 1));
+            if (decreedSeat.city == null) ReleaseZhili(empire, "jing_reason_stage");
+            Arrange(empire, Merge(decreed, CandidateCapitals(empire, MaxCapitals - 1)));
+            if (decreedSeat.city != null) SyncZhili(empire, decreedSeat);
         }
         else if (stage == HuaxiaCourtStage.Ming)
         {
-            // 内阁(行省)阶段：只留第二直隶那一京(见 MultiCapitalSystem.Zhili)
+            // 内阁(行省)阶段：只留第二直隶那一京(见 MultiCapitalSystem.Zhili)；奉诏设的陪京照留
             List<(EmpireCore core, City city)> picks = CandidateCapitals(empire, 1);
-            Arrange(empire, picks, "jing_reason_zhili");
-            SyncZhili(empire, picks.Count > 0 ? picks[0] : default);
+            Arrange(empire, Merge(decreed, picks), "jing_reason_zhili");
+            SyncZhili(empire, decreedSeat.city != null ? decreedSeat : picks.Count > 0 ? picks[0] : default);
         }
         else
         {
-            ReleaseZhili(empire, "jing_reason_stage");
-            if (empire.data.jing.Count > 0) Arrange(empire, new List<(EmpireCore, City)>(), "jing_reason_stage");
+            if (decreedSeat.city == null) ReleaseZhili(empire, "jing_reason_stage");
+            if (decreed.Count > 0) Arrange(empire, decreed, "jing_reason_stage");
+            else if (empire.data.jing.Count > 0) Arrange(empire, new List<(EmpireCore, City)>(), "jing_reason_stage");
+            if (decreedSeat.city != null) SyncZhili(empire, decreedSeat);
         }
     }
 

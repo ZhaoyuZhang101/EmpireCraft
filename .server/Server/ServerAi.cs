@@ -19,6 +19,10 @@ internal static class ServerAi
     [ThreadStatic] internal static float Wait;
     private const float BetweenTasks = 1f, ActorSeconds = 5f;
     private const int ActorsPerStep = 60, MaxImmediate = 8;
+    // 常速下一步(约二十分之一秒的世界时间)走一个行为。世界走得快、一步跨的世界时间长时照这个数补上，
+    // 不然日期走得快、各国各城的行为还是一步一个，相对世界时间就稀了(用户 2026-11-16 "只是单纯的时间变快了")；一步至多补这么多个
+    private const float ActionSeconds = 0.05f;
+    private const int MaxActionsPerStep = 12, MaxActorsPerStep = 600;
 
     private sealed class State
     {
@@ -56,6 +60,8 @@ internal static class ServerAi
         _birthdayYear = int.MinValue;
         ActorLast.Clear();
         _actorCursor = 0;
+        EmptyClans.Clear();
+        _sweptMonth = double.MinValue;
     }
 
     // 主循环每一步(世界在走的时候)
@@ -84,9 +90,50 @@ internal static class ServerAi
                 Report("City.update", exception);
             }
         }
-        using (FrameProfiler.Measure("服务器·人物行为")) StepActors(world);
-        using (FrameProfiler.Measure("服务器·过生日")) Birthdays(world);
-        if (++_sweep % SweepEvery == 0) RemoveDeadKingdoms(world);
+        using (FrameProfiler.Measure("服务器·人物行为")) StepActors(world, elapsed);
+        using (FrameProfiler.Measure("服务器·过生日")) Birthdays(world, elapsed);
+        if (++_sweep % SweepEvery == 0)
+        {
+            RemoveDeadKingdoms(world);
+            // 结束了的仗清出名册(同原版隔一会儿查一遍)
+            world.wars.ShimSweepEnded();
+        }
+        using (FrameProfiler.Measure("服务器·清空族")) SweepClans(world);
+    }
+
+    // 没有人的宗族撤掉(原版也是隔一会儿查一遍；以前没人查，从人口里生成的人各立一族、人并回人口后族还留着，
+    // 跑到三百年攒下十几万个空族，存档、内存、凡是要把宗族过一遍的地方都被它拖着)。
+    // 每个世界月看一回；连着两回都空着的才撤(换代那一阵族里可能一时没有在世的人)，眼下是哪个帝国皇族的不撤
+    private static readonly HashSet<long> EmptyClans = new();
+    private static double _sweptMonth = double.MinValue;
+    internal static int ClansSwept;
+
+    private static void SweepClans(MapBox world)
+    {
+        double now = world.getCurWorldTime();
+        if (now >= _sweptMonth && now - _sweptMonth < Date.SecondsPerMonth) return;
+        _sweptMonth = now;
+        var royal = new HashSet<Clan>();
+        try
+        {
+            foreach (EmpireCraft.Scripts.Layer.Empire empire in EmpireCraft.Scripts.ModClass.EMPIRE_MANAGER)
+                if (empire?.EmpireClan != null) royal.Add(empire.EmpireClan);
+        }
+        catch (Exception exception)
+        {
+            Report("清空族", exception);
+            return;
+        }
+        var still = new HashSet<long>();
+        ClansSwept += world.clans.ShimRemoveAll(clan =>
+        {
+            if (clan.units.Count > 0 || royal.Contains(clan)) return false;
+            if (EmptyClans.Contains(clan.id)) return true;
+            still.Add(clan.id);
+            return false;
+        });
+        EmptyClans.Clear();
+        foreach (long id in still) EmptyClans.Add(id);
     }
 
     // 过生日(游戏里原版每年给每个人调一次 Actor.updateAge，模组挂在上面的老死、夭折、名望年结跟着跑)：
@@ -95,7 +142,7 @@ internal static class ServerAi
     private static readonly Queue<Actor> BirthdayQueue = new();
     private static int _birthdayYear = int.MinValue;
 
-    private static void Birthdays(MapBox world)
+    private static void Birthdays(MapBox world, float elapsed)
     {
         int year = Date.getCurrentYear();
         if (_birthdayYear == int.MinValue) _birthdayYear = year;
@@ -104,7 +151,9 @@ internal static class ServerAi
             _birthdayYear = year;
             foreach (Actor unit in world.units.getSimpleList()) if (unit?.data != null && unit.isAlive()) BirthdayQueue.Enqueue(unit);
         }
-        for (int i = 0; i < BirthdaysPerStep && BirthdayQueue.Count > 0; i++)
+        // 一年之内要过完：一步跨的世界时间长就多过几个
+        int birthdays = Math.Max(BirthdaysPerStep, (int)Math.Ceiling(BirthdayQueue.Count * elapsed / (Date.SecondsPerYear * 0.5d)));
+        for (int i = 0; i < birthdays && BirthdayQueue.Count > 0; i++)
         {
             Actor actor = BirthdayQueue.Dequeue();
             if (actor?.data == null || !actor.isAlive()) continue;
@@ -160,11 +209,29 @@ internal static class ServerAi
     {
         if (tasks == null || tasks.Count == 0) return;
         State state = States.GetOrCreateValue(owner);
-        if (state.Timer > 0f)
+        // 这一步的世界时间：歇着的从里头扣，够走几个行为就走几个(每个算 ActionSeconds，至少一个、至多 MaxActionsPerStep 个)
+        float left = elapsed;
+        for (int done = 0; done < MaxActionsPerStep; done++)
         {
-            state.Timer -= elapsed;
-            return;
+            if (state.Timer > 0f)
+            {
+                if (state.Timer > left)
+                {
+                    state.Timer -= left;
+                    return;
+                }
+                left -= state.Timer;
+                state.Timer = 0f;
+            }
+            if (done > 0 && left < ActionSeconds) return;
+            StepOnce<TObject, TAction, TTask>(owner, tasks, state);
+            left -= ActionSeconds;
         }
+    }
+
+    private static void StepOnce<TObject, TAction, TTask>(TObject owner, List<TTask> tasks, State state)
+        where TAction : BehaviourActionBase<TObject> where TTask : BehaviourTaskBase<TAction>
+    {
         for (int guard = 0; guard < MaxImmediate; guard++)
         {
             if (state.Current is not TTask task)
@@ -182,6 +249,8 @@ internal static class ServerAi
             Wait = -1f;
             BehResult result;
             Steps++;
+            // 排查时(--profile)各种行为分开计时
+            long began = FrameProfiler.Enabled ? System.Diagnostics.Stopwatch.GetTimestamp() : 0L;
             try
             {
                 result = action.execute(owner);
@@ -191,6 +260,7 @@ internal static class ServerAi
                 Report(action.id, exception);
                 result = BehResult.Continue;
             }
+            if (FrameProfiler.Enabled) FrameProfiler.Record(Label(action.id), System.Diagnostics.Stopwatch.GetTimestamp() - began);
             if (Wait >= 0f) state.Timer = Wait;
             switch (result)
             {
@@ -214,14 +284,16 @@ internal static class ServerAi
     }
 
     // 人物：轮着来，每一步至多看 ActorsPerStep 个；到了时辰的把模组的人物任务整张走一遍
-    private static void StepActors(MapBox world)
+    private static void StepActors(MapBox world, float elapsed)
     {
         if (_actorTasks.Count == 0) return;
         List<Actor> actors = world.units.getSimpleList();
         int count = actors.Count;
         if (count == 0) return;
         double now = world.getCurWorldTime();
-        for (int i = 0; i < Math.Min(ActorsPerStep, count); i++)
+        // 每人约一个月轮到一回：一步跨的世界时间长就多看几个，不然一轮下来要好几个月
+        int perStep = Math.Clamp((int)Math.Ceiling(count * elapsed / ActorSeconds), ActorsPerStep, MaxActorsPerStep);
+        for (int i = 0; i < Math.Min(perStep, count); i++)
         {
             // 走任务时会有人死、被并回人口，名单当场变短：每回按眼下的人数取
             if (actors.Count == 0) break;
@@ -244,8 +316,16 @@ internal static class ServerAi
                 }
             }
         }
-        _actorCursor = (_actorCursor + ActorsPerStep) % Math.Max(1, count);
+        _actorCursor = (_actorCursor + perStep) % Math.Max(1, count);
         if (ActorLast.Count > count * 4 + 1000) ActorLast.Clear();
+    }
+
+    private static readonly Dictionary<string, string> Labels = new();
+
+    private static string Label(string id)
+    {
+        if (!Labels.TryGetValue(id ?? "", out string label)) Labels[id ?? ""] = label = "行为·" + id;
+        return label;
     }
 
     internal static void Report(string where, Exception exception)

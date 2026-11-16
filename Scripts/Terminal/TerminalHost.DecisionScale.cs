@@ -84,7 +84,9 @@ public static partial class TerminalHost
             bool fit = advice.blocked == null;
             var row = new JObject
             {
-                ["id"] = "plot:" + advice.id, ["name"] = DecisionName(advice.id),
+                ["id"] = "plot:" + advice.id,
+                ["name"] = DecisionName(advice.id) + (advice.targetName != null ? " · " + TerminalIntel.Strip(advice.targetName) : ""),
+                ["target"] = advice.target >= 0 ? advice.target.ToString() : null,
                 ["ratio"] = string.Format(LM.Get("decision_scale_ratio"), advice.ratio), ["fit"] = fit,
                 ["state"] = fit ? null : LM.Get(advice.blocked),
                 ["cost"] = advice.cost > 0 ? string.Format(LM.Get("decision_scale_cost"), advice.cost) : null,

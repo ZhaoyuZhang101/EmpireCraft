@@ -6,6 +6,7 @@
 //# hand ai.behaviours.KingdomBehRandomWait: ctor execute
 //# hand ai.behaviours.CityBehRandomWait: ctor execute
 //# hand ai.behaviours.BehRandomWait: ctor execute
+//# hand ai.behaviours.KingdomBehCheckCapital: execute
 //# hand City: update
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -38,6 +39,31 @@ public partial class JobAsset<TCondition, TSimObject>
 
 namespace ai.behaviours
 {
+    // 补都城(模组的三张国家任务表开头都有这一步)：没有都城、都城没了或已不属于本国的，另定一座——人口最多的那座。
+    // 游戏里靠原版这一步补；服务器里以前是空的，都城一丢(被攻占、整国换城、旧国复得城池)就永远空着，
+    // 跑到三百年有城的国六成没有都城，而没有都城的国不宣战、算不了行政控制(城城都成"飞地"、年年自立)、称不了帝
+    public partial class KingdomBehCheckCapital
+    {
+        public override BehResult execute(global::Kingdom pKingdom)
+        {
+            if (pKingdom?.data == null || !pKingdom.isAlive() || pKingdom.cities == null || pKingdom.cities.Count == 0) return BehResult.Continue;
+            global::City seat = pKingdom.capital;
+            if (seat != null && seat.isAlive() && seat.kingdom == pKingdom) return BehResult.Continue;
+            global::City best = null;
+            int most = -1;
+            foreach (global::City city in pKingdom.cities)
+            {
+                if (city?.data == null || !city.isAlive() || city.kingdom != pKingdom) continue;
+                int people = city.getPopulationPeople();
+                if (people <= most) continue;
+                most = people;
+                best = city;
+            }
+            if (best != null) pKingdom.setCapital(best);
+            return BehResult.Continue;
+        }
+    }
+
     // 歇一会儿：歇多久交给 ServerAi(原版写在国、城、人身上的计时)
     public partial class KingdomBehRandomWait
     {

@@ -61,7 +61,12 @@ public partial class War
     public bool hasEnded() => !isAlive() || data.winner != WarWinner.Nobody;
     public int getDuration() => getAge();
     public int getYearStarted() => Date.getYear(data.created_time);
-    public void setWinner(WarWinner pWinner) => data.winner = pWinner;
+    // 分了胜负这场仗就算结束(hasEnded)：两国交战的那张表跟着重建
+    public void setWinner(WarWinner pWinner)
+    {
+        data.winner = pWinner;
+        WarManager.ShimMembership++;
+    }
 
     public bool isInWarWith(Kingdom pKingdom, Kingdom pTarget) =>
         _list_attackers.Contains(pKingdom) && _list_defenders.Contains(pTarget) || _list_defenders.Contains(pKingdom) && _list_attackers.Contains(pTarget);
@@ -152,17 +157,47 @@ public partial class WarManager
         pWar.Dispose();
     }
 
+    // 一国眼下在打的仗(同原版：结束了的不算)。以前把名册从头查到尾、结束了的也算进去：
+    // 模组在 endWar 上的补丁自己结算、不走原来的函数体，结束的仗就一直留在名册里(跑到三百年攒下上千场)，
+    // 打过仗的国永远"有敌国"，问一次还要把上千场过一遍。现在按国记着各自在打的仗(同下面的敌国表一起重建)，
+    // 结束的仗由 ShimSweepEnded 清出名册
     public IEnumerable<War> getWars(Kingdom pKingdom, bool pRandom = false)
     {
-        for (int i = 0; i < list.Count; i++)
-            if (list[i].hasKingdom(pKingdom)) yield return list[i];
+        if (pKingdom == null) yield break;
+        EnemyIndex();
+        if (!_warsOf.TryGetValue(pKingdom, out War[] wars)) yield break;
+        for (int i = 0; i < wars.Length; i++)
+            if (!wars[i].hasEnded() && wars[i].hasKingdom(pKingdom)) yield return wars[i];
     }
 
     public bool hasWars(Kingdom pKingdom)
     {
-        for (int i = 0; i < list.Count; i++)
-            if (list[i].hasKingdom(pKingdom)) return true;
+        if (pKingdom == null) return false;
+        EnemyIndex();
+        if (!_warsOf.TryGetValue(pKingdom, out War[] wars)) return false;
+        for (int i = 0; i < wars.Length; i++)
+            if (!wars[i].hasEnded() && wars[i].hasKingdom(pKingdom)) return true;
         return false;
+    }
+
+    // 结束了的仗清出名册(原版隔一会儿查一遍，见 ServerAi)。模组在结束那一刻要读的名单、战果当场都读完了
+    internal int ShimSweepEnded()
+    {
+        int removed = 0;
+        for (int i = list.Count - 1; i >= 0; i--)
+        {
+            War war = list[i];
+            if (war != null && war.isAlive() && !war.hasEnded()) continue;
+            if (war == null) list.RemoveAt(i);
+            else
+            {
+                removeObject(war);
+                war.Dispose();
+            }
+            removed++;
+        }
+        if (removed > 0) ShimMembership++;
+        return removed;
     }
 
     public bool hasWars(Alliance pAlliance) => pAlliance != null && pAlliance.kingdoms_list.Any(hasWars);
@@ -172,7 +207,9 @@ public partial class WarManager
     // 读档直接往名单里加，靠名单的人数对不上来发现。重建好的表整张换上，别的线程读到的总是完整的一份
     internal static int ShimMembership;
     private Dictionary<Kingdom, HashSet<Kingdom>> _enemyIndex = new(), _allyIndex = new();
-    private long _enemyStamp = long.MinValue;
+    private Dictionary<Kingdom, War[]> _warsOf = new();
+    private long _enemyStamp = long.MinValue, _quickStamp = long.MinValue;
+    private int _stampFrame = -1;
 
     // 同在某场仗的一边(Kingdom.isInWarOnSameSide)
     internal bool ShimSameSide(Kingdom a, Kingdom b)
@@ -190,11 +227,27 @@ public partial class WarManager
 
     private Dictionary<Kingdom, HashSet<Kingdom>> EnemyIndex()
     {
-        long stamp = ShimMembership * 1_000_003L + list.Count;
-        for (int i = 0; i < list.Count; i++) stamp = stamp * 31 + list[i]._list_attackers.Count * 1009 + list[i]._list_defenders.Count;
+        // 名单的变动都记了一笔(ShimMembership)、名册的增减看场数：这两样没变、这一步里又核过了，就是现成的。
+        // 每步头一回问时把各场的人数过一遍(读档直接往名单里加、不记那一笔，靠人数对不上来发现)；
+        // 以前每问一次都过一遍，问得最多的时候(战线分派、就近动员，一个月几十万次)全花在这上面
+        long quick = ShimMembership * 1_000_003L + list.Count;
+        int frame = UnityEngine.Time.frameCount;
+        if (quick == _quickStamp && frame == _stampFrame) return _enemyIndex;
+        long stamp = quick;
+        for (int i = 0; i < list.Count; i++)
+            stamp = stamp * 31 + list[i]._list_attackers.Count * 1009 + list[i]._list_defenders.Count + (list[i].hasEnded() ? 500009 : 0);
+        _quickStamp = quick;
+        _stampFrame = frame;
         if (stamp == _enemyStamp) return _enemyIndex;
         var index = new Dictionary<Kingdom, HashSet<Kingdom>>();
         var allies = new Dictionary<Kingdom, HashSet<Kingdom>>();
+        var warsOf = new Dictionary<Kingdom, List<War>>();
+        void Enlist(Kingdom side, War war)
+        {
+            if (side == null) return;
+            if (!warsOf.TryGetValue(side, out List<War> wars)) warsOf[side] = wars = new List<War>();
+            wars.Add(war);
+        }
         static void Mark(Dictionary<Kingdom, HashSet<Kingdom>> into, Kingdom from, Kingdom to)
         {
             if (from == null || to == null) return;
@@ -209,6 +262,8 @@ public partial class WarManager
         }
         for (int i = 0; i < list.Count; i++)
         {
+            // 结束了的仗不算(名单要等清出名册时才清)
+            if (list[i].hasEnded()) continue;
             foreach (Kingdom attacker in list[i]._list_attackers)
                 foreach (Kingdom defender in list[i]._list_defenders)
                 {
@@ -217,7 +272,12 @@ public partial class WarManager
                 }
             Side(allies, list[i]._list_attackers);
             Side(allies, list[i]._list_defenders);
+            foreach (Kingdom attacker in list[i]._list_attackers) Enlist(attacker, list[i]);
+            foreach (Kingdom defender in list[i]._list_defenders) Enlist(defender, list[i]);
         }
+        var settled = new Dictionary<Kingdom, War[]>(warsOf.Count);
+        foreach (KeyValuePair<Kingdom, List<War>> pair in warsOf) settled[pair.Key] = pair.Value.ToArray();
+        _warsOf = settled;
         _allyIndex = allies;
         _enemyIndex = index;
         _enemyStamp = stamp;

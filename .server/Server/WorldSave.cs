@@ -165,7 +165,7 @@ internal static class WorldSave
             WriteArray(json, "kingdoms", world.kingdoms.Where(Alive), WriteRealm);
             WriteArray(json, "cities", world.cities.Where(Alive), WriteTown);
             WriteArray(json, "units", world.units.Where(Alive), WritePerson);
-            WriteArray(json, "wars", world.wars.Where(Alive), (output, war) => WriteMeta(output, war, war.data, null));
+            WriteArray(json, "wars", world.wars.Where(war => Alive(war) && !war.hasEnded()), (output, war) => WriteMeta(output, war, war.data, null));
             WriteArray(json, "alliances", world.alliances.Where(Alive), (output, alliance) =>
                 WriteMeta(output, alliance, alliance.data, null, extra: new JObject
                 {
@@ -651,6 +651,8 @@ internal static class WorldSave
         MapBox world = World.world;
         foreach (JObject item in Items("wars"))
         {
+            // 结束了的仗不读回来(旧存档里攒着上千场：以前结束的仗一直留在名册里)
+            if (item["d"]?["winner"] is JToken winner && winner.Type == JTokenType.Integer && (int)winner != (int)WarWinner.Nobody) continue;
             War war = Restore(world.wars, item);
             foreach (long id in war.data.list_attackers)
                 if (world.kingdoms.get(id) is { } attacker) war._list_attackers.Add(attacker);
@@ -673,6 +675,8 @@ internal static class WorldSave
         }
         foreach (JObject item in Items("relations"))
             world.diplomacy.ShimRestoreRelation(Ref(item["a"]), Ref(item["b"]), item["d"] is JObject data ? data.ToObject<DiplomacyRelationData>(Json) : null);
+        // 名单是直接填的：记一笔，两国交战的那张表重建
+        WarManager.ShimMembership++;
         Next(world.wars, "wars");
         Next(world.alliances, "alliances");
         Next(world.diplomacy, "relations");
@@ -773,6 +777,31 @@ internal static class WorldSave
     // ───────── 核对 ─────────
 
     // 一行世界的现状，带几个校验数：存之前、读回来之后各打一行，两行一样就是原样读回来了
+    // 天下分合的一行账(排查用，见 Program 的 --run)：有城的国有几个、其中没有都城的几个、按宗主归并后几家、
+    // 最大的一家占几成城、前五家占几成、在打的仗、开局以来累计攻下的城、叛出的城、议和的次数
+    internal static string Tally()
+    {
+        MapBox world = World.world;
+        int total = Math.Max(1, world.cities.Count), holders = 0, seatless = 0;
+        var byRealm = new Dictionary<Kingdom, int>();
+        foreach (Kingdom kingdom in world.kingdoms)
+        {
+            if (!Alive(kingdom) || kingdom.wild || kingdom.cities.Count == 0) continue;
+            holders++;
+            if (kingdom.capital == null || kingdom.capital.kingdom != kingdom) seatless++;
+            Kingdom realm = EmpireCraft.Scripts.GeneralSystems.FrontSystem.Realm(kingdom) ?? kingdom;
+            byRealm.TryGetValue(realm, out int held);
+            byRealm[realm] = held + kingdom.cities.Count;
+        }
+        List<KeyValuePair<Kingdom, int>> ranked = byRealm.OrderByDescending(pair => pair.Value).ToList();
+        int top = ranked.Count > 0 ? ranked[0].Value : 0, five = ranked.Take(5).Sum(pair => pair.Value);
+        int fighting = world.wars.Count(war => Alive(war) && !war.hasEnded());
+        return "统计：" + Date.getCurrentYear() + " 年，有城之国 " + holders + "(无都城 " + seatless + ")，归并 " + ranked.Count + " 家，最大 " +
+               (ranked.Count > 0 ? ranked[0].Key.name : "-") + " " + top + " 城(" + (top * 100 / total) + "%)，前五 " + (five * 100 / total) + "%；在打的仗 " + fighting +
+               "；累计攻城 " + world.map_stats.citiesConquered + " 叛出 " + world.map_stats.citiesRebelled + " 议和 " + world.map_stats.peacesMade +
+               "；帝国 " + (ModClass.EMPIRE_MANAGER?.Count ?? 0);
+    }
+
     internal static string Digest()
     {
         MapBox world = World.world;

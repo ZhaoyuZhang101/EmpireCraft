@@ -133,6 +133,10 @@ public class EmpireData : MetaObjectData
     public long zhili_kingdom_id = -1L;
     // 剧本定下的两京(世界地图明的南北两京，见 WorldMapScenario.AnchorCapital)：不看据不据有天下一半，京城还在手里就一直行多京
     public bool scripted_jing;
+    // 奉诏设的陪京(君主亲自发起的决议，见 RulerDecrees、MultiCapitalSystem.Decreed)：城的编号。
+    // 不看朝廷走到哪个阶段、据不据有天下一半，城还在本帝国手里就一直是京；奉诏设直隶的那座陪京(-1 = 没有)
+    public List<long> decreed_jing = new List<long>();
+    public long decreed_zhili_city = -1L;
     // 幕府(见 BakufuSystem)：开幕时的天皇家(宗族)与当时的天皇；天皇为虚君，明治维新时大政奉还
     public long court_clan_id = -1L;
     public long court_emperor_id = -1L;

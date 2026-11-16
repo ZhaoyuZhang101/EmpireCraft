@@ -208,7 +208,7 @@ var S={
 cz:{name:"帝国盒子 · 服务器核心",name1:"帝国盒子",name2:"服务器核心",tab_home:"概况",tab_mod:"模组设置",tab_laws:"世界法则",tab_users:"用户管理",
 lamp_on:"运行中",lamp_off:"连不上核心",lamp_wait:"世界未载入",lamp_gone:"核心已停下",
 card_link:"手机连接",card_acts:"操作",card_seats:"席位",
-k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手机在线",k_saved:"上回存档",k_mode:"运行方式",
+k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_speed_slow:"流速 · 设定 {0}%，算不过来",k_online:"部手机在线",k_saved:"上回存档",k_mode:"运行方式",
 month:"{0} 月",paused:"流速 · 已暂停",never:"未存",auto:"每 {0} 分钟自动存",
 mode_detached:"游戏已关，核心独自运行",mode_alone:"独立运行",mode_game:"由游戏看着",
 link_note:"手机扫码，或在手机浏览器里打开：",b_qr:"放大二维码",b_copy:"复制地址",copied:"地址已复制",qr_title:"手机扫码连接",no_qr:"这一版核心没给出二维码",
@@ -228,7 +228,7 @@ e_wrong:"不对",e_locked:"连错太多，等一分钟再试",e_net:"连不上�
 ch:{name:"帝國盒子 · 伺服器核心",name1:"帝國盒子",name2:"伺服器核心",tab_home:"概況",tab_mod:"模組設定",tab_laws:"世界法則",tab_users:"使用者管理",
 lamp_on:"運行中",lamp_off:"連不上核心",lamp_wait:"世界未載入",lamp_gone:"核心已停下",
 card_link:"手機連接",card_acts:"操作",card_seats:"席位",
-k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手機在線",k_saved:"上回存檔",k_mode:"運行方式",
+k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_speed_slow:"流速 · 設定 {0}%，算不過來",k_online:"部手機在線",k_saved:"上回存檔",k_mode:"運行方式",
 month:"{0} 月",paused:"流速 · 已暫停",never:"未存",auto:"每 {0} 分鐘自動存",
 mode_detached:"遊戲已關，核心獨自運行",mode_alone:"獨立運行",mode_game:"由遊戲看著",
 link_note:"手機掃碼，或在手機瀏覽器裡打開：",b_qr:"放大二維碼",b_copy:"複製位址",copied:"位址已複製",qr_title:"手機掃碼連接",no_qr:"這一版核心沒給出二維碼",
@@ -248,7 +248,7 @@ e_wrong:"不對",e_locked:"連錯太多，等一分鐘再試",e_net:"連不上�
 en:{name:"EmpireCraft · Server Core",name1:"EmpireCraft",name2:"Server Core",tab_home:"Overview",tab_mod:"Mod settings",tab_laws:"World laws",tab_users:"Accounts",
 lamp_on:"Running",lamp_off:"Core unreachable",lamp_wait:"No world loaded",lamp_gone:"Core stopped",
 card_link:"Phone link",card_acts:"Actions",card_seats:"Seats",
-k_date:"Year {0}",k_date_none:"Date",k_speed:"Speed",k_online:"phones online",k_saved:"Last save",k_mode:"Mode",
+k_date:"Year {0}",k_date_none:"Date",k_speed:"Speed",k_speed_slow:"Speed · set to {0}%, host can't keep up",k_online:"phones online",k_saved:"Last save",k_mode:"Mode",
 month:"Month {0}",paused:"Speed · paused",never:"none",auto:"autosave every {0} min",
 mode_detached:"Game closed, core running alone",mode_alone:"Standalone",mode_game:"Watched by the game",
 link_note:"Scan with a phone, or open in the phone's browser:",b_qr:"Enlarge QR code",b_copy:"Copy address",copied:"Address copied",qr_title:"Scan to connect",no_qr:"This core build gives no QR code",
@@ -372,8 +372,9 @@ function drawHome(){
   $("lamp-t").textContent=t(gone?"lamp_gone":!alive?"lamp_off":loaded?"lamp_on":"lamp_wait");
   $("v-date").textContent=dated?t("month",state.month):"—";
   $("k-date").textContent=dated?t("k_date",state.year):t("k_date_none");
-  $("v-speed").textContent=loaded&&state.speed!==undefined?state.speed+"%":"—";
-  $("k-speed").textContent=t(loaded&&state.paused?"paused":"k_speed");
+  var lagging=loaded&&!state.paused&&state.actual>=0;
+  $("v-speed").textContent=loaded&&state.speed!==undefined?(lagging?state.actual:state.speed)+"%":"—";
+  $("k-speed").textContent=loaded&&state.paused?t("paused"):lagging?t("k_speed_slow",state.speed):t("k_speed");
   var online=host&&host.online!==undefined?host:srv;
   $("v-online").textContent=online?online.online+" / "+online.max:"—";
   var saved=save?when(save.saved,true):null;

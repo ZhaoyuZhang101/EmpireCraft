@@ -24,6 +24,7 @@ Scripts
 +ResourceAsset::supply_bound_take
 +CityData::timer_supply
 +ConstructionCost::gold
++PlotAsset::check_target_city
 +NameGenerator::generateName
 +LocalizedTextManager::setLanguage
 +Actor::canFallInLoveWith
@@ -54,4 +55,5 @@ T:EmpireCraft.Scripts.UI.Components.WildernessTerritory
 T:EmpireCraft.Scripts.UI.Components.RealmMiniMap
 T:EmpireCraft.Scripts.UI.Windows.ReligionDisplay
 T:EmpireCraft.Scripts.GodPowers.SettlementPowers
+T:EmpireCraft.Scripts.Diagnostics.StackGuard
 +T:WideKit

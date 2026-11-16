@@ -67,6 +67,7 @@ public partial class Plot
         if (asset == null) return false;
         if (asset.check_target_alliance && target_alliance?.isAlive() != true) return false;
         if (asset.check_target_kingdom && (target_kingdom?.isAlive() != true || !target_kingdom.hasCities())) return false;
+        if (asset.check_target_city && target_city?.isAlive() != true) return false;
         if (asset.check_target_war && target_war?.isAlive() != true) return false;
         return true;
     }

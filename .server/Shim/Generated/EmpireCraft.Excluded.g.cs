@@ -66,11 +66,6 @@ namespace EmpireCraft.Scripts.Diagnostics
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static global::System.Int32 Run(global::System.String trigger) { return global::EmpireCraft.Server.Shim.Miss<global::System.Int32>("EmpireCraft.Scripts.Diagnostics.SaveIntegrityChecker::Run"); }
     }
-    public static partial class StackGuard
-    {
-        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        public static void Probe() { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.Diagnostics.StackGuard::Probe"); }
-    }
     public static partial class TextureUploadCounter
     {
         public const global::System.Int32 MaxLabels = (global::System.Int32)(8);

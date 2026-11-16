@@ -184,11 +184,11 @@ public static class CorpsSystem
         using (FrameProfiler.Measure("战线·逐格推进")) FrontSystem.SmoothTick();
         // 路网与航线(行军、航行据此寻路；自己按真实时间限频，见 RoadNetwork)
         using (FrameProfiler.Measure("路网")) RoadNetwork.Tick();
-        if (_lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 1d)
+        // 节拍按整秒往前推，不按本帧时刻重置：以前每拍都拖长一帧的时间(开快速时一拍拖到 1.2 秒)，
+        // 兵牌按一拍一秒插值，到位后干等，走起来一顿一顿。一步跨了几个世界秒就补几拍，落后太多(暂停、卡顿)才重新对齐(见 SecondBeats)
+        int beats = SecondBeats.Due(ref _lastSecond, now);
+        for (int beat = 0; beat < beats; beat++)
         {
-            // 节拍按整秒往前推，不按本帧时刻重置：以前每拍都拖长一帧的时间(开快速时一拍拖到 1.2 秒)，
-            // 兵牌按一拍一秒插值，到位后干等，走起来一顿一顿。落后太多(暂停、卡顿)才重新对齐
-            _lastSecond = _lastSecond < 0d || now < _lastSecond || now - _lastSecond >= 3d ? now : _lastSecond + 1d;
             try { using (FrameProfiler.Measure("军团·行军")) SecondTick(); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 行军失败: {exception.Message}"); }
             try { using (FrameProfiler.Measure("军团·航行")) NavySystem.SecondTick(); }

@@ -304,7 +304,8 @@ public static class DecisionSystem
                 index = i, id = def.id, kind = DecisionScale.KindOf(def.id), minStanding = def.min_level, minRenown = def.min_renown_actor,
                 minRealmRenown = def.min_renown_kingdom, minIntelligence = def.min_intelligence, minDiplomacy = def.min_diplomacy,
                 minWarfare = def.min_warfare, minStewardship = def.min_stewardship, cost = def.money_cost,
-                byKing = def.can_be_done_by_king, byLeader = def.can_be_done_by_leader, byClan = def.can_be_done_by_clan_member
+                byKing = def.can_be_done_by_king, byLeader = def.can_be_done_by_leader, byClan = def.can_be_done_by_clan_member,
+                manual = RulerDecrees.IsManual(def.id), minAuthority = RulerDecrees.MinAuthority(def.id), gravity = RulerDecrees.Gravity(def.id)
             };
             DefInfos.Add(info);
             if (def.can_be_done_by_clan_member || def.can_be_done_by_leader) ChiefDefInfos.Add(info);
@@ -567,7 +568,13 @@ public static class DecisionSystem
         public int cost;
         // null = 办得成；否则是缘由的文字键(decision_outcome_unfit、decision_outcome_cost)
         public string blocked;
+        // 要点一座城的大政(迁都、设陪京……，见 RulerDecrees)：每座可选的城各列一条
+        public long target = -1L;
+        public string targetName;
     }
+
+    // 亲自发起时点的那座城：决议立项时取(见 RulerDecrees)；天平自己过秤发起的没有
+    public static City PendingTarget { get; private set; }
 
     // 这个人此刻能议的事：门槛过了的都过秤(读数从高到低)，前 maxChecks 项(通常就是全部)在主线程验条件与用度
     public static List<Advice> AdviseFor(Actor actor, int maxChecks = 64)
@@ -583,26 +590,66 @@ public static class DecisionSystem
         {
             PlotAsset def = Initiable[option.def];
             var advice = new Advice { id = def.id, ratio = option.ratio, weights = option.weights, cost = def.money_cost };
+            bool major = RulerDecrees.IsManual(def.id);
             if (list.Count >= maxChecks) advice.blocked = "decision_outcome_skipped";
-            else if (!def.canBeDoneByRole(actor) || def.check_is_possible != null && !def.check_is_possible(actor)) advice.blocked = "decision_outcome_unfit";
+            else if (!def.canBeDoneByRole(actor) || def.check_is_possible != null && !def.check_is_possible(actor))
+                advice.blocked = major ? RulerDecrees.WhyNot(def.id, actor) : "decision_outcome_unfit";
             else if (!CanPay(actor, def.money_cost)) advice.blocked = "decision_outcome_cost";
+            // 大政要天平压得过去才办得成(别的决议亲自发起不看读数)
+            else if (major && option.ratio < DecisionScale.Threshold) advice.blocked = "decision_outcome_scale";
+            if (major && advice.blocked == null && RulerDecrees.HasTargets(def.id))
+            {
+                foreach (City city in RulerDecrees.Candidates(def.id, actor))
+                    list.Add(new Advice
+                    {
+                        id = def.id, ratio = option.ratio, weights = option.weights, cost = def.money_cost,
+                        target = city.data.id, targetName = city.GetCityName()
+                    });
+                continue;
+            }
             list.Add(advice);
         }
         return list;
     }
 
     // 亲自发起：到了办的时候再验一遍条件与用度，过了就立项付钱；成了返回 null，否则返回缘由的文字键
-    public static string Launch(Actor actor, string id)
+    // target：要点一座城的大政(见 RulerDecrees)点的那座城
+    public static string Launch(Actor actor, string id, long target = -1L)
     {
         PlotAsset def = Def(id);
         if (def == null || !Initiable.Contains(def) || actor?.data == null || !actor.isAlive() || actor.kingdom?.data == null) return "decision_outcome_unfit";
         if (actor.plot != null && actor.plot.isActive()) return "decision_fail_busy";
-        if (!def.canBeDoneByRole(actor) || def.check_is_possible != null && !def.check_is_possible(actor)) return "decision_outcome_unfit";
+        bool major = RulerDecrees.IsManual(id);
+        if (!def.canBeDoneByRole(actor) || def.check_is_possible != null && !def.check_is_possible(actor))
+            return major ? RulerDecrees.WhyNot(id, actor) : "decision_outcome_unfit";
         if (!CanPay(actor, def.money_cost)) return "decision_outcome_cost";
         List<Advice> scale = null;
-        bool started = def.try_to_start_advanced != null
-            ? def.try_to_start_advanced(actor, def, true)
-            : World.world.plots.newPlot(actor, def, true) != null;
+        City city = null;
+        if (major)
+        {
+            // 大政要天平压得过去；要点城的，点的城得在眼下可选的里头
+            scale = AdviseFor(actor, 0);
+            Advice weighed = scale.FirstOrDefault(advice => advice.id == id);
+            if (weighed == null) return "decision_outcome_unfit";
+            if (weighed.ratio < DecisionScale.Threshold) return "decision_outcome_scale";
+            if (RulerDecrees.HasTargets(id))
+            {
+                city = RulerDecrees.Candidates(id, actor).FirstOrDefault(candidate => candidate.data.id == target);
+                if (city == null) return "decision_outcome_target";
+            }
+        }
+        bool started;
+        PendingTarget = city;
+        try
+        {
+            started = def.try_to_start_advanced != null
+                ? def.try_to_start_advanced(actor, def, true)
+                : World.world.plots.newPlot(actor, def, true) != null;
+        }
+        finally
+        {
+            PendingTarget = null;
+        }
         if (!started || actor.plot == null) return "decision_outcome_unfit";
         Pay(actor, def.money_cost);
         if (actor.plot.data != null && Cases.TryGetValue(actor.plot.data.id, out DecisionCase item))

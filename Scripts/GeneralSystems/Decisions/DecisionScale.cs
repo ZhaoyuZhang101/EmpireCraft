@@ -63,7 +63,11 @@ public static class DecisionScale
         ["kingdom_start_invite_to_faction"] = DecisionKind.Court, ["faction_leader_influence_local_kingdom"] = DecisionKind.Court,
         ["kingdom_expose_crime"] = DecisionKind.Court, ["empire_plots"] = DecisionKind.Court,
         ["empress_dowager_install_son"] = DecisionKind.Court, ["minister_acquire_empire"] = DecisionKind.Court,
-        ["minister_acquire_title"] = DecisionKind.Court, ["minister_receive_nine_bestowments"] = DecisionKind.Court
+        ["minister_acquire_title"] = DecisionKind.Court, ["minister_receive_nine_bestowments"] = DecisionKind.Court,
+        // 君主的大政(见 RulerDecrees)：迁都、多京、直隶算名分，改制算朝争
+        [RulerDecrees.MoveCapital] = DecisionKind.Title, [RulerDecrees.AddJing] = DecisionKind.Title, [RulerDecrees.RemoveJing] = DecisionKind.Title,
+        [RulerDecrees.SetZhili] = DecisionKind.Title, [RulerDecrees.ReformCabinet] = DecisionKind.Court, [RulerDecrees.ReformEnfeoff] = DecisionKind.Court,
+        [RulerDecrees.ReformPrefecture] = DecisionKind.Court, [RulerDecrees.ReformProvince] = DecisionKind.Court
     };
 
     public static DecisionKind KindOf(string id) => id != null && Kinds.TryGetValue(id, out DecisionKind kind) ? kind : DecisionKind.Domestic;
@@ -76,6 +80,10 @@ public static class DecisionScale
         public DecisionKind kind;
         public int minStanding, minRenown, minRealmRenown, minIntelligence, minDiplomacy, minWarfare, minStewardship, cost;
         public bool byKing, byLeader, byClan, lawsAllow;
+        // 大政(见 RulerDecrees)：只由人亲自发起(天平自己过秤时不列)、要多少权威(0~100)、事体多重(祖制的阻力，1 = 没有)
+        public bool manual;
+        public int minAuthority;
+        public float gravity = 1f;
     }
 
     // 一个人此刻的情形(主线程取)
@@ -111,6 +119,7 @@ public static class DecisionScale
         for (int i = 0; i < defs.Count; i++)
         {
             DefInfo d = defs[i];
+            if (!all && d.manual) continue;
             if (!Admits(s, d) || Within(s, s.unfitByDef, d.index, UnfitMonths)) continue;
             var weights = new List<ScaleWeight>(8);
             float ratio = Measure(s, d, weights);
@@ -156,6 +165,14 @@ public static class DecisionScale
         if (d.kind == DecisionKind.War && atWar) Push("decision_w_war_need", 1.8f);
         if (!atWar && d.kind is DecisionKind.Title or DecisionKind.Diplomacy) Push("decision_w_peace", 1.2f);
         if (d.kind is DecisionKind.Title or DecisionKind.Diplomacy or DecisionKind.Court) Push("decision_w_authority", 1f + 0.5f * s.authority);
+        // 大政：权威比门槛高出多少是推力，够不着是阻力；事体越大，祖制的阻力越重
+        if (d.minAuthority > 0)
+        {
+            float standing = s.authority * 100f / d.minAuthority;
+            if (standing >= 1f) Push("decision_w_authority_high", Math.Min(1.5f, standing));
+            else Pull("decision_w_authority_low", Math.Min(3f, 1f / Math.Max(0.1f, standing)));
+        }
+        if (d.gravity > 1f) Pull("decision_w_gravity", d.gravity);
         float whim = Whim(s.actor, d.index, s.month);
         if (whim >= 1f) Push("decision_w_whim", whim);
         else Pull("decision_w_whim", 1f / whim);

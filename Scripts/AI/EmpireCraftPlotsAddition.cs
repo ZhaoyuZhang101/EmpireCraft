@@ -2695,6 +2695,8 @@ namespace EmpireCraft.Scripts.AI
                     return true;
                 }
             });
+            // 君主的大政：迁都、多京直隶、改制(只由人亲自发起、走决议天平，见 RulerDecrees)
+            EmpireCraft.Scripts.GeneralSystems.Decisions.RulerDecrees.Register();
             BlockVanillaAlliancePlots();
             foreach (var asset in AssetManager.plots_library.getList())
                 VanillaIdentitySystem.ApplyPlotPolicy((PlotAsset)asset);

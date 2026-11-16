@@ -76,7 +76,7 @@ public static class Program
         int? port = null, size = null;
         float? speed = null;
         float runSeconds = 0f;
-        bool bootOnly = false, fresh = false, profile = false;
+        bool bootOnly = false, fresh = false, profile = false, realtime = false, tryDecrees = false, forceDecrees = false;
         for (int i = 0; i < args.Length; i++)
         {
             string next = i + 1 < args.Length ? args[i + 1] : null;
@@ -165,6 +165,20 @@ public static class Program
                     float.TryParse(next, NumberStyles.Float, CultureInfo.InvariantCulture, out runSeconds);
                     bootOnly = true;
                     i++;
+                    break;
+                case "--try-decrees":
+                    // 排查用：同 --run 一起给，开跑前替各国君主把大政(迁都、设陪京、改制，见 RulerDecrees)过一遍天平，
+                    // 每样找头一位办得成的君主发起，收尾时报办成了没有
+                    tryDecrees = true;
+                    if (next == "force")
+                    {
+                        forceDecrees = true;
+                        i++;
+                    }
+                    break;
+                case "--realtime":
+                    // 排查用：同 --run 一起给，照正式运行那样按现实时钟走(一圈分几步、算不过来就慢下来)，收尾时报实际流速
+                    realtime = true;
                     break;
                 case "--help" or "-h":
                     Console.WriteLine("EmpireCraftServer [--data dir] [--state dir] [--config file] [--port 8766] [--lang cz|ch|en] [--scenario name|dir] [--frame id] [--size 0|1|2] [--speed 1] [--new] [--quiet] [--no-browser] [--no-console]");
@@ -292,14 +306,38 @@ public static class Program
             {
                 int frames = 0, failures = 0;
                 var timer = Stopwatch.StartNew();
+                if (forceDecrees) DecreeProbe.Force(world);
+                if (tryDecrees) DecreeProbe.Launch(world);
+                double startedWorld = world.getCurWorldTime(), lastReal = 0d, slowest = 0d;
+                int tallied = int.MinValue;
                 while (timer.Elapsed.TotalSeconds < runSeconds)
                 {
-                    Time.unscaledDeltaTime = Time.deltaTime = 0.02f;
-                    Time.unscaledTime = Time.time += 0.02f;
+                    float tick = 0.02f;
+                    if (realtime)
+                    {
+                        double nowReal = timer.Elapsed.TotalSeconds;
+                        tick = (float)(nowReal - lastReal);
+                        slowest = Math.Max(slowest, tick);
+                        lastReal = nowReal;
+                    }
+                    Time.unscaledDeltaTime = Time.deltaTime = tick;
+                    Time.unscaledTime = Time.time += tick;
                     Time.frameCount++;
                     try
                     {
-                        Step(world, modUpdate, 0.02f * baseSpeed);
+                        if (realtime)
+                        {
+                            Round(world, modUpdate, Math.Min(tick, MaxRoundSeconds) * baseSpeed);
+                            Thread.Sleep(1);
+                        }
+                        else Step(world, modUpdate, 0.02f * baseSpeed);
+                        // 每十年记一行天下分合的账
+                        int decade = Date.getCurrentYear() / 10;
+                        if (decade != tallied && Config.game_loaded && world.cities.Count > 0)
+                        {
+                            tallied = decade;
+                            Console.WriteLine("  " + WorldSave.Tally());
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -307,6 +345,12 @@ public static class Program
                     }
                     frames++;
                 }
+                if (realtime)
+                    Console.WriteLine("  按现实时钟：设定流速 " + (baseSpeed * 100f).ToString("0") + "%，实际 " +
+                                      ((world.getCurWorldTime() - startedWorld) / timer.Elapsed.TotalSeconds * 100d).ToString("0") + "%，共 " + Slices + " 步，最慢的一圈 " +
+                                      (slowest * 1000d).ToString("0") + " 毫秒");
+                if (tryDecrees) DecreeProbe.Report();
+                Console.WriteLine("  " + WorldSave.Tally());
                 Console.WriteLine("  跑了 " + frames + " 步(出错 " + failures + " 步)，到 " + Date.getCurrentYear() + " 年 " + Date.getCurrentMonth() + " 月：" + world.kingdoms.Count + " 国，" +
                                   world.cities.Count + " 城，" + world.units.Count + " 人，" + world.wars.Count + " 场战事");
                 Console.WriteLine("  战线段多核：" + FrontSystem.ParallelBatches + " 批、" + FrontSystem.ParallelSides + " 份(用 " + ParallelWork.MaxWorkers + " 个线程)" +
@@ -361,11 +405,14 @@ public static class Program
             Time.unscaledDeltaTime = Time.deltaTime = Time.smoothDeltaTime = delta;
             Time.unscaledTime = Time.time = (float)now;
             Time.frameCount++;
+            long roundStarted = Stopwatch.GetTimestamp();
+            bool behind = false;
             try
             {
-                // 世界流速快过常速时(终端流速，最多 10 倍)：模组后台的分帧活计跟着多给预算，不然月结追不上
-                SimulationFrameBudget.ServerMilliseconds = Math.Clamp(12d * baseSpeed * Math.Max(1f, TerminalHost.SpeedFactor), 12d, 250d);
-                Step(world, modUpdate, Math.Min(delta, 0.25f) * baseSpeed);
+                float owed = Math.Min(delta, MaxRoundSeconds) * baseSpeed;
+                float walked = Round(world, modUpdate, owed);
+                behind = delta > MaxRoundSeconds || walked < owed * Math.Max(0.01f, TerminalHost.SpeedFactor) * 0.999f;
+                Pace(walked, delta, baseSpeed, world);
             }
             catch (Exception exception)
             {
@@ -401,7 +448,9 @@ public static class Program
             }
             if ((_returnToGame || _stopSoon) && _returnAt < 0) _returnAt = Uptime.Elapsed.TotalSeconds + 1d;
             if (_returnAt >= 0 && Uptime.Elapsed.TotalSeconds >= _returnAt) _stop = true;
-            Thread.Sleep(20);
+            // 算得过来就歇到二十毫秒一圈；算不过来(世界走得比设定的慢)只让一让别的线程
+            int spent = (int)Stopwatch.GetElapsedTime(roundStarted).TotalMilliseconds;
+            Thread.Sleep(behind ? 1 : Math.Max(1, 20 - spent));
         }
         terminated?.Dispose();
         if (_relaunch)
@@ -649,6 +698,70 @@ public static class Program
     {
         var era = WorldMapData.Eras?.FirstOrDefault(item => item.id == key);
         return era != null ? era.Name : key;
+    }
+
+    // ── 世界时间怎么往前走 ──
+    // 主循环转一圈，世界该走"现实过了多久 × 流速"这么多。以前一圈就是一步：流速调到十倍、这一圈又算得久，
+    // 一步就跨两秒半的世界时间(半个月)——行军一步只结一拍、欠的丢掉，国家行为一步一个，月结"下个月到了当场结完"把这一步再撑长，
+    // 日期照走、军队和决议反而比常速稀(用户 2026-11-16 "只是单纯的时间变快了""移动速度和进攻时间依旧很慢")。
+    // 现在一圈分成几步走，一步至多跨 MaxSliceSeconds 的世界时间，每一步都是完整的一步(行为、行军、月结、后台各走各的)；
+    // 一圈算满 RoundBudgetSeconds 还没走完的，余下的不走了——世界照算得过来的速度走，实际流速低于设定值，
+    // 报给管理页(见 Pace、TerminalHost.ActualSpeedPercent)，看得出是算力不够
+    // 算不过来的时候一步放宽到 WideSliceSeconds：每一步都要把各国各城过一遍，步子大一倍这笔固定的开销就省一半，
+    // 行军、月结照样不丢(行军欠的拍补上，一个月还有十步)；跟得上了再收回来
+    private const float MaxSliceSeconds = 0.25f, WideSliceSeconds = 0.5f, MaxRoundSeconds = 0.25f;
+    private static bool _lagging;
+    private const double RoundBudgetSeconds = 0.2d;
+    // 后台的分帧活计(人口、财政、稳定……)每一步能用的时间：照这一步跨的世界时间给，每世界秒这么多毫秒
+    private const double BudgetPerWorldSecond = 200d;
+    internal static long Slices;
+
+    // baseSeconds：这一圈该走的时间，没乘终端流速(那一层在 calculateCurElapsed 的补丁里乘)。返回实际走了多少世界秒
+    internal static float Round(MapBox world, Action modUpdate, float baseSeconds)
+    {
+        float factor = Math.Max(0.01f, TerminalHost.SpeedFactor);
+        int slices = Math.Max(1, (int)Math.Ceiling(baseSeconds * factor / (_lagging ? WideSliceSeconds : MaxSliceSeconds)));
+        float slice = baseSeconds / slices;
+        long started = Stopwatch.GetTimestamp();
+        int done = 0;
+        for (; done < slices; done++)
+        {
+            if (done > 0)
+            {
+                if (Stopwatch.GetElapsedTime(started).TotalSeconds >= RoundBudgetSeconds)
+                {
+                    _lagging = true;
+                    break;
+                }
+                // 每一步各算一帧(模组里按帧限频、按帧作废的缓存照常)
+                Time.frameCount++;
+            }
+            SimulationFrameBudget.ServerMilliseconds = Math.Clamp(BudgetPerWorldSecond * slice * factor, 12d, 250d);
+            Step(world, modUpdate, slice);
+            Slices++;
+        }
+        // 这一圈走完了还剩一半以上的工夫：跟得上，步子收回来
+        if (done >= slices && Stopwatch.GetElapsedTime(started).TotalSeconds < RoundBudgetSeconds * 0.5d) _lagging = false;
+        return done * slice * factor;
+    }
+
+    // 实际流速：每两秒看一回这段时间世界走了多少。世界没在走(暂停、开局中、还没有世界)时不报
+    private static double _paceWorld, _paceReal;
+
+    private static void Pace(float walked, float delta, float baseSpeed, MapBox world)
+    {
+        bool running = Config.game_loaded && !Config.paused && !SmoothLoader.isLoading() && world.cities.Count > 0;
+        if (!running)
+        {
+            _paceWorld = _paceReal = 0d;
+            TerminalHost.ActualSpeedPercent = -1;
+            return;
+        }
+        _paceWorld += walked;
+        _paceReal += delta;
+        if (_paceReal < 2d) return;
+        TerminalHost.ActualSpeedPercent = (int)Math.Round(_paceWorld / (_paceReal * baseSpeed) * 100d);
+        _paceWorld = _paceReal = 0d;
     }
 
     // 主循环的一步：网络线程排过来的事先办；开局的加载步骤没走完就接着走(一步里至多用 50 毫秒)，走完了世界才往前走

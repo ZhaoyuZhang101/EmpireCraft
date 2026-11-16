@@ -41,6 +41,8 @@ public static class CoreCapitalRestorationSystem
     public static bool IsAnchored(Kingdom kingdom)
     {
         if (kingdom?.capital == null) return false;
+        // 奉诏迁都定下的都城(见 RulerDecrees)同样锚定
+        if (kingdom.capital.data != null && kingdom.GetOrCreate().decreed_capital == kingdom.capital.data.id) return true;
         Empire empire = kingdom.GetEmpire();
         if (empire == null || empire.CoreKingdom != kingdom) return false;
         return EmpireCoreManager.Get(empire)?.GetCoreCapital() == kingdom.capital;
@@ -50,7 +52,7 @@ public static class CoreCapitalRestorationSystem
     //   古代：王畿(核心主封号)切到新都所在法理，旧王畿在随后的重组里按法理划出去成为正常行政区("换直隶省")；
     //   现代：不动主封号，重组时直辖市只留首都一城(见 AdministrationReorganizationSystem 的现代分支)。
     //   两种政体都排一次自动行政区重组；正统不足或战时由 Empire.update 的 Resume 在条件恢复后继续。
-    private static void AlignAdministration(Empire empire, Kingdom core, City capital)
+    internal static void AlignAdministration(Empire empire, Kingdom core, City capital)
     {
         bool modern = core.GetRegime()?.type == RegimeType.Modern;
         KingdomTitle newHomeTitle = capital.GetTitle();

@@ -270,6 +270,7 @@ public static partial class TerminalHost
             ["paused"] = global::Config.paused, ["page"] = PageVersion(), ["mapStamp"] = god.MapStamp, ["armyStamp"] = god.ArmyStamp,
             ["monthNo"] = MonthNow(), ["code"] = Code, ["limit"] = TerminalPairing.Limit, ["maxLimit"] = TerminalPairing.MaxLimit,
             ["clock"] = WorldClock(now),
+            ["actual"] = LaggingSpeedPercent,
             ["admins"] = AdminCount,
             ["room"] = new JObject
             {

@@ -459,7 +459,15 @@ public static partial class TerminalHost
             made.Kind = "plot";
             made.Arg = id.Substring(5);
             if (EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Def(made.Arg) == null) return;
-            made.Text = string.Format(LM.Get("terminal_order_plot"), DecisionName(made.Arg));
+            // 要点一座城的大政(迁都、设陪京……，见 RulerDecrees)：点的那座城随令带着
+            made.Target = -1L;
+            City aimed = long.TryParse(target, out long aimedId) ? World.world.cities.get(aimedId) : null;
+            if (EmpireCraft.Scripts.GeneralSystems.Decisions.RulerDecrees.HasTargets(made.Arg))
+            {
+                if (aimed?.data == null) return;
+                made.Target = aimed.data.id;
+            }
+            made.Text = string.Format(LM.Get("terminal_order_plot"), DecisionName(made.Arg) + (made.Target >= 0 ? " · " + TerminalIntel.Strip(aimed.GetCityName()) : ""));
             seat.NextDecisionOptions = 0f;
         }
         else if (id == "era" && OwnEmpire(seat) != null)
@@ -800,7 +808,7 @@ public static partial class TerminalHost
                 return CourtExecute(seat, order);
             case "plot":
             {
-                string failed = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Launch(seat.Ruler, order.Arg);
+                string failed = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Launch(seat.Ruler, order.Arg, order.Target);
                 seat.NextDecisionOptions = 0f;
                 return failed == null ? null : LM.Get(failed);
             }

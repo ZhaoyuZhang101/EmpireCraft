@@ -448,6 +448,8 @@ public static class KingdomExtension
         public int hre_estate;
         // 行省阶段归太子的第二直隶：属于哪个帝国(-1 = 不是，见 MultiCapitalSystem)
         public long zhili_empire_id = -1L;
+        // 奉诏迁都定下的都城(君主亲自发起的决议，见 RulerDecrees)：都城还是这座城时，主封号同步不把它迁回封号首府
+        public long decreed_capital = -1L;
         // 随保护同盟离开封建制帝国：保护人、保护约起始(三十年)、离开的帝国(见 HolyRomanSystem.Decline)
         public long hre_protector_id = -1L;
         public double hre_protected_at = -1d;

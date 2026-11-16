@@ -3141,6 +3141,7 @@ public partial class PlotAsset : global::BaseAugmentationAsset
     public global::PlotCheckerDelegate check_should_continue;
     public global::System.Boolean check_target_alliance;
     public global::System.Boolean check_target_kingdom;
+    public global::System.Boolean check_target_city;
     public global::System.Boolean check_target_war;
     public global::System.Boolean is_basic_plot;
     public global::System.Int32 min_diplomacy = (global::System.Int32)(2);

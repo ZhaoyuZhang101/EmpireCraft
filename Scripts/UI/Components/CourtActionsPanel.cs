@@ -122,15 +122,18 @@ public static class CourtActionsPanel
         foreach (DecisionSystem.Advice advice in fit)
         {
             string name = LM.Has("plot_" + advice.id) ? LM.Get("plot_" + advice.id) : advice.id;
+            // 要点一座城的大政(迁都、设陪京……)：每座可选的城各一条
+            if (advice.targetName != null) name += " · " + advice.targetName;
             string mark = !advised && advice.ratio >= DecisionScale.Threshold ? LM.Get("decision_scale_advice") + " · " : "";
             if (mark.Length > 0) advised = true;
             card.AddValueRow(width, index++, name, mark + string.Format(LM.Get("decision_scale_ratio"), advice.ratio) +
                 (advice.cost > 0 ? " · " + string.Format(LM.Get("decision_scale_cost"), advice.cost) : ""), mark.Length > 0 ? WideKit.Gold : WideKit.Value);
             card.AddParagraph(width, Weights(advice.weights), 6, WideKit.Muted);
             string id = advice.id;
+            long target = advice.target;
             card.AddActionRow(width - CardPadding, (LM.Get("decision_scale_launch") + " · " + name, WideKit.Green, !busy, () =>
             {
-                string failed = DecisionSystem.Launch(emperor, id);
+                string failed = DecisionSystem.Launch(emperor, id, target);
                 Tip(failed);
                 refresh?.Invoke();
             }));

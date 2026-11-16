@@ -38,7 +38,7 @@
     <Compile Include="..\Scripts\**\*.cs"
              Exclude="..\Scripts\UI\**;..\Scripts\GodPowers\**;..\Scripts\Diagnostics\**;..\Scripts\Layer\Province.cs;..\Scripts\Layer\ProvinceData.cs;..\Scripts\Layer\ProvinceManager.cs"
              Link="Mod\%(RecursiveDir)%(Filename)%(Extension)" />
-    <Compile Include="..\Scripts\Diagnostics\FrameProfiler.cs;..\Scripts\Diagnostics\PerfTimer.cs" Link="Mod\Diagnostics\%(Filename)%(Extension)" />
+    <Compile Include="..\Scripts\Diagnostics\FrameProfiler.cs;..\Scripts\Diagnostics\PerfTimer.cs;..\Scripts\Diagnostics\StackGuard.cs" Link="Mod\Diagnostics\%(Filename)%(Extension)" />
     <!-- 放在界面、神力目录下、其实是玩法逻辑的几样：无人区的归属、宗教的称谓、营建、简图的国色 -->
     <Compile Include="..\Scripts\UI\Components\WildernessShape.cs;..\Scripts\UI\Components\WildernessTerritory.cs;..\Scripts\UI\Components\RealmMiniMap.cs;..\Scripts\UI\Windows\ReligionDisplay.cs;..\Scripts\GodPowers\SettlementPowers.cs"
              Link="Mod\Extra\%(Filename)%(Extension)" />

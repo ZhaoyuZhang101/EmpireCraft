@@ -21,7 +21,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // (用户 2026-10-15："到处都是统一战争，有的甚至跨文化跨地域打")：别的文化的国家占着几座城，不算天下的人，不是统一的对象。
 //   · 乱世：天下至少八座城、三家以上，没有哪家占到四成——群雄互伐，饥荒、民变照常；
 //   · 统一战争：一家占到四成，或国力是第二名的两倍(且至少占 8%)——天命所归，目标二十年内打完：
-//       - 久乱思治(华夏，用户 2026-10-27："华夏几乎没有统一过"，问答选"久乱思治"：汉正统 41 城分在十四五家，最大的一家才一成五，
+//       - 久乱思治(华夏起头，2026-11-17 起没有统一倾向的定居文化也算、游牧不算，见 Bars；用户 2026-10-27："华夏几乎没有统一过"，问答选"久乱思治"：汉正统 41 城分在十四五家，最大的一家才一成五，
 //         乱了两百多年没人够得上门槛)：从上一位坐稳了的共主(受天命满 SteadyMandateYears 年)失命算起，乱世满 LongChaosYears 年后，
 //         门槛在 ChaosEaseYears 年里逐年降到占一成五、或占 8% 以上且国力天下第一(用户 2026-11-08 选"15 年起降，35 年到底"：
 //         华夏两三代人就该重归一统，以前 30 年起降、80 年到底降到两成/1.3 倍，73 城 45 家的天下乱了六十多年才有人问鼎)；
@@ -294,10 +294,15 @@ public static class UnificationSystem
 
     // 前朝不能马上再问鼎：失了这个天下天命的那一国，或君主宗族的帝国亡了不久的，FormerLockYears 年内
     // 不发动统一战争；中兴之主(含中兴雄主)在位不在此限
-    // 问鼎的门槛(占比、国力是第二名的几倍)：华夏久乱思治逐年降(见文件头)
+    // 问鼎的门槛(占比、国力是第二名的几倍)：久乱思治逐年降(见文件头)。
+    // 有统一倾向的(华夏)按倾向降；没有统一倾向的定居文化也照样降到底(用户 2026-11-17 选"定居文化也久乱思治"：
+    // 独立核心长跑一百多年，阿拉伯 94 城 59 家、天竺 84 城 25 家，最大的一家不到一成，乱了三百多年没人够得上四成的门槛)；
+    // 游牧不降，照旧要雄主在位(游牧难一统)。只放宽门槛：加场、推进、过半不收束、小国归附仍只给有统一倾向的
+    private const float SettledChaosEase = 1f;
+
     private static (float share, float lead) Bars(Realm realm, Kingdom top)
     {
-        float drive = UnificationDrive.Of(top);
+        float drive = Mathf.Max(UnificationDrive.Of(top), IsNomad(top) ? 0f : SettledChaosEase);
         // 没有帝国法理的天下里，部落还没到争天下的时候
         if (drive <= 0f || realm.lead == null && TribalFissionService.IsTribal(top)) return (ContenderShare, PowerLead);
         float ease = drive * Mathf.Clamp01((ChaosYears(realm) - LongChaosYears) / ChaosEaseYears);
