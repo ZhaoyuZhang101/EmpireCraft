@@ -602,7 +602,7 @@ public static partial class TerminalHost
             return page == null ? TerminalServer.Reply.Error(404, "no_page") : TerminalServer.Reply.Html(page);
         }
         // 添加到手机桌面的资源和按内容命名的高清立绘分片。
-        if (method == "GET" && (StaticTypes.TryGetValue(path, out string staticType) || TerminalServer.IsPortraitPage(path)))
+        if (method == "GET" && (StaticTypes.TryGetValue(path, out string staticType) || HostAsset(path, out staticType) || TerminalServer.IsPortraitPage(path)))
         {
             byte[] file = StaticFile(path.Substring(1));
             return file == null ? TerminalServer.Reply.Error(404, "not_found")
@@ -671,6 +671,23 @@ public static partial class TerminalHost
         ["/FactionFrame.png"] = "image/png", ["/FactionFrame_dominate.png"] = "image/png"
     };
 
+    // 服务器核心的小界面(Terminal/host.html，见 .server 的窗口壳)和它用的图标、字体(Terminal/host/ 下，文件名只许字母数字横线下划线)
+    private static bool HostAsset(string path, out string type)
+    {
+        type = null;
+        if (path == "/host.html") type = "text/html; charset=utf-8";
+        else if (path.Length is > 6 and < 80 && path.StartsWith("/host/", StringComparison.Ordinal))
+        {
+            string name = path.Substring(6);
+            int dot = name.LastIndexOf('.');
+            if (dot <= 0) return false;
+            for (int i = 0; i < dot; i++)
+                if (!char.IsLetterOrDigit(name[i]) && name[i] != '-' && name[i] != '_') return false;
+            type = name.Substring(dot) switch { ".png" => "image/png", ".woff2" => "font/woff2", _ => null };
+        }
+        return type != null;
+    }
+
     private static readonly ConcurrentDictionary<string, byte[]> StaticFiles = new();
 
     private static byte[] StaticFile(string name)
@@ -680,6 +697,8 @@ public static partial class TerminalHost
             if (StaticFiles.TryGetValue(name, out byte[] cached)) return cached;
             string path = _pagePath == null ? null : Path.Combine(Path.GetDirectoryName(_pagePath) ?? "", name);
             if (path == null || !File.Exists(path)) return null;
+            // 小界面的页面不留缓存：改了文件，下回打开就是新的
+            if (name == "host.html") return File.ReadAllBytes(path);
             return StaticFiles[name] = File.ReadAllBytes(path);
         }
         catch

@@ -46,6 +46,17 @@ public static class Program
     // 换剧本时进程退出重来(见 StartScenario)：退出时不存档，systemd 拉起后照 pending_scenario.json 开局
     private static volatile bool _relaunch;
     private const string PendingFile = "pending_scenario.json";
+    // 脱手(用户 2026-11-16 "本体不能全关掉吗")：模组拉起的核心接手以后，游戏本体整个关掉，只留核心跑；
+    // 管理页点「停下核心，回到游戏」时存档、把游戏开回来、核心退出。_gameExe 是游戏 exe 的全路径(detach 时给的)
+    private static volatile string _gameExe;
+    private static volatile bool _returnToGame;
+    private static double _returnAt = -1d;
+    internal static bool Detached => _gameExe != null;
+    // 从面板、托盘停下核心(没脱手、本机有核心窗口时)：同回到游戏一样等一秒再照常退出，只是不开游戏
+    private static volatile bool _stopSoon;
+    // 数据目录(带 Terminal/ 与 Locales/)：核心窗口取图标、看有没有主机面板网页
+    internal static string DataRoot;
+    private static double _statusAt;
 
     public static int Main(string[] args)
     {
@@ -105,7 +116,7 @@ public static class Program
                     fresh = true;
                     break;
                 case "--no-browser":
-                    // 有桌面也不在本机浏览器里打开管理页(见 OpenAdminPage)
+                    // 有桌面也不自动亮出核心窗口(托盘图标照有)、不自动开管理页(见 Announce)
                     _noBrowser = true;
                     break;
                 case "--profile":
@@ -153,6 +164,7 @@ public static class Program
             Console.Error.WriteLine("找不到数据目录(要有 Terminal/index.html)。用 --data 指明。");
             return 2;
         }
+        DataRoot = data;
         state = Path.GetFullPath(state ?? "state");
         Directory.CreateDirectory(state);
         WorldSave.Root = state;
@@ -365,6 +377,14 @@ public static class Program
                 if (restored > 0) Console.WriteLine("  " + restored + " 个席位接着领原来的君主");
             }
             if (ready && _config.autosave_minutes > 0 && Uptime.Elapsed.TotalSeconds - _lastSaveAt >= _config.autosave_minutes * 60d) SaveNow("自动");
+            // 回到游戏：等一秒让管理页那次请求的回话发出去，再照常退出(退出时存档、开游戏)
+            if (CoreShell.Active && Uptime.Elapsed.TotalSeconds - _statusAt >= 2d)
+            {
+                _statusAt = Uptime.Elapsed.TotalSeconds;
+                CoreShell.Status = ShellStatus(world);
+            }
+            if ((_returnToGame || _stopSoon) && _returnAt < 0) _returnAt = Uptime.Elapsed.TotalSeconds + 1d;
+            if (_returnAt >= 0 && Uptime.Elapsed.TotalSeconds >= _returnAt) _stop = true;
             Thread.Sleep(20);
         }
         terminated?.Dispose();
@@ -378,8 +398,94 @@ public static class Program
         if (Config.game_loaded && !SmoothLoader.isLoading() && world.cities.Count > 0) SaveNow("退出");
         TerminalHost.Enabled = false;
         TerminalHost.Tick();
+        // 存完档、端口关了再开游戏：游戏起来后见核心端口不通，就读回这份存档
+        if (_returnToGame) LaunchGame();
+        CoreShell.Stop();
         Console.WriteLine("已停。");
+        Console.Out.Flush();
         return 0;
+    }
+
+    // 标准输入 detach <游戏exe全路径>：记下路径，回"已脱手"。之后游戏退出，标准输入读到头、标准输出与错误的管道断开，
+    // 再往控制台写就出错，所以回完话把输出改写到存放目录的 core.log(往后核心的一切说明都在那里)
+    private static void Detach(string exe)
+    {
+        exe = exe.Trim().Trim('"');
+        if (exe.Length == 0)
+        {
+            Console.WriteLine("用法：detach <游戏 exe 的全路径>");
+            return;
+        }
+        _gameExe = exe;
+        Console.WriteLine("已脱手：游戏关掉后核心照常跑，管理页可「停下核心，回到游戏」(" + exe + ")");
+        try
+        {
+            Console.Out.Flush();
+            Console.Error.Flush();
+        }
+        catch (Exception)
+        {
+            // 管道已经断了也不要紧
+        }
+        try
+        {
+            var log = new StreamWriter(new FileStream(Path.Combine(WorldSave.Root, "core.log"), FileMode.Append, FileAccess.Write, FileShare.ReadWrite),
+                new UTF8Encoding(false)) { AutoFlush = true };
+            TextWriter writer = TextWriter.Synchronized(log);
+            Console.SetOut(writer);
+            Console.SetError(writer);
+            Console.WriteLine("── " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " 脱手，游戏 " + exe);
+        }
+        catch (Exception)
+        {
+            Console.SetOut(TextWriter.Null);
+            Console.SetError(TextWriter.Null);
+        }
+        // 游戏关了以后，核心在这台电脑上要看得见：起核心窗口(面板)和托盘图标，窗口亮出来
+        CoreShell.Start(show: true);
+    }
+
+    // 管理页、面板、托盘上的「停下核心」(见 ServerRoutes /api/admin/return)：主循环一秒后照常退出(退出时存档)。
+    // 脱手的还要把游戏开回来；没脱手的只在本机有核心窗口时许停(服务器上常驻的不许从网页停，systemd 也会马上拉起来)
+    internal static bool CanStop => Detached || CoreShell.Active;
+
+    internal static bool RequestReturn()
+    {
+        if (Detached) _returnToGame = true;
+        else if (CoreShell.Active) _stopSoon = true;
+        else return false;
+        return true;
+    }
+
+    // 开回游戏：本机已有同名进程在跑(用户自己又开了)就不开第二个。工作目录取 exe 所在目录；
+    // 核心是游戏拉起来的，Steam 给的环境变量都继承着，直接启动就行
+    private static void LaunchGame()
+    {
+        string exe = _gameExe;
+        if (string.IsNullOrEmpty(exe)) return;
+        try
+        {
+            string name = Path.GetFileNameWithoutExtension(exe);
+            Process[] running = Process.GetProcessesByName(name);
+            bool already = running.Length > 0;
+            foreach (Process process in running) process.Dispose();
+            if (already)
+            {
+                Console.WriteLine("游戏已经开着(" + name + ")，不再开第二个");
+                return;
+            }
+            if (!File.Exists(exe))
+            {
+                Console.Error.WriteLine("[error] 游戏 exe 不在了，没开回游戏: " + exe);
+                return;
+            }
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) ?? "" })?.Dispose();
+            Console.WriteLine("已开回游戏: " + exe);
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine("[error] 开回游戏失败: " + exception.Message);
+        }
     }
 
     // 开服后在命令行说清楚：手机打开哪个地址、管理员怎么进、玩家怎么注册
@@ -397,17 +503,41 @@ public static class Program
         if (TerminalHost.LobbyEnabled) Console.WriteLine("  联机大厅: " + TerminalHost.LobbySocket + (TerminalHost.RoomOpen ? "（公开）" : "（不公开）") + "，接上没有用 status 看");
         if (World.world.cities.Count == 0 && !SmoothLoader.isLoading()) Console.WriteLine("  还没有世界：用管理员账号登进手机网页挑一个剧本载入(也可以用剧本编辑器「发到服务器」，或启动时加 --scenario)");
         Console.WriteLine("  ─────────────────────────────");
-        OpenAdminPage();
+        // Windows 上有桌面、直接运行的：起核心自己的窗口(面板)和托盘图标；别的系统照旧在浏览器里开管理页
+        if (OperatingSystem.IsWindows())
+        {
+            if (!LogService.Quiet && HasDesktop()) CoreShell.Start(show: !_noBrowser);
+        }
+        else OpenAdminPage();
+    }
+
+    // 主机面板的地址(核心窗口里嵌的那页)：有 Terminal/host.html 就开它，没有开终端首页；带 #admin= 码或票，面板自己登入管理员
+    internal static string PanelLink()
+    {
+        string page = DataRoot != null && File.Exists(Path.Combine(DataRoot, "Terminal", "host.html")) ? "host.html" : "";
+        return "http://127.0.0.1:" + TerminalHost.Port + "/" + page + "#admin=" + (_config.AdminByPassword ? ServerRoutes.IssueAdminTicket() : TerminalHost.AdminCode);
+    }
+
+    // 托盘提示上的一行状态(主线程上拼)
+    private static string ShellStatus(MapBox world)
+    {
+        string text = "帝国盒子核心 · ";
+        if (SmoothLoader.isLoading()) text += "正在开局";
+        else if (world.cities.Count == 0) text += "还没有世界";
+        else text += "第 " + Date.getCurrentYear() + " 年 " + Date.getCurrentMonth() + " 月";
+        text += " · 手机在线 " + TerminalHost.OnlineSeats() + " 部";
+        if (Detached) text += " · 游戏已关";
+        return text;
     }
 
     // 核心的界面就是终端网页的管理员那一页(用户 2026-11-16 "支持gui的服务器可以考虑给核心一个gui或者就直接打开管理员账号""网页版gui")：
     // 在有桌面的机器上直接跑(双击、桌面上手动开)的，端口一通就在本机浏览器里打开一回，地址带 #admin=管理员码，网页自己登入管理员。
     // 不开的：--quiet(模组拉起的核心，模组那头自己开，见 CoreHost)、systemd 常驻、经 SSH 登进去跑的、没有桌面的、--no-browser。
-    // 配了账号密码的只打开网页，让人自己登(#admin= 那时不起作用)
+    // 配了账号密码的带一张一次性票(见 ServerRoutes.IssueAdminTicket)，同样免登
     private static void OpenAdminPage()
     {
         if (_noBrowser || LogService.Quiet || !HasDesktop()) return;
-        string url = "http://127.0.0.1:" + TerminalHost.Port + "/" + (_config.AdminByPassword ? "" : "#admin=" + TerminalHost.AdminCode);
+        string url = AdminLink();
         try
         {
             ProcessStartInfo start = OperatingSystem.IsWindows() ? new ProcessStartInfo(url) { UseShellExecute = true }
@@ -421,6 +551,10 @@ public static class Program
             Console.WriteLine("  本机浏览器打不开(" + exception.Message + ")：自己打开 http://127.0.0.1:" + TerminalHost.Port + "/ 用管理员码登入");
         }
     }
+
+    // 本机以管理员身份打开的地址：凭码的带管理员码，配了账号密码的当场发一张一次性票(120 秒内兑一回)
+    internal static string AdminLink() =>
+        "http://127.0.0.1:" + TerminalHost.Port + "/#admin=" + (_config.AdminByPassword ? ServerRoutes.IssueAdminTicket() : TerminalHost.AdminCode);
 
     private static bool HasDesktop()
     {
@@ -750,6 +884,13 @@ public static class Program
                     break;
                 case "admin":
                     AnnounceAdmin();
+                    break;
+                case "detach":
+                    Detach(argument);
+                    break;
+                case "adminlink":
+                    // 模组拉起的核心(CoreHost)要打开管理页时问这句：回一行"管理页: <地址>"，地址后不跟别的字
+                    Console.WriteLine("管理页: " + AdminLink());
                     break;
                 case "accounts":
                     foreach (Accounts.Account account in ServerRoutes.Accounts.List())

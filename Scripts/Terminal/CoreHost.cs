@@ -14,8 +14,10 @@ internal static class CoreHost
     internal static void Shutdown() { }
     internal static string StatusLine() => "";
     internal static string LinkLine() => "";
+    internal static string ScanUrl() => "";
     internal static string ButtonText() => "";
     internal static string SecondButtonText() => null;
+    internal static string ThirdButtonText() => null;
     internal static void OnButton(int index) { }
 }
 #else
@@ -52,22 +54,40 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 关游戏时核心还在跑：给它写 quit，让它存好档再退。
 //   · 上回没带回的进度(游戏被直接关掉、崩了)：状态目录里那份存档是这一局的(CoreGameId 对得上)而且走得比游戏里远，
 //     接手前先在牌子上问——带回它，还是丢弃它、从眼下交给核心；
+//   · 关掉游戏、只留核心(用户 2026-11-16 "直接关掉本体, 关掉服务器核心才开启本体""本体不能全关掉吗"：本体停着也占一个多核、
+//     六个多 G 内存)：牌子上点「关闭游戏，只留核心」——把眼下的世界(交出去时的原样)存成一份原版存档(EmpireCraftCore/handoff)，
+//     给核心写 detach <游戏 exe>，它回"已脱手"后写下标记(detached.json)、退出游戏，核心自己接着跑。停核心改在网页管理页点
+//     「停下核心，回到游戏」：核心存档、把游戏开起来、自己退出。游戏再开起来、世界读完后见到标记：核心端口还通就挂着牌子等它退；
+//     不通了就先读 handoff 那份存档(带回要拿同一局的世界作底)，读完照常带回；
 // 手机版游戏上不启用。导出与带回见 CoreSaveExport(格式与 .server/Server/WorldSave.cs 是同一份)
 internal static class CoreHost
 {
     internal const string SettingId = "terminal_core_host_toggle";
     internal static bool Enabled;
 
-    internal enum Phase { Idle, Fetching, Asking, Exporting, Starting, Running, Stopping, Importing, Loading }
-    internal static Phase State { get; private set; }
+    // 后三个是关掉游戏只留核心那一路：正在脱手、游戏重开后核心还在跑、读回交出去时的那一局
+    internal enum Phase { Idle, Fetching, Asking, Exporting, Starting, Running, Stopping, Importing, Loading, Detaching, Attached, Reloading }
+    internal static Phase State
+    {
+        get => _state;
+        private set
+        {
+            _state = value;
+            // 本体只是等着的那几步压低帧率；写存档、读档带回要全速
+            StableFrameRate.SetIdle(value is Phase.Asking or Phase.Starting or Phase.Running or Phase.Stopping or Phase.Attached);
+        }
+    }
+    private static Phase _state;
     // 本体停着、黑屏牌子归核心用
     internal static bool Holding => State >= Phase.Asking;
     // 端口归核心：本体的终端不开服务
-    internal static bool OwnsPort => State is Phase.Starting or Phase.Running or Phase.Stopping;
-    internal static bool CanStop => State is Phase.Asking or Phase.Starting or Phase.Running;
+    internal static bool OwnsPort => State is Phase.Starting or Phase.Running or Phase.Stopping or Phase.Detaching or Phase.Attached;
+    // 牌子上的头一个按钮在不在(核心在跑时是停下它，游戏重开后核心还在跑时是打开管理页)
+    internal static bool CanStop => State is Phase.Asking or Phase.Starting or Phase.Running or Phase.Attached;
 
     private const string ExeName = "EmpireCraftServer.exe";
-    private const float StartSeconds = 300f, StopSeconds = 120f, FetchTipSeconds = 3f, LoadSeconds = 600f, LoadGraceSeconds = 5f, AdminWaitSeconds = 4f;
+    private const float StartSeconds = 300f, StopSeconds = 120f, FetchTipSeconds = 3f, LoadSeconds = 600f, LoadGraceSeconds = 5f, AdminWaitSeconds = 4f, LinkWaitSeconds = 2f,
+        DetachWaitSeconds = 5f, ProbeSeconds = 2f;
     private const string TokensFile = "EmpireCraft.terminal.tokens";
     private static readonly ConcurrentQueue<string> Lines = new();
     private static Process _process;
@@ -75,13 +95,20 @@ internal static class CoreHost
     private static volatile bool _fetchDone;
     private static volatile int _fetchPercent;
     private static bool _wasEnabled, _loadSeen, _seatsPending, _skipStale, _adminOpened;
+    // 脱手那一路：核心回了"已脱手"、游戏正为此退出、这回开游戏查过标记了、读 handoff 排上了、上一回探端口已经不通
+    private static bool _detachAck, _detached, _resumeChecked, _reloadStarted, _portGone;
+    private static float _detachAsked, _nextProbe;
     // 核心那边没带回的那份存档走到的世界时刻
     private static double _staleTime;
     private static int _phaseFrame;
+    // 向核心要管理页地址是什么时候问的(0 = 没在等)
+    private static float _linkAsked;
     private static float _deadline, _since, _nextTip;
 
     private static string Root => Path.Combine(Application.persistentDataPath, "EmpireCraftCore");
     private static string StateFolder => Path.Combine(Root, "state");
+    private static string HandoffFolder => Path.Combine(Root, "handoff");
+    private static string DetachedFile => Path.Combine(Root, "detached.json");
 
     internal static void Tick()
     {
@@ -109,7 +136,13 @@ internal static class CoreHost
         switch (State)
         {
             case Phase.Idle:
-                if (Enabled && Ready()) Begin();
+                // 这回开游戏头一次世界读完：上回是不是关了游戏、把这一局留给了核心
+                if (!_resumeChecked && World.world != null && Config.game_loaded && !SmoothLoader.isLoading())
+                {
+                    _resumeChecked = true;
+                    if (File.Exists(DetachedFile) && Resume()) break;
+                }
+                if (_resumeChecked && Enabled && Ready()) Begin();
                 break;
             case Phase.Fetching:
                 TickFetch();
@@ -131,9 +164,18 @@ internal static class CoreHost
             case Phase.Loading:
                 TickLoad();
                 break;
+            case Phase.Detaching:
+                TickDetach();
+                break;
+            case Phase.Attached:
+                TickAttached();
+                break;
+            case Phase.Reloading:
+                TickReload();
+                break;
         }
         // 交出去的这段时间本体的世界不许走(两边各走各的，带回来就对不上了)；读档那一段由原版自己管
-        if (Holding && State != Phase.Loading) Config.paused = true;
+        if (Holding && State != Phase.Loading && State != Phase.Reloading) Config.paused = true;
     }
 
     // 牌子上的按钮、快捷键、关掉开关：核心在跑就让它存档退出再带回；还在读档的直接停掉(世界没动过，不用带回)
@@ -167,10 +209,16 @@ internal static class CoreHost
     // 牌子上的按钮(0 是左边那个)。问着"没带回的进度"时：左边带回它，右边丢弃它、从眼下交给核心；别的时候只有停下
     internal static void OnButton(int index)
     {
+        if (State == Phase.Attached)
+        {
+            if (index == 0) OpenPage(null);
+            return;
+        }
         if (State != Phase.Asking)
         {
             if (index == 0) RequestStop();
-            else if (State == Phase.Running) OpenAdmin();
+            else if (State == Phase.Running && index == 1) OpenAdmin();
+            else if (State == Phase.Running && index == 2) Enter(Phase.Detaching);
             return;
         }
         if (index == 0)
@@ -185,7 +233,8 @@ internal static class CoreHost
     // 关游戏：核心还在跑就让它存好档再退(下回接手时这份存档还在状态目录里)
     internal static void Shutdown()
     {
-        if (_process == null) return;
+        // 为了只留核心才退的游戏：核心接着跑，不叫它退
+        if (_process == null || _detached) return;
         try
         {
             if (_process.HasExited) return;
@@ -213,20 +262,33 @@ internal static class CoreHost
         Phase.Running => string.Format(LM.Get("terminal_core_running"), Span(Time.unscaledTime - _since)),
         Phase.Stopping => LM.Get("terminal_core_stopping"),
         Phase.Importing or Phase.Loading => LM.Get("terminal_core_importing"),
+        Phase.Detaching => LM.Get("terminal_core_detaching"),
+        Phase.Attached => LM.Get("terminal_core_attached"),
+        Phase.Reloading => LM.Get("terminal_core_reloading"),
         _ => ""
     };
 
     internal static string LinkLine() =>
-        State == Phase.Asking ? "" :
+        State is Phase.Asking or Phase.Reloading ? "" :
         string.Format(LM.Get("terminal_core_link"), _address) +
         (string.IsNullOrEmpty(_adminCode) ? "" : " · " + string.Format(LM.Get("terminal_core_admin"), _adminCode));
+
+    // 牌子上二维码里的地址：核心接手了才给(之前扫了也连不上)。核心是另开的进程，配对码不归这头管，码里只有地址：
+    // 以前配过的手机带着令牌直接进，新手机打开网页照核心的规矩登入
+    internal static string ScanUrl() =>
+        State is not (Phase.Running or Phase.Attached) || string.IsNullOrEmpty(_address) ? "" :
+        _address.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? _address : "http://" + _address;
 
     internal static string ButtonText() => LM.Get(State switch
     {
         Phase.Asking => "terminal_core_stale_back",
         Phase.Starting => "terminal_core_cancel",
+        Phase.Attached => "terminal_core_open_admin",
         _ => "terminal_core_stop"
     });
+
+    // 第三个按钮：核心跑着时，关掉游戏只留核心
+    internal static string ThirdButtonText() => State == Phase.Running ? LM.Get("terminal_core_detach") : null;
 
     // 右边那个按钮：问"没带回的进度"时是丢弃它；核心跑着时是在这台电脑上打开管理页
     internal static string SecondButtonText() => State switch
@@ -236,13 +298,37 @@ internal static class CoreHost
         _ => null
     };
 
-    // 核心没有自己的界面，管它就用终端网页里的管理员那一页：在这台电脑的浏览器里打开，管理员码跟在地址后面(# 后头的不发给服务器，
-    // 网页记下就从地址栏去掉)，不用再照着牌子抄一遍。核心一接手自动开一回，之后点牌子上的按钮再开
+    // 核心没有自己的界面，管它就用终端网页里的管理员那一页：在这台电脑的浏览器里打开，登入用的东西跟在地址后面(# 后头的不发给服务器，
+    // 网页记下就从地址栏去掉)，不用再照着牌子抄一遍。核心一接手自动开一回，之后点牌子上的按钮再开。
+    // 地址向核心要(标准输入写 adminlink，它回一行"管理页: 地址")：凭管理员码的带码，配了账号密码的带一张只能用一回的票，
+    // 两种都不用人再登。核心没回(老一点的核心不认这句)就照自己认到的管理员码开
     private static void OpenAdmin()
     {
         _adminOpened = true;
-        string url = "http://127.0.0.1:" + TerminalHost.Port + "/";
-        if (!string.IsNullOrEmpty(_adminCode)) url += "#admin=" + _adminCode;
+        try
+        {
+            if (_process != null && !_process.HasExited)
+            {
+                _process.StandardInput.WriteLine("adminlink");
+                _process.StandardInput.Flush();
+                _linkAsked = Time.unscaledTime;
+                return;
+            }
+        }
+        catch (Exception)
+        {
+            // 写不进去：照下面的直接开
+        }
+        OpenPage(null);
+    }
+
+    private static void OpenPage(string url)
+    {
+        _linkAsked = 0f;
+        string home = "http://127.0.0.1:" + TerminalHost.Port + "/";
+        // 核心给的地址只认本机这个端口的，别的一概不开
+        if (url == null || !url.StartsWith(home, StringComparison.Ordinal))
+            url = home + (string.IsNullOrEmpty(_adminCode) ? "" : "#admin=" + _adminCode);
         try
         {
             Application.OpenURL(url);
@@ -281,6 +367,7 @@ internal static class CoreHost
         _address = TerminalHost.PublicUrl.Length > 0 ? TerminalHost.PublicUrl : TerminalHost.PrimaryAddress();
         _adminCode = null;
         _adminOpened = false;
+        _linkAsked = 0f;
         if (!_skipStale && StaleProgress(out _staleTime))
         {
             Enter(Phase.Asking);
@@ -421,6 +508,7 @@ internal static class CoreHost
         // 管理员码那行多半先于"世界已就绪"；万一没等到，过几秒也照开(网页里手填)
         if (State == Phase.Running && !_adminOpened && (!string.IsNullOrEmpty(_adminCode) || Time.unscaledTime - _since > AdminWaitSeconds))
             OpenAdmin();
+        if (_linkAsked > 0f && Time.unscaledTime - _linkAsked > LinkWaitSeconds) OpenPage(null);
         if (State == Phase.Starting && Time.unscaledTime > _deadline)
         {
             Kill();
@@ -474,9 +562,214 @@ internal static class CoreHost
         // 一直没见着在读(当帧就读完了)也算读完；迟迟读不完的不再挡着屏幕
         if (loading ? now <= _deadline : !_loadSeen && now - _since < LoadGraceSeconds) return;
         if (loading) LogService.LogWarning("[EmpireCraft][服务器核心] 带回的这一局迟迟没读完，先把画面放回来。");
-        else Tip(LM.Get("terminal_core_back"));
+        else
+        {
+            Tip(LM.Get("terminal_core_back"));
+            ClearDetach();
+        }
         _seatsPending = true;
         Release();
+    }
+
+    // ───────── 关掉游戏、只留核心 ─────────
+    private static void TickDetach()
+    {
+        Drain();
+        if (_process == null || _process.HasExited)
+        {
+            // 正脱手时核心没了：照它最后存的那份带回
+            _process = null;
+            Enter(Phase.Importing);
+            return;
+        }
+        if (_detached) return;
+        if (_detachAsked <= 0f)
+        {
+            // 等一帧，让牌子先换上字
+            if (Time.frameCount <= _phaseFrame + 1) return;
+            try
+            {
+                string folder = HandoffFolder;
+                if (Directory.Exists(folder)) Directory.Delete(folder, true);
+                Directory.CreateDirectory(folder);
+                SaveManager.saveMapData(folder);
+                if (!File.Exists(Path.Combine(folder, "map.wbox"))) throw new IOException("map.wbox");
+                _detachAck = false;
+                _process.StandardInput.WriteLine("detach " + GameExe());
+                _process.StandardInput.Flush();
+            }
+            catch (Exception exception)
+            {
+                DetachFailed(exception.Message);
+                return;
+            }
+            _detachAsked = Time.unscaledTime;
+            return;
+        }
+        if (_detachAck)
+        {
+            try
+            {
+                File.WriteAllText(DetachedFile, new JObject
+                {
+                    ["game_id"] = CoreGameId.Value, ["port"] = TerminalHost.Port, ["at"] = DateTime.UtcNow.ToString("o")
+                }.ToString());
+            }
+            catch (Exception exception)
+            {
+                DetachFailed(exception.Message);
+                return;
+            }
+            _detached = true;
+            LogService.LogInfo("[EmpireCraft][服务器核心] 核心已脱手，游戏退出；这一局留在核心那边跑。");
+            Application.Quit();
+            return;
+        }
+        if (Time.unscaledTime - _detachAsked > DetachWaitSeconds) DetachFailed(LM.Get("terminal_core_detach_old"));
+    }
+
+    // 没关成：核心还照原样由游戏看着
+    private static void DetachFailed(string reason)
+    {
+        LogService.LogWarning($"[EmpireCraft][服务器核心] 游戏没关成: {reason}");
+        Tip(string.Format(LM.Get("terminal_core_detach_failed"), reason), 8f);
+        _detachAsked = 0f;
+        State = Phase.Running;
+    }
+
+    private static string GameExe()
+    {
+        string exe = Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? "", "worldbox.exe");
+        if (!File.Exists(exe)) exe = Process.GetCurrentProcess().MainModule?.FileName ?? exe;
+        return exe;
+    }
+
+    // 游戏重开后见到标记。返回真是接过去了(牌子挂上)，假是标记作废、照平常走
+    private static bool Resume()
+    {
+        if (!File.Exists(Path.Combine(HandoffFolder, "map.wbox")) || !CoreSaveExport.PeekSave(StateFolder, out _, out _))
+        {
+            LogService.LogWarning("[EmpireCraft][服务器核心] 上回留给核心的那一局不齐全(交出去时的存档或核心的存档不在了)，不带回。");
+            ClearDetach();
+            return false;
+        }
+        if (!PureMapMode.Enabled)
+        {
+            // 带回只在纯净地图下做；标记留着，开了纯净地图重开游戏再带
+            Tip(string.Format(LM.Get("terminal_core_back_failed"), LM.Get("terminal_core_need_pure")), 8f);
+            return false;
+        }
+        _address = TerminalHost.PublicUrl.Length > 0 ? TerminalHost.PublicUrl : TerminalHost.PrimaryAddress();
+        _adminCode = SavedAdminCode();
+        _since = Time.unscaledTime;
+        if (PortOpen())
+        {
+            LogService.LogInfo("[EmpireCraft][服务器核心] 核心还在跑上回留给它的那一局，等它停下再带回。");
+            _portGone = false;
+            _nextProbe = _since + ProbeSeconds;
+            Enter(Phase.Attached);
+        }
+        else StartReload();
+        return true;
+    }
+
+    // 核心还在跑：隔两秒看一眼端口。连着两回不通才算它退了(存档是退出前写完的)
+    private static void TickAttached()
+    {
+        float now = Time.unscaledTime;
+        if (now < _nextProbe) return;
+        _nextProbe = now + ProbeSeconds;
+        if (PortOpen())
+        {
+            _portGone = false;
+            return;
+        }
+        if (!_portGone)
+        {
+            _portGone = true;
+            return;
+        }
+        StartReload();
+    }
+
+    private static void StartReload()
+    {
+        _reloadStarted = false;
+        Enter(Phase.Reloading);
+    }
+
+    // 先把交出去时的那一局读回来(带回要拿同一局的世界作底)，读完接着走带回
+    private static void TickReload()
+    {
+        float now = Time.unscaledTime;
+        if (!_reloadStarted)
+        {
+            if (Time.frameCount <= _phaseFrame + 1) return;
+            _reloadStarted = true;
+            _loadSeen = false;
+            _since = now;
+            _deadline = now + LoadSeconds;
+            LogService.LogInfo("[EmpireCraft][服务器核心] 读回交出去时的那一局，读完再带回核心跑过的进度。");
+            World.world.save_manager.loadWorld(SaveManager.folderPath(HandoffFolder));
+            return;
+        }
+        bool loading = !Config.game_loaded || SmoothLoader.isLoading();
+        if (loading) _loadSeen = true;
+        if (loading ? now <= _deadline : !_loadSeen && now - _since < LoadGraceSeconds) return;
+        if (loading)
+        {
+            LogService.LogWarning("[EmpireCraft][服务器核心] 交出去时的那一局迟迟没读完，这回不带回了；标记留着，下回开游戏再试。");
+            Tip(string.Format(LM.Get("terminal_core_back_failed"), LM.Get("terminal_core_timeout")), 8f);
+            Release();
+            return;
+        }
+        Enter(Phase.Importing);
+    }
+
+    private static void ClearDetach()
+    {
+        try
+        {
+            if (File.Exists(DetachedFile)) File.Delete(DetachedFile);
+            if (Directory.Exists(HandoffFolder)) Directory.Delete(HandoffFolder, true);
+        }
+        catch (Exception exception)
+        {
+            LogService.LogWarning($"[EmpireCraft][服务器核心] 脱手留下的文件没清掉: {exception.Message}");
+        }
+    }
+
+    // 本机这个端口上有没有人听着(核心还在不在)。本机连接成不成都是立刻的事
+    private static bool PortOpen()
+    {
+        try
+        {
+            using var client = new global::System.Net.Sockets.TcpClient();
+            return client.ConnectAsync("127.0.0.1", TerminalHost.Port).Wait(300) && client.Connected;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    // 核心凭管理员码登入时，码记在状态目录里(配了账号密码的不用码)。给牌子和"打开管理页"用
+    private static string SavedAdminCode()
+    {
+        try
+        {
+            string config = Path.Combine(StateFolder, "server.json");
+            if (File.Exists(config) && !string.IsNullOrEmpty((string)JObject.Parse(File.ReadAllText(config))["admin_password"])) return null;
+            string path = Path.Combine(StateFolder, "mods_config", "EmpireCraft.terminal.admin");
+            if (!File.Exists(path)) return null;
+            string[] lines = File.ReadAllLines(path);
+            string code = lines.Length > 0 ? lines[0].Trim() : "";
+            return code.Length == 8 ? code.Substring(0, 4) + "-" + code.Substring(4) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     // 核心的输出：认出世界读好了、管理员码；最后一行留着，没起来时写进提示
@@ -493,6 +786,17 @@ internal static class CoreHost
                 string rest = line.Substring(at + 5).Trim();
                 int end = rest.IndexOf(' ');
                 _adminCode = end > 0 ? rest.Substring(0, end) : rest;
+            }
+            if (line.Contains("已脱手")) _detachAck = true;
+            int link = line.IndexOf("管理页:", StringComparison.Ordinal);
+            if (link >= 0 && _linkAsked > 0f)
+            {
+                // 这行带着登入用的票：不留作"最后一行"，免得随后写进提示或日志
+                _lastLine = "";
+                string url = line.Substring(link + 4).Trim();
+                int cut = url.IndexOf(' ');
+                OpenPage(cut > 0 ? url.Substring(0, cut) : url);
+                continue;
             }
             if (State == Phase.Starting && (line.Contains("读回:") || line.Contains("世界已就绪")))
             {

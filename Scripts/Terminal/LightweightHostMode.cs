@@ -51,7 +51,13 @@ internal static class LightweightHostMode
     private static float _probeUntil, _probeNext;
     private static GameObject _panel;
     private static Canvas _panelCanvas;
-    private static Text _status, _link, _title, _note, _face, _face2;
+    private static Text _status, _link, _title, _note, _face, _face2, _face3, _scan;
+    // 牌子上的二维码：手机一扫就连上(眼下画的是哪条地址、贴图)。核心没有画面，那头不编这一段
+#if !EC_SERVER
+    private static RawImage _qr;
+    private static Texture2D _qrTexture;
+    private static string _qrFor;
+#endif
     // 黑屏眼下是替服务器核心挂着的(核心放手的那一帧恢复画面)
     private static bool _forCore;
 
@@ -244,13 +250,15 @@ internal static class LightweightHostMode
             _note.text = LM.Get("terminal_light_note");
             _face.text = LM.Get("terminal_light_restore");
             _face.transform.parent.gameObject.SetActive(true);
-            LayoutButtons(null);
+            LayoutButtons(null, null);
             _status.text = string.Format(LM.Get("terminal_light_status"), Date.getCurrentYear(), Date.getCurrentMonth(), _fps,
                                _pace >= 10f ? _pace.ToString("0") : _pace.ToString("0.#"), SpeedScale().ToString("0.##")) +
                            (paused ? " · " + LM.Get("terminal_light_paused") : "");
             // PrimaryAddress 自己带着端口
             string address = TerminalHost.PublicUrl.Length > 0 ? TerminalHost.PublicUrl : TerminalHost.PrimaryAddress();
             _link.text = string.Format(LM.Get("terminal_light_link"), address, TerminalHost.Code, TerminalHost.Seats().Count(seat => seat.Watched));
+            // 同终端窗口里那张一样：带配对码的整条地址，接着大厅时是大厅里本机的房间
+            ShowCode(TerminalHost.Running ? TerminalHost.PairUrl() : "");
         }
         catch (Exception exception)
         {
@@ -272,12 +280,49 @@ internal static class LightweightHostMode
             _link.text = CoreHost.LinkLine();
             _face.text = CoreHost.ButtonText();
             _face.transform.parent.gameObject.SetActive(CoreHost.CanStop);
-            LayoutButtons(CoreHost.SecondButtonText());
+            LayoutButtons(CoreHost.SecondButtonText(), CoreHost.ThirdButtonText());
+            ShowCode(CoreHost.ScanUrl());
         }
         catch (Exception exception)
         {
             if (_panel == null) LogService.LogWarning($"[EmpireCraft][轻量主机] 状态牌没画成: {exception.Message}");
         }
+    }
+
+    // 二维码(用户 2026-11-16 看着核心的牌子："你就不能显示个二维码嘛""我扫码链接")：手机扫了直接打开终端网页。
+    // 地址没变就不重画；没有地址(终端没开起来、核心还没接手)就收起来
+    private static void ShowCode(string url)
+    {
+#if !EC_SERVER
+        if (_qr == null) return;
+        bool has = !string.IsNullOrEmpty(url);
+        if (has && url != _qrFor)
+        {
+            bool[,] modules = TerminalQr.Encode(url);
+            if (modules == null) has = false;
+            else
+            {
+                // 白底黑码，四周留四格白边；一格一个像素，点采样放大
+                const int Quiet = 4;
+                int size = modules.GetLength(0), side = size + Quiet * 2;
+                var pixels = new Color32[side * side];
+                var white = new Color32(255, 255, 255, 255);
+                var black = new Color32(0, 0, 0, 255);
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = white;
+                for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                    if (modules[y, x]) pixels[(side - 1 - (y + Quiet)) * side + x + Quiet] = black;
+                if (_qrTexture != null) Object.Destroy(_qrTexture);
+                _qrTexture = new Texture2D(side, side, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+                _qrTexture.SetPixels32(pixels);
+                _qrTexture.Apply(false);
+                _qr.texture = _qrTexture;
+                _qrFor = url;
+            }
+        }
+        if (_qr.gameObject.activeSelf != has) _qr.gameObject.SetActive(has);
+        if (_scan.gameObject.activeSelf != has) _scan.gameObject.SetActive(has);
+#endif
     }
 
     // 牌子上的按钮：核心接手着是"停下核心、带回这一局"，否则是恢复画面
@@ -292,20 +337,41 @@ internal static class LightweightHostMode
         if (CoreHost.Holding) CoreHost.OnButton(1);
     }
 
-    // 按钮照字的宽度定宽；有第二个按钮(核心问话时)就两个并排居中，没有就一个居中
-    private static void LayoutButtons(string second)
+    private static void OnThirdButton()
     {
-        var first = (RectTransform)_face.transform.parent;
-        var other = (RectTransform)_face2.transform.parent;
-        other.gameObject.SetActive(second != null);
-        if (second != null) _face2.text = second;
-        float width = Mathf.Max(150f, _face.preferredWidth + 24f);
-        float otherWidth = second != null ? Mathf.Max(150f, _face2.preferredWidth + 24f) : 0f;
+        if (CoreHost.Holding) CoreHost.OnButton(2);
+    }
+
+    // 按钮照字的宽度定宽，有几个排几个，整排居中(第二、第三个只在服务器核心接手时有)
+    private static void LayoutButtons(string second, string third)
+    {
         const float Gap = 12f;
-        first.sizeDelta = new Vector2(width, 34f);
-        other.sizeDelta = new Vector2(otherWidth, 34f);
-        first.anchoredPosition = new Vector2(second != null ? -(otherWidth + Gap) / 2f : 0f, -58f);
-        other.anchoredPosition = new Vector2((width + Gap) / 2f, -58f);
+        Text[] faces = { _face, _face2, _face3 };
+        string[] texts = { _face.text, second, third };
+        var widths = new float[faces.Length];
+        float total = -Gap;
+        for (int i = 0; i < faces.Length; i++)
+        {
+            GameObject button = faces[i].transform.parent.gameObject;
+            // 头一个在不在由调用的地方定(见 RefreshForCore)，这里只管后两个
+            if (i > 0)
+            {
+                button.SetActive(texts[i] != null);
+                if (texts[i] != null) faces[i].text = texts[i];
+            }
+            if (!button.activeSelf) continue;
+            widths[i] = Mathf.Max(150f, faces[i].preferredWidth + 24f);
+            total += widths[i] + Gap;
+        }
+        float left = -total / 2f;
+        for (int i = 0; i < faces.Length; i++)
+        {
+            if (widths[i] <= 0f) continue;
+            var rect = (RectTransform)faces[i].transform.parent;
+            rect.sizeDelta = new Vector2(widths[i], 34f);
+            rect.anchoredPosition = new Vector2(left + widths[i] / 2f, -58f);
+            left += widths[i] + Gap;
+        }
     }
 
     // 眼下的速度档折成倍数：档位的倍数 × 每帧走几步，锁 30 帧时原版再翻倍，终端流速放慢时再乘上
@@ -387,6 +453,21 @@ internal static class LightweightHostMode
             return label;
         }
 
+        // 最上头：二维码和一行小字
+#if !EC_SERVER
+        var code = new GameObject("Code", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+        code.transform.SetParent(_panel.transform, false);
+        var codeRect = (RectTransform)code.transform;
+        codeRect.anchorMin = codeRect.anchorMax = new Vector2(0.5f, 0.5f);
+        codeRect.sizeDelta = new Vector2(128f, 128f);
+        codeRect.anchoredPosition = new Vector2(0f, 188f);
+        _qr = code.GetComponent<RawImage>();
+        _qr.raycastTarget = false;
+        _qrFor = null;
+        code.SetActive(false);
+        _scan = Line("Scan", LM.Get("terminal_light_scan"), 11, new Color(0.56f, 0.63f, 0.66f), 110f);
+        _scan.gameObject.SetActive(false);
+#endif
         _title = Line("Title", LM.Get(SettingId), 22, new Color(0.953f, 0.765f, 0.29f), 78f);
         _note = Line("Note", LM.Get("terminal_light_note"), 13, new Color(0.78f, 0.76f, 0.71f), 46f);
         _status = Line("Status", "", 14, new Color(0.95f, 0.93f, 0.89f), 14f);
@@ -413,6 +494,9 @@ internal static class LightweightHostMode
         // 第二个按钮只在服务器核心问话时出来(见 CoreHost.SecondButtonText)
         _face2 = PanelButton("Second", new Color(0.55f, 0.36f, 0.24f), OnSecondButton);
         _face2.transform.parent.gameObject.SetActive(false);
+        // 第三个：核心跑着时"关闭游戏，只留核心"(见 CoreHost.ThirdButtonText)
+        _face3 = PanelButton("Third", new Color(0.3f, 0.36f, 0.46f), OnThirdButton);
+        _face3.transform.parent.gameObject.SetActive(false);
         Line("Key", LM.Get("terminal_light_key"), 11, new Color(0.56f, 0.63f, 0.66f), -88f);
     }
 }

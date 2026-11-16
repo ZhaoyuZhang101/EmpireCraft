@@ -15,7 +15,7 @@ namespace EmpireCraft.Server;
 //   GET  /api/server                    这是什么服务器、怎么登录
 //   POST /api/account/register          {user, password, invite} → {token}       玩家注册
 //   POST /api/account/login             {user, password} → {token}                玩家登录
-//   POST /api/admin/pair                {user, password} 或 {code} → {token, admin:true}   管理员登入
+//   POST /api/admin/pair                {user, password} 或 {code} 或 {ticket} → {token, admin:true}   管理员登入(ticket 见 IssueAdminTicket)
 //   GET  /api/admin/accounts            → {accounts:[{user, created, last, seat}]}  (以下都要管理员令牌)
 //   POST /api/admin/account/delete      {user}                                   销号
 //   GET  /api/admin/settings            → {settings:[{id, name, desc, kind: switch|text, value}], laws:[{id, name, desc, on}]}  模组设置与世界法则
@@ -26,7 +26,10 @@ namespace EmpireCraft.Server;
 //   GET  /api/admin/scenarios           → {state, name, key, step, detail, world, frame, size, frames:[{id, name}], sizes:[{id, name}], defaultFrame, defaultSize,
 //                                          list:[{key, name, year, frame, custom, fixed, author}]}   服务器上有哪些剧本(预设的、上传过的)，眼下开的是哪个
 //   POST /api/admin/scenarios           {key, frame, size} 按这个剧本开局；{reset: true} 把眼下这个剧本重开一遍(现有的世界先归档存档)
-//   GET/POST /api/admin/save            看上回什么时候存的档 / 现在存一次
+//   GET/POST /api/admin/save            看上回什么时候存的档 / 现在存一次 (回话里 detached：游戏本体关了、只留核心)
+//   POST /api/admin/return              停下核心：存档、核心退出；脱手的(见 Program.Detach)还开回游戏 exe。回 {ok, detached}；停不了回 409 cannot_stop
+//   POST /api/admin/open                {page:"admin"} 在核心这台电脑的浏览器里开网页管理页(免登)；本机没有核心窗口回 409 cannot_open
+//   GET  /api/admin/host                → {address, scan, qr:["0101…"], detached, can_stop, online, max}   主机面板(Terminal/host.html)要的
 // 这些都在网络线程里跑：只读写账号表、存文件、往主线程的队列里放事，不碰世界
 internal static class ServerRoutes
 {
@@ -45,6 +48,50 @@ internal static class ServerRoutes
     private const int MaxUpload = 16 * 1024 * 1024;
     private static int _adminFails;
     private static DateTime _adminLockedUntil = DateTime.MinValue;
+
+    // 本机打开管理页用的一次性票(用户 2026-11-16 "可以都覆盖"：配了账号密码的核心，本机打开也直接进管理员)：
+    // 核心自己打开浏览器、或模组拉起的核心应 adminlink 时发一张，写在地址 #admin= 后面，网页拿它换管理员令牌。
+    // 32 位小写十六进制，只在内存里，只能兑一回，120 秒作废，同一时刻只认最新的一张；
+    // 兑错另记一个数，5 回锁 60 秒，不占账号密码连错的次数
+    private const int TicketSeconds = 120;
+    private static string _ticket;
+    private static DateTime _ticketUntil = DateTime.MinValue, _ticketLockedUntil = DateTime.MinValue;
+    private static int _ticketFails;
+
+    public static string IssueAdminTicket()
+    {
+        string ticket = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        lock (Accounts)
+        {
+            _ticket = ticket;
+            _ticketUntil = DateTime.UtcNow.AddSeconds(TicketSeconds);
+        }
+        return ticket;
+    }
+
+    // 兑票：对了返回 true 并作废这张票；错了计数(到 5 回锁 60 秒)。locked 表示眼下锁着
+    private static bool RedeemTicket(string ticket, out bool locked)
+    {
+        lock (Accounts)
+        {
+            locked = DateTime.UtcNow < _ticketLockedUntil;
+            if (locked) return false;
+            bool valid = _ticket != null && DateTime.UtcNow < _ticketUntil && Same(ticket, _ticket);
+            if (valid)
+            {
+                _ticket = null;
+                _ticketFails = 0;
+                return true;
+            }
+            if (++_ticketFails >= 5)
+            {
+                _ticketFails = 0;
+                _ticketLockedUntil = DateTime.UtcNow.AddSeconds(60);
+                locked = true;
+            }
+            return false;
+        }
+    }
 
     private static TerminalServer.Reply Json(JObject body, int status = 200) => TerminalServer.Reply.Json(body.ToString(Newtonsoft.Json.Formatting.None), status);
     private static TerminalServer.Reply Error(int status, string code, string detail = null) =>
@@ -84,7 +131,8 @@ internal static class ServerRoutes
         if (method == "POST" && path == "/api/account/login") return Login(body);
         if (method == "POST" && path == "/api/admin/pair") return AdminLogin(body);
         if (path == "/api/admin/accounts" || path == "/api/admin/account/delete" || path == "/api/admin/scenario" || path == "/api/admin/settings" || path == "/api/admin/law" ||
-            path == "/api/admin/save" || path == "/api/admin/scenarios")
+            path == "/api/admin/save" || path == "/api/admin/scenarios" || path == "/api/admin/return" ||
+            path == "/api/admin/host" || path == "/api/admin/open")
         {
             if (!TerminalHost.IsAdmin(token)) return Error(401, "unpaired");
             // 存档：GET 看上回什么时候存的，POST 现在存一次(排到主循环里办，结果再 GET 看)
@@ -94,8 +142,25 @@ internal static class ServerRoutes
                 return Json(new JObject
                 {
                     ["ok"] = true, ["exists"] = WorldSave.Exists, ["saved"] = WorldSave.LastSaved == DateTime.MinValue ? null : WorldSave.LastSaved.ToString("o"),
-                    ["autosave_minutes"] = Config.autosave_minutes, ["last"] = Program.LastSaveResult
+                    ["autosave_minutes"] = Config.autosave_minutes, ["last"] = Program.LastSaveResult,
+                    // 游戏本体关了、只留核心跑(脱手，见 Program.Detach)：管理页给「停下核心，回到游戏」
+                    ["detached"] = Program.Detached
                 });
+            }
+            // 停下核心，回到游戏：存档、开回游戏、核心退出(没脱手的回 409)
+            if (path == "/api/admin/return")
+            {
+                if (method != "POST") return Error(405, "method");
+                return Program.RequestReturn() ? Json(new JObject { ["ok"] = true, ["detached"] = Program.Detached }) : Error(409, "cannot_stop");
+            }
+            if (method == "GET" && path == "/api/admin/host") return Host();
+            // 在核心这台电脑的默认浏览器里打开网页管理页(带码或票，开了就是管理员)：只在本机有核心窗口时(面板里那个按钮)
+            if (path == "/api/admin/open")
+            {
+                if (method != "POST") return Error(405, "method");
+                string page = (string)Parse(body)?["page"] ?? "admin";
+                if (page != "admin") return Error(400, "bad_request");
+                return CoreShell.Active && CoreShell.OpenAdmin() ? Json(new JObject { ["ok"] = true }) : Error(409, "cannot_open");
             }
             if (method == "GET" && path == "/api/admin/settings") return ListSettings();
             if (method == "POST" && path == "/api/admin/settings") return ChangeSetting(body);
@@ -153,6 +218,14 @@ internal static class ServerRoutes
         JObject request = Parse(body);
         if (request == null) return Error(400, "bad_request");
         string user = ((string)request["user"] ?? "").Trim(), password = (string)request["password"] ?? "", code = ((string)request["code"] ?? "").Trim();
+        // 本机打开管理页带来的一次性票(见 IssueAdminTicket)
+        if (request["ticket"] != null)
+        {
+            if (!RedeemTicket(((string)request["ticket"] ?? "").Trim(), out bool ticketLocked))
+                return ticketLocked ? Error(429, "locked") : Error(403, "wrong_admin");
+            string issued = TerminalHost.IssueAdmin();
+            return issued != null ? Json(new JObject { ["token"] = issued, ["admin"] = true }) : Error(503, "not_ready");
+        }
         if (!Config.AdminByPassword)
         {
             string made = TerminalHost.AdminLoginCode(code.Length > 0 ? code : password, out bool locked);
@@ -181,6 +254,34 @@ internal static class ServerRoutes
         }
         string token = TerminalHost.IssueAdmin();
         return token != null ? Json(new JObject { ["token"] = token, ["admin"] = true }) : Error(503, "not_ready");
+    }
+
+    // 主机面板要的：手机该连的地址(给人看的、二维码里的整条)、二维码格子(一行一串 01，行 0 在上；编不下不给)、
+    // 是否脱手、能不能从面板停下核心、在线几部。地址同开服说明：接着大厅用房间地址，填了外网地址用外网的，否则局域网地址
+    private static TerminalServer.Reply Host()
+    {
+        string scan = TerminalHost.LobbyOnline ? TerminalHost.RoomUrl : TerminalHost.PublicUrl.Length > 0 ? TerminalHost.PublicUrl : "http://" + TerminalHost.PrimaryAddress();
+        string address = scan.StartsWith("http://", StringComparison.Ordinal) ? scan.Substring(7) : scan.StartsWith("https://", StringComparison.Ordinal) ? scan.Substring(8) : scan;
+        var reply = new JObject
+        {
+            ["address"] = address, ["scan"] = scan, ["detached"] = Program.Detached, ["can_stop"] = Program.CanStop,
+            ["online"] = TerminalHost.OnlineSeats(), ["max"] = TerminalPairing.Limit
+        };
+        bool[,] modules = TerminalQr.Encode(scan);
+        if (modules != null)
+        {
+            var rows = new JArray();
+            int size = modules.GetLength(0);
+            var line = new StringBuilder(size);
+            for (int y = 0; y < size; y++)
+            {
+                line.Clear();
+                for (int x = 0; x < size; x++) line.Append(modules[y, x] ? '1' : '0');
+                rows.Add(line.ToString());
+            }
+            reply["qr"] = rows;
+        }
+        return Json(reply);
     }
 
     // 这几项由服务器自己定，不给改：终端开关与端口(关了就连不上了)、画面相关的、席位上限(在 server.json 里)

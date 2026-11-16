@@ -44,5 +44,7 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Lib.Harmony" Version="2.3.6" />
+    <!-- Windows 上核心自己的窗口(CoreShell)：里头嵌网页面板，用系统自带的 WebView2 运行时；只用它的 Core 库，不带 WinForms/WPF -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2849.39" />
   </ItemGroup>
 </Project>

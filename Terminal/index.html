@@ -4274,13 +4274,14 @@ var scanned=null,triedScan=false,triedLobby=false;
   try{history.replaceState(null,"",location.pathname)}catch(e){}
   scanned=m[1];
 })();
-// 开服的那台电脑上打开的管理页：地址后面带着管理员码(#admin=，见 CoreHost.OpenAdmin)，记下后从地址栏去掉。
-// 这个浏览器登入过管理员就直接切过去；没登入过、或者令牌作废了(见 adminLost)，才拿这个码登一回——码只用一回，不多占管理员的位子
+// 开服的那台电脑上打开的管理页：地址后面带着登入用的东西(#admin=，见 CoreHost.OpenAdmin)，记下后从地址栏去掉。
+// 带的是管理员码(八位)，或者独立服务器配了账号密码时发的一张票(三十二位，只能用一回，过一会儿作废)。
+// 这个浏览器登入过管理员就直接切过去；没登入过、或者令牌作废了(见 adminLost)，才拿它登一回，不多占管理员的位子
 var hashAdmin=null;
 (function(){
-  var m=/^#admin=([A-Za-z0-9-]{8,9})$/.exec(location.hash);
+  var m=/^#admin=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4}|[0-9a-f]{32})$/.exec(location.hash);
   if(!m)return;
-  hashAdmin=m[1].toUpperCase().replace(/[^A-Z0-9]/g,"");
+  hashAdmin=m[1].length===32?m[1]:m[1].toUpperCase().replace(/[^A-Z0-9]/g,"");
   try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
 })();
 function hashAdminGo(){
@@ -4288,7 +4289,7 @@ function hashAdminGo(){
   if(adminToken){if(role!=="admin")switchRole("admin");return}
   var code=hashAdmin,back=function(){if(role==="admin")switchRole("seat")};
   hashAdmin=null;
-  api("POST","/api/admin/pair",{code:code}).then(function(r){
+  api("POST","/api/admin/pair",code.length===32?{ticket:code}:{code:code}).then(function(r){
     if(r.status===200&&r.json.token){adminToken=r.json.token;store(ADMIN_KEY,adminToken);switchRole("admin")}
     else back();
   },back);
@@ -4304,21 +4305,21 @@ acct_user:"账号（2~16 个字）",acct_pass:"密码（至少 6 位）",acct_in
 e_wrong_login:"账号或密码不对",e_taken:"这个账号名有人用了",e_bad_user:"账号名要 2~16 个字，只用汉字、字母、数字、下划线",e_bad_password:"密码至少 6 位",e_closed:"这台服务器眼下不收新账号",
 e_wrong_invite:"邀请码不对",e_accounts_only:"这台服务器凭账号登录",adm_user:"管理员账号",adm_pass:"密码",adm_e_fill:"填上管理员账号和密码",adm_e_wrong_pw:"管理员账号或密码不对",
 srv_accounts:"账号",srv_accounts_none:"还没有人注册。",srv_acct_sub:"注册 {0} · 上次登录 {1}",srv_acct_noseat:"席位已撤",srv_delete:"销号",srv_deleted:"已销号：{0}",
-srv_settings:"设置",srv_mod:"模组设置",srv_mod_sub:"{0} 项",srv_laws:"世界法则",srv_laws_sub:"{0} 条",srv_mod_note:"点一项就改。有的要重新开局才生效。",srv_laws_note:"点一条就开关。",srv_save:"存档",srv_save_sub:"上回 {0} · {1}",srv_save_none:"还没存过 · {0}",srv_save_auto:"每 {0} 分钟自动存",srv_save_manual:"不自动存",srv_saving:"已叫服务器存档",srv_scen:"剧本",srv_scen_switch:"换剧本",srv_scen_pick:"载入剧本",srv_scen_none:"还没有世界。挑一个剧本载入。",srv_scen_running:"眼下：{0}",srv_scen_loading:"正在开局 {0}",srv_scen_failed:"没开成：{0}",srv_scen_note:"挑一个剧本开局。",srv_scen_note_world:"换了剧本，现有的世界就收起来(存档挪去归档)，各席位要重新选君主。",srv_scen_year:"{0} 年",srv_scen_bc:"前 {0} 年",srv_scen_preset:"预设",srv_scen_custom:"上传的",srv_scen_frame:"地图范围",srv_scen_size:"地图大小",srv_scen_fixed:"这个剧本的地图范围和大小是它自己定的。",srv_scen_start:"开局",srv_scen_started:"已开始载入 {0}",srv_scen_busy:"正在开局，稍等",srv_scen_reset:"重置地图",srv_scen_reset_sub:"把眼下这个剧本从头再开一遍",srv_scen_reset_go:"重开",srv_wait_admin:"服务器上还没有世界。",srv_full:"服务器人满了",srv_full_hint:"眼下在线 {0} 位，上限 {1} 位。有人离线后这里自动接上。",srv_limit:"同时在线上限",srv_limit_sub:"账号 {0} 个，注册不设上限；在线的到了这个数，后来的等有人离线",srv_wait_player:"等管理员载入剧本，这里自动接上。",
+srv_settings:"设置",srv_mod:"模组设置",srv_mod_sub:"{0} 项",srv_laws:"世界法则",srv_laws_sub:"{0} 条",srv_mod_note:"点一项就改。有的要重新开局才生效。",srv_laws_note:"点一条就开关。",srv_save:"存档",srv_save_sub:"上回 {0} · {1}",srv_save_none:"还没存过 · {0}",srv_save_auto:"每 {0} 分钟自动存",srv_save_manual:"不自动存",srv_saving:"已叫服务器存档",srv_scen:"剧本",srv_scen_switch:"换剧本",srv_scen_pick:"载入剧本",srv_scen_none:"还没有世界。挑一个剧本载入。",srv_scen_running:"眼下：{0}",srv_scen_loading:"正在开局 {0}",srv_scen_failed:"没开成：{0}",srv_scen_note:"挑一个剧本开局。",srv_scen_note_world:"换了剧本，现有的世界就收起来(存档挪去归档)，各席位要重新选君主。",srv_scen_year:"{0} 年",srv_scen_bc:"前 {0} 年",srv_scen_preset:"预设",srv_scen_custom:"上传的",srv_scen_frame:"地图范围",srv_scen_size:"地图大小",srv_scen_fixed:"这个剧本的地图范围和大小是它自己定的。",srv_scen_start:"开局",srv_scen_started:"已开始载入 {0}",srv_scen_busy:"正在开局，稍等",srv_scen_reset:"重置地图",srv_scen_reset_sub:"把眼下这个剧本从头再开一遍",srv_scen_reset_go:"重开",srv_return:"停下核心，回到游戏",srv_return_sub:"存好档，关掉核心，把游戏开回来接着玩",srv_return_go:"回到游戏",srv_returning:"核心正在存档退出，游戏随后开回来",srv_wait_admin:"服务器上还没有世界。",srv_full:"服务器人满了",srv_full_hint:"眼下在线 {0} 位，上限 {1} 位。有人离线后这里自动接上。",srv_limit:"同时在线上限",srv_limit_sub:"账号 {0} 个，注册不设上限；在线的到了这个数，后来的等有人离线",srv_wait_player:"等管理员载入剧本，这里自动接上。",
 srv_on:"开",srv_off:"关",srv_none:"眼下没有。",srv_changed:"已改：{0}"},
 ch:{acct_title:"登入",acct_hint_open:"用帳號和密碼登入。還沒有帳號：填好帳號密碼後點「註冊」。",acct_hint_code:"用帳號和密碼登入。註冊要填邀請碼。",acct_hint_closed:"用帳號和密碼登入。這台伺服器眼下不收新帳號。",
 acct_user:"帳號（2~16 個字）",acct_pass:"密碼（至少 6 位）",acct_invite:"邀請碼",acct_login:"登入",acct_register:"註冊",e_acct_fill:"填上帳號和密碼",
 e_wrong_login:"帳號或密碼不對",e_taken:"這個帳號名有人用了",e_bad_user:"帳號名要 2~16 個字，只用漢字、字母、數字、底線",e_bad_password:"密碼至少 6 位",e_closed:"這台伺服器眼下不收新帳號",
 e_wrong_invite:"邀請碼不對",e_accounts_only:"這台伺服器憑帳號登入",adm_user:"管理員帳號",adm_pass:"密碼",adm_e_fill:"填上管理員帳號和密碼",adm_e_wrong_pw:"管理員帳號或密碼不對",
 srv_accounts:"帳號",srv_accounts_none:"還沒有人註冊。",srv_acct_sub:"註冊 {0} · 上次登入 {1}",srv_acct_noseat:"席位已撤",srv_delete:"銷號",srv_deleted:"已銷號：{0}",
-srv_settings:"設定",srv_mod:"模組設定",srv_mod_sub:"{0} 項",srv_laws:"世界法則",srv_laws_sub:"{0} 條",srv_mod_note:"點一項就改。有的要重新開局才生效。",srv_laws_note:"點一條就開關。",srv_save:"存檔",srv_save_sub:"上回 {0} · {1}",srv_save_none:"還沒存過 · {0}",srv_save_auto:"每 {0} 分鐘自動存",srv_save_manual:"不自動存",srv_saving:"已叫伺服器存檔",srv_scen:"劇本",srv_scen_switch:"換劇本",srv_scen_pick:"載入劇本",srv_scen_none:"還沒有世界。挑一個劇本載入。",srv_scen_running:"眼下：{0}",srv_scen_loading:"正在開局 {0}",srv_scen_failed:"沒開成：{0}",srv_scen_note:"挑一個劇本開局。",srv_scen_note_world:"換了劇本，現有的世界就收起來(存檔挪去歸檔)，各席位要重新選君主。",srv_scen_year:"{0} 年",srv_scen_bc:"前 {0} 年",srv_scen_preset:"預設",srv_scen_custom:"上傳的",srv_scen_frame:"地圖範圍",srv_scen_size:"地圖大小",srv_scen_fixed:"這個劇本的地圖範圍和大小是它自己定的。",srv_scen_start:"開局",srv_scen_started:"已開始載入 {0}",srv_scen_busy:"正在開局，稍等",srv_scen_reset:"重置地圖",srv_scen_reset_sub:"把眼下這個劇本從頭再開一遍",srv_scen_reset_go:"重開",srv_wait_admin:"伺服器上還沒有世界。",srv_full:"伺服器人滿了",srv_full_hint:"眼下在線 {0} 位，上限 {1} 位。有人離線後這裡自動接上。",srv_limit:"同時在線上限",srv_limit_sub:"帳號 {0} 個，註冊不設上限；在線的到了這個數，後來的等有人離線",srv_wait_player:"等管理員載入劇本，這裡自動接上。",
+srv_settings:"設定",srv_mod:"模組設定",srv_mod_sub:"{0} 項",srv_laws:"世界法則",srv_laws_sub:"{0} 條",srv_mod_note:"點一項就改。有的要重新開局才生效。",srv_laws_note:"點一條就開關。",srv_save:"存檔",srv_save_sub:"上回 {0} · {1}",srv_save_none:"還沒存過 · {0}",srv_save_auto:"每 {0} 分鐘自動存",srv_save_manual:"不自動存",srv_saving:"已叫伺服器存檔",srv_scen:"劇本",srv_scen_switch:"換劇本",srv_scen_pick:"載入劇本",srv_scen_none:"還沒有世界。挑一個劇本載入。",srv_scen_running:"眼下：{0}",srv_scen_loading:"正在開局 {0}",srv_scen_failed:"沒開成：{0}",srv_scen_note:"挑一個劇本開局。",srv_scen_note_world:"換了劇本，現有的世界就收起來(存檔挪去歸檔)，各席位要重新選君主。",srv_scen_year:"{0} 年",srv_scen_bc:"前 {0} 年",srv_scen_preset:"預設",srv_scen_custom:"上傳的",srv_scen_frame:"地圖範圍",srv_scen_size:"地圖大小",srv_scen_fixed:"這個劇本的地圖範圍和大小是它自己定的。",srv_scen_start:"開局",srv_scen_started:"已開始載入 {0}",srv_scen_busy:"正在開局，稍等",srv_scen_reset:"重置地圖",srv_scen_reset_sub:"把眼下這個劇本從頭再開一遍",srv_scen_reset_go:"重開",srv_return:"停下核心，回到遊戲",srv_return_sub:"存好檔，關掉核心，把遊戲開回來接著玩",srv_return_go:"回到遊戲",srv_returning:"核心正在存檔退出，遊戲隨後開回來",srv_wait_admin:"伺服器上還沒有世界。",srv_full:"伺服器人滿了",srv_full_hint:"眼下在線 {0} 位，上限 {1} 位。有人離線後這裡自動接上。",srv_limit:"同時在線上限",srv_limit_sub:"帳號 {0} 個，註冊不設上限；在線的到了這個數，後來的等有人離線",srv_wait_player:"等管理員載入劇本，這裡自動接上。",
 srv_on:"開",srv_off:"關",srv_none:"眼下沒有。",srv_changed:"已改：{0}"},
 en:{acct_title:"Sign in",acct_hint_open:"Sign in with an account and password. No account yet: fill both in and tap Register.",acct_hint_code:"Sign in with an account and password. Registering needs an invite code.",acct_hint_closed:"Sign in with an account and password. This server is not taking new accounts.",
 acct_user:"Account (2–16 characters)",acct_pass:"Password (at least 6 characters)",acct_invite:"Invite code",acct_login:"Sign in",acct_register:"Register",e_acct_fill:"Enter an account and a password",
 e_wrong_login:"Wrong account or password",e_taken:"That account name is taken",e_bad_user:"Account names are 2–16 letters, digits or underscores",e_bad_password:"Passwords need at least 6 characters",e_closed:"This server is not taking new accounts",
 e_wrong_invite:"That invite code doesn't match",e_accounts_only:"This server signs in by account",adm_user:"Admin account",adm_pass:"Password",adm_e_fill:"Enter the admin account and password",adm_e_wrong_pw:"Wrong admin account or password",
 srv_accounts:"Accounts",srv_accounts_none:"Nobody has registered yet.",srv_acct_sub:"Registered {0} · last sign-in {1}",srv_acct_noseat:"seat removed",srv_delete:"Delete",srv_deleted:"Account deleted: {0}",
-srv_settings:"Settings",srv_mod:"Mod settings",srv_mod_sub:"{0} items",srv_laws:"World laws",srv_laws_sub:"{0} laws",srv_mod_note:"Tap an item to change it. Some only take effect on a new world.",srv_laws_note:"Tap a law to switch it.",srv_save:"Save",srv_save_sub:"Last {0} · {1}",srv_save_none:"Not saved yet · {0}",srv_save_auto:"autosaves every {0} min",srv_save_manual:"no autosave",srv_saving:"Save requested",srv_scen:"Scenario",srv_scen_switch:"Change scenario",srv_scen_pick:"Load a scenario",srv_scen_none:"No world yet. Pick a scenario to load.",srv_scen_running:"Now: {0}",srv_scen_loading:"Starting {0}",srv_scen_failed:"Did not start: {0}",srv_scen_note:"Pick a scenario to start.",srv_scen_note_world:"Changing the scenario puts the current world away (its save is archived) and every seat picks a ruler again.",srv_scen_year:"{0}",srv_scen_bc:"{0} BC",srv_scen_preset:"built-in",srv_scen_custom:"uploaded",srv_scen_frame:"Map area",srv_scen_size:"Map size",srv_scen_fixed:"This scenario sets its own map area and size.",srv_scen_start:"Start",srv_scen_started:"Loading {0}",srv_scen_busy:"A world is already starting",srv_scen_reset:"Reset the map",srv_scen_reset_sub:"Start the current scenario over from the beginning",srv_scen_reset_go:"Restart",srv_wait_admin:"The server has no world yet.",srv_full:"The server is full",srv_full_hint:"{0} online, limit {1}. This connects by itself when someone leaves.",srv_limit:"Online limit",srv_limit_sub:"{0} accounts, no cap on sign-ups; once this many are online, later ones wait for someone to leave",srv_wait_player:"Waiting for the admin to load a scenario; this connects by itself.",
+srv_settings:"Settings",srv_mod:"Mod settings",srv_mod_sub:"{0} items",srv_laws:"World laws",srv_laws_sub:"{0} laws",srv_mod_note:"Tap an item to change it. Some only take effect on a new world.",srv_laws_note:"Tap a law to switch it.",srv_save:"Save",srv_save_sub:"Last {0} · {1}",srv_save_none:"Not saved yet · {0}",srv_save_auto:"autosaves every {0} min",srv_save_manual:"no autosave",srv_saving:"Save requested",srv_scen:"Scenario",srv_scen_switch:"Change scenario",srv_scen_pick:"Load a scenario",srv_scen_none:"No world yet. Pick a scenario to load.",srv_scen_running:"Now: {0}",srv_scen_loading:"Starting {0}",srv_scen_failed:"Did not start: {0}",srv_scen_note:"Pick a scenario to start.",srv_scen_note_world:"Changing the scenario puts the current world away (its save is archived) and every seat picks a ruler again.",srv_scen_year:"{0}",srv_scen_bc:"{0} BC",srv_scen_preset:"built-in",srv_scen_custom:"uploaded",srv_scen_frame:"Map area",srv_scen_size:"Map size",srv_scen_fixed:"This scenario sets its own map area and size.",srv_scen_start:"Start",srv_scen_started:"Loading {0}",srv_scen_busy:"A world is already starting",srv_scen_reset:"Reset the map",srv_scen_reset_sub:"Start the current scenario over from the beginning",srv_scen_reset_go:"Restart",srv_return:"Stop the core, back to the game",srv_return_sub:"Save, shut the core down and reopen the game to play on",srv_return_go:"Back to game",srv_returning:"The core is saving and stopping; the game reopens next",srv_wait_admin:"The server has no world yet.",srv_full:"The server is full",srv_full_hint:"{0} online, limit {1}. This connects by itself when someone leaves.",srv_limit:"Online limit",srv_limit_sub:"{0} accounts, no cap on sign-ups; once this many are online, later ones wait for someone to leave",srv_wait_player:"Waiting for the admin to load a scenario; this connects by itself.",
 srv_on:"On",srv_off:"Off",srv_none:"Nothing here yet.",srv_changed:"Changed: {0}"}};
 ["cz","ch","en"].forEach(function(k){for(var x in S[k])T[k][x]=S[k][x]})})();
 // 认出是独立服务器以后：配对卡换成账号卡，管理员卡按它说的摆(码一个框，或账号密码两个框)
@@ -4526,6 +4527,12 @@ function srvAdminCards(box){
       toast(r.status===200?t("srv_saving"):t("sent_fail"),r.status!==200);setTimeout(srvLoad,1500);
     },function(){toast(t("e_net"),true)});
   }));
+  // 游戏本体关了、只留核心跑(脱手)：停下核心，存档、开回游戏
+  if(srvSave&&srvSave.detached)set.appendChild(liAct(t("srv_return"),t("srv_return_sub"),admArmBtn("core_return",t("srv_return_go"),"c_close",function(){
+    api("POST","/api/admin/return").then(function(r){
+      toast(r.status===200?t("srv_returning"):t("sent_fail"),r.status!==200);
+    },function(){toast(t("e_net"),true)});
+  },"no")));
   box.appendChild(set);
 }
 // 设置的弹出层：开关点一下就换，填字的弹框改

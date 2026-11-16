@@ -8,8 +8,10 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class StableFrameRate
 {
     public const int Target = 30;
-    private static bool _enabled, _saved;
-    private static int _savedFrameRate, _savedVSync;
+    // 游戏本体闲着时的帧率(见 SetIdle)
+    public const int IdleTarget = 10;
+    private static bool _enabled, _saved, _idle;
+    private static int _savedFrameRate, _savedVSync, _idleFrameRate, _idleVSync;
     private static float _nextCheck;
 
     public static void Set(bool on)
@@ -34,13 +36,44 @@ public static class StableFrameRate
         }
     }
 
+    // 游戏本体闲着(这一局交给了服务器核心，本体只剩一块黑屏牌子，见 CoreHost)：帧率压到每秒 10 帧，处理器和显卡都省下来
+    // (用户 2026-11-16 "这个本体运行着不会消耗我电脑性能吧"：当时本体空转着每秒四十多帧，占一个多核、一成显卡)。
+    // 牌子一秒才换一回字，按钮、快捷键十帧也够用。放开时回到原样；"稳定帧率"开着的回到它那一档
+    public static void SetIdle(bool on)
+    {
+        if (on == _idle) return;
+        _idle = on;
+        if (on)
+        {
+            _idleFrameRate = Application.targetFrameRate;
+            _idleVSync = QualitySettings.vSyncCount;
+            ApplyIdle();
+        }
+        else if (_enabled) Apply();
+        else
+        {
+            Application.targetFrameRate = _idleFrameRate;
+            QualitySettings.vSyncCount = _idleVSync;
+        }
+    }
+
     public static void Tick()
     {
-        if (!_enabled) return;
+        if (!_enabled && !_idle) return;
         float now = Time.unscaledTime;
         if (now < _nextCheck) return;
         _nextCheck = now + 2f;
-        if (Application.targetFrameRate != Target || QualitySettings.vSyncCount != 0) Apply();
+        if (_idle)
+        {
+            if (Application.targetFrameRate != IdleTarget || QualitySettings.vSyncCount != 0) ApplyIdle();
+        }
+        else if (Application.targetFrameRate != Target || QualitySettings.vSyncCount != 0) Apply();
+    }
+
+    private static void ApplyIdle()
+    {
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = IdleTarget;
     }
 
     private static void Apply()
