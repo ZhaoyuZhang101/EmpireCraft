@@ -58,6 +58,7 @@ public partial class MapBox
         DiplomacyHelpers.wars = wars;
         DiplomacyHelpers.diplomacy = diplomacy;
         SimGlobals.m ??= new SimGlobalAsset { id = "main" };
+        ShimColors.FillLibraries();
     }
 
     public double getCurWorldTime() => world_time;

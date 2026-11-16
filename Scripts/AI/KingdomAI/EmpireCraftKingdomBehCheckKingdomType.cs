@@ -41,6 +41,17 @@ public enum ConditionType
 public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
 {
     public override Type OriginalBeh => GetType();
+    // 条件写成"名字:值"的字符串(政体配置里的原样)：拆开、认名字只做一回，记下来。
+    // 以前每个国每个月把各类别的各条条件重新拆一遍、按名字查一遍枚举
+    private static readonly global::System.Collections.Concurrent.ConcurrentDictionary<string, (ConditionType key, string val)> ParsedConditions = new();
+
+    private static (ConditionType key, string val) ParseCondition(string cond) => ParsedConditions.GetOrAdd(cond, text =>
+    {
+        var parts = text.Split(':');
+        var key = Enum.TryParse<ConditionType>(parts[0], out var value) ? value : ConditionType.None;
+        return (key, parts.Length > 1 ? parts[1] : "");
+    });
+
     private static bool MatchConditions(Kingdom kingdom, Regime regime, List<string> conditions)
     {
         if (conditions == null || conditions.Count == 0) return false;
@@ -48,9 +59,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         foreach (var cond in conditions)
         {
             if (string.IsNullOrEmpty(cond)) continue;
-            var parts = cond.Split(':');
-            var key = Enum.TryParse<ConditionType>(parts[0], out var value) ? value : ConditionType.None;
-            var val = parts.Length > 1 ? parts[1] : "";
+            (ConditionType key, string val) = ParseCondition(cond);
             switch (key)
             {
                 case ConditionType.empire_center:
@@ -269,15 +278,21 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
                 return BehResult.Continue;
             }
         }
-        FeudalVassalService.Sync(pKingdom);
+        using (FrameProfiler.Measure("国类·附庸同步")) FeudalVassalService.Sync(pKingdom);
         // 按默认值装成律令制(或阿拉伯)的改回本文化的政体(见 CultureService.RepairDefaultRegime；玩家 2026-10-22 反馈"全图律令制")。
         // 每月一次、多数国家第一行就返回；新开的图上已经装错的国家由这里陆续纠正
-        CultureService.RepairDefaultRegime(pKingdom);
-        InstitutionSystem.TryAdvanceRegimeTransition(pKingdom);
-        SyncKingdomStatus(pKingdom);
+        using (FrameProfiler.Measure("国类·政体纠正与过渡"))
+        {
+            CultureService.RepairDefaultRegime(pKingdom);
+            InstitutionSystem.TryAdvanceRegimeTransition(pKingdom);
+        }
+        using (FrameProfiler.Measure("国类·定类别")) SyncKingdomStatus(pKingdom);
         // 周制诸侯各用各的颜色(帝国仍是天子的颜色)
-        KingdomColorService.EnsureDistinctInZhou(pKingdom);
-        SyncOffice(pKingdom);
+        using (FrameProfiler.Measure("国类·颜色与官署"))
+        {
+            KingdomColorService.EnsureDistinctInZhou(pKingdom);
+            SyncOffice(pKingdom);
+        }
         if (ked != null) ked.last_kingdom_status_ts = World.world.getCurWorldTime();
         return BehResult.Continue;
     }
@@ -311,6 +326,7 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
     public static void SyncKingdomStatus(Kingdom pKingdom, bool afterIndependence = false)
     {
         var originalKingdomType = pKingdom.GetKingdomType();
+        string nameBefore = pKingdom.data?.name;
         //计算当前国家类别
         KingdomType newkingdomType = CalcKingdomType(pKingdom);
         pKingdom.SetKingdomType(newkingdomType);
@@ -408,6 +424,8 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
             pKingdom.data.name = armedName.UseLocalizedNameSeparator();
         else
             pKingdom.SetKingdomName(kingdomName, afterIndependence);
+        // 名字变了：这一帧列好的国名表作废(见 EnsureNameIndex)
+        if (!string.Equals(pKingdom.data.name, nameBefore, StringComparison.Ordinal)) _nameIndexFrame = -1;
         CityType currentCityType = CalcCityType(pKingdom);
         foreach (var city in pKingdom.cities)
         {
@@ -417,14 +435,33 @@ public class EmpireCraftKingdomBehCheckKingdomType: GameAIKingdomBase
         }
     }
 
+    // 各国眼下的名字(分隔符规整后) → 叫这个名字的有几国、其中一国。一帧里只列一回(这一帧里有国在这里改了名就作废重列)：
+    // 以前每定一国的类别就把全世界的国名逐个规整、逐个比一遍，四百国的世界里一个月是十六万次字符串处理
+    private static readonly Dictionary<string, (int count, Kingdom one)> NameIndex = new(StringComparer.Ordinal);
+    private static int _nameIndexFrame = -1;
+    private static object _nameIndexWorld;
+
+    private static void EnsureNameIndex()
+    {
+        int frame = UnityEngine.Time.frameCount;
+        if (frame == _nameIndexFrame && ReferenceEquals(_nameIndexWorld, World.world)) return;
+        _nameIndexFrame = frame;
+        _nameIndexWorld = World.world;
+        NameIndex.Clear();
+        foreach (Kingdom other in World.world.kingdoms)
+        {
+            if (other == null || other.isRekt()) continue;
+            string name = other.data?.name?.UseLocalizedNameSeparator();
+            if (name == null) continue;
+            NameIndex[name] = NameIndex.TryGetValue(name, out (int count, Kingdom one) entry) ? (entry.count + 1, entry.one) : (1, other);
+        }
+    }
+
     private static bool IsNameTaken(Kingdom kingdom, string name)
     {
         string normalized = name.UseLocalizedNameSeparator();
-        foreach (Kingdom other in World.world.kingdoms)
-            if (other != null && other != kingdom && !other.isRekt() &&
-                string.Equals(other.data?.name?.UseLocalizedNameSeparator(), normalized, StringComparison.Ordinal))
-                return true;
-        return false;
+        EnsureNameIndex();
+        return NameIndex.TryGetValue(normalized, out (int count, Kingdom one) entry) && (entry.count > 1 || entry.one != kingdom);
     }
 
     // 省名的正主：控制着所用法理(托管的或自持的)首府的那个政权

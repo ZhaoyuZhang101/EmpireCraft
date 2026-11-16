@@ -45,6 +45,10 @@ internal static class WorldSave
     private static string Previous => Path.Combine(Root, "save.old");
     private static string Fresh => Path.Combine(Root, "save.new");
     private static string Archives => Path.Combine(Root, "saves-archive");
+    // 读不出来的主档挪到这里留查(只留最近一份)
+    private static string Broken => Path.Combine(Root, "save.bad");
+    // 上一回排进加载队列的是哪一份(主档还是备份)：读到一半失败时据此看还有没有备份可退(见 LoadFallback)
+    private static string _queuedFolder;
 
     private static bool Has(string folder) => File.Exists(Path.Combine(folder, WorldFile)) && File.Exists(Path.Combine(folder, TilesFile));
     internal static bool Exists => Has(Current) || Has(Previous);
@@ -80,8 +84,13 @@ internal static class WorldSave
             }
             File.WriteAllText(Path.Combine(Fresh, SeatsFile), JsonConvert.SerializeObject(TerminalHost.SeatRulers()));
             long bytes = new DirectoryInfo(Fresh).GetFiles().Sum(file => file.Length);
-            if (Directory.Exists(Previous)) Directory.Delete(Previous, true);
-            if (Directory.Exists(Current)) Directory.Move(Current, Previous);
+            // 主档换下来作备份；主档不在(读不出来、已挪去留查，这一局是从备份读回来的)时原来的备份留着，
+            // 不然新档还没换上、好的备份先没了
+            if (Directory.Exists(Current))
+            {
+                if (Directory.Exists(Previous)) Directory.Delete(Previous, true);
+                Directory.Move(Current, Previous);
+            }
             Directory.Move(Fresh, Current);
             LastSaved = DateTime.UtcNow;
             detail = Date.getCurrentYear() + " 年 " + Date.getCurrentMonth() + " 月，" + (bytes / 1048576d).ToString("0.0") + " MB，用时 " + clock.ElapsedMilliseconds + " 毫秒";
@@ -105,9 +114,15 @@ internal static class WorldSave
             Directory.CreateDirectory(Archives);
             string target = Path.Combine(Archives, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
             Directory.Move(Current, target);
-            if (Directory.Exists(Previous)) Directory.Delete(Previous, true);
-            foreach (string old in Directory.GetDirectories(Archives).OrderByDescending(path => path, StringComparer.Ordinal).Skip(KeepArchives))
+            // 备份一并归档(以前直接删：主档其实读不出来时，唯一读得出来的那份就这么没了)
+            if (Has(Previous)) Directory.Move(Previous, target + "-old");
+            else if (Directory.Exists(Previous)) Directory.Delete(Previous, true);
+            foreach (string old in Directory.GetDirectories(Archives).Where(path => !path.EndsWith("-old", StringComparison.Ordinal))
+                         .OrderByDescending(path => path, StringComparer.Ordinal).Skip(KeepArchives))
+            {
                 Directory.Delete(old, true);
+                if (Directory.Exists(old + "-old")) Directory.Delete(old + "-old", true);
+            }
             LastSaved = DateTime.MinValue;
             return target;
         }
@@ -134,6 +149,8 @@ internal static class WorldSave
             ["frame"] = ServerRoutes.ScenarioFrame ?? "",
             ["size"] = ServerRoutes.ScenarioSize,
             ["world_time"] = world.world_time,
+            // 存的时候有几国几城：读回来少了一大半就算读坏了(见 VerifyLoaded)
+            ["n"] = new JObject { ["kingdoms"] = world.kingdoms.Count(Alive), ["cities"] = world.cities.Count(Alive) },
             ["laws"] = new JObject(world.world_laws.dict.Where(law => law.Value != null).Select(law => new JProperty(law.Key, law.Value.boolVal))),
             ["map_stats"] = JObject.FromObject(world.map_stats, Json),
             ["game_stats"] = JObject.FromObject(world.game_stats.data, Json),
@@ -341,8 +358,74 @@ internal static class WorldSave
     {
         detail = "没有存档";
         foreach (string folder in new[] { Current, Previous })
+            if (TryQueue(folder, ref detail)) return true;
+        return false;
+    }
+
+    // 主档排进去了、读到一半才发现是坏的(国与城对不上、模组那份数据读不出来……)：世界清掉以后改读备份 save.old。
+    // 以前只有排队前的查验没过才退到备份；查验过了、读到一半失败的，就停在空房间，好的备份没人去试，
+    // 管理员再挑剧本开局时备份还会被一起清掉(2026-11-17 另一会话拿存档副本复现)。要在主循环里调；排上了回真
+    internal static bool LoadFallback(out string detail)
+    {
+        detail = "没有备份";
+        if (_queuedFolder != Current) return false;
+        SetAside(Current, LoadError);
+        return TryQueue(Previous, ref detail);
+    }
+
+    // 加载队列走完后核对读回来的世界(要在主循环里调)：哪一步都没报错，读回来的却不是一个完整的世界，也算读坏了——
+    //   · 模组那份数据读不出来(模组自己接住了、照旧让世界起来，各国按文化重定政体)：帝国、法理、人口、族谱全没了；
+    //   · 一座城也没有；
+    //   · 国、城比存的时候少了一大半(存档头里记着数，旧档没有就不比；读档时模组会并掉几座废城，所以只认少了一半以上)。
+    // 以前这样的世界照常"就绪"，随后一存档就把它存回去，轮换时好的备份也被换掉(2026-11-17 拿截断的模组数据复现)
+    private static int _expectedKingdoms = -1, _expectedCities = -1;
+
+    internal static void VerifyLoaded()
+    {
+        if (LoadFailed) return;
+        MapBox world = World.world;
+        string wrong = DataManager.LastLoadUnreadable ? "模组那份数据读不出来"
+            : world.cities.Count == 0 ? "读回来一座城也没有"
+            : _expectedCities > 0 && world.cities.Count * 2 < _expectedCities ? "城只读回 " + world.cities.Count + " 座(存的时候 " + _expectedCities + " 座)"
+            : _expectedKingdoms > 0 && world.kingdoms.Count * 2 < _expectedKingdoms ? "国只读回 " + world.kingdoms.Count + " 个(存的时候 " + _expectedKingdoms + " 个)"
+            : null;
+        if (wrong == null) return;
+        LoadFailed = true;
+        LoadError = wrong;
+        Console.Error.WriteLine("[error] 读档读回来的世界不完整: " + wrong);
+    }
+
+    // 读档的某一步出了错(主循环接住的，见 Program.Step)：这一份算读坏了
+    internal static void FailLoad(string step, Exception exception)
+    {
+        if (!LoadFailed)
         {
-            if (!Has(folder)) continue;
+            LoadFailed = true;
+            LoadError = step + ": " + exception.Message;
+        }
+        Console.Error.WriteLine("[error] 读档 " + step + " 出错: " + exception);
+    }
+
+    // 读不出来的主档挪开留查：不让它在下回存档时顶替好的备份、也不让它下回启动再被读一遍
+    private static void SetAside(string folder, string why)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return;
+            if (Directory.Exists(Broken)) Directory.Delete(Broken, true);
+            Directory.Move(folder, Broken);
+            Console.Error.WriteLine("[error] 存档 " + Path.GetFileName(folder) + " 读不出来(" + why + ")，已挪到 " + Broken + " 留查");
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine("[error] 读不出来的存档没挪开: " + exception.Message);
+        }
+    }
+
+    private static bool TryQueue(string folder, ref string detail)
+    {
+        {
+            if (!Has(folder)) return false;
             JObject root;
             try
             {
@@ -351,15 +434,20 @@ internal static class WorldSave
                     root = JObject.Load(reader);
                 if ((int?)root["v"] != Version) throw new InvalidDataException("存档是另一个版本的(" + root["v"] + ")");
                 CheckTiles(Path.Combine(folder, TilesFile));
+                CheckModData(Path.Combine(folder, DataManager.EmpireCraftSaveFileName));
             }
             catch (Exception exception)
             {
                 detail = Path.GetFileName(folder) + " 读不出来: " + exception.Message;
                 Console.Error.WriteLine("[error] 存档 " + detail);
-                continue;
+                if (folder == Current) SetAside(folder, exception.Message);
+                return false;
             }
             _loading = root;
             _loadingFolder = folder;
+            _queuedFolder = folder;
+            _expectedKingdoms = (int?)root["n"]?["kingdoms"] ?? -1;
+            _expectedCities = (int?)root["n"]?["cities"] ?? -1;
             LoadFailed = false;
             LoadError = "";
             PendingSeats = ReadSeats(Path.Combine(folder, SeatsFile));
@@ -378,17 +466,55 @@ internal static class WorldSave
             detail = Path.GetFileName(folder);
             return true;
         }
-        return false;
     }
 
+    // 排队前把地形文件从头读到尾：文件头、地图大小、格数够不够、压缩包的校验和都过一遍。
+    // 以前只看文件头，头是好的、里头坏了的要等清了世界、读到一半才发现
     private static void CheckTiles(string path)
     {
         using var file = File.OpenRead(path);
         using var packed = new GZipStream(file, CompressionMode.Decompress);
-        using var reader = new BinaryReader(packed, Encoding.UTF8);
+        using var reader = new BinaryReader(new BufferedStream(packed, 1 << 16), Encoding.UTF8);
         if (reader.ReadUInt32() != TilesMagic) throw new InvalidDataException("地形文件不对");
         int width = reader.ReadInt32(), height = reader.ReadInt32();
         if (width <= 0 || height <= 0 || width % Config.MAP_BLOCK_SIZE != 0 || height % Config.MAP_BLOCK_SIZE != 0) throw new InvalidDataException("地形文件里的地图大小不对");
+        try
+        {
+            int count = reader.ReadInt32();
+            if (count < 0 || count > ushort.MaxValue) throw new InvalidDataException("地形文件里的地形种数不对");
+            for (int i = 0; i < count; i++) reader.ReadString();
+            // 每格：主层、表层的编号各两字节，高度两字节
+            long left = (long)width * height * 6L;
+            var buffer = new byte[1 << 16];
+            while (left > 0)
+            {
+                int read = reader.Read(buffer, 0, (int)Math.Min(buffer.Length, left));
+                if (read <= 0) throw new InvalidDataException("地形文件不完整(少了 " + left + " 字节)");
+                left -= read;
+            }
+            // 读到压缩包的结尾：校验和不对会在这里报出来
+            while (reader.Read(buffer, 0, buffer.Length) > 0)
+            {
+            }
+        }
+        catch (EndOfStreamException)
+        {
+            throw new InvalidDataException("地形文件不完整");
+        }
+    }
+
+    // 模组那一份数据：要有、不是空的、是一份写完整了的(以 } 结尾)。整份解析要好几秒，留给真读的时候
+    private static void CheckModData(string path)
+    {
+        var info = new FileInfo(path);
+        if (!info.Exists) throw new InvalidDataException("缺模组数据 " + info.Name);
+        if (info.Length < 2) throw new InvalidDataException("模组数据是空的");
+        using FileStream file = info.OpenRead();
+        var tail = new byte[(int)Math.Min(64L, info.Length)];
+        file.Seek(-tail.Length, SeekOrigin.End);
+        int read = file.Read(tail, 0, tail.Length);
+        string end = Encoding.UTF8.GetString(tail, 0, read).TrimEnd();
+        if (!end.EndsWith("}", StringComparison.Ordinal)) throw new InvalidDataException("模组数据没写完整");
     }
 
     private static Dictionary<string, long> ReadSeats(string path)

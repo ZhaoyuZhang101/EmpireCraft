@@ -22,7 +22,19 @@ internal static class ServerAi
     // 常速下一步(约二十分之一秒的世界时间)走一个行为。世界走得快、一步跨的世界时间长时照这个数补上，
     // 不然日期走得快、各国各城的行为还是一步一个，相对世界时间就稀了(用户 2026-11-16 "只是单纯的时间变快了")；一步至多补这么多个
     private const float ActionSeconds = 0.05f;
-    private const int MaxActionsPerStep = 12, MaxActorsPerStep = 600;
+    private const int MaxActionsPerStep = 20, MaxActorsPerStep = 600;
+    // 每座城约每 CityUpdateSeconds 世界秒更新一回、各城错开，攒下的世界时间一并交给它(城的行为照攒下的时间补步)。
+    // 以前每一步把所有的城各更新一遍：模组挂在城市更新上的城主补位、入城归降、年度扫描……都是"到时候了没有"的轮询，
+    // 六百座城一步就是几千次，一步跨的世界时间越短这笔固定的开销越重
+    private const float CityUpdateSeconds = 1f;
+
+    private sealed class CityClock
+    {
+        public float Owed;
+        public bool Seeded;
+    }
+
+    private static readonly ConditionalWeakTable<City, CityClock> CityClocks = new();
 
     private sealed class State
     {
@@ -81,9 +93,19 @@ internal static class ServerAi
         foreach (City city in world.cities.list.ToArray())
         {
             if (city?.data == null || !city.isAlive()) continue;
+            CityClock clock = CityClocks.GetOrCreateValue(city);
+            if (!clock.Seeded)
+            {
+                clock.Seeded = true;
+                clock.Owed = (city.id & 7) / 8f * CityUpdateSeconds;
+            }
+            clock.Owed += elapsed;
+            if (clock.Owed < CityUpdateSeconds) continue;
+            float owed = clock.Owed;
+            clock.Owed = 0f;
             try
             {
-                city.update(elapsed);
+                city.update(owed);
             }
             catch (Exception exception)
             {

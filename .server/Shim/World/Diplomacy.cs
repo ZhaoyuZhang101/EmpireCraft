@@ -219,6 +219,11 @@ public partial class WarManager
         return _allyIndex.TryGetValue(a, out HashSet<Kingdom> allies) && allies.Contains(b);
     }
 
+    private static readonly HashSet<Kingdom> NoEnemies = new();
+
+    internal HashSet<Kingdom> ShimEnemiesOf(Kingdom kingdom) =>
+        kingdom != null && EnemyIndex().TryGetValue(kingdom, out HashSet<Kingdom> enemies) ? enemies : NoEnemies;
+
     internal bool ShimAtWar(Kingdom a, Kingdom b)
     {
         if (a == null || b == null) return false;

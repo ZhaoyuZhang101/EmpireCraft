@@ -36,6 +36,8 @@ namespace EmpireCraft.Server;
 public static class Program
 {
     private static volatile bool _stop;
+    // 退出码：退出时存档没存成
+    internal const int ExitSaveFailed = 5;
     private static ServerConfig _config;
     private static int _size = 1;
     // 存档：上回存(或读)是什么时候(进程启动起的秒数)、新开的局等世界就绪了先存一份、眼下这趟加载是不是读档
@@ -139,6 +141,10 @@ public static class Program
                 case "--verify-fronts":
                     // 排查用：军团战线的陆上战线段多核算完，再照原样逐国算一遍逐城逐块比(见 FrontSystem.Parallel)，收尾时报对不上的份数
                     FrontSystem.VerifyParallelSectors = true;
+                    break;
+                case "--verify-scope":
+                    // 排查用：就近动员按敌国名单找出的敌方，再照老办法逐个问一遍核对，收尾时报对不上的次数
+                    WarScopeSystem.VerifyHostiles = true;
                     break;
                 case "--serial":
                     // 排查用：不用多核(同游戏里一样逐国算)，对比快慢
@@ -296,7 +302,7 @@ public static class Program
         if (!fresh && WorldSave.Exists)
         {
             resumed = Resume();
-            if (!resumed) Console.Error.WriteLine("  存档读不出来，文件留在原处没动" + (scenario != null ? "；改按剧本开局(开局前它会被挪到 saves-archive)" : ""));
+            if (!resumed) Console.Error.WriteLine("  主档、备份都读不出来(读不出来的主档挪到了 save.bad 留查，备份没动)" + (scenario != null ? "；改按剧本开局" : ""));
         }
         if (!resumed && scenario != null && !StartScenario(scenario, frameId, _size)) return 3;
         if (bootOnly)
@@ -328,7 +334,8 @@ public static class Program
                         if (realtime)
                         {
                             Round(world, modUpdate, Math.Min(tick, MaxRoundSeconds) * baseSpeed);
-                            Thread.Sleep(1);
+                            if (_lagging) Thread.Yield();
+                            else Thread.Sleep(1);
                         }
                         else Step(world, modUpdate, 0.02f * baseSpeed);
                         // 每十年记一行天下分合的账
@@ -350,6 +357,8 @@ public static class Program
                                       ((world.getCurWorldTime() - startedWorld) / timer.Elapsed.TotalSeconds * 100d).ToString("0") + "%，共 " + Slices + " 步，最慢的一圈 " +
                                       (slowest * 1000d).ToString("0") + " 毫秒");
                 if (tryDecrees) DecreeProbe.Report();
+                if (WarScopeSystem.VerifyHostiles)
+                    Console.WriteLine("  就近动员核对 " + WarScopeSystem.HostileChecks + " 国次，对不上 " + WarScopeSystem.HostileMismatches + " 次");
                 Console.WriteLine("  " + WorldSave.Tally());
                 Console.WriteLine("  跑了 " + frames + " 步(出错 " + failures + " 步)，到 " + Date.getCurrentYear() + " 年 " + Date.getCurrentMonth() + " 月：" + world.kingdoms.Count + " 国，" +
                                   world.cities.Count + " 城，" + world.units.Count + " 人，" + world.wars.Count + " 场战事");
@@ -450,7 +459,9 @@ public static class Program
             if (_returnAt >= 0 && Uptime.Elapsed.TotalSeconds >= _returnAt) _stop = true;
             // 算得过来就歇到二十毫秒一圈；算不过来(世界走得比设定的慢)只让一让别的线程
             int spent = (int)Stopwatch.GetElapsedTime(roundStarted).TotalMilliseconds;
-            Thread.Sleep(behind ? 1 : Math.Max(1, 20 - spent));
+            // (算不过来时不睡：Windows 上睡一毫秒实际要等到下一个时钟滴答，十几毫秒，一圈白丢百分之几)
+            if (behind) Thread.Yield();
+            else Thread.Sleep(Math.Max(1, 20 - spent));
         }
         terminated?.Dispose();
         if (_relaunch)
@@ -460,15 +471,18 @@ public static class Program
             Console.WriteLine("换剧本：进程退出，由系统重新拉起后开局。");
             return 0;
         }
-        if (Config.game_loaded && !SmoothLoader.isLoading() && world.cities.Count > 0) SaveNow("退出");
+        // 退出时存档没存成：说清楚，并以 ExitSaveFailed 退出——更新脚本据此不换版本(见 Tools/StandaloneServer/install.sh)，
+        // 以前不看结果、照样报正常退出，脚本接着换版本，重启后接上的是更早的进度
+        bool saveFailed = Config.game_loaded && !SmoothLoader.isLoading() && world.cities.Count > 0 && !SaveNow("退出");
         TerminalHost.Enabled = false;
         TerminalHost.Tick();
         // 存完档、端口关了再开游戏：游戏起来后见核心端口不通，就读回这份存档
         if (_returnToGame) LaunchGame();
         CoreShell.Stop();
+        if (saveFailed) Console.Error.WriteLine("[error] 退出时存档没存成，下回启动接着的是上一份存档。");
         Console.WriteLine("已停。");
         Console.Out.Flush();
-        return 0;
+        return saveFailed ? ExitSaveFailed : 0;
     }
 
     // 标准输入 detach <游戏exe全路径>：记下路径，回"已脱手"。之后游戏退出，标准输入读到头、标准输出与错误的管道断开，
@@ -707,11 +721,12 @@ public static class Program
     // 现在一圈分成几步走，一步至多跨 MaxSliceSeconds 的世界时间，每一步都是完整的一步(行为、行军、月结、后台各走各的)；
     // 一圈算满 RoundBudgetSeconds 还没走完的，余下的不走了——世界照算得过来的速度走，实际流速低于设定值，
     // 报给管理页(见 Pace、TerminalHost.ActualSpeedPercent)，看得出是算力不够
-    // 算不过来的时候一步放宽到 WideSliceSeconds：每一步都要把各国各城过一遍，步子大一倍这笔固定的开销就省一半，
-    // 行军、月结照样不丢(行军欠的拍补上，一个月还有十步)；跟得上了再收回来
-    private const float MaxSliceSeconds = 0.25f, WideSliceSeconds = 0.5f, MaxRoundSeconds = 0.25f;
+    // (算不过来时曾把一步放宽到半秒：那时每一步都要把各国各城过一遍，步子大一倍固定开销省一半。城市改成每城每秒更新一回、
+    //  国家行为按世界时间补步以后这笔固定开销没有了，实测步子放宽反而每世界秒多花四分之一，2026-11-17 撤掉)
+    private const float MaxSliceSeconds = 0.25f, MaxRoundSeconds = 0.25f;
+    // 上一圈没走完(算不过来)
     private static bool _lagging;
-    private const double RoundBudgetSeconds = 0.2d;
+    private const double RoundBudgetSeconds = 0.24d;
     // 后台的分帧活计(人口、财政、稳定……)每一步能用的时间：照这一步跨的世界时间给，每世界秒这么多毫秒
     private const double BudgetPerWorldSecond = 200d;
     internal static long Slices;
@@ -720,7 +735,7 @@ public static class Program
     internal static float Round(MapBox world, Action modUpdate, float baseSeconds)
     {
         float factor = Math.Max(0.01f, TerminalHost.SpeedFactor);
-        int slices = Math.Max(1, (int)Math.Ceiling(baseSeconds * factor / (_lagging ? WideSliceSeconds : MaxSliceSeconds)));
+        int slices = Math.Max(1, (int)Math.Ceiling(baseSeconds * factor / MaxSliceSeconds));
         float slice = baseSeconds / slices;
         long started = Stopwatch.GetTimestamp();
         int done = 0;
@@ -728,11 +743,7 @@ public static class Program
         {
             if (done > 0)
             {
-                if (Stopwatch.GetElapsedTime(started).TotalSeconds >= RoundBudgetSeconds)
-                {
-                    _lagging = true;
-                    break;
-                }
+                if (Stopwatch.GetElapsedTime(started).TotalSeconds >= RoundBudgetSeconds) break;
                 // 每一步各算一帧(模组里按帧限频、按帧作废的缓存照常)
                 Time.frameCount++;
             }
@@ -740,8 +751,7 @@ public static class Program
             Step(world, modUpdate, slice);
             Slices++;
         }
-        // 这一圈走完了还剩一半以上的工夫：跟得上，步子收回来
-        if (done >= slices && Stopwatch.GetElapsedTime(started).TotalSeconds < RoundBudgetSeconds * 0.5d) _lagging = false;
+        _lagging = done < slices;
         return done * slice * factor;
     }
 
@@ -789,7 +799,16 @@ public static class Program
             string step = "";
             while (slice.ElapsedMilliseconds < 50 && SmoothLoader.isLoading())
             {
-                SmoothLoader.RunNext();
+                // 读档时哪一步出了错都算这份存档读坏了(以前只管世界核心那几步；模组那份数据的步骤出错照样"就绪"，
+                // 半截的世界随后被自动存档存回去，盖掉好的)。开局的步骤出错照旧往外报
+                try
+                {
+                    SmoothLoader.RunNext();
+                }
+                catch (Exception exception) when (_resuming)
+                {
+                    WorldSave.FailLoad(SmoothLoader.CurrentStep, exception);
+                }
                 ShimCities.Refresh();
                 if (SmoothLoader.CurrentStep == step) continue;
                 step = SmoothLoader.CurrentStep;
@@ -801,14 +820,24 @@ public static class Program
                 _wasLoading = false;
                 bool resumed = _resuming;
                 _resuming = false;
+                // 步骤都没报错、读回来的世界却不完整的，也算读坏了(见 WorldSave.VerifyLoaded)
+                if (resumed) WorldSave.VerifyLoaded();
                 // 存档读到一半出了错：半截世界不能留着跑(更不能存回去盖掉好的)，清掉
                 if (resumed && WorldSave.LoadFailed)
                 {
+                    string broken = WorldSave.LoadError;
                     world.clearWorld();
                     WorldSave.PendingSeats = null;
+                    // 主档读到一半坏了：改读备份(见 WorldSave.LoadFallback)
+                    if (WorldSave.LoadFallback(out string fallback))
+                    {
+                        _resuming = true;
+                        Console.Error.WriteLine("[error] 存档读到一半出错(" + broken + ")，改读备份 " + fallback);
+                        return;
+                    }
                     ServerRoutes.ScenarioState = "failed";
                     ServerRoutes.ScenarioDetail = "存档读不出来: " + WorldSave.LoadError;
-                    Console.Error.WriteLine("[error] " + ServerRoutes.ScenarioDetail + "。存档文件没动；用 scenario <剧本> 重新开局，或换回 save.old 再 load。");
+                    Console.Error.WriteLine("[error] " + ServerRoutes.ScenarioDetail + "。主档、备份都读不出来(主档挪到了 save.bad 留查，备份没动)；用 scenario <剧本> 重新开局。");
                     return;
                 }
                 WorldMapGenerator.MarkDone();

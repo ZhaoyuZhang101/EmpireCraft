@@ -83,7 +83,23 @@ else
         systemctl daemon-reload
     fi
     echo "停下旧核心(先存档，大档要一两分钟)……"
+    WAS_ACTIVE=0
+    systemctl is-active --quiet "$SERVICE" 2>/dev/null && WAS_ACTIVE=1
     systemctl stop "$SERVICE" 2>/dev/null || true
+    # 旧核心停下时档没存成(核心自己报的退出码 5)，或存到一半被系统强杀(等满了 TimeoutStopSec)：不换版本。
+    # 以前不看结果接着换，新版起来接上的是更早的进度。确实要不管存档照换的，带上 EC_IGNORE_SAVE_FAILURE=1 再跑
+    if [ "$WAS_ACTIVE" = 1 ] && [ "${EC_IGNORE_SAVE_FAILURE:-0}" != 1 ]; then
+        STOP_RESULT="$(systemctl show -p Result "$SERVICE" 2>/dev/null | cut -d= -f2)"
+        STOP_STATUS="$(systemctl show -p ExecMainStatus "$SERVICE" 2>/dev/null | cut -d= -f2)"
+        if [ "$STOP_STATUS" = 5 ] || [ "$STOP_RESULT" = timeout ] || [ "$STOP_RESULT" = signal ] || [ "$STOP_RESULT" = core-dump ]; then
+            echo "旧核心停下时存档没存成(结果 $STOP_RESULT，退出码 $STOP_STATUS)。没有换版本，旧核心重新拉起来接着跑。最近的日志："
+            journalctl -u "$SERVICE" -n 12 --no-pager 2>/dev/null | cut -c1-200
+            systemctl start "$SERVICE" 2>/dev/null || true
+            rm -rf "$IN"
+            echo "看上面为什么没存成(磁盘满、内存不够被强杀……)，处理好再更新；确实要不管存档照换的：EC_IGNORE_SAVE_FAILURE=1 bash install.sh"
+            exit 3
+        fi
+    fi
     pkill -f "EmpireCraftServer" 2>/dev/null || true
     sleep 1
 fi

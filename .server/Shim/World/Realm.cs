@@ -141,16 +141,11 @@ public partial class Kingdom
 
     public bool isAttacker() => World.world.wars.list.Any(war => war._list_attackers.Contains(this));
 
+    // 眼下交战的敌国(同 isInWarWith 一张表：结束了的仗不算)
     public ListPool<Kingdom> getEnemiesKingdoms()
     {
         var enemies = new ListPool<Kingdom>();
-        foreach (War war in World.world.wars.list)
-        {
-            List<Kingdom> other = war._list_attackers.Contains(this) ? war._list_defenders : war._list_defenders.Contains(this) ? war._list_attackers : null;
-            if (other == null) continue;
-            foreach (Kingdom enemy in other)
-                if (!enemies.Contains(enemy)) enemies.Add(enemy);
-        }
+        foreach (Kingdom enemy in World.world.wars.ShimEnemiesOf(this)) enemies.Add(enemy);
         return enemies;
     }
 

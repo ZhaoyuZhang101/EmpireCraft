@@ -108,6 +108,14 @@ public static class WarScopeSystem
         var warring = new HashSet<Kingdom>();
         foreach (Kingdom kingdom in World.world.kingdoms)
             if (kingdom?.data != null && !kingdom.isRekt() && !kingdom.isNeutral() && AtWar(kingdom)) warring.Add(kingdom);
+        // 各帝国(按核心)名下在打仗的国(见 CollectHostiles)
+        ByRealm.Clear();
+        foreach (Kingdom kingdom in warring)
+        {
+            Kingdom realm = FrontSystem.Realm(kingdom);
+            if (!ByRealm.TryGetValue(realm, out List<Kingdom> members)) ByRealm[realm] = members = new List<Kingdom>();
+            members.Add(kingdom);
+        }
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() || kingdom.cities == null ||
@@ -118,8 +126,9 @@ public static class WarScopeSystem
             HostileCenters.Clear();
             if (war)
             {
-                foreach (Kingdom other in warring)
-                    if (FrontSystem.Hostile(kingdom, other)) AddCenters(other);
+                CollectHostiles(kingdom, warring);
+                if (VerifyHostiles) VerifyAgainstScan(kingdom, warring);
+                foreach (Kingdom other in Hostiles) AddCenters(other);
             }
             else AddCenters(CityPopulationSystem.EnemyOf(kingdom));
             float radius = NearDistance * (level >= Wider ? 2f : 1f);
@@ -154,6 +163,55 @@ public static class WarScopeSystem
             // 隔海的仗就永远没人去打(玩家反馈"两个隔海的国家一千五百年没打下来")
             if (!garrisoned && staging != null && (!war || LeadsWar(kingdom))) Scope.Add(staging.id);
         }
+    }
+
+    private static readonly Dictionary<Kingdom, List<Kingdom>> ByRealm = new();
+    private static readonly HashSet<Kingdom> Hostiles = new();
+    // 排查用(独立核心的 --verify-scope)：敌方照老办法(把在打仗的国逐个问 FrontSystem.Hostile)再找一遍，对不上的记数
+    public static bool VerifyHostiles;
+    public static int HostileChecks, HostileMismatches;
+
+    // 这一国的敌方(在打仗的国里同它敌对的)：同逐个问 FrontSystem.Hostile 是一个结果，只是从本国与本帝国核心的敌国名单出发找——
+    // 敌国名单里的国、敌国名单里某个帝国核心名下在打仗的成员。以前四百国各把三百多个在打仗的国问一遍(十几万次)，
+    // 重算一回五毫秒，一个月要重算四五回
+    private static void CollectHostiles(Kingdom kingdom, HashSet<Kingdom> warring)
+    {
+        Hostiles.Clear();
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        // 本国自己的敌人：不论同不同帝国都算；敌人是别的帝国的核心，那个帝国在打仗的成员也算
+        foreach (Kingdom enemy in kingdom.getEnemiesKingdoms())
+        {
+            if (enemy?.data == null || enemy == kingdom || enemy.isRekt()) continue;
+            if (warring.Contains(enemy)) Hostiles.Add(enemy);
+            if (enemy != realm && ByRealm.TryGetValue(enemy, out List<Kingdom> members))
+                foreach (Kingdom member in members)
+                    if (member != kingdom) Hostiles.Add(member);
+        }
+        // 本帝国核心的敌人(不在本帝国里的)：它自己、它是别的帝国的核心时名下在打仗的成员
+        foreach (Kingdom enemy in realm.getEnemiesKingdoms())
+        {
+            if (enemy?.data == null || enemy == kingdom || enemy.isRekt()) continue;
+            if (warring.Contains(enemy) && FrontSystem.Realm(enemy) != realm) Hostiles.Add(enemy);
+            if (enemy != realm && ByRealm.TryGetValue(enemy, out List<Kingdom> members))
+                foreach (Kingdom member in members)
+                    if (member != kingdom) Hostiles.Add(member);
+        }
+    }
+
+    private static void VerifyAgainstScan(Kingdom kingdom, HashSet<Kingdom> warring)
+    {
+        HostileChecks++;
+        int scanned = 0;
+        bool same = true;
+        foreach (Kingdom other in warring)
+        {
+            if (!FrontSystem.Hostile(kingdom, other)) continue;
+            scanned++;
+            if (!Hostiles.Contains(other)) same = false;
+        }
+        if (same && scanned == Hostiles.Count) return;
+        if (HostileMismatches++ < 5)
+            NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][就近动员] 核对不上：{kingdom.GetKingdomName()} 逐个问得 {scanned} 国，按名单找得 {Hostiles.Count} 国");
     }
 
     private static void AddCenters(Kingdom kingdom)

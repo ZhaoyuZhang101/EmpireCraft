@@ -28,6 +28,9 @@ public static class DataManager
 {
     public const string EmpireCraftSaveFileName = "EmpireCraftModData.json";
     public static string CurrentSaveDataPath { get; private set; } = "";
+    // 上一回读档时模组这份数据有没有读出来(文件截断、格式坏了为真)。游戏里照旧容错(各国按文化重定政体，接着玩)；
+    // 独立核心据此把这份存档算作读坏了、改读备份(见 .server/Server/WorldSave.VerifyLoaded)
+    public static bool LastLoadUnreadable { get; private set; }
 
     public static void ResetCurrentSaveDataPath()
     {
@@ -82,6 +85,7 @@ public static class DataManager
         }
         FactionRatioConverter.ResetLegacyDiscardCount();
         SaveData saveData = null;
+        LastLoadUnreadable = false;
         // 文件截断、格式坏了时 JsonConvert 抛异常而不是返回空：接住，当作读不出来(下面按文化给各国定政体)
         // 边读边解析(以前先把整个文件读成一个字符串，上百兆的存档要多占两三百兆内存，读完还要回收)
         try
@@ -93,6 +97,7 @@ public static class DataManager
         }
         catch (Exception e)
         {
+            LastLoadUnreadable = true;
             LogService.LogError($"模组存档读不出来(文件损坏？)，各国按文化重定政体: {e}");
         }
         Lap("解析");

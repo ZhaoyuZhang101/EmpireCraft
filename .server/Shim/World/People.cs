@@ -137,6 +137,26 @@ internal static class ShimColors
         }
     }
 
+    // 原版登记在 AssetManager 上的颜色库(国家、文化)：模组的帝国、法理、各图层都从那里取颜色表(Empire.getColorLibrary 等)。
+    // 服务器里以前是空的：帝国取不到颜色(getColor 回空)，凡是带帝国颜色的战报一写就空引用，把后面的步骤打断——
+    // 城被帝国打下来后的结算(逐格推进"结算失败、进度撤销")、成员随中央参战后的冷却与记功、权臣挟制朝廷的后续都是这么断的
+    // (2026-11-17 另一会话排查、--trace 抓到抛出处)。开服时照国家颜色表填上
+    internal static void FillLibraries()
+    {
+        if (AssetManager.kingdom_colors_library == null || AssetManager.kingdom_colors_library.list.Count == 0)
+            AssetManager.kingdom_colors_library = (KingdomColorsLibrary)Library;
+        if (AssetManager.culture_colors_library == null || AssetManager.culture_colors_library.list.Count == 0)
+        {
+            var cultures = new CultureColorsLibrary();
+            foreach (ColorAsset color in Library.list)
+            {
+                cultures.list.Add(color);
+                cultures.dict[color.id] = color;
+            }
+            AssetManager.culture_colors_library = cultures;
+        }
+    }
+
     internal static ColorAsset ById(int id)
     {
         if (id >= CustomBase)
