@@ -19,9 +19,26 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $OutputEncoding = $utf8
 $here = $PSScriptRoot
 $base = $UpdateUrl.TrimEnd("/")
-$manifestName = "EmpireCraftEditor.json"
+# 更新服务只收"EmpireCraft_Ver_某某.zip"这种名字(模组包的名字；别的名字回 400 Invalid release name，2026-11-16 头一回发布撞上)。
+# 它到底怎么查的手头没有源码，所以备了三种写法，探路时挨个试，用它肯收的头一个。
+# 清单的名字和 updater.js 的 MANIFESTS 对着：这里添了、改了，那边也要跟着改。{0} 是版本号，{1} 是分片的后缀
+$schemes = @(
+    @{ manifest = "EmpireCraft_Ver_0.0.0-EditorManifest.zip"; probe = "EmpireCraft_Ver_0.0.0-EditorProbe.zip"; file = "EmpireCraft_Ver_{0}-Editor{1}.zip" },
+    @{ manifest = "EmpireCraft_Ver_0.0.0EditorManifest.zip"; probe = "EmpireCraft_Ver_0.0.0EditorProbe.zip"; file = "EmpireCraft_Ver_{0}Editor{1}.zip" },
+    @{ manifest = "EmpireCraft_Ver_EditorManifest.zip"; probe = "EmpireCraft_Ver_EditorProbe.zip"; file = "EmpireCraft_Ver_Editor{0}{1}.zip" }
+)
 
 function Step([string]$title) { Write-Host ""; Write-Host "===== $title =====" -ForegroundColor Cyan }
+
+# 线上的清单(名字是 .zip，内容是 JSON，所以自己解)。读不到返回空
+function Read-OnlineManifest([string]$Name) {
+    try {
+        $response = Invoke-WebRequest -Uri "$base/releases/$Name" -TimeoutSec 20 -UseBasicParsing
+        $text = if ($response.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($response.Content) } else { [string]$response.Content }
+        return $text.TrimStart([char]0xFEFF) | ConvertFrom-Json
+    }
+    catch { return $null }
+}
 
 $stage = Join-Path ([IO.Path]::GetTempPath()) ("ec-editor-upload-" + [guid]::NewGuid().ToString("N"))
 try {
@@ -34,7 +51,8 @@ try {
     $version = (Get-Content -Raw -Encoding UTF8 (Join-Path $here "package.json") | ConvertFrom-Json).version
     $installer = Join-Path $here "dist\EmpireCraft Editor Setup $version.exe"
     if (-not (Test-Path -LiteralPath $installer)) { throw "没找到安装程序：$installer(先不带 -NoBuild 跑一遍)。" }
-    $remoteName = "EmpireCraftEditor_Setup_$version.exe"
+    # 下到玩家电脑上存成的名字(线上的名字另起，见 $schemes)
+    $saveAs = "EmpireCraftEditor_Setup_$version.exe"
     # 没给 -Notes 就用 EDITOR_NOTES.md 里写的(每发一版改一改)
     $notesFile = Join-Path $here "EDITOR_NOTES.md"
     if ([string]::IsNullOrWhiteSpace($Notes) -and (Test-Path -LiteralPath $notesFile)) {
@@ -46,7 +64,10 @@ try {
     Step "要发布的"
     Write-Host "  编辑器 $version，安装程序 $([math]::Round($size / 1MB, 1)) MB"
     $online = $null
-    try { $online = (Invoke-RestMethod -Uri "$base/releases/$manifestName" -TimeoutSec 20).version } catch { }
+    foreach ($scheme in $schemes) {
+        $found = Read-OnlineManifest $scheme.manifest
+        if ($found -and $found.version) { $online = $found.version; break }
+    }
     Write-Host ("  线上现在：" + $(if ($online) { $online } else { "还没发过" }))
     if ($online -eq $version) {
         Write-Host "  线上已经是 $version：版本号没变，装着这一版的编辑器不会再更新。要让它们更新，先把 package.json 里的 version 调高。" -ForegroundColor Yellow
@@ -88,8 +109,27 @@ try {
     # 先传一个几十个字节的小文件：令牌不对、服务不收这类名字的文件，在这里就知道，不用等一百多兆传完
     $probe = Join-Path $stage "probe.json"
     [IO.File]::WriteAllText($probe, "{`"probe`":`"$version`"}", $utf8)
-    Send-File $probe "EmpireCraftEditor.probe.json" "application/json; charset=utf-8" -Quiet
-    Write-Host "  通了"
+    $chosen = $null
+    $refused = @()
+    foreach ($scheme in $schemes) {
+        try {
+            Send-File $probe $scheme.probe "application/zip" -Quiet
+            $chosen = $scheme
+            break
+        }
+        catch {
+            $refused += "  " + $_.Exception.Message
+            # 令牌不对、连不上：换名字也没用
+            if ($_.Exception.Message -notmatch 'HTTP 400') { break }
+        }
+    }
+    if (-not $chosen) {
+        if ($refused.Count -eq 1) { throw ($refused[0].Trim() + " 什么都没发。") }
+        throw ("更新服务一种名字都不收，什么都没发：`n" + ($refused -join "`n"))
+    }
+    $manifestName = $chosen.manifest
+    $remoteName = $chosen.file -f $version, ""
+    Write-Host "  通了，线上用的名字：$remoteName"
 
     Step "传安装程序"
     $limit = [int64]$PartMB * 1MB
@@ -97,7 +137,7 @@ try {
     if ($size -le $limit) {
         $copy = Join-Path $stage $remoteName
         Copy-Item -LiteralPath $installer -Destination $copy
-        Send-File $copy $remoteName "application/octet-stream"
+        Send-File $copy $remoteName "application/zip"
     }
     else {
         # 切片：一片一个文件，传完一片删一片
@@ -107,7 +147,7 @@ try {
         try {
             $buffer = New-Object byte[] (4MB)
             for ($index = 1; $index -le $count; $index++) {
-                $partName = "$remoteName.part$index"
+                $partName = $chosen.file -f $version, ".part$index"
                 $partPath = Join-Path $stage $partName
                 $left = [math]::Min($limit, $size - $source.Position)
                 $partSize = $left
@@ -122,7 +162,7 @@ try {
                 }
                 finally { $target.Dispose() }
                 Write-Host "  第 $index / $count 片"
-                Send-File $partPath $partName "application/octet-stream"
+                Send-File $partPath $partName "application/zip"
                 Remove-Item -LiteralPath $partPath -Force
                 $parts += [ordered]@{ fileName = $partName; size = $partSize }
             }
@@ -132,14 +172,13 @@ try {
 
     Step "发清单"
     # 清单最后发：编辑器看到新版本号时，安装程序已经都在线上了
-    $manifest = [ordered]@{ version = $version; fileName = $remoteName; sha256 = $hash; size = $size; notes = $Notes }
+    $manifest = [ordered]@{ version = $version; fileName = $remoteName; saveAs = $saveAs; sha256 = $hash; size = $size; notes = $Notes }
     if ($parts.Count -gt 0) { $manifest.parts = $parts }
     $manifestPath = Join-Path $stage $manifestName
     [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 5), $utf8)
-    Send-File $manifestPath $manifestName "application/json; charset=utf-8" -Quiet
+    Send-File $manifestPath $manifestName "application/zip" -Quiet
 
-    $seen = $null
-    try { $seen = (Invoke-RestMethod -Uri "$base/releases/$manifestName" -TimeoutSec 20).version } catch { }
+    $seen = (Read-OnlineManifest $manifestName).version
     Write-Host ""
     if ($seen -eq $version) { Write-Host "编辑器 $version 发好了：装好的编辑器打开时会在顶栏提示新版。" -ForegroundColor Green }
     else { Write-Host "传完了，但线上清单读出来是「$seen」，不是 $version：过一会儿再看 $base/releases/$manifestName" -ForegroundColor Yellow }

@@ -1,7 +1,10 @@
 // 编辑器在线更新(用户 2026-11-16 "政体编辑器我希望能在线更新")。
 // 更新包就是安装程序本身，和模组更新放在同一个更新服务上(发布见 publish-editor.ps1)：
-//   <更新服务>/releases/EmpireCraftEditor.json   清单 { version, fileName, sha256, size, notes, parts? }
-//   <更新服务>/releases/<fileName>               安装程序；太大、一回传不上去时切成几片(parts: [{ fileName, size }]，按顺序接起来)
+//   <更新服务>/releases/<清单名>   清单 { version, fileName, saveAs, sha256, size, notes, parts? }，名字见 MANIFESTS
+//   <更新服务>/releases/<fileName>  安装程序；太大、一回传不上去时切成几片(parts: [{ fileName, size }]，按顺序接起来)，
+//                                  下到本机后存成 saveAs 那个名字
+// 更新服务只收"EmpireCraft_Ver_某某.zip"这种名字的文件(模组包的名字；别的名字回 Invalid release name)，
+// 所以清单和安装程序在服务上都起成这个样子，里头的内容并不是 zip。
 // 这里做三件事：查有没有新版 → 下到临时目录(边下边算校验值，接好后大小和 sha256 都对上才算数) → 悄悄跑安装程序、
 // 退出编辑器，安装程序装回原来的位置后再把编辑器开起来。
 // 只有装好的编辑器能自己更新：便携版是一个每回解到临时目录的 exe，没处可装；用源码跑的也不更新。
@@ -12,7 +15,12 @@ const http = require("node:http");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
-const MANIFEST = "EmpireCraftEditor.json";
+// 清单在更新服务上可能叫的名字，挨个试(发布脚本照同一份次序挑服务肯收的头一个，见 publish-editor.ps1 的 $schemes)
+const MANIFESTS = [
+  "EmpireCraft_Ver_0.0.0-EditorManifest.zip",
+  "EmpireCraft_Ver_0.0.0EditorManifest.zip",
+  "EmpireCraft_Ver_EditorManifest.zip"
+];
 // 同模组更新用的两个地址(见 Scripts/Diagnostics/EmpireCraftUpdateService.cs)，前一个不通试后一个
 const BASES = [
   "https://update.cmhgamedev.dpdns.org/releases/",
@@ -62,15 +70,19 @@ async function fetchJson(url) {
 async function check(current, bases = BASES) {
   let last = "";
   for (const base of bases) {
-    try {
-      const manifest = await fetchJson(base + MANIFEST);
-      if (!manifest || !manifest.version || !manifest.fileName) throw new Error("清单不完整");
-      return {
-        current, version: String(manifest.version), available: compare(manifest.version, current) > 0,
-        notes: String(manifest.notes || ""), size: Number(manifest.size) || 0, base, manifest
-      };
-    } catch (error) {
-      last = error.message;
+    for (const name of MANIFESTS) {
+      try {
+        const manifest = await fetchJson(base + name);
+        if (!manifest || !manifest.version || !manifest.fileName) throw new Error("清单不完整");
+        return {
+          current, version: String(manifest.version), available: compare(manifest.version, current) > 0,
+          notes: String(manifest.notes || ""), size: Number(manifest.size) || 0, base, manifest
+        };
+      } catch (error) {
+        last = error.message;
+        // 连都连不上的地址不用再试别的名字
+        if (!/回了/.test(last) && !/清单/.test(last) && !/JSON/i.test(last)) break;
+      }
     }
   }
   return { current, error: "查不到更新：" + last };
@@ -81,7 +93,7 @@ async function download(found, folder, onProgress) {
   const manifest = found.manifest;
   const pieces = Array.isArray(manifest.parts) && manifest.parts.length > 0 ? manifest.parts : [{ fileName: manifest.fileName }];
   const total = Number(manifest.size) || 0;
-  const target = path.join(folder, path.basename(String(manifest.fileName)));
+  const target = path.join(folder, path.basename(String(manifest.saveAs || manifest.fileName)));
   fs.mkdirSync(folder, { recursive: true });
   const hash = crypto.createHash("sha256");
   const out = fs.createWriteStream(target);
@@ -122,4 +134,4 @@ function install(file) {
   child.unref();
 }
 
-module.exports = { compare, check, download, install, MANIFEST, BASES };
+module.exports = { compare, check, download, install, MANIFESTS, BASES };
