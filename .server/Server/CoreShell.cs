@@ -21,7 +21,7 @@ internal static class CoreShell
     private const string ClassName = "EmpireCraftCoreShell";
 
     private const uint WM_DESTROY = 0x0002, WM_SIZE = 0x0005, WM_CLOSE = 0x0010, WM_NULL = 0x0000, WM_TIMER = 0x0113,
-        WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205, WM_DPICHANGED = 0x02E0, WM_APP = 0x8000;
+        WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205, WM_DPICHANGED = 0x02E0, WM_GETMINMAXINFO = 0x0024, WM_APP = 0x8000;
     private const uint WM_TRAY = WM_APP + 1, WM_RUN = WM_APP + 2, WM_SHOW = WM_APP + 3, WM_QUIT_SHELL = WM_APP + 4;
     private const uint NIM_ADD = 0, NIM_MODIFY = 1, NIM_DELETE = 2, NIF_MESSAGE = 1, NIF_ICON = 2, NIF_TIP = 4, NIF_INFO = 0x10, NIIF_INFO = 1;
     private const uint MenuPanel = 1, MenuAdmin = 2, MenuStop = 3;
@@ -32,6 +32,8 @@ internal static class CoreShell
     private static WndProc _proc; // 留着引用，别被回收
     private static CoreWebView2Controller _controller;
     private static bool _webFailed, _hiddenOnce, _showWanted;
+    private static int _dpi = 96;
+    private static DateTime _pageStamp;
     private static string _lastTip = "";
 
     internal static bool Active => _hwnd != IntPtr.Zero;
@@ -84,7 +86,8 @@ internal static class CoreShell
         {
             IntPtr instance = GetModuleHandleW(null);
             LoadIcons();
-            _background = CreateSolidBrush(0x00221F1C);
+            // 深色底(#161916)：窗口刚起、网页还没画出来时不闪白(用户 2026-11-16 "这个核心的小窗口感觉不好看")
+            _background = CreateSolidBrush(0x00161916);
             _proc = WindowProc;
             var cls = new WNDCLASSEXW
             {
@@ -101,11 +104,13 @@ internal static class CoreShell
             {
                 // 老系统按 96
             }
-            int width = 1100 * (int)dpi / 96, height = 760 * (int)dpi / 96;
+            _dpi = (int)dpi;
+            int width = 900 * _dpi / 96, height = 600 * _dpi / 96;
             int x = Math.Max(0, (GetSystemMetrics(0) - width) / 2), y = Math.Max(0, (GetSystemMetrics(1) - height) / 2);
             const uint WS_OVERLAPPEDWINDOW = 0x00CF0000;
             _hwnd = CreateWindowExW(0, ClassName, Title, WS_OVERLAPPEDWINDOW, x, y, width, height, IntPtr.Zero, IntPtr.Zero, instance, IntPtr.Zero);
             if (_hwnd == IntPtr.Zero) throw new InvalidOperationException("窗口建不起来(" + Marshal.GetLastWin32Error() + ")");
+            DarkTitle(_hwnd);
             Tray(NIM_ADD);
             SetTimer(_hwnd, new IntPtr(1), 2000, IntPtr.Zero);
             SynchronizationContext.SetSynchronizationContext(new ShellContext());
@@ -135,7 +140,7 @@ internal static class CoreShell
             Directory.CreateDirectory(data);
             CoreWebView2Environment environment = await CoreWebView2Environment.CreateAsync(null, data);
             _controller = await environment.CreateCoreWebView2ControllerAsync(_hwnd);
-            _controller.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 0x1C, 0x1F, 0x22);
+            _controller.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 0x16, 0x19, 0x16);
             CoreWebView2 web = _controller.CoreWebView2;
             web.Settings.AreDevToolsEnabled = false;
             web.Settings.IsStatusBarEnabled = false;
@@ -147,6 +152,7 @@ internal static class CoreShell
                 OpenExternal(args.Uri);
             };
             Fit();
+            _pageStamp = PageStamp();
             web.Navigate(Program.PanelLink());
         }
         catch (Exception exception)
@@ -167,7 +173,14 @@ internal static class CoreShell
                 case WM_SIZE:
                     Fit();
                     return IntPtr.Zero;
+                case WM_GETMINMAXINFO:
+                    // 最小 760×520(按缩放)：再小面板就挤了
+                    var limits = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                    limits.ptMinTrackSize = new POINT { X = 760 * _dpi / 96, Y = 520 * _dpi / 96 };
+                    Marshal.StructureToPtr(limits, lParam, false);
+                    return IntPtr.Zero;
                 case WM_DPICHANGED:
+                    _dpi = (int)(wParam.ToInt64() & 0xFFFF);
                     var suggested = Marshal.PtrToStructure<RECT>(lParam);
                     SetWindowPos(hwnd, IntPtr.Zero, suggested.Left, suggested.Top, suggested.Right - suggested.Left, suggested.Bottom - suggested.Top, 0x0014);
                     return IntPtr.Zero;
@@ -231,8 +244,49 @@ internal static class CoreShell
             OpenAppWindow();
             return;
         }
+        // 面板网页改过(换了新版面)：叫出窗口时重新载入一回，不必停了核心再开。登入的令牌在网页自己的存储里，重载不用再登
+        try
+        {
+            DateTime stamp = PageStamp();
+            if (_controller?.CoreWebView2 != null && stamp != _pageStamp)
+            {
+                _pageStamp = stamp;
+                _controller.CoreWebView2.Reload();
+            }
+        }
+        catch (Exception)
+        {
+            // 重载不了就照旧显示
+        }
         ShowWindow(_hwnd, IsIconic(_hwnd) ? 9 : 5);
         SetForegroundWindow(_hwnd);
+    }
+
+    private static DateTime PageStamp()
+    {
+        try
+        {
+            string page = Path.Combine(Program.DataRoot ?? "", "Terminal", "host.html");
+            return File.Exists(page) ? File.GetLastWriteTimeUtc(page) : DateTime.MinValue;
+        }
+        catch (Exception)
+        {
+            return DateTime.MinValue;
+        }
+    }
+
+    // 深色标题栏(同面板的深色调)：Win10 20H1 起是 20 号属性，更早的 Win10 是 19 号；都不认就照系统的
+    private static void DarkTitle(IntPtr hwnd)
+    {
+        int on = 1;
+        try
+        {
+            if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0) DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
+        }
+        catch (Exception)
+        {
+            // 没有 dwmapi(不会发生在 Win10 以上)
+        }
     }
 
     private static void Fit()
@@ -288,7 +342,7 @@ internal static class CoreShell
             {
                 var start = new ProcessStartInfo(browser) { UseShellExecute = false };
                 start.ArgumentList.Add("--app=" + link);
-                start.ArgumentList.Add("--window-size=1100,760");
+                start.ArgumentList.Add("--window-size=900,600");
                 Process.Start(start)?.Dispose();
                 return;
             }
@@ -424,6 +478,12 @@ internal static class CoreShell
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public POINT ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct RECT
     {
         public int Left, Top, Right, Bottom;
@@ -488,6 +548,7 @@ internal static class CoreShell
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT point);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int MessageBoxW(IntPtr hwnd, string text, string caption, uint type);
     [DllImport("gdi32.dll")] private static extern IntPtr CreateSolidBrush(uint color);
+    [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandleW(string name);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] private static extern bool Shell_NotifyIconW(uint message, ref NOTIFYICONDATAW data);
 
