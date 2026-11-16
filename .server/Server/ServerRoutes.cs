@@ -49,24 +49,35 @@ internal static class ServerRoutes
     private static int _adminFails;
     private static DateTime _adminLockedUntil = DateTime.MinValue;
 
-    // 本机打开管理页用的一次性票(用户 2026-11-16 "可以都覆盖"：配了账号密码的核心，本机打开也直接进管理员)：
-    // 核心自己打开浏览器、或模组拉起的核心应 adminlink 时发一张，写在地址 #admin= 后面，网页拿它换管理员令牌。
-    // 32 位小写十六进制，只在内存里，只能兑一回，120 秒作废，同一时刻只认最新的一张；
-    // 兑错另记一个数，5 回锁 60 秒，不占账号密码连错的次数
+    // 本机管理页和手机扫码各留一张一次性票，防止打开浏览器与面板刷新相互作废。
+    // 票随 #admin= 交给浏览器，120 秒内只能兑换一次。兑错另记次数，不占账号密码连错的次数。
     private const int TicketSeconds = 120;
-    private static string _ticket;
-    private static DateTime _ticketUntil = DateTime.MinValue, _ticketLockedUntil = DateTime.MinValue;
+    private sealed class AdminTicket
+    {
+        internal readonly string Value = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        internal readonly DateTime Until = DateTime.UtcNow.AddSeconds(TicketSeconds);
+
+        internal bool Matches(string value, DateTime now) => now < Until && Same(value, Value);
+    }
+
+    private static AdminTicket _ticket, _mobileTicket;
+    private static DateTime _ticketLockedUntil = DateTime.MinValue;
     private static int _ticketFails;
 
     public static string IssueAdminTicket()
     {
-        string ticket = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        lock (Accounts)
+            return (_ticket = new AdminTicket()).Value;
+    }
+
+    private static string MobileAdminTicket()
+    {
         lock (Accounts)
         {
-            _ticket = ticket;
-            _ticketUntil = DateTime.UtcNow.AddSeconds(TicketSeconds);
+            if (_mobileTicket == null || DateTime.UtcNow >= _mobileTicket.Until)
+                _mobileTicket = new AdminTicket();
+            return _mobileTicket.Value;
         }
-        return ticket;
     }
 
     // 兑票：对了返回 true 并作废这张票；错了计数(到 5 回锁 60 秒)。locked 表示眼下锁着
@@ -74,12 +85,18 @@ internal static class ServerRoutes
     {
         lock (Accounts)
         {
-            locked = DateTime.UtcNow < _ticketLockedUntil;
+            DateTime now = DateTime.UtcNow;
+            locked = now < _ticketLockedUntil;
             if (locked) return false;
-            bool valid = _ticket != null && DateTime.UtcNow < _ticketUntil && Same(ticket, _ticket);
-            if (valid)
+            if (_ticket?.Matches(ticket, now) == true)
             {
                 _ticket = null;
+                _ticketFails = 0;
+                return true;
+            }
+            if (_mobileTicket?.Matches(ticket, now) == true)
+            {
+                _mobileTicket = null;
                 _ticketFails = 0;
                 return true;
             }
@@ -256,7 +273,7 @@ internal static class ServerRoutes
         return token != null ? Json(new JObject { ["token"] = token, ["admin"] = true }) : Error(503, "not_ready");
     }
 
-    // 主机面板要的：手机该连的地址(给人看的、二维码里的整条)、二维码格子(一行一串 01，行 0 在上；编不下不给)、
+    // 主机面板要的：普通房间地址、管理员登录二维码(一行一串 01，行 0 在上；编不下不给)、
     // 是否脱手、能不能从面板停下核心、在线几部。地址同开服说明：接着大厅用房间地址，填了外网地址用外网的，否则局域网地址
     private static TerminalServer.Reply Host()
     {
@@ -267,9 +284,12 @@ internal static class ServerRoutes
             ["address"] = address, ["scan"] = scan, ["detached"] = Program.Detached, ["can_stop"] = Program.CanStop,
             ["online"] = TerminalHost.OnlineSeats(), ["max"] = TerminalPairing.Limit
         };
-        bool[,] modules = TerminalQr.Encode(scan);
+        if (!Config.AdminByPassword) reply["admin_code"] = TerminalHost.AdminCode;
+        string adminScan = scan.TrimEnd('/') + "/#admin=" + MobileAdminTicket();
+        bool[,] modules = TerminalQr.Encode(adminScan);
         if (modules != null)
         {
+            reply["qr_admin"] = true;
             var rows = new JArray();
             int size = modules.GetLength(0);
             var line = new StringBuilder(size);

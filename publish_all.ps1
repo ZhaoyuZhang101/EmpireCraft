@@ -1,7 +1,7 @@
-﻿# 一键发布：推送代码 → 编译检查 → 更新独立服务器(核心与手机网页) → 发布模组更新(玩家游戏里的在线更新)。
+﻿# 一键发布：推送代码 → 编译检查 → 更新本机 Windows 核心和 Linux 服务器 → 发布模组更新。
 #   .\publish_all.bat                 全做
 #   .\publish_all.bat -NoPush         不推送 GitHub
-#   .\publish_all.bat -NoServer       不更新服务器
+#   .\publish_all.bat -NoServer       不更新本机 Windows 核心和 Linux 服务器
 #   .\publish_all.bat -NoClient       不发布模组更新
 #   .\publish_all.bat -Lobby          另外更新联机大厅(update_lobby.bat)
 # 只发布已经提交的东西：在一个干净的临时副本(当前提交)里编译、打包，工作区里没提交的改动(包括别的会话改到一半的)一概不带。
@@ -62,7 +62,7 @@ if ($dirty.Count -gt 0) {
     Write-Host "  工作区有 $($dirty.Count) 个文件改了没提交：这些不会发布(要发布先提交)" -ForegroundColor Yellow
 }
 Write-Host ("  要做：" + (@(
-    $(if (-not $NoPush) { "推送" }), "编译检查", $(if (-not $NoServer) { "更新服务器" }), $(if (-not $NoClient) { "发布模组更新" }),
+    $(if (-not $NoPush) { "推送" }), "编译检查", $(if (-not $NoServer) { "更新本机核心和服务器" }), $(if (-not $NoClient) { "发布模组更新" }),
     $(if ($Lobby) { "更新大厅" })) | Where-Object { $_ }) -join " → ")
 if (-not $Yes) {
     $answer = Read-Host "继续吗？(y/n)"
@@ -94,10 +94,10 @@ try {
 
     # ── 3. 服务器 ──
     if (-not $NoServer) {
-        Step "更新独立服务器(编译核心、上传、重启)"
+        Step "更新本机 Windows 核心和 Linux 服务器"
         $env:EC_NOPAUSE = "1"
         & cmd.exe /c (Join-Path $Work "update_server.bat")
-        if ($LASTEXITCODE -ne 0) { $failed += "服务器" }
+        if ($LASTEXITCODE -ne 0) { $failed += "本机核心或服务器" }
     }
 
     # ── 4. 模组更新 ──

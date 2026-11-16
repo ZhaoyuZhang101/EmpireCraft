@@ -4,15 +4,19 @@
 
 在模组目录里双击 `update_server.bat`(或在 PowerShell 里 `.\update_server.bat`)。它依次：
 
-1. 本地编译出 Linux 版程序(调 `.server\publish.ps1`，自包含，服务器上不用装 dotnet)；
-2. 把程序和核心要读的数据(`Terminal`、`WorldMaps`、`Locales`、`Technology`、`InstitutionTrees`、`Scripts` 里的配置文件、根目录的几份 json)压成一个包(四十来兆)；
-3. 传到服务器(上传时显示百分比、速度、剩余时间)，在服务器上解到 `/opt/empirecraft/.incoming` 并跑 `install.sh`：换上新程序和新数据，重启服务，确认它起来了。新版一分钟内没起来会自动换回上一版。
+1. 如果游戏目录下已有 `EmpireCraftCore\win-x64`，编译并替换该目录中的 Windows 核心。正在独立运行的核心会先存档退出，再用原参数启动。若世界是从游戏移交的，先在核心面板回到游戏或从托盘退出核心，再运行更新。
+2. 本地编译出 Linux 版程序(调 `.server\publish.ps1`，自包含，服务器上不用装 dotnet)。
+3. 把程序和核心要读的数据(`Terminal`、`WorldMaps`、`Locales`、`Technology`、`InstitutionTrees`、`Scripts` 里的配置文件、根目录的几份 json)压成一个包(四十来兆)。
+4. 传到服务器(上传时显示百分比、速度、剩余时间)，在服务器上解到 `/opt/empirecraft/.incoming` 并跑 `install.sh`，换上新程序和新数据，重启服务，确认它起来了。新版一分钟内没起来会自动换回上一版。
 
 服务器上的存放目录(`server.json`、账号、上传的剧本、存档)不会被覆盖。
 
-- `.\update_server.bat nobuild`：不重新编译，把上次编译好的再传一遍。
+- `.\update_server.bat local`：只更新游戏目录下已安装的 Windows 核心，适合验证工作区里的改动。
+- `.\update_server.bat nobuild`：把上次编译好的 Linux 版再传一遍。
 - `.\update_server.bat check`：只从这台电脑问一下核心在不在(端口照脚本顶上的 `CORE_PORT`，现在是 8766)。
 - 服务器地址、用户名、目录在 `update_server.bat` 顶上改。
+
+`publish_all.bat` 也会执行本机 Windows 更新。它使用当前 Git 提交编译，未提交的改动可用 `update_server.bat local` 在本机验证。
 
 每次更新都会重启核心。核心停的时候会先存档，起来后接着存档跑；没有存档时才照 `server.json` 里写的剧本开局(`scenario` 空着就等管理员在房间里挑)。
 

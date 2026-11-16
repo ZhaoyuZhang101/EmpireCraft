@@ -2,8 +2,9 @@
 setlocal EnableDelayedExpansion
 pushd "%~dp0" || exit /b 1
 
-rem Build the standalone core locally, upload it to the Linux server and restart it there as a service.
-rem   update_server.bat          build + upload + restart
+rem Update the installed Windows core, then build and deploy the Linux service.
+rem   update_server.bat          Windows install (if present) + Linux deploy
+rem   update_server.bat local    only update the installed Windows development core
 rem   update_server.bat check    only ask the server whether the core is answering
 rem   update_server.bat nobuild  upload the build that is already in .server\publish\linux-x64
 rem The server keeps its own state folder (server.json, accounts, uploaded scenarios); it is never overwritten.
@@ -21,11 +22,16 @@ set "MODE=%~1"
 set "RESULT=0"
 
 if /i "%MODE%"=="check" goto :check
+if /i "%MODE%"=="local" (
+    call :update_local
+    goto :finish
+)
 if defined MODE if /i not "%MODE%"=="nobuild" (
-    echo Usage: %~nx0 [check^|nobuild]
+    echo Usage: %~nx0 [local^|check^|nobuild]
     set "RESULT=1"
     goto :finish
 )
+if not defined MODE call :update_local -IfInstalled
 
 where ssh.exe >nul 2>&1
 if errorlevel 1 (
@@ -137,3 +143,10 @@ if "%RESULT%"=="0" (
 if not defined EC_NOPAUSE pause
 popd
 exit /b %RESULT%
+
+:update_local
+echo.
+echo ===== Update local Windows core =====
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%.server\update-local.ps1" %1
+if errorlevel 1 set "RESULT=1"
+exit /b

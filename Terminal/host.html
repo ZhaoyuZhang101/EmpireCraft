@@ -159,8 +159,9 @@ tr:hover td{background:var(--card)}
         <div class="link">
           <canvas id="qr" width="1" height="1" hidden></canvas>
           <div class="side2">
-            <div class="muted" data-t="link_note"></div>
+            <div class="muted" id="link-note" data-t="link_note"></div>
             <div class="addr" id="v-addr">—</div>
+            <div class="muted" id="v-admin-code" hidden></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
               <button class="small" id="b-qr"><img class="ico" src="host/iconTitleLayer.png" alt=""><span data-t="b_qr"></span></button>
               <button class="small" id="b-copy"><img class="ico" src="host/iconBooksWritten.png" alt=""><span data-t="b_copy"></span></button>
@@ -211,6 +212,7 @@ k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手机�
 month:"{0} 月",paused:"流速 · 已暂停",never:"未存",auto:"每 {0} 分钟自动存",
 mode_detached:"游戏已关，核心独自运行",mode_alone:"独立运行",mode_game:"由游戏看着",
 link_note:"手机扫码，或在手机浏览器里打开：",b_qr:"放大二维码",b_copy:"复制地址",copied:"地址已复制",qr_title:"手机扫码连接",no_qr:"这一版核心没给出二维码",
+admin_qr_note:"手机扫码直接登录管理员。下方地址可以发给玩家。",admin_qr_title:"管理员扫码登录",admin_code:"管理员配对码 {0}",
 b_admin:"打开网页管理页",b_admin_sub:"在浏览器里看全图、挑剧本、管席位",b_save:"现在存档",b_save_sub:"上回 {0}",b_save_none:"还没存过",
 b_stop_game:"停下核心，回到游戏",b_stop_game_sub:"先存档，再把游戏开起来",b_stop:"停下核心",b_stop_sub:"先存档再退出，手机都会断开",b_refresh:"刷新",
 saving:"已叫核心存档",opened:"已在浏览器里打开管理页",
@@ -230,6 +232,7 @@ k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手機�
 month:"{0} 月",paused:"流速 · 已暫停",never:"未存",auto:"每 {0} 分鐘自動存",
 mode_detached:"遊戲已關，核心獨自運行",mode_alone:"獨立運行",mode_game:"由遊戲看著",
 link_note:"手機掃碼，或在手機瀏覽器裡打開：",b_qr:"放大二維碼",b_copy:"複製位址",copied:"位址已複製",qr_title:"手機掃碼連接",no_qr:"這一版核心沒給出二維碼",
+admin_qr_note:"手機掃碼直接登入管理員。下方位址可以發給玩家。",admin_qr_title:"管理員掃碼登入",admin_code:"管理員配對碼 {0}",
 b_admin:"打開網頁管理頁",b_admin_sub:"在瀏覽器裡看全圖、挑劇本、管席位",b_save:"現在存檔",b_save_sub:"上回 {0}",b_save_none:"還沒存過",
 b_stop_game:"停下核心，回到遊戲",b_stop_game_sub:"先存檔，再把遊戲開起來",b_stop:"停下核心",b_stop_sub:"先存檔再退出，手機都會斷開",b_refresh:"重新整理",
 saving:"已叫核心存檔",opened:"已在瀏覽器裡打開管理頁",
@@ -249,6 +252,7 @@ k_date:"Year {0}",k_date_none:"Date",k_speed:"Speed",k_online:"phones online",k_
 month:"Month {0}",paused:"Speed · paused",never:"none",auto:"autosave every {0} min",
 mode_detached:"Game closed, core running alone",mode_alone:"Standalone",mode_game:"Watched by the game",
 link_note:"Scan with a phone, or open in the phone's browser:",b_qr:"Enlarge QR code",b_copy:"Copy address",copied:"Address copied",qr_title:"Scan to connect",no_qr:"This core build gives no QR code",
+admin_qr_note:"Scan to sign in as admin. Share the address below with players.",admin_qr_title:"Scan to sign in as admin",admin_code:"Admin pairing code {0}",
 b_admin:"Open the web admin page",b_admin_sub:"Whole map, scenarios and seats, in the browser",b_save:"Save now",b_save_sub:"Last: {0}",b_save_none:"Never saved",
 b_stop_game:"Stop the core, return to the game",b_stop_game_sub:"Saves first, then starts the game",b_stop:"Stop the core",b_stop_sub:"Saves and exits; phones are dropped",b_refresh:"Refresh",
 saving:"Save requested",opened:"Admin page opened in the browser",
@@ -341,7 +345,10 @@ function tick(now){
   },function(){alive=false;drawHome()});
   if(now||round%3===0){
     api("GET","/api/admin/save").then(function(r){if(r.status===200){save=r.json;drawHome()}},function(){});
-    api("GET","/api/admin/host").then(function(r){if(r.status===200){host=r.json;drawHome();drawQr($("qr"))}},function(){});
+    api("GET","/api/admin/host").then(function(r){if(r.status===200){
+      host=r.json;drawHome();drawQr($("qr"));
+      if($("dialog-qr"))drawQr($("dialog-qr"));
+    }},function(){});
     api("GET","/api/server").then(function(r){if(r.status===200){srv=r.json;drawHome()}},function(){});
   }
   if(round%5===4){if(page==="users")loadAccounts();if(page==="mod"||page==="laws")loadLists()}
@@ -376,6 +383,10 @@ function drawHome(){
   $("v-mode").textContent=host||save?t(detached()?"mode_detached":host&&host.can_stop?"mode_alone":"mode_game"):"—";
   var addr=host&&(host.address||host.scan)||"";
   $("v-addr").textContent=addr||"—";$("v-addr").title=host&&host.scan||"";
+  $("link-note").textContent=t(host&&host.qr_admin?"admin_qr_note":"link_note");
+  var code=host&&host.admin_code;
+  $("v-admin-code").hidden=!code;
+  $("v-admin-code").textContent=code?t("admin_code",code):"";
   $("b-qr").hidden=!(host&&host.qr&&host.qr.length);$("b-copy").hidden=!addr;
   $("b-stop").hidden=!canStop();
   $("b-stop-t").textContent=t(detached()?"b_stop_game":"b_stop");
@@ -401,15 +412,15 @@ function drawQr(c){
   if(!q||!q.length){c.hidden=true;return false}
   c.hidden=false;
   var quiet=4,n=q.length,side=n+quiet*2,x=c.getContext("2d");
-  c.width=c.height=side;c.title=host.scan||"";
+  c.width=c.height=side;c.title=t(host.qr_admin?"admin_qr_title":"qr_title");
   x.fillStyle="#fff";x.fillRect(0,0,side,side);x.fillStyle="#000";
   for(var r=0;r<n;r++)for(var k=0;k<n;k++)if(q[r].charAt(k)==="1")x.fillRect(k+quiet,r+quiet,1,1);
   return true;
 }
 function bigQr(){
   dialog(function(box){
-    box.appendChild(el("h3",null,t("qr_title")));
-    var c=el("canvas");box.appendChild(c);
+    box.appendChild(el("h3",null,t(host&&host.qr_admin?"admin_qr_title":"qr_title")));
+    var c=el("canvas");c.id="dialog-qr";box.appendChild(c);
     if(!drawQr(c))box.replaceChild(el("div","muted",t("no_qr")),c);
     var a=el("div","muted",host&&(host.scan||host.address)||"");a.style.textAlign="center";a.style.userSelect="text";box.appendChild(a);
     buttons(box,[{text:t("close"),go:closeDialog}]);

@@ -311,13 +311,16 @@ app.whenReady().then(() => {
     const link = coreLauncher.shortcut(modRootOrNull());
     if (!link) return { ok: false, error: "没找到服务器核心或模组目录。" };
     const file = path.join(app.getPath("desktop"), "帝国盒子核心.lnk");
-    const icon = path.join(__dirname, "assets", "core-icon.ico");
-    // 打包成便携版时图标在压缩包里，快捷方式指不到：那时不带图标(用核心程序自己的)
-    const options = { target: link.target, cwd: link.cwd, args: link.args, description: link.description };
-    if (syncFs.existsSync(icon) && !icon.includes(".asar")) {
-      options.icon = icon;
-      options.iconIndex = 0;
+    const icon = path.join(coreLauncher.stateDir(), "core-icon.ico");
+    // 便携包的 app.asar 可以由 Electron 读取，Windows 解析 .lnk 时需要一个长期存在的文件。
+    try {
+      const image = await fs.readFile(path.join(__dirname, "assets", "core-icon.ico"));
+      await fs.mkdir(path.dirname(icon), { recursive: true });
+      await fs.writeFile(icon, image);
+    } catch (error) {
+      return { ok: false, error: "核心图标无法保存：" + error.message };
     }
+    const options = { target: link.target, cwd: link.cwd, args: link.args, description: link.description, icon, iconIndex: 0 };
     const done = shell.writeShortcutLink(file, syncFs.existsSync(file) ? "replace" : "create", options);
     return done ? { ok: true, file } : { ok: false, error: "快捷方式没写成。" };
   });
