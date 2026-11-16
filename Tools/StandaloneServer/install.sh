@@ -32,7 +32,13 @@ echo "存放目录：$STATE"
 PORT="$(grep -o '"port"[^0-9]*[0-9]\+' "$STATE/server.json" 2>/dev/null | grep -o '[0-9]\+$' | head -1)"
 [ -z "$PORT" ] && PORT=8766
 
-# ---- 停旧的。没装成服务以前手动起着的那个也停掉(占着端口，新服务起不来)；这台机器上只跑这一个核心
+# ---- 停旧的。没装成服务以前手动起着的那个也停掉(占着端口，新服务起不来)；这台机器上只跑这一个核心。
+# 停的时候核心要先存档：老版本装的服务只等 90 秒，大档存不完就被强杀，先把停机限时放宽(新装的服务里本来就写着)
+if [ -f "/etc/systemd/system/$SERVICE.service" ] && ! grep -q '^TimeoutStopSec=' "/etc/systemd/system/$SERVICE.service"; then
+    sed -i 's/^\[Service\]$/[Service]\nTimeoutStopSec=600/' "$UNIT"
+    systemctl daemon-reload
+fi
+echo "停下旧核心(先存档，大档要一两分钟)……"
 systemctl stop "$SERVICE" 2>/dev/null || true
 pkill -f "EmpireCraftServer" 2>/dev/null || true
 sleep 1
@@ -94,6 +100,8 @@ Restart=always
 RestartSec=5
 # 退出码 4 = 端口开不了(被别的程序占着)：重启也没用，停着等人改 server.json
 RestartPreventExitStatus=4
+# 停下时核心要先存档：几百年的大档一次要存一到四分钟，系统默认只等 90 秒就强杀，档就存不上(2026-11-16 实际发生过)
+TimeoutStopSec=600
 NoNewPrivileges=true
 LimitNOFILE=65536
 
@@ -115,12 +123,18 @@ if [ -n "$HOLDER" ]; then
 fi
 
 # ---- 起来没有：问本机的 /api/server
+# 核心读完存档才开端口：几百年的大档在小内存的机器上要读好几分钟(2026-11-16 一分钟就判失败、把能用的新版换掉了)。
+# 进程还活着、日志里还在读档就接着等，最多十分钟；进程退了、或读完档一分钟还不应答才算没起来
 started() {
     systemctl restart "$SERVICE"
-    for _ in $(seq 1 30); do
-        sleep 2
+    local since waited=0
+    since="$(date '+%Y-%m-%d %H:%M:%S')"
+    while [ "$waited" -lt 600 ]; do
+        sleep 2; waited=$((waited + 2))
         if curl -fsS -m 3 "http://127.0.0.1:$PORT/api/server" 2>/dev/null | grep -q empirecraft; then return 0; fi
-        systemctl is-active --quiet "$SERVICE" || true
+        systemctl is-active --quiet "$SERVICE" || return 1
+        if [ "$waited" -ge 60 ] && ! journalctl -u "$SERVICE" --since "$since" --no-pager 2>/dev/null | grep -q "读档"; then return 1; fi
+        if [ $((waited % 30)) -eq 0 ]; then echo "  还在读档，已等 ${waited} 秒……"; fi
     done
     return 1
 }
@@ -128,7 +142,7 @@ if started; then
     echo "核心已起来：端口 $PORT"
     rm -rf "$ROOT/app.failed"
 else
-    echo "新版一分钟内没应答(端口 $PORT)。进程：$(systemctl is-active "$SERVICE")；它在听的端口：$(ss -ltnp 2>/dev/null | grep -c EmpireCraftServ) 个。最近的日志："
+    echo "新版没应答(端口 $PORT)。进程：$(systemctl is-active "$SERVICE")；它在听的端口：$(ss -ltnp 2>/dev/null | grep -c EmpireCraftServ) 个。最近的日志："
     journalctl -u "$SERVICE" -n 25 --no-pager || true
     if [ -d "$ROOT/app.old" ]; then
         echo "换回上一版程序……"

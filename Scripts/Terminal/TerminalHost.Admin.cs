@@ -168,7 +168,8 @@ public static partial class TerminalHost
                     // 编号：手机按它把前后两份军情对上，军牌平滑走过去；去向：画开往哪里(用户 2026-11-16 "士兵也没有前进的指针我都不知道他们要去哪儿")
                     ["id"] = corps.id.ToString()
                 };
-                if (corps.embarked) row["task"] = "sea";
+                row["task"] = corps.embarked ? "sea" : corps.task ?? "reserve";
+                AddMarch(row, corps);
                 WorldTile to = corps.target_zone_id == corps.zone_id ? null : CorpsSystem.ZoneById(corps.target_zone_id)?.centerTile;
                 if (to != null)
                 {

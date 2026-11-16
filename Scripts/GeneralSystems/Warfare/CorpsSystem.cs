@@ -2289,6 +2289,25 @@ public static class CorpsSystem
     public static float ZoneDistance(TileZone a, TileZone b) =>
         a == null || b == null ? float.MaxValue : Mathf.Max(Mathf.Abs(a.x - b.x), Mathf.Abs(a.y - b.y));
 
+    // 还要几个月走到目标(手机上的军队条子；用户 2026-11-16 "要是能看到这些士兵的当前任务和预计到达时间就好了")：
+    // 有缓存的路线按路线的块数，没有按直线块数；速度取这一拍的行军速度(停着的按兵种的平地速度)；一个月 5 秒世界时长。
+    // 已到、没目标、在船上、被围的给 -1(手机写"驻在原地""渡海中""被围")
+    public static int EtaMonths(CorpsData corps)
+    {
+        if (corps == null || corps.embarked || corps.pocket_months > 0) return -1;
+        TileZone here = Zone(corps), target = FrontSystem.TargetZone(corps);
+        if (here == null || target == null || here == target) return -1;
+        float left = Paths.TryGetValue(corps.id, out var cached) && cached.target == target.id && cached.path.Count >= 2 && cached.path[0] == here.id
+            ? cached.path.Count - 1
+            : ZoneDistance(here, target);
+        float rate = MarchRates.TryGetValue(corps.id, out float now) && now > 0f
+            ? now
+            : MarchZonesPerSecond * CorpsArmSystem.Speed(CorpsArmSystem.Of(corps));
+        if (rate <= 0f) return -1;
+        float seconds = Mathf.Max(0f, left - corps.march_progress) / rate;
+        return Mathf.Max(1, Mathf.CeilToInt(seconds / 5f));
+    }
+
     private static void MoveGeneral(CorpsData corps)
     {
         if (corps.general_id < 0) return;

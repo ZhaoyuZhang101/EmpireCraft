@@ -479,6 +479,25 @@ public static partial class TerminalHost
         }.ToString(Newtonsoft.Json.Formatting.None);
     }
 
+    // 军队条子上的去向与预计几个月到(用户 2026-11-16 "要是能看到这些士兵的当前任务和预计到达时间就好了")：
+    // to = 目标那块地所在的城(野地没有)，eta = 还要几个月(见 CorpsSystem.EtaMonths；到了、在船上、被围的不给)
+    internal static void AddMarch(JObject row, CorpsData corps)
+    {
+        try
+        {
+            TileZone target = corps.target_zone_id == corps.zone_id ? null : CorpsSystem.ZoneById(corps.target_zone_id);
+            string place = target?.city?.data != null && !target.city.isRekt() ? target.city.data.name : null;
+            if (!string.IsNullOrEmpty(place)) row["to"] = TerminalIntel.Strip(place);
+            int eta = CorpsSystem.EtaMonths(corps);
+            if (eta > 0) row["eta"] = eta;
+            if (corps.pocket_months > 0) row["pocket"] = true;
+        }
+        catch (Exception)
+        {
+            // 路线一时算不出：这一支先不写去向
+        }
+    }
+
     private static JArray SeeArmies(Seat seat)
     {
         var armies = new JArray();
@@ -504,6 +523,7 @@ public static partial class TerminalHost
                 row["tx"] = tx;
                 row["ty"] = ty;
             }
+            AddMarch(row, corps);
             City sector = corps.sector_city_id < 0 ? null : World.world.cities.get(corps.sector_city_id);
             if (sector?.data != null && !sector.isRekt()) row["at"] = sector.data.name;
             City home = CorpsSystem.Home(corps);
