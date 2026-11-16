@@ -1485,7 +1485,7 @@ public static class WildernessSystem
                         IsNeutral(id), legacy[id] && carvedNow[id] == null ? OriginOf(_zones[id]) : null);
                 }
         _carved = carvedFrom;
-        Fill(oldOf, regionOf, oldCarved, oldParents, fromSave);
+        Fill(oldOf, regionOf, oldCarved, oldParents);
         RefreshOwners();
         return carved;
     }
@@ -1493,10 +1493,11 @@ public static class WildernessSystem
     // 空地交给城(用户 2026-11-16 管理员舆图上湖广、云贵一大片"无主之地")：重划时退出了无人区的地块(雨林、山地重划后
     // 够不上、成了不到 MinZones 块的碎片、开发满了……)以前就空着，原版扩张会慢慢补回来，可开着「城市边界固定」(独立服务器、
     // 预设剧本都开着)城不往外扩，空地越积越多。这里当场交出去：划出它的城、它跟着的城挨着就给它，否则给四邻里挨得最多的城；
-    // 一轮一轮往里填(内陆的空地等外圈有了城再给)。读档时把旧档里早就空着的、挨着城的陆地也补一遍；开局不动(照剧本分的地)
+    // 一轮一轮往里填(内陆的空地等外圈有了城再给)。只交这一次刚退出无人区的地块(上回在区里、这回不在)：
+    // 本来就空着的地(剧本、玩家刻意留的空地)不碰——以前读档时把挨着城的空地全补一遍，连刻意留空的也并进了城(玩家 2026-11-16 反馈)
     private const int FillPasses = 64;
 
-    private static int Fill(int[] oldOf, int[] regionOf, City[] carved, City[] origins, bool sweepAll)
+    private static int Fill(int[] oldOf, int[] regionOf, City[] carved, City[] origins)
     {
         int size = _zones.Length;
         var open = new List<int>();
@@ -1504,7 +1505,7 @@ public static class WildernessSystem
         {
             TileZone zone = _zones[id];
             if (zone == null || zone.city != null || regionOf[id] >= 0) continue;
-            if (!sweepAll && oldOf[id] < 0) continue;
+            if (oldOf[id] < 0) continue;
             if (zone.centerTile?.Type == null || zone.centerTile.Type.liquid || Count(zone).Land < MinLand) continue;
             open.Add(id);
         }
