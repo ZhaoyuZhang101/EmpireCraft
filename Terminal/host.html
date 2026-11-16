@@ -6,206 +6,251 @@
 <title>EmpireCraft Core</title>
 <link rel="icon" href="icon-192.png">
 <style>
-/* 服务器核心的小界面：开服的那台电脑上，嵌在核心自己的窗口里(见 .server 的窗口壳)。配色、方角、像素图标照政体编辑器的像素主题 */
+/* 服务器核心的小界面：开服的那台电脑上，嵌在核心自己的窗口里(见 .server 的 CoreShell)。
+   照政体编辑器的像素主题：左边一条导航、右边金边框的面板，方角、像素图标、像素字(12 像素的整数倍才清楚：正文 12，大字 24) */
 @font-face{font-family:"Fusion Pixel";src:url(host/pixel.woff2) format("woff2");font-display:swap}
 :root{--bg:#161916;--bar:#0e100e;--panel:#242924;--card:#2d332d;--card2:#353c35;--input:#111311;--line:#3c443b;--edge:#0b0d0b;
 --text:#ece4cf;--muted:#9b957f;--gold:#f0c75a;--gold-dim:#a8873a;--green:#4f9442;--green-hi:#73b862;--red:#c4483b;--red-hi:#e06d5d;--btn:#394039;--btn-hi:#4b534a}
 *{box-sizing:border-box}
 [hidden]{display:none !important}
 html,body{height:100%;margin:0;background:var(--bg)}
-body{color:var(--text);font:12px/1.7 "Fusion Pixel","Microsoft YaHei","Segoe UI",sans-serif;display:flex;flex-direction:column;user-select:none;overflow:hidden}
+body{color:var(--text);font:12px/1.75 "Fusion Pixel","Microsoft YaHei","Segoe UI",sans-serif;display:grid;grid-template-columns:176px minmax(0,1fr);gap:10px;padding:10px;user-select:none;overflow:hidden}
 img{image-rendering:pixelated}
 img.ico{width:20px;height:20px;flex:none;vertical-align:middle}
 img.ico.lg{width:32px;height:32px}
-.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bar);border-bottom:2px solid var(--line)}
-.bar .name{color:var(--gold);font-size:14px}
-.bar .grow{flex:1}
-.lamp{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
-.lamp i{width:8px;height:8px;background:#666}
-.lamp.on{color:var(--text)}.lamp.on i{background:var(--green-hi);box-shadow:0 0 6px var(--green-hi)}
-.lamp.off i{background:var(--red-hi)}
-.lamp.wait i{background:var(--gold);box-shadow:none}
-.tabs{display:flex;gap:2px;padding:6px 12px 0;background:var(--bar);border-bottom:2px solid var(--line)}
-.tabs button{display:flex;align-items:center;gap:6px;border:2px solid var(--edge);border-bottom:0;background:var(--btn);color:var(--muted);padding:5px 12px;box-shadow:none;margin-bottom:-2px}
-.tabs button.active{background:var(--bg);color:var(--gold);border-color:var(--line)}
-main{flex:1;min-height:0;overflow:auto;padding:12px;display:none}
-main.show{display:block}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
-.card{background:var(--card);border:1px solid var(--line);padding:10px 12px}
+.frame{border:8px solid transparent;border-image:url(host/regimeFrame.png) 8 / 8px stretch;background:var(--panel) padding-box;box-shadow:0 4px 0 rgba(0,0,0,.35);image-rendering:pixelated;min-height:0}
+
+/* ── 左边：名号、状态、导航 ── */
+#side{display:flex;flex-direction:column;padding:10px 8px 8px}
+.brand{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 12px;border-bottom:1px solid var(--line)}
+.brand img{width:56px;height:56px;border:2px solid var(--edge);box-shadow:0 0 0 1px var(--gold-dim)}
+.brand .n1{color:var(--gold);font-size:12px;margin-top:4px}
+.brand .n2{color:var(--muted)}
+.lamp{display:flex;align-items:center;justify-content:center;gap:6px;margin:10px 0;padding:4px 6px;border:1px solid var(--line);background:var(--input);color:var(--muted)}
+.lamp i{width:8px;height:8px;background:#666;flex:none}
+.lamp.on{color:var(--green-hi)}.lamp.on i{background:var(--green-hi);box-shadow:0 0 6px var(--green-hi)}
+.lamp.wait{color:var(--gold)}.lamp.wait i{background:var(--gold);box-shadow:none}
+.lamp.off{color:var(--red-hi)}.lamp.off i{background:var(--red-hi)}
+#nav{display:grid;gap:2px}
+#nav button{display:flex;align-items:center;gap:8px;width:100%;justify-content:flex-start;border:0;background:transparent;box-shadow:none;color:var(--muted);padding:7px 8px}
+#nav button:hover{background:var(--card);color:var(--text)}
+#nav button.active{background:var(--card2);color:#fff;box-shadow:inset 3px 0 0 var(--gold)}
+#side .grow{flex:1}
+#side .foot{color:var(--muted);border-top:1px solid var(--line);padding-top:8px;text-align:center;line-height:1.5}
+#side .foot b{display:block;color:var(--text);font-weight:normal}
+
+/* ── 右边：面板 ── */
+#main{display:flex;flex-direction:column;padding:12px 14px;overflow:hidden}
+.page{display:none;flex:1;min-height:0;flex-direction:column}
+.page.show{display:flex}
+.head{display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.head h2{margin:0;color:var(--gold);font-size:24px;line-height:1.2;font-weight:normal}
+.head .sub{color:var(--muted)}
+.head .grow{flex:1}
+.card{background:var(--card);border:1px solid var(--line);padding:10px 12px;min-height:0}
 .card h3{margin:0 0 8px;color:var(--gold);font-size:12px;font-weight:normal;border-bottom:1px solid var(--line);padding-bottom:4px;display:flex;align-items:center;gap:6px}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:1px 0}
-.kv span:first-child{color:var(--muted)}
-.kv b{font-weight:normal;color:var(--text);text-align:right;user-select:text}
 .muted{color:var(--muted)}
-button{font:inherit;color:var(--text);border:2px solid var(--edge);background:var(--btn);box-shadow:inset 0 2px 0 var(--btn-hi);padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+
+/* 概况：四块主指标、连接与操作两栏、席位占满余下的高度 */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.stat{background:var(--card);border:1px solid var(--line);padding:8px 10px;display:flex;align-items:center;gap:10px;min-width:0}
+.stat .v{color:var(--gold);font-size:24px;line-height:1.15;white-space:nowrap}
+.stat .k{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat div{min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
+.link{display:flex;gap:12px;align-items:stretch}
+.link canvas{width:132px;height:132px;background:#fff;cursor:zoom-in;flex:none;border:2px solid var(--edge);box-shadow:0 0 0 1px var(--gold-dim)}
+.link .side2{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.addr{background:var(--input);border:1px solid var(--line);color:#ffe3a0;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:pointer}
+.addr:hover{border-color:var(--gold-dim)}
+.acts{display:grid;gap:6px}
+.act{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;text-align:left;padding:6px 10px}
+.act .t2{color:var(--muted);line-height:1.4}
+.act.danger .t2{color:#ffd9d2}
+.act div{min-width:0}
+#seat-card{flex:1;display:flex;flex-direction:column}
+#seats{overflow:auto;flex:1;min-height:0}
+.seat{display:flex;align-items:center;gap:8px;padding:4px 2px;border-top:1px dashed var(--line)}
+.seat:first-child{border-top:0}
+.seat .dot{width:8px;height:8px;background:#555;flex:none}.seat.on .dot{background:var(--green-hi);box-shadow:0 0 5px var(--green-hi)}
+.seat .sw{width:12px;height:12px;border:1px solid var(--edge);flex:none}
+.seat .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+button{font:inherit;color:var(--text);border:2px solid var(--edge);background:var(--btn);box-shadow:inset 0 2px 0 var(--btn-hi);padding:4px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;justify-content:center}
 button:hover{background:var(--btn-hi)}
 button:active{box-shadow:inset 0 2px 0 var(--edge);transform:translateY(1px)}
 button.primary{background:var(--green);color:#fff;box-shadow:inset 0 2px 0 var(--green-hi)}
 button.primary:hover{background:#5ba54d}
 button.danger{background:var(--red);color:#fff;box-shadow:inset 0 2px 0 var(--red-hi)}
+button.danger:hover{background:#d1574a}
 button.small{padding:2px 8px}
 button:disabled{opacity:.45;cursor:not-allowed}
-.acts{display:grid;gap:6px}
-.acts button{width:100%;justify-content:flex-start}
-.qr{display:flex;gap:12px;align-items:center}
-.qr canvas{width:112px;height:112px;background:#fff;image-rendering:pixelated;cursor:zoom-in;flex:none;border:2px solid var(--edge)}
-.qr .addr{color:var(--gold);user-select:text;word-break:break-all}
-.seat{display:flex;align-items:center;gap:8px;padding:3px 0;border-top:1px dashed var(--line)}
-.seat:first-child{border-top:0}
-.seat .dot{width:8px;height:8px;background:#555;flex:none}.seat.on .dot{background:var(--green-hi)}
-.seat .sw{width:10px;height:10px;border:1px solid var(--edge);flex:none}
-.seat .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tools{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-input{font:inherit;color:var(--text);background:var(--input);border:2px solid var(--edge);padding:4px 8px;outline:none;user-select:text}
-input:focus{border-color:var(--gold-dim)}
-.tools input{flex:1}
-.row{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--card);border:1px solid var(--line);margin-bottom:4px}
+input{font:inherit;color:var(--text);background:var(--input);border:1px solid var(--line);padding:4px 8px;outline:none;user-select:text}
+input:focus{border-color:var(--gold)}
+input::placeholder{color:#6d6858}
+
+/* 设置、法则、账号 */
+.scroll{flex:1;min-height:0;overflow:auto;padding-right:2px}
+.head input{width:200px}
+.row{display:flex;align-items:center;gap:12px;padding:6px 10px;background:var(--card);border:1px solid var(--line);margin-bottom:4px}
 .row:hover{background:var(--card2)}
 .row .txt{flex:1;min-width:0}
-.row .txt .d{color:var(--muted);font-size:11px;line-height:1.5}
-.row img.tog{width:36px;height:18px;cursor:pointer;flex:none}
-.row input{width:120px;text-align:right}
+.row .txt .d{color:var(--muted);line-height:1.5}
+.row img.tog{width:48px;height:18px;cursor:pointer;flex:none}
+.row input{width:110px;text-align:right}
 table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
-th{color:var(--gold);font-weight:normal;background:var(--panel)}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--gold);font-weight:normal;background:var(--card);position:sticky;top:0}
 td.r,th.r{text-align:right}
-.empty{padding:26px;text-align:center;color:var(--muted);border:1px dashed var(--line)}
+tr:hover td{background:var(--card)}
+.empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--line)}
+
 #veil{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:9}
 #veil.show{display:flex}
-.dlg{background:var(--card);border:2px solid var(--gold-dim);padding:14px 16px;max-width:86vw;min-width:260px}
-.dlg h3{margin:0 0 8px;color:var(--gold);font-weight:normal;font-size:13px}
+.dlg{padding:12px 14px;max-width:86vw;min-width:280px}
+.dlg h3{margin:0 0 8px;color:var(--gold);font-weight:normal;font-size:12px;border-bottom:1px solid var(--line);padding-bottom:4px}
 .dlg .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-.dlg canvas{width:min(70vmin,360px);height:min(70vmin,360px);background:#fff;image-rendering:pixelated;display:block;margin:6px auto}
-#login{flex:1;display:none;align-items:center;justify-content:center;padding:20px}
+.dlg canvas{width:min(64vmin,340px);height:min(64vmin,340px);background:#fff;display:block;margin:6px auto;border:2px solid var(--edge)}
+#login{display:none;flex:1;align-items:center;justify-content:center}
 #login.show{display:flex}
-#toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:var(--bar);border:1px solid var(--gold-dim);color:var(--text);padding:5px 14px;display:none;z-index:10}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--bar);border:1px solid var(--gold-dim);color:var(--text);padding:4px 14px;display:none;z-index:10;box-shadow:0 4px 0 rgba(0,0,0,.35)}
 #toast.bad{border-color:var(--red-hi);color:var(--red-hi)}
-::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--btn-hi);border:2px solid var(--bg)}::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--btn-hi);border:2px solid var(--panel)}::-webkit-scrollbar-track{background:var(--panel)}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:minmax(0,1fr)}#main{overflow:auto}.page.show{flex:none}}
 </style>
 </head>
 <body>
-<div class="bar">
-  <img class="ico lg" src="icon-192.png" alt="">
-  <span class="name" id="t-name"></span>
-  <span class="grow"></span>
-  <span class="muted" id="when"></span>
-  <span class="lamp" id="lamp"><i></i><span id="lamp-t"></span></span>
-</div>
-<div class="tabs" id="tabs">
-  <button data-p="home"><img class="ico" src="host/iconWorldInfo.png" alt=""><span data-t="tab_home"></span></button>
-  <button data-p="mod"><img class="ico" src="host/iconOptions.png" alt=""><span data-t="tab_mod"></span></button>
-  <button data-p="laws"><img class="ico" src="host/iconWorldLaws.png" alt=""><span data-t="tab_laws"></span></button>
-  <button data-p="users"><img class="ico" src="host/iconKings.png" alt=""><span data-t="tab_users"></span></button>
-</div>
+<aside id="side" class="frame">
+  <div class="brand"><img src="icon-192.png" alt=""><span class="n1" data-t="name1"></span><span class="n2" data-t="name2"></span></div>
+  <div class="lamp" id="lamp"><i></i><span id="lamp-t"></span></div>
+  <div id="nav">
+    <button data-p="home"><img class="ico" src="host/iconWorldInfo.png" alt=""><span data-t="tab_home"></span></button>
+    <button data-p="mod"><img class="ico" src="host/iconOptions.png" alt=""><span data-t="tab_mod"></span></button>
+    <button data-p="laws"><img class="ico" src="host/iconWorldLaws.png" alt=""><span data-t="tab_laws"></span></button>
+    <button data-p="users"><img class="ico" src="host/iconKings.png" alt=""><span data-t="tab_users"></span></button>
+  </div>
+  <div class="grow"></div>
+  <div class="foot"><span data-t="k_mode"></span><b id="v-mode">—</b></div>
+</aside>
 
-<div id="login"><div class="dlg">
-  <h3><img class="ico" src="host/iconQuestionMark.png" alt=""> <span data-t="login_title"></span></h3>
-  <div class="muted" data-t="login_note"></div>
-  <div style="display:flex;gap:8px;margin-top:10px"><input id="login-code" maxlength="40" spellcheck="false" autocomplete="off" style="flex:1"><button class="primary" id="login-go" data-t="login_go"></button></div>
-  <div id="login-err" style="color:var(--red-hi);min-height:1.7em"></div>
-</div></div>
+<section id="main" class="frame">
+  <div id="login"><div class="card" style="max-width:380px">
+    <h3><img class="ico" src="host/iconQuestionMark.png" alt=""><span data-t="login_title"></span></h3>
+    <div class="muted" data-t="login_note"></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><input id="login-code" maxlength="40" spellcheck="false" autocomplete="off" style="flex:1"><button class="primary" id="login-go" data-t="login_go"></button></div>
+    <div id="login-err" style="color:var(--red-hi);min-height:1.75em"></div>
+  </div></div>
 
-<main id="p-home">
-  <div class="grid">
-    <div class="card">
-      <h3><img class="ico" src="host/iconMainInfo.png" alt=""><span data-t="card_state"></span></h3>
-      <div class="kv"><span data-t="k_date"></span><b id="v-date">—</b></div>
-      <div class="kv"><span data-t="k_speed"></span><b id="v-speed">—</b></div>
-      <div class="kv"><span data-t="k_online"></span><b id="v-online">—</b></div>
-      <div class="kv"><span data-t="k_saved"></span><b id="v-saved">—</b></div>
-      <div class="kv"><span data-t="k_mode"></span><b id="v-mode">—</b></div>
+  <div class="page" id="p-home">
+    <div class="head"><img class="ico lg" src="host/iconWorldInfo.png" alt=""><h2 data-t="tab_home"></h2><span class="sub" id="home-sub"></span></div>
+    <div class="stats">
+      <div class="stat"><img class="ico lg" src="host/iconHistory.png" alt=""><div><div class="v" id="v-date">—</div><div class="k" id="k-date"></div></div></div>
+      <div class="stat"><img class="ico lg" src="host/iconKnowledge.png" alt=""><div><div class="v" id="v-speed">—</div><div class="k" id="k-speed"></div></div></div>
+      <div class="stat"><img class="ico lg" src="host/iconEasternHuman.png" alt=""><div><div class="v" id="v-online">—</div><div class="k" data-t="k_online"></div></div></div>
+      <div class="stat"><img class="ico lg" src="host/iconSaveLocal.png" alt=""><div><div class="v" id="v-saved">—</div><div class="k" id="k-saved"></div></div></div>
     </div>
-    <div class="card">
-      <h3><img class="ico" src="host/iconTitleLayer.png" alt=""><span data-t="card_link"></span></h3>
-      <div class="qr">
-        <canvas id="qr" width="1" height="1" title="" hidden></canvas>
-        <div><div class="muted" data-t="link_note"></div><div class="addr" id="v-addr">—</div>
-          <button class="small" id="b-qr" style="margin-top:6px"><img class="ico" src="host/iconTitleLayer.png" alt=""><span data-t="b_qr"></span></button></div>
+    <div class="two">
+      <div class="card">
+        <h3><img class="ico" src="host/iconTitleLayer.png" alt=""><span data-t="card_link"></span></h3>
+        <div class="link">
+          <canvas id="qr" width="1" height="1" hidden></canvas>
+          <div class="side2">
+            <div class="muted" data-t="link_note"></div>
+            <div class="addr" id="v-addr">—</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto">
+              <button class="small" id="b-qr"><img class="ico" src="host/iconTitleLayer.png" alt=""><span data-t="b_qr"></span></button>
+              <button class="small" id="b-copy"><img class="ico" src="host/iconBooksWritten.png" alt=""><span data-t="b_copy"></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3><img class="ico" src="host/iconBooksWritten.png" alt=""><span data-t="card_acts"></span></h3>
+        <div class="acts">
+          <button class="act" id="b-admin"><img class="ico lg" src="host/iconKingdom.png" alt=""><div><div data-t="b_admin"></div><div class="t2" data-t="b_admin_sub"></div></div></button>
+          <button class="act" id="b-save"><img class="ico lg" src="host/iconSaveLocal.png" alt=""><div><div data-t="b_save"></div><div class="t2" id="b-save-sub"></div></div></button>
+          <button class="act danger" id="b-stop" hidden><img class="ico lg" src="host/iconGoBack.png" alt=""><div><div id="b-stop-t"></div><div class="t2" id="b-stop-sub"></div></div></button>
+        </div>
       </div>
     </div>
-    <div class="card">
-      <h3><img class="ico" src="host/iconBooksWritten.png" alt=""><span data-t="card_acts"></span></h3>
-      <div class="acts">
-        <button id="b-admin"><img class="ico" src="host/iconKingdom.png" alt=""><span data-t="b_admin"></span></button>
-        <button id="b-save"><img class="ico" src="host/iconSaveLocal.png" alt=""><span data-t="b_save"></span></button>
-        <button id="b-stop" class="danger" hidden><img class="ico" src="host/iconGoBack.png" alt=""><span id="b-stop-t"></span></button>
-      </div>
-    </div>
-    <div class="card" style="grid-column:1/-1">
-      <h3><img class="ico" src="host/iconEasternHuman.png" alt=""><span data-t="card_seats"></span></h3>
+    <div class="card" id="seat-card">
+      <h3><img class="ico" src="host/iconKings.png" alt=""><span data-t="card_seats"></span><span class="muted" id="seat-count" style="margin-left:auto"></span></h3>
       <div id="seats"></div>
     </div>
   </div>
-</main>
 
-<main id="p-mod">
-  <div class="tools"><img class="ico" src="host/iconOptions.png" alt=""><input id="mod-find"><span class="muted" id="mod-count"></span></div>
-  <div id="mod-list"></div>
-</main>
-<main id="p-laws">
-  <div class="tools"><img class="ico" src="host/iconWorldLaws.png" alt=""><input id="laws-find"><span class="muted" id="laws-count"></span></div>
-  <div id="laws-list"></div>
-</main>
-<main id="p-users">
-  <div class="tools"><img class="ico" src="host/iconKings.png" alt=""><span id="users-note" class="muted" style="flex:1"></span><button class="small" id="users-refresh"><img class="ico" src="host/iconHistory.png" alt=""><span data-t="b_refresh"></span></button></div>
-  <div id="users-list"></div>
-</main>
+  <div class="page" id="p-mod">
+    <div class="head"><img class="ico lg" src="host/iconOptions.png" alt=""><h2 data-t="tab_mod"></h2><span class="sub" id="mod-count"></span><span class="grow"></span><input id="mod-find"></div>
+    <div class="scroll" id="mod-list"></div>
+  </div>
+  <div class="page" id="p-laws">
+    <div class="head"><img class="ico lg" src="host/iconWorldLaws.png" alt=""><h2 data-t="tab_laws"></h2><span class="sub" id="laws-count"></span><span class="grow"></span><input id="laws-find"></div>
+    <div class="scroll" id="laws-list"></div>
+  </div>
+  <div class="page" id="p-users">
+    <div class="head"><img class="ico lg" src="host/iconKings.png" alt=""><h2 data-t="tab_users"></h2><span class="sub" id="users-note"></span><span class="grow"></span><button class="small" id="users-refresh"><img class="ico" src="host/iconHistory.png" alt=""><span data-t="b_refresh"></span></button></div>
+    <div class="scroll" id="users-list"></div>
+  </div>
+</section>
 
-<div id="veil"><div class="dlg" id="dlg"></div></div>
+<div id="veil"><div class="dlg frame" id="dlg"></div></div>
 <div id="toast"></div>
 
 <script>
 (function(){
 "use strict";
 var S={
-cz:{name:"帝国盒子 · 服务器核心",tab_home:"概况",tab_mod:"模组设置",tab_laws:"世界法则",tab_users:"用户管理",
+cz:{name:"帝国盒子 · 服务器核心",name1:"帝国盒子",name2:"服务器核心",tab_home:"概况",tab_mod:"模组设置",tab_laws:"世界法则",tab_users:"用户管理",
 lamp_on:"运行中",lamp_off:"连不上核心",lamp_wait:"世界未载入",lamp_gone:"核心已停下",
-card_state:"眼下",card_link:"手机连接",card_acts:"操作",card_seats:"席位",
-k_date:"年月",k_speed:"流速",k_online:"在线",k_saved:"上回存档",k_mode:"运行方式",
-date:"第 {0} 年 {1} 月",paused:"已暂停",online:"{0} / {1} 部手机",never:"还没存过",auto:"每 {0} 分钟自动存",
+card_link:"手机连接",card_acts:"操作",card_seats:"席位",
+k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手机在线",k_saved:"上回存档",k_mode:"运行方式",
+month:"{0} 月",paused:"流速 · 已暂停",never:"未存",auto:"每 {0} 分钟自动存",
 mode_detached:"游戏已关，核心独自运行",mode_alone:"独立运行",mode_game:"由游戏看着",
-link_note:"手机扫码，或在浏览器里打开：",b_qr:"放大二维码",qr_title:"手机扫码连接",no_qr:"这一版核心没给出二维码",
-b_admin:"打开网页管理页",b_save:"现在存档",b_stop_game:"停下核心，回到游戏",b_stop:"停下核心",b_refresh:"刷新",
+link_note:"手机扫码，或在手机浏览器里打开：",b_qr:"放大二维码",b_copy:"复制地址",copied:"地址已复制",qr_title:"手机扫码连接",no_qr:"这一版核心没给出二维码",
+b_admin:"打开网页管理页",b_admin_sub:"在浏览器里看全图、挑剧本、管席位",b_save:"现在存档",b_save_sub:"上回 {0}",b_save_none:"还没存过",
+b_stop_game:"停下核心，回到游戏",b_stop_game_sub:"先存档，再把游戏开起来",b_stop:"停下核心",b_stop_sub:"先存档再退出，手机都会断开",b_refresh:"刷新",
 saving:"已叫核心存档",opened:"已在浏览器里打开管理页",
 stop_title:"停下核心？",stop_game_note:"核心会先存档，再把游戏开起来，随后自己退出；游戏读完后把这一局带回。",stop_note:"核心会先存档再退出，连着的手机都会断开。",
 stopping:"核心正在存档、退出……",ok:"确定",cancel:"取消",close:"关闭",
-seats_none:"还没有手机领过君主。",seat_free:"未领君主",cities:"{0} 城",
+seats_none:"还没有手机领过君主。",seat_free:"未领君主",cities:"{0} 城",seat_count:"{0} 位 · {1} 在线",
 find_mod:"搜设置……",find_laws:"搜法则……",count:"{0} 项",none:"没有对得上的。",changed:"已改：{0}",on:"开",off:"关",
 users_note:"{0} 个账号 · 注册：{1}",reg_open:"开放",reg_code:"凭邀请码",reg_closed:"已关闭",users_none:"还没有人注册。",
 u_user:"账号",u_created:"注册",u_last:"上次登录",u_seat:"席位",u_has:"有",u_no:"已撤",u_delete:"销号",
 del_title:"销号：{0}？",del_note:"账号删掉，席位撤掉，所领的君主交还。不能撤回。",deleted:"已销号：{0}",
 login_title:"要管理员身份",login_note:"从核心的托盘图标打开会自动登入。也可以在这里填管理员码（或 账号:密码）。",login_go:"登入",
 e_wrong:"不对",e_locked:"连错太多，等一分钟再试",e_net:"连不上核心",e_fail:"没办成"},
-ch:{name:"帝國盒子 · 伺服器核心",tab_home:"概況",tab_mod:"模組設定",tab_laws:"世界法則",tab_users:"使用者管理",
+ch:{name:"帝國盒子 · 伺服器核心",name1:"帝國盒子",name2:"伺服器核心",tab_home:"概況",tab_mod:"模組設定",tab_laws:"世界法則",tab_users:"使用者管理",
 lamp_on:"運行中",lamp_off:"連不上核心",lamp_wait:"世界未載入",lamp_gone:"核心已停下",
-card_state:"眼下",card_link:"手機連接",card_acts:"操作",card_seats:"席位",
-k_date:"年月",k_speed:"流速",k_online:"在線",k_saved:"上回存檔",k_mode:"運行方式",
-date:"第 {0} 年 {1} 月",paused:"已暫停",online:"{0} / {1} 部手機",never:"還沒存過",auto:"每 {0} 分鐘自動存",
+card_link:"手機連接",card_acts:"操作",card_seats:"席位",
+k_date:"第 {0} 年",k_date_none:"年月",k_speed:"流速",k_online:"部手機在線",k_saved:"上回存檔",k_mode:"運行方式",
+month:"{0} 月",paused:"流速 · 已暫停",never:"未存",auto:"每 {0} 分鐘自動存",
 mode_detached:"遊戲已關，核心獨自運行",mode_alone:"獨立運行",mode_game:"由遊戲看著",
-link_note:"手機掃碼，或在瀏覽器裡打開：",b_qr:"放大二維碼",qr_title:"手機掃碼連接",no_qr:"這一版核心沒給出二維碼",
-b_admin:"打開網頁管理頁",b_save:"現在存檔",b_stop_game:"停下核心，回到遊戲",b_stop:"停下核心",b_refresh:"重新整理",
+link_note:"手機掃碼，或在手機瀏覽器裡打開：",b_qr:"放大二維碼",b_copy:"複製位址",copied:"位址已複製",qr_title:"手機掃碼連接",no_qr:"這一版核心沒給出二維碼",
+b_admin:"打開網頁管理頁",b_admin_sub:"在瀏覽器裡看全圖、挑劇本、管席位",b_save:"現在存檔",b_save_sub:"上回 {0}",b_save_none:"還沒存過",
+b_stop_game:"停下核心，回到遊戲",b_stop_game_sub:"先存檔，再把遊戲開起來",b_stop:"停下核心",b_stop_sub:"先存檔再退出，手機都會斷開",b_refresh:"重新整理",
 saving:"已叫核心存檔",opened:"已在瀏覽器裡打開管理頁",
 stop_title:"停下核心？",stop_game_note:"核心會先存檔，再把遊戲開起來，隨後自己退出；遊戲讀完後把這一局帶回。",stop_note:"核心會先存檔再退出，連著的手機都會斷開。",
 stopping:"核心正在存檔、退出……",ok:"確定",cancel:"取消",close:"關閉",
-seats_none:"還沒有手機領過君主。",seat_free:"未領君主",cities:"{0} 城",
+seats_none:"還沒有手機領過君主。",seat_free:"未領君主",cities:"{0} 城",seat_count:"{0} 位 · {1} 在線",
 find_mod:"搜設定……",find_laws:"搜法則……",count:"{0} 項",none:"沒有對得上的。",changed:"已改：{0}",on:"開",off:"關",
 users_note:"{0} 個帳號 · 註冊：{1}",reg_open:"開放",reg_code:"憑邀請碼",reg_closed:"已關閉",users_none:"還沒有人註冊。",
 u_user:"帳號",u_created:"註冊",u_last:"上次登入",u_seat:"席位",u_has:"有",u_no:"已撤",u_delete:"銷號",
 del_title:"銷號：{0}？",del_note:"帳號刪掉，席位撤掉，所領的君主交還。不能撤回。",deleted:"已銷號：{0}",
 login_title:"要管理員身分",login_note:"從核心的系統匣圖示打開會自動登入。也可以在這裡填管理員碼（或 帳號:密碼）。",login_go:"登入",
 e_wrong:"不對",e_locked:"連錯太多，等一分鐘再試",e_net:"連不上核心",e_fail:"沒辦成"},
-en:{name:"EmpireCraft · Server Core",tab_home:"Overview",tab_mod:"Mod settings",tab_laws:"World laws",tab_users:"Accounts",
+en:{name:"EmpireCraft · Server Core",name1:"EmpireCraft",name2:"Server Core",tab_home:"Overview",tab_mod:"Mod settings",tab_laws:"World laws",tab_users:"Accounts",
 lamp_on:"Running",lamp_off:"Core unreachable",lamp_wait:"No world loaded",lamp_gone:"Core stopped",
-card_state:"Now",card_link:"Phone link",card_acts:"Actions",card_seats:"Seats",
-k_date:"Date",k_speed:"Speed",k_online:"Online",k_saved:"Last save",k_mode:"Mode",
-date:"Year {0}, month {1}",paused:"paused",online:"{0} / {1} phones",never:"never",auto:"autosave every {0} min",
+card_link:"Phone link",card_acts:"Actions",card_seats:"Seats",
+k_date:"Year {0}",k_date_none:"Date",k_speed:"Speed",k_online:"phones online",k_saved:"Last save",k_mode:"Mode",
+month:"Month {0}",paused:"Speed · paused",never:"none",auto:"autosave every {0} min",
 mode_detached:"Game closed, core running alone",mode_alone:"Standalone",mode_game:"Watched by the game",
-link_note:"Scan with a phone, or open in a browser:",b_qr:"Enlarge QR code",qr_title:"Scan to connect",no_qr:"This core build gives no QR code",
-b_admin:"Open the web admin page",b_save:"Save now",b_stop_game:"Stop the core, return to the game",b_stop:"Stop the core",b_refresh:"Refresh",
+link_note:"Scan with a phone, or open in the phone's browser:",b_qr:"Enlarge QR code",b_copy:"Copy address",copied:"Address copied",qr_title:"Scan to connect",no_qr:"This core build gives no QR code",
+b_admin:"Open the web admin page",b_admin_sub:"Whole map, scenarios and seats, in the browser",b_save:"Save now",b_save_sub:"Last: {0}",b_save_none:"Never saved",
+b_stop_game:"Stop the core, return to the game",b_stop_game_sub:"Saves first, then starts the game",b_stop:"Stop the core",b_stop_sub:"Saves and exits; phones are dropped",b_refresh:"Refresh",
 saving:"Save requested",opened:"Admin page opened in the browser",
 stop_title:"Stop the core?",stop_game_note:"The core saves, starts the game, then exits; the game brings this world back once loaded.",stop_note:"The core saves and exits; connected phones are dropped.",
 stopping:"The core is saving and exiting…",ok:"OK",cancel:"Cancel",close:"Close",
-seats_none:"No phone has taken a ruler yet.",seat_free:"no ruler",cities:"{0} cities",
+seats_none:"No phone has taken a ruler yet.",seat_free:"no ruler",cities:"{0} cities",seat_count:"{0} seats · {1} online",
 find_mod:"Search settings…",find_laws:"Search laws…",count:"{0} items",none:"Nothing matches.",changed:"Changed: {0}",on:"on",off:"off",
 users_note:"{0} accounts · registration: {1}",reg_open:"open",reg_code:"invite code",reg_closed:"closed",users_none:"Nobody has registered yet.",
 u_user:"Account",u_created:"Registered",u_last:"Last login",u_seat:"Seat",u_has:"yes",u_no:"removed",u_delete:"Delete",
@@ -219,13 +264,13 @@ function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=c
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
 function applyLang(){
   document.documentElement.lang=lang==="en"?"en":"zh";
-  $("t-name").textContent=t("name");document.title=t("name");
+  document.title=t("name");
   var n=document.querySelectorAll("[data-t]");for(var i=0;i<n.length;i++)n[i].textContent=t(n[i].getAttribute("data-t"));
   $("mod-find").placeholder=t("find_mod");$("laws-find").placeholder=t("find_laws");
 }
 // 管理员令牌同网页管理页用一个键：在这里登入了，同一个浏览器里的管理页也是管理员
 var KEY="ec_admin",token=store(KEY),gone=false,page=store("ec_host_page")||"home";
-var state=null,host=null,save=null,lists=null,accounts=null,alive=false;
+var state=null,host=null,save=null,srv=null,lists=null,accounts=null,alive=false;
 
 function api(method,path,body){
   var opt={method:method,headers:{},cache:"no-store"};
@@ -246,19 +291,21 @@ var carried=null;
 })();
 function signIn(body,err){
   return api("POST","/api/admin/pair",body).then(function(r){
-    if(r.status===200&&r.json.token){token=r.json.token;store(KEY,token);showLogin(false);tick(true);return true}
+    if(r.status===200&&r.json.token){token=r.json.token;store(KEY,token);goPage(page);tick(true);return true}
     if(err)err.textContent=t(r.json.error==="locked"?"e_locked":"e_wrong");
     return false;
   },function(){if(err)err.textContent=t("e_net");return false});
 }
 function lostToken(){
   token=null;store(KEY,null);
-  if(carried){var c=carried;carried=null;signIn(c.length===32?{ticket:c}:{code:c}).then(function(ok){if(!ok)showLogin(true)});return}
-  showLogin(true);
+  if(carried){var c=carried;carried=null;signIn(c.length===32?{ticket:c}:{code:c}).then(function(ok){if(!ok)showPage()});return}
+  showPage();
 }
-function showLogin(on){
-  $("login").className=on?"show":"";$("tabs").style.display=on?"none":"";
-  var m=document.querySelectorAll("main");for(var i=0;i<m.length;i++)m[i].className=!on&&m[i].id==="p-"+page?"show":"";
+// 没有管理员身份时只留登入那一块
+function showPage(){
+  var on=!!token,p=document.querySelectorAll(".page");
+  $("login").className=on?"":"show";
+  for(var i=0;i<p.length;i++)p[i].className="page"+(on&&p[i].id==="p-"+page?" show":"");
 }
 $("login-go").onclick=function(){
   var v=$("login-code").value.trim(),err=$("login-err");err.textContent="";
@@ -268,14 +315,14 @@ $("login-go").onclick=function(){
 };
 $("login-code").onkeydown=function(e){if(e.key==="Enter")$("login-go").onclick()};
 
-// ───── 页签 ─────
+// ───── 导航 ─────
 function goPage(p){
   page=p;store("ec_host_page",p);
-  var b=$("tabs").children;for(var i=0;i<b.length;i++)b[i].className=b[i].getAttribute("data-p")===p?"active":"";
-  showLogin(!token);
+  var b=$("nav").children;for(var i=0;i<b.length;i++)b[i].className=b[i].getAttribute("data-p")===p?"active":"";
+  showPage();
   if(token){if(p==="mod"||p==="laws")loadLists();if(p==="users")loadAccounts()}
 }
-(function(){var b=$("tabs").children;for(var i=0;i<b.length;i++)b[i].onclick=function(){goPage(this.getAttribute("data-p"))}})();
+(function(){var b=$("nav").children;for(var i=0;i<b.length;i++)b[i].onclick=function(){goPage(this.getAttribute("data-p"))}})();
 
 // ───── 轮询 ─────
 var round=0;
@@ -296,41 +343,52 @@ function tick(now){
   if(round%5===4){if(page==="users")loadAccounts();if(page==="mod"||page==="laws")loadLists()}
   round++;
 }
-var srv=null;
 
-function when(iso){
-  if(!iso)return t("never");
+function p2(n){return n<10?"0"+n:String(n)}
+// 存档时间：当天只写几点几分，隔天带上月日
+function when(iso,brief){
+  if(!iso)return null;
   var d=new Date(iso);if(isNaN(d))return String(iso);
-  function p(n){return n<10?"0"+n:n}
-  return (d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+  var hm=p2(d.getHours())+":"+p2(d.getMinutes()),today=new Date();
+  if(brief&&d.toDateString()===today.toDateString())return hm;
+  return (d.getMonth()+1)+"-"+p2(d.getDate())+" "+hm;
 }
 function detached(){return !!((host&&host.detached)||(save&&save.detached))}
 function canStop(){return host?!!host.can_stop:detached()}
 function drawHome(){
-  var lamp=$("lamp"),loaded=!!(state&&state.loaded);
-  lamp.className="lamp "+(gone||!alive?"off":loaded?"on":"on wait");
+  var lamp=$("lamp"),loaded=!!(state&&state.loaded),dated=loaded&&state.year!==undefined;
+  lamp.className="lamp "+(gone||!alive?"off":loaded?"on":"wait");
   $("lamp-t").textContent=t(gone?"lamp_gone":!alive?"lamp_off":loaded?"lamp_on":"lamp_wait");
-  $("when").textContent=alive&&loaded&&state.year!==undefined?t("date",state.year,state.month):"";
-  $("v-date").textContent=loaded&&state.year!==undefined?t("date",state.year,state.month):"—";
-  $("v-speed").textContent=loaded&&state.speed!==undefined?state.speed+"%"+(state.paused?" · "+t("paused"):""):"—";
-  $("v-online").textContent=srv?t("online",srv.online,srv.max):"—";
-  $("v-saved").textContent=save?when(save.saved)+(save.autosave_minutes>0?" · "+t("auto",save.autosave_minutes):""):"—";
+  $("v-date").textContent=dated?t("month",state.month):"—";
+  $("k-date").textContent=dated?t("k_date",state.year):t("k_date_none");
+  $("v-speed").textContent=loaded&&state.speed!==undefined?state.speed+"%":"—";
+  $("k-speed").textContent=t(loaded&&state.paused?"paused":"k_speed");
+  var online=host&&host.online!==undefined?host:srv;
+  $("v-online").textContent=online?online.online+" / "+online.max:"—";
+  var saved=save?when(save.saved,true):null;
+  $("v-saved").textContent=save?(saved||t("never")):"—";
+  $("k-saved").textContent=t("k_saved");
+  $("b-save-sub").textContent=(save&&save.saved?t("b_save_sub",when(save.saved)):t("b_save_none"))+(save&&save.autosave_minutes>0?" · "+t("auto",save.autosave_minutes):"");
   $("v-mode").textContent=host||save?t(detached()?"mode_detached":host&&host.can_stop?"mode_alone":"mode_game"):"—";
-  $("v-addr").textContent=host&&(host.address||host.scan)?(host.address||host.scan):"—";
-  $("b-qr").hidden=!(host&&host.qr&&host.qr.length);
+  var addr=host&&(host.address||host.scan)||"";
+  $("v-addr").textContent=addr||"—";$("v-addr").title=host&&host.scan||"";
+  $("b-qr").hidden=!(host&&host.qr&&host.qr.length);$("b-copy").hidden=!addr;
   $("b-stop").hidden=!canStop();
   $("b-stop-t").textContent=t(detached()?"b_stop_game":"b_stop");
-  var box=$("seats"),seats=state&&state.seats||[];
+  $("b-stop-sub").textContent=t(detached()?"b_stop_game_sub":"b_stop_sub");
+  var box=$("seats"),seats=state&&state.seats||[],on=0;
   box.textContent="";
-  if(!seats.length){box.appendChild(el("div","muted",t("seats_none")));return}
   seats.forEach(function(s){
+    if(s.online)on++;
     var row=el("div","seat"+(s.online?" on":""));
     row.appendChild(el("span","dot"));
-    var sw=el("span","sw");sw.style.background=s.color||"transparent";row.appendChild(sw);
+    if(s.color){var sw=el("span","sw");sw.style.background=s.color;row.appendChild(sw)}
     row.appendChild(el("span","who",s.name+(s.ruler?" · "+s.ruler:"")));
     row.appendChild(el("span","muted",s.ruler?(s.realm||"")+(s.cities!==undefined?" · "+t("cities",s.cities):""):t("seat_free")));
     box.appendChild(row);
   });
+  if(!seats.length)box.appendChild(el("div","empty",t("seats_none")));
+  $("seat-count").textContent=seats.length?t("seat_count",seats.length,on):"";
 }
 
 // ───── 二维码：核心给格子(一行一个 01 字符串)，这里只管画 ─────
@@ -353,7 +411,12 @@ function bigQr(){
     buttons(box,[{text:t("close"),go:closeDialog}]);
   });
 }
-$("qr").onclick=bigQr;$("b-qr").onclick=bigQr;
+function copyAddr(){
+  var text=host&&(host.scan||host.address);
+  if(!text)return;
+  try{navigator.clipboard.writeText(text).then(function(){toast(t("copied"))},function(){})}catch(e){}
+}
+$("qr").onclick=bigQr;$("b-qr").onclick=bigQr;$("b-copy").onclick=copyAddr;$("v-addr").onclick=copyAddr;
 
 // ───── 对话框 ─────
 function dialog(fill){var d=$("dlg");d.textContent="";fill(d);$("veil").className="show"}
@@ -372,7 +435,7 @@ function confirmBox(title,note,danger,go){
 $("veil").onclick=function(e){if(e.target===this)closeDialog()};
 
 // ───── 操作 ─────
-// 网页管理页在系统浏览器里开：叫核心去开(它带上登入用的票)；老一点的核心没有这个接口，就在这里开(同一个浏览器里令牌是共用的)
+// 网页管理页在系统浏览器里开：叫核心去开(它带上登入用的票)；老一点的核心没有这个接口，就在这里开
 $("b-admin").onclick=function(){
   api("POST","/api/admin/open",{page:"admin"}).then(function(r){
     if(r.status===200){toast(t("opened"));return}
@@ -385,7 +448,7 @@ $("b-save").onclick=function(){
 $("b-stop").onclick=function(){
   var back=detached();
   confirmBox(t("stop_title"),t(back?"stop_game_note":"stop_note"),true,function(){
-    api("POST","/api/admin/return").then(function(r){
+    api("POST","/api/admin/return",{}).then(function(r){
       if(r.status!==200){toast(t("e_fail"),true);return}
       gone=true;drawHome();
       dialog(function(box){box.appendChild(el("h3",null,t("lamp_gone")));box.appendChild(el("div","muted",t("stopping")))});
@@ -401,7 +464,7 @@ function drawList(kind){
   var box=$(kind+"-list"),rows=lists?(kind==="mod"?lists.settings:lists.laws)||[]:[];
   // 正在某个框里打字时不重画，免得把字冲掉
   if(document.activeElement&&box.contains(document.activeElement))return;
-  var find=$(kind+"-find").value.trim().toLowerCase(),shown=0,top=box.parentNode.scrollTop;
+  var find=$(kind+"-find").value.trim().toLowerCase(),shown=0,top=box.scrollTop;
   box.textContent="";
   rows.forEach(function(it){
     if(find&&(it.name+" "+(it.desc||"")+" "+it.id).toLowerCase().indexOf(find)<0)return;
@@ -423,7 +486,7 @@ function drawList(kind){
   });
   if(!shown)box.appendChild(el("div","empty",t("none")));
   $(kind+"-count").textContent=t("count",shown);
-  box.parentNode.scrollTop=top;
+  box.scrollTop=top;
 }
 function change(kind,it,value){
   var req=kind==="laws"?api("POST","/api/admin/law",{id:it.id,on:value}):api("POST","/api/admin/settings",{id:it.id,value:value});
@@ -447,11 +510,11 @@ function drawAccounts(){
   box.textContent="";
   if(!rows.length){box.appendChild(el("div","empty",t("users_none")));return}
   var table=el("table"),head=el("tr");
-  ["u_user","u_created","u_last","u_seat",""].forEach(function(k,i){var th=el("th",i===4?"r":"",k?t(k):"");head.appendChild(th)});
+  ["u_user","u_created","u_last","u_seat",""].forEach(function(k,i){head.appendChild(el("th",i===4?"r":"",k?t(k):""))});
   table.appendChild(head);
   rows.forEach(function(a){
     var tr=el("tr");
-    tr.appendChild(el("td",null,a.user));tr.appendChild(el("td","muted",when(a.created)));tr.appendChild(el("td","muted",when(a.last)));
+    tr.appendChild(el("td",null,a.user));tr.appendChild(el("td","muted",when(a.created)||"—"));tr.appendChild(el("td","muted",when(a.last)||"—"));
     tr.appendChild(el("td",a.seat?"":"muted",t(a.seat?"u_has":"u_no")));
     var td=el("td","r"),b=el("button","small danger");
     var ic=el("img","ico");ic.src="host/iconRemove.png";ic.alt="";b.appendChild(ic);b.appendChild(el("span",null,t("u_delete")));
@@ -472,7 +535,7 @@ $("users-refresh").onclick=loadAccounts;
 fetch("/api/server",{cache:"no-store"}).then(function(r){return r.status===200?r.json():null}).then(function(j){
   if(j){srv=j;if(S[j.lang])lang=j.lang}
 },function(){}).then(function(){
-  applyLang();goPage(S.cz[("tab_"+page)]?page:"home");
+  applyLang();goPage(S.cz[("tab_"+page)]?page:"home");drawHome();
   // 带着码或票进来、又没有旧令牌：直接拿它登
   if(!token&&carried)lostToken();else tick(true);
   setInterval(function(){if(!document.hidden)tick(false)},3000);
