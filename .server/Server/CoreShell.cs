@@ -24,7 +24,7 @@ internal static class CoreShell
         WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205, WM_DPICHANGED = 0x02E0, WM_GETMINMAXINFO = 0x0024, WM_APP = 0x8000;
     private const uint WM_TRAY = WM_APP + 1, WM_RUN = WM_APP + 2, WM_SHOW = WM_APP + 3, WM_QUIT_SHELL = WM_APP + 4;
     private const uint NIM_ADD = 0, NIM_MODIFY = 1, NIM_DELETE = 2, NIF_MESSAGE = 1, NIF_ICON = 2, NIF_TIP = 4, NIF_INFO = 0x10, NIIF_INFO = 1;
-    private const uint MenuPanel = 1, MenuAdmin = 2, MenuStop = 3;
+    private const uint MenuPanel = 1, MenuAdmin = 2, MenuStop = 3, MenuQuit = 4;
 
     private static Thread _thread;
     private static IntPtr _hwnd, _iconBig, _iconSmall, _background;
@@ -303,6 +303,8 @@ internal static class CoreShell
         AppendMenuW(menu, 0, new UIntPtr(MenuAdmin), "打开管理页(浏览器)");
         AppendMenuW(menu, 0x800, UIntPtr.Zero, null);
         AppendMenuW(menu, 0, new UIntPtr(MenuStop), Program.Detached ? "停下核心，回到游戏" : "停下核心");
+        // 游戏关着时多一项：只存档退出，不把游戏开回来(用户 2026-11-16 "这里能不能加一个直接退出")；没关游戏时上面那项就是这个
+        if (Program.Detached) AppendMenuW(menu, 0, new UIntPtr(MenuQuit), "退出核心");
         GetCursorPos(out POINT at);
         SetForegroundWindow(_hwnd);
         uint picked = TrackPopupMenu(menu, 0x0100 | 0x0002, at.X, at.Y, 0, _hwnd, IntPtr.Zero);
@@ -320,6 +322,11 @@ internal static class CoreShell
                 string ask = Program.Detached ? "存好档、停下核心，再把游戏开回来？" : "存好档、停下核心？手机上的玩家都会断开。";
                 if (MessageBoxW(_hwnd, ask, Title, 0x1 | 0x20) == 1 && Program.RequestReturn())
                     Balloon("核心正在停下", Program.Detached ? "存完档就把游戏开回来。" : "存完档就退出。");
+                break;
+            case MenuQuit:
+                if (MessageBoxW(_hwnd, "存好档、退出核心？游戏不会自己开回来，下回开游戏时会把这一局带回去。手机上的玩家都会断开。", Title, 0x1 | 0x20) == 1 &&
+                    Program.RequestQuit())
+                    Balloon("核心正在退出", "存完档就退出。");
                 break;
         }
     }

@@ -451,6 +451,14 @@ public static class Program
     // 脱手的还要把游戏开回来；没脱手的只在本机有核心窗口时许停(服务器上常驻的不许从网页停，systemd 也会马上拉起来)
     internal static bool CanStop => Detached || CoreShell.Active;
 
+    // 托盘「退出核心」：存档退出，脱手的也不开回游戏(游戏下回自己开起来时照常把这一局带回去，见模组 CoreHost)
+    internal static bool RequestQuit()
+    {
+        if (!CoreShell.Active) return false;
+        _stopSoon = true;
+        return true;
+    }
+
     internal static bool RequestReturn()
     {
         if (Detached) _returnToGame = true;
