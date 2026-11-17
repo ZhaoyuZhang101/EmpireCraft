@@ -797,11 +797,13 @@ public static class WildernessSystem
         {
             if (!_built)
             {
-                // 旧档的世界地图：大漠腹地的沙地先改成荒漠(沙地只算沙滩，见 WorldMap.EarthBeaches)
-                if (WorldMap.WorldMapWilderness.OnEarth)
+                // 旧档的世界地图：大漠腹地的沙地先改成荒漠(沙地只算沙滩，见 WorldMap.EarthBeaches)。一档只做一次：
+                // 做过以后内陆的沙地都是后来画上去的，不能再改
+                if (WorldMap.WorldMapWilderness.NeedsSurfaceRepair)
                 {
                     WorldMap.WorldMapWilderness.RepairRiverSurfaces();
                     WorldMap.EarthBeaches.Migrate();
+                    WorldMap.WorldMapWilderness.MarkSurfaceRepaired();
                 }
                 using (FrameProfiler.Measure("无人区·划区")) Build(true, true);
                 _claimsLocked = false;

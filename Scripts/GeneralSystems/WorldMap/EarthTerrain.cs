@@ -295,6 +295,13 @@ public static class EarthTerrain
         return code < _types.Length ? _types[code] : "deep_ocean";
     }
 
+    // 这一回铺地表时哪些格是剧本刷的(图上格号 y*宽+x)：高原外缘对人画的高原按窄缝、丘陵放宽(见 PlateauShaper)；铺完外缘就丢掉
+    private static bool[] _paintedTiles;
+
+    public static bool PaintedTile(int index) => _paintedTiles != null && index >= 0 && index < _paintedTiles.Length && _paintedTiles[index];
+
+    public static void ForgetPainted() => _paintedTiles = null;
+
     // 逐格铺地表(照原版读档 SaveManager.loadTiles 的写法)
     public static void Fill(WorldMapFrame frame, Vector2Int size)
     {
@@ -302,16 +309,17 @@ public static class EarthTerrain
         var resolved = new Dictionary<string, (string main, TopTileType top)>();
         int width = MapBox.width, height = MapBox.height;
         Dictionary<int, string> dabs = ScenarioBrush.TileOverrides(_overrides, ScenarioCells.TerrainStep, frame.west, bottom, degrees, width, height);
+        _paintedTiles = _overrides != null ? new bool[width * height] : null;
         for (int x = 0; x < width; x++)
         {
             float lon = frame.west + (x + 0.5f) * degrees;
             for (int y = 0; y < height; y++)
             {
                 float lat = bottom + (y + 0.5f) * degrees;
-                string id = dabs != null && !_overrides.ContainsKey(ScenarioCells.Key(lon, lat, ScenarioCells.TerrainStep)) &&
-                            dabs.TryGetValue(y * width + x, out string dab)
-                    ? dab
-                    : TypeAt(lon, lat);
+                bool cell = _overrides != null && _overrides.ContainsKey(ScenarioCells.Key(lon, lat, ScenarioCells.TerrainStep));
+                bool dabbed = dabs != null && !cell && dabs.ContainsKey(y * width + x);
+                string id = dabbed ? dabs[y * width + x] : TypeAt(lon, lat);
+                if (_paintedTiles != null && (cell || dabbed)) _paintedTiles[y * width + x] = true;
                 if (!resolved.TryGetValue(id, out var parts))
                 {
                     int split = id.IndexOf(':');

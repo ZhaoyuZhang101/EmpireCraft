@@ -7,7 +7,8 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 // (无人区、纯荒地都只认荒漠，见 WildernessSystem.ComputeMarks、TerrainSystem)，世界地图的 earth.bytes 也把大漠腹地的成片沙地改成了荒漠
 // (见 Tools/WorldMap/build_earth.py 的 beaches)。这之前开的世界地图局，存档里撒哈拉、阿拉伯、塔克拉玛干的沙海还是沙地，
 // 一读档就退出沙漠无人区、城扩得进去——读档头一回划区前把离水 Reach 格以外的沙地改成荒漠(同 earth.bytes 的改法)。
-// 只在世界地图开的局做(WorldMapWilderness.OnEarth，随存档)；做过后没有腹地沙地，以后再读档扫一遍也不改什么
+// 只在世界地图开的局做(WorldMapWilderness.OnEarth，随存档)，一档只做一次(WorldMapWildSave.surface_revision)：
+// 做过以后内陆再有沙地就是画上去的，照画的留着
 public static class EarthBeaches
 {
     // 离水(海、湖、河)几格以内的沙地留作沙滩

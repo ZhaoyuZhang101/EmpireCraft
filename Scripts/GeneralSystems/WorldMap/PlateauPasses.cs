@@ -75,6 +75,8 @@ public static class PlateauPasses
 
             bool Inside(Vector2Int p) => p.x >= 0 && p.y >= 0 && p.x < w && p.y < h;
         }
-        PlateauShaper.Shape(routes, Seed);
+        // 剧本编辑器刷出来的高原：窄缝、挨着丘陵的边放宽(群友 2026-11-17)；地球底图照旧
+        PlateauShaper.Shape(routes, Seed, EarthTerrain.PaintedTile);
+        EarthTerrain.ForgetPainted();
     }
 }

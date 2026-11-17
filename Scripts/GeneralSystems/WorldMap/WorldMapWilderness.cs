@@ -95,6 +95,10 @@ public class WorldMapWildSave
     public int boundary_revision;
     // 隔山不领(见 WildernessSystem.Passable)：旧档挂好的辖境照存档留着，读旧档后把翻山挂上的改挂一次；新开的局一开始就照这个走
     public int mountain_revision;
+    // 旧档地表修过没有(大漠腹地的沙地改荒漠、河面上的地表清掉，见 EarthBeaches、EarthTerrain.RepairRiverSurfaces)：一档只修一次。
+    // 以前每回读档都修，后来在内陆画的沙地一读档就变回低地荒漠(用户 2026-11-17 转群友"在森林地形的沙漠群系里面画沙地地形，
+    // 结果读档以后变成平原地形的沙漠")；新开的局地图本身没有这两种毛病，一开始就记作修过
+    public int surface_revision;
     // 剧本设好的行政成员关系；实际改隶、法理变更、帝国变更后自动让位于新安排。
     public Dictionary<long, ScenarioAdministrativeOrigin> administration;
     public int administration_revision;
@@ -188,6 +192,8 @@ public static class WorldMapWilderness
     internal static void MarkBoundaryRepaired() { if (_state != null) _state.boundary_revision = 1; }
     internal static bool NeedsMountainRepair => Active && _state.mountain_revision < 1;
     internal static void MarkMountainRepaired() { if (_state != null) _state.mountain_revision = 1; }
+    internal static bool NeedsSurfaceRepair => Active && _state.surface_revision < 1;
+    internal static void MarkSurfaceRepaired() { if (_state != null) _state.surface_revision = 1; }
 
     // 连通修补同时更新推算锚点，防止 OriginOf 下一次查询又把修好的省界改回远处旧省。
     internal static void FollowAnchor(TileZone zone, City city)
@@ -326,7 +332,7 @@ public static class WorldMapWilderness
     {
         _state = new WorldMapWildSave
         {
-            frame = frame?.id ?? "", w = size.x, h = size.y, era = era?.id ?? "", year = era?.year ?? 0, mountain_revision = 1
+            frame = frame?.id ?? "", w = size.x, h = size.y, era = era?.id ?? "", year = era?.year ?? 0, mountain_revision = 1, surface_revision = 1
         };
         _capitals = new Dictionary<string, City>();
         if (era?.wilderness != null && capitals != null)
