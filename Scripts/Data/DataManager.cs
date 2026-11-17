@@ -348,6 +348,7 @@ public static class DataManager
         Guarded("文化数据迁移", CultureService.MigrateWorldCultureData);
         SpecificClanManager._specificClans = saveData.specificClans;
         SpecificClanManager.RebuildCache();
+        Guarded("补回历代君主", ReignRecordSystem.RecoverMissingAccessions);
         // Run after culture bindings, extra data and genealogy links are restored.
         foreach (Actor actor in World.world.units)
             if (actor?.data != null && !AncientWarfareCompatibility.OwnsObject(actor))

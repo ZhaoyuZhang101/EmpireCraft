@@ -206,8 +206,16 @@ public static partial class TerminalHost
         var empire = kingdom.GetEmpire();
         if (empire?.data != null)
         {
-            string era = TerminalIntel.Strip(empire.GetYearNameWithTime() ?? "");
-            if (!string.IsNullOrWhiteSpace(era)) rows.Add(new JArray(LM.Get("year_name"), era));
+            if (RepublicSystem.IsRepublic(empire) || TransmigrantSystem.Governs(empire))
+                rows.Add(new JArray(LM.Get("empire_setting_calendar"), empire.GetYearNameWithTime()));
+            else if (empire.Emperor?.isAlive() == true)
+            {
+                // 通用纪年在停用年号时会拼上君主姓名，数值卡要把在位年数单独标出来。
+                if (empire.IsAllowToMakeYearName() && !string.IsNullOrWhiteSpace(empire.data.year_name))
+                    rows.Add(new JArray(LM.Get("year_name"), TerminalIntel.Strip(empire.GetYearNameWithTime())));
+                else
+                    rows.Add(new JArray(LM.Get("empire_reign_duration"), string.Format(LM.Get("mod_settings_unit_years"), empire.GetEmperorYear())));
+            }
             rows.Add(new JArray(LM.Get(empire.LegitimacyLabelKey), empire.Legitimacy));
             if (DynasticCycleSystem.Applies(empire))
                 rows.Add(new JArray(LM.Get("label_dynastic_strain"), Mathf.RoundToInt(DynasticCycleSystem.GetPressure(empire))));

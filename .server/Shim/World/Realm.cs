@@ -87,7 +87,8 @@ public partial class Kingdom
     // 君主身故：君位空出来(谁来继位由月度核对与模组的继承规矩定)
     internal void ShimKingDied(Actor dead)
     {
-        if (king == dead) king = null;
+        // 与主动退位走同一套钩子，先把先君在位记录收进史册。
+        if (king == dead) removeKing();
     }
 
     [MethodImpl(P.N)]

@@ -649,7 +649,8 @@ public class Empire : MetaObject<EmpireData>
         NewEmperor(emperor);
         if (data.reign_emperor_id != emperor.data.id) return;
         if (!RepublicSystem.IsRepublic(this))
-            emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), GetEmpireName()));
+            emperor.RecordPersonalHistory(string.Format(LM.Get("personal_history_became_emperor"), GetEmpireName()),
+                "personal_history_became_emperor", major: true);
         CoreKingdom?.RemoveHeir();
         // 雄主之后第一次换汗：先按法理分兀鲁思给新汗的兄弟，再判汗位更替之乱——雄主一死，诸子各据一方
         // (用户 2026-10-21 选"游牧雄主死后真分裂"：以前先判后分，新分的兀鲁思不在其列，雄主死了只丢一成)
@@ -768,6 +769,9 @@ public class Empire : MetaObject<EmpireData>
             LogService.LogError($"新皇 {actor.getName()} 无法建立宗族身份，取消帝国继承处理");
             return;
         }
+        // 有些继位直接换了中央或君主，没有调用旧君退位；在开新页前保留上一位的记录。
+        if (data.currentHistory is { id: > 0 } previous && previous.id != actor.id)
+            CloseCurrentReignRecord();
         // 篡位的连带后果（分裂、内战、改国号、清空帝系）牵涉大量外部状态，任何一步抛异常都不能
         // 打断下面的即位登记——否则皇室、年号、历史都停留在上一任，年号会一直累加下去。
         // 选帝制(神圣罗马式)换了家族是正常换届，不算篡位

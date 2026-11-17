@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -50,6 +51,75 @@ public static class ReignRecordSystem
     //     到他最后一条记事"的年数(他的最后一条是驾崩、退位那条)，超出两年以上的按这个改；
     //   · 当今：即位时间比上一位最后一条记事还早一年以上的，改到上一位最后一条记事那天(年号纪年随之从那天算起)
     private const double SecondsPerYear = 60d;
+
+    // 旧核心直接清空死亡君主的王位，史册可能丢页。用同一帝国的登基经历补页，不按姓氏推测继承。
+    internal static void RecoverMissingAccessions()
+    {
+        const string accessionKey = "personal_history_became_emperor";
+        bool Accession(PersonalHistoryRecord record)
+        {
+            if (record == null || record.empire_id <= 0 || record.timestamp < 0d) return false;
+            if (record.event_key == accessionKey) return true;
+            return string.IsNullOrEmpty(record.event_key) && !string.IsNullOrEmpty(record.kingdom_name) &&
+                   (record.content == $"登基为{record.kingdom_name}皇帝。" ||
+                    record.content == $"登基為{record.kingdom_name}皇帝。" ||
+                    record.content == $"Ascended as emperor of {record.kingdom_name}.");
+        }
+
+        var byEmpire = SpecificClanManager._globalPersonLookup.Values
+            .Where(person => person?.actor_id > 0 && person.personal_history != null)
+            .SelectMany(person => person.personal_history.Where(Accession).Select(record => (person, record)))
+            .ToLookup(entry => entry.record.empire_id);
+        foreach (Empire empire in ModClass.EMPIRE_MANAGER)
+        {
+            if (empire?.data == null || empire.IsArchived()) continue;
+            List<EmpireCraftHistory> history = empire.data.history ??= new List<EmpireCraftHistory>();
+            var known = new HashSet<long>(history.Where(reign => reign != null).Select(reign => reign.id));
+            if (empire.data.currentHistory is { } current) known.Add(current.id);
+            if (empire.Emperor?.data != null) known.Add(empire.Emperor.id);
+            var records = byEmpire[empire.id].OrderBy(entry => entry.record.timestamp).ToArray();
+            if (records.All(entry => known.Contains(entry.person.actor_id))) continue;
+            var timelines = records.ToLookup(entry => entry.person.actor_id, entry => entry.record.timestamp);
+            var recovered = new List<EmpireCraftHistory>();
+            for (int i = 0; i < records.Length; i++)
+            {
+                (PersonalClanIdentity person, PersonalHistoryRecord accession) = records[i];
+                if (known.Contains(person.actor_id)) continue;
+                double next = i + 1 < records.Length ? records[i + 1].record.timestamp : empire.data.newEmperor_timestamp;
+                double end = next > accession.timestamp ? next : double.PositiveInfinity;
+                PersonalHistoryRecord death = person.personal_history.FirstOrDefault(record =>
+                    record?.event_key == "death" && record.timestamp >= accession.timestamp && record.timestamp <= end);
+                if (death != null) end = death.timestamp;
+                if (double.IsPositiveInfinity(end)) continue;
+
+                var reign = new EmpireCraftHistory
+                {
+                    id = person.actor_id, emperor = person.name, empire_name = accession.kingdom_name,
+                    dynasty_name = accession.kingdom_name, royal_surname = person.surname,
+                    total_time = (int)((end - accession.timestamp) / SecondsPerYear)
+                };
+                reign.descriptions.Add(new HistoryDescription
+                {
+                    actor_id = person.actor_id, timestamp = accession.timestamp, time = Date.getDate(accession.timestamp),
+                    description = accession.content
+                });
+                if (death != null)
+                    reign.descriptions.Add(new HistoryDescription
+                    {
+                        actor_id = person.actor_id, timestamp = death.timestamp, time = Date.getDate(death.timestamp),
+                        description = death.content
+                    });
+                recovered.Add(reign);
+                known.Add(person.actor_id);
+            }
+            if (recovered.Count == 0) continue;
+            var ordered = history.Concat(recovered).OrderBy(reign =>
+                reign == null ? -1d : timelines[reign.id].DefaultIfEmpty(
+                    reign.descriptions?.FirstOrDefault(entry => entry?.timestamp >= 0d)?.timestamp ?? -1d).First()).ToList();
+            history.Clear();
+            history.AddRange(ordered);
+        }
+    }
 
     public static void RepairLegacyTenure(Empire empire)
     {
