@@ -694,13 +694,14 @@ public static class NavySystem
     private static readonly Dictionary<long, float> FlagshipRetry = new();
     private const float FlagshipRetryInterval = 30f;
 
-    public static void SecondTick()
+    // beats：这一趟结几拍(世界过了几秒，见 CorpsSystem.Update)；每支舰队连走几拍，清单与旗舰只过一回
+    public static void SecondTick(int beats = 1)
     {
         // 纯净地图模式关掉了统领实体，但船保留
         bool flagships = CorpsSystem.GeneralUnits || PureMapMode.Enabled;
         foreach ((Kingdom kingdom, FleetData fleet) in All().ToList())
         {
-            StepZone(fleet);
+            for (int beat = 0; beat < beats; beat++) StepZone(fleet);
             if (flagships) EnsureFlagship(kingdom, fleet);
             else RemoveFlagship(fleet);
             MoveFlagship(fleet);

@@ -187,11 +187,13 @@ public static class CorpsSystem
         // 节拍按整秒往前推，不按本帧时刻重置：以前每拍都拖长一帧的时间(开快速时一拍拖到 1.2 秒)，
         // 兵牌按一拍一秒插值，到位后干等，走起来一顿一顿。一步跨了几个世界秒就补几拍，落后太多(暂停、卡顿)才重新对齐(见 SecondBeats)
         int beats = SecondBeats.Due(ref _lastSecond, now);
-        for (int beat = 0; beat < beats; beat++)
+        // 欠的几拍在一趟里结(见 SecondTick)：以前一拍一趟，补几拍就把全部军团连同寻路过几遍，
+        // 游戏开快速时帧越慢、一帧要补的拍越多，越补越慢(群友 2026-11-17 "beta9 更新到 beta10 帧率瞬间跌了 20")
+        if (beats > 0)
         {
-            try { using (FrameProfiler.Measure("军团·行军")) SecondTick(); }
+            try { using (FrameProfiler.Measure("军团·行军")) SecondTick(beats); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 行军失败: {exception.Message}"); }
-            try { using (FrameProfiler.Measure("军团·航行")) NavySystem.SecondTick(); }
+            try { using (FrameProfiler.Measure("军团·航行")) NavySystem.SecondTick(beats); }
             catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][海军] 航行失败: {exception.Message}"); }
         }
     }
@@ -1454,76 +1456,93 @@ public static class CorpsSystem
 
     private static int _vehicleSweep;
 
-    private static void SecondTick()
+    // 一趟结 beats 拍(世界过了几秒)：每个军团在自己身上连走 beats 拍，量与一拍一趟一样；
+    // 统帅补位与挪动、全部军团的清单每趟只做一回。
+    // 寻路额度：游戏里一趟一份(同 Beta9 一帧至多一拍时一样多)，没轮上的军团照旧攒着进度、下一趟寻到路一并补走，路程不丢；
+    // 独立核心照拍数放大(它要流速调快时军队跟得上，见 SecondBeats)
+    private static void SecondTick(int beats)
     {
+        beats = Math.Max(1, beats);
         // 每 5 秒把载具实体收进账面(不留实体时)
-        if (++_vehicleSweep >= 5)
+        _vehicleSweep += beats;
+        if (_vehicleSweep >= 5)
         {
-            _vehicleSweep = 0;
+            _vehicleSweep %= 5;
             Compatibility.WarBoxCompatibility.SweepVehicles();
         }
         bool generals = GeneralUnits;
         _pathsThisTick = 0;
         _pathTicksThisTick = 0L;
+#if EC_SERVER
+        _pathScale = beats;
+#else
+        _pathScale = 1;
+#endif
         foreach ((Kingdom kingdom, CorpsData corps) in All().ToList())
         {
             if (generals) EnsureGeneral(kingdom, corps);
             else RemoveGeneral(corps);
-            if (corps.embarked)
-            {
-                // 在船上按船速走(见 Sail)
-                MarchRates.Remove(corps.id);
-                StepTowardTarget(corps);
-            }
-            else
-            {
-                // 兵种定行军速度；山地、沼泽、丛林按兵种减速，离开道路再按兵种减速，飞机不受地形影响(见 CorpsArmSystem、RoadNetwork)
-                CorpsArmSystem.Arm arm = CorpsArmSystem.Of(corps);
-                float SpeedIn(TileZone zone)
-                {
-                    float value = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
-                    if (TerrainSystem.SlowsMarch(zone) || WarWeather.SlowsMarch(zone)) value *= CorpsArmSystem.Rough(arm);
-                    if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(zone)) value *= CorpsArmSystem.OffRoad(arm);
-                    return value;
-                }
-                float speed = SpeedIn(Zone(corps));
-                corps.march_progress += speed;
-                int target = FrontSystem.TargetZone(corps)?.id ?? -1;
-                bool blocked = MarchBlocked.TryGetValue(corps.id, out int blockedAt) && blockedAt == target;
-                if (!blocked) MarchBlocked.Remove(corps.id);
-                if (blocked) MarchRates.Remove(corps.id);
-                else MarchRates[corps.id] = speed;
-                while (corps.march_progress >= 1f)
-                {
-                    corps.march_progress -= 1f;
-                    int before = corps.zone_id;
-                    _pathDeferred = false;
-                    StepTowardTarget(corps);
-                    // 本秒寻路排满了(见 NextStep)：这一步留到下一秒，进度不丢
-                    if (_pathDeferred)
-                    {
-                        _pathDeferred = false;
-                        corps.march_progress += 1f;
-                        break;
-                    }
-                    // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
-                    if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
-                    // 到了(或走不动、上了船)就不攒进度
-                    if (corps.embarked || corps.zone_id == before)
-                    {
-                        corps.march_progress = 0f;
-                        // 停下了(到了、走不动)：兵牌不往前插值，目标不变就一直不插值
-                        MarchRates.Remove(corps.id);
-                        if (!corps.embarked) MarchBlocked[corps.id] = target;
-                        break;
-                    }
-                    // 迈进了新的一块：下一拍按新地块的速度走，兵牌也按它往前插值(以前照旧地块的速度，
-                    // 从大路走进山地、荒野时兵牌先冲过头、结算后再往回拉)
-                    MarchBlocked.Remove(corps.id);
-                    MarchRates[corps.id] = SpeedIn(Zone(corps));
-                }
-            }
+            for (int beat = 0; beat < beats; beat++) MarchBeat(corps);
             MoveGeneral(corps);
+        }
+    }
+
+    // 一个军团走一拍(一个世界秒)
+    private static void MarchBeat(CorpsData corps)
+    {
+        if (corps.embarked)
+        {
+            // 在船上按船速走(见 Sail)
+            MarchRates.Remove(corps.id);
+            StepTowardTarget(corps);
+        }
+        else
+        {
+            // 兵种定行军速度；山地、沼泽、丛林按兵种减速，离开道路再按兵种减速，飞机不受地形影响(见 CorpsArmSystem、RoadNetwork)
+            CorpsArmSystem.Arm arm = CorpsArmSystem.Of(corps);
+            float SpeedIn(TileZone zone)
+            {
+                float value = MarchZonesPerSecond * CorpsArmSystem.Speed(arm);
+                if (TerrainSystem.SlowsMarch(zone) || WarWeather.SlowsMarch(zone)) value *= CorpsArmSystem.Rough(arm);
+                if (!CorpsArmSystem.Flies(arm) && !RoadNetwork.IsRoad(zone)) value *= CorpsArmSystem.OffRoad(arm);
+                return value;
+            }
+            float speed = SpeedIn(Zone(corps));
+            corps.march_progress += speed;
+            int target = FrontSystem.TargetZone(corps)?.id ?? -1;
+            bool blocked = MarchBlocked.TryGetValue(corps.id, out int blockedAt) && blockedAt == target;
+            if (!blocked) MarchBlocked.Remove(corps.id);
+            if (blocked) MarchRates.Remove(corps.id);
+            else MarchRates[corps.id] = speed;
+            while (corps.march_progress >= 1f)
+            {
+                corps.march_progress -= 1f;
+                int before = corps.zone_id;
+                _pathDeferred = false;
+                StepTowardTarget(corps);
+                // 本秒寻路排满了(见 NextStep)：这一步留到下一秒，进度不丢
+                if (_pathDeferred)
+                {
+                    _pathDeferred = false;
+                    corps.march_progress += 1f;
+                    break;
+                }
+                // 陆上行军记程，月底按路程收行军费(见 PayUpkeep)
+                if (!corps.embarked && corps.zone_id != before) corps.march_zones++;
+                // 到了(或走不动、上了船)就不攒进度
+                if (corps.embarked || corps.zone_id == before)
+                {
+                    corps.march_progress = 0f;
+                    // 停下了(到了、走不动)：兵牌不往前插值，目标不变就一直不插值
+                    MarchRates.Remove(corps.id);
+                    if (!corps.embarked) MarchBlocked[corps.id] = target;
+                    break;
+                }
+                // 迈进了新的一块：下一拍按新地块的速度走，兵牌也按它往前插值(以前照旧地块的速度，
+                // 从大路走进山地、荒野时兵牌先冲过头、结算后再往回拉)
+                MarchBlocked.Remove(corps.id);
+                MarchRates[corps.id] = SpeedIn(Zone(corps));
+            }
         }
     }
 
@@ -1923,9 +1942,12 @@ public static class CorpsSystem
     private static long _pathTicksThisTick;
     private static bool _pathDeferred;
 
+    // 这一趟的寻路额度放大几倍(一趟结几拍，见 SecondTick)
+    private static int _pathScale = 1;
+
     private static bool PathBudget() =>
-        _pathsThisTick < PathsPerTick ||
-        _pathTicksThisTick * 1000d / global::System.Diagnostics.Stopwatch.Frequency < PathTickMilliseconds;
+        _pathsThisTick < PathsPerTick * _pathScale ||
+        _pathTicksThisTick * 1000d / global::System.Diagnostics.Stopwatch.Frequency < PathTickMilliseconds * _pathScale;
 
     private static TileZone NextStep(CorpsData corps, TileZone current, TileZone target)
     {
