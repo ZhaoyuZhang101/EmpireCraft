@@ -1367,6 +1367,46 @@
     return river;
   }
 
+  // 渡口落在哪些格上(同 riverTiles 的走法，取被留开的那几步)：大河每走 FORD_EVERY 格留 FORD_WIDTH 格不挖，
+  // 编辑器在河线上把它们标出来(用户 2026-11-17 "为什么政体编辑器的水是断开的"→"渡口标出来")。
+  // 按开局用的那一档大小算(格子大小跟着档变，渡口的位置也跟着变)；返回 [{ lon, lat, along }]：渡口头一格的格心经纬度，
+  // along 是这一处渡口沿河的走向(弧度，标记横跨河道画)。图边一格不算(同 riverTiles)
+  function fords(rivers, era, sizeIndex) {
+    if (!Array.isArray(rivers) || rivers.length === 0 || !era) return [];
+    const resolved = resolve(era, null, sizeIndex);
+    if (!resolved) return [];
+    const { degrees, bottom } = bounds(resolved.frame, resolved.size);
+    const west = F(resolved.frame.west), tw = resolved.size[0] * 64, th = resolved.size[1] * 64;
+    const result = [];
+    for (const item of rivers) {
+      const line = item && item.line;
+      if (!line || line.length < 4) continue;
+      let walked = 0;
+      let px = Math.floor(F(F(F(line[0]) - west) / degrees)), py = Math.floor(F(F(F(line[1]) - bottom) / degrees));
+      for (let i = 2; i + 1 < line.length; i += 2) {
+        let x0 = px, y0 = py;
+        const x1 = Math.floor(F(F(F(line[i]) - west) / degrees)), y1 = Math.floor(F(F(F(line[i + 1]) - bottom) / degrees));
+        px = x1;
+        py = y1;
+        const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+        // 走向取前后各两个点之间的大势(河线一段段很短，单看这一段常是横平竖直的一小截，标记就歪了)
+        const a = Math.max(0, i - 4), b = Math.min(line.length - 2, i + 2);
+        const along = Math.atan2(F(line[b + 1]) - F(line[a + 1]), F(line[b]) - F(line[a]));
+        let err = dx + dy;
+        for (;;) {
+          // 每处渡口只记头一步(留开的两步挨着，标一个就够)
+          if (walked++ % FORD_EVERY === 0 && x0 >= 1 && y0 >= 1 && x0 < tw - 1 && y0 < th - 1)
+            result.push({ lon: west + (x0 + 0.5) * degrees, lat: bottom + (y0 + 0.5) * degrees, along });
+          if (x0 === x1 && y0 === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; x0 += sx; }
+          if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+      }
+    }
+    return result;
+  }
+
   // 离最近的城心几度(经向按纬度折算，ScenarioWilderness.SeatDistance)；周围 ±3 个 2° 的桶里没有城为无穷远
   function seatDistance(seatPoints, lon, lat) {
     const squeeze = F(Math.cos(F(lat * DEG2RAD)));
@@ -1497,7 +1537,7 @@
   }
 
   return {
-    compute, frameOf, sizeOf, vote, baseValue,
+    compute, frameOf, sizeOf, vote, baseValue, fords,
     // 另给的小工具：四档范围、范围的南界与一格几度、地块写法的标记、格子编号、城归哪国、无人区类型名表
     FRAMES, bounds, cellOf, pack, ownersOf, KINDS: KINDS.slice(), SOURCES: SOURCES.slice(), FILLER, UNCLAIMED
   };

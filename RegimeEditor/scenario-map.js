@@ -771,6 +771,56 @@
   // 大河(只在地形图层和放大后画细线，帮着认地方)
   function drawRivers() {
     if (M.scale < 1.2 || M.rivers.length === 0 || M.imported) return;
+    drawRiverLines();
+    drawFords();
+  }
+
+  // 渡口(见 SPV.fords)：游戏里大河每隔一段留两格不挖，河两岸从这里过；河线上横着画一道沙色短杠。
+  // 按预演那一档大小算，换档、换剧本范围才重算；拉得够近(一格至少半个屏幕像素)才画，远了挤成一串看不清
+  function drawFords() {
+    if (!window.SPV || !window.SPV.fords || !D.S.era) return;
+    const key = `${D.S.era.frame}|${JSON.stringify(D.S.era.size || null)}|${M.sizeIndex}|${M.rivers.length}`;
+    if (M.fordKey !== key) {
+      M.fordKey = key;
+      try {
+        M.fords = window.SPV.fords(M.rivers, D.S.era, M.sizeIndex);
+      } catch (error) {
+        console.warn("渡口算不出来", error);
+        M.fords = [];
+      }
+      // 一格几度：同预演的口径(剧本没写范围的按默认范围)，不用 frameBounds——那个没写范围的就不给
+      try {
+        const frame = window.SPV.frameOf(D.S.era, null), size = frame ? window.SPV.sizeOf(D.S.era, null, M.sizeIndex) : null;
+        M.fordDegrees = frame && size ? window.SPV.bounds(frame, size).degrees : 0;
+      } catch (error) {
+        M.fordDegrees = 0;
+      }
+    }
+    if (!M.fords || M.fords.length === 0) return;
+    // 一格在屏幕上多少像素：地形底图一个像素是 TERRAIN_STEP 度，画成 scale 个屏幕像素
+    const tilePx = M.fordDegrees / D.TERRAIN_STEP * M.scale;
+    if (tilePx < 0.5) return;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const half = Math.max(3, Math.min(9, tilePx * 1.6)), thick = Math.max(2, Math.min(5, tilePx));
+    ctx.lineCap = "butt";
+    // 先描一圈深色边，再画沙色：蓝河线上、绿地上都看得清
+    for (const pass of [0, 1]) {
+      ctx.strokeStyle = pass === 0 ? "rgba(40,28,10,.85)" : "#f2d38a";
+      ctx.lineWidth = pass === 0 ? thick + 2 : thick;
+      ctx.beginPath();
+      for (const ford of M.fords) {
+        const x = sx(ford.lon), y = sy(ford.lat);
+        if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+        // 横跨河道：沿河走向转九十度(屏幕上纬度向下，y 取反)
+        const across = -ford.along + Math.PI / 2, cx = Math.cos(across) * half, cy = Math.sin(across) * half;
+        ctx.moveTo(x - cx, y - cy);
+        ctx.lineTo(x + cx, y + cy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawRiverLines() {
     ctx.strokeStyle = "rgba(80,170,240,.85)";
     ctx.lineWidth = Math.min(2.5, Math.max(1, M.scale * 0.25));
     ctx.beginPath();

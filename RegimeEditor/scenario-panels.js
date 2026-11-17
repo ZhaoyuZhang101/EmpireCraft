@@ -629,7 +629,7 @@
       brushRow(),
       hint(U.developBrush
         ? `开发度 ${U.developValue}：已刷 ${D.S.develop.size} 格(每格 0.2°)。雨林大泽的开发度，盖过时代开发度表；无人区图层上开发度越高越淡。`
-        : `已刷 ${D.S.terrain.size} 格(每格 0.1°)，开局生成地表时将覆盖原有地形。刷出来的高原生成世界时自动围山脊、留山口。`),
+        : `已刷 ${D.S.terrain.size} 格(每格 0.1°)，开局生成地表时将覆盖原有地形。刷出来的高原生成世界时自动围山脊、留山口；挨着丘陵的边不起山，两笔之间的窄缝不起山，围住的地自动开口。`),
       el("div", { class: "row" },
         button("清掉全部刷的地形", () => { if (UI.confirmTwice("clearTerrain", "五秒内再点一次，刷的地形全部复原(可撤销)")) commit(() => D.clearPaint("terrain")); }, "small danger", { disabled: D.S.terrain.size === 0 }),
         button("清掉全部刷的开发度", () => { if (UI.confirmTwice("clearDevelop", "五秒内再点一次，刷的开发度全部清掉(可撤销)")) commit(() => D.clearPaint("develop")); }, "small danger", { disabled: D.S.develop.size === 0 })));

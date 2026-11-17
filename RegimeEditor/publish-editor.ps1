@@ -15,6 +15,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+# Windows PowerShell 5.1 otherwise adds a BOM to curl's stdin after chcp 65001.
+[Console]::InputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
 $OutputEncoding = $utf8
 $here = $PSScriptRoot
