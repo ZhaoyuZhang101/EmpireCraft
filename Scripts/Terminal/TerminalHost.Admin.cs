@@ -251,12 +251,13 @@ public static partial class TerminalHost
                 armies.Add(row);
             }
         }
-        string text = armies.ToString(Newtonsoft.Json.Formatting.None);
+        JArray battles = SeeBattles(god, true);
+        string text = armies.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None);
         if (god.ArmyJson != null && text == god.ArmySeenText) return;
         god.ArmySeenText = text;
         god.ArmySnapshot = new ArmyReport(++god.ArmyStamp, new JObject
         {
-            ["ready"] = true, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies,
+            ["ready"] = true, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies, ["battles"] = battles,
             ["writs"] = new JArray(), ["orders"] = new JObject()
         });
     }

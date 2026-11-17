@@ -484,7 +484,10 @@ public static partial class TerminalHost
         {
             using var profile = FrameProfiler.Measure("终端·席位军情");
             JArray seen = SeeArmies(seat);
-            string text = seen.ToString(Newtonsoft.Json.Formatting.None);
+            JArray battles = SeeBattles(seat, false);
+            string text = seen.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None);
+            SeenBattles.Remove(seat);
+            SeenBattles.Add(seat, battles);
             // 有电报时几秒看一回：各军都没动就不算新军情，手机不用再取
             if (seat.ArmySeen == null || text != seat.ArmySeenText || month != seat.ArmyMonth) seat.ArmyDirty = true;
             seat.ArmySeen = seen;
@@ -507,6 +510,7 @@ public static partial class TerminalHost
         seat.ArmySnapshot = new ArmyReport(++seat.ArmyStamp, new JObject
         {
             ["ready"] = true, ["at"] = seat.ArmyMonth, ["every"] = every, ["armies"] = seat.ArmySeen,
+            ["battles"] = SeenBattles.TryGetValue(seat, out JArray seenBattles) ? seenBattles : new JArray(),
             ["writs"] = writs, ["orders"] = orders
         });
     }
@@ -528,6 +532,56 @@ public static partial class TerminalHost
         {
             // 路线一时算不出：这一支先不写去向
         }
+    }
+
+    // 交战牌子(用户 2026-11-17 "正在交战的铭牌怎么没了，没有这个我怎么知道军队在不在打")：游戏里地图上那块交战标记
+    // (见 CorpsMapRenderer，数据是 FrontSystem.Battles)搬到手机舆图，随军情一起报。每处交战一行：
+    // x、y 画在哪(攻方下手的那块地)，c 哪座城，l 渡海登陆，p 攻方胜算(百分)，fa、fd 攻守兵力，h、z 已占几块、共几块，
+    // a、d 攻守两家(总图上那一家的编号，图上没有的 -1)，me 本朝在攻(1)、在守(2)。
+    // 君主看得见本朝打的仗和看得见的地方的仗(迷雾里别国的仗不知道)；管理员(god)全图都看得见
+    private const int MaxBattles = 120;
+    private static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<Seat, JArray> SeenBattles = new();
+
+    internal static JArray SeeBattles(Seat seat, bool god)
+    {
+        var battles = new JArray();
+        Kingdom realm = god ? null : FrontSystem.Realm(seat.Realm);
+        foreach (FrontSystem.BattleView battle in FrontSystem.Battles.Values.ToList())
+        {
+            if (battles.Count >= MaxBattles) break;
+            try
+            {
+                City city = World.world.cities.get(battle.city_id);
+                if (city?.data == null || city.isRekt()) continue;
+                WorldTile at = CorpsSystem.ZoneById(battle.zone_id)?.centerTile ?? city.getTile();
+                if (at == null) continue;
+                Kingdom attacker = World.world.kingdoms.get(battle.attacker_id), defender = World.world.kingdoms.get(battle.defender_id);
+                int me = realm == null ? 0
+                    : attacker != null && FrontSystem.Realm(attacker) == realm ? 1
+                    : defender != null && FrontSystem.Realm(defender) == realm ? 2 : 0;
+                if (!god && me == 0 && Fogged(seat, at.x, at.y)) continue;
+                int zones = city.zones?.Count ?? 0, held = 0;
+                for (int i = 0; i < zones; i++)
+                    if (FrontSystem.Hostile(city.kingdom, FrontSystem.Controller(city.zones[i]))) held++;
+                (double x, double y) = CellOf(seat, at.x, at.y);
+                var row = new JObject
+                {
+                    ["x"] = x, ["y"] = y, ["c"] = TerminalIntel.Strip(city.data.name), ["p"] = Mathf.RoundToInt(battle.ratio * 100f),
+                    ["fa"] = Mathf.RoundToInt(battle.attack), ["fd"] = Mathf.RoundToInt(battle.defend), ["h"] = held, ["z"] = zones,
+                    ["a"] = attacker != null && seat.Slots.TryGetValue(attacker.getID(), out int a) ? a : -1,
+                    ["d"] = defender != null && seat.Slots.TryGetValue(defender.getID(), out int d) ? d : -1,
+                    ["id"] = battle.city_id.ToString()
+                };
+                if (battle.landing) row["l"] = true;
+                if (me > 0) row["me"] = me;
+                battles.Add(row);
+            }
+            catch (Exception)
+            {
+                // 这一处一时算不出：先不报
+            }
+        }
+        return battles;
     }
 
     private static JArray SeeArmies(Seat seat)

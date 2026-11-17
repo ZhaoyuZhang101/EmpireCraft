@@ -623,6 +623,15 @@ f_treasury:"Treasury",f_army:"Troops",f_people:"People",approx:"~{0}",n_book:"on
 wars:"Wars",no_wars:"No wars at present.",w_att:"Attacking {0}",w_def:"Defending against {0}",
 provinces:"Provinces and vassals",provinces_note:"The provinces, loose-rein lands and fiefs under the court. Tap one to see its cities.",pk_province:"Province",pk_jimi:"Loose rein",pk_fief:"Fief",pn_province:"Governed by appointed officials; only cities within reach of government give firm numbers.",pn_jimi:"A loose-rein land keeps its own chief; the court knows only roughly.",pn_fief:"A fief governs itself; the court knows only roughly.",p_cities:"{0} cities",p_seat:"Seat",p_more:"{0} more cities not listed.",cities:"Directly ruled cities",cities_note:"Only cities within reach of government give firm numbers.",capital:"Capital",c0:"{0} people · {1} villages",c1:"~{0} people",c2:"Unknown",ctl:"Control {0}%",cd_leader:"Governor: {0}",cd_troops:"Garrison: {0}",cd_treasury:"City treasury: {0}",cd_corr:"Corruption: {0}%",cd_zones:"Land: {0} zones",cd_rural:"{0} towns · {1} villages · {2} forts",cd_admin:"Control: {0}",cd_rough:"Government reaches here poorly; only rough figures come back.",cd_none:"Government does not reach here; no details come back."}
 };
+// 交战牌子的文字(见 drawBattles)
+(function(){var A={
+cz:{bt_name:"{0}之战",bt_name_landing:"{0}登陆战",bt_mark:"交战 {0}%",bt_mark_landing:"登陆 {0}%",bt_unknown:"不明之敌",
+bt_sides:"{0} 攻 · {1} 守",bt_we_attack:"本朝在攻",bt_we_defend:"本朝在守",bt_force:"兵力 {0} 对 {1}",bt_held:"已占 {0}/{1} 块地"},
+ch:{bt_name:"{0}之戰",bt_name_landing:"{0}登陸戰",bt_mark:"交戰 {0}%",bt_mark_landing:"登陸 {0}%",bt_unknown:"不明之敵",
+bt_sides:"{0} 攻 · {1} 守",bt_we_attack:"本朝在攻",bt_we_defend:"本朝在守",bt_force:"兵力 {0} 對 {1}",bt_held:"已占 {0}/{1} 塊地"},
+en:{bt_name:"Battle of {0}",bt_name_landing:"Landing at {0}",bt_mark:"Fighting {0}%",bt_mark_landing:"Landing {0}%",bt_unknown:"Unknown foe",
+bt_sides:"{0} attacking · {1} defending",bt_we_attack:"We are attacking",bt_we_defend:"We are defending",bt_force:"Troops {0} vs {1}",bt_held:"Held {0}/{1} tiles"}
+};for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 // 开局进度条的文字
 (function(){var A={
 cz:{adm_k_accounts:"账号",wl_title:"正在开局：{0}",wl_title_resume:"正在读档",wl_sub:"{0}% · 已用 {1} 秒，世界好了自动进入"},
@@ -3900,6 +3909,7 @@ function drawMap(){
   });
   drawFronts(ctx,x,y,k,dpr,cv);
   drawWars(ctx,x,y,k,dpr,cv);
+  drawBattles(ctx,x,y,k,dpr,cv);
   drawArmies(ctx,x,y,k,dpr,cv);
   $("z-out").disabled=mv.z<=1.001;$("z-in").disabled=mv.z>=map.maxz-.001;$("z-reset").disabled=mv.z<=1.001;
   var tag=$("map-intel"),line=armies?(armies.every===0?t("intel_live"):t("intel_at",Math.floor(armies.at/12)+1,armies.at%12+1,armies.every)):"";
@@ -3914,6 +3924,57 @@ function pic(name){
   return img.complete&&img.naturalWidth?img:null;
 }
 function armIcon(arm){return arm?pic("arm_"+arm):null}
+// 交战牌子(用户 2026-11-17 "正在交战的铭牌怎么没了，没有这个我怎么知道军队在不在打")：同游戏里地图上那块一样，
+// 朱漆框绛红底，两侧小旗是攻守两家的国色(本朝金色)，上行战役名、下行攻方胜算与已占几块。拉远了只画一个小牌(交叉双线)，
+// 牌子挤在一起时后画的让开；点开看攻守双方、胜算、兵力。画在兵牌底下(兵牌后画，压在上面)
+function drawBattles(ctx,x,y,k,dpr,cv){
+  if(!armies||!armies.battles||!armies.battles.length)return;
+  var kc=k/dpr,far=kc<5,placed=[];
+  var side=function(slot,mine){if(mine)return"#f3c34a";var r=slot>=0?map.realms[slot]:null;return r&&r.color||"#b9b39d"};
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  armies.battles.forEach(function(b){
+    var px=(b.x-x)*k,py=(b.y-y)*k+(far?0:14*dpr);
+    if(px<-60*dpr||py<-30*dpr||px>cv.width+60*dpr||py>cv.height+30*dpr)return;
+    var hot=b.me?"#f3c34a":"#e0533f";
+    if(far){
+      var q=5*dpr;
+      for(var i=0;i<placed.length;i++)if(Math.abs(placed[i][0]-px)<q*2&&Math.abs(placed[i][1]-py)<q*2)return;
+      placed.push([px,py]);
+      ctx.fillStyle="#5a1712";ctx.fillRect(px-q,py-q,q*2,q*2);
+      ctx.strokeStyle=hot;ctx.lineWidth=1.5*dpr;ctx.strokeRect(px-q,py-q,q*2,q*2);
+      ctx.beginPath();ctx.moveTo(px-q+2*dpr,py-q+2*dpr);ctx.lineTo(px+q-2*dpr,py+q-2*dpr);
+      ctx.moveTo(px+q-2*dpr,py-q+2*dpr);ctx.lineTo(px-q+2*dpr,py+q-2*dpr);ctx.stroke();
+      hits.push({kind:"battle",x:px/dpr,y:py/dpr,b:b});
+      return;
+    }
+    var title=t(b.l?"bt_name_landing":"bt_name",b.c),line=t(b.l?"bt_mark_landing":"bt_mark",b.p)+" · "+b.h+"/"+b.z;
+    ctx.font="600 "+(9*dpr)+"px sans-serif";var w1=ctx.measureText(title).width;
+    ctx.font=(9*dpr)+"px sans-serif";var w2=ctx.measureText(line).width;
+    var bw=Math.max(w1,w2)+20*dpr,bh=24*dpr;
+    for(var j=0;j<placed.length;j++)if(Math.abs(placed[j][0]-px)<(bw+placed[j][2])/2&&Math.abs(placed[j][1]-py)<bh)return;
+    placed.push([px,py,bw]);
+    ctx.fillStyle="rgba(74,18,14,.92)";ctx.fillRect(px-bw/2,py-bh/2,bw,bh);
+    ctx.strokeStyle=hot;ctx.lineWidth=1.5*dpr;ctx.strokeRect(px-bw/2,py-bh/2,bw,bh);
+    // 两侧小旗：左攻右守
+    ctx.fillStyle=side(b.a,b.me===1);ctx.fillRect(px-bw/2+3*dpr,py-5*dpr,5*dpr,10*dpr);
+    ctx.fillStyle=side(b.d,b.me===2);ctx.fillRect(px+bw/2-8*dpr,py-5*dpr,5*dpr,10*dpr);
+    ctx.font="600 "+(9*dpr)+"px sans-serif";ctx.fillStyle="#f3d27a";ctx.fillText(title,px,py-5*dpr);
+    ctx.font=(9*dpr)+"px sans-serif";ctx.fillStyle="#f4e9d6";ctx.fillText(line,px,py+6*dpr);
+    hits.push({kind:"battle",x:px/dpr,y:py/dpr,b:b});
+  });
+}
+// 点开交战牌子：攻守双方、本朝在攻在守、胜算、兵力、已占几块
+function showBattle(b){
+  var name=function(slot){var r=slot>=0?map.realms[slot]:null;return r&&r.name||t("bt_unknown")};
+  sel=null;aim=false;
+  panel(t(b.l?"bt_name_landing":"bt_name",b.c),[
+    t("bt_sides",name(b.a),name(b.d)),
+    b.me===1?t("bt_we_attack"):b.me===2?t("bt_we_defend"):null,
+    t(b.l?"bt_mark_landing":"bt_mark",b.p),
+    t("bt_force",short(b.fa||0),short(b.fd||0)),
+    t("bt_held",b.h,b.z),intelNote()]);
+  drawMap();
+}
 // 军队：挨得近的同一方并成一个牌子(右上角写几支)，底下写兵力；本国的军画出开往哪里
 function drawArmies(ctx,x,y,k,dpr,cv){
   if(!armies||!armies.armies)return;
@@ -4131,13 +4192,15 @@ function empireHead(ei){
 function pickAt(clientX,clientY){
   if(!map||!map.win)return;
   var rect=$("map").getBoundingClientRect(),win=map.win,px=clientX-rect.left,py=clientY-rect.top;
-  var army=null,city=null,ad=20,cd=aim?24:14;
+  var army=null,city=null,battle=null,ad=20,cd=aim?24:14,bd=18;
   hits.forEach(function(h){
     var d=Math.hypot(h.x-px,h.y-py);
     if(h.kind==="army"&&d<ad){ad=d;army=h}
     if(h.kind==="city"&&d<cd){cd=d;city=h.c}
+    if(h.kind==="battle"&&d<bd){bd=d;battle=h.b}
   });
   if(army&&!aim){if(state&&state.admin)adminArmies(army.list);else showArmies(army.list);return}
+  if(battle&&!aim){showBattle(battle);return}
   var gx=win.x+px/rect.width*win.w,gy=win.y+py/rect.height*win.h,x=Math.floor(gx),y=Math.floor(gy);
   var c=x<0||y<0||x>=map.w||y>=map.h?FOG:map.grid[y*map.w+x],r=map.realms[c];
   // 点中的那一家描白边(下令时不描)
