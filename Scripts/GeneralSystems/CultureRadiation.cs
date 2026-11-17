@@ -147,7 +147,9 @@ public static class CultureRadiation
                 if (_phase == Phase.Idle)
                 {
                     double now = world.getCurWorldTime();
-                    if (_lastPass >= 0d && now >= _lastPass && Date.getYearsSince(_lastPass) < 1) return;
+                    // 算不过来降频时(见 HelperFunc.SimulationStretch)隔几年重算一遍：算的是各城收到的比例，晚些更新不少什么
+                    if (_lastPass >= 0d && now >= _lastPass &&
+                        Date.getYearsSince(_lastPass) < EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months) return;
                     _lastPass = now;
                     Begin();
                 }

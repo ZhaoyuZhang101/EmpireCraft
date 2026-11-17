@@ -352,8 +352,9 @@ public static class AdministrativeControlSystem
         Kingdom realm = World.world.kingdoms.get(Pending.Dequeue());
         if (!Valid(realm) || Realm(realm) != realm) return;
         var data = realm.GetOrCreate();
+        // 降频时(见 HelperFunc.SimulationStretch)隔几年重算：控制力是重算出来的状态，不是累积量
         if (data.admin_pass_at >= 0d && World.world.getCurWorldTime() >= data.admin_pass_at &&
-            Date.getYearsSince(data.admin_pass_at) < 1) return;
+            Date.getYearsSince(data.admin_pass_at) < EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months) return;
         try
         {
             using (FrameProfiler.Measure("行政控制力"))
