@@ -1489,8 +1489,8 @@ public static partial class TerminalHost
             {
                 if (pair.Value == null || pair.Value.Count == 0) continue;
                 Kingdom occupier = World.world.kingdoms.get(pair.Key);
-                if (occupier?.data == null || occupier.isRekt() || occupier.wild || occupier == city.kingdom ||
-                    occupier.isInWarOnSameSide(city.kingdom) || !FrontSystem.Hostile(city.kingdom, occupier)) continue;
+                if (occupier?.data == null || occupier.isRekt() || occupier.wild ||
+                    !FrontSystem.Hostile(city.kingdom, occupier)) continue;
                 if (!kingdomIndex.TryGetValue(occupier.getID(), out int occupierAt))
                 {
                     kingdomIndex[occupier.getID()] = occupierAt = kingdoms.Count;

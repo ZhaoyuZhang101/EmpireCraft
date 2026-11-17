@@ -1189,8 +1189,8 @@ public static class CityExtension
                 continue;
             }
 
-            // 如果和原城市国家在同一战争阵营，不算敌对占领
-            if (occupier.isInWarOnSameSide(originKingdom))
+            // 两国可能在另一场仗里同阵营，眼下彼此交战时仍算敌对占领。
+            if (occupier.isInWarOnSameSide(originKingdom) && !FrontSystem.Hostile(occupier, originKingdom))
             {
                 continue;
             }

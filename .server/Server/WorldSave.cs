@@ -787,6 +787,8 @@ internal static class WorldSave
             war.main_attacker = world.kingdoms.get(war.data.main_attacker);
             war.main_defender = world.kingdoms.get(war.data.main_defender);
         }
+        // 旧档可能还留着一方已经灭国的战争，别让空阵营进入敌我表。
+        world.wars.ShimSweepEnded();
         foreach (JObject item in Items("alliances"))
         {
             Alliance alliance = Restore(world.alliances, item);

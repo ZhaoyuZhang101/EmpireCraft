@@ -1297,6 +1297,8 @@ public static partial class FrontSystem
     {
         Kingdom owner = city.kingdom;
         var attackers = group.Where(entry => entry.corps.task == "attack" && Hostile(entry.kingdom, owner)).ToList();
+        // 旧档可能已有足够的敌占地，却再无地块可推，不能只在新占领时检查易主。
+        if (attackers.Count > 0 && city.HasOccupiedZones() && city.CheckFinishedCapture()) return;
         var holders = group.Where(entry => Friendly(entry.kingdom, owner)).ToList();
         if (attackers.Count == 0)
         {

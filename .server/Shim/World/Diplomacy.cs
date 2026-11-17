@@ -59,6 +59,8 @@ public partial class War
     public WarTypeAsset getAsset() => AssetManager.war_types_library.get(data?.war_type ?? "normal");
     public bool isTotalWar() => getAsset()?.total_war == true;
     public bool hasEnded() => !isAlive() || data.winner != WarWinner.Nobody;
+    internal bool ShimHasBothSides() => _list_attackers.Any(side => side?.isAlive() == true) &&
+                                        _list_defenders.Any(side => side?.isAlive() == true);
     public int getDuration() => getAge();
     public int getYearStarted() => Date.getYear(data.created_time);
     // 分了胜负这场仗就算结束(hasEnded)：两国交战的那张表跟着重建
@@ -187,7 +189,7 @@ public partial class WarManager
         for (int i = list.Count - 1; i >= 0; i--)
         {
             War war = list[i];
-            if (war != null && war.isAlive() && !war.hasEnded()) continue;
+            if (war != null && !war.hasEnded() && war.ShimHasBothSides()) continue;
             if (war == null) list.RemoveAt(i);
             else
             {
@@ -268,7 +270,7 @@ public partial class WarManager
         for (int i = 0; i < list.Count; i++)
         {
             // 结束了的仗不算(名单要等清出名册时才清)
-            if (list[i].hasEnded()) continue;
+            if (list[i].hasEnded() || !list[i].ShimHasBothSides()) continue;
             foreach (Kingdom attacker in list[i]._list_attackers)
                 foreach (Kingdom defender in list[i]._list_defenders)
                 {
