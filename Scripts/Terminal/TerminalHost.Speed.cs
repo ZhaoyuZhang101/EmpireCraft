@@ -17,10 +17,21 @@ namespace EmpireCraft.Scripts.Terminal;
 public static partial class TerminalHost
 {
 #if EC_SERVER
-    public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100, 200, 500, 1000, 2000, 3000, 5000 };
+    // 用户 2026-11-18 要照游戏原版的速度档：×0.5、×1、×2…×20、×40(音速)，再加手机玩家要的三个慢档(×0.05、×0.1、×0.25)；
+    // 服务器里还是按百分数存(100 = 常速)，页面显示成 ×N
+    public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100, 200, 300, 400, 500, 1000, 1500, 2000, 4000 };
+
 #else
     public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100 };
 #endif
+    // 流速写给人看：百分数折成游戏原版的倍数 ×N(100 → ×1，2000 → ×20，25 → ×0.25)
+    internal static string SpeedTimes(int percent)
+    {
+        float times = percent / 100f;
+        return "×" + (times >= 10f || Mathf.Approximately(times, Mathf.Round(times))
+            ? Mathf.RoundToInt(times).ToString()
+            : (Mathf.Round(times * 100f) / 100f).ToString(global::System.Globalization.CultureInfo.InvariantCulture));
+    }
     private const float VoteSeconds = 90f, VoteRestSeconds = 30f;
 
     private sealed class SpeedVote
@@ -75,7 +86,7 @@ public static partial class TerminalHost
             if (!int.TryParse(choice, out int percent) || global::System.Array.IndexOf(SpeedChoices, percent) < 0) return;
             if (percent == SpeedPercent)
             {
-                Notify(seat, string.Format(LM.Get("terminal_vote_same"), percent));
+                Notify(seat, string.Format(LM.Get("terminal_vote_same"), SpeedTimes(percent)));
                 return;
             }
             if (_vote != null)
@@ -91,8 +102,8 @@ public static partial class TerminalHost
             _vote = new SpeedVote { Id = ++_voteSeq, Percent = percent, ByToken = seat.Token, ByName = VoterName(seat), Until = now + VoteSeconds };
             _vote.Ballots[seat.Token] = true;
             foreach (Seat other in Voters())
-                Notify(other, other == seat ? string.Format(LM.Get("terminal_vote_started"), percent)
-                    : string.Format(LM.Get("terminal_vote_called"), _vote.ByName, percent));
+                Notify(other, other == seat ? string.Format(LM.Get("terminal_vote_started"), SpeedTimes(percent))
+                    : string.Format(LM.Get("terminal_vote_called"), _vote.ByName, SpeedTimes(percent)));
             TouchAll();
             SettleVote(false);
             return;
@@ -137,8 +148,8 @@ public static partial class TerminalHost
             }
         }
         else VoteRest[vote.ByToken] = Time.realtimeSinceStartup + VoteRestSeconds;
-        string text = passed ? string.Format(LM.Get("terminal_vote_passed"), vote.Percent)
-            : string.Format(LM.Get("terminal_vote_failed"), SpeedPercent, yes, no, voters.Count);
+        string text = passed ? string.Format(LM.Get("terminal_vote_passed"), SpeedTimes(vote.Percent))
+            : string.Format(LM.Get("terminal_vote_failed"), SpeedTimes(SpeedPercent), yes, no, voters.Count);
         foreach (Seat seat in Seats())
             if (seat.Ruler != null) Notify(seat, text);
         TouchAll();
@@ -175,6 +186,6 @@ public static partial class TerminalHost
         if (_vote == null) return null;
         List<Seat> voters = Voters();
         Tally(voters, out int yes, out int no);
-        return string.Format(LM.Get("terminal_vote_line"), _vote.ByName, _vote.Percent, yes, no, voters.Count);
+        return string.Format(LM.Get("terminal_vote_line"), _vote.ByName, SpeedTimes(_vote.Percent), yes, no, voters.Count);
     }
 }

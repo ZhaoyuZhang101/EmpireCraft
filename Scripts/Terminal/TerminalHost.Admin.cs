@@ -87,6 +87,9 @@ public static partial class TerminalHost
         if (method == "GET" && path == "/api/armies") return TerminalServer.Reply.Json(god.ArmyJson ?? "{\"ready\":false}");
         if (method == "POST" && path == "/api/armies") return ArmiesReply(god, body);
         if (method == "POST" && path == "/api/terrain") return TerrainReply(god, body);
+        // 游戏里看核心的实时地图(见 TerminalHost.Live、CoreLiveMap)
+        if (method == "GET" && path == "/api/admin/live/map") return LiveReply(true);
+        if (method == "GET" && path == "/api/admin/live/army") return LiveReply(false);
         // 世界历史：编年、历朝(见 TerminalHost.History)
         if (method == "POST" && path == "/api/admin/history") return HistoryReply(body);
         // 点图上的国：它的基本数值(见 RealmFigures)
@@ -113,6 +116,7 @@ public static partial class TerminalHost
     // 没人看着的管理员不备(登入那一下就算看着)；地图取样同席位轮着来，一秒里至多一份
     private static void RunAdmins(bool ready, float now, ref bool mapped)
     {
+        if (ready) RunLive(now);
         if (ready && AdminByToken.Values.Any(god => god.Watched)) RunHistory(now);
         if (ready) RunRealmFigures();
         foreach (Seat god in AdminByToken.Values)
@@ -499,7 +503,7 @@ public static partial class TerminalHost
         {
             // 设置没存上：这一局照改后的走
         }
-        string text = string.Format(LM.Get(voided ? "terminal_admin_speed_void" : "terminal_admin_speed"), percent);
+        string text = string.Format(LM.Get(voided ? "terminal_admin_speed_void" : "terminal_admin_speed"), SpeedTimes(percent));
         foreach (Seat seat in Seats())
             if (seat.Ruler != null) Notify(seat, text);
         TouchAll();

@@ -104,6 +104,37 @@ internal static class CoreHost
     private static int _phaseFrame;
     // 向核心要管理页地址是什么时候问的(0 = 没在等)
     private static float _linkAsked;
+    // 游戏里的实时地图要登入核心(见 CoreLiveMap)：凭管理员码；配了账号密码的向核心要一张一次性的票(同"打开管理页"，只是不开浏览器)
+    private static volatile string _liveTicket;
+    private static float _liveTicketAsked = -999f;
+    private const float LiveTicketSeconds = 15f;
+
+    internal static string AdminCodeNow => _adminCode;
+
+    internal static string TakeLiveTicket()
+    {
+        string ticket = _liveTicket;
+        if (ticket != null)
+        {
+            _liveTicket = null;
+            return ticket;
+        }
+        if (Time.unscaledTime - _liveTicketAsked < LiveTicketSeconds) return null;
+        _liveTicketAsked = Time.unscaledTime;
+        try
+        {
+            if (_process != null && !_process.HasExited)
+            {
+                _process.StandardInput.WriteLine("adminlink");
+                _process.StandardInput.Flush();
+            }
+        }
+        catch (Exception)
+        {
+            // 写不进去：过一会儿再要
+        }
+        return null;
+    }
     private static float _deadline, _since, _nextTip;
 
     private static string Root => Path.Combine(Application.persistentDataPath, "EmpireCraftCore");
@@ -800,6 +831,19 @@ internal static class CoreHost
             }
             if (line.Contains("已脱手")) _detachAck = true;
             int link = line.IndexOf("管理页:", StringComparison.Ordinal);
+            // 实时地图要的票：地址里 #admin= 后面那一段，不开浏览器
+            if (link >= 0 && _linkAsked <= 0f && Time.unscaledTime - _liveTicketAsked < LiveTicketSeconds)
+            {
+                _lastLine = "";
+                int mark = line.IndexOf("#admin=", link, StringComparison.Ordinal);
+                if (mark >= 0)
+                {
+                    string ticket = line.Substring(mark + 7).Trim();
+                    int stop = ticket.IndexOf(' ');
+                    _liveTicket = stop > 0 ? ticket.Substring(0, stop) : ticket;
+                }
+                continue;
+            }
             if (link >= 0 && _linkAsked > 0f)
             {
                 // 这行带着登入用的票：不留作"最后一行"，免得随后写进提示或日志

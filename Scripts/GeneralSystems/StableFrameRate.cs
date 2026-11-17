@@ -10,7 +10,9 @@ public static class StableFrameRate
     public const int Target = 30;
     // 游戏本体闲着时的帧率(见 SetIdle)
     public const int IdleTarget = 10;
-    private static bool _enabled, _saved, _idle;
+    // 闲着但屏幕上开着核心的实时地图(见 Terminal.CoreLiveMap)：拖动、缩放要顺，放到每秒 60 帧；收起地图回到 10 帧
+    public const int ViewTarget = 60;
+    private static bool _enabled, _saved, _idle, _viewing;
     private static int _savedFrameRate, _savedVSync, _idleFrameRate, _idleVSync;
     private static float _nextCheck;
 
@@ -57,6 +59,13 @@ public static class StableFrameRate
         }
     }
 
+    public static void SetViewing(bool on)
+    {
+        if (on == _viewing) return;
+        _viewing = on;
+        if (_idle) ApplyIdle();
+    }
+
     public static void Tick()
     {
         if (!_enabled && !_idle) return;
@@ -65,15 +74,17 @@ public static class StableFrameRate
         _nextCheck = now + 2f;
         if (_idle)
         {
-            if (Application.targetFrameRate != IdleTarget || QualitySettings.vSyncCount != 0) ApplyIdle();
+            if (Application.targetFrameRate != IdleRate || QualitySettings.vSyncCount != 0) ApplyIdle();
         }
         else if (Application.targetFrameRate != Target || QualitySettings.vSyncCount != 0) Apply();
     }
 
+    private static int IdleRate => _viewing ? ViewTarget : IdleTarget;
+
     private static void ApplyIdle()
     {
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = IdleTarget;
+        Application.targetFrameRate = IdleRate;
     }
 
     private static void Apply()

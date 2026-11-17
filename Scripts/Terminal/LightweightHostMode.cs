@@ -51,7 +51,11 @@ internal static class LightweightHostMode
     private static float _probeUntil, _probeNext;
     private static GameObject _panel;
     private static Canvas _panelCanvas;
-    private static Text _status, _link, _title, _note, _face, _face2, _face3, _scan;
+    private static Text _status, _link, _title, _note, _face, _face2, _face3, _face4, _scan;
+    // 黑底与牌子(牌子上的字、按钮、二维码都在这张卡片上)：看核心的实时地图时撤掉黑底、卡片缩到左上角(见 CoreLiveMap)
+    private static Image _backdrop, _cardBack;
+    private static RectTransform _card;
+    private static bool _compact;
     // 牌子上的二维码：手机一扫就连上(眼下画的是哪条地址、贴图)。核心没有画面，那头不编这一段
 #if !EC_SERVER
     private static RawImage _qr;
@@ -70,11 +74,13 @@ internal static class LightweightHostMode
             if (!Active) Enter();
             if (HotKey()) CoreHost.RequestStop();
             Hold();
+            LiveTick();
             return;
         }
         if (_forCore)
         {
             _forCore = false;
+            LiveReset();
             Restore();
         }
         if (Enabled != _wasEnabled)
@@ -250,7 +256,7 @@ internal static class LightweightHostMode
             _note.text = LM.Get("terminal_light_note");
             _face.text = LM.Get("terminal_light_restore");
             _face.transform.parent.gameObject.SetActive(true);
-            LayoutButtons(null, null);
+            LayoutButtons(null, null, null);
             _status.text = string.Format(LM.Get("terminal_light_status"), Date.getCurrentYear(), Date.getCurrentMonth(), _fps,
                                _pace >= 10f ? _pace.ToString("0") : _pace.ToString("0.#"), SpeedScale().ToString("0.##")) +
                            (paused ? " · " + LM.Get("terminal_light_paused") : "");
@@ -280,7 +286,7 @@ internal static class LightweightHostMode
             _link.text = CoreHost.LinkLine();
             _face.text = CoreHost.ButtonText();
             _face.transform.parent.gameObject.SetActive(CoreHost.CanStop);
-            LayoutButtons(CoreHost.SecondButtonText(), CoreHost.ThirdButtonText());
+            LayoutButtons(CoreHost.SecondButtonText(), CoreHost.ThirdButtonText(), MapButtonText());
             ShowCode(CoreHost.ScanUrl());
         }
         catch (Exception exception)
@@ -342,12 +348,77 @@ internal static class LightweightHostMode
         if (CoreHost.Holding) CoreHost.OnButton(2);
     }
 
+#if EC_SERVER
+    // 核心自己没有画面：实时地图只在游戏里
+    private static void LiveTick() { }
+    private static void LiveReset() { }
+    private static string MapButtonText() => null;
+    private static void OnFourthButton() { }
+    private static void Compact(bool on) { }
+    internal static bool CardContains(Vector3 screen) => false;
+#else
+    // 核心跑着时黑屏换成它报来的实时地图(见 CoreLiveMap)；牌子还没搭好的那一帧先不画
+    private static void LiveTick()
+    {
+        if (_panel == null) return;
+        bool live = CoreLiveMap.Wanted && CoreHost.State is CoreHost.Phase.Running or CoreHost.Phase.Attached;
+        CoreLiveMap.Tick(_panel.transform, _panelCanvas, live);
+        Compact(CoreLiveMap.Showing);
+        // 开着地图时本体不压到每秒 10 帧(见 StableFrameRate.SetViewing)
+        StableFrameRate.SetViewing(CoreLiveMap.Showing);
+    }
+
+    private static void LiveReset()
+    {
+        CoreLiveMap.Reset();
+        Compact(false);
+        StableFrameRate.SetViewing(false);
+    }
+
+    private static string MapButtonText() =>
+        CoreHost.State is CoreHost.Phase.Running or CoreHost.Phase.Attached
+            ? LM.Get(CoreLiveMap.Wanted ? "terminal_live_hide" : "terminal_live_show")
+            : null;
+
+    // 第四个：核心跑着时「看地图 / 收起地图」(见 CoreLiveMap)
+    private static void OnFourthButton()
+    {
+        CoreLiveMap.Wanted = !CoreLiveMap.Wanted;
+        _nextText = 0f;
+    }
+
+    // 看实时地图时：撤掉黑底，牌子缩到左上角、垫一层半透明的底
+    private static void Compact(bool on)
+    {
+        if (_card == null || on == _compact) return;
+        _compact = on;
+        _backdrop.enabled = !on;
+        _cardBack.enabled = on;
+        if (on)
+        {
+            _card.anchorMin = _card.anchorMax = _card.pivot = new Vector2(0f, 1f);
+            _card.anchoredPosition = new Vector2(8f, -8f);
+            _card.localScale = new Vector3(0.5f, 0.5f, 1f);
+        }
+        else
+        {
+            _card.anchorMin = _card.anchorMax = _card.pivot = new Vector2(0.5f, 0.5f);
+            _card.anchoredPosition = Vector2.zero;
+            _card.localScale = Vector3.one;
+        }
+    }
+
+    // 鼠标在缩到角上的牌子上(实时地图的滚轮、拖动让给牌子)
+    internal static bool CardContains(Vector3 screen) =>
+        _compact && _card != null && RectTransformUtility.RectangleContainsScreenPoint(_card, screen, null);
+#endif
+
     // 按钮照字的宽度定宽，有几个排几个，整排居中(第二、第三个只在服务器核心接手时有)
-    private static void LayoutButtons(string second, string third)
+    private static void LayoutButtons(string second, string third, string fourth)
     {
         const float Gap = 12f;
-        Text[] faces = { _face, _face2, _face3 };
-        string[] texts = { _face.text, second, third };
+        Text[] faces = { _face, _face2, _face3, _face4 };
+        string[] texts = { _face.text, second, third, fourth };
         var widths = new float[faces.Length];
         float total = -Gap;
         for (int i = 0; i < faces.Length; i++)
@@ -431,12 +502,22 @@ internal static class LightweightHostMode
         backdropRect.anchorMin = Vector2.zero;
         backdropRect.anchorMax = Vector2.one;
         backdropRect.offsetMin = backdropRect.offsetMax = Vector2.zero;
-        backdrop.GetComponent<Image>().color = Color.black;
+        _backdrop = backdrop.GetComponent<Image>();
+        _backdrop.color = Color.black;
+        // 牌子：上面的东西都按卡片正中摆(平时卡片摆在正中、底是透明的，看不出来)
+        var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+        card.transform.SetParent(_panel.transform, false);
+        _card = (RectTransform)card.transform;
+        _card.sizeDelta = new Vector2(920f, 520f);
+        _cardBack = card.GetComponent<Image>();
+        _cardBack.color = new Color(0.05f, 0.06f, 0.07f, 0.82f);
+        _cardBack.enabled = false;
+        _compact = false;
 
         Text Line(string name, string text, int size, Color color, float y)
         {
             var holder = new GameObject(name, typeof(RectTransform), typeof(Text));
-            holder.transform.SetParent(_panel.transform, false);
+            holder.transform.SetParent(card.transform, false);
             var rect = (RectTransform)holder.transform;
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(900f, size + 10f);
@@ -456,7 +537,7 @@ internal static class LightweightHostMode
         // 最上头：二维码和一行小字
 #if !EC_SERVER
         var code = new GameObject("Code", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
-        code.transform.SetParent(_panel.transform, false);
+        code.transform.SetParent(card.transform, false);
         var codeRect = (RectTransform)code.transform;
         codeRect.anchorMin = codeRect.anchorMax = new Vector2(0.5f, 0.5f);
         codeRect.sizeDelta = new Vector2(128f, 128f);
@@ -476,7 +557,7 @@ internal static class LightweightHostMode
         Text PanelButton(string name, Color color, UnityEngine.Events.UnityAction click)
         {
             var button = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            button.transform.SetParent(_panel.transform, false);
+            button.transform.SetParent(card.transform, false);
             var buttonRect = (RectTransform)button.transform;
             buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
             buttonRect.sizeDelta = new Vector2(150f, 34f);
@@ -497,6 +578,9 @@ internal static class LightweightHostMode
         // 第三个：核心跑着时"关闭游戏，只留核心"(见 CoreHost.ThirdButtonText)
         _face3 = PanelButton("Third", new Color(0.3f, 0.36f, 0.46f), OnThirdButton);
         _face3.transform.parent.gameObject.SetActive(false);
+        // 第四个：核心跑着时「看地图 / 收起地图」
+        _face4 = PanelButton("Fourth", new Color(0.24f, 0.42f, 0.5f), OnFourthButton);
+        _face4.transform.parent.gameObject.SetActive(false);
         Line("Key", LM.Get("terminal_light_key"), 11, new Color(0.56f, 0.63f, 0.66f), -88f);
     }
 }
