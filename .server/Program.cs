@@ -849,7 +849,7 @@ public static class Program
         if (next == now) return;
         CityPopulationSystem.EconomyStretchMonths = next;
         Console.WriteLine(next > 1
-            ? "[流速] 设定 " + set.ToString("0") + "%、实际 " + actual.ToString("0") + "%：降频，经济与人口增长、国家行为、城市更新改为 " + next + " 个月一轮(见 SimulationStretch)"
+            ? "[流速] 设定 " + set.ToString("0") + "%、实际 " + actual.ToString("0") + "%：降频，经济与人口增长、国家行为、城市更新、军团征召改为 " + next + " 个月一轮(见 SimulationStretch)"
             : "[流速] 算得过来了：取消降频");
     }
 

@@ -70,7 +70,8 @@ public static class LogisticsSystem
         return relation;
     }
 
-    public static void MonthTick(Kingdom kingdom)
+    // months：降频时一回结几个月(见 CorpsSystem.DueMonths)——补给线找一次，被围、粮耗、损耗按月补跑
+    public static void MonthTick(Kingdom kingdom, int months = 1)
     {
         List<CorpsData> list = CorpsSystem.Of(kingdom);
         if (list.Count == 0) return;
@@ -90,9 +91,12 @@ public static class LogisticsSystem
         }
         Relations.Clear();
         SupplyByZone.Clear();
-        EncirclementSystem.Monthly(kingdom, list);
-        Feed(kingdom, list, foraging);
-        Attrition(kingdom, list);
+        for (int month = 0; month < Math.Max(1, months); month++)
+        {
+            EncirclementSystem.Monthly(kingdom, list);
+            Feed(kingdom, list, foraging);
+            Attrition(kingdom, list);
+        }
         if (FrontSystem.Realm(kingdom) == kingdom) TryForage(kingdom);
     }
 

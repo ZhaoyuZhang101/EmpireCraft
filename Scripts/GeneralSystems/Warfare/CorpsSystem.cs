@@ -126,6 +126,7 @@ public static class CorpsSystem
         GeneralIndex.Clear();
         _lastSecond = _lastMonth = -1d;
         ResetMonthCycle();
+        LastMonthTick.Clear();
         GeneralMoves.Clear();
         Paths.Clear();
         MarchRates.Clear();
@@ -292,7 +293,9 @@ public static class CorpsSystem
                         break;
                     }
                     Kingdom kingdom = MonthQueue.Dequeue();
-                    try { using (FrameProfiler.Measure("军团·月度征召")) MonthTick(kingdom, _monthAt); }
+                    int span = DueMonths(kingdom, _monthAt);
+                    if (span <= 0) break;
+                    try { using (FrameProfiler.Measure("军团·月度征召")) MonthTick(kingdom, _monthAt, span); }
                     catch (Exception exception) { LogService.LogWarning($"[EmpireCraft][军团] 月度结算失败: {exception}"); }
                     break;
                 case MonthPhase.Navy:
@@ -351,10 +354,42 @@ public static class CorpsSystem
 
     #region 月度：征召、补员、退伍、休整
 
-    private static void MonthTick(Kingdom kingdom, double now)
+    // 算不过来降频时(见 HelperFunc.SimulationStretch)各国的月度征召几个月轮一回、各国错开(按编号分到各月)：
+    // 动员范围、统帅、补员、补给线这些要把全国过一遍的做一次，补员、裁撤按欠的月数放量；
+    // 军饷、休整、老兵、被围、粮耗、换装、禁军这些按月记账的按欠的月数补跑几回(量与每月结一样)。
+    // 开战、停战那个月不等轮次。平时 SimulationStretch.Months 是 1，每国每月照旧。战线、行军不在这里，不受影响
+    private static readonly Dictionary<long, (double at, bool war)> LastMonthTick = new();
+    private const int MaxCatchUpMonths = 6;
+
+    // 这个月该不该结、结几个月的量(0 = 这个月轮不到)
+    private static int DueMonths(Kingdom kingdom, double now)
+    {
+        if (kingdom?.data == null) return 1;
+        bool war = IsAtWar(kingdom);
+        int stretch = Math.Max(1, HelperFunc.SimulationStretch.Months);
+        int span = 1;
+        if (LastMonthTick.TryGetValue(kingdom.id, out var last) && now >= last.at)
+        {
+            int since = Date.getMonthsSince(last.at);
+            if (stretch > 1 && last.war == war && since < stretch)
+            {
+                long month = Date.getCurrentYear() * 12L + Date.getCurrentMonth();
+                if (since <= 0 || (month - Math.Abs(kingdom.id)) % stretch != 0) return 0;
+            }
+            span = Mathf.Clamp(since, 1, MaxCatchUpMonths);
+        }
+        LastMonthTick[kingdom.id] = (now, war);
+        return span;
+    }
+
+    // 补员、裁撤这一回放几个月的量(见 DueMonths)
+    private static int _span = 1;
+
+    private static void MonthTick(Kingdom kingdom, double now, int span = 1)
     {
         if (kingdom?.data == null || kingdom.isRekt() || kingdom.isNeutral() ||
             Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return;
+        span = Math.Max(1, span);
         // 各步分开计时(性能诊断日志"军团·月度征召"每帧近 10 毫秒、分配 6 MB，看是哪一步)
         using (FrameProfiler.Measure("征召·动员范围")) WarScopeSystem.MonthTick(kingdom);
         using (FrameProfiler.Measure("征召·统帅")) WarCommandSystem.MonthTick(kingdom);
@@ -362,19 +397,30 @@ public static class CorpsSystem
         bool posts = kingdom.cities?.Any(city => city != null && !city.isRekt() &&
             CityPopulationSystem.PostOf(city, CityPopulationSystem.DoctrineOf(kingdom)) != CityPopulationSystem.ArmyPost.None) == true;
         if (!posts && (list == null || list.Count == 0)) return;
-        using (FrameProfiler.Measure("征召·补员")) Mobilize(kingdom, now);
-        using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom);
-        using (FrameProfiler.Measure("征召·休整"))
+        _span = span;
+        try
         {
-            Recover(kingdom);
-            CorpsVeterancy.Monthly(kingdom, Of(kingdom));
+            using (FrameProfiler.Measure("征召·补员")) Mobilize(kingdom, now);
         }
-        using (FrameProfiler.Measure("征召·军饷")) PayUpkeep(kingdom);
+        finally
+        {
+            _span = 1;
+        }
+        using (FrameProfiler.Measure("军团·后勤")) LogisticsSystem.MonthTick(kingdom, span);
+        using (FrameProfiler.Measure("征召·休整"))
+            for (int month = 0; month < span; month++)
+            {
+                Recover(kingdom);
+                CorpsVeterancy.Monthly(kingdom, Of(kingdom));
+            }
+        using (FrameProfiler.Measure("征召·军饷"))
+            for (int month = 0; month < span; month++) PayUpkeep(kingdom);
         // 视财力换装一支(见 CorpsArmSystem)
-        using (FrameProfiler.Measure("征召·换装")) CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
+        using (FrameProfiler.Measure("征召·换装"))
+            for (int month = 0; month < span; month++) CorpsArmSystem.Monthly(kingdom, kingdom.GetOrCreate().corps);
         AbsorbLegacyLegions(kingdom);
         // 禁军空饷、忠诚、不奉诏
-        PalaceArmySystem.Monthly(kingdom);
+        for (int month = 0; month < span; month++) PalaceArmySystem.Monthly(kingdom);
     }
 
     // 野战军饷：按人头每月发(见 CityStabilityRules.CorpsAnnual)，按兵种加权(装备越先进越贵，见 CorpsArmSystem)，本国先付，听命于中央的成员付不起由中央补；
@@ -839,20 +885,20 @@ public static class CorpsSystem
                 // 分出去的渡海先遣军算在本军名下(补员、裁撤按两者合计)，免得一边分兵一边补满、兵越分越多
                 awayByParent.TryGetValue(corps.id, out float away);
                 if (corps.strength + away < corps.full && corps.supply >= 0.5f && !corps.embarked && !unpaid)
-                    Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * FormationSystem.RaiseFactor(corps) * corps.supply,
+                    Reinforce(kingdom, corps, Mathf.Min(corps.full * ReinforceShare * _span * FormationSystem.RaiseFactor(corps) * corps.supply,
                         corps.full - away - corps.strength));
                 // 裁撤按现有兵力的成数：以前按满编的成数，养不起时满编缩到几百，几千欠饷的兵每月只裁几十，
                 // 明的各布政使司开局编了五六千兵，军费系数掉到 0.01 后好几年还养着
                 else if ((!war || cut) && corps.strength + away > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full,
-                        Mathf.Max(corps.full, corps.strength) * DemobilizeShare + 1f));
+                        Mathf.Max(corps.full, corps.strength) * Mathf.Min(1f, DemobilizeShare * _span) + 1f));
             }
         }
         // 手动组建的军：只补员，不随兵额增减
         if (!unpaid)
             foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
                                                             Deficit(kingdom, corps) >= 1f).ToList())
-                Reinforce(kingdom, corps, corps.full * ReinforceShare * FormationSystem.RaiseFactor(corps) * corps.supply);
+                Reinforce(kingdom, corps, corps.full * ReinforceShare * _span * FormationSystem.RaiseFactor(corps) * corps.supply);
         // 义军：仗打完就地解散
         if (!war)
             foreach (CorpsData corps in list.Where(corps => corps.militia).ToList()) Disband(kingdom, corps);
