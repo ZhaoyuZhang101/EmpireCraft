@@ -10,13 +10,21 @@ namespace EmpireCraft.Server;
 // 记一笔是谁被调用了、调了多少回，回一个默认值，程序接着跑。按这本账的次数从多到少补实现。
 public static class Shim
 {
-    private static readonly ConcurrentDictionary<string, int> Missing = new();
+    // 计数放在盒子里：以前每回都 AddOrUpdate(要进字典的锁)，流速三千时光记这本账就占主线程 7%。
+    // 现在查到盒子直接加一，不加锁——多核同时记可能少记一两回，这本账只用来排"先补哪个"，不要紧
+    private sealed class MissCount
+    {
+        public int Count;
+    }
+
+    private static readonly ConcurrentDictionary<string, MissCount> Missing = new();
     // 头一回碰到就在控制台说一声(排查时打开)
     public static bool Verbose;
 
     public static void Miss(string member)
     {
-        if (Missing.AddOrUpdate(member, 1, (_, count) => count + 1) == 1 && Verbose)
+        if (!Missing.TryGetValue(member, out MissCount count)) count = Missing.GetOrAdd(member, _ => new MissCount());
+        if (++count.Count == 1 && Verbose)
             Console.WriteLine("[替身] 还没实现: " + member);
     }
 
@@ -81,8 +89,8 @@ public static class Shim
     public static string Report(int top = 60)
     {
         var text = new StringBuilder();
-        foreach (KeyValuePair<string, int> pair in Missing.OrderByDescending(pair => pair.Value).Take(top))
-            text.Append(pair.Value.ToString().PadLeft(9)).Append("  ").AppendLine(pair.Key);
+        foreach (KeyValuePair<string, MissCount> pair in Missing.OrderByDescending(pair => pair.Value.Count).Take(top))
+            text.Append(pair.Value.Count.ToString().PadLeft(9)).Append("  ").AppendLine(pair.Key);
         return text.ToString();
     }
 }

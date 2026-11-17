@@ -268,7 +268,8 @@ public static partial class TerminalHost
     // 独立核心上还能加快到 MaxSpeedPercent(用户 2026-11-16 "即便流速是100也好慢""最少是能到1000")：快过常速的不论手机连没连着都照快的走；
     // 游戏里不加快(原版的小人、动画按一帧一步走，一帧跨太长会乱)，封顶 100%
 #if EC_SERVER
-    public const int MaxSpeedPercent = 1000;
+    // (2026-11-17 用户要"至少 3000 以上"，上限放到 5000；跑不跑得到看主机算力，算不过来照实际流速走并显示出来)
+    public const int MaxSpeedPercent = 5000;
 #else
     public const int MaxSpeedPercent = 100;
 #endif

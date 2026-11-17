@@ -142,6 +142,28 @@ public static class RuralSettlementSystem
         return result;
     }
 
+    // 只看不改的地方用(逐个过一遍算份额、算折扣)：同一帧里同一座城问过就给现成的那张表，别往里加减。
+    // InCity 每回新拼一张表，月结里一座城要问十来回，流速三千时光拼表占主线程 2%
+    private static readonly Dictionary<City, (int frame, Dictionary<int, List<RuralSettlement>> index, int zones, List<RuralSettlement> list)> SharedInCity = new();
+
+    public static List<RuralSettlement> InCityShared(City city)
+    {
+        if (city?.zones == null || !EmpireCraft.Scripts.HelperFunc.FrameStamp.OnMainThread) return InCity(city);
+        Dictionary<int, List<RuralSettlement>> index = ByZone();
+        int frame = EmpireCraft.Scripts.HelperFunc.FrameStamp.Current;
+        if (SharedInCity.TryGetValue(city, out var cached) && cached.frame == frame && ReferenceEquals(cached.index, index) &&
+            cached.zones == city.zones.Count)
+        {
+            if (EmpireCraft.Scripts.HelperFunc.CacheAudit.Enabled)
+                EmpireCraft.Scripts.HelperFunc.CacheAudit.Compare("城内村镇", global::System.Linq.Enumerable.SequenceEqual(cached.list, InCity(city)));
+            return cached.list;
+        }
+        if (SharedInCity.Count > 4096) SharedInCity.Clear();
+        List<RuralSettlement> list = InCity(city);
+        SharedInCity[city] = (frame, index, city.zones.Count, list);
+        return list;
+    }
+
     public static List<RuralSettlement> InZone(TileZone zone) =>
         zone != null && ByZone().TryGetValue(zone.id, out List<RuralSettlement> list) ? list : new List<RuralSettlement>();
 
@@ -292,7 +314,7 @@ public static class RuralSettlementSystem
     {
         float living = 0f, ruined = 0f;
         if (All.Count == 0) return (0f, 0f);
-        foreach (RuralSettlement settlement in InCity(city))
+        foreach (RuralSettlement settlement in InCityShared(city))
         {
             if (settlement.ruined_at >= 0d) ruined += Weight(settlement);
             else living += Weight(settlement);

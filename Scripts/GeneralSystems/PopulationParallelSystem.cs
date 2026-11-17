@@ -79,7 +79,9 @@ public static class PopulationParallelSystem
         if (!CityPopulationSystem.AbstractPopulationEnabled || city?.data == null || city.isRekt() || city.kingdom == null ||
             EmpireCraft.Scripts.Compatibility.AncientWarfareCompatibility.OwnsObject(city)) return;
         CityPopulationData data = CityPopulationSystem.Get(city);
-        if (data.last_economy < 0d || now < data.last_economy || Date.getMonthsSince(data.last_economy) <= 0) return;
+        // 经济攒月份结(见 CityPopulationSystem.EconomyStretchMonths)时没攒够的不预备
+        if (data.last_economy < 0d || now < data.last_economy ||
+            Date.getMonthsSince(data.last_economy) < global::System.Math.Max(1, CityPopulationSystem.EconomyStretchMonths)) return;
         float perSlot = CityPopulationSystem.PeoplePerSlot(city);
         PopulationProductionInput production = refreshProduction ? PopulationEconomySystem.CaptureProduction(city, now) : null;
         if (Workforce.TryGetValue(city, out Request old) && ReferenceEquals(old.Data, data) && old.Owner == city.kingdom &&

@@ -1001,9 +1001,37 @@ public static partial class VirtualGenealogySystem
     }
 
     // 正在统治某个王国或帝国的宗族(永不销户)
+    // 各国的执政宗族，一帧只数一遍(见 FrameStamp)：以前每查一个宗族就把全图各国过一遍、各问一回君主的宗族，
+    // 三四百国时族长检查一项占主线程 6%
+    private static readonly HashSet<SpecificClan> RulingClans = new();
+    private static int _rulingClansFrame = -1;
+    private static MapBox _rulingClansWorld;
+
     private static bool IsRulingClan(SpecificClan clan)
     {
         if (clan == null || World.world?.kingdoms == null) return false;
+        if (_rulingClansFrame != FrameStamp.Current || !ReferenceEquals(_rulingClansWorld, World.world))
+        {
+            RulingClans.Clear();
+            foreach (Kingdom kingdom in World.world.kingdoms)
+            {
+                if (kingdom?.data == null || kingdom.isRekt()) continue;
+                SpecificClan imperial = kingdom.IsEmpire() ? kingdom.GetEmpire()?.EmpireSpecificClan : null;
+                if (imperial != null) RulingClans.Add(imperial);
+                SpecificClan royal = kingdom.king != null && !kingdom.king.isRekt() ? kingdom.king.GetSpecificClan() : null;
+                if (royal != null) RulingClans.Add(royal);
+            }
+            _rulingClansFrame = FrameStamp.Current;
+            _rulingClansWorld = World.world;
+        }
+        bool ruling = RulingClans.Contains(clan);
+        if (CacheAudit.Sampled(16)) CacheAudit.Compare("执政宗族", ruling == ScanRulingClan(clan));
+        return ruling;
+    }
+
+    // 老办法(逐国问一遍)，只在核对时用(见 CacheAudit)
+    private static bool ScanRulingClan(SpecificClan clan)
+    {
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom?.data == null || kingdom.isRekt()) continue;

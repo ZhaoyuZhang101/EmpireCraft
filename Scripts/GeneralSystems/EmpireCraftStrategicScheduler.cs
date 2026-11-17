@@ -303,7 +303,7 @@ public static class EmpireCraftStrategicScheduler
             if (realtime >= state.NextMembershipCheck)
             {
                 kingdom.CheckEmpire();
-                state.NextMembershipCheck = realtime + 0.5f + (Math.Abs(kingdom.id) % 8) * 0.025f;
+                state.NextMembershipCheck = realtime + (0.5f + (Math.Abs(kingdom.id) % 8) * 0.025f) * Math.Max(1, SimulationStretch.Months);
             }
 
             ProcessTemporaryFactions(kingdom);
@@ -323,8 +323,9 @@ public static class EmpireCraftStrategicScheduler
             }
             else if (CityPopulationSystem.AbstractPopulationEnabled)
             {
+                // 降频时(见 SimulationStretch)几个月过一遍
                 if (state.MonthlyPhase < 0 &&
-                    (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= 1))
+                    (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= Math.Max(1, SimulationStretch.Months)))
                 {
                     state.LastStrategicWorldTime = World.world.getCurWorldTime();
                     state.MonthlyPhase = 0;

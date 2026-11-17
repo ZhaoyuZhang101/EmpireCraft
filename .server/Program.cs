@@ -142,6 +142,14 @@ public static class Program
                     // 排查用：军团战线的陆上战线段多核算完，再照原样逐国算一遍逐城逐块比(见 FrontSystem.Parallel)，收尾时报对不上的份数
                     FrontSystem.VerifyParallelSectors = true;
                     break;
+                case "--no-stretch":
+                    // 对照用：算不过来也不把城市经济攒月份结(见 TuneStretch)
+                    _stretchOff = true;
+                    break;
+                case "--verify-caches":
+                    // 排查用：几处一帧一算的缓存每回都照老办法现算来比(见 CacheAudit)，收尾时报
+                    EmpireCraft.Scripts.HelperFunc.CacheAudit.Enabled = true;
+                    break;
                 case "--verify-save":
                     // 排查用：模组存档多核写完，再照老办法一个核写一份逐字节比(见 ParallelSaveWriter)，收尾时报
                     EmpireCraft.Scripts.Data.ParallelSaveWriter.Verify = true;
@@ -339,7 +347,9 @@ public static class Program
                     {
                         if (realtime)
                         {
-                            Round(world, modUpdate, Math.Min(tick, MaxRoundSeconds) * baseSpeed);
+                            float walked = Round(world, modUpdate, Math.Min(tick, MaxRoundSeconds) * baseSpeed);
+                            // 同正式运行一样报实际流速、按它调城市经济攒几个月结(见 Pace、TuneStretch)
+                            Pace(walked, tick, baseSpeed, world);
                             if (_lagging) Thread.Yield();
                             else Thread.Sleep(1);
                         }
@@ -365,6 +375,7 @@ public static class Program
                 if (tryDecrees) DecreeProbe.Report();
                 if (WarScopeSystem.VerifyHostiles)
                     Console.WriteLine("  就近动员核对 " + WarScopeSystem.HostileChecks + " 国次，对不上 " + WarScopeSystem.HostileMismatches + " 次");
+                if (profile) PrintLedger(world.getCurWorldTime() - startedWorld);
                 Console.WriteLine("  " + WorldSave.Tally());
                 Console.WriteLine("  跑了 " + frames + " 步(出错 " + failures + " 步)，到 " + Date.getCurrentYear() + " 年 " + Date.getCurrentMonth() + " 月：" + world.kingdoms.Count + " 国，" +
                                   world.cities.Count + " 城，" + world.units.Count + " 人，" + world.wars.Count + " 场战事");
@@ -380,6 +391,8 @@ public static class Program
                 Console.WriteLine("  存前: " + WorldSave.Digest());
                 SaveNow("收尾");
             }
+            if (EmpireCraft.Scripts.HelperFunc.CacheAudit.Enabled)
+                Console.WriteLine("  " + EmpireCraft.Scripts.HelperFunc.CacheAudit.Report());
             Console.WriteLine("  模组存档：多核写 " + EmpireCraft.Scripts.Data.ParallelSaveWriter.Written + " 回(上回 " +
                               EmpireCraft.Scripts.Data.ParallelSaveWriter.LastMilliseconds.ToString("0") + " 毫秒)，退回一个核 " +
                               EmpireCraft.Scripts.Data.ParallelSaveWriter.FellBack + " 回" +
@@ -764,7 +777,21 @@ public static class Program
             Slices++;
         }
         _lagging = done < slices;
+        _roundLoad = _lagging ? 1d : Stopwatch.GetElapsedTime(started).TotalSeconds / RoundBudgetSeconds;
         return done * slice * factor;
+    }
+
+    // 排查用(--profile)：各计时段自开跑以来的累计，折成每个世界月多少毫秒(嵌套的段各算各的，上下级不能相加)
+    private static void PrintLedger(double worldSeconds)
+    {
+        double months = Math.Max(0.2d, worldSeconds / Date.SecondsPerMonth);
+        Console.WriteLine("  每世界月的账(共 " + months.ToString("0.0") + " 个月；毫秒/月 · 次/月 · 每次微秒)：");
+        foreach (KeyValuePair<string, (long ticks, long calls)> pair in FrameProfiler.Totals.OrderByDescending(item => item.Value.ticks).Take(70))
+        {
+            double ms = pair.Value.ticks * 1000d / Stopwatch.Frequency;
+            Console.WriteLine("    " + (ms / months).ToString("0.0").PadLeft(7) + "  " + (pair.Value.calls / months).ToString("0").PadLeft(7) + "  " +
+                              (ms * 1000d / Math.Max(1, pair.Value.calls)).ToString("0").PadLeft(7) + "  " + pair.Key);
+        }
     }
 
     // 实际流速：每两秒看一回这段时间世界走了多少。世界没在走(暂停、开局中、还没有世界)时不报
@@ -783,7 +810,47 @@ public static class Program
         _paceReal += delta;
         if (_paceReal < 2d) return;
         TerminalHost.ActualSpeedPercent = (int)Math.Round(_paceWorld / (_paceReal * baseSpeed) * 100d);
+        // 攒月份按世界真正的倍数比(底速 × 终端流速；排查用的 --speed 走底速，终端那档是默认)
+        TuneStretch(baseSpeed * Math.Max(0.01f, TerminalHost.SpeedFactor) * 100d, _paceWorld / _paceReal * 100d);
         _paceWorld = _paceReal = 0d;
+    }
+
+    // 算不过来时把城市的经济与人口增长攒两三个月结一回(见 CityPopulationSystem.EconomyStretchMonths)：这两样本来就按经过的月数补量，
+    // 总量不少，全图每月省下三分之一到三分之二的经济结算。只在设定流速一千以上、实际流速又跟不上时才攒：
+    // 一千到两千至多两个月，两千以上至多三个月；跟得上并且一圈还有三成余量、连着半分钟都这样才收回一个月。--no-stretch 关掉
+    private static bool _stretchOff;
+    private static int _stretchBehind, _stretchEase;
+    private static double _roundLoad;
+
+    private static void TuneStretch(double set, double actual)
+    {
+        int cap = _stretchOff ? 1 : set > 2000d ? 3 : set > 1000d ? 2 : 1;
+        int now = CityPopulationSystem.EconomyStretchMonths, next = now;
+        bool behind = actual < set * 0.92d;
+        if (now > cap) next = cap;
+        else if (behind)
+        {
+            _stretchEase = 0;
+            if (++_stretchBehind >= 2 && now < cap)
+            {
+                next = now + 1;
+                _stretchBehind = 0;
+            }
+        }
+        else
+        {
+            _stretchBehind = 0;
+            if (_roundLoad < 0.7d && ++_stretchEase >= 15 && now > 1)
+            {
+                next = now - 1;
+                _stretchEase = 0;
+            }
+        }
+        if (next == now) return;
+        CityPopulationSystem.EconomyStretchMonths = next;
+        Console.WriteLine(next > 1
+            ? "[流速] 设定 " + set.ToString("0") + "%、实际 " + actual.ToString("0") + "%：降频，经济与人口增长、国家行为、城市更新改为 " + next + " 个月一轮(见 SimulationStretch)"
+            : "[流速] 算得过来了：取消降频");
     }
 
     // 主循环的一步：网络线程排过来的事先办；开局的加载步骤没走完就接着走(一步里至多用 50 毫秒)，走完了世界才往前走

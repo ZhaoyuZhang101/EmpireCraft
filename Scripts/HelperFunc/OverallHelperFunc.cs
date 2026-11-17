@@ -76,13 +76,22 @@ namespace EmpireCraft.Scripts.HelperFunc
             return string.Join(NamePartSeparator, parts.Where(part => !string.IsNullOrWhiteSpace(part)));
         }
 
+        private static readonly char[] NarrowSplit = { '\u200A' };
+
         public static string[] SplitNameParts(this string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
-            return text.Split(new[] { '\u200A' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(part => part.Trim())
-                .Where(part => part.Length > 0)
-                .ToArray();
+            // 不带分隔的名字最多(一段)：直接回，不走切分(这个函数拼国名时一帧要调上千回)
+            if (text.IndexOf('\u200A') < 0) return new[] { text.Trim() };
+            string[] parts = text.Split(NarrowSplit, StringSplitOptions.RemoveEmptyEntries);
+            int kept = 0;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string part = parts[i].Trim();
+                if (part.Length > 0) parts[kept++] = part;
+            }
+            if (kept != parts.Length) Array.Resize(ref parts, kept);
+            return parts;
         }
 
         public static string ReduceNarrowSpaces(this string text)

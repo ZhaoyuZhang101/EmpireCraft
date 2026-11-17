@@ -99,6 +99,8 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
     private int _backgroundCursor;
     private void Update()
     {
+        EmpireCraft.Scripts.HelperFunc.FrameStamp.Current++;
+        EmpireCraft.Scripts.HelperFunc.FrameStamp.MainThread = global::System.Environment.CurrentManagedThreadId;
         FrameProfiler.FrameTick();
         EmpireCraft.Scripts.GeneralSystems.StableFrameRate.Tick();
         // 增量 GC 跟不上分配时加大每帧时间片，免得整段停顿一两秒(见 GcPacing)

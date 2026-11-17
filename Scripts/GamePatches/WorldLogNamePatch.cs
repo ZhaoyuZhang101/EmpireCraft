@@ -49,11 +49,13 @@ public class WorldLogNamePatch : GamePatch
                 if (MonarchyOnly.Contains(assetId)) return false;
                 pMessage.asset_id = ModernAsset(assetId);
             }
-            Dictionary<string, string> names = BuildNameMap(pMessage.kingdom_id);
-            if (names.Count == 0) return true;
-            pMessage.special1 = Replace(pMessage.special1, names);
-            pMessage.special2 = Replace(pMessage.special2, names);
-            pMessage.special3 = Replace(pMessage.special3, names);
+            if (string.IsNullOrEmpty(pMessage.special1) && string.IsNullOrEmpty(pMessage.special2) &&
+                string.IsNullOrEmpty(pMessage.special3)) return true;
+            Dictionary<string, string> names = SharedNames();
+            Dictionary<string, string> own = OwnNames(pMessage.kingdom_id);
+            pMessage.special1 = Replace(pMessage.special1, own, names);
+            pMessage.special2 = Replace(pMessage.special2, own, names);
+            pMessage.special3 = Replace(pMessage.special3, own, names);
         }
         catch (Exception exception)
         {
@@ -87,19 +89,52 @@ public class WorldLogNamePatch : GamePatch
         return modernId;
     }
 
-    private static string Replace(string special, Dictionary<string, string> names) =>
-        !string.IsNullOrEmpty(special) && names.TryGetValue(special, out string display) ? display : special;
+    // 提示本身指向的国家优先(own)，再查全图的名表
+    private static string Replace(string special, Dictionary<string, string> own, Dictionary<string, string> names)
+    {
+        if (string.IsNullOrEmpty(special)) return special;
+        if (own != null && own.TryGetValue(special, out string display)) return display;
+        return names.TryGetValue(special, out display) ? display : special;
+    }
 
-    // 原始名称 → 铭牌名称。提示本身指向的国家优先；其余国家若原始名称撞名(不同国家、或与城市同名)就不替换
-    private static Dictionary<string, string> BuildNameMap(long messageKingdomId)
+    // 提示所属国家：即便与其首都同名也按国家处理(原版国家提示的第一个 special 就是国名)
+    private static Dictionary<string, string> OwnNames(long messageKingdomId)
+    {
+        Kingdom own = messageKingdomId > 0 ? World.world.kingdoms.get(messageKingdomId) : null;
+        if (own?.data == null || own.isRekt()) return null;
+        string display = EmpireCraftNamePlateLibrary.GetDisplayName(own);
+        if (string.IsNullOrWhiteSpace(display)) return null;
+        var map = new Dictionary<string, string>();
+        foreach (string raw in RawNames(own)) map[raw] = display;
+        return map;
+    }
+
+    // 全图的名表留着用半个月(世界时间)：以前每来一条提示就把全图各国的铭牌名、全名、帝国名重拼一遍，
+    // 三四百国时这一项占主线程 5%。国家刚改名的那半个月里，新名的提示对不上名表、照原文显示，不会改错
+    private const double SharedNamesSeconds = 2.5d;
+    private static Dictionary<string, string> _sharedNames;
+    private static double _sharedNamesAt;
+    private static MapBox _sharedNamesWorld;
+
+    private static Dictionary<string, string> SharedNames()
+    {
+        double now = World.world.getCurWorldTime();
+        if (_sharedNames != null && ReferenceEquals(_sharedNamesWorld, World.world) && now >= _sharedNamesAt &&
+            now - _sharedNamesAt < SharedNamesSeconds) return _sharedNames;
+        _sharedNames = BuildNameMap();
+        _sharedNamesAt = now;
+        _sharedNamesWorld = World.world;
+        return _sharedNames;
+    }
+
+    // 原始名称 → 铭牌名称。各国若原始名称撞名(不同国家、或与城市同名)就不替换；提示所属的国家另算(见 OwnNames)
+    private static Dictionary<string, string> BuildNameMap()
     {
         var map = new Dictionary<string, string>();
         var ambiguous = new HashSet<string>();
-        Kingdom own = null;
         foreach (Kingdom kingdom in World.world.kingdoms)
         {
             if (kingdom?.data == null || kingdom.isRekt()) continue;
-            if (kingdom.id == messageKingdomId) { own = kingdom; continue; }
             string display = EmpireCraftNamePlateLibrary.GetDisplayName(kingdom);
             if (string.IsNullOrWhiteSpace(display)) continue;
             foreach (string raw in RawNames(kingdom))
@@ -118,14 +153,6 @@ public class WorldLogNamePatch : GamePatch
             foreach (City city in World.world.cities)
                 if (city?.data != null && !string.IsNullOrEmpty(city.data.name))
                     map.Remove(city.data.name);
-        // 提示所属国家：即便与其首都同名也按国家处理(原版国家提示的第一个 special 就是国名)
-        if (own != null)
-        {
-            string display = EmpireCraftNamePlateLibrary.GetDisplayName(own);
-            if (!string.IsNullOrWhiteSpace(display))
-                foreach (string raw in RawNames(own))
-                    map[raw] = display;
-        }
         foreach (string key in new List<string>(map.Keys))
             if (map[key] == key) map.Remove(key);
         return map;

@@ -18,6 +18,11 @@ public sealed class CultureInstitutionState
 {
     // 本文化已掌握的制度（自研完成的 + 从别的线吸收来的 + 开局的根节点）
     public List<string> enacted_node_ids = new();
+    // 不进存档的运行期缓存(见 InstitutionSystem.GetOrCreateCultureState、GetFeature)：哪一帧整理过、特性查询的结果
+    internal int checked_frame = -1;
+    internal int feature_frame = -1;
+    internal int feature_signature;
+    internal Dictionary<string, float> feature_values;
     // 上次认定的本文化制度线；文化改了线(如日本从华夏线分出自己的线)时据此把旧线的成果折算到新线(见 InstitutionSystem.MigrateLine)
     public string line_id = "";
     // 时代潮流(见 InstitutionSystem.UpdateCultureDrift)：没有政权推动时，民间自发推行的制度与进度

@@ -87,8 +87,12 @@ internal static class ServerAi
             {
                 if (kingdom?.data == null || !kingdom.isAlive() || kingdom.wild) continue;
                 if (kingdom.data.timer_new_king > 0f) kingdom.data.timer_new_king -= elapsed;
-                Step<Kingdom, BehaviourActionKingdom, BehaviourTaskKingdom>(kingdom, _kingdomTasks, elapsed);
+                // 算不过来降频时(见 SimulationStretch)各国的任务表按世界时间的几分之一走：都是"该不该……"的判断，晚些查不少什么
+                Step<Kingdom, BehaviourActionKingdom, BehaviourTaskKingdom>(kingdom, _kingdomTasks,
+                    elapsed / System.Math.Max(1, EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months));
             }
+        // 降频时(见 SimulationStretch)每城隔几秒才更新一回，攒下的时间照样一并交给它
+        float cityEvery = CityUpdateSeconds * System.Math.Max(1, EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months);
         using (FrameProfiler.Measure("服务器·城市更新"))
         foreach (City city in world.cities.list.ToArray())
         {
@@ -100,7 +104,7 @@ internal static class ServerAi
                 clock.Owed = (city.id & 7) / 8f * CityUpdateSeconds;
             }
             clock.Owed += elapsed;
-            if (clock.Owed < CityUpdateSeconds) continue;
+            if (clock.Owed < cityEvery) continue;
             float owed = clock.Owed;
             clock.Owed = 0f;
             try

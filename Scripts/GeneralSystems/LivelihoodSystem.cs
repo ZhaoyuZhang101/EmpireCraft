@@ -214,7 +214,7 @@ public static class LivelihoodSystem
     {
         if (city == null) return 0f;
         float shares = 0f;
-        foreach (RuralSettlement settlement in RuralSettlementSystem.InCity(city))
+        foreach (RuralSettlement settlement in RuralSettlementSystem.InCityShared(city))
             if (settlement.ruined_at < 0d && Of(settlement) == trade) shares += RuralSettlementSystem.Weight(settlement);
         return shares;
     }

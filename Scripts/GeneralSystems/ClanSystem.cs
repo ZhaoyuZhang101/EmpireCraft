@@ -1215,14 +1215,38 @@ public static class SpecificClanManager
     }
     public static void RemoveClan(long id)
     {
-        lock (_clansLock) _specificClans.RemoveAll(c => c.id == id);
+        lock (_clansLock)
+        {
+            bool indexed = ClanIndexCurrent();
+            if (_specificClans.RemoveAll(c => c.id == id) == 0) return;
+            if (indexed)
+            {
+                _clanIndex.Remove(id);
+                _clanIndexCount = _specificClans.Count;
+            }
+            else _clanIndexCount = -1;
+        }
     }
+
+    // 索引这会儿同列表对得上(个数一样、还是那张表)：删的时候跟着删就行，不必整本重编
+    private static bool ClanIndexCurrent() =>
+        _clanIndexCount == _specificClans.Count && ReferenceEquals(_clanIndexList, _specificClans);
 
     // 一次删掉一批宗族(族谱瘦身用，逐个 RemoveClan 是平方复杂度)
     public static void RemoveClans(HashSet<long> ids)
     {
         if (ids == null || ids.Count == 0) return;
-        lock (_clansLock) _specificClans.RemoveAll(c => c == null || ids.Contains(c.id));
+        lock (_clansLock)
+        {
+            bool indexed = ClanIndexCurrent();
+            if (_specificClans.RemoveAll(c => c == null || ids.Contains(c.id)) == 0) return;
+            if (indexed)
+            {
+                foreach (long id in ids) _clanIndex.Remove(id);
+                _clanIndexCount = _specificClans.Count;
+            }
+            else _clanIndexCount = -1;
+        }
     }
     public static void removePerson(PersonalClanIdentity pci)
     {
@@ -1354,7 +1378,26 @@ public static class SpecificClanManager
         lock (_clansLock)
         {
             if (_clanIndexCount != _specificClans.Count || !ReferenceEquals(_clanIndexList, _specificClans))
-                RebuildClanIndex();
+            {
+                // 只是多了几个(新立的宗族都加在末尾)：把末尾这几个补进索引，不整本重编。
+                // 删的那几处都跟着改索引或把它作废(_clanIndexCount = -1)，所以个数变多只会是末尾新加的
+                int added = _specificClans.Count - _clanIndexCount;
+                if (ReferenceEquals(_clanIndexList, _specificClans) && added > 0 && _clanIndexCount >= 0)
+                {
+                    for (int i = _clanIndexCount; i < _specificClans.Count; i++)
+                        if (_specificClans[i] != null) _clanIndex[_specificClans[i].id] = _specificClans[i];
+                    _clanIndexCount = _specificClans.Count;
+                }
+                else RebuildClanIndex();
+            }
+            if (CacheAudit.Sampled(64))
+            {
+                // 核对(见 CacheAudit)：索引答的同把列表从头找一遍(头一个同 id 的；同 id 有两个时索引记的是后一个，算对得上)一样
+                _clanIndex.TryGetValue(id, out SpecificClan indexed);
+                SpecificClan scanned = _specificClans.FindLast(other => other != null && other.id == id);
+                CacheAudit.Compare("宗族索引", ReferenceEquals(indexed != null && indexed.id == id ? indexed : null, scanned) ||
+                                             indexed != null && indexed.id != id);
+            }
             if (!_clanIndex.TryGetValue(id, out SpecificClan clan)) return null;
             if (clan != null && clan.id == id) return clan;
             // 索引过期(宗族改过 id 或被原地替换)：重建一次再查
@@ -1373,15 +1416,14 @@ public static class SpecificClanManager
     }
     public static void Remove(SpecificClan sc)
     {
-        foreach (SpecificClan sc2 in _specificClans.ToList())
+        lock (_clansLock)
         {
-            if (sc2.id == sc.id)
-            {
-                _specificClans.Remove(sc2);
-                return;
-            }
+            // 只删头一个同 id 的(与以前一样)；可能还有同 id 的留着，索引作废、下回查时整本重编
+            int at = _specificClans.FindIndex(other => other != null && other.id == sc.id);
+            if (at < 0) return;
+            _specificClans.RemoveAt(at);
+            _clanIndexCount = -1;
         }
-        
     }
 }
 

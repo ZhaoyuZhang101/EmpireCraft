@@ -17,7 +17,7 @@ namespace EmpireCraft.Scripts.Terminal;
 public static partial class TerminalHost
 {
 #if EC_SERVER
-    public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100, 200, 500, 1000 };
+    public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100, 200, 500, 1000, 2000, 3000, 5000 };
 #else
     public static readonly int[] SpeedChoices = { 5, 10, 25, 50, 100 };
 #endif

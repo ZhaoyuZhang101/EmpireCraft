@@ -412,6 +412,24 @@ public static class CityPopulationSystem
     private static double _foldNow;
     private static float _foldHarvest;
     private static bool _foldEconomyDue;
+    // 这座城这一遍到了月份(扩张这类按次的照常做)；_foldEconomyDue 另看攒没攒够 EconomyStretchMonths
+    private static bool _foldMonthDue;
+    // 经济与人口增长攒几个月结一回。平时是 1(每月)；独立核心算不过来、实际流速跟不上设定时调到 2~3(见 .server/Program.cs 的 Pace)。
+    // 只挪这两样按经过的月数补量的(收成、产出、赋税、吃粮按月数，增长按年数，总量不少)；征召、开赴、市场、围城、扩张、营建、迁徙
+    // 这些按次的仍旧每月一遍，事情发生得同以前一样勤。澳宋每月优先的城不攒
+    public static int EconomyStretchMonths
+    {
+        get => EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months;
+        set => EmpireCraft.Scripts.HelperFunc.SimulationStretch.Months = value;
+    }
+    private static int _foldStretch = 1;
+
+    private static bool EconomyHeld(CityPopulationData data, double now, int stretch)
+    {
+        if (stretch <= 1 || data.last_economy < 0d || now < data.last_economy) return false;
+        int months = Date.getMonthsSince(data.last_economy);
+        return months > 0 && months < stretch;
+    }
     private static bool _foldsFirst;
     private static bool _waitingForMath;
     // 月结最后一步在等后台线程算人口增长的城(见 ExecuteFoldPhase)：放在这里等，队列接着结下一座，算完了回头清点收尾。
@@ -836,7 +854,8 @@ public static class CityPopulationSystem
             }
         }
 
-        var rebuilt = new List<PopGroup>();
+        // 预留够容量(背景各组 + 这次数到的各组)：以前从空表加起，大城一回清点要扩容好几次
+        var rebuilt = new List<PopGroup>((keepBackground ? data.groups?.Count ?? 0 : 0) + counted.Count);
         if (keepBackground)
         {
             foreach (PopGroup group in data.groups)
@@ -1031,7 +1050,10 @@ public static class CityPopulationSystem
             data.last_growth = now;
             return;
         }
-        float years = Mathf.Clamp(Date.getMonthsSince(data.last_growth) / 12f, 0f, 5f);
+        int monthsSince = Date.getMonthsSince(data.last_growth);
+        // 攒月份(见 EconomyStretchMonths)：没攒够先不长，攒够了按经过的年数一起补
+        if (_foldStretch > 1 && monthsSince > 0 && monthsSince < _foldStretch) return;
+        float years = Mathf.Clamp(monthsSince / 12f, 0f, 5f);
         if (years <= 0f) return;
         data.last_growth = now;
         AssimilateBackground(city, data, years);
@@ -1385,6 +1407,7 @@ public static class CityPopulationSystem
                 _foldOwner = _foldCity?.kingdom;
                 _foldPhase = 0;
                 _foldNow = now;
+                _foldStretch = priority ? 1 : Math.Max(1, EconomyStretchMonths);
             }
             City city = _foldCity;
             if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom != _foldOwner ||
@@ -1434,7 +1457,8 @@ public static class CityPopulationSystem
         {
             case 0:
                 _foldHarvest = 0f;
-                _foldEconomyDue = data.last_economy >= 0d && now >= data.last_economy && Date.getMonthsSince(data.last_economy) > 0;
+                _foldMonthDue = data.last_economy >= 0d && now >= data.last_economy && Date.getMonthsSince(data.last_economy) > 0;
+                _foldEconomyDue = _foldMonthDue && !EconomyHeld(data, now, _foldStretch);
                 EnsureFloor(city);
                 break;
             case 1:
@@ -1449,12 +1473,16 @@ public static class CityPopulationSystem
                     _foldHarvest += PopulationEconomySystem.DepositFarmHarvest(city, data,
                         FarmlandSystem.SettlePhase(city, data, phase - 4));
                 break;
-            case 9: PopulationEconomySystem.Settle(city, data, now, _foldHarvest); break;
+            case 9:
+                // 经济还在攒月份的这一遍：城里实体人物的个人税照旧每月收(那是按次的)，别的等攒够了一起结
+                if (_foldMonthDue && !_foldEconomyDue) EmpireCraft.Scripts.AI.ActorAI.EmpireCraftActorCheckTax.SettleVirtualCity(city);
+                else PopulationEconomySystem.Settle(city, data, now, _foldHarvest);
+                break;
             case 10: MarketSystem.Settle(city, data); break;
             case 11: MarketSystem.CheckSiegeSurrender(city, data); break;
             // 城市扩张与营建各占一步(以前同一步，两样都重时一帧里连着做)
             case 12:
-                if (_foldEconomyDue) EmpireCraft.Scripts.GamePatches.CityExpansionPatch.GrowVirtualCity(city);
+                if (_foldMonthDue) EmpireCraft.Scripts.GamePatches.CityExpansionPatch.GrowVirtualCity(city);
                 break;
             case 13: SettleConstruction(city, data, now); break;
             case 14: ScorchedEarthSystem.Settle(city); break;

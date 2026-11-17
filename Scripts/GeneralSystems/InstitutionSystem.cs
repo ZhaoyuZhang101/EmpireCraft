@@ -145,6 +145,11 @@ public static partial class InstitutionSystem
 
     public static CultureInstitutionState GetOrCreateCultureState(string culture)
     {
+        // 这一帧整理过的直接回(见 FrameStamp)：下面的整理、折算、补根节点都是修补性质，一帧做一回就够；
+        // 以前每问一回特性就全做一遍，月结里一座城要问几十回
+        int frame = FrameStamp.Current;
+        if (culture != null && _cultureStates.TryGetValue(culture, out CultureInstitutionState ready) &&
+            ready.checked_frame == frame && ready.enacted_node_ids != null) return ready;
         if (!CultureService.IsValidCulture(culture)) return null;
         if (!_cultureStates.TryGetValue(culture, out CultureInstitutionState state))
         {
@@ -170,6 +175,7 @@ public static partial class InstitutionSystem
                 !IsSuperseded(state, rootId))
                 state.enacted_node_ids.Add(rootId);
         }
+        state.checked_frame = frame;
         return state;
     }
 
@@ -263,8 +269,38 @@ public static partial class InstitutionSystem
     {
         CultureInstitutionState state = GetOrCreateCultureState(culture);
         if (state == null || string.IsNullOrWhiteSpace(feature)) return 0f;
+        // 结果记一帧：已掌握的制度没变(个数、头一项、末一项都对得上)就不重算。同一帧里施行、废止了制度照样重算——
+        // 施行与取代都是往末尾加(末一项变)，单废止是个数变(改动已掌握制度的地方都在本文件与 InstitutionStateNormalizer)
+        List<string> enacted = state.enacted_node_ids;
+        int signature = enacted.Count;
+        if (signature > 0)
+            signature = unchecked(signature * 397 +
+                                  global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(enacted[0]) * 31 +
+                                  global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(enacted[signature - 1]));
+        // 这本缓存不加锁，只许主线程用(见 FrameStamp.MainThread)；别的线程来问照老办法现算
+        if (!FrameStamp.OnMainThread) return ComputeFeature(enacted, feature);
+        Dictionary<string, float> values = state.feature_values ??= new Dictionary<string, float>(StringComparer.Ordinal);
+        int frame = FrameStamp.Current;
+        if (state.feature_frame != frame || state.feature_signature != signature)
+        {
+            values.Clear();
+            state.feature_frame = frame;
+            state.feature_signature = signature;
+        }
+        else if (values.TryGetValue(feature, out float cached))
+        {
+            if (CacheAudit.Enabled) CacheAudit.Compare("制度特性", cached == ComputeFeature(enacted, feature));
+            return cached;
+        }
+        float result = ComputeFeature(enacted, feature);
+        values[feature] = result;
+        return result;
+    }
+
+    private static float ComputeFeature(List<string> enacted, string feature)
+    {
         float result = 0f;
-        foreach (string nodeId in state.enacted_node_ids)
+        foreach (string nodeId in enacted)
         {
             InstitutionNodeConfig node = InstitutionDefinitionRegistry.Get(nodeId);
             if (node != null && node.features.TryGetValue(feature, out float value) && value > result)

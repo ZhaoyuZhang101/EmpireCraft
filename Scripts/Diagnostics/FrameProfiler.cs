@@ -75,6 +75,7 @@ public static class FrameProfiler
                 }
             // 段内发生了 GC 时增量为负，不计
             long allocated = System.GC.GetTotalMemory(false) - _heap;
+            AddTotal(_label, elapsed);
             Ticks.TryGetValue(_label, out Sample sample);
             if (allocated > 0) sample.Alloc += allocated;
             sample.Ticks += elapsed;
@@ -91,6 +92,15 @@ public static class FrameProfiler
     // 关着时各计时段不计时、不报每帧耗时与帧率、尖峰帧，原版各处的计时补丁也不计(见 NativeWorldOptimizationPatch、RenderThrottlePatch)；
     // 栈保护照常探(防原生崩溃，见 StackGuard)
     public static bool Enabled;
+
+    // 自打开以来各计时段的累计(不随每次汇报清零)：独立核心收尾时折成"每世界月多少毫秒"的一张账(见 .server/Program.cs)
+    public static readonly Dictionary<string, (long ticks, long calls)> Totals = new();
+
+    private static void AddTotal(string label, long elapsed)
+    {
+        Totals.TryGetValue(label, out (long ticks, long calls) total);
+        Totals[label] = (total.ticks + elapsed, total.calls + 1);
+    }
 
     public static void SetEnabled(bool on)
     {
@@ -112,6 +122,7 @@ public static class FrameProfiler
     {
         if (!Enabled) return;
         EnsureFrame();
+        AddTotal(label, elapsed);
         Ticks.TryGetValue(label, out Sample sample);
         sample.Ticks += elapsed;
         sample.Peak = System.Math.Max(sample.Peak, elapsed);

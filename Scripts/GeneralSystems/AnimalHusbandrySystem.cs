@@ -116,6 +116,39 @@ public static class AnimalHusbandrySystem
         double now = World.world.getCurWorldTime();
         if (Terrain.TryGetValue(city, out (double at, float range, float wild) cached) && now >= cached.at &&
             Date.getMonthsSince(cached.at) < 1) return cached;
+        (float range, float wild) = MeasureTerrain(city);
+        (double, float, float) result = (now, range, wild);
+        Terrain[city] = result;
+        return result;
+    }
+
+    // 每月开一轮时把各城的草场、山林程度分给几个核一起数(只读地块，各城互不相干)，主线程收回来记进缓存，
+    // 这个月里谁来问都是现成的。以前轮到哪座城现数：六百城一个月要过上百万格，流速三千时占主线程 3.5%
+    private static void PrewarmTerrain(List<City> cities, double now)
+    {
+        if (ParallelWork.MaxWorkers <= 1 || cities.Count < 8) return;
+        var measured = new (bool ok, float range, float wild)[cities.Count];
+        ParallelWork.For(cities.Count, index =>
+        {
+            City city = cities[index];
+            if (city?.data == null || city.zones == null || city.zones.Count == 0) return;
+            try
+            {
+                (float range, float wild) = MeasureTerrain(city);
+                measured[index] = (true, range, wild);
+            }
+            catch (Exception)
+            {
+                // 这座城留给 TerrainOf 现数
+            }
+        });
+        for (int i = 0; i < cities.Count; i++)
+            if (measured[i].ok) Terrain[cities[i]] = (now, measured[i].range, measured[i].wild);
+    }
+
+    // 工作线程也调：只读城的地块，不碰别的
+    private static (float range, float wild) MeasureTerrain(City city)
+    {
         int tiles = 0, trees = 0;
         float open = 0f;
         foreach (TileZone zone in city.zones)
@@ -134,10 +167,7 @@ public static class AnimalHusbandrySystem
                     open += Grazing(alpine ? tile.main_type : tile.Type);
             }
         }
-        (double, float, float) result = (now, tiles == 0 ? 0f : open / tiles,
-            Mathf.Clamp01(trees / (city.zones.Count * 8f)));
-        Terrain[city] = result;
-        return result;
+        return (tiles == 0 ? 0f : open / tiles, Mathf.Clamp01(trees / (city.zones.Count * 8f)));
     }
 
     private static float Grazing(TileTypeBase type)
@@ -204,6 +234,7 @@ public static class AnimalHusbandrySystem
             PestsByCity.Clear();
             Wanted.Clear();
             _groupCities = new List<City>(world.cities);
+            PrewarmTerrain(_groupCities, now);
             _groupActors = world.units.getSimpleList();
             _groupActorLimit = _groupActors.Count;
             _groupCityIndex = _groupActorIndex = 0;

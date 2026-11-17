@@ -17,25 +17,46 @@ public static class LandKinds
     public const int Water = 1, Lava = 2, Rough = 4, Forest = 8, Woodland = 16, Grass = 32, Dry = 64, Sand = 128, Wet = 256,
         Infernal = 512, Arable = 1024, Alpine = 2048, Loess = 4096, Steppe = 8192;
 
-    private static int[] _kinds = new int[0];
-    private static TileTypeBase[] _types = new TileTypeBase[0];
+    // 两张表放在一个对象里整个换：几个核同时来问(牧业数草场、以后的按城多核)时，读的一头不加锁，
+    // 拿到的总是配套的一对；要加大就另做一对填好了再换上去
+    private sealed class Table
+    {
+        public int[] Kinds = new int[0];
+        public TileTypeBase[] Types = new TileTypeBase[0];
+    }
+
+    private static volatile Table _table = new();
+    private static readonly object Gate = new();
 
     public static int Of(TileTypeBase type)
     {
         if (type == null) return 0;
         int index = type.index_id;
         if (index < 0) return Compute(type);
-        if (index >= _kinds.Length)
-        {
-            int size = global::System.Math.Max(index + 1, 256);
-            global::System.Array.Resize(ref _kinds, size);
-            global::System.Array.Resize(ref _types, size);
-        }
+        Table table = _table;
         // 编号撞上别的格子(模板格不分编号)就照算，不串用
-        if (ReferenceEquals(_types[index], type)) return _kinds[index];
+        if (index < table.Types.Length && ReferenceEquals(table.Types[index], type)) return table.Kinds[index];
         int kinds = Compute(type);
-        _kinds[index] = kinds;
-        _types[index] = type;
+        lock (Gate)
+        {
+            table = _table;
+            if (index >= table.Kinds.Length)
+            {
+                int size = global::System.Math.Max(index + 1, 256);
+                var larger = new Table { Kinds = new int[size], Types = new TileTypeBase[size] };
+                global::System.Array.Copy(table.Kinds, larger.Kinds, table.Kinds.Length);
+                global::System.Array.Copy(table.Types, larger.Types, table.Types.Length);
+                larger.Kinds[index] = kinds;
+                larger.Types[index] = type;
+                _table = larger;
+            }
+            else
+            {
+                // 先记类别再记是哪种格子：读的一头看到格子对上时，类别已经在了
+                table.Kinds[index] = kinds;
+                global::System.Threading.Volatile.Write(ref table.Types[index], type);
+            }
+        }
         return kinds;
     }
 
