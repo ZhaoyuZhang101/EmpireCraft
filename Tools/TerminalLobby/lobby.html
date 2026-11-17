@@ -59,6 +59,7 @@ ol li{margin:3px 0}
   box-shadow:inset 0 2px 0 #50584e;padding:8px 6px;min-height:40px}
 .lines a.on{color:var(--gold);background:var(--card);box-shadow:inset 0 3px 0 var(--gold)}
 .foot{margin-top:14px;text-align:center}
+.beian{margin-top:6px}.beian a{color:var(--soft);text-decoration:none}
 .err{color:var(--red)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){button:active{transform:none}}
@@ -98,6 +99,8 @@ ol li{margin:3px 0}
   </div>
 
   <div class="sub foot" id="foot"></div>
+  <!-- 国内线路的域名备案号(2026-11-17 通过)：国内网站要在页面底部显示，并链接到工信部备案系统 -->
+  <div class="sub foot beian"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">鄂ICP备2026067527号</a></div>
 </div>
 <script>
 var L={
@@ -134,7 +137,7 @@ $("a2hs").hidden=!!(navigator.standalone||(window.matchMedia&&window.matchMedia(
 // 两条线路各是各的大厅(同 TerminalHost.Lobbies)：顶上两个页签，眼下这条亮着，点另一条过去
 // also：同一条线路的别的地址，从那里打开照样算在这条线路上。国内线路的域名要备案通过才用得上(没备案会被云厂商拦掉)，
 // 到时把 url 换成 https://lobby.cmhai.tech/、把现在的 IP 地址挪进 also(旧版游戏给的房间地址、手机桌面上的旧图标还会开到那里)
-var LINES=[{key:"global",url:"https://lobby.cmhgamedev.dpdns.org/"},{key:"china",url:"http://8.159.129.136:8765/",also:["lobby.cmhai.tech","lobby.cmhai.tech:8765"]}];
+var LINES=[{key:"global",url:"https://lobby.cmhgamedev.dpdns.org/"},{key:"china",url:"https://lobby.cmhai.tech/",also:["8.159.129.136:8765","lobby.cmhai.tech:8765"]}];
 (function(){
   var box=$("lines"),here=LINES.filter(function(line){return line.url.indexOf("//"+location.host+"/")>=0||(line.also||[]).indexOf(location.host)>=0})[0];
   if(!here){box.hidden=true;return}

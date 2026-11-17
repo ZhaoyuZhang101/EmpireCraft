@@ -400,9 +400,20 @@ async def host_session(reader, writer, headers, query, address):
                 future.set_exception(ConnectionError('host gone'))
 
 
+# 国内线路的域名走本机的 HTTPS 转发(Caddy，2026-11-18 备案通过后加)：转发来的请求对端都是本机，
+# 按 IP 的限流、每个 IP 至多开几个房间就都算到一个人头上了。只在对端是本机时认转发带来的 X-Forwarded-For(第一个)，
+# 外头直连的照旧按对端地址，伪造这个头也没用
+def client_address(direct, headers):
+    if direct in ('127.0.0.1', '::1'):
+        forwarded = headers.get('x-forwarded-for', '').split(',')[0].strip()
+        if forwarded:
+            return forwarded
+    return direct
+
+
 async def handle(reader, writer):
     peer = writer.get_extra_info('peername')
-    address = peer[0] if peer else '?'
+    direct = peer[0] if peer else '?'
     try:
         while True:
             request = await read_request(reader, IDLE_SECONDS)
@@ -410,6 +421,7 @@ async def handle(reader, writer):
                 break
             method, target, headers, body = request
             path, _, query = target.partition('?')
+            address = client_address(direct, headers)
             if path == '/host':
                 await host_session(reader, writer, headers, query, address)
                 break
