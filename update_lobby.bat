@@ -9,7 +9,7 @@ set "SERVER_DIR=/opt/empirecraft-lobby"
 set "SERVER_PORT=8765"
 set "LOBBY_DIR=Tools\TerminalLobby"
 set "CF_URL=https://lobby.cmhgamedev.dpdns.org"
-set "CN_URL=http://%SERVER%:%SERVER_PORT%"
+set "CN_URL=https://lobby.cmhai.tech"
 set "MODE=%~1"
 set "RESULT=0"
 

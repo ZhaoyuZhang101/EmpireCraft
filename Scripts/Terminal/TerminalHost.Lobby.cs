@@ -24,9 +24,8 @@ public static partial class TerminalHost
     public static readonly (string key, string socket)[] Lobbies =
     {
         ("global", "wss://lobby.cmhgamedev.dpdns.org"),
-        // 国内线路眼下只能用 IP：用户 2026-11-13 有了域名 lobby.cmhai.tech，但没备案的域名指到国内服务器，阿里云按请求里的
-        // 域名整个拦掉(8765 端口也拦，实测回 403 未备案页)。备案通过后换成 wss://lobby.cmhai.tech
-        ("china", "ws://8.159.129.136:8765")
+        // 国内线路通过 Caddy 提供 HTTPS 与 WebSocket 转发，证书自动续期。
+        ("china", "wss://lobby.cmhai.tech")
     };
     // 选的线路(设置 Terminal_Lobby_Line_Text 里存的键；认不出的按头一条)
     public static string LobbyLine = "global";
