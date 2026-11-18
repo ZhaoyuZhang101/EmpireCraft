@@ -122,7 +122,22 @@ public static partial class CoreSaveExport
 
     private static long Ref(JToken token) => token == null || token.Type == JTokenType.Null ? -1L : (long)token;
 
-    private static T DataOf<T>(JObject item) where T : new() => item["d"] is JObject data ? data.ToObject<T>(Json) ?? new T() : new T();
+    private static T DataOf<T>(JObject item) where T : new()
+    {
+        if (item["d"] is not JObject data) return new T();
+        Unwrap(data);
+        return data.ToObject<T>(Json) ?? new T();
+    }
+
+    // 旧核心把 custom_data_bool 这类(原版的 CustomDataContainer)写成 {"dict": {...}, "Keys": [...]}，原版读档只认里面那张表；
+    // 剥掉外面一层再交给原版的读法(新核心已照原版写，见 .server/Shim/World/Assets.cs)
+    private static void Unwrap(JObject data)
+    {
+        foreach (JProperty property in data.Properties().ToList())
+            if (property.Name.StartsWith("custom_data_", StringComparison.Ordinal) && property.Value is JObject wrapped &&
+                wrapped["dict"] is JObject inner && (wrapped.Count == 1 || wrapped.Count == 2 && wrapped["Keys"] != null))
+                property.Value = inner;
+    }
 
     private static List<string> TraitsOf(JObject item) =>
         item["tr"] is JArray traits ? traits.Select(trait => (string)trait).Where(trait => !string.IsNullOrEmpty(trait)).ToList() : new List<string>();

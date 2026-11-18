@@ -176,6 +176,10 @@ public class BaseStats
     public IEnumerable<KeyValuePair<string, float>> getList() => _values;
 }
 
+// 存档写法同原版(CustomDataContainerConverter)：只写里面那张表 {"键": 值}。以前替身照字段写成 {"dict": {...}, "Keys": [...]}，
+// 游戏带回核心跑过的这一局时读不进(文化的 custom_data_bool 首当其冲，"Error reading boolean ... custom_data_bool.dict")；
+// 读的时候两种写法都认，旧存档照读
+[Newtonsoft.Json.JsonConverter(typeof(ShimCustomDataConverter))]
 public class CustomDataContainer<TType>
 {
     public Dictionary<string, TType> dict = new();
@@ -190,6 +194,32 @@ public class CustomDataContainer<TType>
     }
 
     public IEnumerable<string> Keys => dict.Keys;
+}
+
+internal sealed class ShimCustomDataConverter : Newtonsoft.Json.JsonConverter
+{
+    public override bool CanConvert(Type objectType) => false;
+
+    public override void WriteJson(Newtonsoft.Json.JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer)
+    {
+        FieldInfo field = value.GetType().GetField("dict");
+        serializer.Serialize(writer, field.GetValue(value), field.FieldType);
+    }
+
+    public override object ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, object existingValue, Newtonsoft.Json.JsonSerializer serializer)
+    {
+        object made = Activator.CreateInstance(objectType);
+        if (reader.TokenType == Newtonsoft.Json.JsonToken.Null) return made;
+        FieldInfo field = objectType.GetField("dict");
+        Newtonsoft.Json.Linq.JToken token = Newtonsoft.Json.Linq.JToken.Load(reader);
+        // 旧写法 {"dict": {...}, "Keys": [...]}：取里面那张表
+        if (token is Newtonsoft.Json.Linq.JObject wrapped && wrapped["dict"] is Newtonsoft.Json.Linq.JObject inner &&
+            (wrapped.Count == 1 || wrapped.Count == 2 && wrapped["Keys"] != null))
+            token = inner;
+        object table = token.ToObject(field.FieldType, serializer);
+        if (table != null) field.SetValue(made, table);
+        return made;
+    }
 }
 
 // 货物表：哪种货、是不是吃的、价钱和仓储上限(数是从原版表里抽的，见 Resources.g.cs)；模组自己加的货照它自己登记
