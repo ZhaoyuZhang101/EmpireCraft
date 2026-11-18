@@ -1,15 +1,17 @@
-﻿# 一键发布：推送代码 → 编译检查 → 更新本机 Windows 核心和 Linux 服务器 → 发布模组更新。
-#   .\publish_all.bat                 全做
+﻿# 一键发布：推送代码 → 编译检查 → 更新本机 Windows 核心 → 发布模组更新(Linux 服务器默认不部署)。
+#   .\publish_all.bat                 推送、编译检查、更新本机核心(装了才更新)、发布模组更新
 #   .\publish_all.bat -NoPush         不推送 GitHub
-#   .\publish_all.bat -NoServer       不更新本机 Windows 核心和 Linux 服务器
+#   .\publish_all.bat -Server         另外部署 Linux 服务器(官方服务器 2026-11-18 起停服，默认不部署)
+#   .\publish_all.bat -NoServer       连本机 Windows 核心也不更新
 #   .\publish_all.bat -NoClient       不发布模组更新
 #   .\publish_all.bat -Lobby          另外更新联机大厅(update_lobby.bat)
-#   .\publish_all.bat -ServerSaves Empty  清空 Linux 存档，开服后等待选剧本
+#   .\publish_all.bat -Server -ServerSaves Empty  部署 Linux 服务器并清空存档，开服后等待选剧本
 # 只发布已经提交的东西：在一个干净的临时副本(当前提交)里编译、打包，工作区里没提交的改动(包括别的会话改到一半的)一概不带。
 # 模组更新那一步要输入 Cloudflare 令牌、服务器那一步可能要输 SSH 密码：都在提示处自己输，脚本不存。
 [CmdletBinding()]
 param(
     [switch]$NoPush,
+    [switch]$Server,
     [switch]$NoServer,
     [switch]$NoClient,
     [switch]$Lobby,
@@ -22,6 +24,13 @@ $ErrorActionPreference = "Stop"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $utf8
 $OutputEncoding = $utf8
+
+# 官方服务器停服(用户 2026-11-18 "官方服务器停服""一键更新的代码里面也先把服务器的部署默认关掉")：
+# 往 Linux 服务器部署要明说 -Server；-NoServer 连本机核心也跳过
+$DeployLinux = $Server -and -not $NoServer
+if ($PSBoundParameters.ContainsKey("ServerSaves") -and -not $DeployLinux) {
+    Write-Host "-ServerSaves 只在部署 Linux 服务器(-Server)时有用，这回不部署，忽略。" -ForegroundColor Yellow
+}
 
 $Root = $PSScriptRoot
 # 临时副本放在游戏目录下两层(同模组目录一样深)：模组工程按 ..\..\worldbox_Data 找游戏的库；不放进 Mods，免得被当成模组加载
@@ -65,9 +74,13 @@ if ($dirty.Count -gt 0) {
     Write-Host "  工作区有 $($dirty.Count) 个文件改了没提交：这些不会发布(要发布先提交)" -ForegroundColor Yellow
 }
 Write-Host ("  要做：" + (@(
-    $(if (-not $NoPush) { "推送" }), "编译检查", $(if (-not $NoServer) { "更新本机核心和服务器" }), $(if (-not $NoClient) { "发布模组更新" }),
+    $(if (-not $NoPush) { "推送" }), "编译检查", $(if ($DeployLinux) { "更新本机核心和 Linux 服务器" } elseif (-not $NoServer) { "更新本机核心" }),
+    $(if (-not $NoClient) { "发布模组更新" }),
     $(if ($Lobby) { "更新大厅" })) | Where-Object { $_ }) -join " → ")
-if (-not $NoServer) {
+if (-not $DeployLinux) {
+    Write-Host "  Linux 服务器不部署(要部署加 -Server)。"
+}
+if ($DeployLinux) {
     if (-not $Yes -and -not $PSBoundParameters.ContainsKey("ServerSaves")) {
         Write-Host "  [1] 继续上次的世界（默认）"
         Write-Host "  [2] 清空线上存档和归档，重启后停在空房间"
@@ -110,13 +123,18 @@ try {
     Write-Host "  通过"
 
     # ── 3. 服务器 ──
-    if (-not $NoServer) {
+    if ($DeployLinux) {
         Step "更新本机 Windows 核心和 Linux 服务器"
         $env:EC_NOPAUSE = "1"
         $serverArgs = @()
         if ($ServerSaves -eq "Empty") { $serverArgs += "clear-saves" }
         & cmd.exe /c (Join-Path $Work "update_server.bat") @serverArgs
         if ($LASTEXITCODE -ne 0) { $failed += "本机核心或服务器" }
+    }
+    elseif (-not $NoServer) {
+        Step "更新本机 Windows 核心"
+        & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Work ".server\update-local.ps1") -IfInstalled
+        if ($LASTEXITCODE -ne 0) { $failed += "本机核心" }
     }
 
     # ── 4. 模组更新 ──

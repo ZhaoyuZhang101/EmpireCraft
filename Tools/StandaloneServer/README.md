@@ -19,9 +19,11 @@
 
 `publish_all.bat` 也会执行本机 Windows 更新。它使用当前 Git 提交编译，未提交的改动可用 `update_server.bat local` 在本机验证。
 
-一键发布时可选继续上次的世界（回车默认）或清空线上存档。继续时旧核心先存档再停机，新核心恢复存档。选清空时会跳过停机存档，删除 Linux 当前档、备用档和历史归档，并清除 `server.json` 中的自动开局剧本。账号、上传的剧本和 Windows 本机存档保留。
+官方服务器 2026-11-18 起停服，`publish_all.bat` 默认不部署 Linux 服务器；要部署加 `-Server`（`.\publish_all.bat -Server`）。直接跑 `update_server.bat` 照旧会部署。
 
-命令行可用 `.\publish_all.bat -ServerSaves Empty` 预选清空，或用 `-ServerSaves Keep` 预选续玩。`-Yes` 会跳过交互，省略 `-ServerSaves` 时保留存档。
+加了 `-Server` 时可选继续上次的世界（回车默认）或清空线上存档。继续时旧核心先存档再停机，新核心恢复存档。选清空时会跳过停机存档，删除 Linux 当前档、备用档和历史归档，并清除 `server.json` 中的自动开局剧本。账号、上传的剧本和 Windows 本机存档保留。
+
+命令行可用 `.\publish_all.bat -Server -ServerSaves Empty` 预选清空，或用 `-ServerSaves Keep` 预选续玩。`-Yes` 会跳过交互，省略 `-ServerSaves` 时保留存档。
 
 ## 只做一次：让 SSH 不再问密码
 
