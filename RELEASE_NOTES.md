@@ -1,7 +1,7 @@
 # 更新内容 (Update Features)
 
-2026-11-17 · 0.4.7Beta10
+2026-11-18 · 0.4.7Beta11
 
-服务器核心调快流速后行军、决议、税收都跟着走，算不过来时显示实际流速；修复核心里各国长期不开战、丢了都城不补。定居文化乱世久了更容易出统一者。新增君主大政：迁都、设陪京与直隶、改制，要权威够高并过决议天平。修复渡海攻城占不了地，幕府可倒幕。
+罗马以行省为主，也立附庸王国，国王绝嗣即并为行省；集权君主制给亲王封地；汗国逐年分兀鲁思给宗王，汗庭管不到时诸部各自为汗。继承、分封等人物判断连族谱里不在地图上的族人一起算。无人区由周围的城分着认领。核心更快、存档更稳，游戏里可看核心实时地图。
 
-On the server core, marching, decisions and taxes now keep pace with world speed, and the real speed is shown when the host falls behind. Fixed realms there never declaring war or replacing a lost capital. Settled cultures unify more readily after long chaos. New ruler decrees — move the capital, secondary capitals, system reforms — need high authority and must tip the decision scale. Fixed sea landings; the shogunate can be overthrown.
+Rome keeps client kingdoms beside its provinces, annexing them when a king dies heirless; centralized monarchies grant princely apanages; khanates give conquests to princes as uluses and shatter when the court loses reach. Succession and similar checks now count off-map relatives. Wilderness is claimed by surrounding cities. Faster core, safer saves, live core map in game.
