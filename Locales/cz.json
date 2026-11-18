@@ -12639,7 +12639,7 @@
   "terminal_light_need_terminal": "轻量主机模式要终端模式开着才起作用。",
   "terminal_light_unavailable": "这一版游戏接不上轻量主机模式，已关掉。",
   "terminal_core_host_toggle": "用服务器核心",
-  "terminal_core_host_toggle Description": "把当前这一局交给本机的服务器核心运行：核心只算世界、不画图，比游戏本体走得快。终端在跑、世界读完后，关掉窗口并让世界走起来就开始；游戏本体停着，手机照常连。停下核心时这一局带回游戏。头一回用要下载核心(约 46 MB)。与轻量主机模式只能开一个。",
+  "terminal_core_host_toggle Description": "把当前这一局交给本机的服务器核心运行：核心只算世界、不画图，比游戏本体走得快。世界读完后(不必开终端模式)，关掉窗口并让世界走起来就开始；游戏本体停着，手机照常连。停下核心时这一局带回游戏。头一回用要下载核心(约 46 MB)。与轻量主机模式只能开一个。",
   "terminal_core_note": "这一局已交给本机的服务器核心运行，游戏本体停着，手机终端照常使用。",
   "terminal_core_armed": "已选用服务器核心：关掉窗口、世界走起来后，就把这一局交给核心。",
   "terminal_core_need_terminal": "用服务器核心要终端模式开着才起作用。",

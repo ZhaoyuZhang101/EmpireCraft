@@ -388,14 +388,16 @@ internal static class CoreHost
     }
 
     // ───────── 各步 ─────────
+    // 不看终端模式(用户 2026-11-18：开着"用服务器核心"、终端模式关着，核心一直不接手，世界留在游戏本体里算)：
+    // 核心自带手机终端，接手后游戏这头的终端本来就把端口让给核心；没开终端的，本体这头什么都不占
     private static bool Ready() =>
-        !Application.isMobilePlatform && TerminalHost.Enabled && World.world != null && Config.game_loaded &&
+        !Application.isMobilePlatform && World.world != null && Config.game_loaded &&
         !SmoothLoader.isLoading() && !ScrollWindow.isWindowActive() && !World.world.isPaused();
 
     private static void Announce()
     {
         if (Application.isMobilePlatform) return;
-        Tip(LM.Get(TerminalHost.Enabled ? "terminal_core_armed" : "terminal_core_need_terminal"));
+        Tip(LM.Get("terminal_core_armed"));
     }
 
     private static void Begin()

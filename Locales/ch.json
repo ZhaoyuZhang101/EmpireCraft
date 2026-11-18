@@ -12631,7 +12631,7 @@
   "terminal_light_need_terminal": "輕量主機模式要終端模式開著才起作用。",
   "terminal_light_unavailable": "這一版遊戲接不上輕量主機模式，已關掉。",
   "terminal_core_host_toggle": "用伺服器核心",
-  "terminal_core_host_toggle Description": "把當前這一局交給本機的伺服器核心運行：核心只算世界、不畫圖，比遊戲本體走得快。終端在跑、世界讀完後，關掉視窗並讓世界走起來就開始；遊戲本體停著，手機照常連。停下核心時這一局帶回遊戲。頭一回用要下載核心(約 46 MB)。與輕量主機模式只能開一個。",
+  "terminal_core_host_toggle Description": "把當前這一局交給本機的伺服器核心運行：核心只算世界、不畫圖，比遊戲本體走得快。世界讀完後(不必開終端模式)，關掉視窗並讓世界走起來就開始；遊戲本體停著，手機照常連。停下核心時這一局帶回遊戲。頭一回用要下載核心(約 46 MB)。與輕量主機模式只能開一個。",
   "terminal_core_note": "這一局已交給本機的伺服器核心運行，遊戲本體停著，手機終端照常使用。",
   "terminal_core_armed": "已選用伺服器核心：關掉視窗、世界走起來後，就把這一局交給核心。",
   "terminal_core_need_terminal": "用伺服器核心要終端模式開著才起作用。",

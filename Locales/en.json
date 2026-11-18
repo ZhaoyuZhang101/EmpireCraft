@@ -12625,7 +12625,7 @@
   "terminal_light_need_terminal": "Lightweight host mode only takes effect while terminal mode is on.",
   "terminal_light_unavailable": "Lightweight host mode cannot hook into this game version and was turned off.",
   "terminal_core_host_toggle": "Use Server Core",
-  "terminal_core_host_toggle Description": "Hand the current world to the server core on this computer: the core only simulates the world and draws nothing, so it runs faster than the game itself. Once the terminal is running and the world is loaded, close the windows and let the world run to start; the game itself stays paused and phones stay connected. Stopping the core brings the world back into the game. The first use downloads the core (about 46 MB). Only one of this and Lightweight Host Mode can be on.",
+  "terminal_core_host_toggle Description": "Hand the current world to the server core on this computer: the core only simulates the world and draws nothing, so it runs faster than the game itself. Once the world is loaded (terminal mode need not be on), close the windows and let the world run to start; the game itself stays paused and phones stay connected. Stopping the core brings the world back into the game. The first use downloads the core (about 46 MB). Only one of this and Lightweight Host Mode can be on.",
   "terminal_core_note": "This world is running on the server core on this computer. The game itself is paused and phones stay connected.",
   "terminal_core_armed": "Server core selected: close the windows and let the world run, and the world is handed to the core.",
   "terminal_core_need_terminal": "The server core only takes effect while terminal mode is on.",
