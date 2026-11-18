@@ -156,6 +156,9 @@ public static class ConstitutionalSuccessionSystem
             Actor minor = LivingDynasty(empire)
                 .Where(actor => actor.GetPersonalIdentity() is { is_concubine: false })
                 .OrderByDescending(actor => actor.getAge()).ThenBy(actor => actor.id).FirstOrDefault();
+            // 宗室只剩虚拟族人里的幼童(纯净地图下多是这样)：落成最年长的一位(以前只从地图上找，找不到皇位就一直空着)
+            minor ??= KinRoster.RealizeFirst(VirtualDynasty(empire).OrderByDescending(person => person.age)
+                .ThenBy(person => person.id), actor => actor.isAlive() && !actor.isRekt(), 2);
             if (minor != null && empire.InstallHeadOfState(minor))
                 EventRecorder.Record(empire, string.Format(LM.Get(IsProtected(empire)
                         ? "constitutional_minor_succession_history" : "unbroken_minor_succession_history"),

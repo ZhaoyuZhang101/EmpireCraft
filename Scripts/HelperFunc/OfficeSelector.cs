@@ -148,11 +148,25 @@ public static class OfficeSelector
             {
                 var emperor = empire.Emperor;
                 var concubines = emperor.GetPersonalIdentity().concubines;
-                var lives = concubines.Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity)).ToList()
-                    .FindAll(a => a.is_alive && a._actor.CanServeOffice(pKingdom) && !a._actor.IsSkeleton())
-                    .Select(a=>a._actor).ToList();
+                // 在世的妃嫔(族谱，含虚拟族人)：以前直接取 _actor，虚拟妃嫔是空引用；这份名单也只用来排除，
+                // 后宫官职空出来总是另纳新人，已有的妃嫔从不补位
+                List<PersonalClanIdentity> livingConsorts = concubines
+                    .Select(pValueTuple => SpecificClanManager.getPerson(pValueTuple.identity))
+                    .Where(a => a != null && a.is_alive).ToList();
+                var lives = livingConsorts.Where(KinRoster.OnMap).Select(a => a._actor)
+                    .Where(a => a.CanServeOffice(pKingdom) && !a.IsSkeleton()).ToList();
                 if (pOffice.officeType != 13)
                 {
+                    // 先从已有、没在任的妃嫔里补；地图上没有就落成一位在本帝国的(之后作妃嫔留在地图上，见 PersonRef.Keeps)
+                    Actor consort = lives.FirstOrDefault(a => !a.IsOnOffice()) ??
+                                    KinRoster.RealizeFirst(livingConsorts.Where(a => KinRoster.Virtual(a) &&
+                                            KinRoster.KingdomOf(a)?.GetEmpire() == empire),
+                                        a => a.CanServeOffice(pKingdom) && !a.IsSkeleton() && !a.IsOnOffice(), 1);
+                    if (consort != null)
+                    {
+                        if (consort.city != emperor.city && emperor.city != null) consort.joinCity(emperor.city);
+                        return consort;
+                    }
                     var lover = empire.getUnits().ToList().Find(a =>
                         a.CanServeOffice(pKingdom) && a.isSexFemale() && a.isAdult() && a.age <= 25 &&
                         (a.clan == null || a.clan != emperor.clan) &&

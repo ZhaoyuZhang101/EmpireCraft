@@ -230,9 +230,15 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
             RegimeManager.GetTemplate(lastKingdom.GetRegime()?.type)?.keep_member_roles == true)
         {
             var children = heir.getChildren();
-            if (children != null && children.ToList().FindAll(a=>a != null && !a.isKing()).Any())
+            Actor successor = children?.ToList().Find(a => a != null && !a.isKing());
+            // 纯净地图下子女多是虚拟族人：地图上没有就从族谱里按长幼落成一位(以前直接空着等另立)
+            successor ??= KinRoster.RealizeFirst(KinRoster.Children(heir).Where(KinRoster.Virtual)
+                    .OrderByDescending(person => person.CanHeir(heir.GetPersonalIdentity()))
+                    .ThenByDescending(person => person.age >= KinRoster.AdultAge).ThenBy(person => person.rank),
+                a => a != null && a.isAlive() && !a.isKing(), 2);
+            if (successor != null)
             {
-                MakeKingAndMoveToCapital(lastKingdom, children.ToList().Find(a=>a != null && !a.isKing()));
+                MakeKingAndMoveToCapital(lastKingdom, successor);
             }
             else
             {

@@ -2037,6 +2037,8 @@ public class Empire : MetaObject<EmpireData>
             else if (IsNomadProvincial()) ProcessTerritorialAcquisitionEnfeoff();
             // 游牧兀鲁思：大汗死时正在打仗没分成的，停战后补分(见 EnfeoffmentHelper.UlusPartition)
             else if (regime?.type == RegimeType.YouMu) EnfeoffmentHelper.ResumeSuccessionEnfeoff(this);
+            // 汗庭直辖的法理每年至多一块分给成年宗王做兀鲁思(见 PartialEnfeoffment；以前打下的地永远留在汗庭直辖)
+            if (regime?.type == RegimeType.YouMu) PartialEnfeoffment.TickUlus(this);
             // 兀鲁思渐行渐远：大汗弱时自主到顶的兀鲁思和平独立(见 NomadCycleSystem.UlusDrift)
             if (regime?.type == RegimeType.YouMu) NomadCycleSystem.UlusDrift(this);
             // 哈里发弱时埃米尔世袭坐大
@@ -2149,12 +2151,26 @@ public class Empire : MetaObject<EmpireData>
     private Actor FindPeerageDescendant(PersonalClanIdentity predecessor, Func<Actor, bool> isAvailable)
     {
         if (predecessor?._specificClan == null) return null;
-        return PeerageSuccessionRules.FindDescendant(predecessor,
-            person => SpecificClanManager.getChildren(person).Select(item => item.Item2)
-                .OrderBy(child => child.rank).ThenBy(child => child.id),
-            person => person.specific_clan_id == predecessor.specific_clan_id && person.is_main && person.IsHeirPriority(),
-            person => person.CanHeir(predecessor) && isAvailable(person._actor),
-            person => person.id)?._actor;
+        // 嗣子连虚拟族人一起按长幼排(纯净地图下多不在地图上；以前只认地图上的，支系承袭几乎总落空，爵位改由朝廷另封)：
+        // 挑中虚拟族人才落成，落成后不合格的并回人口、往下再找
+        var rejected = new HashSet<long>();
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            PersonalClanIdentity found = PeerageSuccessionRules.FindDescendant(predecessor,
+                person => SpecificClanManager.getChildren(person).Select(item => item.Item2)
+                    .OrderBy(child => child.rank).ThenBy(child => child.id),
+                person => person.specific_clan_id == predecessor.specific_clan_id && person.is_main && person.IsHeirPriority(),
+                person => !rejected.Contains(person.id) && person.CanHeir(predecessor) &&
+                          (!person.is_virtual && isAvailable(person._actor) ||
+                           KinRoster.Virtual(person) && KinRoster.KingdomOf(person)?.GetEmpire() == this),
+                person => person.id);
+            if (found == null) return null;
+            if (!found.is_virtual) return found._actor;
+            Actor realized = KinRoster.RealizeFirst(new[] { found }, isAvailable, 1);
+            if (realized != null) return realized;
+            rejected.Add(found.id);
+        }
+        return null;
     }
 
     private void ProcessHonoraryPeerageInheritance(Regime regime)
@@ -3485,9 +3501,19 @@ public class Empire : MetaObject<EmpireData>
 
     public Actor GetPowerfulMinister()
     {
-        if (data?.powerful_minister_id <= 0 || World.world == null) return null;
-        Actor actor = World.world.units.get(data.powerful_minister_id);
-        return actor != null && !actor.isRekt() && actor.kingdom?.GetEmpire() == this ? actor : null;
+        Actor actor = ResolvePowerfulMinister();
+        return actor != null && actor.kingdom?.GetEmpire() == this ? actor : null;
+    }
+
+    // 按族谱找回权臣(见 PersonRef)：以前只按单位编号找，权臣被并回人口、落成换了编号就当没了，专权进度无声中断
+    private Actor ResolvePowerfulMinister()
+    {
+        if (data == null || data.powerful_minister_id <= 0 || World.world == null) return null;
+        long actorId = data.powerful_minister_id, identityId = data.powerful_minister_identity_id;
+        Actor actor = PersonRef.Resolve(ref actorId, ref identityId);
+        data.powerful_minister_id = actorId;
+        data.powerful_minister_identity_id = identityId;
+        return actor;
     }
 
     public bool IsCurrentPowerfulMinister(Actor actor)
@@ -3535,11 +3561,17 @@ public class Empire : MetaObject<EmpireData>
         if (mother == null)
         {
             PersonalClanIdentity identity = emperor.GetPersonalIdentity();
-            mother = identity?.mother > 0 ? SpecificClanManager.getPerson(identity.mother)?._actor : null;
+            // 生母转成了虚拟族人的落成一次，之后作君主生母留在地图上(见 PersonRef.Keeps)
+            mother = identity?.mother > 0 ? PresentHere(SpecificClanManager.getPerson(identity.mother)) : null;
         }
         return mother != null && !mother.isRekt() && mother.isAdult() && mother.isSexFemale() &&
             mother.kingdom?.GetEmpire() == this ? mother : null;
     }
+
+    // 族谱里在世的人：在本帝国的虚拟族人才落成(在别处的落成了也用不上，又会被并回人口)
+    private Actor PresentHere(PersonalClanIdentity person) =>
+        KinRoster.OnMap(person) ? person._actor
+            : KinRoster.KingdomOf(person)?.GetEmpire() == this ? PersonRef.Present(person) : null;
 
     private Actor GetPreviousEmperorWife()
     {
@@ -3549,7 +3581,7 @@ public class Empire : MetaObject<EmpireData>
         SpecificClanManager._actorToPersonLookup.TryGetValue(previousReign.id, out var previousIdentity);
         previousIdentity ??= previousEmperor?.GetPersonalIdentity();
         Actor wife = previousIdentity?.hasLover() == true
-            ? SpecificClanManager.getPerson(previousIdentity.lover.identity)?._actor
+            ? PresentHere(SpecificClanManager.getPerson(previousIdentity.lover.identity))
             : null;
         wife ??= previousEmperor?.lover;
         return IsValidRegencyCandidate(wife) && wife.isSexFemale() ? wife : null;
@@ -3651,7 +3683,7 @@ public class Empire : MetaObject<EmpireData>
         // or is otherwise removed from the world.
         if (data.powerful_minister_progress > 70 && data.powerful_minister_id > 0)
         {
-            Actor lockedCurrent = World.world.units.get(data.powerful_minister_id);
+            Actor lockedCurrent = ResolvePowerfulMinister();
             if (lockedCurrent != null && !lockedCurrent.isRekt())
             {
                 isRegent = Emperor != null && !Emperor.isRekt() && RealisticAgeSystem.IsMinor(Emperor);
@@ -3747,7 +3779,7 @@ public class Empire : MetaObject<EmpireData>
                 $"empressDowager={isEmpressDowager}, formerEmpress={isFormerEmpress}, regime={currentRegime.type}");
         if (candidate?.id != data.powerful_minister_id && data.is_been_controlled)
         {
-            Actor previous = World.world.units.get(data.powerful_minister_id);
+            Actor previous = ResolvePowerfulMinister();
             if (previous != null && !previous.isRekt()) RecordMinisterTransition(previous, "history_minister_lost_control");
         }
         if (candidate == null)
@@ -3759,6 +3791,7 @@ public class Empire : MetaObject<EmpireData>
         {
             ClearPowerfulMinister();
             data.powerful_minister_id = candidate.id;
+            data.powerful_minister_identity_id = candidate.GetPersonalIdentity()?.id ?? -1L;
             data.powerful_minister_progress = 0;
             data.powerful_minister_is_regent = isRegent;
             data.powerful_minister_is_empress_dowager = isEmpressDowager;
@@ -3878,6 +3911,7 @@ public class Empire : MetaObject<EmpireData>
     {
         data.powerful_minister_is_consort_kin = false;
         data.powerful_minister_id = -1L;
+        data.powerful_minister_identity_id = -1L;
         data.powerful_minister_progress = 0;
         data.powerful_minister_stage = PowerfulMinisterStageNone;
         data.powerful_minister_is_regent = false;
@@ -3907,7 +3941,8 @@ public class Empire : MetaObject<EmpireData>
             PowerfulMinisterRules.IsMandateCollapsed(Mandate));
     }
 
-    private Actor GetEmpressDowagerPreferredSon(Actor dowager)
+    // realize：亲子都是虚拟族人时落成一位(真要废立时)；只判断有没有人时不落成，见 HasDepositionHeir
+    private Actor GetEmpressDowagerPreferredSon(Actor dowager, bool realize = false)
     {
         if (dowager == null || dowager.isRekt()) return null;
         PersonalClanIdentity dowagerIdentity = dowager.GetPersonalIdentity();
@@ -3920,12 +3955,29 @@ public class Empire : MetaObject<EmpireData>
             .OrderBy(identity => identity.rank).ThenBy(identity => identity.id)
             .Select(identity => identity._actor).FirstOrDefault();
         if (son != null) return son;
-        return dowager.getChildren().Where(IsEligibleSon)
+        son = dowager.getChildren().Where(IsEligibleSon)
             .Where(child => child.GetPersonalIdentity()?.mother == dowagerIdentity?.id ||
                 child.getParents().Any(parent => parent?.id == dowager.id))
             .OrderByDescending(child => child.isAdult()).ThenByDescending(child => child.getAge())
             .ThenBy(child => child.id).FirstOrDefault();
+        // 纯净地图下亲子多是虚拟族人：真要废立时才落成
+        return son ?? (realize ? KinRoster.RealizeFirst(VirtualDowagerSons(dowagerIdentity), IsEligibleSon, 2) : null);
     }
+
+    // 太后在族谱里的亲子(虚拟族人)：男子、在本帝国、不是今上
+    private IEnumerable<PersonalClanIdentity> VirtualDowagerSons(PersonalClanIdentity dowager) =>
+        dowager == null ? Enumerable.Empty<PersonalClanIdentity>()
+            : KinRoster.Children(dowager).Where(person => KinRoster.Virtual(person) && person.sex == ActorSex.Male &&
+                                                          person.mother == dowager.id &&
+                                                          KinRoster.KingdomOf(person)?.GetEmpire() == this)
+                .OrderBy(person => person.rank).ThenBy(person => person.id);
+
+    // 宗室里在本帝国的成年男子(虚拟族人)，年长的在前
+    private IEnumerable<PersonalClanIdentity> VirtualDynastMen(long excludeActor) =>
+        KinRoster.Lineage(EmpireSpecificClan)
+            .Where(person => KinRoster.Virtual(person) && person.sex == ActorSex.Male && person.age >= 18 &&
+                             person.actor_id != excludeActor && KinRoster.KingdomOf(person)?.GetEmpire() == this)
+            .OrderByDescending(person => person.age).ThenBy(person => person.id);
 
     // 后宫干政(用户 2026-10-15："为什么会存在妃子篡位""她们无法篡位，唯一能做的就是废立皇帝")：
     // 掌权的是女子(皇后、妃嫔、太后)。华夏一系里她们不能封公、加九锡、篡位，权势到顶只能废立——
@@ -3948,19 +4000,32 @@ public class Empire : MetaObject<EmpireData>
     // 废立另立的人：先亲子，没有就挑宗室里年长的成年男子(不是当今皇帝)
     private Actor GetDepositionHeir(Actor actor)
     {
-        Actor son = GetEmpressDowagerPreferredSon(actor);
+        Actor son = GetEmpressDowagerPreferredSon(actor, realize: true);
         if (son != null || !HaremBarred(actor)) return son;
-        return getUnits().Where(unit => unit != null && !unit.isRekt() && unit.isAlive() && unit.isSexMale() && unit.isAdult() &&
-                                        unit.id != (Emperor?.id ?? -1L) && unit.kingdom?.GetEmpire() == this &&
-                                        SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan))
-            .OrderByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault();
+        bool Fit(Actor unit) => unit != null && !unit.isRekt() && unit.isAlive() && unit.isSexMale() && unit.isAdult() &&
+                                unit.id != (Emperor?.id ?? -1L) && unit.kingdom?.GetEmpire() == this &&
+                                SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan);
+        return getUnits().Where(Fit).OrderByDescending(unit => unit.getAge()).ThenBy(unit => unit.id).FirstOrDefault() ??
+               KinRoster.RealizeFirst(VirtualDynastMen(Emperor?.id ?? -1L), Fit, 2);
+    }
+
+    // 有没有可废立另立的人(连虚拟族人一起看，不落成)：权臣图谋每轮都要问，不能每问一次就落成一批
+    private bool HasDepositionHeir(Actor actor)
+    {
+        if (GetEmpressDowagerPreferredSon(actor) != null) return true;
+        if (VirtualDowagerSons(actor?.GetPersonalIdentity()).Any()) return true;
+        if (!HaremBarred(actor)) return false;
+        return getUnits().Any(unit => unit != null && !unit.isRekt() && unit.isAlive() && unit.isSexMale() && unit.isAdult() &&
+                                      unit.id != (Emperor?.id ?? -1L) && unit.kingdom?.GetEmpire() == this &&
+                                      SpecificClanManager.SameLineage(unit.GetSpecificClan(), EmpireSpecificClan)) ||
+               VirtualDynastMen(Emperor?.id ?? -1L).Any();
     }
 
     public bool CanEmpressDowagerInstallSon(Actor actor)
     {
         return (data.powerful_minister_is_former_empress && IsEmpressDowager(actor) || HaremBarred(actor)) &&
             data.powerful_minister_stage == PowerfulMinisterStageDominant &&
-            CanAdvanceMinisterPlot(actor) && GetDepositionHeir(actor) != null;
+            CanAdvanceMinisterPlot(actor) && HasDepositionHeir(actor);
     }
 
     public bool CompleteEmpressDowagerInstallSon(Actor dowager)
@@ -4360,7 +4425,18 @@ public class Empire : MetaObject<EmpireData>
             .OrderBy(identity => identity.rank)
             .Select(identity => identity._actor)
             .FirstOrDefault();
-        return son;
+        if (son != null || emperorIdentity == null) return son;
+        // 纯净地图下皇帝的兄弟、皇子多是虚拟族人(以前只认地图上的，王爵常年空着没人封)：
+        // 照同样的先后(兄弟→皇子，长幼)挑成年的落成，不合格的并回人口
+        bool VirtualDynast(PersonalClanIdentity identity, PersonalClanIdentity source) =>
+            KinRoster.Virtual(identity) && identity._specificClan != null &&
+            SpecificClanManager.SameLineage(identity._specificClan, EmpireSpecificClan) && identity.CanHeir(source) &&
+            identity.age >= KinRoster.AdultAge && KinRoster.KingdomOf(identity)?.GetEmpire() == this;
+        IEnumerable<PersonalClanIdentity> virtualKin = KinRoster.Siblings(emperorIdentity)
+            .Where(identity => VirtualDynast(identity, emperorIdentity)).OrderBy(identity => identity.rank)
+            .Concat(KinRoster.Children(emperorIdentity).Where(identity => VirtualDynast(identity, emperorIdentity))
+                .OrderBy(identity => identity.rank));
+        return KinRoster.RealizeFirst(virtualKin, IsAvailable, 2);
     }
 
     private bool GrantLegalPeerage(Actor actor, KingdomTitle title, PersonalClanIdentity predecessor = null)
@@ -4625,6 +4701,11 @@ public class Empire : MetaObject<EmpireData>
                     partitionRegime = localRegime;
                     partitionAsAdministration = RegimeSupportsProvince(localRegime);
                 }
+                // 行省为主也有封授：元首制的异族边地立附庸王国、集权君主制给亲王封地(见 PartialEnfeoffment)
+                Actor grantee = null;
+                if (partitionAsAdministration && existingPartitions.Count == 0 &&
+                    PartialEnfeoffment.TryPick(this, title, region, ref partitionRegime, out grantee))
+                    partitionAsAdministration = false;
                 // 行政区不跨长城：先设法理首府那边的一片，长城那边的下一趟另设(封国照旧整片法理一起封)
                 if (partitionAsAdministration)
                     region = GeneralSystems.WorldMap.FrontierWalls.Split(region.OrderBy(city => city == title.title_capital ? 0 : 1)).First();
@@ -4632,8 +4713,9 @@ public class Empire : MetaObject<EmpireData>
                 if ((existingPartitions.Count == 0 || partitionAsAdministration) && !region.Any(city => DeferPartition(city, atWar)))
                 {
                     Kingdom created = CreateTerritorialPartition(region, title, partitionRegime,
-                        partitionAsAdministration);
+                        partitionAsAdministration, grantee);
                     if (created != null) existingPartitions.Add(created);
+                    if (created != null && grantee != null) PartialEnfeoffment.MarkGranted(this, created);
                 }
             }
             if (existingPartitions.Count > 0)
@@ -4741,8 +4823,9 @@ public class Empire : MetaObject<EmpireData>
         return opinion != null && opinion.total > 0;
     }
 
+    // grantee：指定的受封人(亲王封地、附庸王国的王，见 PartialEnfeoffment)；不合格或没给就照常挑
     private Kingdom CreateTerritorialPartition(List<City> region, KingdomTitle title, Regime regime,
-        bool createAdministration)
+        bool createAdministration, Actor grantee = null)
     {
         HashSet<long> protectedCities = GetProtectedDirectCityIds();
         region = region?.Where(city => IsDirectPartitionCandidate(city, protectedCities))
@@ -4753,7 +4836,9 @@ public class Empire : MetaObject<EmpireData>
             ? title.title_capital
             : region.OrderByDescending(city => city.GetCityStrategicValue().Total)
                 .ThenBy(city => city.id).First();
-        Actor governor = FindPartitionGovernor(capital, regime, createAdministration);
+        Actor governor = grantee != null && !grantee.isRekt() && grantee.isAlive() && !grantee.isKing()
+            ? grantee
+            : FindPartitionGovernor(capital, regime, createAdministration);
         if (governor == null || governor.isRekt()) return null;
 
         Kingdom newKingdom = SetEnfeoff(capital, governor);
@@ -4817,6 +4902,20 @@ public class Empire : MetaObject<EmpireData>
 
         Actor royal = CoreKingdom?.getKingClan()?.getUnits()?.FirstOrDefault(IsEligible);
         if (royal != null) return royal;
+        // 纯净地图下宗室多是虚拟族人(原版氏族的单位里没有)：只封宗室的政体以前常年封不出去。
+        // 皇族世系里在本帝国的成年族人按亲疏(兄弟、皇子在前)、长幼挑一位落成
+        if (EmpireSpecificClan != null && CityPopulationSystem.AbstractPopulationEnabled)
+        {
+            PersonalClanIdentity emperorIdentity = Emperor?.GetPersonalIdentity();
+            var near = new HashSet<long>(KinRoster.Siblings(emperorIdentity).Concat(KinRoster.Children(emperorIdentity))
+                .Select(person => person.id));
+            royal = KinRoster.RealizeFirst(KinRoster.Lineage(EmpireSpecificClan)
+                .Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge && !person.disinherited &&
+                                 KinRoster.KingdomOf(person)?.GetEmpire() == this)
+                .OrderByDescending(person => near.Contains(person.id)).ThenByDescending(person => person.age)
+                .ThenBy(person => person.id), IsEligible, 2);
+            if (royal != null) return royal;
+        }
         if (!createAdministration && regime?.enfeoff_only_royal == true) return null;
         return getUnits().FirstOrDefault(IsEligible) ?? capital?.getUnits()?.FirstOrDefault(IsEligible);
     }

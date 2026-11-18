@@ -32,6 +32,8 @@ public enum TalentFall
 public sealed class TalentRecord
 {
     public long actor_id = -1L;
+    // 族谱身份：人被并回人口、落成换了单位编号时按它找回(见 PersonRef)；旧档为 -1，按单位编号在族谱里找
+    public long identity_id = -1L;
     public string name = "";
     public TalentKind kind;
     public TalentRank rank = TalentRank.None;

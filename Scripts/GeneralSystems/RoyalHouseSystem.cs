@@ -105,7 +105,11 @@ public static class RoyalHouseSystem
     {
         int age = actor.getAge();
         if (age >= 15) return 0f;
-        bool royal = IsRoyal(actor) || (actor.getParents()?.Any(IsRoyal) ?? false);
+        // 父母按族谱认(落成的皇嗣与转成虚拟族人的父母，原版亲子关系接不上)
+        PersonalClanIdentity self = actor.GetPersonalIdentity();
+        bool royal = IsRoyal(actor) || (actor.getParents()?.Any(IsRoyal) ?? false) ||
+                     self != null && new[] { self.father, self.mother }.Any(id => id > 0 &&
+                         SpecificClanManager.getPerson(id) is PersonalClanIdentity parent && KinRoster.OnMap(parent) && IsRoyal(parent._actor));
         if (!royal) return 0f;
         float chance = age < 1 ? 0.12f : age < 5 ? 0.04f : 0.012f;
         if (Has(actor, "industrialization")) chance *= 0.6f;
@@ -198,7 +202,10 @@ public static class RoyalHouseSystem
         foreach ((long _, long id) in person.concubines.ToList())
         {
             if (living >= HaremMaxChildren) return;
-            Actor consort = SpecificClanManager.getPerson(id)?._actor;
+            // 妃嫔转成了虚拟族人(以前就此不再添丁)：在本国的落成一次，之后作君主、储君的妃嫔留在地图上(见 PersonRef.Keeps)
+            PersonalClanIdentity consortPerson = SpecificClanManager.getPerson(id);
+            Actor consort = KinRoster.OnMap(consortPerson) ? consortPerson._actor
+                : KinRoster.KingdomOf(consortPerson) == royal.kingdom ? PersonRef.Present(consortPerson) : null;
             if (consort?.data == null || consort.isRekt() || !consort.isAlive() || consort == wife ||
                 consort.data.sex != ActorSex.Female || Infertile(consort)) continue;
             int consortAge = consort.getAge();
@@ -239,11 +246,22 @@ public static class RoyalHouseSystem
                 candidate.getAge() < RoyalMarryAge || candidate.getAge() > ConsortMaxAge || Kin(royal, candidate)) continue;
             if (best == null || candidate.renown > best.renown) best = candidate;
         }
-        return best;
+        if (best != null) return best;
+        // 纯净地图下本国地图上没几个人：京城大族里成年未婚、不是近亲的虚拟族人，声望(并回人口时记下的)高的落成一位
+        PersonalClanIdentity self = royal.GetPersonalIdentity();
+        IEnumerable<PersonalClanIdentity> pool = VirtualGenealogySystem.MagnatesOf(kingdom.capital)
+            .SelectMany(clan => clan.LivingPeople)
+            .Where(person => KinRoster.Virtual(person) && person.sex != royal.data.sex && !person.is_concubine &&
+                             person.age >= RoyalMarryAge && person.age <= ConsortMaxAge && person.IsFreeToMarry(-2L) &&
+                             person.species == royal.asset?.id && !KinshipRules.AreCloseKin(self, person))
+            .OrderByDescending(VirtualGenealogySystem.VirtualRenown).ThenBy(person => person.id);
+        return KinRoster.RealizeFirst(pool, candidate => candidate.isAlive() && candidate.lover == null, 1);
     }
 
     private static bool Kin(Actor a, Actor b)
     {
+        // 族谱上的近亲(父母转成了虚拟族人时原版 getParents 找不到)
+        if (KinshipRules.AreCloseKin(a, b)) return true;
         List<Actor> parentsA = a.getParents()?.Where(parent => parent != null).ToList() ?? new List<Actor>();
         List<Actor> parentsB = b.getParents()?.Where(parent => parent != null).ToList() ?? new List<Actor>();
         return parentsA.Contains(b) || parentsB.Contains(a) || parentsA.Any(parentsB.Contains);
@@ -456,6 +474,28 @@ public static class RoyalHouseSystem
             prince.joinCity(fief);
             if (PureMapMode.Enabled) prince.setCurrentTilePosition(fief.getTile());
             else prince.goTo(fief.getTile());
+        }
+        // 虚拟族人里的成年皇子(纯净地图下多是这样，以前一直记在京城)：族谱上改记到封地，不落成。
+        // 封地同上：有爵位封地的(族谱上看不出，留给落成后再走上面那步)以外，挑皇子最少、人口最多的城
+        long heirIdentity = heir?.GetPersonalIdentity()?.id ?? -1L;
+        List<PersonalClanIdentity> virtualPrinces = KinRoster.Children(king)
+            .Where(son => KinRoster.Virtual(son) && son.age >= KinRoster.AdultAge && son.id != heirIdentity &&
+                          KinRoster.CityOf(son) == capital).ToList();
+        if (virtualPrinces.Count == 0) return;
+        var placed = new Dictionary<long, int>();
+        foreach (PersonalClanIdentity son in KinRoster.Children(king))
+        {
+            City at = KinRoster.CityOf(son);
+            if (at?.data != null) placed[at.data.id] = placed.TryGetValue(at.data.id, out int n) ? n + 1 : 1;
+        }
+        foreach (PersonalClanIdentity son in virtualPrinces)
+        {
+            City fief = kingdom.cities.Where(city => city?.data != null && !city.isRekt() && city != capital)
+                .OrderBy(city => placed.TryGetValue(city.data.id, out int n) ? n : 0)
+                .ThenByDescending(CityPopulationSystem.GetBackgroundTotal).FirstOrDefault();
+            if (fief == null) return;
+            son.virtual_city_id = fief.data.id;
+            placed[fief.data.id] = placed.TryGetValue(fief.data.id, out int count) ? count + 1 : 1;
         }
     }
 

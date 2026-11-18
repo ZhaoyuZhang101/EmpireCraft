@@ -415,9 +415,104 @@ public static class EmpirePartitionSystem
     // 照同样的条件分，远方那一半由那边最大的埃米尔(苏丹)另立为哈里发——像后倭马亚、法蒂玛：以他自己的国号立国(宗室另立的才沿用原号加方位)，
     // 原朝不改名；两个哈里发互争正统，不是兄弟之国；开国气象里也照分
     private const float KhanSplitShare = 0.25f, KhanSplitMin = 0.3f, KhanSplitMax = 0.6f;
-    private const int KhanSplitMinCities = 12;
+    private const int KhanSplitMinCities = 12, ScatterChunkCities = 4;
 
-    public static bool KhanateSplit(Empire empire) => NomadCycleSystem.IsKhanate(empire) && CourtSplit(empire, rival: false);
+    // 汗国大过汗庭管得到的：草原碎成一地，不再分东西两个汗国(用户 2026-11-18 "理论上游牧是碎一地而不是东西南北分裂"
+    // "现状是罗马没有游牧却有就很奇怪"，问答选"都改碎裂")。条件照旧(KhanSplitMinCities 城以上、KhanSplitShare 以上的城在汗庭
+    // 控制范围之外、分立冷却与大分裂冷却)；汗庭管不到的兀鲁思各自为汗(同汗国崩解，见 NomadCycleSystem.Scatters)，
+    // 汗庭直辖里管不到的城按连成一片交给当地首领各自立国；一次至多带走一半城(UpheavalGuard.HeroCapShare)，汗庭留着、不改名
+    public static bool KhanateSplit(Empire empire) => NomadCycleSystem.IsKhanate(empire) && KhanateScatter(empire);
+
+    private static bool KhanateScatter(Empire empire)
+    {
+        if (empire?.data == null || empire.isRekt() || empire.IsArchived() || World.world == null) return false;
+        Kingdom core = empire.CoreKingdom;
+        City capital = core?.capital;
+        Actor khan = empire.Emperor;
+        if (capital == null || khan?.data == null) return false;
+        double since = empire.data.partition_time;
+        if (since >= 0d && Date.getYearsSince(since) < CooldownYears || UpheavalGuard.Blocked(empire, out _)) return false;
+        int total = 0, far = 0;
+        var remote = new List<Kingdom>();
+        var farCore = new HashSet<City>();
+        foreach (Kingdom kingdom in empire.kingdoms_list.ToList())
+        {
+            if (kingdom?.data == null || kingdom.isRekt() || kingdom.cities == null) continue;
+            if (kingdom == core)
+            {
+                foreach (City city in core.cities.ToList())
+                {
+                    total++;
+                    if (city == capital || !AdministrativeControlSystem.BeyondCourt(core, city)) continue;
+                    far++;
+                    farCore.Add(city);
+                }
+                continue;
+            }
+            total += kingdom.cities.Count;
+            if (kingdom.capital == null || !AdministrativeControlSystem.BeyondCourt(core, kingdom.capital)) continue;
+            far += kingdom.cities.Count;
+            remote.Add(kingdom);
+        }
+        if (total < KhanSplitMinCities || far < total * KhanSplitShare) return false;
+        var budget = new UpheavalGuard.Budget(empire, UpheavalGuard.HeroCapShare);
+        var gone = new List<Kingdom>();
+        foreach (Kingdom member in remote.OrderByDescending(member => member.cities.Count))
+        {
+            if (!NomadCycleSystem.Scatters(empire, member)) continue;
+            int cities = member.cities.Count;
+            if (!budget.Fits(cities)) break;
+            member.FinishedSelfPlot();
+            empire.leave(member, true, false);
+            if (member.IsInEmpire()) continue;
+            EmpireCraft.Scripts.GeneralSystems.EmpireLaw.EmpireLawSystem.NoteSecession(member);
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(member);
+            gone.Add(member);
+            budget.Take(cities);
+        }
+        // 汗庭直辖里管不到的城：从离汗庭最远的起，挨着的至多 ScatterChunkCities 座一片，交给当地首领各自为汗
+        // (以前整片连着的算一块，常比一次的上限还大，整片作罢，管不到的城一座没走)
+        RegimeType? regime = core.GetRegime()?.type;
+        Vector2 court = capital.city_center;
+        while (farCore.Count > 0 && !budget.Capped)
+        {
+            City seed = farCore.OrderByDescending(city => (city.city_center - court).sqrMagnitude).First();
+            var cluster = new List<City> { seed };
+            farCore.Remove(seed);
+            for (int i = 0; i < cluster.Count && cluster.Count < ScatterChunkCities; i++)
+                foreach (City next in cluster[i].neighbours_cities?.ToList() ?? new List<City>())
+                {
+                    if (cluster.Count >= ScatterChunkCities) break;
+                    if (next != null && farCore.Remove(next)) cluster.Add(next);
+                }
+            cluster = cluster.Where(city => city?.data != null && !city.isRekt() && city.kingdom == core).ToList();
+            if (cluster.Count == 0) continue;
+            if (!budget.Fits(cluster.Count)) continue;
+            Kingdom local = AdministrativeControlSystem.ReleaseToLocal(core, cluster, _ => "independent", out _);
+            if (local == null) continue;
+            if (regime.HasValue && local.GetRegime()?.type != regime.Value)
+            {
+                local.SetRegimeType(regime.Value);
+                local.LoadRegime();
+            }
+            EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(local);
+            gone.Add(local);
+            budget.Take(cluster.Count);
+        }
+        if (gone.Count == 0) return false;
+        empire.data.partition_time = World.world.getCurWorldTime();
+        int remaining = UpheavalGuard.Cities(empire), taken = gone.Sum(kingdom => kingdom.cities?.Count ?? 0);
+        UpheavalGuard.Mark(empire, "汗国四分五裂", detail: $"走 {gone.Count} 部 {taken} 城，剩 {remaining}/{total} 城");
+        string realm = empire.GetEmpireName();
+        string names = string.Join(LM.Get("schism_name_separator"), gone.Take(4).Select(kingdom => kingdom.GetKingdomName()));
+        if (gone.Count > 4) names = string.Format(LM.Get("khanate_collapse_more"), names, gone.Count);
+        string content = string.Format(LM.Get("khanate_collapse_history"), realm, khan.getName(), names, remaining);
+        empire.RecordHistory(directContent: content);
+        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogMajor(content, core);
+        LogService.LogInfo($"[EmpireCraft][汗国四分五裂] {realm} 新汗{khan.getName()}即位，{far}/{total} 城在汗庭控制范围之外，" +
+                           $"{string.Join("、", gone.Select(kingdom => $"{kingdom.GetKingdomName()}({kingdom.cities?.Count ?? 0}城)"))}各自为汗，汗庭剩 {remaining} 城");
+        return true;
+    }
 
     public static bool CaliphateSplit(Empire empire) => EmirateSystem.Applies(empire) && CourtSplit(empire, rival: true);
 
@@ -561,14 +656,22 @@ public static class EmpirePartitionSystem
         float span = Span(cities, out _);
         float mapSize = Mathf.Max(MapBox.width, MapBox.height);
         if (mapSize <= 0f || span < mapSize * WillSpanShare) return;
-        Actor heir = core.HasHeir() ? core.GetHeir() : null;
         bool allowFemale = PersonalUnionService.AllowsFemaleSuccession(core);
-        List<Actor> sons = (emperor.getChildren(false) ?? Enumerable.Empty<Actor>())
-            .Where(child => child?.data != null && !child.isRekt() && child.isAlive() && child.isAdult() &&
-                            (allowFemale || child.isSexMale()) && !child.IsEmperor() && RealmOf(child.kingdom) == empire)
-            .ToList();
-        if (sons.Count < 2) return;
-        heir ??= sons.OrderByDescending(son => son.getAge()).First();
+        bool Fit(Actor child) => child?.data != null && !child.isRekt() && child.isAlive() && child.isAdult() &&
+                                 (allowFemale || child.isSexMale()) && !child.IsEmperor() && RealmOf(child.kingdom) == empire;
+        // 皇子连族谱里的虚拟族人一起数(纯净地图下皇子多不在地图上；以前只数地图上的儿子，几乎永远凑不够两个，
+        // 罗马这样的大帝国从没遗诏分治过)；掷中了才把要用的落成实体
+        PersonalClanIdentity emperorIdentity = emperor.GetPersonalIdentity();
+        List<PersonalClanIdentity> virtualSons = emperorIdentity == null ? new List<PersonalClanIdentity>()
+            : SpecificClanManager.getChildren(emperorIdentity).Select(pair => pair.Item2)
+                .Where(person => person != null && person.is_alive && person.is_virtual &&
+                                 (person._actor == null || person._actor.isRekt()) && person.age >= 18 &&
+                                 (allowFemale || person.sex == ActorSex.Male))
+                .Distinct().ToList();
+        List<Actor> sons = (emperor.getChildren(false) ?? Enumerable.Empty<Actor>()).Where(Fit).ToList();
+        if (sons.Count + virtualSons.Count < 2) return;
+        // 游牧不遗诏分治(用户 2026-11-18 "理论上游牧是碎一地而不是东西南北分裂")：汗国碎裂见 KhanateSplit
+        if (NomadCycleSystem.IsKhanate(empire)) return;
         float chance = WillBaseChance;
         // 各政体的倍数读政体配置(partition_chance_factor)：律令 ×0.5、游牧 ×1.25(大汗死时已按兀鲁思分封，
         // 见 EnfeoffmentHelper.UlusPartition)、封建 ×1.5，其余 ×1
@@ -584,6 +687,11 @@ public static class EmpirePartitionSystem
             _ => 1f
         };
         if (UnityEngine.Random.value >= chance) return;
+        foreach (Actor realized in VirtualGenealogySystem.RealizeAll(virtualSons, Fit))
+            if (!sons.Contains(realized)) sons.Add(realized);
+        if (sons.Count < 2) return;
+        Actor heir = core.HasHeir() ? core.GetHeir() : null;
+        heir ??= sons.OrderByDescending(son => son.getAge()).First();
 
         City capital = core.capital;
         Actor ruler = null;

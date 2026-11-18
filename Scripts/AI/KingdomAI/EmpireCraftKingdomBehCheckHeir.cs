@@ -289,15 +289,40 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
 
     // 册立储君的候选：先君(在位皇帝)在世、可继位的子嗣。不立女主的国只列皇子(见 MaleOnlyThrone)：
     // 以前公主也在列，册立、秘密立储(按才具挑)、手令都能把公主立为储君，君主身故后她即不了位、又一直占着储位
-    public static List<Actor> HeirCandidates(Kingdom kingdom)
+    // 无小人模式下皇子多是虚拟族人：只数地图上的，"两位以上皇子才议立储"几乎永远凑不齐。
+    // realize：把虚拟皇子落成实体一起列上(要挑出一个人来用时才落成，如秘密立储、诉求选目标)；不落成时只列地图上的
+    public static List<Actor> HeirCandidates(Kingdom kingdom, bool realize = false)
     {
         PersonalClanIdentity parent = PredecessorOf(kingdom);
         if (parent == null) return new List<Actor>();
         bool maleOnly = MaleOnlyThrone(kingdom);
-        return ChildrenOf(parent).Select(person => person._actor)
-            .Where(actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor) &&
-                            !(maleOnly && actor.data.sex != ActorSex.Male)).Distinct().ToList();
+        bool Fit(Actor actor) => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor) &&
+                                 !(maleOnly && actor.data.sex != ActorSex.Male);
+        List<PersonalClanIdentity> children = ChildrenOf(parent);
+        List<Actor> result = children.Select(person => person._actor).Where(Fit).Distinct().ToList();
+        if (!realize) return result;
+        foreach (Actor actor in KinRoster.Realize(children.Where(person => KinRoster.Virtual(person) &&
+                     VirtualHeirFit(person, parent, maleOnly)), Fit))
+            if (!result.Contains(actor)) result.Add(actor);
+        return result;
     }
+
+    // 册立储君的候选连虚拟皇子一共几人(不落成)；adultOnly 只数成年的
+    public static int HeirCandidateCount(Kingdom kingdom, bool adultOnly = false)
+    {
+        PersonalClanIdentity parent = PredecessorOf(kingdom);
+        if (parent == null) return 0;
+        bool maleOnly = MaleOnlyThrone(kingdom);
+        return ChildrenOf(parent).Count(person => KinRoster.Counts(person,
+            virtualPerson => VirtualHeirFit(virtualPerson, parent, maleOnly) && (!adultOnly || KinRoster.Adult(virtualPerson)),
+            actor => IsFitCandidate(actor, parent) && actor != kingdom.king && !ForeignRuler(kingdom, actor) &&
+                     !(maleOnly && actor.data.sex != ActorSex.Male) && (!adultOnly || actor.isAdult())));
+    }
+
+    // 虚拟皇子按族谱能不能列为储君候选(同 IsFitCandidate：没被废储；不立女主的国只列皇子)
+    private static bool VirtualHeirFit(PersonalClanIdentity person, PersonalClanIdentity parent, bool maleOnly) =>
+        person != null && person.is_alive && person.id != parent?.id && !person.disinherited &&
+        !(maleOnly && person.sex != ActorSex.Male);
 
     // 宗人府废了储的(见 EmpireLawSystem.ApplyRoyalCourt)不再入继承人之列
     private static bool IsFitCandidate(Actor actor, PersonalClanIdentity parent) =>
@@ -532,7 +557,9 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         if (!childrenOnly) pool = pool.Concat(SpecificClanManager.GetSiblingsWithRelation(parent).Select(pair => pair.Item2));
         bool maleOnly = MaleOnlyThrone(kingdom);
         var candidates = pool.Where(person => IsEligibleRelative(person, parent, false, maleOnly))
-            .OrderByDescending(person => person._actor?.GetIdentity()?.TotalPerformance ?? -1d)
+            // 政绩(没做过官的算零)，再看声望：虚拟族人按并回人口时记下的声望折算。以前没实体的一律排在最后
+            .OrderByDescending(person => KinRoster.OnMap(person) ? person._actor.GetIdentity()?.TotalPerformance ?? 0d : 0d)
+            .ThenByDescending(person => KinRoster.OnMap(person) ? person._actor.renown : VirtualGenealogySystem.VirtualRenown(person))
             .ThenByDescending(person => person.age).ThenBy(person => person.id);
         return (Pick(kingdom, candidates, parent, out _),
             LM.Get(SuccessionLawType.强者继承法.ToString()).ColorString(pColor: new Color(0.6f, 0.05f, 0.05f)));

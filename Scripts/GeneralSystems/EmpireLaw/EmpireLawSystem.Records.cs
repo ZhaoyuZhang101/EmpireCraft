@@ -229,6 +229,7 @@ public static partial class EmpireLawSystem
         if (actor?.data == null || depth > 4) return false;
         List<long> bans = actor.GetOrCreate().banned_office_kingdom_ids;
         if (bans != null && bans.Contains(kingdomId)) return true;
+        if (depth == 0 && OfficeBans.Banned(actor.GetPersonalIdentity(), kingdomId, kingdom: true)) return true;
         var parents = actor.getParents();
         if (parents == null) return false;
         foreach (Actor parent in parents)
@@ -243,6 +244,7 @@ public static partial class EmpireLawSystem
         ActorExtension.ActorExtraData data = actor.GetOrCreate();
         data.banned_office_kingdom_ids ??= new List<long>();
         if (!data.banned_office_kingdom_ids.Contains(kingdom.getID())) data.banned_office_kingdom_ids.Add(kingdom.getID());
+        OfficeBans.Add(actor.GetPersonalIdentity(), kingdom.getID(), kingdom: true);
         LawRealmState state = GetRealmState(kingdom, true);
         if (state != null) state.descendant_bans = true;
     }

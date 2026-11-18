@@ -573,6 +573,8 @@ public static class KingdomExtension
         public int proclamation_grudge_strength = 0;
         // 封国国王去世时记下其个人身份(原版会先清空国王)，推恩令据此找到他的儿子们。
         public long last_king_identity_id = -1L;
+        // 行省为主也有封授的封地(附庸王国、亲王封地、行省制汗国的兀鲁思，见 PartialEnfeoffment)：附庸王国、亲王封地国王绝嗣就并为行省/辖区
+        public bool partial_grant;
         // 上一任君主的族谱身份(所有王国都记，无小人模式下从虚拟族谱里找继承人用)
         public long last_ruler_identity_id = -1L;
         // 本封国历代国君已用过的谥字(尽量不重复)
@@ -1865,6 +1867,9 @@ public static class KingdomExtension
                 if (!SpecificClanManager.SameLineage(kingdom.king.GetSpecificClan(), empire.EmpireSpecificClan))
                 {
                     var preKing = kingdom.units.Find(a=>SpecificClanManager.SameLineage(a.GetSpecificClan(), empire.EmpireSpecificClan));
+                    // 纯净地图下宗室多是虚拟族人：本国地图上没有就从皇族世系里落成一位在本国的成年人(以前直接作罢)
+                    preKing ??= EmpireCraft.Scripts.GeneralSystems.KinRoster.RealizeAdultKin(empire.EmpireSpecificClan,
+                        realm => realm == kingdom, a => a.isAlive() && !a.isKing() && a.isAdult() && a.kingdom == kingdom);
                     if (preKing==null) return false;
                     kingdom.setKing(preKing);
                 }

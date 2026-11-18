@@ -835,9 +835,11 @@ public static class RepublicSystem
     private static List<Actor> SnapshotImmediateRoyalFamily(Actor monarch)
     {
         if (monarch == null || monarch.isRekt()) return new List<Actor>();
+        // 子女是虚拟族人的(纯净地图下多是这样)落成后一起算，以前革命后王室子女全都漏掉、族谱上照旧是王子公主
         IEnumerable<Actor> family = new[] { monarch }
             .Concat(monarch.lover == null ? Enumerable.Empty<Actor>() : new[] { monarch.lover })
-            .Concat(monarch.getChildren() ?? Enumerable.Empty<Actor>());
+            .Concat(monarch.getChildren() ?? Enumerable.Empty<Actor>())
+            .Concat(KinRoster.Realize(KinRoster.Children(monarch).Where(KinRoster.Virtual), actor => actor.isAlive()));
         return family.Where(actor => actor != null && !actor.isRekt() && actor.isAlive())
             .GroupBy(actor => actor.id).Select(group => group.First()).ToList();
     }

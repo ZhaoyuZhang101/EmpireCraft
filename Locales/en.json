@@ -7885,6 +7885,7 @@
   "institution_huaxia_commandery_kingdom": "Commanderies and Kingdoms",
   "institution_huaxia_commandery_kingdom_desc": "Commanderies and fiefs exist side by side. The throne still grants kingdoms to the royal clan from its own domain.\n· A kingdom whose line dies out is abolished and becomes a commandery run by appointed officials.\n· Commandery land is never granted away.\nThe regime remains feudal. Mutually exclusive with Curtailing the Vassals.",
   "commandery_kingdom_reclaim_history": "{0} died without an heir; {1} was abolished and turned into a commandery.",
+  "partial_grant_reclaim_history": "{0} died without an heir; {1} was abolished and annexed as {2}.",
   "institution_requires_any_separator": " or ",
   "feudal_conquest_submit_history": "{0} took the capital of {1}; {1} submitted as a vassal and all of its de jure land held by the throne was returned.",
   "feudal_conquest_prince_history": "{0} granted the throne of {2} to Prince {1}; the former ruler {3} was moved to the royal domain.",

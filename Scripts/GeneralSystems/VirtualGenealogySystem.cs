@@ -262,6 +262,7 @@ public static partial class VirtualGenealogySystem
         person.is_virtual = true;
         person.virtual_city_id = city?.data?.id ?? actor.city?.data?.id ?? -1L;
         person.virtual_since = World.world.getCurWorldTime();
+        person.virtual_renown = Math.Max(0, actor.data.renown);
         RealisticAgeSystem.CaptureNativeLifetime(actor, person);
         actor.RemovePersonalIdentity();
         VirtualIds.Add(person.id);
@@ -307,6 +308,14 @@ public static partial class VirtualGenealogySystem
         return result;
     }
 
+    // 虚拟族人眼下的名望：并回人口时的名望，按在人口里过了几年每年去一成(虚拟时没有身份年入)
+    public static int VirtualRenown(PersonalClanIdentity person)
+    {
+        if (person == null || person.virtual_renown <= 0) return 0;
+        double years = person.virtual_since >= 0d && World.world != null ? Math.Max(0d, Date.getYearsSince(person.virtual_since)) : 0d;
+        return (int)Math.Round(person.virtual_renown * Math.Pow(1d - RenownSystem.Decay, Math.Min(years, 200d)));
+    }
+
     private static void Unrealize(Actor actor)
     {
         if (actor?.data == null || actor.isRekt() || !actor.isAlive() || actor.isKing() || actor.isCityLeader()) return;
@@ -340,6 +349,7 @@ public static partial class VirtualGenealogySystem
         actor.data.sex = person.sex;
         int age = person.age;
         long previousActorId = person.actor_id;
+        int renown = VirtualRenown(person);
         actor.SetPersonalIdentity(person);
         if (!string.IsNullOrWhiteSpace(person.given_name) && !string.IsNullOrWhiteSpace(person.surname))
         {
@@ -354,6 +364,8 @@ public static partial class VirtualGenealogySystem
         SpecificClanManager._actorToPersonLookup[actor.id] = person;
         VirtualIds.Remove(person.id);
         WalletReserveTransfers.Restore(actor, person.wallet_reserve);
+        actor.data.renown = Math.Max(actor.data.renown, renown);
+        person.virtual_renown = 0;
         // 年龄与族谱卡片一致；与有实体的亲人重新接上原版的家庭关系
         SetAge(actor, age);
         RestoreFamilyTies(actor, person, previousActorId);

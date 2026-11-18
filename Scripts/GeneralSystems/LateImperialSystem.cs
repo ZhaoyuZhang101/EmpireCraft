@@ -57,7 +57,8 @@ public static class LateImperialSystem
         var data = kingdom.GetOrCreate();
         bool current = data.designated_heir_id >= 0 && World.world.units.get(data.designated_heir_id) is Actor heir && heir.isAlive();
         if (current && data.secret_heir_at >= 0d && Date.getYearsSince(data.secret_heir_at) < DesignateYears) return;
-        List<Actor> candidates = EmpireCraftKingdomBehCheckHeir.HeirCandidates(kingdom);
+        // 十年一议才走到这里：虚拟皇子落成后一起比才具
+        List<Actor> candidates = EmpireCraftKingdomBehCheckHeir.HeirCandidates(kingdom, realize: true);
         if (candidates.Count == 0) return;
         List<Actor> adults = candidates.Where(actor => actor.isAdult()).ToList();
         Actor pick = (adults.Count > 0 ? adults : candidates).OrderByDescending(Ability).ThenByDescending(actor => actor.getAge()).First();

@@ -205,7 +205,14 @@ public static class MilitaryRegency
             .Where(actor => Eligible(empire, actor))
             .OrderByDescending(actor => actor.isSexMale())
             .ThenBy(actor => actor.GetPersonalIdentity()?.generation ?? int.MaxValue)
-            .ThenByDescending(actor => actor.getAge()).FirstOrDefault() ?? Pick(empire, kind);
+            .ThenByDescending(actor => actor.getAge()).FirstOrDefault() ??
+            // 执政家的族人多是虚拟族人(纯净地图下)：照同样的先后落成一位，以前地图上没有就当绝了、另择一家开幕府
+            (clan == null ? null : KinRoster.RealizeFirst(clan.LivingPeople
+                .Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge && !person.is_concubine &&
+                                 KinRoster.KingdomOf(person)?.GetEmpire() == empire)
+                .OrderByDescending(person => person.sex == ActorSex.Male).ThenBy(person => person.generation)
+                .ThenByDescending(person => person.age), actor => Eligible(empire, actor), 2)) ??
+            Pick(empire, kind);
         if (heir == null)
         {
             empire.ResetPowerfulMinister();

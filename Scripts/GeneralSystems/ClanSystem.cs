@@ -1508,6 +1508,11 @@ public class PersonalClanIdentity
     public bool disinherited;
     public bool stripped_royal;
     public bool ShouldSerializedisinherited() => disinherited;
+    // 禁锢(本人与子孙不得出仕)：记在族谱上，人被并回人口、再落成都还在，子孙按族谱的父母往上查(见 OfficeBans)
+    public List<long> banned_office_empires { get; set; }
+    public List<long> banned_office_kingdoms { get; set; }
+    public bool ShouldSerializebanned_office_empires() => banned_office_empires?.Count > 0;
+    public bool ShouldSerializebanned_office_kingdoms() => banned_office_kingdoms?.Count > 0;
     public bool ShouldSerializestripped_royal() => stripped_royal;
     // 神力加在量刑天平上的砝码与保释(见 EmpireLawSystem.Divine(用户 2026-11-10 "量刑玩家也要能添加，比如添加罪名、添加保释条件什么的"))
     public List<LawCustomWeight> law_custom_weights;
@@ -1541,6 +1546,9 @@ public class PersonalClanIdentity
     public double virtual_since { get; set; } = -1d;
     // 旧档字段：以前真实年龄的预定寿数(60~80)；现在天年按科技时代现算(见 RealisticAgeSystem.NaturalDeathAge)，不再读写
     public int virtual_death_age { get; set; } = -1;
+    // 并回人口时的名望：落成时照每年去一成折算回来(见 RenownSystem.Decay)，以前落成回来名望一律从零起，
+    // 外戚首领、宗亲这些要看名望的人一转虚拟就永远够不上门槛
+    public int virtual_renown { get; set; }
     // Native lifespan and immortality survive conversion; null is a legacy save.
     public float? virtual_native_lifespan { get; set; }
     public bool virtual_immortal { get; set; }
@@ -1593,6 +1601,7 @@ public class PersonalClanIdentity
     public bool ShouldSerializevirtual_city_id() => virtual_city_id != -1L;
     public bool ShouldSerializevirtual_since() => virtual_since != -1d;
     public bool ShouldSerializevirtual_death_age() => virtual_death_age != -1;
+    public bool ShouldSerializevirtual_renown() => virtual_renown > 0;
     public bool ShouldSerializevirtual_native_lifespan() => virtual_native_lifespan.HasValue;
 
     // 需要这个人(继承、分封、作乱……)时调用：虚拟族人当场落成实体，否则返回现有实体

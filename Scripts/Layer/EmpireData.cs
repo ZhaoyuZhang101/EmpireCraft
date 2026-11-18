@@ -161,6 +161,8 @@ public class EmpireData : MetaObjectData
     public long nomad_hero_id = -1L;
     public string nomad_hero_name = "";
     public double nomad_hero_fell_at = -1d;
+    // 行省为主也有封授(见 PartialEnfeoffment)：最近一次分兀鲁思、封亲王封地的时间，每年至多一块(-1 没有)
+    public double partial_grant_at = -1d;
     // 世界地图开局就奉别教的阿拉伯一线帝国(那时还没有伊斯兰)：不强改国教，自己皈依伊斯兰后去掉(见 CaliphateFaith)
     public bool pre_caliphate_faith;
     // 大分裂冷却(见 UpheavalGuard，用户 2026-10-21 选)：最近一次大分裂(汗位/哈里发/苏丹更替之乱、雄主身后分裂、应仁之乱、
@@ -263,6 +265,9 @@ public class EmpireData : MetaObjectData
     public Dictionary<long, long> legal_peerage_kingdoms { get; set; } = new Dictionary<long, long>();
     [DefaultValue(-1L)]
     public long powerful_minister_id { get; set; } = -1L;
+    // 权臣的族谱身份：单位编号失效(转成虚拟族人、落成换了编号)时按它找回这个人(见 PersonRef)
+    [DefaultValue(-1L)]
+    public long powerful_minister_identity_id { get; set; } = -1L;
     public int powerful_minister_progress { get; set; } = 0;
     public int powerful_minister_stage { get; set; } = 0;
     public bool powerful_minister_is_regent { get; set; } = false;

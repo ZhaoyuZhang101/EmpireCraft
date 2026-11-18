@@ -1568,6 +1568,9 @@ public static class CityPopulationSystem
         if (EmpireCraft.Scripts.GeneralSystems.WorldMap.ScenarioEventSystem.IsScripted(actor)) return true;
         // 谋划的目标(要刺杀、废立的人)也留着：并入人口后谋划还指着这个已回收的单位，存档时原版空引用
         if (IsPlotTarget(actor)) return true;
+        // 记着族谱身份的要角(名将名臣、权臣、君主的生父母与配偶妃嫔、太后)：并回人口会丢名望政绩、存着的编号也跟着失效
+        using (FrameProfiler.Measure("名人判定·要角"))
+            if (PersonRef.Keeps(actor)) return true;
         if (PureMapMode.Enabled) return PureNotable(actor);
         // 在任官员一律留着：宗室远支先判成贵族、不算要紧，以前在任也会被月度并入回收，官位跟着空出来
         if (actor.isKing() || actor.isCityLeader() || actor.IsOnOffice()) return true;

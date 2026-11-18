@@ -167,13 +167,19 @@ public static class EnfeoffmentHelper
     // 这里只重新做一次城池/政体防御性检查(跟 TempFac_分封.Execute 完全一致)。
     public static bool TryEnfeoffActor(Empire empire, Actor actor, int mandateReward = 10)
     {
-        if (empire == null || WarBlocks(empire) || RegimeForbids(empire)) return false;
-        Kingdom coreKingdom = empire?.CoreKingdom;
+        if (empire == null || WarBlocks(empire) || RegimeForbids(empire) || !IsEligibleSibling(actor, empire)) return false;
+        return GrantTitle(empire, actor, FindEnfeoffableTitle(empire), mandateReward);
+    }
+
+    // 把一块法理整块封给 actor 立为成员国(兄弟分封、宗王分兀鲁思共用，见 PartialEnfeoffment)；人选由调用方校验
+    internal static bool GrantTitle(Empire empire, Actor actor, KingdomTitle fief, int mandateReward)
+    {
+        if (empire == null || actor == null || actor.isRekt() || RegimeForbids(empire)) return false;
+        Kingdom coreKingdom = empire.CoreKingdom;
         Regime empireRegime = coreKingdom?.GetRegime();
-        KingdomTitle fief = FindEnfeoffableTitle(empire);
         City city = fief?.title_capital;
-        if (empireRegime == null || empireRegime.enfeoff_virtual_only ||
-            !IsEligibleSibling(actor, empire) || city == null || IsRealmCapital(city))
+        if (empireRegime == null || empireRegime.enfeoff_virtual_only || city == null || IsRealmCapital(city) ||
+            city.kingdom != coreKingdom)
         {
             return false;
         }
@@ -225,9 +231,12 @@ public static class EnfeoffmentHelper
     {
         PersonalClanIdentity emperorIdentity = empire?.Emperor?.GetPersonalIdentity();
         if (emperorIdentity == null) return 0;
-        return SpecificClanManager.GetSiblingsWithRelation(emperorIdentity)
-            .Select(item => item.Item2)
-            .Count(identity => identity != null && IsEligibleSibling(identity._actor, empire));
+        // 连虚拟族人一起数(纯净地图下兄弟多不在地图上，以前补偿几乎总是 0)；只是计数，不落成
+        return KinRoster.Siblings(emperorIdentity).Count(identity => KinRoster.Counts(identity,
+            person => person.CanHeir(emperorIdentity) && person.age >= KinRoster.AdultAge &&
+                      SpecificClanManager.SameLineage(person._specificClan, empire.EmpireSpecificClan) &&
+                      KinRoster.KingdomOf(person)?.GetEmpire() == empire,
+            actor => IsEligibleSibling(actor, empire)));
     }
 
     // 兀鲁思(用户 2026-10-17 转群友"游牧太强了几乎不会分封"，选"汗死诸子分兀鲁思")：游牧政体的大汗死了、

@@ -44,6 +44,7 @@ public static class PersonalTieSystem
             owner.ties.Remove(drop);
         }
         owner.ties.Add(new PersonalTie { other = other.id, kind = kind, cause = cause, since = World.world.getCurWorldTime() });
+        if (kind == Rival && cause == CauseKinKilled) Avengers?.Add(owner.id);
     }
 
     public static void MakeRivals(Actor a, Actor b, string cause)
@@ -129,6 +130,50 @@ public static class PersonalTieSystem
             catch (Exception exception)
             {
                 LogService.LogWarning($"[EmpireCraft][恩怨] {actor.getName()} 结算失败: {exception.Message}");
+            }
+        }
+        if (acted < 12) VirtualRevenge(12 - acted);
+    }
+
+    // 记着杀亲之仇的人(族谱身份)：读档后头一回年结扫一遍族谱，之后结仇时补记
+    private static HashSet<long> Avengers;
+
+    public static void ResetAvengers() => Avengers = null;
+
+    // 报杀亲之仇的多是死者的子与兄弟，纯净地图下多是虚拟族人(以前年结只看地图上的人，仇结了永远报不了)：
+    // 族谱里在世、仇人也在世的照样按 RevengeChance 掷，掷中了才把两人落成、照常报仇
+    private static void VirtualRevenge(int budget)
+    {
+        if (Avengers == null)
+        {
+            Avengers = new HashSet<long>();
+            foreach (PersonalClanIdentity person in SpecificClanManager._globalPersonLookup.Values)
+                if (person?.ties != null && person.ties.Exists(tie => tie?.kind == Rival && tie.cause == CauseKinKilled))
+                    Avengers.Add(person.id);
+        }
+        foreach (long id in Avengers.ToList())
+        {
+            if (budget <= 0) return;
+            PersonalClanIdentity avenger = SpecificClanManager.getPerson(id);
+            PersonalTie tie = avenger?.ties?.FirstOrDefault(item => item?.kind == Rival && item.cause == CauseKinKilled);
+            PersonalClanIdentity target = tie == null ? null : SpecificClanManager.getPerson(tie.other);
+            if (avenger == null || !avenger.is_alive || tie == null || target == null || !target.is_alive)
+            {
+                Avengers.Remove(id);
+                continue;
+            }
+            // 在地图上的照上面的年结走
+            if (!KinRoster.Virtual(avenger) || avenger.age < 16 || UnityEngine.Random.value >= RevengeChance) continue;
+            Actor actor = PersonRef.Present(avenger), rival = actor == null ? null : PersonRef.Present(target);
+            if (actor == null || rival == null) continue;
+            budget--;
+            try
+            {
+                Revenge(actor, rival);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][恩怨] {actor.getName()} 报仇失败: {exception.Message}");
             }
         }
     }

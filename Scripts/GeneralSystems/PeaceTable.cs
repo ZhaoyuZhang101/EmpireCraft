@@ -411,7 +411,7 @@ public static class PeaceTable
                 return giver.IsEmpire() ? "peace_reason_empire_vassal" : null;
             case PeaceTermKind.Install:
                 return giver.IsEmpire() ? "peace_reason_empire_install"
-                    : WarGoalSystem.InstallCandidate(giver) == null ? "peace_reason_no_heir" : null;
+                    : !WarGoalSystem.HasInstallCandidate(giver) ? "peace_reason_no_heir" : null;
             case PeaceTermKind.Trade:
                 return !TradeRouteSystem.HasPort(giver) || !TradeRouteSystem.HasPort(receiver) ? "peace_reason_no_port"
                     : TradeRouteSystem.TreatyPartner(giver) == receiver ? "peace_reason_trading" : null;

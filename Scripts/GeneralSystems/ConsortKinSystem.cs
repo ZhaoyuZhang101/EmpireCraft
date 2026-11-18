@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
@@ -51,12 +52,35 @@ public static class ConsortKinSystem
         SpecificClan clan = ConsortClan(empire);
         if (clan == null) return null;
         Actor dowager = empire.GetEmpressDowager(), emperor = empire.Emperor, empress = emperor?.lover;
-        return clan.AllAliveMembers?.Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
-                                                    actor.isAdult() && actor != dowager && actor != empress &&
-                                                    actor != emperor && !actor.isKing() &&
-                                                    actor.kingdom?.GetEmpire() == empire &&
-                                                    actor.CanServeOffice(empire.CoreKingdom))
-            .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        bool Fit(Actor actor) => actor?.data != null && !actor.isRekt() && actor.isAlive() &&
+                                 actor.isAdult() && actor != dowager && actor != empress &&
+                                 actor != emperor && !actor.isKing() &&
+                                 actor.kingdom?.GetEmpire() == empire &&
+                                 actor.CanServeOffice(empire.CoreKingdom);
+        Actor chief = clan.AllAliveMembers?.Where(Fit).OrderByDescending(actor => actor.renown).FirstOrDefault();
+        // 纯净地图下外戚宗族多是虚拟族人(以前只在地图上的人里挑，大将军常年没人)：族谱里名望(并回人口时记下、逐年折算)
+        // 高过地图上的才落成，之后作外戚首领留在地图上(见 PersonRef.Keeps)
+        PersonalClanIdentity best = clan.LivingPeople
+            .Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge && !person.is_concubine &&
+                             KinRoster.KingdomOf(person)?.GetEmpire() == empire)
+            .OrderByDescending(VirtualGenealogySystem.VirtualRenown).ThenByDescending(person => person.age).FirstOrDefault();
+        if (best != null && (chief == null || VirtualGenealogySystem.VirtualRenown(best) > chief.renown))
+            chief = KinRoster.RealizeFirst(new[] { best }, Fit, 1) ?? chief;
+        if (empire.data != null)
+        {
+            if (chief != null) Chiefs[empire.data.id] = chief.id;
+            else Chiefs.Remove(empire.data.id);
+        }
+        return chief;
+    }
+
+    // 各帝国眼下的外戚首领(单位编号；不存档，读档后头一回挑首领时补上)：留在地图上不并回人口
+    private static readonly Dictionary<long, long> Chiefs = new();
+
+    public static bool IsChief(Actor actor)
+    {
+        Empire empire = actor?.kingdom?.GetEmpire();
+        return empire?.data != null && Chiefs.TryGetValue(empire.data.id, out long id) && id == actor.id;
     }
 
     // 幼主：外戚首领以大将军辅政(名望不低于朝中辅政人选的一半)

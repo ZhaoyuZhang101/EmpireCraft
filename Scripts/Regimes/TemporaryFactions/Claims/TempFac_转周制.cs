@@ -27,6 +27,15 @@ public class TempFac_转周制 : TemporaryFaction
         LogService.LogInfo($"执行{this.type}");
         Empire empire = GetEmpire();
         var members = GetFaction().Members.ToList();
+        // 分封的皇子连族谱里的虚拟族人一起算(纯净地图下皇子多不在地图上，以前一个也封不出去)：
+        // 地图上的在前，不够分的按长幼落成成年的，至多每个要分的封国一位
+        int fiefs = empire.kingdoms_list.Count(kingdom => !kingdom.IsEmpire());
+        var princes = (empire.Emperor.getChildren() ?? Enumerable.Empty<Actor>()).Where(child => child != null).ToList();
+        if (princes.Count(child => !child.isKing()) < fiefs)
+            princes.AddRange(KinRoster.Realize(KinRoster.Children(empire.Emperor)
+                    .Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge)
+                    .OrderBy(person => person.rank).Take(fiefs - princes.Count(child => !child.isKing())),
+                child => child.isAlive() && child.isAdult()).Where(child => !princes.Contains(child)));
         foreach (Kingdom kingdom in empire.kingdoms_list)
         {
             kingdom.SetRegimeType(RegimeType.ZhouFeudalism);
@@ -44,9 +53,9 @@ public class TempFac_转周制 : TemporaryFaction
             }
             if (kingdom.IsEmpire()) continue;
             var flag1 = false;
-            if (empire.Emperor.getChildren().Any())
+            if (princes.Any())
             {
-                foreach (var child in empire.Emperor.getChildren())
+                foreach (var child in princes)
                 {
                     if (!child.isKing())
                     {

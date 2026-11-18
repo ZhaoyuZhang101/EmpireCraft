@@ -78,7 +78,7 @@ public static class NomadCycleSystem
             // 雄主之后第一次汗位更替：不看积弊、正统，必乱(见 UnificationSystem.TakeHeroTurmoil)
             bool heroic = UnificationSystem.TakeHeroTurmoil(empire, out string hero);
             if (!heroic && !IsKhanate(empire)) return;
-            // 汗国大过汗庭管得到的：先按东西(南北)分为两个汗国，这一回不再判汗位更替之乱(见 EmpirePartitionSystem.KhanateSplit)
+            // 汗国大过汗庭管得到的：管不到的各部各自为汗(以前分为东西两个汗国)，这一回不再判汗位更替之乱(见 EmpirePartitionSystem.KhanateSplit)
             if (EmpirePartitionSystem.KhanateSplit(empire)) return;
             float average = MaladySystem.Average(empire);
             int legitimacy = empire.Legitimacy;
@@ -346,7 +346,7 @@ public static class NomadCycleSystem
 
     // 汗国崩解时走的成员：兀鲁思、领地(游牧政体、本族定居分封的成员)，或 AnnexedYears 年内并入的别种政体成员；
     // 行省、羁縻、起事中的、正与汗庭交战的留下
-    private static bool Scatters(Empire empire, Kingdom member)
+    internal static bool Scatters(Empire empire, Kingdom member)
     {
         if (member?.data == null || member.isRekt() || member == empire.CoreKingdom || member.GetEmpire() != empire ||
             !member.hasKing() || member.capital == null || member.cities == null || member.cities.Count == 0 ||

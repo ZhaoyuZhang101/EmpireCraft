@@ -125,11 +125,18 @@ public static class NomadAppanageSystem
     {
         PersonalClanIdentity identity = khan.GetPersonalIdentity();
         if (identity == null) return new List<Actor>();
-        return SpecificClanManager.GetSiblingsWithRelation(identity)
-            .Select(item => item.Item2?._actor)
-            .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && !actor.isKing() && actor.kingdom == kingdom &&
-                            !RealisticAgeSystem.IsMinor(actor) && actor.isUnitFitToRule())
-            .Distinct().OrderByDescending(actor => actor.getAge()).ToList();
+        bool Fit(Actor actor) => actor?.data != null && !actor.isRekt() && actor.isAlive() && !actor.isKing() && actor.kingdom == kingdom &&
+                                 !RealisticAgeSystem.IsMinor(actor) && actor.isUnitFitToRule();
+        List<PersonalClanIdentity> siblings = KinRoster.Siblings(identity);
+        List<Actor> result = siblings.Where(KinRoster.OnMap).Select(person => person._actor).Where(Fit).Distinct().ToList();
+        // 已经掷中要分帐了：纯净地图下兄弟多是虚拟族人，按长幼落成成年的补够帐数(以前地图上没有就交给当地首领立国)
+        int wanted = MaxSplits - result.Count;
+        if (wanted > 0)
+            result.AddRange(KinRoster.Realize(siblings.Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge &&
+                                                                       !person.disinherited && KinRoster.KingdomOf(person) == kingdom)
+                    .OrderByDescending(person => person.age).Take(wanted), Fit)
+                .Where(actor => !result.Contains(actor)));
+        return result.OrderByDescending(actor => actor.getAge()).ToList();
     }
 
     // 帐：seed 连同挨着的本国城，至多 room 座，不带汗帐的都城

@@ -786,6 +786,7 @@ public static class ActorExtension
         {
             bans.Add(empireId);
         }
+        EmpireCraft.Scripts.GeneralSystems.OfficeBans.Add(a.GetPersonalIdentity(), empireId, kingdom: false);
     }
 
     public static bool IsBannedFromOffice(this Actor a, long empireId)
@@ -805,6 +806,8 @@ public static class ActorExtension
         {
             return true;
         }
+        // 族谱上记的禁锢、族谱里的祖上(父母转成虚拟族人或已故，getParents 找不到)
+        if (EmpireCraft.Scripts.GeneralSystems.OfficeBans.Banned(a.GetPersonalIdentity(), empireId, kingdom: false)) return true;
 
         var parents = a.getParents();
         if (parents == null || !parents.Any())

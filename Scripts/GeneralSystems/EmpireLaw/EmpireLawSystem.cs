@@ -1255,6 +1255,13 @@ public static partial class EmpireLawSystem
             foreach (Actor child in actor.getChildren() ?? Enumerable.Empty<Actor>())
                 if (child != null && !child.isRekt() && child.isAlive()) kinfolk.Add(child);
             if (actor.lover != null && !actor.lover.isRekt() && actor.lover.isAlive()) kinfolk.Add(actor.lover);
+            // 子女、配偶是虚拟族人的(纯净地图下多是这样，以前族诛漏掉、族谱上照旧在世)：落成后一并处死，照常记生平、分家产
+            PersonalClanIdentity self = actor.GetPersonalIdentity();
+            var virtualKin = KinRoster.Children(actor).Where(KinRoster.Virtual).ToList();
+            PersonalClanIdentity spouse = self != null && self.lover.identity > 0 ? SpecificClanManager.getPerson(self.lover.identity) : null;
+            if (KinRoster.Virtual(spouse)) virtualKin.Add(spouse);
+            foreach (Actor relative in KinRoster.Realize(virtualKin, relative => relative.isAlive()))
+                if (!kinfolk.Contains(relative)) kinfolk.Add(relative);
             foreach (Actor relative in kinfolk)
             {
                 BiographySystem.Kill(relative, kinCause, judge, executed: true);

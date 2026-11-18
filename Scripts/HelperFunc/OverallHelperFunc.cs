@@ -488,7 +488,12 @@ namespace EmpireCraft.Scripts.HelperFunc
                 case OfficerPowerType.生育:
                     if (officer != null)
                     {
-                        additions.addition[OfficerPowerType.生育] = officer.getChildren(false).ToList().FindAll(a=>a.getParents().Any(p=>p.IsEmperor())).Count;
+                        // 为皇帝所生的在世子女，按族谱数(虚拟族人也算；以前只数地图上的、又靠 getParents 认父亲)
+                        long emperorIdentity = empire?.Emperor?.GetPersonalIdentity()?.id ?? -1L;
+                        additions.addition[OfficerPowerType.生育] = EmpireCraft.Scripts.GeneralSystems.KinRoster.Children(officer)
+                            .Count(child => emperorIdentity > 0 && (child.father == emperorIdentity || child.mother == emperorIdentity) ||
+                                            EmpireCraft.Scripts.GeneralSystems.KinRoster.OnMap(child) &&
+                                            child._actor.getParents().Any(p => p.IsEmperor()));
                     }
                     else
                     {

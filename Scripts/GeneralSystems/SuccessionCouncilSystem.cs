@@ -209,7 +209,7 @@ public static class SuccessionCouncilSystem
         var elder = pool.Where(item => item.kinship <= nearest + 2 && item.person.age >= AdultAge && item.person.age <= 60)
             .OrderByDescending(item => item.person.age).ThenBy(item => item.kinship).FirstOrDefault();
         if (elder.person != null) Add(elder, Elder);
-        // 立贤：近支里有声望的成年人(有实体的才看得出声望)
+        // 立贤：近支里有声望的成年人(虚拟族人按并回人口时记下的声望折算，见 VirtualGenealogySystem.VirtualRenown)
         var worthy = pool.Where(item => item.kinship <= nearest + 3 && item.person.age >= AdultAge && Merit(item.person) > 0)
             .OrderByDescending(item => Merit(item.person)).FirstOrDefault();
         if (worthy.person != null) Add(worthy, Worthy);
@@ -221,6 +221,7 @@ public static class SuccessionCouncilSystem
 
     private static int Merit(PersonalClanIdentity person)
     {
+        if (KinRoster.Virtual(person)) return VirtualGenealogySystem.VirtualRenown(person);
         Actor actor = person?.is_virtual == false ? person._actor : null;
         return actor?.data == null || actor.isRekt() ? 0 : actor.renown;
     }

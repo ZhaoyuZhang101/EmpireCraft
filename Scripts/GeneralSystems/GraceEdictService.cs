@@ -42,7 +42,9 @@ public static class GraceEdictService
         bool commanderyKingdom = IsCommanderyKingdomActive(empire);
         // 封建制帝国的分割继承(见 HolyRomanSystem.RollPartible)：诸子分城，绝嗣照常继承
         bool partible = !graceEdict && HolyRomanSystem.RollPartible(empire, fief);
-        if (!graceEdict && !commanderyKingdom && !partible) return false;
+        // 附庸王国、亲王封地、行省制汗国的兀鲁思：绝嗣并为行省/辖区(见 PartialEnfeoffment.RevertsOnExtinction)
+        bool partialGrant = PartialEnfeoffment.RevertsOnExtinction(empire, fief);
+        if (!graceEdict && !commanderyKingdom && !partible && !partialGrant) return false;
         Regime regime = fief.GetRegime();
         if (regime == null || regime.GetLeaderSelectMethod() != LeaderSelectMethod.Succession) return false;
 
@@ -56,11 +58,14 @@ public static class GraceEdictService
 
         if (sons.Count == 0)
         {
-            if (!graceEdict && !commanderyKingdom) return false;
+            if (!graceEdict && !commanderyKingdom && !partialGrant) return false;
             string fiefName = fief.GetKingdomName();
-            Reclaim(empire, fief, lastKing.name, announce: graceEdict);
-            if (!graceEdict)
+            Kingdom division = Reclaim(empire, fief, lastKing.name, announce: graceEdict);
+            if (!graceEdict && commanderyKingdom)
                 Record(empire, null, "commandery_kingdom_reclaim_history", lastKing.name, fiefName);
+            else if (!graceEdict)
+                Record(empire, null, "partial_grant_reclaim_history", lastKing.name, fiefName,
+                    division?.GetKingdomFullName() ?? empire.CoreKingdom.GetKingdomName());
             return true;
         }
         // 只有郡国并行、没有推恩令时，有子嗣就照常继承，不拆分
@@ -184,8 +189,10 @@ public static class GraceEdictService
             Actor sibling = Relative(SpecificClanManager.GetSiblingsWithRelation(identity));
             if (sibling != null) return sibling;
         }
+        // 同族远支：地图上没有就从族谱里落成一位(纯净地图下多是虚拟族人，以前找不到就把封国收归郡县)
         return king.GetSpecificClan()?.AllAliveMembers?.Where(IsAvailable)
-            .OrderByDescending(actor => actor.getAge()).FirstOrDefault();
+                   .OrderByDescending(actor => actor.getAge()).FirstOrDefault() ??
+               KinRoster.RealizeAdultKin(king.GetSpecificClan(), realm => realm?.GetEmpire() == empire, IsAvailable);
     }
 
     private static void Record(Empire empire, Kingdom kingdom, string key, params object[] args)
@@ -196,18 +203,19 @@ public static class GraceEdictService
     }
 
     // 绝嗣：城市收归核心王国，再一并设为行政区；有法理的由行政区接管原法理
-    private static void Reclaim(Empire empire, Kingdom fief, string lastKingName, bool announce = true)
+    private static Kingdom Reclaim(Empire empire, Kingdom fief, string lastKingName, bool announce = true)
     {
         KingdomTitle title = fief.GetMainTitle();
         string fiefName = fief.GetKingdomName();
         List<City> cities = (fief.cities ?? new List<City>()).Where(city => city != null && !city.isRekt()).ToList();
         foreach (City city in cities) city.joinAnotherKingdom(empire.CoreKingdom);
         List<City> reclaimed = cities.Where(city => city.kingdom == empire.CoreKingdom).ToList();
-        if (reclaimed.Count > 0) empire.EstablishAdministrativeDivision(reclaimed, title);
-        if (!announce) return;
+        Kingdom division = reclaimed.Count > 0 ? empire.EstablishAdministrativeDivision(reclaimed, title) : null;
+        if (!announce) return division;
 
         string content = string.Format(LM.Get("grace_edict_reclaim_history"), lastKingName, fiefName);
         empire.RecordHistory(directContent: content, kingdomId: empire.CoreKingdom.id);
         EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(content, empire.CoreKingdom);
+        return division;
     }
 }

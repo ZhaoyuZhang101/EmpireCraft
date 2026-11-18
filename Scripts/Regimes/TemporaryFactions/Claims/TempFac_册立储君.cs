@@ -53,7 +53,8 @@ public class TempFac_册立储君 : TemporaryFaction
             regime.GetSuccessionLaw() == SuccessionLawType.强者继承法) return false;
         // 秘密立储：储君由皇帝暗定，朝臣无从议立(见 LateImperialSystem)
         if (LateImperialSystem.SecretSuccession(core)) return false;
-        return EmpireCraftKingdomBehCheckHeir.HeirCandidates(core).Count >= 2;
+        // 连虚拟皇子一起数(纯净地图下皇子多不在地图上)；挑目标时才落成(见 ClaimTargetRules heir_candidates)
+        return EmpireCraftKingdomBehCheckHeir.HeirCandidateCount(core) >= 2;
     }
 
     // 立的是哪一派的皇子：皇子所属派系 +15，被换下的储君所属派系 -12

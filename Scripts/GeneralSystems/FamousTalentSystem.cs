@@ -126,8 +126,22 @@ public static class FamousTalentSystem
     public static Actor ActorOf(TalentRecord record)
     {
         if (record == null || !record.alive || World.world == null) return null;
-        Actor actor = World.world.units.get(record.actor_id);
-        return actor?.data != null && !actor.isRekt() && actor.isAlive() ? actor : null;
+        return Rebind(record, record.rank >= TalentRank.Fine);
+    }
+
+    // 按族谱找回记着的人(见 PersonRef)：已成名的转成了虚拟族人就落成一次(之后名将名臣留在地图上)，改记新编号
+    private static Actor Rebind(TalentRecord record, bool realize)
+    {
+        long actorId = record.actor_id, identityId = record.identity_id;
+        Actor actor = PersonRef.Resolve(ref actorId, ref identityId, realize);
+        record.identity_id = identityId;
+        if (actor != null && actorId != record.actor_id && !ByActor.ContainsKey(actorId))
+        {
+            ByActor.Remove(record.actor_id);
+            record.actor_id = actorId;
+            ByActor[actorId] = record;
+        }
+        return actor;
     }
 
     #endregion
@@ -163,7 +177,7 @@ public static class FamousTalentSystem
     {
         if (!ByActor.TryGetValue(actor.id, out TalentRecord record))
         {
-            record = new TalentRecord { actor_id = actor.id, kind = kind, name = actor.getName() };
+            record = new TalentRecord { actor_id = actor.id, identity_id = actor.GetPersonalIdentity()?.id ?? -1L, kind = kind, name = actor.getName() };
             Records.Add(record);
             ByActor[actor.id] = record;
         }
@@ -330,12 +344,13 @@ public static class FamousTalentSystem
         foreach (TalentRecord record in Records.ToList())
         {
             if (!record.alive) continue;
-            Actor actor = World.world.units.get(record.actor_id);
-            if (actor?.data == null || actor.isRekt() || !actor.isAlive())
+            Actor actor = Rebind(record, record.rank >= TalentRank.Fine);
+            if (actor == null)
             {
-                // 实体没了而不是死了(统领解散回人口、被替换之类)：候选直接清掉，已成名的记成"亡故"
+                // 实体没了：候选直接清掉；已成名的按族谱看——真死了才记"亡故"，人还在世(并回了人口又落成不了)
+                // 这一年先不判(以前人一并回人口就记成亡故，名册上的名将名臣成批"陨落")
                 if (record.rank < TalentRank.Fine) Remove(record);
-                else Fall(record, null, TalentFall.Other);
+                else if (PersonRef.Person(record.actor_id, record.identity_id)?.is_alive != true) Fall(record, null, TalentFall.Other);
                 continue;
             }
             RefreshRealm(record, actor);

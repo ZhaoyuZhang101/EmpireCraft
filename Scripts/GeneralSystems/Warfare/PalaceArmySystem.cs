@@ -166,10 +166,12 @@ public static class PalaceArmySystem
         Kingdom core = empire.CoreKingdom;
         Actor heir = core.HasHeir() ? core.GetHeir() : null;
         if (heir?.data != null && heir != former && heir.isAlive() && !heir.isRekt()) return heir;
-        return empire.EmpireSpecificClan?.AllAliveMembers?
-            .Where(actor => actor?.data != null && actor != former && actor.isAlive() && !actor.isRekt() && actor.isAdult() &&
-                            !actor.isKing() && actor.kingdom?.GetEmpire() == empire)
-            .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        bool Fit(Actor actor) => actor?.data != null && actor != former && actor.isAlive() && !actor.isRekt() && actor.isAdult() &&
+                                 !actor.isKing() && actor.kingdom?.GetEmpire() == empire;
+        // 纯净地图下宗亲多是虚拟族人：地图上没有就从皇族世系里按长幼落成一位成年的
+        // (以前只看地图上的，宗室在世也判"无人可立"，禁军统领就自立易姓)
+        return empire.EmpireSpecificClan?.AllAliveMembers?.Where(Fit).OrderByDescending(actor => actor.renown).FirstOrDefault() ??
+               KinRoster.RealizeAdultKin(empire.EmpireSpecificClan, kingdom => kingdom?.GetEmpire() == empire, Fit);
     }
 
     #endregion

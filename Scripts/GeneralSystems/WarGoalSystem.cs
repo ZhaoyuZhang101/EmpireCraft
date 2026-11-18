@@ -165,7 +165,7 @@ public static class WarGoalSystem
         // 扶立君主：对那国王位有血亲宣称、或对方君主年幼，又找得到人扶立
         else if (goal is WarGoal.迫使附庸 or WarGoal.割地 && strength >= InstallStrength && !defender.IsEmpire() && !WarlordEraSystem.Dependent(defender) &&
                  (RoyalMarriageSystem.HasClaim(attacker, defender) || defender.king?.isAdult() == false) &&
-                 InstallCandidate(defender) != null)
+                 HasInstallCandidate(defender))
             goal = WarGoal.扶立;
         return goal;
     }
@@ -335,14 +335,27 @@ public static class WarGoalSystem
     }
 
     // 扶立：对方宗室里另一位成年人(不是现任君主)，威望最高的
-    internal static Actor InstallCandidate(Kingdom defender)
+    // realize：地图上没有时从对方宗室的虚拟族人里落成一位(真要扶立时)；只看有没有人用 HasInstallCandidate
+    internal static Actor InstallCandidate(Kingdom defender, bool realize = false)
     {
         SpecificClan clan = defender?.king?.GetSpecificClan();
-        return clan?.AllAliveMembers?
-            .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
-                            actor != defender.king && !actor.isKing() && actor.kingdom == defender && actor.isUnitFitToRule())
-            .OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        bool Fit(Actor actor) => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
+                                 actor != defender.king && !actor.isKing() && actor.kingdom == defender && actor.isUnitFitToRule();
+        Actor pick = clan?.AllAliveMembers?.Where(Fit).OrderByDescending(actor => actor.data?.renown ?? 0).FirstOrDefault();
+        return pick ?? (realize ? KinRoster.RealizeFirst(VirtualInstallCandidates(defender, clan), Fit, 2) : null);
     }
+
+    // 对方宗室在本国的成年虚拟族人(纯净地图下宗室多不在地图上；以前只数地图上的，宗室在世也"无人可扶立")，年长的在前
+    private static IEnumerable<PersonalClanIdentity> VirtualInstallCandidates(Kingdom defender, SpecificClan clan) =>
+        clan == null ? Enumerable.Empty<PersonalClanIdentity>()
+            : clan.LivingPeople.Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge &&
+                                                !person.is_concubine && !person.disinherited && KinRoster.KingdomOf(person) == defender)
+                .OrderByDescending(person => person.age).ThenBy(person => person.id);
+
+    // 有没有人可扶立(连虚拟族人一起看，不落成)
+    internal static bool HasInstallCandidate(Kingdom defender) =>
+        InstallCandidate(defender) != null ||
+        VirtualInstallCandidates(defender, defender?.king?.GetSpecificClan()).Any();
 
     // 继承之战兼领不成时退为扶立(见 WarObjective.SettleWin)
     internal static bool TryInstall(Kingdom attacker, Kingdom defender) =>
@@ -356,7 +369,7 @@ public static class WarGoalSystem
 
     private static bool Install(Kingdom attacker, Kingdom defender)
     {
-        Actor candidate = InstallCandidate(defender);
+        Actor candidate = InstallCandidate(defender, realize: true);
         if (candidate == null) return false;
         Actor former = defender.king;
         GraceEdictService.Crown(defender, candidate);

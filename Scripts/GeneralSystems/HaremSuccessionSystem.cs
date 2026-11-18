@@ -35,17 +35,25 @@ public static class HaremSuccessionSystem
                 _ => 0f
             };
             if (chance <= 0f || UnityEngine.Random.value >= chance) return;
-            List<Actor> sons = (emperor.getChildren(false) ?? Enumerable.Empty<Actor>())
-                .Where(child => child?.data != null && !child.isRekt() && child.isAlive() && child.isSexMale() &&
-                                !child.isKing() && child.kingdom?.GetEmpire() == empire).ToList();
+            bool Fit(Actor child) => child?.data != null && !child.isRekt() && child.isAlive() && child.isSexMale() &&
+                                     !child.isKing() && child.kingdom?.GetEmpire() == empire;
+            // 皇子、生母连族谱里的虚拟族人一起算(纯净地图下多不在地图上；以前只数地图上的儿子，几乎永远凑不够两个)；
+            // 上面掷中了才把皇子落成实体
+            List<PersonalClanIdentity> sonPeople = KinRoster.Children(emperor).Where(person => KinRoster.Counts(person,
+                    virtualSon => virtualSon.sex == ActorSex.Male && KinRoster.KingdomOf(virtualSon)?.GetEmpire() == empire, Fit))
+                .ToList();
+            if (sonPeople.Count < 2) return;
+            List<Actor> sons = KinRoster.Realize(sonPeople, Fit);
             if (sons.Count < 2) return;
             Actor heir = core.HasHeir() ? core.GetHeir() : null;
             Actor passedOver = heir != null && sons.Contains(heir) ? heir : sons.OrderByDescending(son => son.getAge()).First();
-            Actor rivalMother = Mother(passedOver);
-            Actor favourite = sons.Where(son => son != passedOver && Mother(son) is Actor mother && mother != rivalMother)
+            long rivalMother = MotherOf(passedOver.GetPersonalIdentity())?.id ?? -1L;
+            Actor favourite = sons.Where(son => son != passedOver && MotherOf(son.GetPersonalIdentity()) is PersonalClanIdentity mother &&
+                                                mother.id != rivalMother)
                 .OrderBy(son => son.getAge()).FirstOrDefault();
-            Actor consort = Mother(favourite);
-            if (favourite == null || consort == null) return;
+            // 得势的妃嫔是虚拟族人的，这时才落成(要写进她的生平)
+            Actor consort = Mother(favourite) ?? MotherOf(favourite?.GetPersonalIdentity())?.Realize();
+            if (favourite == null || consort?.data == null || consort.isRekt() || !consort.isAlive()) return;
             core.GetOrCreate().designated_heir_id = favourite.id;
             core.SetHeir(favourite);
             PrinceStruggleSystem.Note(core, favourite, PrinceStruggleSystem.NoteDeposed);
@@ -68,6 +76,13 @@ public static class HaremSuccessionSystem
 
     private static Actor Mother(Actor child) =>
         child?.getParents()?.FirstOrDefault(parent => parent?.data != null && !parent.isRekt() && parent.isSexFemale());
+
+    // 族谱里的生母(在世的，含虚拟族人)
+    private static PersonalClanIdentity MotherOf(PersonalClanIdentity child)
+    {
+        PersonalClanIdentity mother = child != null && child.mother > 0 ? SpecificClanManager.getPerson(child.mother) : null;
+        return mother != null && mother.is_alive ? mother : null;
+    }
 
     private static void Record(Empire empire, Actor emperor, string text)
     {

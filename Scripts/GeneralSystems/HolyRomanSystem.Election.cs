@@ -423,7 +423,7 @@ public static partial class HolyRomanSystem
     {
         Actor emperor = empire.Emperor;
         if (emperor == null || KingOfRomans(empire) != null) return;
-        bool adultHeirs = EmpireCraftKingdomBehCheckHeir.HeirCandidates(empire.CoreKingdom).Any(actor => actor.isAdult());
+        bool adultHeirs = EmpireCraftKingdomBehCheckHeir.HeirCandidateCount(empire.CoreKingdom, adultOnly: true) > 0;
         if (emperor.getAge() < (adultHeirs ? CampaignAge : CampaignAgeNoHeir)) return;
         List<Actor> electors = SeatedElectors(empire);
         List<Actor> pool = ElectionCandidates(empire);

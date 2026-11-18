@@ -88,14 +88,26 @@ public static class BakufuSystem
     public static Actor Emperor(Empire empire)
     {
         if (empire?.data == null || empire.data.court_clan_id < 0) return null;
-        Actor recorded = empire.data.court_emperor_id > 0 ? World.world.units.get(empire.data.court_emperor_id) : null;
-        if (recorded?.data != null && !recorded.isRekt() && recorded.isAlive()) return recorded;
+        // 记着的天皇按族谱找回(并回人口、落成换了编号的，见 PersonRef；之后作天皇留在地图上)
+        long recordedId = empire.data.court_emperor_id, recordedIdentity = -1L;
+        Actor recorded = recordedId > 0 ? PersonRef.Resolve(ref recordedId, ref recordedIdentity) : null;
+        if (recorded != null)
+        {
+            empire.data.court_emperor_id = recorded.getID();
+            return recorded;
+        }
         SpecificClan court = SpecificClanManager.Get(empire.data.court_clan_id);
         Actor heir = court?.AllAliveMembers?
             .Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.GetPersonalIdentity()?.is_main == true)
             .OrderByDescending(actor => actor.isSexMale())
             .ThenBy(actor => actor.GetPersonalIdentity()?.generation ?? int.MaxValue)
             .ThenByDescending(actor => actor.getAge()).FirstOrDefault();
+        // 天皇家只剩虚拟族人(纯净地图下多是这样，以前就找不到天皇)：照同样的先后落成一位
+        heir ??= KinRoster.RealizeFirst(court?.LivingPeople
+                     .Where(person => KinRoster.Virtual(person) && person.is_main)
+                     .OrderByDescending(person => person.sex == ActorSex.Male).ThenBy(person => person.generation)
+                     .ThenByDescending(person => person.age),
+            actor => actor.isAlive() && !actor.isRekt(), 2);
         if (heir != null) empire.data.court_emperor_id = heir.getID();
         return heir;
     }

@@ -4,6 +4,7 @@ using System.Linq;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.HelperFunc;
 using EmpireCraft.Scripts.Layer;
+using EmpireCraft.Scripts.System;
 using EmpireCraft.Scripts.Regimes;
 using NeoModLoader.General;
 using NeoModLoader.services;
@@ -190,6 +191,7 @@ public static class ExileGovernmentSystem
     private static void Evacuate(Kingdom exile, City leaving, Kingdom host)
     {
         WorldTile at = host?.capital?.getTile();
+        BringRoyalKin(exile, leaving);
         foreach (Actor actor in Entourage(exile))
         {
             try
@@ -197,6 +199,31 @@ public static class ExileGovernmentSystem
                 // 离城不离国：无城之人仍算本国的人(原版 joinCity(null) 不改国家)
                 if (actor.city != null) actor.joinCity(null);
                 if (at != null) actor.setCurrentTilePosition(at);
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][流亡政府] {actor.getName()} 随行失败: {exception.Message}");
+            }
+        }
+    }
+
+    // 元首的子女、兄弟随行：纯净地图下多是虚拟族人，以前留在沦陷的城里(族谱记着那座城)，元首死了由外人接任。
+    // 落在本国或刚丢的那座城的成年近亲落成，编进流亡政府，至多 RoyalKinFollow 人
+    private const int RoyalKinFollow = 4;
+
+    private static void BringRoyalKin(Kingdom exile, City leaving)
+    {
+        PersonalClanIdentity ruler = exile?.king?.GetPersonalIdentity();
+        if (ruler == null) return;
+        var kin = KinRoster.Children(ruler).Concat(KinRoster.Siblings(ruler))
+            .Where(person => KinRoster.Virtual(person) && person.age >= KinRoster.AdultAge && !person.is_concubine &&
+                             (KinRoster.KingdomOf(person) == exile || leaving != null && KinRoster.CityOf(person) == leaving))
+            .OrderBy(person => person.rank).Take(RoyalKinFollow).ToList();
+        foreach (Actor actor in KinRoster.Realize(kin, actor => actor.isAlive() && !actor.isKing()))
+        {
+            try
+            {
+                if (actor.kingdom != exile) actor.setKingdom(exile);
             }
             catch (Exception exception)
             {
@@ -295,11 +322,14 @@ public static class ExileGovernmentSystem
     // 元首死了：随员里的储君、年长的要人接任
     private static bool Succeed(Kingdom exile)
     {
+        SpecificClan royal = SpecificClanManager.getPerson(exile.GetOrCreate().last_ruler_identity_id)?._specificClan;
         Actor heir = exile.GetHeir();
         Actor next = heir != null && heir.isAlive() && heir.kingdom == exile && heir.isAdult() ? heir
             : exile.units.Where(actor => actor?.data != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() &&
                                          actor.asset?.civ == true && !actor.asset.is_boat && actor.kingdom == exile)
-                .OrderByDescending(actor => actor.renown).FirstOrDefault();
+                // 宗室在先(随行的近亲，见 BringRoyalKin)，以前只按声望，元首一死常由外人接任
+                .OrderByDescending(actor => royal != null && SpecificClanManager.SameLineage(actor.GetSpecificClan(), royal))
+                .ThenByDescending(actor => actor.renown).FirstOrDefault();
         if (next == null) return false;
         exile.setKing(next);
         return exile.hasKing();

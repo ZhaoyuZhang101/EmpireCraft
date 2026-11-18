@@ -674,15 +674,22 @@ public static class ClaimTargetRules
         {
             PersonalClanIdentity emperor = c.Empire.Emperor?.GetPersonalIdentity();
             if (emperor != null)
-                pool.AddRange(SpecificClanManager.GetSiblingsWithRelation(emperor)
-                    .Select(item => item.Item2).Where(identity => identity != null).OrderBy(identity => identity.rank)
-                    .Select(identity => (identity._actor, (ClaimTargetOption)null)));
+            {
+                List<PersonalClanIdentity> siblings = KinRoster.Siblings(emperor).OrderBy(identity => identity.rank).ToList();
+                pool.AddRange(siblings.Where(KinRoster.OnMap).Select(identity => (identity._actor, (ClaimTargetOption)null)));
+                // 纯净地图下兄弟多是虚拟族人：挑目标时落成成年的(未成年的规则里也选不上，不落成)
+                pool.AddRange(KinRoster.Realize(siblings.Where(identity => KinRoster.Virtual(identity) && KinRoster.Adult(identity)),
+                        actor => actor.isAlive() && actor.isAdult())
+                    .Select(actor => (actor, (ClaimTargetOption)null)));
+            }
         }
         else
         {
             if (spec.Pool != "heir_candidates" && Reported.Add("pool:" + spec.Pool))
                 LogService.LogWarning($"[EmpireCraft][诉求目标] 不认识的候选来源 {spec.Pool}，按 heir_candidates 算");
-            pool.AddRange(EmpireCraftKingdomBehCheckHeir.HeirCandidates(c.Core).Select(actor => (actor, (ClaimTargetOption)null)));
+            // 虚拟皇子落成后一起列(册立储君的前提连虚拟皇子一起数，见 TempFac_册立储君)
+            pool.AddRange(EmpireCraftKingdomBehCheckHeir.HeirCandidates(c.Core, realize: true)
+                .Select(actor => (actor, (ClaimTargetOption)null)));
         }
         var seen = new HashSet<long>();
         foreach ((Actor actor, ClaimTargetOption source) in pool)

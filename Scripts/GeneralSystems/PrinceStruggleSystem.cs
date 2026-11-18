@@ -65,10 +65,20 @@ public static class PrinceStruggleSystem
             : actor.renown + (CorpsSystem.IsGeneral(actor) ? 60f : 0f) + (actor.GetOwnedTitle()?.Count ?? 0) * 30f +
               Mathf.Min(actor.getAge(), 60) * 0.5f;
 
+    private static bool IsPrince(Actor son, Empire empire) =>
+        son?.data != null && !son.isRekt() && son.isAlive() && son.isSexMale() && son.isAdult() &&
+        !son.isKing() && son.kingdom?.GetEmpire() == empire;
+
+    // 成年皇子连族谱里的虚拟族人一起数(纯净地图下多不在地图上；以前只数地图上的，"两位以上成年皇子"几乎永远不成立，
+    // 废太子、宫门之变从不发生)
+    private static List<PersonalClanIdentity> PrincePeople(Empire empire, Actor emperor) =>
+        KinRoster.Children(emperor).Where(person => KinRoster.Counts(person,
+            son => son.sex == ActorSex.Male && son.age >= KinRoster.AdultAge && KinRoster.KingdomOf(son)?.GetEmpire() == empire,
+            son => IsPrince(son, empire))).ToList();
+
+    // 用到皇子时才落成
     private static List<Actor> Princes(Empire empire, Actor emperor) =>
-        (emperor.getChildren(false) ?? Enumerable.Empty<Actor>())
-        .Where(son => son?.data != null && !son.isRekt() && son.isAlive() && son.isSexMale() && son.isAdult() &&
-                      !son.isKing() && son.kingdom?.GetEmpire() == empire).ToList();
+        KinRoster.Realize(PrincePeople(empire, emperor), son => IsPrince(son, empire));
 
     private static float Mood(Actor emperor) => RulerQualitySystem.Of(emperor) switch
     {
@@ -85,22 +95,29 @@ public static class PrinceStruggleSystem
             !EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKing.NeedSuccession(core)) return;
         // 秘密立储：谁是储君无人知晓，废太子、宫门之变都没了由头(见 LateImperialSystem)
         if (LateImperialSystem.SecretSuccession(core)) return;
-        List<Actor> princes = Princes(empire, emperor);
-        if (princes.Count < 2) return;
+        List<PersonalClanIdentity> people = PrincePeople(empire, emperor);
+        if (people.Count < 2) return;
         Actor heir = core.HasHeir() ? core.GetHeir() : null;
-        if (heir == null || !princes.Contains(heir)) return;
+        long heirIdentity = heir?.GetPersonalIdentity()?.id ?? -1L;
+        if (heir == null || people.All(person => person.id != heirIdentity)) return;
+        float mood = Mood(emperor);
+        // 先掷骰：两样都掷不中就不必把虚拟皇子落成实体(掷法、概率同以前)
+        float coupRoll = UnityEngine.Random.value, deposeRoll = UnityEngine.Random.value;
+        bool coupRolled = emperor.getAge() >= 45 && coupRoll < CoupChance * (mood > 1f ? 2f : 1f);
+        bool deposeRolled = deposeRoll < DeposeChance * mood * (emperor.getAge() >= 50 ? 1.5f : 1f);
+        if (!coupRolled && !deposeRolled) return;
+        List<Actor> princes = Princes(empire, emperor);
+        if (princes.Count < 2 || !princes.Contains(heir)) return;
         Actor rival = princes.Where(prince => prince != heir).OrderByDescending(Strength).First();
         float ratio = Strength(rival) / Mathf.Max(1f, Strength(heir));
-        float mood = Mood(emperor);
         // 兵变夺位(宫门之变)
-        if (emperor.getAge() >= 45 && (CorpsSystem.IsGeneral(rival) || ratio >= 1.5f) &&
-            UnityEngine.Random.value < CoupChance * (mood > 1f ? 2f : 1f))
+        if (coupRolled && (CorpsSystem.IsGeneral(rival) || ratio >= 1.5f))
         {
             GateCoup(empire, core, emperor, heir, rival);
             return;
         }
         // 废太子
-        if (ratio >= 1.3f && UnityEngine.Random.value < DeposeChance * mood * (emperor.getAge() >= 50 ? 1.5f : 1f))
+        if (ratio >= 1.3f && deposeRolled)
         {
             core.GetOrCreate().designated_heir_id = rival.id;
             core.SetHeir(rival);

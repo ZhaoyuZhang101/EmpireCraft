@@ -82,11 +82,23 @@ public static class RoyalMarriageSystem
     private static bool Ruling(Actor actor, Kingdom kingdom) =>
         actor == kingdom.king || kingdom.HasHeir() && kingdom.GetHeir() == actor;
 
+    // 国王在族谱里的虚拟子女(纯净地图下王子公主多不在地图上；以前只配得到国王、储君，王子公主从不外嫁)：
+    // 议婚时按族谱比，定下来才落成
+    private static IEnumerable<PersonalClanIdentity> VirtualRoyals(Kingdom kingdom) =>
+        kingdom?.king?.data == null ? Enumerable.Empty<PersonalClanIdentity>()
+            : KinRoster.Children(kingdom.king).Where(KinRoster.Virtual);
+
+    private static bool Marriageable(PersonalClanIdentity person) =>
+        KinRoster.Virtual(person) && person.age >= MinAge && person.age <= MaxAge && !person.is_concubine &&
+        person.IsFreeToMarry(-2L);
+
     private static void TryArrange(Kingdom kingdom)
     {
         Actor royal = Royals(kingdom).Distinct().FirstOrDefault(actor => Marriageable(actor, kingdom));
-        if (royal == null) return;
-        (Actor partner, Kingdom other) best = (null, null);
+        PersonalClanIdentity royalPerson = royal != null ? royal.GetPersonalIdentity() : VirtualRoyals(kingdom).FirstOrDefault(Marriageable);
+        if (royalPerson == null) return;
+        ActorSex royalSex = royal != null ? royal.data.sex : royalPerson.sex;
+        (Actor partner, PersonalClanIdentity person, Kingdom other) best = (null, null, null);
         float bestScore = float.MinValue;
         foreach (Kingdom other in World.world.kingdoms.list)
         {
@@ -97,27 +109,46 @@ public static class RoyalMarriageSystem
             float realm = (float)Math.Log10(1d + other.GetNationalPower());
             bool? reach = null;
             float contact = -1f;
-            foreach (Actor candidate in Royals(other).Distinct())
+            float Score(float rank)
             {
-                if (!Marriageable(candidate, other) || candidate.data.sex == royal.data.sex ||
-                    KinshipRules.AreCloseKin(royal, candidate)) continue;
-                // 够不着的国家不议婚(见类头)；量远近不便宜，到这里才量、一国只量一次
-                if (reach == null) reach = Reach(kingdom, other, out contact);
-                if (reach == false) break;
-                float score = realm + opinion / 50f + UnityEngine.Random.Range(0f, 1.5f);
-                if (candidate == other.king) score += 3f;
-                else if (other.HasHeir() && other.GetHeir() == candidate) score += 2f;
+                float score = realm + opinion / 50f + UnityEngine.Random.Range(0f, 1.5f) + rank;
                 if (contact >= 0f) score += ConnectivitySystem.Config.marriage_bonus * contact;
                 else if (StraitReach.Near(kingdom, other)) score += 1.5f;
                 if (kingdom.religion != null && kingdom.religion == other.religion) score += 1f;
                 if (CultureService.GetRealmCulture(kingdom) == CultureService.GetRealmCulture(other)) score += 0.5f;
+                return score;
+            }
+            foreach (Actor candidate in Royals(other).Distinct())
+            {
+                if (!Marriageable(candidate, other) || candidate.data.sex == royalSex ||
+                    (royal != null ? KinshipRules.AreCloseKin(royal, candidate)
+                        : KinshipRules.AreCloseKin(royalPerson, candidate.GetPersonalIdentity()))) continue;
+                // 够不着的国家不议婚(见类头)；量远近不便宜，到这里才量、一国只量一次
+                if (reach == null) reach = Reach(kingdom, other, out contact);
+                if (reach == false) break;
+                float score = Score(candidate == other.king ? 3f : other.HasHeir() && other.GetHeir() == candidate ? 2f : 0f);
                 if (score <= bestScore) continue;
                 bestScore = score;
-                best = (candidate, other);
+                best = (candidate, null, other);
+            }
+            if (reach == false) continue;
+            foreach (PersonalClanIdentity candidate in VirtualRoyals(other))
+            {
+                if (!Marriageable(candidate) || candidate.sex == royalSex || KinshipRules.AreCloseKin(royalPerson, candidate)) continue;
+                if (reach == null) reach = Reach(kingdom, other, out contact);
+                if (reach == false) break;
+                float score = Score(0f);
+                if (score <= bestScore) continue;
+                bestScore = score;
+                best = (null, candidate, other);
             }
         }
-        if (best.partner == null) return;
-        Marry(kingdom, royal, best.other, best.partner);
+        if (best.other == null) return;
+        // 定下来了才落成：虚拟的一方落成后照样要成年、可婚，不合格的并回人口
+        royal ??= KinRoster.RealizeFirst(new[] { royalPerson }, actor => Marriageable(actor, kingdom), 1);
+        Actor partner = best.partner ?? KinRoster.RealizeFirst(new[] { best.person }, actor => Marriageable(actor, best.other), 1);
+        if (royal == null || partner == null) return;
+        Marry(kingdom, royal, best.other, partner);
     }
 
     // 议婚够得着(见类头)：contact 为本国派使节过去的强度(还没算为 -1)
@@ -135,9 +166,21 @@ public static class RoyalMarriageSystem
             .FirstOrDefault(actor => actor != null && actor.isSexMale() && Marriageable(actor, other));
         if (groom == null) return null;
         IEnumerable<Actor> clan = home.GetEmpire()?.EmpireSpecificClan?.AllAliveMembers ?? Enumerable.Empty<Actor>();
-        Actor bride = (home.king?.getChildren(false) ?? Enumerable.Empty<Actor>()).Concat(clan).Distinct()
-            .FirstOrDefault(actor => actor != null && actor.isSexFemale() && !Ruling(actor, home) &&
-                                     Marriageable(actor, home) && !KinshipRules.AreCloseKin(actor, groom));
+        bool Fit(Actor actor) => actor != null && actor.isSexFemale() && !Ruling(actor, home) &&
+                                 Marriageable(actor, home) && !KinshipRules.AreCloseKin(actor, groom);
+        Actor bride = (home.king?.getChildren(false) ?? Enumerable.Empty<Actor>()).Concat(clan).Distinct().FirstOrDefault(Fit);
+        // 纯净地图下公主、宗室女多是虚拟族人：先君主的女儿，再宗室女，落成一位(以前地图上没有就和不成亲)
+        if (bride == null)
+        {
+            PersonalClanIdentity groomPerson = groom.GetPersonalIdentity();
+            SpecificClan royalClan = home.GetEmpire()?.EmpireSpecificClan ?? home.king?.GetSpecificClan();
+            IEnumerable<PersonalClanIdentity> daughters = home.king?.data == null ? Enumerable.Empty<PersonalClanIdentity>()
+                : KinRoster.Children(home.king);
+            bride = KinRoster.RealizeFirst(daughters.Concat(KinRoster.Lineage(royalClan))
+                    .Where(person => person.sex == ActorSex.Female && Marriageable(person) &&
+                                     !KinshipRules.AreCloseKin(person, groomPerson))
+                    .GroupBy(person => person.id).Select(group => group.First()), Fit, 2);
+        }
         if (bride == null) return null;
         Marry(home, bride, other, groom, log: false);
         return bride.hasLover() ? bride : null;

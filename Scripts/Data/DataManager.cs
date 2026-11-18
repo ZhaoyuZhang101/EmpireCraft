@@ -70,6 +70,7 @@ public static class DataManager
         InstitutionSystem.ResetWorldState();
         TechnologySystem.ResetWorldState();
         FamousTalentSystem.ResetWorldState();
+        PersonalTieSystem.ResetAvengers();
         CityPopulationSystem.ResetWorldState();
         MapWallSystem.ResetWorldState();
         RoadPaintSystem.ResetWorldState();

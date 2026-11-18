@@ -7899,6 +7899,7 @@
   "institution_huaxia_commandery_kingdom": "郡国并行",
   "institution_huaxia_commandery_kingdom_desc": "郡县与封国并行。天子照旧从直辖之地分封宗室为王国。\n· 封国绝嗣则除国为郡，由朝廷选派官员治理。\n· 郡地不再分封。\n政体仍为分封制。与削藩置县二选一。",
   "commandery_kingdom_reclaim_history": "{0}薨而无嗣，{1}国除，改设为郡。",
+  "partial_grant_reclaim_history": "{0}身后无嗣，{1}除国，并为{2}。",
   "institution_requires_any_separator": "或",
   "feudal_conquest_submit_history": "{0}攻克{1}都城，{1}称臣归附，此前所占{1}法理之地尽数归还。",
   "feudal_conquest_prince_history": "{0}改封皇子{1}为{2}之君，原君{3}迁居王畿。",
