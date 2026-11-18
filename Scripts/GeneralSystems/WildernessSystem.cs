@@ -184,6 +184,8 @@ public static class WildernessSystem
     // 压着长城(城墙格)、不归城的地块：挂法理往外走、连城都到此为止，长城那边的无人区不从这边挂(见 WallZones)
     private static bool[] _walled = new bool[0];
     private static bool _attachPending;
+    // 认领的城没了(见 OriginOf)：下一核重新认领(见 Claim)
+    private static bool _claimPending;
     private static TileZone[] _zones = new TileZone[0];
     private static bool _built;
     private static int _nextId = 1;
@@ -269,14 +271,9 @@ public static class WildernessSystem
         owner != null && Merged.Count > 0 && zone != null && Merged.TryGetValue(zone.id, out (Kingdom from, Kingdom into) merge) &&
         merge.into == owner;
 
-    // 不算碎块合并的归属(见 OwnerOf)；离那国的城太远的不算(见 RefreshReach)
-    private static Kingdom BaseResolve(TileZone zone, out bool byTitle)
-    {
-        Kingdom owner = Candidate(zone, out byTitle);
-        if (owner == null || zone.id < 0 || zone.id >= _far.Length || !_far[zone.id]) return owner;
-        byTitle = false;
-        return null;
-    }
+    // 不算碎块合并的归属(见 OwnerOf)。以前离那国的城太远的不算版图(见 RefreshReach)；
+    // 无人区改成由周围的城分着认领、认领了就算它的地以后(见 Claim)，远近不再管归属，整片分完
+    private static Kingdom BaseResolve(TileZone zone, out bool byTitle) => Candidate(zone, out byTitle);
 
     // 不看远近时这块无人区归谁
     private static Kingdom Candidate(TileZone zone, out bool byTitle)
@@ -664,7 +661,7 @@ public static class WildernessSystem
         _releasePending = false;
         Dirty.Clear();
         _firstDirtyAt = _lastDirtyAt = _nextRefresh = _retryAt = 0f;
-        _regroup = _pending = _attachPending = false;
+        _regroup = _pending = _attachPending = _claimPending = false;
         _builtAt = -1d;
         _titleSignature = 0L;
         Owners.Clear();
@@ -1885,6 +1882,13 @@ public static class WildernessSystem
     // full 核对城市/法理变化；预设剧本即便 full 也保留有效辖境，随机世界照旧重新挂接。
     private static void Attach(bool full)
     {
+        City[] before = (City[])_parents.Clone();
+        AttachCore(full);
+        Claim(before);
+    }
+
+    private static void AttachCore(bool full)
+    {
         // 剧本笔刷可能晚于首次划区加载；先应用明确指定，再走保留旧归属的快速路径。
         WorldMap.WorldMapWilderness.PreparePaint();
         foreach (WildRegion region in _regions)
@@ -1957,6 +1961,132 @@ public static class WildernessSystem
         }
         Connect(titleOf, nearestCity, nearestTitle);
         WorldMap.WorldMapWilderness.MarkBoundaryRepaired();
+    }
+
+    // 认领(用户 2026-11-17 手绘草图"一整块无人区被不同的城市分割认领""城市认领后城市领土就会固定，可以有效防止飞地无人区"，
+    // 问答都按推荐："归属跟认领它的城走""认领后不再变""整片分完")：一片无人区由周围几座城分着认领，城的地 = 自己的有效区 + 贴着它的那一片无人区。
+    //   · 固定：挂法理(AttachCore)重算前各块认领的城记在 before 里，那座城还在、不是笔刷或剧本锚点定的，就照旧归它——后来旁边新建了更近的城也不分走；
+    //   · 连得上：每块认领的地都要经同一座城认领的无人区连到那座城自己的地上(长城不过)，连不上的(城没了、中间被划走)放出来重新认领；
+    //   · 分完：没人认领的从挨着的城和已认领的地一圈圈往里分，每块交给四邻里票最多的那座城(城自己的地和它认领的地都算票)，
+    //     所以每座城认领的都是连成一片、贴着它的地，不会插到别国中间。四邻一座城都碰不到的(没有城的岛)才空着；
+    //   · 永久中立区不认领；神力笔刷、剧本编辑器刷了归属的照刷的；剧本里照史实或明确设了归属的不动(见 ClaimFixed)；
+    //   · 认领的城的法理就是这块地的法理(OriginOf 会把法理跟到认领的城上)。
+    // before 为 null 时(城没了的那一核)不还原，只做连得上与分完
+    private const int ClaimPasses = 512;
+
+    private static bool ClaimSource(City city) =>
+        city?.data != null && !city.isRekt() && city.kingdom != null && !city.kingdom.isRekt() && !city.kingdom.wild &&
+        !AncientWarfareCompatibility.OwnsObject(city);
+
+    // 照指定不动的：神力笔刷、剧本编辑器刷的、剧本明确设的地区归属(FixedTitle)、州府锚点、时代文件写了史实归属的(TitleFor)。
+    // 剧本里别的地块虽然也挂着法理，那是按最近的城挂的，照认领走(以前把剧本里挂了法理的全当史实不动，认领在剧本里等于没生效)
+    private static bool ClaimFixed(int id) =>
+        id < _painted.Length && _painted[id] || WorldMap.WorldMapWilderness.FixedTitle(_zones[id]) != null ||
+        WorldMap.WorldMapWilderness.AnchorCity(_zones[id]) != null ||
+        WorldMap.WorldMapWilderness.OnEarth && WorldMap.WorldMapWilderness.TitleFor(_zones[id]) != null;
+
+    private static void Claim(City[] before)
+    {
+        _claimPending = false;
+        int size = Math.Min(_zones.Length, _regionOf.Length);
+        if (size == 0 || _regions.Count == 0) return;
+        if (_parents.Length < size) Array.Resize(ref _parents, size);
+        if (_titles.Length < size) Array.Resize(ref _titles, size);
+        bool Wild(int id) => id >= 0 && id < size && _regionOf[id] >= 0 && _zones[id] != null && !IsNeutral(id);
+        // 比较的底：挂法理以前各块认领的城(没有就是整理前的)；最后真换了城的才算改了
+        City[] reference = before ?? (City[])_parents.Clone();
+        int changed = 0;
+        // 固定：照挂之前的认领
+        if (before != null)
+            for (int id = 0; id < size && id < before.Length; id++)
+            {
+                City old = before[id];
+                if (!Wild(id) || old == null || old == _parents[id] || !ClaimSource(old) || ClaimFixed(id)) continue;
+                _parents[id] = old;
+                _titles[id] = old.GetTitle();
+                changed++;
+            }
+        // 连得上：从各城自己的地往外，沿同一座城认领的无人区走
+        var reached = new bool[size];
+        var queue = new Queue<int>();
+        for (int id = 0; id < size; id++)
+        {
+            if (!Wild(id) || _zones[id].neighbours_all == null) continue;
+            City owner = _parents[id];
+            if (!ClaimSource(owner)) continue;
+            if (ClaimFixed(id))
+            {
+                reached[id] = true;
+                queue.Enqueue(id);
+                continue;
+            }
+            foreach (TileZone next in _zones[id].neighbours_all)
+                if (next?.city == owner)
+                {
+                    reached[id] = true;
+                    queue.Enqueue(id);
+                    break;
+                }
+        }
+        while (queue.Count > 0)
+        {
+            int id = queue.Dequeue();
+            if (id < _walled.Length && _walled[id]) continue;
+            foreach (TileZone next in _zones[id].neighbours_all)
+            {
+                if (next == null || !Wild(next.id) || reached[next.id] || _parents[next.id] != _parents[id]) continue;
+                reached[next.id] = true;
+                queue.Enqueue(next.id);
+            }
+        }
+        // 连不上的先放出来；分完以后还碰不到城的(没有城的岛、长城那边)照旧跟原来的城，免得同别处来回拉锯
+        var open = new List<int>();
+        var kept = new Dictionary<int, City>();
+        for (int id = 0; id < size; id++)
+        {
+            if (!Wild(id) || reached[id] || ClaimFixed(id)) continue;
+            kept[id] = _parents[id];
+            _parents[id] = null;
+            open.Add(id);
+        }
+        // 分完：一圈圈往里分，每圈同时定，免得先后顺序偏向哪座城
+        var votes = new Dictionary<City, int>();
+        for (int pass = 0; pass < ClaimPasses && open.Count > 0; pass++)
+        {
+            var moves = new List<(int id, City city)>();
+            foreach (int id in open)
+            {
+                votes.Clear();
+                foreach (TileZone next in _zones[id].neighbours_all ?? Array.Empty<TileZone>())
+                {
+                    if (next == null) continue;
+                    City city = next.city;
+                    if (city == null && Wild(next.id) && reached[next.id] && !(next.id < _walled.Length && _walled[next.id]))
+                        city = _parents[next.id];
+                    if (!ClaimSource(city)) continue;
+                    votes[city] = votes.TryGetValue(city, out int n) ? n + 1 : 1;
+                }
+                if (votes.Count == 0) continue;
+                City pick = votes.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.data.id).First().Key;
+                moves.Add((id, pick));
+            }
+            if (moves.Count == 0) break;
+            foreach ((int id, City city) in moves)
+            {
+                if (kept.TryGetValue(id, out City was) && was != city) changed++;
+                _parents[id] = city;
+                _titles[id] = city.GetTitle();
+                reached[id] = true;
+            }
+            open.RemoveAll(id => reached[id]);
+        }
+        foreach (int id in open) _parents[id] = kept[id];
+        changed = 0;
+        for (int id = 0; id < size; id++)
+            if (Wild(id) && _parents[id] != (id < reference.Length ? reference[id] : null)) changed++;
+        if (changed == 0) return;
+        Version++;
+        LogService.LogInfo($"[EmpireCraft][无人区] 认领整理：{changed} 块改了认领的城" + (open.Count > 0 ? $"，{open.Count} 块碰不到城、照旧跟原来的城" : ""));
     }
 
     // 不成飞地(用户 10-30 截图狼居胥山一块块挂在萧汗国名下、插在回纥国土中间："出现这种飞地也很不合理")：剧本锚点、史实归属挂的法理，
@@ -2247,6 +2377,8 @@ public static class WildernessSystem
         }
         if (title == null) return parent;
         if (parent != null && parent.GetTitle() == title) return parent;
+        // 原来认领的城没了：下一核从挨着的城和已认领的地重新分(见 Claim)，免得按直线挑的城隔着别国成飞地；这之前先照旧找替身
+        if (zone.id < _parents.Length && _parents[zone.id] is City gone && (gone.data == null || gone.isRekt())) _claimPending = true;
         // 法理里的城隔着长城分在两个行政区时，跟长城这一侧的城(见 WorldMap.FrontierWalls)
         City replacement = NearestCity(title.getCities().Where(city => !WorldMap.FrontierWalls.Behind(city, zone)), zone) ??
                            NearestCity(title.getCities(), zone);
@@ -2568,6 +2700,11 @@ public static class WildernessSystem
             changed = true;
         }
         _attachPending = false;
+        if (_claimPending)
+        {
+            using (FrameProfiler.Measure("无人区·认领")) Claim(null);
+            changed = true;
+        }
         if (RefreshOwners()) changed = true;
         if (changed) Version++;
     }
@@ -2600,8 +2737,6 @@ public static class WildernessSystem
         }
         using (FrameProfiler.Measure("无人区·周边归属"))
             if (RefreshSurround()) changed = true;
-        using (FrameProfiler.Measure("无人区·版图远近"))
-            if (RefreshReach()) changed = true;
         float now = Time.realtimeSinceStartup;
         if (changed || Builds != _fragmentBuilds || now >= _fragmentAt)
         {
