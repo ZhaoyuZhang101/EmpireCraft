@@ -271,9 +271,14 @@ public static class WildernessSystem
         owner != null && Merged.Count > 0 && zone != null && Merged.TryGetValue(zone.id, out (Kingdom from, Kingdom into) merge) &&
         merge.into == owner;
 
-    // 不算碎块合并的归属(见 OwnerOf)。以前离那国的城太远的不算版图(见 RefreshReach)；
-    // 无人区改成由周围的城分着认领、认领了就算它的地以后(见 Claim)，远近不再管归属，整片分完
-    private static Kingdom BaseResolve(TileZone zone, out bool byTitle) => Candidate(zone, out byTitle);
+    // 不算碎块合并的归属(见 OwnerOf)；认领时超出远近、碰不到城的不归任何国(见 Claim 记的 _far)
+    private static Kingdom BaseResolve(TileZone zone, out bool byTitle)
+    {
+        Kingdom owner = Candidate(zone, out byTitle);
+        if (owner == null || zone.id < 0 || zone.id >= _far.Length || !_far[zone.id]) return owner;
+        byTitle = false;
+        return null;
+    }
 
     // 不看远近时这块无人区归谁
     private static Kingdom Candidate(TileZone zone, out bool byTitle)
@@ -1985,17 +1990,40 @@ public static class WildernessSystem
         WorldMap.WorldMapWilderness.AnchorCity(_zones[id]) != null ||
         WorldMap.WorldMapWilderness.OnEarth && WorldMap.WorldMapWilderness.TitleFor(_zones[id]) != null;
 
+    // 认领按时代限远近(用户 2026-11-18 看到"一张图上只放一个部落时，四周相连的无人区会全归它"问怎么解决，问答选"按时代限远近")：
+    // 从城自己的地往外走，按地形算路程(TerrainResistance.TerrainStep：平原 1、森林 1.3、丘陵 1.6、沙漠雪地 2、沼泽丛林 2.5、山地高原 4)，
+    // 超过这国眼下时代能到的(ReachOf：石器 6，之后每个时代多 3)就不领，先空着、不归任何国(记在 _far，OwnerOf 只看它)。
+    // 认领是一圈圈往外走的，限了远近照样连成一片、贴着城；时代进步、旁边建了新城，隔 ClaimSeconds 秒那一核接着往外领。
+    // 世界地图预设剧本照史实不限(FixedLayout，同以前的版图远近)
+    private const float ClaimSeconds = 30f;
+    private static float _claimAt;
+    private static bool _anyFar;
+
+    private static float ClaimStep(TileZone zone) => Mathf.Max(1f, TerrainResistance.TerrainStep(zone));
+
     private static void Claim(City[] before)
     {
         _claimPending = false;
+        _claimAt = Time.realtimeSinceStartup + ClaimSeconds;
         int size = Math.Min(_zones.Length, _regionOf.Length);
         if (size == 0 || _regions.Count == 0) return;
         if (_parents.Length < size) Array.Resize(ref _parents, size);
         if (_titles.Length < size) Array.Resize(ref _titles, size);
+        if (_far.Length < size) Array.Resize(ref _far, size);
         bool Wild(int id) => id >= 0 && id < size && _regionOf[id] >= 0 && _zones[id] != null && !IsNeutral(id);
-        // 比较的底：挂法理以前各块认领的城(没有就是整理前的)；最后真换了城的才算改了
+        bool Walled(int id) => id < _walled.Length && _walled[id];
+        bool unlimited = WorldMap.WorldMapWilderness.FixedLayout;
+        var reachOf = new Dictionary<Kingdom, float>();
+        float Limit(City city)
+        {
+            if (unlimited) return float.PositiveInfinity;
+            Kingdom kingdom = city.kingdom;
+            if (!reachOf.TryGetValue(kingdom, out float reach)) reachOf[kingdom] = reach = ReachOf(kingdom);
+            return reach;
+        }
+        // 比较的底：挂法理以前各块认领的城(没有就是整理前的)；最后真换了城、远近变了的才算改了
         City[] reference = before ?? (City[])_parents.Clone();
-        int changed = 0;
+        bool[] farBefore = (bool[])_far.Clone();
         // 固定：照挂之前的认领
         if (before != null)
             for (int id = 0; id < size && id < before.Length; id++)
@@ -2004,10 +2032,10 @@ public static class WildernessSystem
                 if (!Wild(id) || old == null || old == _parents[id] || !ClaimSource(old) || ClaimFixed(id)) continue;
                 _parents[id] = old;
                 _titles[id] = old.GetTitle();
-                changed++;
             }
-        // 连得上：从各城自己的地往外，沿同一座城认领的无人区走
-        var reached = new bool[size];
+        // 连得上、走得到：从各城自己的地往外，沿同一座城认领的无人区按地形累计路程
+        var cost = new float[size];
+        for (int id = 0; id < size; id++) cost[id] = float.PositiveInfinity;
         var queue = new Queue<int>();
         for (int id = 0; id < size; id++)
         {
@@ -2016,14 +2044,14 @@ public static class WildernessSystem
             if (!ClaimSource(owner)) continue;
             if (ClaimFixed(id))
             {
-                reached[id] = true;
+                cost[id] = 0f;
                 queue.Enqueue(id);
                 continue;
             }
             foreach (TileZone next in _zones[id].neighbours_all)
                 if (next?.city == owner)
                 {
-                    reached[id] = true;
+                    cost[id] = ClaimStep(_zones[id]);
                     queue.Enqueue(id);
                     break;
                 }
@@ -2031,62 +2059,92 @@ public static class WildernessSystem
         while (queue.Count > 0)
         {
             int id = queue.Dequeue();
-            if (id < _walled.Length && _walled[id]) continue;
+            if (Walled(id)) continue;
             foreach (TileZone next in _zones[id].neighbours_all)
             {
-                if (next == null || !Wild(next.id) || reached[next.id] || _parents[next.id] != _parents[id]) continue;
-                reached[next.id] = true;
+                if (next == null || !Wild(next.id) || _parents[next.id] != _parents[id] || ClaimFixed(next.id)) continue;
+                float through = cost[id] + ClaimStep(next);
+                if (through >= cost[next.id]) continue;
+                cost[next.id] = through;
                 queue.Enqueue(next.id);
             }
         }
-        // 连不上的先放出来；分完以后还碰不到城的(没有城的岛、长城那边)照旧跟原来的城，免得同别处来回拉锯
+        // 连不上的、超出远近的放出来重新分；分完以后还领不到的不归任何国(_far)，挂接照旧跟原来的城(只管法理与显示，免得同别处来回拉锯)
         var open = new List<int>();
         var kept = new Dictionary<int, City>();
+        var claimed = new bool[size];
         for (int id = 0; id < size; id++)
         {
-            if (!Wild(id) || reached[id] || ClaimFixed(id)) continue;
-            kept[id] = _parents[id];
+            if (!Wild(id)) continue;
+            if (ClaimFixed(id))
+            {
+                claimed[id] = true;
+                continue;
+            }
+            City owner = _parents[id];
+            if (ClaimSource(owner) && cost[id] <= Limit(owner))
+            {
+                claimed[id] = true;
+                continue;
+            }
+            kept[id] = owner;
             _parents[id] = null;
             open.Add(id);
         }
-        // 分完：一圈圈往里分，每圈同时定，免得先后顺序偏向哪座城
+        // 分完(远近以内)：一圈圈往里分，每圈同时定，免得先后顺序偏向哪座城；每块交给四邻里票最多、走得到的那座城
         var votes = new Dictionary<City, int>();
+        var best = new Dictionary<City, float>();
         for (int pass = 0; pass < ClaimPasses && open.Count > 0; pass++)
         {
-            var moves = new List<(int id, City city)>();
+            var moves = new List<(int id, City city, float cost)>();
             foreach (int id in open)
             {
                 votes.Clear();
+                best.Clear();
+                float step = ClaimStep(_zones[id]);
                 foreach (TileZone next in _zones[id].neighbours_all ?? Array.Empty<TileZone>())
                 {
                     if (next == null) continue;
                     City city = next.city;
-                    if (city == null && Wild(next.id) && reached[next.id] && !(next.id < _walled.Length && _walled[next.id]))
+                    float from = 0f;
+                    if (city == null && Wild(next.id) && claimed[next.id] && !Walled(next.id))
+                    {
                         city = _parents[next.id];
+                        from = cost[next.id];
+                    }
                     if (!ClaimSource(city)) continue;
+                    float through = from + step;
+                    if (through > Limit(city)) continue;
                     votes[city] = votes.TryGetValue(city, out int n) ? n + 1 : 1;
+                    if (!best.TryGetValue(city, out float low) || through < low) best[city] = through;
                 }
                 if (votes.Count == 0) continue;
                 City pick = votes.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.data.id).First().Key;
-                moves.Add((id, pick));
+                moves.Add((id, pick, best[pick]));
             }
             if (moves.Count == 0) break;
-            foreach ((int id, City city) in moves)
+            foreach ((int id, City city, float through) in moves)
             {
-                if (kept.TryGetValue(id, out City was) && was != city) changed++;
                 _parents[id] = city;
                 _titles[id] = city.GetTitle();
-                reached[id] = true;
+                cost[id] = through;
+                claimed[id] = true;
             }
-            open.RemoveAll(id => reached[id]);
+            open.RemoveAll(id => claimed[id]);
         }
         foreach (int id in open) _parents[id] = kept[id];
-        changed = 0;
+        _anyFar = open.Count > 0;
+        for (int id = 0; id < size; id++) _far[id] = Wild(id) && !claimed[id];
+        int changed = 0, farChanged = 0;
         for (int id = 0; id < size; id++)
-            if (Wild(id) && _parents[id] != (id < reference.Length ? reference[id] : null)) changed++;
-        if (changed == 0) return;
+        {
+            if (!Wild(id)) continue;
+            if (_parents[id] != (id < reference.Length ? reference[id] : null)) changed++;
+            if (_far[id] != (id < farBefore.Length && farBefore[id])) farChanged++;
+        }
+        if (changed == 0 && farChanged == 0) return;
         Version++;
-        LogService.LogInfo($"[EmpireCraft][无人区] 认领整理：{changed} 块改了认领的城" + (open.Count > 0 ? $"，{open.Count} 块碰不到城、照旧跟原来的城" : ""));
+        LogService.LogInfo($"[EmpireCraft][无人区] 认领整理：{changed} 块改了认领的城" + (open.Count > 0 ? $"，{open.Count} 块太远或碰不到城、不归任何国" : ""));
     }
 
     // 不成飞地(用户 10-30 截图狼居胥山一块块挂在萧汗国名下、插在回纥国土中间："出现这种飞地也很不合理")：剧本锚点、史实归属挂的法理，
@@ -2700,7 +2758,8 @@ public static class WildernessSystem
             changed = true;
         }
         _attachPending = false;
-        if (_claimPending)
+        // 认领：城没了当场重领；还有领不到的地时隔一阵再核(时代进步走得更远、旁边建了新城)
+        if (_claimPending || _anyFar && Time.realtimeSinceStartup >= _claimAt)
         {
             using (FrameProfiler.Measure("无人区·认领")) Claim(null);
             changed = true;
