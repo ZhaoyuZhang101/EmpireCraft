@@ -43,7 +43,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 public static class RoyalHouseSystem
 {
     private const float BirthIntervalYears = 1.5f;
-    private const int MaxChildren = 14, InfertilePercent = 12;
+    // 不育按人定：以前一成二，君主不育则后宫也无出，每八位君主就有一位注定绝嗣(群友 2026-11-22 "目前有君主绝嗣的问题")
+    private const int MaxChildren = 14, InfertilePercent = 4;
     private const float MishapBase = 0.006f, MishapCampaign = 0.03f, MishapTour = 0.01f, MishapVice = 0.015f;
     private const int DeathsPerFrame = 30;
 
@@ -105,6 +106,9 @@ public static class RoyalHouseSystem
     {
         int age = actor.getAge();
         if (age >= 15) return 0f;
+        // 已经即位、立了储的不再掷(同一份反馈"君主超低龄化")：虚拟皇嗣出生时已按幼儿夭折掷过一次(见 ChildDeathChance)，
+        // 落成即位后每年再掷，幼主接连早夭、一朝连换几个娃娃皇帝，换到宗室无人
+        if (IsRoyal(actor)) return 0f;
         // 父母按族谱认(落成的皇嗣与转成虚拟族人的父母，原版亲子关系接不上)
         PersonalClanIdentity self = actor.GetPersonalIdentity();
         bool royal = IsRoyal(actor) || (actor.getParents()?.Any(IsRoyal) ?? false) ||
@@ -143,7 +147,7 @@ public static class RoyalHouseSystem
     private const float RoyalBirthChance = 0.25f, ChildhoodDeath = 0.34f;
     // 后宫每位妃嫔每年添丁的机会；有后宫的君主在世子女上限
     private const float HaremBirthChance = 0.2f;
-    private const int HaremMaxChildren = 40;
+    private const int HaremMaxChildren = 40, HeirlessAge = 30;
 
     private static void RoyalFamily(Kingdom kingdom)
     {
@@ -174,7 +178,9 @@ public static class RoyalHouseSystem
         if (age < RoyalMarryAge || lover != null && lover.getAge() < RoyalMarryAge) return;
         bool queen = royal.data.sex == ActorSex.Female;
         if (queen ? age > RoyalBirthAgeMax : lover != null ? lover.getAge() > RoyalBirthAgeMax : age > RoyalFatherAgeMax) return;
-        if (!CanBirth(royal) || lover != null && !CanBirth(lover) || UnityEngine.Random.value >= RoyalBirthChance) return;
+        // 无子求嗣：三十岁以上还没有在世的子女，添丁的机会加倍
+        float chance = age >= HeirlessAge && LivingChildren(royal) == 0 ? RoyalBirthChance * 2f : RoyalBirthChance;
+        if (!CanBirth(royal) || lover != null && !CanBirth(lover) || UnityEngine.Random.value >= chance) return;
         // 这一胎算数(一年半内不再添丁)；夭折的不入谱
         NoteBirth(royal, lover);
         if (UnityEngine.Random.value < ChildDeathChance(royal)) return;

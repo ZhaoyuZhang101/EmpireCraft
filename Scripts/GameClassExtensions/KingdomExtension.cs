@@ -414,6 +414,16 @@ public static class KingdomExtension
         public int war_gain_peak;
         public int war_stall_months;
         public List<long> expedition_wars;
+        // 出师先集结(见 WarMuster)：朝议定下要打的国、哪天定的、仗的名目与目标(开战时照此定)、集结的兵不够看已扩大范围
+        public long muster_target_id = -1L;
+        public double muster_since = -1d;
+        public int muster_war_type = -1;
+        public int muster_goal = -1;
+        public bool muster_goal_locked;
+        public bool muster_announce;
+        public bool muster_wide;
+        // 察觉邻国大军集结、预先设防的时间(见 CityPopulationSystem.Alert、FrontSystem.Forewarned)
+        public double forewarned_at = -1d;
         // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
         public long war_commander_id = -1L;
         public string war_commander_title = "";

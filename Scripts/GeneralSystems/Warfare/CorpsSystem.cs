@@ -133,6 +133,8 @@ public static class CorpsSystem
         MarchBlocked.Clear();
         PathFailures.Clear();
         EmbarkRetry.Clear();
+        GrantRatio.Clear();
+        MemberGaps.Clear();
         RoadNetwork.ResetWorldState();
         PureMapMode.ResetWorldState();
         CorpsArmSystem.ResetWorldState();
@@ -391,6 +393,8 @@ public static class CorpsSystem
             Compatibility.AncientWarfareCompatibility.OwnsObject(kingdom)) return;
         span = Math.Max(1, span);
         // 各步分开计时(性能诊断日志"军团·月度征召"每帧近 10 毫秒、分配 6 MB，看是哪一步)
+        // 朝议定策的仗：集结好了才宣战(见 WarMuster)
+        using (FrameProfiler.Measure("征召·集结")) WarMuster.MonthTick(kingdom);
         using (FrameProfiler.Measure("征召·动员范围")) WarScopeSystem.MonthTick(kingdom);
         using (FrameProfiler.Measure("征召·统帅")) WarCommandSystem.MonthTick(kingdom);
         List<CorpsData> list = kingdom.GetOrCreate().corps;
@@ -671,7 +675,8 @@ public static class CorpsSystem
 
     private static float WarLevyShare(Kingdom kingdom, float peace)
     {
-        int months = 0;
+        // 集结的那几个月也算(见 WarMuster)：定了策就开始征，集结完兵也差不多征齐了
+        int months = WarMuster.Months(kingdom);
         foreach (Kingdom side in new[] { kingdom, FrontSystem.Realm(kingdom) })
         {
             if (side?.data == null || side.isRekt()) continue;
@@ -684,7 +689,33 @@ public static class CorpsSystem
     // 起义军的正规军只征兵源的一半：仓促成军，一大半人编在义军里(见 RaiseMilitia)
     private const float InsurgentLevy = 0.5f;
 
-    private static float BudgetFactor(Kingdom kingdom, bool war, float wanted)
+    // 中央养兵也算进兵额(玩家反馈 2026-11-22 "体量差这么多兵力却拉不开"：人口 230 万的帝国 303 支军才 10.7 万兵)：
+    // 听调遣的成员国(行省、藩镇)军饷本来就由中央先付、不够中央兜底(见 PayUpkeep)，兵额却只按它自己那点留成算，
+    // 税都上缴了，各省平时的兵额缩到每个军团一个人，中央再富也养不出兵。现在成员国养不起的那部分报给中央，
+    // 中央自己养兵之外的余额按各省缺口摊下去(够就补齐，不够按比例)，晚一个月生效；还没算过的当补得齐，免得读档那个月先裁一轮
+    private static readonly Dictionary<long, float> GrantRatio = new();
+    private static readonly Dictionary<long, double> MemberGaps = new();
+    // 兵不过民：一国的兵额不超过人口(连已在军中的)按军制全征的数。战时满编只增不减是怕边征边缩，可丢了大半国土、
+    // 人口只剩零头的残国照旧按全盛时的满编补员(同一份反馈：30 万人口的国养着 11.8 万兵)。超出 OverCeilingSlack 的，
+    // 各军满编按比例收回来，多出来的兵每月放归 OverCeilingShare(平时照旧按 DemobilizeShare)
+    private const float OverCeilingSlack = 1.1f, OverCeilingShare = 0.05f;
+    // 军团数跟着兵额走：兵源超过各军镇军团数 × 每军团人数的，在都城添军团(至多 MaxSeatLegions 个)。以前军团数按户数封顶
+    // (中央 40 个)、每军团至多一万人，四百万人口的大国和一百万的一样到顶
+    private const int MaxSeatLegions = 96;
+    // 不成军：军府算下来不足这么多人的不单独成军，兵额并进都城那支(群友"把最低军团人数限制在 1000")；
+    // 以前养不起时各军府缩成 5/5、8/22 这种空架子，军团页几百行
+    private const float MinCorpsMen = 1000f;
+
+    private static Kingdom ObeyedCore(Kingdom kingdom)
+    {
+        Layer.Empire empire = kingdom.GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        return core != null && core != kingdom && !core.isRekt() && TreasurySystem.Enabled(core) &&
+               GamePatches.EmpirePeacePatch.Obeys(empire, kingdom) ? core : null;
+    }
+
+    // report：把缺口报给中央、中央结算一次余额(每国每月只报一次，试算时不报)
+    private static float BudgetFactor(Kingdom kingdom, bool war, float wanted, bool report = true)
     {
         if (wanted < 1f) return 1f;
         if (Insurgent(kingdom)) return InsurgentLevy;
@@ -694,8 +725,26 @@ public static class CorpsSystem
         float share = !war ? PeaceBudgetShare : WarGoalSystem.FightingForSurvival(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
         double budget = StateDebtSystem.AnnualStableIncome(kingdom) * (double)share +
                         Math.Max(0L, kingdom.GetTreasuryBalance()) / (double)ReserveYears;
-        float perSoldier = (war ? WarCostPerSoldier : PeaceCostPerSoldier) * AverageUpkeep(kingdom);
-        return Mathf.Clamp01((float)(budget / Math.Max(0.01f, perSoldier)) / wanted);
+        float perSoldier = Math.Max(0.01f, (war ? WarCostPerSoldier : PeaceCostPerSoldier) * AverageUpkeep(kingdom));
+        double need = wanted * (double)perSoldier;
+        Kingdom core = ObeyedCore(kingdom);
+        if (core != null)
+        {
+            double gap = Math.Max(0d, need - budget);
+            if (report)
+            {
+                MemberGaps.TryGetValue(core.id, out double gaps);
+                MemberGaps[core.id] = gaps + gap;
+            }
+            budget += gap * (GrantRatio.TryGetValue(core.id, out float ratio) ? ratio : 1f);
+        }
+        else if (report && kingdom.GetEmpire()?.CoreKingdom == kingdom)
+        {
+            MemberGaps.TryGetValue(kingdom.id, out double gaps);
+            GrantRatio[kingdom.id] = gaps <= 0d ? 1f : Mathf.Clamp01((float)(Math.Max(0d, budget - need) / gaps));
+            MemberGaps[kingdom.id] = 0d;
+        }
+        return Mathf.Clamp01((float)(budget / need));
     }
 
     // 养不起兵时留着不裁的军镇(见 GarrisonCutRules)：京畿(本势力的都城、陪都)、边境(邻城里有本势力以外的国，
@@ -800,7 +849,20 @@ public static class CorpsSystem
             background += CityPopulationSystem.LevyBackground(city) + BannerSystem.ExtraLevy(city);
         // 武备废弛：兵籍虚冒、军户逃亡，兵源打折(见 MaladySystem.LevyFactor)
         float levyShare = war ? WarLevyShare(kingdom, peace) : peace;
-        float pool = background * doctrine.LevyShare * levyShare * MaladySystem.LevyFactor(kingdom);
+        float malady = MaladySystem.LevyFactor(kingdom);
+        float pool = background * doctrine.LevyShare * levyShare * malady;
+        // 军团数跟着兵额走(见 MaxSeatLegions)：按养得起的兵源试算，军团不够装的在都城添
+        City seat = kingdom.capital;
+        if (seat != null && posts.TryGetValue(seat, out int seatSlots) && pool > totalSlots * CityPopulationSystem.PeoplePerLegion)
+        {
+            float affordable = pool * BudgetFactor(kingdom, war, pool, report: false);
+            int extra = Mathf.Min(Mathf.CeilToInt(affordable / CityPopulationSystem.PeoplePerLegion) - totalSlots, MaxSeatLegions - seatSlots);
+            if (extra > 0)
+            {
+                posts[seat] = seatSlots + extra;
+                totalSlots += extra;
+            }
+        }
         float legionSize = Mathf.Clamp(pool / Mathf.Max(1, totalSlots), 1f, CityPopulationSystem.PeoplePerLegion);
         // 量入为出：按人口该有的兵额超出养得起的，每个军团按比例缩编
         float budget = BudgetFactor(kingdom, war, totalSlots * legionSize);
@@ -835,8 +897,10 @@ public static class CorpsSystem
         // 下面只对各军镇自己的正规军补员、退伍、新编，不动先遣军，也不改驻地，归好的不会变
         var byHome = new Dictionary<long, List<CorpsData>>();
         var awayByParent = new Dictionary<long, float>();
+        float levied = 0f, heldFull = 0f;
         foreach (CorpsData corps in list)
         {
+            if (!corps.militia && corps.order_id < 0) levied += Mathf.Max(0f, corps.strength);
             if (corps.parent_id >= 0)
             {
                 awayByParent.TryGetValue(corps.parent_id, out float away);
@@ -844,10 +908,28 @@ public static class CorpsSystem
                 continue;
             }
             if (corps.militia || corps.order_id >= 0 || corps.manual) continue;
+            heldFull += Mathf.Max(0f, corps.full);
             if (!byHome.TryGetValue(corps.home_city_id, out List<CorpsData> group))
                 byHome[corps.home_city_id] = group = new List<CorpsData>();
             group.Add(corps);
         }
+        // 兵不过民(见 OverCeilingSlack)：起义军裹挟成军、外藩自备鞍马的不限
+        float ceiling = (background + levied) * doctrine.LevyShare * malady;
+        float overScale = war && heldFull > ceiling * OverCeilingSlack && !Insurgent(kingdom) && !BannerSystem.SelfSupplied(kingdom)
+            ? ceiling / heldFull : 1f;
+        bool over = overScale < 1f;
+        // 不成军的小军府并进都城(见 MinCorpsMen)；战时已经成了军的照旧，仗打完再并
+        float seatExtra = 0f;
+        if (seat != null && posts.TryGetValue(seat, out int seatLegions) && seatLegions > 0)
+            foreach (City city in posts.Keys.ToList())
+            {
+                int legions = posts[city];
+                if (city == seat || legions <= 0 || war && byHome.ContainsKey(city.id)) continue;
+                float men = legions * Mathf.Max(1f, fullSize * (limited ? kept.Contains(city) ? keepFactor : inlandFactor : 1f));
+                if (men >= MinCorpsMen) continue;
+                seatExtra += men;
+                posts[city] = 0;
+            }
         foreach (City city in cities)
         {
             if (!posts.TryGetValue(city, out int legions)) continue;
@@ -855,7 +937,7 @@ public static class CorpsSystem
             var here = byHome.TryGetValue(city.id, out List<CorpsData> stationed) ? stationed : new List<CorpsData>();
             // 这座军镇每个军团编多少人：留着的军镇、内地各按各的成数(养得起时都是足额)
             float factor = limited ? kept.Contains(city) ? keepFactor : inlandFactor : 1f;
-            legionSize = Mathf.Max(1f, fullSize * factor);
+            legionSize = Mathf.Max(1f, fullSize * factor) + (city == seat && legions > 0 ? seatExtra / legions : 0f);
             // 这座军镇的兵额缩了没有(配足了的军镇战时照旧只增不减)
             bool cut = factor < 0.999f;
             // 每支军分到的旧制军团数
@@ -873,8 +955,8 @@ public static class CorpsSystem
                 CorpsData corps = here[i];
                 corps.legions = Mathf.Max(share, war ? corps.legions : 0);
                 float full = corps.legions * legionSize;
-                // 战时满编只增不减，除非养不起了
-                if (war && !cut) corps.full = Mathf.Max(corps.full, full);
+                // 战时满编只增不减，除非养不起了；兵额超出人口养得出的，旧满编按比例收回来
+                if (war && !cut) corps.full = Mathf.Max(corps.full * overScale, full);
                 else corps.full = full;
                 if (corps.full <= 0f)
                 {
@@ -889,11 +971,13 @@ public static class CorpsSystem
                         corps.full - away - corps.strength));
                 // 裁撤按现有兵力的成数：以前按满编的成数，养不起时满编缩到几百，几千欠饷的兵每月只裁几十，
                 // 明的各布政使司开局编了五六千兵，军费系数掉到 0.01 后好几年还养着
-                else if ((!war || cut) && corps.strength + away > corps.full)
+                else if ((!war || cut || over) && corps.strength + away > corps.full)
                     Demobilize(kingdom, corps, Mathf.Min(corps.strength + away - corps.full,
-                        Mathf.Max(corps.full, corps.strength) * Mathf.Min(1f, DemobilizeShare * _span) + 1f));
+                        Mathf.Max(corps.full, corps.strength) * Mathf.Min(1f, (war && !cut ? OverCeilingShare : DemobilizeShare) * _span) + 1f));
             }
         }
+        if (war)
+            foreach (List<CorpsData> group in byHome.Values) MergeRemnants(kingdom, group, awayByParent);
         // 手动组建的军：只补员，不随兵额增减
         if (!unpaid)
             foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
@@ -1164,16 +1248,17 @@ public static class CorpsSystem
 
     private static void Reinforce(Kingdom kingdom, CorpsData corps, float amount, City only = null)
     {
-        float need = Mathf.Min(amount, Deficit(kingdom, corps));
-        if (need < 1f) return;
+        // 缺额够一个人就至少补一个：以前按满编的成数算不到一人就不补，满编十几二十人的小军永远补不上(8/22 一挂好多年)
+        float deficit = Deficit(kingdom, corps);
+        if (deficit < 1f || amount <= 0f) return;
+        float need = Mathf.Min(Mathf.Max(1f, amount), deficit);
         float taken = 0f;
         TileZone at = Zone(corps);
         List<City> nearby = only != null || at == null ? new List<City>() : NearestCities(kingdom, at, NearbySources);
         if (nearby.Count > 0)
         {
             float distance = ZoneDistance(nearby[0].getTile().zone, at);
-            need *= ReinforceDistanceHalf / (ReinforceDistanceHalf + distance);
-            if (need < 1f) return;
+            need = Mathf.Max(1f, need * ReinforceDistanceHalf / (ReinforceDistanceHalf + distance));
         }
         bool near = only == null && WarScopeSystem.InScope(Home(corps) ?? World.world.cities.get(corps.home_city_id));
         // 只收受过训的合格军人(见 FormationSystem、NaturalizationSystem)；花钱募来的登记后入伍，不走这道
@@ -1301,6 +1386,31 @@ public static class CorpsSystem
         PathFailures.Remove(part.id);
         EmbarkRetry.Remove(part.id);
         Of(kingdom).Remove(part);
+    }
+
+    // 残军合并(群友 2026-11-22 "要是能合并军团就好了")：同一军镇的两支军都在待命、站在同一块地上，合起来还装得进
+    // 其中一支的满编，就并成一支(留兵多的那支的番号)。战时才并——平时多出来的军本来就解散。
+    // 分着渡海先遣军的不并(先遣军要并回原军)
+    private static void MergeRemnants(Kingdom kingdom, List<CorpsData> group, Dictionary<long, float> awayByParent)
+    {
+        if (group == null || group.Count < 2) return;
+        List<CorpsData> idle = group.Where(corps => corps.task == "reserve" && !corps.embarked && corps.strength >= 1f &&
+                                                    !awayByParent.ContainsKey(corps.id))
+            .OrderByDescending(corps => corps.strength).ToList();
+        for (int i = 0; i < idle.Count; i++)
+        {
+            CorpsData keep = idle[i];
+            for (int j = idle.Count - 1; j > i; j--)
+            {
+                CorpsData small = idle[j];
+                if (small.zone_id != keep.zone_id || keep.strength + small.strength > Mathf.Max(keep.full, small.full)) continue;
+                keep.full = Mathf.Max(keep.full, small.full);
+                keep.legions = Mathf.Max(keep.legions, small.legions);
+                Rejoin(kingdom, keep, small);
+                idle.RemoveAt(j);
+                group.Remove(small);
+            }
+        }
     }
 
     public static void Disband(Kingdom kingdom, CorpsData corps)

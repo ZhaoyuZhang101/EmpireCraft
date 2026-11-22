@@ -19,7 +19,14 @@ public class EmpireCraftActorCheckCity:GameAIActorBase
             if (pActor.hasKingdom() && city != null && city.getPopulationPeople()<=0)
             {
                 Kingdom kingdom = pActor.kingdom;
-                city.joinAnotherKingdom(kingdom);
+                // 空城换主只在无主、或两国正在交战时(群友 2026-11-22 "城市永不毁灭好像出了点问题")：以前不看城是谁的，
+                // 任何路过的人都把别国(盟友、同一帝国的也算)的空城划进本国，太平年月城就这样易了主。本国的空城照旧迁进去住
+                Kingdom owner = city.kingdom;
+                if (owner != kingdom)
+                {
+                    if (owner != null && !owner.isNeutral() && !owner.wild && !kingdom.isInWarWith(owner)) return BehResult.Continue;
+                    city.joinAnotherKingdom(kingdom);
+                }
                 if (pActor.hasFamily())
                 {
                     foreach (var fActor in pActor.family.units)

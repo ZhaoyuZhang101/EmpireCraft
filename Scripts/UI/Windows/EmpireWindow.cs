@@ -1218,6 +1218,9 @@ namespace EmpireCraft.Scripts.UI.Windows
                     $"-{MoneyDisplay.Format(value)}  ({value / (float)assessed:P0})", titleHex: "#E9A85B", titleWidth: 90f);
             }
             if (index == 0) card.AddListRow(MainWidth, 0, null, LM.Get("fiscal_collection_clean"), "", titleWidth: 220f);
+            // 口径(群友 2026-11-22 "这个税赋是一年的居民税吗")：这张卡是全境各城四税的一年之数，下面的收入构成只是中央国库的进账
+            card.AddTextIntoVertLayout(LM.Get("fiscal_collection_scope").ColorString("#8FA0A8"), true, TextAnchor.MiddleLeft,
+                new Vector2(MainWidth - 12f, 20f)).UseFixedFontSize(6, HorizontalWrapMode.Wrap);
         }
 
         private static string MonthLabel(TreasuryMonth month) => month.months_ago == 0

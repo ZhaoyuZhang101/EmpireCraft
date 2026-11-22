@@ -125,6 +125,14 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         return kingdom == null ? null : SpecificClanManager.getPerson(kingdom.GetOrCreate().last_ruler_identity_id);
     }
 
+    // 成年、年幼的界线(继承排序用)
+    private const int GrownAge = 16, TenderAge = 6;
+
+    // 不立娃娃、兄终弟及的政体：游牧、阿拉伯、原始部落
+    private static bool SeniorFirst(Kingdom kingdom) =>
+        kingdom?.GetRegime()?.type is RegimeType.YouMu or RegimeType.NomadFeudalism or RegimeType.Arabic or RegimeType.Origin
+            or RegimeType.OriginFeudalism;
+
     public static (Actor actor, string relation) ResolveHeir(Kingdom kingdom, bool allowFallback,
         PersonalClanIdentity predecessor = null)
     {
@@ -147,6 +155,19 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
         // 兄终弟及仍在交接时按兄弟顺序继承，在位时不预立旁系。
         if (!allowFallback && start == EmpireHeirLawType.siblings) return (null, "");
         var result = CheckHeir(kingdom, start, law, parent);
+        // 兄终弟及(同"国赖长君"那份反馈)：游牧、阿拉伯、部落之国不立娃娃——真到交接时该立的子嗣未满 TenderAge 岁，
+        // 而先君有成年的兄弟，由兄弟即位。华夏、西方照旧幼主即位加辅政
+        if (allowFallback && SeniorFirst(kingdom) && start != EmpireHeirLawType.siblings &&
+            result.actor?.data != null && result.actor.getAge() < TenderAge)
+        {
+            var sibling = CheckHeir(kingdom, EmpireHeirLawType.siblings, law, parent);
+            if (sibling.actor?.data != null && sibling.actor.getAge() >= GrownAge)
+            {
+                NeoModLoader.services.LogService.LogInfo(
+                    $"[EmpireCraft][继承] {kingdom.GetKingdomName()} 子嗣 {result.actor.getName()} 年仅 {result.actor.getAge()} 岁，由先君之弟 {sibling.actor.getName()} 即位");
+                return sibling;
+            }
+        }
         if (result.actor != null || !allowFallback) return result;
         // 帝国皇位：先君的孙辈仍是直系；子孙都没有、生前又未立储的，交群臣议立(见 SuccessionCouncilSystem)
         if (SuccessionCouncilSystem.Applies(kingdom))
@@ -418,13 +439,20 @@ public class EmpireCraftKingdomBehCheckHeir : GameAIKingdomBase
                             return (grandson, LM.Get("heir_relation_eldest_grandson").ColorString(pColor: new Color(0.9f, 0.3f, 0.2f)));
                     }
                 }
-                var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly));
+                var children = ChildrenOf(parent).Where(person => IsEligibleRelative(person, parent, allowFemale, maleOnly)).ToList();
+                // 国赖长君(群友 2026-11-22 "目前有君主绝嗣和君主超低龄化的问题")：先君有成年的儿子时，未满 TenderAge 岁的排到后面——
+                // 以前嫡出排在年龄前面，三岁的嫡子压过二十五岁的庶长子；幼子继承更是永远挑最小的那个，襁褓里的也照立。
+                // 诸子都没成年的照旧按嫡庶长幼(幼主即位，辅政、太后照常，见 RealisticAgeSystem.IsMinor)
+                bool hasAdult = children.Any(person => person.age >= GrownAge);
                 // 嫡子优先，嫡系没有合适儿子时仍在自己的子嗣中接续，不提前跳到叔伯。
                 // 本宗世系里的子女先于生在别的宗族的(见 InLine)
                 var ordered = children.OrderByDescending(person => InLine(person, parent)).ThenByDescending(Preferred)
+                    .ThenByDescending(person => !hasAdult || person.age >= TenderAge)
                     .ThenByDescending(person => law == SuccessionLawType.嫡长子继承法 && IsBornOfPrimarySpouse(parent, person));
+                // 幼子继承：成年的儿子里挑最小的，都没成年才挑最小的
                 candidates = selection == EmpireHeirLawType.smallest_child
-                    ? ordered.ThenBy(person => person.age).ThenByDescending(person => person.rank).ThenBy(person => person.id)
+                    ? ordered.ThenByDescending(person => person.age >= GrownAge).ThenBy(person => person.age)
+                        .ThenByDescending(person => person.rank).ThenBy(person => person.id)
                     : ordered.ThenByDescending(person => person.age).ThenBy(person => person.rank).ThenBy(person => person.id);
                 Actor child = Pick(kingdom, candidates, parent, out PersonalClanIdentity selected);
                 if (child != null)

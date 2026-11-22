@@ -258,6 +258,8 @@ public static class ConstitutionalEconomySystem
         FactionBalanceSystem.Yearly(empire);
         // 幕府：天皇起兵倒幕、公家新政、南北朝分立与合一、战国(按三派占比，见 ShogunateDramaSystem)
         ShogunateDramaSystem.Yearly(empire);
+        // 科举：恩科错过、舞弊案久拖不办(见 KejuSystem)
+        KejuSystem.Yearly(empire);
         // 朝政积弊滋生与后果
         MaladySystem.Yearly(empire);
         // 荒淫之君的宫廷开支；诛外戚

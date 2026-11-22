@@ -89,9 +89,12 @@ namespace EmpireCraft.Scripts.UI.Windows
                 kingdom.id == battle.attacker_id || kingdom.id == battle.defender_id)).ToList();
 
             var kpis = parent.BeginColumns(mainWidth);
-            float kpiWidth = (mainWidth - 3 * UIHelper.CardGap) / 4f;
+            float kpiWidth = (mainWidth - 4 * UIHelper.CardGap) / 5f;
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_count"), all.Count.ToString());
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_strength"), CorpsSystem.ShortStrength(strength), "#65D66E");
+            // 一年的军饷(群友 2026-11-22 "常备军维持不要军饷支出的吗"：一直在发，只是军团页上没有数)：照眼下的兵力与战和，不含行军费
+            long pay = realms.Sum(kingdom => CorpsSystem.MonthlyBill(kingdom)) * 12L;
+            UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_pay"), MoneyDisplay.Format(pay), "#E9A85B");
             float org = all.Count == 0 ? 0f : all.Average(entry => entry.corps.org);
             UIHelper.AddKpiTile(kpis, kpiWidth, LM.Get("corps_kpi_org"), Mathf.RoundToInt(org).ToString(),
                 org < 40f ? "#E8584F" : "#7FD8EA");

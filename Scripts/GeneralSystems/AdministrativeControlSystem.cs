@@ -251,7 +251,7 @@ public static class AdministrativeControlSystem
     public static bool GenerationExhausted(War war, Kingdom attacker, out string why)
     {
         why = null;
-        if (UnificationSystem.IsUnificationWar(war)) return false;
+        if (UnificationSystem.ExpansionExempt(war, attacker)) return false;
         (int kingdoms, int empires) = GenerationConquests(attacker);
         if (kingdoms < KingdomCoresPerGeneration && empires < EmpireCoresPerGeneration) return false;
         why = $"{GenerationYears:0} 年内已侵占王国法理 {kingdoms} 个、帝国法理 {empires} 个";
@@ -472,7 +472,15 @@ public static class AdministrativeControlSystem
     {
         var data = realm.GetOrCreate();
         data.admin_capacity = Capacity(realm);
-        data.admin_direct_cities = cities.Count(city => !IsIndirect(city.kingdom));
+        // 自治城邦两座折一座直辖(玩家反馈 2026-11-22 "罗马系国家太容易大一统"：古典共和攻下的城当场立为成员城邦，
+        // 算间接统治、一点不占容量，吞多少都不过度扩张)；羁縻、封国、诸侯照旧不占
+        int direct = 0, cityStates = 0;
+        foreach (City city in cities)
+        {
+            if (!IsIndirect(city.kingdom)) direct++;
+            else if (CityStateService.IsCityState(city.kingdom)) cityStates++;
+        }
+        data.admin_direct_cities = direct + cityStates / 2;
         data.admin_overextension = Mathf.Clamp01((float)data.admin_direct_cities / data.admin_capacity - 1f);
     }
 

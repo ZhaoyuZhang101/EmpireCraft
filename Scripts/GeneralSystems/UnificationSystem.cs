@@ -298,7 +298,18 @@ public static class UnificationSystem
     // 有统一倾向的(华夏)按倾向降；没有统一倾向的定居文化也照样降到底(用户 2026-11-17 选"定居文化也久乱思治"：
     // 独立核心长跑一百多年，阿拉伯 94 城 59 家、天竺 84 城 25 家，最大的一家不到一成，乱了三百多年没人够得上四成的门槛)；
     // 游牧不降，照旧要雄主在位(游牧难一统)。只放宽门槛：加场、推进、过半不收束、小国归附仍只给有统一倾向的
-    private const float SettledChaosEase = 1f;
+    // 2026-11-22 玩家反馈"罗马系国家太容易大一统"：罗马天下一个就合了六个文化，门槛降到底(一成五，或八成国力第一)谁都够得上。
+    // 没有统一倾向的定居文化只降七成：到底时占两成二，或占 8% 且国力是第二名的一倍三
+    private const float SettledChaosEase = 0.7f;
+    // 封建附庸的城算在宗主名下(EmpireCoreControl.Sovereign)，可只有行西式封建附庸的收得了附庸，别的文明打赢了只得朝贡、
+    // 不算占比——同一份反馈的头一条原因：攻下一国都城收为附庸，整国的城都算进问鼎的占比。问鼎门槛里附庸的城打对折
+    private const float VassalDiscount = 0.5f;
+
+    // 统一战争不受过度扩张、一代人侵占上限管(见 WarGoalSystem.Decide、AdministrativeControlSystem.GenerationExhausted)——
+    // 行西式封建附庸、又没有统一倾向的不在此列(同一份反馈)：它过度扩张了照旧只能收附庸，附庸也算进天下，只是慢
+    public static bool ExpansionExempt(War war, Kingdom attacker) =>
+        IsUnificationWar(war) &&
+        !(FeudalVassalService.UsesFeudalVassals(attacker) && UnificationDrive.Of(Sovereign(attacker) ?? attacker) <= 0f);
 
     private static (float share, float lead) Bars(Realm realm, Kingdom top)
     {
@@ -556,6 +567,8 @@ public static class UnificationSystem
         public EmpireCore lead;
         public int total;
         public readonly Dictionary<Kingdom, int> held = new();
+        // held 里经封建附庸算到宗主名下的那部分(问鼎门槛里打折，见 VassalDiscount)
+        public readonly Dictionary<Kingdom, int> vassalHeld = new();
         public readonly HashSet<City> cities = new();
         public readonly HashSet<Kingdom> members = new();
     }
@@ -724,6 +737,9 @@ public static class UnificationSystem
             if (!Alive(holder)) continue;
             realm.held.TryGetValue(holder, out int count);
             realm.held[holder] = count + 1;
+            if (FeudalVassalService.GetOverlord(city.kingdom) == null) continue;
+            realm.vassalHeld.TryGetValue(holder, out int vassal);
+            realm.vassalHeld[holder] = vassal + 1;
         }
         // 天下一家：都城在这片天下里的，连同据有四分之一以上的外族(都城在草原也算——外族入主可受天命，本族可光复)
         foreach (KeyValuePair<Kingdom, int> pair in realm.held)
@@ -1007,7 +1023,9 @@ public static class UnificationSystem
         if (InGrace(candidate)) return ContestBlock.Grace;
         // 已受这个天下天命的不再起统一战(它就是天下共主)
         if (realm.lead != null && TianxiaSystem.MandateOf(candidate) == realm.lead) return ContestBlock.Mandate;
-        float share = realm.held[candidate] / (float)realm.total;
+        // 附庸的城在问鼎门槛里只算一半(见 VassalDiscount)；统一算不算完成照旧全算
+        realm.vassalHeld.TryGetValue(candidate, out int vassalCities);
+        float share = (realm.held[candidate] - vassalCities * VassalDiscount) / realm.total;
         double strongest = 0d;
         foreach (Kingdom other in ranked)
             if (other != candidate && power[other] > strongest) strongest = power[other];

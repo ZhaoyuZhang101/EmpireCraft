@@ -25,8 +25,8 @@ public class TempFac_迫使朝贡 : TemporaryFaction
         Kingdom kingdom = GetKingdomTarget();
         if (kingdom != null)
         {
-            var war = DiplomacyHelpers.wars.newWar(empire.CoreKingdom, kingdom, WarTypeLibrary.normal);
-            war?.SetEmpireWarType(EmpireWarType.迫使朝贡);
+            // 定了策先集结，大军陈兵边境再宣战(见 WarMuster)
+            WarMuster.Declare(empire.CoreKingdom, kingdom, EmpireWarType.迫使朝贡, announce: false);
         }
         CountDown = 5;
         End();

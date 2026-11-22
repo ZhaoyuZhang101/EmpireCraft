@@ -18,47 +18,21 @@ public class EmpireCraftKingdomBehCheckExam: GameAIKingdomBase
         pKingdom.CheckEmpire();
         var regime = pKingdom.GetRegime();
         if (regime == null) return BehResult.Continue;
-        if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Exam)
+        // 帝国：行了科举制度就按期开科，不看核心是不是按科举选任(核心都是世袭，以前因此一科都不开，见 KejuSystem)
+        if (pKingdom.IsEmpire())
         {
-            if (pKingdom.IsEmpire())
+            Empire empire = pKingdom.GetEmpire();
+            if (empire != null && empire.CoreKingdom == pKingdom) KejuSystem.TryRegular(empire);
+        }
+        // 独立之国：四年一科(以前不看间隔，AI 每轮到一次就考一次，城城都落成几位考生)
+        else if (regime.GetLeaderSelectMethod() == LeaderSelectMethod.Exam && !pKingdom.IsInEmpire() && pKingdom.IsNeedToExam())
+        {
+            foreach (City city in pKingdom.cities)
             {
-                Empire empire = pKingdom.GetEmpire();
-                if (empire != null && empire.IsNeedToExam())
-                {
-                    var cities = empire.AllCities();
-                    if (cities != null)
-                    {
-                        foreach (City city in cities)
-                        {
-                            ExamSystem.startExam(ExamSystem.ExamType.City, city);
-                        }
-                    }
-
-                    var provinces = empire.kingdoms_hashset;
-                    if (provinces != null)
-                    {
-                        foreach (Kingdom province in provinces)
-                        {
-                            ExamSystem.startExam(ExamSystem.ExamType.Province, province);
-                        }
-                    }
-
-                    ExamSystem.startExam(ExamSystem.ExamType.Empire, empire); 
-                    empire.data.last_exam_timestamp = World.world.getCurWorldTime();
-                }
+                ExamSystem.startExam(ExamSystem.ExamType.City, city);
             }
-            else
-            {
-                if (!pKingdom.IsInEmpire())
-                {
-                    foreach (City city in pKingdom.cities)
-                    {
-                        ExamSystem.startExam(ExamSystem.ExamType.City, city);
-                    }
-                    ExamSystem.startExam(ExamSystem.ExamType.Province, pKingdom);
-                    pKingdom.UpdateExamTime();
-                }
-            }
+            ExamSystem.startExam(ExamSystem.ExamType.Province, pKingdom);
+            pKingdom.UpdateExamTime();
         }
 
         return BehResult.Continue;

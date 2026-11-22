@@ -1399,9 +1399,12 @@ public static class CorpsMapRenderer
                 Mathf.RoundToInt(supply * 100f), supplyState), supply >= 0.75f ? "#9BD27A" : supply >= 0.3f ? "#E8C35A" : "#E8584F",
             pPercent: false, pLocalize: false, pLimitValue: 40);
         float rations = list.Min(corps => corps.rations);
+        // 补给是运粮的路通不通，口粮是有没有粮可运：路通而口粮不足，是本国各城与粮仓已无余粮(群友 2026-11-22
+        // "补给充足和口粮为 0 是怎么回事")，写明白
         if (rations < 0.99f)
-            tooltip.addLineText(LM.Get("corps_tip_rations"), $"{Mathf.RoundToInt(rations * 100f)}%", "#E8584F",
-                pPercent: false, pLocalize: false);
+            tooltip.addLineText(LM.Get("corps_tip_rations"),
+                supply >= 0.75f ? string.Format(LM.Get("corps_tip_rations_empty"), Mathf.RoundToInt(rations * 100f))
+                    : $"{Mathf.RoundToInt(rations * 100f)}%", "#E8584F", pPercent: false, pLocalize: false, pLimitValue: 40);
         // 禁军的忠诚与空饷(见 PalaceArmySystem)
         List<CorpsData> palace = list.Where(corps => owners.TryGetValue(corps, out Kingdom owner) &&
                                                      PalaceArmySystem.IsPalace(owner, corps)).ToList();
