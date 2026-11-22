@@ -22,6 +22,10 @@ public sealed class CommodityConfig
     public Dictionary<string, float> biomes = new();
     public List<string> craft_cultures = new();
     public float craft_per_thousand;
+    // craft_cultures 以外的文化也会、只是做得少做得晚(按史实：波斯、拜占庭、阿拉伯、印度、意大利的丝，日本有田、欧洲迈森的瓷)：
+    // 文化 → 占 craft_per_thousand 的几成；craft_share_era 文化 → 从第几个科技时代起(不写按本物资的 era)
+    public Dictionary<string, float> craft_share = new();
+    public Dictionary<string, float> craft_share_era = new();
     public Dictionary<string, float> needs = new();
     public float per_soldier;
     // 从第几个科技时代起才有手工、地形产出与百姓、军队的需求(矿场、工厂实际出的货不看时代)
@@ -69,6 +73,7 @@ public sealed class CommodityFileConfig
 //   · 需求：各阶层每千人的用度(奢侈品主要是贵族、官僚、商人、市民)、工厂投入、军队(打仗翻倍)；
 //   · 市场之间：陆上接壤或商路相连、不禁运不闭关的市场互通有无，到岸价低于本地价才买，进口方付价款(另加关税)给出口方(见 Trade)；
 //     通达层算好后(用户 2026-11-06 同意"先信息类、再贸易迁徙"，见 ConnectivitySystem)按货物路线连通、算运费与过境税、战争封路(见 LinkByRoutes)；
+//     奢侈品还能经中间市场一站站转口，沿途抽成(见 Transits)；
 //   · 通商政策：领衔国定重商、自由贸易、保护关税或闭关(见 PolicyOf)，定关税与外国货能挤进来多少；
 //   · 价格：一年只向供需定的价格走一段，手艺跟价增减，AI 建厂开矿看价格与缺口(见 FactoryAppeal、WantsMine)；
 //   · 缺口：科技研究按离不开的物资的缺口变慢(见 TechnologySystem.AddResearch)，工厂减产(见 FactorySystem.Produce)，
@@ -675,6 +680,9 @@ public static class CommodityMarketSystem
                     if (biomes.TryGetValue(pair.Key, out int tiles)) made += tiles * pair.Value * hands;
                 if (good.craft_per_thousand > 0f && (good.craft_cultures.Count == 0 || good.craft_cultures.Contains(culture)))
                     made += people / 1000f * good.craft_per_thousand * CraftResponse(city.kingdom, good.id);
+                else if (good.craft_per_thousand > 0f && culture != null && good.craft_share.TryGetValue(culture, out float share) && share > 0f &&
+                         era >= (good.craft_share_era.TryGetValue(culture, out float since) ? (int)since : good.era))
+                    made += people / 1000f * good.craft_per_thousand * share * CraftResponse(city.kingdom, good.id);
             }
             if (made > 0f) Add(book.made, good.id, made);
             // 储备：科技、换装离不开的原料要备一点，没这份需求就谈不上缺，也不会去进口。
@@ -1178,7 +1186,16 @@ public static class CommodityMarketSystem
         try
         {
             foreach ((Kingdom a, Kingdom b) in EmpireCraft.Scripts.GeneralSystems.WorldMap.SilkRoadSystem.Links())
-                if (MarketOfKingdom.TryGetValue(a.id, out long first) && MarketOfKingdom.TryGetValue(b.id, out long second)) Link(first, second);
+                if (MarketOfKingdom.TryGetValue(a.id, out long first) && MarketOfKingdom.TryGetValue(b.id, out long second))
+                {
+                    Link(first, second);
+                    // 驼队走修好的丝路，海程按 SilkRoadCost 封顶(以前没记路线，按最远的 goods_max_cost 算运费，几站一转就卖不动)
+                    if (_routed && first != second)
+                    {
+                        ConnectivityRoute road = ConnectivitySystem.GoodsRoute(a, b);
+                        NoteRoute(first, second, road.Known ? Mathf.Min(road.Cost, SilkRoadCost) : SilkRoadCost, 0);
+                    }
+                }
         }
         catch (Exception exception)
         {
@@ -1198,6 +1215,48 @@ public static class CommodityMarketSystem
         foreach (Market market in Markets.Values)
             if (market.leader != null && links.TryGetValue(market.leader.id, out HashSet<long> set))
                 market.linked.UnionWith(set);
+        // 转口(见 Transits)：买方经一到 MaxTransitHops 个中间市场够得着、本身不直接相连的卖方，各取经过市场最少的一条路；
+        // 与买方禁运的不经过，两头任一闭关(和约通商的除外)不买。用到时才算
+        var transit = new Dictionary<Market, List<(Market seller, List<Market> via, bool sea)>>();
+        List<(Market seller, List<Market> via, bool sea)> TransitOf(Market buyer)
+        {
+            if (transit.TryGetValue(buyer, out var known)) return known;
+            var found = new List<(Market seller, List<Market> via, bool sea)>();
+            transit[buyer] = found;
+            if (buyer.leader?.data == null) return found;
+            var parent = new Dictionary<long, long> { [buyer.leader.id] = -1L };
+            var frontier = new List<long> { buyer.leader.id };
+            for (int hop = 1; hop <= MaxTransitHops + 1 && frontier.Count > 0; hop++)
+            {
+                var next = new List<long>();
+                foreach (long at in frontier)
+                {
+                    if (!Markets.TryGetValue(at, out Market here)) continue;
+                    foreach (long id in here.linked)
+                    {
+                        if (parent.ContainsKey(id) || !Markets.TryGetValue(id, out Market there) || there.leader?.data == null ||
+                            there.leader.isRekt() || MarketSystem.Embargoed(buyer.leader, there.leader)) continue;
+                        parent[id] = at;
+                        next.Add(id);
+                        // 直接相连的照常买卖
+                        if (hop < 2 || (buyer.policy == TradePolicy.Closed || there.policy == TradePolicy.Closed) && !TreatyBetween(buyer, there))
+                            continue;
+                        var via = new List<Market>();
+                        bool sea = false;
+                        for (long step = id; parent[step] >= 0; step = parent[step])
+                        {
+                            long up = parent[step];
+                            if (!landLinks.Contains(Pair(up, step))) sea = true;
+                            if (up != buyer.leader.id) via.Add(Markets[up]);
+                        }
+                        via.Reverse();
+                        found.Add((there, via, sea));
+                    }
+                }
+                frontier = next;
+            }
+            return found;
+        }
         // 各市场本年能花在进口上的钱：民间存款的 ImportBudgetShare，以及按需求额摊付的各城；没有背景人口(原版小人)的市场由领衔国国库出
         var purses = new Dictionary<Market, float>();
         var privateTrade = new HashSet<Market>();
@@ -1239,17 +1298,23 @@ public static class CommodityMarketSystem
                 if (demand <= 0f) continue;
                 float displaced = 0f;
                 float displaceShare = DisplaceFactor(buyer.policy);
-                foreach (long id in buyer.linked.Where(Markets.ContainsKey)
-                             .OrderByDescending(id => TechEdge(Markets[id], buyer))
-                             .ThenBy(id => Quote(Markets[id], good) * (1f + FreightOf(buyer, Markets[id], good))))
+                // 卖方：直接相连的，奢侈品另有转口来的(运费按一程程累加，每经一个中间市场另加 MiddlemanCut)
+                var offers = new List<(Market seller, List<Market> via, float freight, bool sea)>();
+                foreach (long id in buyer.linked)
+                    if (Markets.TryGetValue(id, out Market direct))
+                        offers.Add((direct, null, FreightOf(buyer, direct, good), !landLinks.Contains(Pair(buyer.leader.id, id))));
+                if (Transits(good))
+                    foreach ((Market far, List<Market> via, bool sea) in TransitOf(buyer))
+                        offers.Add((far, via, PathFreight(buyer, via, far, good) + via.Count * MiddlemanCut, sea));
+                foreach ((Market seller, List<Market> via, float freight, bool seaOnly) in offers
+                             .OrderByDescending(offer => offer.via == null ? TechEdge(offer.seller, buyer) : 0)
+                             .ThenBy(offer => Quote(offer.seller, good) * (1f + offer.freight)))
                 {
-                    Market seller = Markets[id];
                     if (seller.leader?.data == null || seller.leader.isRekt()) continue;
                     float spare = Surplus(seller, good.id);
                     if (spare <= 0f) continue;
-                    int edge = TechEdge(seller, buyer);
+                    int edge = via == null ? TechEdge(seller, buyer) : 0;
                     float tariff = TariffBetween(buyer, seller);
-                    float freight = FreightOf(buyer, seller, good);
                     if (float.IsInfinity(freight) || float.IsNaN(freight)) continue;
                     float wedge = 1f + tariff + freight;
                     float room, deal;
@@ -1271,7 +1336,7 @@ public static class CommodityMarketSystem
                     }
                     // 破交：只靠海路相连的，港口被封了几成，能运的就少几成
                     float open = Mathf.Min(buyer.seaOpen, seller.seaOpen);
-                    if (open < 1f && !landLinks.Contains(Pair(buyer.leader.id, seller.leader.id)))
+                    if (open < 1f && seaOnly)
                     {
                         room *= open;
                         buyer.seaLimited.Add(good.id);
@@ -1297,6 +1362,14 @@ public static class CommodityMarketSystem
                     seller.trade_value += earned;
                     buyer.boughtFrom[seller.leader.id] = (buyer.boughtFrom.TryGetValue(seller.leader.id, out float spent) ? spent : 0f) + paid;
                     seller.soldTo[buyer.leader.id] = (seller.soldTo.TryGetValue(buyer.leader.id, out float got) ? got : 0f) + earned;
+                    // 转口：沿途每个中间市场抽成(买方付的到岸价里已含)，记作它的出口收入
+                    if (via != null)
+                        foreach (Market middle in via)
+                        {
+                            float fee = amount * deal * MiddlemanCut;
+                            sales[middle] = (sales.TryGetValue(middle, out float relayed) ? relayed : 0f) + fee;
+                            middle.trade_value += fee;
+                        }
                     float filled = Mathf.Min(amount, need);
                     need -= filled;
                     displaced += amount - filled;
@@ -1315,6 +1388,29 @@ public static class CommodityMarketSystem
             buyer.leader.SubMoney(Mathf.RoundToInt(bill.Value.paid), TreasuryCategory.PublicTrade);
             buyer.memberImports[buyer.leader.id] = (buyer.memberImports.TryGetValue(buyer.leader.id, out float before) ? before : 0f) + bill.Value.paid;
         }
+    }
+
+    // 转口贸易：丝绸、瓷器、茶这类又轻又贵的奢侈品，经中间市场一站站转卖(丝路上的粟特、波斯商人，海路上的商站)。
+    // 以前市场只跟直接相连的买卖，买进的货不再卖出，丝绸瓷器出了东方一站就停，奥斯曼、波兰、罗马常年缺一百。
+    // 至多隔 MaxTransitHops 个中间市场；每经一个抽 MiddlemanCut，记进到岸价、归那个市场；路越远越贵，最西头会剩些缺口
+    private const int MaxTransitHops = 3;
+    private const float MiddlemanCut = 0.1f;
+    // 丝路相邻两站之间的路程成本上限(平原一块地记 1，见 ConnectivityConfig)
+    private const float SilkRoadCost = 80f;
+
+    private static bool Transits(CommodityConfig good) => good.tier == "luxury";
+
+    // 一程程的运费相加(买方 → 中间市场 → … → 卖方)
+    private static float PathFreight(Market buyer, List<Market> via, Market seller, CommodityConfig good)
+    {
+        float total = 0f;
+        Market from = buyer;
+        foreach (Market step in via)
+        {
+            total += FreightOf(from, step, good);
+            from = step;
+        }
+        return total + FreightOf(from, seller, good);
     }
 
     private static void AddTrade(Dictionary<string, Dictionary<long, float>> book, string good, long partner, float amount)

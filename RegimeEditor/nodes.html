@@ -279,8 +279,10 @@
         F("biomes", "地形产出", "kv", () => S.lookups.biomes, { hint: "城辖区内每格该群系每年出几份(再乘人手)" }),
         F("craft_cultures", "只有这些文化会的手艺", "chips", () => (S.lookups.cultures || []).map(c => [c.name, c.cn || c.name]), { hint: "不填 = 各文化都会" }),
         F("craft_per_thousand", "手艺：每千人每年几份", "number", null, { def: 0 }),
+        F("craft_share", "别的文化也会(做得少)", "kv", () => (S.lookups.cultures || []).map(c => [c.name, c.cn || c.name]), { hint: "不在上面名单里的文化 → 占每千人份数的几成" }),
+        F("craft_share_era", "别的文化从第几个时代起会", "kv", () => (S.lookups.cultures || []).map(c => [c.name, c.cn || c.name]), { hint: "文化 → 科技时代(不填按本物资的时代)" }),
         SEC("军需与储备"),
-        F("per_soldier", "军队每人每年", "number", null, { def: 0, hint: "打仗翻倍" }),
+        F("per_soldier", "军队每人每年", "number", null, { def: 0, hint: "打仗 ×1.5" }),
         F("reserve", "储备：每千人每年", "number", null, { def: 0, hint: "科技、换装离不开的原料：从下面这个时代起要备的量" }),
         F("reserve_era", "储备从第几个时代起", "era", null, { def: 0 }),
         F("prospect", "勘探(殖民选址)", "kv", () => S.lookups.biomes, { hint: "这种地形容易勘出这样矿藏：群系 → 0~1" })
