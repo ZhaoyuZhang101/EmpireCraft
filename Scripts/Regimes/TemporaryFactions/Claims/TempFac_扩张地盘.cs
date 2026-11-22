@@ -35,8 +35,8 @@ public class TempFac_扩张地盘 : TemporaryFaction
             kingdom != null && !kingdom.isRekt() && kingdom != coreKingdom &&
             !kingdom.isInWarWith(coreKingdom) && SteppeOrderSystem.PeacetimeWarAllowed(coreKingdom, kingdom))
         {
-            War war = DiplomacyHelpers.wars.newWar(coreKingdom, kingdom, WarTypeLibrary.normal);
-            war?.SetEmpireWarType(EmpireWarType.帝国扩张);
+            // 定了策先集结，大军陈兵边境再宣战(见 WarMuster)
+            WarMuster.Declare(coreKingdom, kingdom, EmpireWarType.帝国扩张, announce: false);
         }
         End();
     }

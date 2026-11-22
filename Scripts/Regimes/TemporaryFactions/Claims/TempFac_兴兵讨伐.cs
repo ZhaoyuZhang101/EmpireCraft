@@ -45,14 +45,10 @@ public class TempFac_兴兵讨伐 : TemporaryFaction
         Kingdom target = GetKingdomTarget();
         if (core != null && target?.data != null && !target.isRekt() && WarGate.CanDeclare(core, target))
         {
-            War war = World.world.diplomacy.startWar(core, target, WarTypeLibrary.normal);
-            if (war != null)
-            {
-                war.SetEmpireWarType(EmpireWarType.帝国扩张);
-                WarGoalSystem.Preset(war, DeJureAgenda.HasClaimOn(core, target) ? WarGoal.争法理 : WarGoal.割地);
-                war.GetOrCreate().war_goal_locked = true;
+            // 定了策先集结，大军陈兵边境再宣战(见 WarMuster)；仗的目标照旧定死
+            if (WarMuster.Declare(core, target, EmpireWarType.帝国扩张,
+                    DeJureAgenda.HasClaimOn(core, target) ? WarGoal.争法理 : WarGoal.割地, locked: true))
                 CompletionOutcome = string.Format(LM.Get("claim_outcome_兴兵讨伐_done"), target.GetKingdomName());
-            }
         }
         End();
     }

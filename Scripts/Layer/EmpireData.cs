@@ -246,6 +246,9 @@ public class EmpireData : MetaObjectData
     public bool is_center_lost { get; set; } = false;
 
     public double last_exam_timestamp { get; set; } = -1L;
+    // 科举(见 KejuSystem)：舞弊案发待查的时间(-1 没有)、已为哪位君主开过(或错过了)恩科
+    public double keju_fraud_at { get; set; } = -1d;
+    public long keju_grace_ruler_id { get; set; } = -1L;
     public double last_select_lovers_timestamp { get; set; } = -1L;
 
     public double last_office_exam_timestamp { get; set; } = -1L;

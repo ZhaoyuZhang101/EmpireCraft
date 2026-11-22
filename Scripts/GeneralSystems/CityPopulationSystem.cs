@@ -237,6 +237,18 @@ public static class CityPopulationSystem
                     Mobilizing.Add(author);
                     if (target != null) MobilizationTargets[author] = target;
                 }
+                // 朝议定策、还在集结的(见 WarMuster)：定策的国与离目标近的听调遣的成员一起动员
+                foreach ((Kingdom author, Kingdom target, List<Kingdom> followers) in WarMuster.Entries())
+                {
+                    Mobilizing.Add(author);
+                    MobilizationTargets[author] = target;
+                    foreach (Kingdom member in followers)
+                    {
+                        if (member?.data == null || member.isRekt() || Mobilizing.Contains(member)) continue;
+                        Mobilizing.Add(member);
+                        MobilizationTargets[member] = target;
+                    }
+                }
                 Alert();
             }
             catch (Exception exception)
@@ -254,7 +266,9 @@ public static class CityPopulationSystem
         foreach (var pair in MobilizationTargets.ToList())
         {
             Kingdom author = pair.Key, target = pair.Value;
-            if (target?.data == null || target.isRekt() || !WarReadinessSystem.Massing(author)) continue;
+            // 已经察觉的不再看漏；没察觉的要对方的兵到得够多才看得见(吏治败坏的察觉得晚，见 WarReadinessSystem.Spotted)
+            if (target?.data == null || target.isRekt() ||
+                !(Alerted.Contains(target) ? WarReadinessSystem.Massing(author) : WarReadinessSystem.Spotted(author, target))) continue;
             foreach (Kingdom side in new[] { target, FrontSystem.Realm(target) }.Distinct())
             {
                 if (side?.data == null || side.isRekt() || side == author || Mobilizing.Contains(side) && !Alerted.Contains(side))
@@ -263,7 +277,11 @@ public static class CityPopulationSystem
                 if (!MobilizationTargets.ContainsKey(side)) MobilizationTargets[side] = author;
                 now.Add(side);
                 if (!Alerted.Contains(side))
+                {
+                    // 严加防范：察觉了就沿边设防，开战后守军一上来就有工事可依(见 FrontSystem.Forewarned)
+                    side.GetOrCreate().forewarned_at = World.world.getCurWorldTime();
                     FrontSystem.Log(side, string.Format(NeoModLoader.General.LM.Get("war_alert_mobilize"), side.GetKingdomName(), author.GetKingdomName()));
+                }
             }
         }
         Alerted.Clear();

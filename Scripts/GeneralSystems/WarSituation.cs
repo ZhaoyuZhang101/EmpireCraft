@@ -51,7 +51,10 @@ public static class WarSituation
         empire?.kingdoms_list?.Where(member => member != null && !member.isRekt()).Sum(member => member.GetNationalPower()) ?? 0d;
 
     // 忙不过来，不再开新仗：手上已有两场仗，或正被全面侵略(以前只要在打任何一场仗——平叛、边境冲突——就不提对外用兵)
-    public static bool TooBusyForWar(Kingdom kingdom) =>
+    // 正为一场定了策的仗集结着(见 WarMuster)也算：这一场打起来之前不再提新的
+    public static bool TooBusyForWar(Kingdom kingdom) => Overstretched(kingdom) || WarMuster.Mustering(kingdom);
+
+    public static bool Overstretched(Kingdom kingdom) =>
         kingdom?.data == null || kingdom.isRekt() ||
         kingdom.getWars().Count(war => war?.data != null && !war.hasEnded()) >= 2 || WarGoalSystem.FightingForSurvival(kingdom);
 

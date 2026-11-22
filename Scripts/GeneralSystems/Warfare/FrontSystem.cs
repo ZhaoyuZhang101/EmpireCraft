@@ -100,6 +100,8 @@ public static partial class FrontSystem
     {
         Battles.Clear();
         Engaged.Clear();
+        MassSince.Clear();
+        ThreatCache.Clear();
         Logs.Clear();
         ResetSmooth();
         TerrainSystem.ResetWorldState();
@@ -1038,7 +1040,30 @@ public static partial class FrontSystem
     public static long FocusSector(Kingdom kingdom) =>
         kingdom != null && FocusSectors.TryGetValue(kingdom.id, out long id) ? id : -1L;
 
-    // 预备军分驻本国各城：都城与边境的城在前(与外国接壤的城先、人多的先)，各军按编号依次轮着分，
+    // 邻国对本国边境的威胁：自己人(同一势力、并肩作战的友邦)不算边患，0；正朝本国集结的最重，4；
+    // 有约在身不该打的(同盟、姻亲、朝贡、和约……见 WarGate.Forbidden)0.5；其余按大小(对方城数比本方，0.25~2)
+    // 与好感(每差 50 加减 1，-0.5~1.5)算，1 起。各国各邻每 ThreatCacheSeconds 个世界秒算一次
+    private const double ThreatCacheSeconds = 30d;
+    private static readonly Dictionary<(long self, long other), (double at, float value)> ThreatCache = new();
+
+    private static float BorderThreat(Kingdom kingdom, Kingdom other)
+    {
+        double now = World.world.getCurWorldTime();
+        var key = (kingdom.id, other.id);
+        if (ThreatCache.TryGetValue(key, out var cached) && now >= cached.at && now - cached.at < ThreatCacheSeconds) return cached.value;
+        float value;
+        if (other.wild || Friendly(kingdom, other)) value = 0f;
+        else if (CityPopulationSystem.EnemyOf(other) == kingdom) value = 4f;
+        else if (WarGate.Forbidden(other, kingdom)) value = 0.5f;
+        else
+            value = 1f + Mathf.Clamp(WarSituation.SideCities(other) / (float)Math.Max(1, WarSituation.SideCities(kingdom)), 0.25f, 2f) +
+                    Mathf.Clamp(-DiplomacyLedger.Opinion(kingdom, other) / 50f, -0.5f, 1.5f);
+        if (ThreatCache.Count > 4096) ThreatCache.Clear();
+        ThreatCache[key] = (now, value);
+        return value;
+    }
+
+    // 预备军分驻本国各城：都城与边境的城在前(邻国威胁大的先、人多的先)，各军按编号依次轮着分，
     // 一城驻满一支才轮到下一城；义军留在本城。返回 军号 → 驻防地块
     private static Dictionary<long, int> Stations(Kingdom kingdom, List<CorpsData> corps)
     {
@@ -1047,10 +1072,23 @@ public static partial class FrontSystem
         List<City> cities = kingdom.cities?.Where(city => city?.data != null && city.kingdom == kingdom && !city.isRekt() && city.getTile()?.zone != null)
             .ToList() ?? new List<City>();
         if (cities.Count == 0) return result;
-        bool Frontier(City city) => city.zones.Any(zone => (zone?.neighbours_all ?? Array.Empty<TileZone>())
-            .Any(next => next?.city?.kingdom != null && next.city.kingdom != kingdom));
+        // 边防看邻国(群友 2026-11-22 "边防驻军的数量应该与接壤国家的好感度挂钩")：以前只分"挨着外国"与否，盟友、附庸的边上
+        // 同虎视眈眈的强邻边上一样驻军。现在边境的城按邻国的威胁排先后(见 BorderThreat)，军先驻到最吃紧的边上
+        var threats = new Dictionary<City, float>();
+        foreach (City city in cities)
+        {
+            float worst = -1f;
+            foreach (TileZone zone in city.zones)
+                foreach (TileZone next in zone?.neighbours_all ?? Array.Empty<TileZone>())
+                {
+                    Kingdom other = next?.city?.kingdom;
+                    if (other?.data == null || other == kingdom) continue;
+                    worst = Mathf.Max(worst, BorderThreat(kingdom, other));
+                }
+            threats[city] = worst;
+        }
         List<City> order = cities.OrderByDescending(city => city == kingdom.capital)
-            .ThenByDescending(Frontier).ThenByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)).ToList();
+            .ThenByDescending(city => threats[city]).ThenByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)).ToList();
         // 各片各自轮：军只派到驻地那一片的城。飞地四周都是别国，总排在边境城前头，以前本土的军也会被派过去
         Dictionary<long, int> pieces = StationPieces(kingdom, order);
         var groups = new Dictionary<int, List<City>>();
@@ -1293,6 +1331,51 @@ public static partial class FrontSystem
         EndMonthPushes();
     }
 
+    // 集结完再打(群友 2026-11-22 "集结完毕方可进攻""大国军队还在赶路呢")：以前各军走到战线两块地以内就各自开打，
+    // 大国的军从各地陆续赶到，先到的一支撞上守方集结好的大军，一支一支送。现在攻方派到这一段的军(连在路上的)
+    // 到了的不足 MassShare、守军又比到了的多，先到的原地等后面的，至多等 MassWaitMonths 个月；
+    // 起义军、跨海登陆(运力有限，本来就分批)不等
+    private const float MassShare = 0.6f;
+    private const int MassWaitMonths = 4;
+    private static readonly Dictionary<(long city, long attacker), double> MassSince = new();
+
+    private static bool WaitsForMass(City city, Kingdom attacker, List<(Kingdom kingdom, CorpsData corps)> attackers,
+        List<(Kingdom kingdom, CorpsData corps)> holders, double now)
+    {
+        var key = (city.id, attacker.id);
+        float arrived = 0f, holding = 0f, assigned = 0f;
+        foreach (var entry in attackers) arrived += entry.corps.strength;
+        foreach (var entry in holders) holding += entry.corps.strength;
+        if (holding > arrived && !CorpsSystem.Insurgent(attacker))
+            foreach (Kingdom side in attackers.Select(entry => entry.kingdom).Distinct())
+                foreach (CorpsData corps in CorpsSystem.Of(side))
+                    if (corps.task == "attack" && corps.sector_city_id == city.id && corps.strength >= 1f) assigned += corps.strength;
+        if (assigned <= 0f || arrived >= assigned * MassShare)
+        {
+            MassSince.Remove(key);
+            return false;
+        }
+        if (!MassSince.TryGetValue(key, out double since) || now < since)
+        {
+            MassSince[key] = now;
+            return true;
+        }
+        // 等够了就打，记录留着(后面的军到齐了才清)，免得下个月又从头等
+        return Date.getMonthsSince(since) < MassWaitMonths;
+    }
+
+    // 严加防范(群友"听闻邻国大军集结，严加防范，沿边境修筑防御工事")：察觉对方集结而预先动员的(见 CityPopulationSystem.Alert)，
+    // 之后 ForewarnedMonths 个月里守军的工事不低于 ForewarnedEntrench(平时要守着打上三个月才攒得到)
+    private const float ForewarnedEntrench = 0.15f;
+    private const int ForewarnedMonths = 18;
+
+    private static float Entrench(Kingdom kingdom, CorpsData corps)
+    {
+        double at = kingdom?.data == null ? -1d : kingdom.GetOrCreate().forewarned_at;
+        return at >= 0d && World.world.getCurWorldTime() >= at && Date.getMonthsSince(at) < ForewarnedMonths
+            ? Mathf.Max(corps.entrench, ForewarnedEntrench) : corps.entrench;
+    }
+
     private static void ResolveCity(City city, List<(Kingdom kingdom, CorpsData corps)> group, double now, bool landing)
     {
         Kingdom owner = city.kingdom;
@@ -1319,6 +1402,8 @@ public static partial class FrontSystem
         }
         Kingdom attacker = attackers.GroupBy(entry => entry.kingdom)
             .OrderByDescending(entries => entries.Sum(entry => entry.corps.strength)).First().Key;
+        // 集结完再打(见 WaitsForMass)：先到的兵少、守军多，等后面的军到齐
+        if (!landing && WaitsForMass(city, attacker, attackers, holders, now)) return;
         // 攻方各军(连同友邦的)：要推进的地、关城守御、隔城墙都看它们挨着的地
         List<CorpsData> spearheads = attackers.Select(entry => entry.corps).ToList();
         FlankZones.Clear();
@@ -1361,8 +1446,8 @@ public static partial class FrontSystem
                                             BannerSystem.CombatFactor(entry.kingdom, entry.corps) *
                                             ShuiTuSystem.CombatFactor(entry.kingdom, dryGround) *
                                             NativeDefenseSystem.CombatFactor(entry.kingdom, attacker, city) *
-                                            (breach ? BreachedDefenderBonus + entry.corps.entrench * BreachedEntrench
-                                                : DefenderBonus + entry.corps.entrench) *
+                                            (breach ? BreachedDefenderBonus + Entrench(entry.kingdom, entry.corps) * BreachedEntrench
+                                                : DefenderBonus + Entrench(entry.kingdom, entry.corps)) *
                                             MusterSystem.DefenseFactor(entry.kingdom, attacker)) * remnant;
         float militia = holders.Count == 0
             ? Militia(city, attacker) * (breach ? BreachedMilitia : 1f) * NativeDefenseSystem.CombatFactor(owner, attacker, city)

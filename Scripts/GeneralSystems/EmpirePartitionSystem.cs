@@ -680,6 +680,10 @@ public static class EmpirePartitionSystem
         if (span >= mapSize * 0.45f) chance *= 1.5f;
         // 分裂集中在动荡、末世(用户 2026-10-17 选"以天命为准"：治世少分)
         chance *= PhaseFactor(core);
+        // 积弊越重越容易分(六弊平均 50 时翻倍)；元首制没有权臣分立、绝嗣裂土那几条出路，分治再加一倍
+        // (玩家反馈 2026-11-22 "罗马系国家太容易大一统"：罗马这样的大帝国几乎不分)
+        chance *= 1f + MaladySystem.Average(empire) / 50f;
+        if (empire.IsPrincipate()) chance *= 2f;
         chance *= RulerQualitySystem.Of(emperor) switch
         {
             RulerQualitySystem.Grade.Wise => 0.5f,

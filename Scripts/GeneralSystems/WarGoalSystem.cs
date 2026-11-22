@@ -143,7 +143,7 @@ public static class WarGoalSystem
         if (goal is WarGoal.吞并 or WarGoal.割地)
         {
             string generation = null;
-            if ((UnificationSystem.IsUnificationWar(war)
+            if ((UnificationSystem.ExpansionExempt(war, attacker)
                     ? AdministrativeControlSystem.OutOfReach(attacker, defender.capital)
                     : AdministrativeControlSystem.BeyondReach(attacker, defender.capital)) ||
                 AdministrativeControlSystem.GenerationExhausted(war, attacker, out generation))

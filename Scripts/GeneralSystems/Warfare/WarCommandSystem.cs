@@ -215,9 +215,27 @@ public static class WarCommandSystem
         return goal == WarGoal.吞并 ? "annex" : "attack";
     }
 
+    // 本国(帝国中央连同各成员国)军中的兵
+    private static float Host(Kingdom kingdom)
+    {
+        Empire empire = kingdom.GetEmpire();
+        IEnumerable<Kingdom> sides = empire?.CoreKingdom == kingdom && empire.kingdoms_list != null
+            ? empire.kingdoms_list : new List<Kingdom> { kingdom };
+        float total = 0f;
+        foreach (Kingdom side in sides)
+        {
+            if (side?.data == null || side.isRekt()) continue;
+            foreach (EmpireCraft.Scripts.Data.CorpsData corps in CorpsSystem.Of(side))
+                if (!corps.militia) total += Mathf.Max(0f, corps.strength);
+        }
+        return total;
+    }
+
     private static string TitleKey(Kingdom kingdom, War war)
     {
         string kind = Kind(kingdom, war);
+        // 十万之师(群友 2026-11-22 "集结规模十万及以上主将为大元帅")：寻常的进攻也用最高一档的官名
+        if (kind == "attack" && Host(kingdom) >= WarMuster.GrandHost) kind = "annex";
         string[] kinds = kind switch
         {
             "annex" or "barbarian" or "raid" => new[] { kind, "attack" },

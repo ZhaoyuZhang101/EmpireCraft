@@ -122,7 +122,8 @@ public static class WarScopeSystem
                 kingdom.cities.Count == 0) continue;
             bool war = warring.Contains(kingdom);
             if (!war && !CityPopulationSystem.IsMobilizing(kingdom)) continue;
-            int level = war ? Math.Max(Level(kingdom), Dispatched(kingdom) ? Wider : 0) : 0;
+            // 出师先集结：就近的兵不够看时范围翻倍、京师的军也上(见 WarMuster)
+            int level = war ? Math.Max(Level(kingdom), Dispatched(kingdom) ? Wider : 0) : WarMuster.Wide(kingdom) ? Wider : 0;
             HostileCenters.Clear();
             if (war)
             {
@@ -161,8 +162,33 @@ public static class WarScopeSystem
             // 范围里没有驻军的军镇(跨海、或边境只有不驻军的小城)：交战的主方从离敌城最近的军镇出兵；随宗主参战的远方成员不出。
             // 以前挑离敌城最近的任意一座城，多半是不驻军的港口小城，一兵也出不了；本国又没吃紧、动员不会扩大，
             // 隔海的仗就永远没人去打(玩家反馈"两个隔海的国家一千五百年没打下来")
-            if (!garrisoned && staging != null && (!war || LeadsWar(kingdom))) Scope.Add(staging.id);
+            // 随中央集结的成员国(见 WarMuster)只出就近的兵，范围里没有军镇就不出
+            if (!garrisoned && staging != null && (war ? LeadsWar(kingdom) : !WarMuster.Following(kingdom))) Scope.Add(staging.id);
         }
+    }
+
+    // 这座城离那一国最近的城有多远(格，按城心)；那国没有城时为极大
+    public static float DistanceTo(City city, Kingdom target)
+    {
+        float best = float.MaxValue;
+        if (city?.data == null || target?.cities == null) return best;
+        Vector2 at = city.city_center;
+        foreach (City other in target.cities)
+        {
+            if (other?.data == null || other.isRekt()) continue;
+            float distance = (other.city_center - at).sqrMagnitude;
+            if (distance < best) best = distance;
+        }
+        return best == float.MaxValue ? best : Mathf.Sqrt(best);
+    }
+
+    // 这一国有城在那一国的就近范围里(随中央集结的成员按这个挑，见 WarMuster)
+    public static bool Near(Kingdom kingdom, Kingdom target)
+    {
+        if (kingdom?.cities == null || target?.cities == null) return false;
+        foreach (City city in kingdom.cities)
+            if (city?.data != null && !city.isRekt() && DistanceTo(city, target) <= NearDistance) return true;
+        return false;
     }
 
     private static readonly Dictionary<Kingdom, List<Kingdom>> ByRealm = new();

@@ -3,6 +3,7 @@ using System.Linq;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using NeoModLoader.General;
+using UnityEngine;
 
 namespace EmpireCraft.Scripts.GeneralSystems;
 
@@ -21,7 +22,53 @@ public static class WarReadinessSystem
     // 谋划 id → 开始等集结的时间
     private static readonly Dictionary<long, double> Waiting = new();
 
-    public static void ResetWorldState() => Waiting.Clear();
+    public static void ResetWorldState()
+    {
+        Waiting.Clear();
+        WarMuster.ResetWorldState();
+    }
+
+    // 朝议定策的集结(见 WarMuster)：定策的国与随同动员的成员合起来算——范围里的军补到 filled、七成五开到了边境。
+    // 没有朝向目标的边境的成员(隔着别的省)不算在内，开战后再上
+    public static bool Ready(IEnumerable<Kingdom> sides, float filled)
+    {
+        float full = 0f, strength = 0f, massed = 0f;
+        foreach (Kingdom side in sides)
+        {
+            if (side?.data == null || side.isRekt()) continue;
+            IReadOnlyList<TileZone> front = CityPopulationSystem.FrontZones(side);
+            if (front.Count == 0) continue;
+            foreach (CorpsData corps in CorpsSystem.Of(side))
+            {
+                if (corps.militia || corps.order_id >= 0 || corps.task == "retreat" || !WarScopeSystem.InScope(CorpsSystem.Home(corps))) continue;
+                full += corps.full;
+                strength += corps.strength;
+                if (CorpsSystem.Zone(corps) is TileZone at && front.Any(zone => CorpsSystem.ZoneDistance(zone, at) <= MassedZones))
+                    massed += corps.strength;
+            }
+        }
+        if (strength <= 0f) return true;
+        return (full <= 0f || strength >= full * filled) && massed >= strength * MassedShare;
+    }
+
+    // 被盯上的一方看不看得见：对方有军开到了边境。吏治败坏的察觉得晚(群友"朝廷积弊越大刺探到情报的可能性越小")——
+    // 六弊平均每 10 点，要等对方多一成的兵到了边境才看得见，至多六成
+    public static bool Spotted(Kingdom author, Kingdom target)
+    {
+        if (!Massing(author)) return false;
+        float blind = Mathf.Clamp(MaladySystem.Average(target?.GetEmpire()) / 100f, 0f, 0.6f);
+        if (blind <= 0.05f) return true;
+        IReadOnlyList<TileZone> front = CityPopulationSystem.FrontZones(author);
+        float strength = 0f, massed = 0f;
+        foreach (CorpsData corps in CorpsSystem.Of(author))
+        {
+            if (corps.militia || corps.order_id >= 0 || !WarScopeSystem.InScope(CorpsSystem.Home(corps))) continue;
+            strength += corps.strength;
+            if (CorpsSystem.Zone(corps) is TileZone at && front.Any(zone => CorpsSystem.ZoneDistance(zone, at) <= MassedZones))
+                massed += corps.strength;
+        }
+        return strength <= 0f || massed >= strength * blind;
+    }
 
     // 进度已满、大军还没陈兵边境：暂缓宣战
     public static bool Hold(Plot plot)

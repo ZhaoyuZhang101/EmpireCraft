@@ -23,7 +23,9 @@ public static class CourtIssues
         // 战和与各为其利的议题(用户 2026-11-11 "增加更多的议题，比如开战，或者其他的符合利益的"，问答全选)
         TemporaryFactionType.兴兵讨伐, TemporaryFactionType.罢兵议和, TemporaryFactionType.整军经武, TemporaryFactionType.修筑城防,
         TemporaryFactionType.开放互市, TemporaryFactionType.通商减税, TemporaryFactionType.营建宫室, TemporaryFactionType.和亲,
-        TemporaryFactionType.增设官署, TemporaryFactionType.招募新军
+        TemporaryFactionType.增设官署, TemporaryFactionType.招募新军,
+        // 科举(群友 2026-11-22，见 KejuSystem)
+        TemporaryFactionType.特开恩科, TemporaryFactionType.严查科场
     };
 
     // 朋党朝廷里也是国是的议题(用户 2026-10-20 定)：谋求统一以前只有派系类型带它的几派(天子派、变法派、武官派)能上奏，

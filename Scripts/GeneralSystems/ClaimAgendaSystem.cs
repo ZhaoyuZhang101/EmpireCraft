@@ -222,6 +222,9 @@ public static class ClaimAgendaSystem
             // 打着仗、或军人怨气大时急着募兵
             TemporaryFactionType.招募新军 => (CorpsSystem.IsAtWar(empire.CoreKingdom) ? 14f : 3f) + Grievance(SocialClass.Army) * 0.1f,
             TemporaryFactionType.修筑城防 => 6f,
+            // 科举：恩科只有新君即位那两年提得出来，舞弊案发了越是吏治败坏越有人要查(见 KejuSystem)
+            TemporaryFactionType.特开恩科 => 16f,
+            TemporaryFactionType.严查科场 => 12f + MaladySystem.Get(empire, MaladySystem.Graft) * 0.1f,
             TemporaryFactionType.开放互市 or TemporaryFactionType.通商减税 => 4f + Grievance(SocialClass.Merchant) * 0.15f,
             TemporaryFactionType.营建宫室 => 3f,
             TemporaryFactionType.和亲 => 6f,
