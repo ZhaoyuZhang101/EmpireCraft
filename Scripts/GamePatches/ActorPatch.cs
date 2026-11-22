@@ -123,6 +123,11 @@ public class ActorPatch : GamePatch
             AccessTools.Method(typeof(Actor), nameof(Actor.giveInventoryResourcesToCity)),
             prefix: new HarmonyMethod(GetType(), nameof(BeforeTradeUnload)),
             postfix: new HarmonyMethod(GetType(), nameof(AfterTradeUnload)));
+        // 有小人的世界：小人砍树挖矿交进仓库记进物资账(见 GoodsLedger.Gathered)
+        new Harmony(nameof(BeforeGatherUnload)).Patch(
+            AccessTools.Method(typeof(Actor), nameof(Actor.giveInventoryResourcesToCity)),
+            prefix: new HarmonyMethod(GetType(), nameof(BeforeGatherUnload)),
+            postfix: new HarmonyMethod(GetType(), nameof(AfterGatherUnload)));
         new Harmony(nameof(CheckInside)).Patch(AccessTools.Method(typeof(Actor), nameof(Actor.u1_checkInside)),
             prefix: new HarmonyMethod(GetType(), nameof(CheckInside)));
         new Harmony(nameof(ShowWhisperTip)).Patch(AccessTools.Method(typeof(ActionLibrary), nameof(ActionLibrary.showWhisperTip)),
@@ -193,6 +198,16 @@ public class ActorPatch : GamePatch
     public static void AfterTradeUnload(Actor __instance, TradeDeliverySnapshot __state)
     {
         ConstitutionalEconomySystem.AfterUnload(__instance, __state);
+    }
+
+    public static void BeforeGatherUnload(Actor __instance, out GoodsLedger.Cargo __state)
+    {
+        __state = GoodsLedger.Gathered(__instance);
+    }
+
+    public static void AfterGatherUnload(GoodsLedger.Cargo __state)
+    {
+        GoodsLedger.Delivered(__state);
     }
 
     public static void UpdateMovement(Actor __instance, float pElapsed, float pWalkedDistance)

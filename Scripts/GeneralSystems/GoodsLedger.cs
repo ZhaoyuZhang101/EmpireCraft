@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   消耗：百姓吃粮、用皮革，军粮，民居升级用料，炼钢耗煤耗铁，征兵打造装备。
 //   缺口：要吃没吃上的粮、要用没有的皮革(年需 = 消耗 + 缺口)。
 // 本年累计满一年就存为"上一年"；界面优先显示上一年，头一年没满按已过的时间折算成一年。
-// 只有人口经济(无小人模式的背景人口)在这里记账；原版小人自己采集、吃饭不经过这里。
+// 人口经济(无小人模式的背景人口)在这里记账；有小人的世界另见下面 Gathered、UnitsYear。
 public static class GoodsLedger
 {
     // 各种粮食在界面上合成一行
@@ -22,6 +22,58 @@ public static class GoodsLedger
     private const double MinScaleSeconds = 15d;
 
     public static void Made(City city, string resource, float amount) => Add(city, resource, amount, 0);
+
+    // 有小人的世界(没开"无小人"法则)：人口经济结算整个不跑——账不翻页、铜煤硝石这些战略矿产不开采，原版小人砍树挖矿交进仓库
+    // 也不记账，商品市场看到的木材、铜、铁、煤产量都是零，工场照样要，各市场常年缺一百(玩家反馈"市场总是缺木和铜")。
+    // 补上：小人交货记作产出(粮食不记：吃粮这头也不记账，只记一头就成了满仓余粮)；每年商品市场记各城的账之前翻一次账页，
+    // 按矿场开采这一年的战略矿产(见 UnitsYear)
+    public sealed class Cargo
+    {
+        public City city;
+        public readonly List<(string id, int amount)> items = new();
+    }
+
+    // 交货前记下小人身上的货(交完身上就空了)；船是商船贸易，是调拨不算产出
+    public static Cargo Gathered(Actor actor)
+    {
+        if (CityPopulationSystem.AbstractPopulationEnabled || actor?.asset == null || actor.asset.is_boat ||
+            !actor.isCarryingResources() || actor.city == null || !actor.city.isAlive()) return null;
+        Cargo cargo = null;
+        foreach (ResourceContainer item in actor.inventory.getResources().Values)
+        {
+            if (item.amount <= 0 || string.IsNullOrEmpty(item.id) || PopulationEconomySystem.IsFood(item.id)) continue;
+            cargo ??= new Cargo { city = actor.city };
+            cargo.items.Add((item.id, item.amount));
+        }
+        return cargo;
+    }
+
+    public static void Delivered(Cargo cargo)
+    {
+        if (cargo?.city == null) return;
+        foreach ((string id, int amount) in cargo.items) Made(cargo.city, id, amount);
+    }
+
+    // 有小人的世界每年一次(商品市场记各城的账之前，见 CommodityMarketSystem.Tick)：按矿场开采这一年的战略矿产，再翻账页。
+    // 借用人口经济的结算时间(这种世界里人口经济不结算，切回无小人时接着算)
+    public static void UnitsYear(City city)
+    {
+        if (CityPopulationSystem.AbstractPopulationEnabled || city?.data == null || World.world == null) return;
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        if (data == null) return;
+        double now = World.world.getCurWorldTime();
+        if (data.last_economy < 0d || now < data.last_economy) data.last_economy = now;
+        else
+        {
+            float years = Mathf.Min(2f, (float)((now - data.last_economy) / YearSeconds));
+            if (years > 0f)
+            {
+                MineralResourceSystem.Produce(city, data, years);
+                data.last_economy = now;
+            }
+        }
+        Roll(data);
+    }
     public static void Used(City city, string resource, float amount) => Add(city, resource, amount, 1);
     public static void Short(City city, string resource, float amount) => Add(city, resource, amount, 2);
 
@@ -87,6 +139,15 @@ public static class GoodsLedger
         double elapsed = World.world.getCurWorldTime() - data.goods_since;
         float scale = elapsed >= MinScaleSeconds ? (float)(YearSeconds / elapsed) : 1f;
         return (Scaled(data.goods_made_acc, scale), Scaled(data.goods_used_acc, scale), Scaled(data.goods_short_acc, scale), true);
+    }
+
+    // 一城的年账(产出、消耗、缺口)，口径同界面：有上一年用上一年，头一年按已过的时间折算；从没记过账返回空(商品市场用)
+    public static (Dictionary<string, float> made, Dictionary<string, float> used, Dictionary<string, float> shortage) Year(
+        CityPopulationData data)
+    {
+        if (data == null) return (null, null, null);
+        var (made, used, shortage, _) = Annual(data);
+        return (made, used, shortage);
     }
 
     public static string KeyOf(string resource) =>

@@ -632,6 +632,8 @@ public static class CommodityMarketSystem
             if (city?.data == null || city.isRekt() || city.kingdom == null || !city.kingdom.isCiv()) continue;
             try
             {
+                // 有小人的世界：先开采这一年的战略矿产、翻账页(见 GoodsLedger.UnitsYear)
+                GoodsLedger.UnitsYear(city);
                 Books[city.id] = Book(city);
             }
             catch (Exception exception)
@@ -654,7 +656,10 @@ public static class CommodityMarketSystem
     {
         var book = new CityBook();
         CityPopulationData data = CityPopulationSystem.Get(city);
-        Dictionary<string, float> ledger = data?.goods_made;
+        // 年账：有上一年用上一年，头一年按已过的时间折算(以前只认整年账，剧本开局、有小人的世界头一年产量全按零算，
+        // 各市场铁、煤、硝石、铜都缺一百)
+        Dictionary<string, float> ledger = null, ledgerUsed = null, ledgerShort = null;
+        if (data != null) (ledger, ledgerUsed, ledgerShort) = GoodsLedger.Year(data);
         Dictionary<string, int> biomes = BiomesOf(city);
         float people = CityPopulationSystem.GetTotal(city);
         float hands = Mathf.Clamp(people / 2000f, 0.1f, 1.5f);
@@ -672,8 +677,9 @@ public static class CommodityMarketSystem
                     made += people / 1000f * good.craft_per_thousand * CraftResponse(city.kingdom, good.id);
             }
             if (made > 0f) Add(book.made, good.id, made);
-            // 储备：科技、换装离不开的原料要备一点，没这份需求就谈不上缺，也不会去进口
-            if (good.reserve > 0f && era >= good.reserve_era)
+            // 储备：科技、换装离不开的原料要备一点，没这份需求就谈不上缺，也不会去进口。
+            // 还没记过账的城，靠账本出产的原料先不备(产量还没数)
+            if (good.reserve > 0f && era >= good.reserve_era && (ledger != null || good.resources.Count == 0))
             {
                 float reserve = people / 1000f * good.reserve;
                 Add(book.reserve, good.id, reserve);
@@ -687,7 +693,7 @@ public static class CommodityMarketSystem
         bool ledgered = ledger != null;
         if (ledgered)
             foreach (CommodityConfig good in Goods.Values)
-                if (Basic(good)) Add(book.wanted, good.id, FromLedger(data.goods_used, good) + FromLedger(data.goods_short, good));
+                if (Basic(good)) Add(book.wanted, good.id, FromLedger(ledgerUsed, good) + FromLedger(ledgerShort, good));
         if (data?.groups != null)
             foreach (PopGroup group in data.groups)
             {
@@ -705,6 +711,8 @@ public static class CommodityMarketSystem
                 float level = Mathf.Max(1, unit.level);
                 foreach (KeyValuePair<string, float> input in recipe.inputs)
                 {
+                    // 还没记过账的城：靠账本出产的原料(木材、铜、铁……)先不记工场需求，产量还没数
+                    if (ledger == null && Goods.TryGetValue(input.Key, out CommodityConfig raw) && raw.resources.Count > 0) continue;
                     Add(book.wanted, input.Key, input.Value * level);
                     Add(book.factory, input.Key, input.Value * level);
                 }
@@ -861,6 +869,12 @@ public static class CommodityMarketSystem
         }
     }
 
+    // 打仗时军需加倍的倍数。军械的账(用户 2026-11-23 "查军械常年缺")：每兵每年 0.02 份，几乎全靠手工(每千人
+    // craft_per_thousand 份，跟价 0.75~1.5 倍)，工坊出的那点不足一成。存档里各国兵占人口平均 7.4%，以前每千人 0.85、
+    // 打仗翻倍，兵过 4.3% 就缺、打仗过 2.1% 就缺，各大市场常年缺三到七成，缺过一半火枪火炮换装不了(见 CanEquip)。
+    // 改为每千人 1.5、打仗 ×1.5：平时兵占 7.5% 刚好够(跟价最多到 11%)，打仗紧一些但多半不过半，罗马、清这种倾国动员的照旧缺
+    private const float WarArmsFactor = 1.5f;
+
     // 一国记进它所在的市场：产量、需求、军需
     private static void Enter(Kingdom kingdom)
     {
@@ -901,7 +915,7 @@ public static class CommodityMarketSystem
             }
         }
         market.memberValue[kingdom.id] = (madeValue, wantedValue);
-        float soldiers = (CorpsSystem.Of(kingdom)?.Sum(corps => Mathf.Max(0f, corps?.strength ?? 0f)) ?? 0f) * (kingdom.hasEnemies() ? 2f : 1f);
+        float soldiers = (CorpsSystem.Of(kingdom)?.Sum(corps => Mathf.Max(0f, corps?.strength ?? 0f)) ?? 0f) * (kingdom.hasEnemies() ? WarArmsFactor : 1f);
         int era = EraTier(kingdom);
         foreach (CommodityConfig good in Goods.Values)
         {

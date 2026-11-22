@@ -18,7 +18,7 @@
 
     { "id": "cloth", "tier": "manufactured", "price": 4.0, "resources": { "leather": 0.3 }, "craft_cultures": [], "craft_per_thousand": 2.3, "needs": { "Peasant": 2, "Labour": 3, "Citizen": 4, "Merchant": 4, "Officer": 4, "Noble": 6, "Landlord": 4, "SlaveOwner": 4, "Guoren": 3 } },
     { "id": "tools", "tier": "manufactured", "price": 5.0, "craft_per_thousand": 0.85, "needs": { "Peasant": 0.8, "Labour": 1.5, "Citizen": 0.6 } },
-    { "id": "arms", "tier": "manufactured", "price": 8.0, "era": 5, "craft_per_thousand": 0.85, "per_soldier": 0.02 },
+    { "id": "arms", "tier": "manufactured", "price": 8.0, "era": 5, "craft_per_thousand": 1.5, "per_soldier": 0.02 },
     { "id": "steel", "tier": "manufactured", "price": 6.0, "era": 7, "needs": { "Labour": 0.5, "Citizen": 0.3 } },
 
     { "id": "silk", "tier": "luxury", "price": 10.0, "era": 3, "craft_cultures": ["Huaxia", "China", "Japan", "Aosong", "Shanhai"], "craft_per_thousand": 0.8, "needs": { "Noble": 3, "Officer": 2, "Merchant": 2, "Landlord": 1.5, "SlaveOwner": 1.5, "Citizen": 0.4 } },
