@@ -186,7 +186,8 @@ public static class WildernessOverlay
                 foreach (int id in region.Zones) Marked.Add(id);
         if (_fitted)
             foreach (int id in WildernessShape.TouchedZones()) Marked.Add(id);
-        foreach (int id in Marked) MarkZone(calc.getZoneByID(id));
+        foreach (int id in Marked)
+            if (calc._zones_dict_id.TryGetValue(id, out TileZone zone)) MarkZone(zone);
         Marked.Clear();
     }
 
@@ -196,7 +197,8 @@ public static class WildernessOverlay
         if (!_fitted) return;
         ZoneCalculator calc = World.world?.zone_calculator;
         if (calc == null) return;
-        foreach (int id in WildernessShape.TouchedZones()) MarkZone(calc.getZoneByID(id));
+        foreach (int id in WildernessShape.TouchedZones())
+            if (calc._zones_dict_id.TryGetValue(id, out TileZone zone)) MarkZone(zone);
     }
 
     // 一块地该画成的样子：0 不是无人区、没有城；1 有城(无人区外沿虚线不画向它)；2 以上是哪片无人区、什么类型、并进国土没有。

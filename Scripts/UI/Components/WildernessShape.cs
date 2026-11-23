@@ -14,7 +14,7 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     伸出去的碎格子，剧本版图看着乱)；地形只决定哪些地块划成无人区(WildernessSystem 归类)，不再决定一格归谁；
 //   · 轮廓里归谁(行政上分给几座城、几个国家)由画布按各块的归属平滑(见 SmoothBorders.WildFillAt)，同战线被占的城：
 //     轮廓不动，里面按块的实际控制方分出圆滑的分界；
-//   · 何时重算：区域变了(WildernessSystem.Version，只比各块归哪片、有没有城)、无人区周围一圈的地块有没有城变了(每帧对一遍)、
+//   · 何时重算：区域变了(WildernessSystem.LayoutVersion)、无人区周围一圈的地块有没有城变了(每帧对一遍)、
 //     水陆变了(ZonePaintBudget.TerrainChanged，攒 TerrainDelay 秒一起算)：一格只看周围 3×3 块，只重算变了的地块连同周围一圈，
 //     算完让画布重算这几块的城的轮廓(SmoothBorders.WildReshaped)、无人区图层重画；整张算只在开平滑国界、进图、换世界时，日志记用时。
 // 平滑国界关着、无人区关着或没有区域时不算(Active 为假)，各处照按地块画。
@@ -113,7 +113,7 @@ public static class WildernessShape
         }
         try
         {
-            if (!_active || WildernessSystem.Version != _version) Sync(calc);
+            if (!_active || WildernessSystem.LayoutVersion != _version) Sync(calc);
             WatchCities(calc);
             if (Dirty.Count > 0 && now >= _due) Process();
         }
@@ -201,10 +201,10 @@ public static class WildernessShape
 
     // ───────── 对区域、对城 ─────────
 
-    // 区域变了：各块的候选重对一遍，变了的连同周围一圈重算(归属国变了 Version 也加一，候选不变就不算)；头一回整张算
+    // 区域变了：各块的候选重对一遍，变了的连同周围一圈重算；头一回整张算。
     private static void Sync(ZoneCalculator calc)
     {
-        _version = WildernessSystem.Version;
+        _version = WildernessSystem.LayoutVersion;
         bool full = !_active;
         if (Slots.Count + WildernessSystem.Regions.Count > SlotMask)
         {

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using EmpireCraft.Scripts.Compatibility;
 using Newtonsoft.Json;
 using NeoModLoader.services;
 using UnityEngine;
@@ -19,7 +18,7 @@ namespace EmpireCraft.Scripts.GeneralSystems.WorldMap;
 //     城边上近两倍，到 100 为止——郡县治所一带先开、山里最后(秦汉岭南只有番禺、苍梧几处治所周围是熟地)；算出来开满的不改；
 //   · 先改地形：地块中心落在哪一片，这块地里有草木的平地格(草地、稀树草原、桦林、枫林的高低两种)改成同一高度的丛林或沼泽格
 //     (高地仍是高地；丘陵、山地、沙地、水面、田、路都不动，所以多山的云南、台湾改了也成不了片，不列)；
-//     城心那块、有房屋的、村镇厂区占着的、古战争兼容模组的城的地块留给城不改(同 WildernessSystem.Regroup 的 anchored)；
+//     城市领土、村镇与厂区的地块保持已有地形(同 WildernessSystem.Regroup 的 anchored)；
 //     这一类格子占不到陆地一半的(山丘、水面太多)成不了无人区，也不改；
 //   · 再当场划区(WildernessSystem.BuildNow，平时它等进世界安排做完才划)：改成丛林、沼泽的地块照门槛连片，
 //     开局铺满时归了城的从城里划出来；排在进世界安排的最后(别的步骤盖房、铺村镇在前，留给城的地块才算得准)；
@@ -317,21 +316,15 @@ public static class WorldMapDevelopment
                            $"{wild} 块划进无人区({string.Join("、", summary)})，{restored} 块没成片改回，用时 {watch.Elapsed.TotalMilliseconds:0} ms");
     }
 
-    // 留给城不改的地块：城心那块、村镇厂区占着的、古战争兼容模组的城的(同 WildernessSystem.Regroup 的 anchored)
+    // 无人区只从无城地块划出，提前跳过城地，省去临时改地形再还原。
     private static HashSet<int> KeptZones()
     {
         var kept = new HashSet<int>();
         foreach (City city in World.world.cities)
         {
             if (city?.data == null || city.isRekt()) continue;
-            if (AncientWarfareCompatibility.OwnsObject(city))
-            {
-                foreach (TileZone zone in city.zones)
-                    if (zone != null) kept.Add(zone.id);
-                continue;
-            }
-            TileZone seat = city.getTile()?.zone;
-            if (seat != null) kept.Add(seat.id);
+            foreach (TileZone zone in city.zones)
+                if (zone != null) kept.Add(zone.id);
         }
         foreach (int id in RuralSettlementSystem.SettledZones()) kept.Add(id);
         foreach (int id in FactorySystem.CoveredZones()) kept.Add(id);

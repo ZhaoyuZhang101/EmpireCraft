@@ -24,13 +24,14 @@ namespace EmpireCraft.Scripts.UI.Components;
 //     就画成那座城所在的国(省)，帝国图层是所属帝国；王国法理、帝国法理、天下图层上画成那座城在图层上的样子(所挂的王国法理、
 //     它的帝国法理、天下)，各档都画(流动的那档除外)；
 //   · 悬停这些地块时原版的国家提示让给无人区提示(名字、类型，加一行归属，见 WildernessOverlay)。
-// 每 RefreshSeconds 秒、区域变了(Version)、换图层时重算正显示的那个图层；变了的地块连同四邻重画。
+// 区域、归属、图层有变化时更新；定期兜底核对，变了的地块连同四邻重画。
 // 接管每帧对一遍(见 Hook、GeneralSystems.LayerHooks)：以前只在头一回套、三样委托缺一样就整个图层不接管，套上之后别处再换委托也不知道——
 // 提示里写着归了某国，国家图层上却没画进去(用户 2026-10-29 "可是这个山脉也没有归属""至少没有被纳入国家图层")。
 // 区域变了时，划进、划出无人区的地块连同四邻重画色块与城市平面图层(城的地块被划走，城那一层的颜色、边界跟着变)
 public static class WildernessTerritory
 {
     private const float RefreshSeconds = 2f;
+    private const float PoliticalFallbackSeconds = 10f;
 
     private sealed class Layer
     {
@@ -65,6 +66,7 @@ public static class WildernessTerritory
     private static MetaTypeAsset _shown;
     private static int _shownOption = -1;
     private static int _version = int.MinValue;
+    private static int _layoutVersion = int.MinValue;
 
     // 正显示的图层上并进国土的地块变了、换了图层就加一(无人区名、国名铭牌据此重排)
     internal static int Revision { get; private set; }
@@ -83,6 +85,7 @@ public static class WildernessTerritory
         _world = null;
         _next = 0f;
         _version = int.MinValue;
+        _layoutVersion = int.MinValue;
     }
 
     // 高亮(见 SmoothBorders.FinishFrame)：高亮的城跟着的无人区地块一起提亮，同城的地一个样；国家、帝国图层上再连同这些城所属的国
@@ -107,7 +110,8 @@ public static class WildernessTerritory
         if (shown == null || shown.fill.Count == 0 || calc == null) return;
         foreach (int id in zones)
         {
-            City city = calc.getZoneByID(id)?.city;
+            if (!calc._zones_dict_id.TryGetValue(id, out TileZone current)) continue;
+            City city = current?.city;
             if (city == null || !LitCities.Add(city)) continue;
             if (!shown.titles && city.kingdom != null) LitKingdoms.Add(city.kingdom);
         }
@@ -315,14 +319,18 @@ public static class WildernessTerritory
         _shownOption = option;
         if (switched) Revision++;
         bool regions = WildernessSystem.Version != _version;
-        if (regions)
+        _version = WildernessSystem.Version;
+        if (WildernessSystem.LayoutVersion != _layoutVersion)
         {
-            _version = WildernessSystem.Version;
             RegionsChanged(world, shown);
+            _layoutVersion = WildernessSystem.LayoutVersion;
         }
         float now = Time.unscaledTime;
-        if (!switched && !regions && now < _next && _next - now <= RefreshSeconds) return;
-        _next = now + RefreshSeconds;
+        // 城池易手由 Nudge 加急，认领和法理变化由 Version 通知。法理、天下还有自己的图层数据，保留原核对间隔。
+        float interval = shown?.map_mode == MetaType.Kingdom || shown?.map_mode == MetaTypeExtension.Empire
+            ? PoliticalFallbackSeconds : RefreshSeconds;
+        if (!switched && !regions && now < _next && _next - now <= interval) return;
+        _next = now + interval;
         using (FrameProfiler.Measure("无人区并进国土"))
             foreach (Layer layer in Layers)
                 if (ReferenceEquals(layer.asset, shown)) Refresh(layer, world);
@@ -338,9 +346,11 @@ public static class WildernessTerritory
                     foreach (int id in region.Zones) Fresh[id] = region.Id;
         ZoneCalculator calc = world.zone_calculator;
         foreach (KeyValuePair<int, int> pair in Regions)
-            if (!Fresh.TryGetValue(pair.Key, out int now) || now != pair.Value) Repaint(calc, shown, calc.getZoneByID(pair.Key));
+            if ((!Fresh.TryGetValue(pair.Key, out int now) || now != pair.Value) &&
+                calc._zones_dict_id.TryGetValue(pair.Key, out TileZone previous)) Repaint(calc, shown, previous);
         foreach (KeyValuePair<int, int> pair in Fresh)
-            if (!Regions.ContainsKey(pair.Key)) Repaint(calc, shown, calc.getZoneByID(pair.Key));
+            if (!Regions.ContainsKey(pair.Key) && calc._zones_dict_id.TryGetValue(pair.Key, out TileZone current))
+                Repaint(calc, shown, current);
         Regions.Clear();
         foreach (KeyValuePair<int, int> pair in Fresh) Regions[pair.Key] = pair.Value;
         Fresh.Clear();
@@ -392,8 +402,7 @@ public static class WildernessTerritory
                 if (region?.Zones == null) continue;
                 foreach (int id in region.Zones)
                 {
-                    TileZone zone = calc.getZoneByID(id);
-                    if (zone == null || zone.city != null) continue;
+                    if (!calc._zones_dict_id.TryGetValue(id, out TileZone zone) || zone == null || zone.city != null) continue;
                     // 跟着的城(行政区、所挂法理)
                     City origin = WildernessSystem.OriginOf(zone);
                     if (layer.titles)
@@ -424,8 +433,8 @@ public static class WildernessTerritory
         // 历史剧本中退出无人区的山谷、已开垦地仍跟随原法理；不凭空立城或绕过城市地块上限。
         foreach (int id in WorldMapWilderness.KnownTerritory())
         {
-            TileZone zone = calc.getZoneByID(id);
-            if (zone == null || zone.city != null || WildernessSystem.IsWild(zone)) continue;
+            if (!calc._zones_dict_id.TryGetValue(id, out TileZone zone) || zone == null || zone.city != null ||
+                WildernessSystem.IsWild(zone)) continue;
             City origin = WorldMapWilderness.KnownCity(zone);
             Kingdom owner = WorldMapWilderness.KnownOwner(zone);
             IMetaObject meta = origin == null ? null : MetaAt(layer, origin);
