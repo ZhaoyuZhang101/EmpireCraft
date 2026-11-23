@@ -25,6 +25,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using EmpireCraft.Scripts.Diagnostics;
@@ -143,7 +144,17 @@ internal static class CoreHost
     private static string DetachedFile => Path.Combine(Root, "detached.json");
 
     private static string BundledFolder => Path.Combine(ModClass._declare.FolderPath, "RegimeEditor", "core", "win-x64");
+    private static string BundledInstall => Path.Combine(Root, "bin", "current");
     private static bool _bundleChecked;
+    private const float BundleCheckSeconds = 20f;
+    private static float _nextBundleCheck;
+    // 后台检测只读文件。只有游戏持有核心进程的期间，才在主线程提出存档重启。
+    private enum BundleProbe { Idle, Checking, UpdateReady }
+    private static volatile BundleProbe _bundleProbe;
+    private static Process _bundleProbeProcess;
+    private static bool _bundleRestart, _bundleSaved, _bundleInstalling;
+    private static volatile bool _bundleInstallDone;
+    private static bool _bundleInstallOk;
 
     internal static void Tick()
     {
@@ -151,7 +162,7 @@ internal static class CoreHost
         if (!_bundleChecked)
         {
             _bundleChecked = true;
-            string bundled = BundledFolder, current = Path.Combine(Root, "bin", "current");
+            string bundled = BundledFolder, current = BundledInstall;
             ThreadPool.QueueUserWorkItem(_ => InstallBundled(bundled, current, false));
         }
         if (Enabled != _wasEnabled)
@@ -231,7 +242,8 @@ internal static class CoreHost
         if (State == Phase.Starting)
         {
             Kill();
-            Release();
+            if (_bundleRestart) ReturnAfterBundleFailure(LM.Get("terminal_core_cancel"));
+            else Release();
             return;
         }
         if (State != Phase.Running) return;
@@ -302,7 +314,7 @@ internal static class CoreHost
         Phase.Exporting => LM.Get("terminal_core_exporting"),
         Phase.Starting => LM.Get("terminal_core_starting"),
         Phase.Running => string.Format(LM.Get("terminal_core_running"), Span(Time.unscaledTime - _since)),
-        Phase.Stopping => LM.Get("terminal_core_stopping"),
+        Phase.Stopping => LM.Get(_bundleRestart ? "terminal_core_syncing" : "terminal_core_stopping"),
         Phase.Importing or Phase.Loading => LM.Get("terminal_core_importing"),
         Phase.Detaching => LM.Get("terminal_core_detaching"),
         Phase.Attached => LM.Get("terminal_core_attached"),
@@ -530,7 +542,8 @@ internal static class CoreHost
         if (_process == null)
         {
             if (Launch(out string error)) return;
-            Fail(error);
+            if (_bundleRestart) ReturnAfterBundleFailure(error);
+            else Fail(error);
             return;
         }
         Drain();
@@ -541,7 +554,9 @@ internal static class CoreHost
             if (State == Phase.Starting)
             {
                 // 没起来：世界没动过，不用带回。4 = 端口开不了
-                Fail(code == 4 ? string.Format(LM.Get("terminal_core_port"), TerminalHost.Port) : $"{code} {_lastLine}");
+                string error = code == 4 ? string.Format(LM.Get("terminal_core_port"), TerminalHost.Port) : $"{code} {_lastLine}";
+                if (_bundleRestart) ReturnAfterBundleFailure(error);
+                else Fail(error);
                 return;
             }
             // 跑着跑着没了：照它最后存的那份带回
@@ -556,12 +571,58 @@ internal static class CoreHost
         if (State == Phase.Starting && Time.unscaledTime > _deadline)
         {
             Kill();
-            Fail(LM.Get("terminal_core_timeout"));
+            if (_bundleRestart) ReturnAfterBundleFailure(LM.Get("terminal_core_timeout"));
+            else Fail(LM.Get("terminal_core_timeout"));
+            return;
         }
+        if (State == Phase.Running && Enabled && !_detached) CheckRunningBundle();
+    }
+
+    private static void CheckRunningBundle()
+    {
+        string target = BundledInstall;
+        if (!string.Equals(_exe, Path.Combine(target, ExeName), StringComparison.OrdinalIgnoreCase)) return;
+        if (_bundleProbe == BundleProbe.UpdateReady)
+        {
+            _bundleProbe = BundleProbe.Idle;
+            if (_bundleProbeProcess != _process) return;
+            try
+            {
+                _process.StandardInput.WriteLine("quit");
+                _process.StandardInput.Flush();
+            }
+            catch (Exception exception)
+            {
+                LogService.LogWarning($"[EmpireCraft][服务器核心] 无法请求存档更新：{exception.Message}");
+                return;
+            }
+            _bundleSaved = false;
+            _bundleRestart = true;
+            Enter(Phase.Stopping);
+            return;
+        }
+        if (_bundleProbe != BundleProbe.Idle || Time.unscaledTime < _nextBundleCheck) return;
+        _nextBundleCheck = Time.unscaledTime + BundleCheckSeconds;
+        _bundleProbeProcess = _process;
+        _bundleProbe = BundleProbe.Checking;
+        string bundled = BundledFolder;
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            bool needsUpdate = false;
+            try { needsUpdate = CompleteBundle(bundled) && !SameBundle(bundled, target); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            finally { _bundleProbe = needsUpdate ? BundleProbe.UpdateReady : BundleProbe.Idle; }
+        });
     }
 
     private static void TickStop()
     {
+        if (_bundleRestart)
+        {
+            TickBundleRestart();
+            return;
+        }
         Drain();
         bool gone = _process == null || _process.HasExited;
         if (!gone && Time.unscaledTime <= _deadline) return;
@@ -571,6 +632,71 @@ internal static class CoreHost
             Kill();
         }
         _process = null;
+        Enter(Phase.Importing);
+    }
+
+    private static void TickBundleRestart()
+    {
+        if (!_bundleInstalling)
+        {
+            // 让正常退出写完整存档；大地图存得慢也不强杀。
+            Drain();
+            if (!_process.HasExited) return;
+            _process.WaitForExit(); // 等输出回调送到最后一行存档结果。
+            Drain();
+            int exitCode = _process.ExitCode;
+            _process.Dispose();
+            _process = null;
+            if (exitCode != 0 || !_bundleSaved)
+            {
+                ReturnAfterBundleFailure(LM.Get("terminal_core_sync_save_failed"));
+                return;
+            }
+            if (!Enabled)
+            {
+                _bundleRestart = false;
+                Enter(Phase.Importing);
+                return;
+            }
+            _bundleInstalling = true;
+            _bundleInstallDone = false;
+            string bundled = BundledFolder, target = BundledInstall;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                _bundleInstallOk = false;
+                try { _bundleInstallOk = InstallBundled(bundled, target, true) && SameBundle(bundled, target); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                finally { _bundleInstallDone = true; }
+            });
+            return;
+        }
+        if (!_bundleInstallDone) return;
+        _bundleInstalling = false;
+        if (!_bundleInstallOk)
+        {
+            ReturnAfterBundleFailure(LM.Get("terminal_core_sync_install_failed"));
+            return;
+        }
+        if (!Enabled)
+        {
+            _bundleRestart = false;
+            Enter(Phase.Importing);
+            return;
+        }
+        _exe = Path.Combine(BundledInstall, ExeName);
+        _liveTicket = null;
+        _liveTicketAsked = -999f;
+        _linkAsked = 0;
+        Enter(Phase.Starting);
+        _deadline = Time.unscaledTime + StartSeconds;
+    }
+
+    private static void ReturnAfterBundleFailure(string error)
+    {
+        _bundleRestart = false;
+        LogService.LogWarning($"[EmpireCraft][服务器核心] 自动更新中断：{error}");
+        Tip(string.Format(LM.Get("terminal_core_failed"), error), 8f);
         Enter(Phase.Importing);
     }
 
@@ -824,6 +950,7 @@ internal static class CoreHost
             line = line.Trim();
             if (line.Length == 0) continue;
             _lastLine = line;
+            if (_bundleRestart && line.StartsWith("已存档（退出）", StringComparison.Ordinal)) _bundleSaved = true;
             int at = line.IndexOf("管理员码:", StringComparison.Ordinal);
             if (at >= 0)
             {
@@ -857,6 +984,8 @@ internal static class CoreHost
             }
             if (State == Phase.Starting && (line.Contains("读回:") || line.Contains("世界已就绪")))
             {
+                _bundleRestart = false;
+                _nextBundleCheck = Time.unscaledTime + BundleCheckSeconds;
                 State = Phase.Running;
                 _since = Time.unscaledTime;
                 LogService.LogInfo($"[EmpireCraft][服务器核心] 核心接手了这一局：{line}");
@@ -956,7 +1085,7 @@ internal static class CoreHost
                 string found = ExeIn(File.ReadAllText(hint).Trim().Trim('"'));
                 if (found != null) return found;
             }
-            string current = Path.Combine(Root, "bin", "current");
+            string current = BundledInstall;
             if (InstallBundled(BundledFolder, current, true)) return ExeIn(current);
             return ExeIn(Path.Combine(Root, "bin", EmpireCraftUpdateService.InstalledVersion()));
         }
@@ -969,9 +1098,18 @@ internal static class CoreHost
     // 模组包里自带的核心(一键发布时编进 RegimeEditor/core/win-x64，见 publish_all.ps1；用户 2026-11-16 "全部打包到一起去")：
     // 拷到 bin/current 再用，不直接在模组目录里跑——核心跑着时模组目录的文件不被占着，游戏更新模组照常能换。
     // 目录名不带版本：桌面上的核心快捷方式(政体编辑器放的)指着它，模组更新后还是这个位置。游戏每回启动对一遍(见 Tick)，
-    // 和包里的一样(主程序的大小和修改时间都对得上)就不拷；拷不成(旧的那份正跑着)就接着用旧的，下回启动再对。
+    // 启动器与实际程序 DLL 都相同才复用。下一次接手前重新核对，更新后只需停下并重新开启核心。
     // 包里没有(从源码跑的开发目录)返回假，照旧找 bin/<版本>，再没有才去下载
     private static readonly object BundleGate = new();
+    private static readonly string[] BundleFiles =
+    {
+        ExeName, "EmpireCraftServer.dll", "EmpireCraftServer.deps.json", "EmpireCraftServer.runtimeconfig.json"
+    };
+
+    private static bool CompleteBundle(string folder) => Array.TrueForAll(BundleFiles, file => File.Exists(Path.Combine(folder, file)));
+
+    private static bool SameBundle(string source, string target) => Array.TrueForAll(BundleFiles,
+        file => SameCoreFile(Path.Combine(source, file), Path.Combine(target, file)));
 
     private static bool InstallBundled(string bundled, string target, bool log)
     {
@@ -980,14 +1118,36 @@ internal static class CoreHost
             var source = new FileInfo(Path.Combine(bundled, ExeName));
             if (!source.Exists) return false;
             var have = new FileInfo(Path.Combine(target, ExeName));
-            if (have.Exists && have.Length == source.Length && have.LastWriteTimeUtc == source.LastWriteTimeUtc) return true;
             try
             {
-                string stage = target.TrimEnd('\\', '/') + ".copy";
-                if (Directory.Exists(stage)) Directory.Delete(stage, true);
-                CopyFolder(bundled, stage);
-                if (Directory.Exists(target)) Directory.Delete(target, true);
-                Directory.Move(stage, target);
+                if (!CompleteBundle(bundled)) return false;
+                if (have.Exists && SameBundle(bundled, target)) return true;
+                string suffix = Guid.NewGuid().ToString("N");
+                string stage = target.TrimEnd('\\', '/') + ".copy-" + suffix;
+                string backup = target.TrimEnd('\\', '/') + ".old-" + suffix;
+                bool moved = false;
+                try
+                {
+                    CopyFolder(bundled, stage);
+                    if (Directory.Exists(target))
+                    {
+                        Directory.Move(target, backup);
+                        moved = true;
+                    }
+                    try { Directory.Move(stage, target); }
+                    catch
+                    {
+                        if (moved) Directory.Move(backup, target);
+                        throw;
+                    }
+                    // 旧进程还占着文件时保留备份，更新后的目录已可供下次启动。
+                    if (moved)
+                        try { Directory.Delete(backup, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
+                finally
+                {
+                    if (Directory.Exists(stage)) Directory.Delete(stage, true);
+                }
                 if (log) LogService.LogInfo($"[EmpireCraft][服务器核心] 模组包里自带的核心已装到 {target}");
             }
             catch (Exception exception)
@@ -996,6 +1156,16 @@ internal static class CoreHost
             }
             return File.Exists(Path.Combine(target, ExeName));
         }
+    }
+
+    private static bool SameCoreFile(string source, string target)
+    {
+        if (!File.Exists(source) || !File.Exists(target)) return false;
+        if (new FileInfo(source).Length != new FileInfo(target).Length) return false;
+        using var hash = SHA256.Create();
+        using var from = File.OpenRead(source);
+        using var have = File.OpenRead(target);
+        return Convert.ToBase64String(hash.ComputeHash(from)) == Convert.ToBase64String(hash.ComputeHash(have));
     }
 
     private static void CopyFolder(string from, string to)
@@ -1065,6 +1235,7 @@ internal static class CoreHost
     {
         bool held = Holding;
         State = Phase.Idle;
+        _bundleRestart = false;
         _skipStale = false;
         Enabled = _wasEnabled = false;
         if (held) Config.paused = false;

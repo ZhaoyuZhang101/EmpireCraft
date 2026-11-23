@@ -2489,6 +2489,23 @@ public static class CorpsSystem
         return top;
     }
 
+    // 军牌画在哪(游戏里的兵牌、手机舆图共用一个口径；用户 2026-11-18 "为什么原版士兵移动这么快网页端却看起来很慢""可是原版的军牌也很快啊"
+    // →"改成一样")：统领(原版小人，按原版速度赶到军团所在的地块)在军团 FollowZones 块以内就画在统领所在的格子，同游戏里的兵牌
+    // (见 CorpsMapRenderer.CounterTarget，那边另有进出的回差)；不然按行军插值画在所在地块与下一块之间(见 DrawPosition)。
+    // 以前手机只拿到所在地块的中心，一块一跳，网页再把这一跳摊到两份军情之间慢慢挪，看着比游戏里慢得多。返回格子坐标
+    public const float FollowZones = 2f;
+
+    public static Vector3 ShownPosition(CorpsData corps)
+    {
+        TileZone zone = Zone(corps);
+        if (zone == null) return Vector3.zero;
+        Actor general = corps.general_id >= 0 ? World.world.units.get(corps.general_id) : null;
+        if (general?.data != null && !general.isRekt() && general.isAlive() && general.current_tile?.zone != null &&
+            ZoneDistance(general.current_tile.zone, zone) <= FollowZones)
+            return general.current_tile.posV;
+        return DrawPosition(corps);
+    }
+
     // 画兵牌用：行军途中按行军进度画在所在地块与下一块之间(行军很慢，一块地要走二十几秒，
     // 只在换地块时滑一下会一卡一卡的)；下一块按缓存的路线，飞机朝目标就近一块；不在行军返回所在地块中心
     public static Vector3 DrawPosition(CorpsData corps) => DrawPosition(corps, out _);
@@ -2545,10 +2562,133 @@ public static class CorpsSystem
             moving = true;
             progress += rate * TickFraction();
         }
-        // 这一拍会跨进下一块的：过了下一块中心接着往再下一块走，免得停在中心等结算、结算后再往前一跳
-        if (progress > 1f && after?.centerTile != null)
-            return Vector3.Lerp(next.centerTile.posV, after.centerTile.posV, Mathf.Clamp01(progress - 1f));
-        return Vector3.Lerp(here, next.centerTile.posV, Mathf.Clamp01(progress));
+        // 这一拍会跨进下一块的：过了下一块中心接着往再下一块走，免得停在中心等结算、结算后再往前一跳。
+        // 两块之间不走直线：有路沿路走，没路顺着地形绕开山、水(见 MarchLine)；飞机照旧直飞
+        bool flies = CorpsArmSystem.Flies(corps);
+        if (progress > 1f && after?.centerTile != null) return Along(next, after, Mathf.Clamp01(progress - 1f), flies);
+        return Along(zone, next, Mathf.Clamp01(progress), flies);
+    }
+
+    // ───────── 军牌在两块地之间走的线 ─────────
+    // 用户 2026-11-18 "军队会沿着路走吗"→"贴着路走""没有路的时候才按算法""也不是直线应该是按地形"：
+    // 行军的快慢、路线照旧按地块算(见 FindPath、MarchZonesPerSecond)，这里只定两块地中心之间画在哪：
+    // 在这两块地(斜着相邻的连同夹着的两块)的格子里找一条最省的格子路，路最省、平地次之、林地丘陵沼泽再贵，山、水、岩浆不走
+    // (见 TerrainSystem.StepCost)；找不到(两块之间是山脊、整片是水)才照旧画直线。按两块地缓存，路网换了版本整表重算；
+    // 地形改了不跟着重算(画在哪而已)，表大了清掉重来
+    private static readonly Dictionary<long, Vector2[]> MarchLines = new(PackedKeyComparer.Instance);
+    private static int _marchLineRoads = int.MinValue;
+    private static readonly Vector2[] NoLine = new Vector2[0];
+    private const int MaxMarchLines = 8192;
+
+    private static Vector3 Along(TileZone from, TileZone to, float t, bool flies)
+    {
+        Vector3 a = from.centerTile.posV, b = to.centerTile.posV;
+        Vector2[] line = flies ? NoLine : MarchLine(from, to);
+        if (line.Length < 2) return Vector3.Lerp(a, b, t);
+        float total = 0f;
+        for (int i = 1; i < line.Length; i++) total += Vector2.Distance(line[i - 1], line[i]);
+        if (total <= 0f) return Vector3.Lerp(a, b, t);
+        float want = total * t;
+        for (int i = 1; i < line.Length; i++)
+        {
+            float step = Vector2.Distance(line[i - 1], line[i]);
+            if (want <= step || i == line.Length - 1)
+            {
+                Vector2 at = Vector2.Lerp(line[i - 1], line[i], step > 0f ? Mathf.Clamp01(want / step) : 1f);
+                return new Vector3(at.x, at.y, a.z);
+            }
+            want -= step;
+        }
+        return b;
+    }
+
+    private static Vector2[] MarchLine(TileZone from, TileZone to)
+    {
+        if (_marchLineRoads != RoadNetwork.Version || MarchLines.Count > MaxMarchLines)
+        {
+            MarchLines.Clear();
+            _marchLineRoads = RoadNetwork.Version;
+        }
+        long key = (long)from.id << 32 | (uint)to.id;
+        if (MarchLines.TryGetValue(key, out Vector2[] line)) return line;
+        line = TraceMarchLine(from, to);
+        MarchLines[key] = line;
+        return line;
+    }
+
+    // 两块地中心之间按格找最省的路(八方向，斜走 ×1.41，两边都挡着的斜角不钻)。范围是两块地的外框，至多 16×16 格
+    private static Vector2[] TraceMarchLine(TileZone from, TileZone to)
+    {
+        WorldTile start = from.centerTile, goal = to.centerTile;
+        if (start == null || goal == null || World.world == null) return NoLine;
+        int size = Config.CITY_ZONE_SIZE;
+        int x0 = Math.Min(from.x, to.x) * size, y0 = Math.Min(from.y, to.y) * size;
+        int w = (Math.Abs(from.x - to.x) + 1) * size, h = (Math.Abs(from.y - to.y) + 1) * size;
+        if (w > size * 2 || h > size * 2) return NoLine;
+        int n = w * h, mapW = MapBox.width, mapH = MapBox.height;
+        var cost = new float[n];
+        var dist = new float[n];
+        var parent = new int[n];
+        var done = new bool[n];
+        for (int i = 0; i < n; i++)
+        {
+            int tx = x0 + i % w, ty = y0 + i / w;
+            WorldTile tile = tx >= 0 && ty >= 0 && tx < mapW && ty < mapH ? World.world.GetTileSimple(tx, ty) : null;
+            cost[i] = tile == null ? -1f : TerrainSystem.StepCost(tile);
+            dist[i] = float.MaxValue;
+            parent[i] = -1;
+        }
+        int s = (start.y - y0) * w + (start.x - x0), g = (goal.y - y0) * w + (goal.x - x0);
+        if (s < 0 || g < 0 || s >= n || g >= n) return NoLine;
+        // 起止两格就是两块地的中心，挡着也从那儿走(兵牌停着时就画在那)
+        if (cost[s] < 0f) cost[s] = 1f;
+        if (cost[g] < 0f) cost[g] = 1f;
+        dist[s] = 0f;
+        // 至多 256 格，逐个挑最近的就够快(按两块地缓存，同一对只算一回)
+        for (int round = 0; round < n; round++)
+        {
+            int best = -1;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < n; i++)
+                if (!done[i] && dist[i] < bestDist)
+                {
+                    best = i;
+                    bestDist = dist[i];
+                }
+            if (best < 0 || best == g) break;
+            done[best] = true;
+            int bx = best % w, by = best / w;
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int nx = bx + dx, ny = by + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                int next = ny * w + nx;
+                if (done[next] || cost[next] < 0f) continue;
+                bool diagonal = dx != 0 && dy != 0;
+                if (diagonal && cost[by * w + nx] < 0f && cost[ny * w + bx] < 0f) continue;
+                float total = bestDist + cost[next] * (diagonal ? 1.41f : 1f);
+                if (total < dist[next])
+                {
+                    dist[next] = total;
+                    parent[next] = best;
+                }
+            }
+        }
+        if (dist[g] == float.MaxValue) return NoLine;
+        var points = new List<Vector2>();
+        for (int at = g; at >= 0; at = parent[at]) points.Add(new Vector2(x0 + at % w, y0 + at / w));
+        points.Reverse();
+        // 一直往同一个方向走的中间格去掉，线短一些、算位置快一些
+        var line = new List<Vector2> { points[0] };
+        for (int i = 1; i < points.Count - 1; i++)
+        {
+            Vector2 before = points[i] - points[i - 1], after = points[i + 1] - points[i];
+            if (before != after) line.Add(points[i]);
+        }
+        if (points.Count > 1) line.Add(points[points.Count - 1]);
+        return line.ToArray();
     }
 
     // 这一拍(见 Update 里的行军节拍，舰队航行同拍)过了几成

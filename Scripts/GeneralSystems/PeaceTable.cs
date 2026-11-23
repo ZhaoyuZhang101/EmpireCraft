@@ -171,6 +171,37 @@ public static class PeaceTable
         return true;
     }
 
+    // 君主自己摆的台子(手机终端，见 TerminalHost.Peace)：撮合同 Mediate，只是撮的是这一张，不动神在议和页上那张
+    public static bool MediateDeal(War war, PeaceDeal deal)
+    {
+        if (!Usable(war)) return false;
+        if (deal.terms.Count == 0) deal.terms.AddRange(Offer(war).terms);
+        return Balance(war, deal, lockMain: true, markAdded: true);
+    }
+
+    // 君主签约：mustAccept = 由朝廷自己裁的那一国(它肯才签；君主这一边他自己拿主意，不看天平)；
+    // 为空是两位君主当面谈成的，不再看天平。最短战期照常(WarPeaceRules)
+    public static bool SignDeal(War war, PeaceDeal deal, Kingdom mustAccept)
+    {
+        if (!Usable(war) || !WarPeaceRules.MayNegotiate(war)) return false;
+        deal = deal.Copy();
+        if (mustAccept != null)
+        {
+            (PeaceOpinion a, PeaceOpinion d) = Evaluate(war, deal, Basis(war));
+            if (!(mustAccept == war.main_attacker ? a : d).Accepts) return false;
+        }
+        long id = Id(war);
+        Concluded[id] = (deal, Source.Signed);
+        World.world.wars.endWar(war, WarWinner.Peace);
+        if (!war.hasEnded())
+        {
+            Concluded.Remove(id);
+            return false;
+        }
+        Drafts.Remove(id);
+        return true;
+    }
+
     // 罢兵(用户 2026-11-10"谁开启的战争谁就可以自主停战""但是停战需要赔付钱""相当于战争目标没完成打输了")：
     // 开战的一方随时可以自己收兵，不看对方肯不肯；算作目标没打成、打输了——守方胜，攻方照败方赔款、占地交还(见 WarGoalSystem.Settle)
     public static bool Withdraw(War war, bool byGod)

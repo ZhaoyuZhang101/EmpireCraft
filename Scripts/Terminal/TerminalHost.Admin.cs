@@ -94,6 +94,8 @@ public static partial class TerminalHost
         if (method == "POST" && path == "/api/admin/history") return HistoryReply(body);
         // 点图上的国：它的基本数值(见 RealmFigures)
         if (method == "POST" && path == "/api/admin/realm") return RealmFiguresReply(body);
+        // 附身没人领着的国、换一国、放手(见 TerminalHost.Possess)
+        if (method == "POST" && path == "/api/admin/possess") return PossessReply(god, body);
         if (method == "POST" && path == "/api/admin")
         {
             string id = Field(body, "id"), target = Field(body, "target"), choice = Field(body, "choice");
@@ -119,6 +121,7 @@ public static partial class TerminalHost
         if (ready) RunLive(now);
         if (ready && AdminByToken.Values.Any(god => god.Watched)) RunHistory(now);
         if (ready) RunRealmFigures();
+        RunPossessions();
         foreach (Seat god in AdminByToken.Values)
         {
             if (!ready)
@@ -241,8 +244,9 @@ public static partial class TerminalHost
             {
                 if (armies.Count >= MaxAdminArmies) break;
                 if (corps.strength < 1f) continue;
-                WorldTile at = CorpsSystem.Zone(corps)?.centerTile;
-                if (at == null) continue;
+                if (CorpsSystem.Zone(corps)?.centerTile == null) continue;
+                // 同游戏里的兵牌画的位置(见 CorpsSystem.ShownPosition)
+                Vector3 at = CorpsSystem.ShownPosition(corps);
                 (double x, double y) = CellOf(god, at.x, at.y);
                 var row = new JObject
                 {
@@ -264,12 +268,14 @@ public static partial class TerminalHost
             }
         }
         JArray battles = SeeBattles(god, true);
-        string text = armies.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None);
+        JArray crowns = SeeCrowns(god, true);
+        string text = armies.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None) +
+                      crowns.ToString(Newtonsoft.Json.Formatting.None);
         if (god.ArmyJson != null && text == god.ArmySeenText) return;
         god.ArmySeenText = text;
         god.ArmySnapshot = new ArmyReport(++god.ArmyStamp, new JObject
         {
-            ["ready"] = true, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies, ["battles"] = battles,
+            ["ready"] = true, ["at"] = MonthNow(), ["every"] = 0, ["armies"] = armies, ["battles"] = battles, ["crowns"] = crowns,
             ["writs"] = new JArray(), ["orders"] = new JObject()
         });
     }
@@ -319,6 +325,7 @@ public static partial class TerminalHost
                 ["cities"] = info.Cities, ["age"] = info.Age, ["taken"] = info.TakenBy, ["tianxia"] = info.Tianxia, ["empire"] = info.Empire
             });
         state["rulers"] = rulers;
+        AddPossess(state, god, rulers);
         // 办过的事回的话(网页按编号只提示新的)
         var notes = new JArray();
         foreach (Report note in god.Reports) notes.Add(new JObject { ["id"] = note.Id, ["k"] = note.Kind, ["a"] = note.Text });

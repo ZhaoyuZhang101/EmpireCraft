@@ -12,6 +12,7 @@ const os = require("node:os");
 const net = require("node:net");
 const path = require("node:path");
 const { spawn, execFile } = require("node:child_process");
+const { createHash, randomUUID } = require("node:crypto");
 
 const EXE = "EmpireCraftServer.exe";
 const DEFAULT_PORT = 8766;
@@ -41,7 +42,7 @@ function exeIn(dir) {
   return null;
 }
 
-// 自带的核心(一整个目录)：拷到 bin/<name>(已经拷过、主程序大小和修改时间都对得上的不再拷)。返回拷好的那份主程序；
+// 自带的核心(一整个目录)：启动器、玩法 DLL 和运行配置相同才复用。返回拷好的那份主程序；
 // 目录里没有核心的返回 null；拷不成(旧的那份正跑着)就接着用旧的。install 为假时只看不拷(界面上显示用)。
 // 目录名不带版本：桌面快捷方式指着它，更新后还是这个位置
 function bundledExe(bundled, name, install) {
@@ -51,18 +52,39 @@ function bundledExe(bundled, name, install) {
   const target = path.join(coreRoot(), "bin", name);
   const have = path.join(target, EXE);
   try {
-    const a = fs.statSync(source);
-    const b = fs.existsSync(have) ? fs.statSync(have) : null;
-    if (b && a.size === b.size && Math.abs(a.mtimeMs - b.mtimeMs) < 2000) return have;
     // 只看不拷：说的是它会装到的那个位置(便携版自己解在临时目录里，那个路径每回都不一样，给人看没用)
     if (!install) return have;
-    const stage = target + ".copy";
+    const same = [EXE, "EmpireCraftServer.dll", "EmpireCraftServer.deps.json", "EmpireCraftServer.runtimeconfig.json"].every(file => {
+      const from = path.join(bundled, file), to = path.join(target, file);
+      if (!fs.existsSync(to) || !fs.existsSync(from) || fs.statSync(from).size !== fs.statSync(to).size) return false;
+      const digest = name => createHash("sha256").update(fs.readFileSync(name)).digest("hex");
+      return digest(from) === digest(to);
+    });
+    if (same) return have;
+    const suffix = randomUUID();
+    const stage = target + ".copy-" + suffix;
+    const backup = target + ".old-" + suffix;
     // 没装过游戏的电脑上连 EmpireCraftCore 这一层都没有
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.rmSync(stage, { recursive: true, force: true });
-    fs.cpSync(bundled, stage, { recursive: true, preserveTimestamps: true });
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.renameSync(stage, target);
+    let moved = false;
+    try {
+      fs.cpSync(bundled, stage, { recursive: true, preserveTimestamps: true });
+      if (fs.existsSync(target)) {
+        fs.renameSync(target, backup);
+        moved = true;
+      }
+      try { fs.renameSync(stage, target); }
+      catch (error) {
+        if (moved) fs.renameSync(backup, target);
+        throw error;
+      }
+      // 旧进程仍占着文件时，留在备份目录里等它退出。
+      if (moved) {
+        try { fs.rmSync(backup, { recursive: true, force: true }); } catch {}
+      }
+    } finally {
+      fs.rmSync(stage, { recursive: true, force: true });
+    }
     return have;
   } catch {
     return fs.existsSync(have) ? have : source;

@@ -41,8 +41,10 @@ public static partial class TerminalHost
     // 主线程：一回只备一份
     private static void RunAnnals(float now)
     {
-        if (now < _nextAnnals || AnnalsWant.IsEmpty) return;
+        if (now < _nextAnnals || AnnalsWant.IsEmpty && ClanWant.IsEmpty) return;
         _nextAnnals = now + AnnalsSeconds;
+        // 宗族页(见 TerminalHost.Clan)
+        RunClan();
         if (!WorldReady()) return;
         foreach (string token in AnnalsWant.Keys.ToList())
         {
@@ -320,7 +322,7 @@ public static partial class TerminalHost
         PersonalClanIdentity person = node.Person;
         if (person != null)
         {
-            if (reign == null) Line(lines, "terminal_an_post", SpecificClanWindow.Post(person));
+            if (reign == null) Line(lines, "terminal_an_post", ClanPost(person));
             Line(lines, "terminal_an_born", person.birthday);
             if (!person.is_alive) Line(lines, "terminal_an_death", person.deathday);
             Line(lines, "terminal_an_years", AgeText(person));
@@ -330,9 +332,11 @@ public static partial class TerminalHost
     }
 
     // ───────── 族谱 ─────────
-    private static JObject ClanJson(Seat seat, Empire empire)
+    // center：以谁为中心(宗族页里点了别人就换成他，往上翻得到先祖)；空的是所领之君本人
+    private static JObject ClanJson(Seat seat, Empire empire, PersonalClanIdentity center = null)
     {
-        PersonalClanIdentity self = seat.Ruler.GetPersonalIdentity();
+        PersonalClanIdentity me = seat.Ruler.GetPersonalIdentity();
+        PersonalClanIdentity self = center ?? me;
         if (self == null) return new JObject();
         // 做过本朝君主的人(格子描金)
         var crowned = new HashSet<long>();
@@ -383,7 +387,7 @@ public static partial class TerminalHost
         {
             if (person.is_alive) living++;
             var lines = new JArray();
-            Line(lines, "terminal_an_post", SpecificClanWindow.Post(person));
+            Line(lines, "terminal_an_post", ClanPost(person));
             Line(lines, "terminal_an_born", person.birthday);
             if (!person.is_alive) Line(lines, "terminal_an_death", person.deathday);
             Line(lines, "terminal_an_years", AgeText(person));
@@ -393,12 +397,12 @@ public static partial class TerminalHost
             nodes.Add(new JObject
             {
                 ["id"] = person.id.ToString(), ["parent"] = parentOf.TryGetValue(person.id, out long parent) ? parent.ToString() : null,
-                ["name"] = TerminalIntel.Strip(person.name ?? ""), ["title"] = TerminalIntel.Strip(person == self ? LM.Get("terminal_an_self") : ShortPost(person)),
+                ["name"] = TerminalIntel.Strip(person.name ?? ""), ["title"] = TerminalIntel.Strip(person == me ? LM.Get("terminal_an_self") : ShortPost(person)),
                 ["years"] = AgeText(person), ["ruler"] = crowned.Contains(person.actor_id), ["alive"] = person.is_alive,
-                ["self"] = person == self, ["detail"] = lines, ["look"] = LookOf(seat, person, crowned.Contains(person.actor_id))
+                ["self"] = person == self, ["me"] = person == me, ["detail"] = lines, ["look"] = LookOf(seat, person, crowned.Contains(person.actor_id))
             });
         }
-        SpecificClan clan = seat.Ruler.GetSpecificClan();
+        SpecificClan clan = self._specificClan ?? seat.Ruler.GetSpecificClan();
         return new JObject
         {
             ["title"] = clan?.GetDisplayName() ?? LM.Get("terminal_an_clan"),
@@ -411,7 +415,7 @@ public static partial class TerminalHost
     private static string ShortPost(PersonalClanIdentity person)
     {
         string post = PersonTitle(person);
-        if (string.IsNullOrEmpty(post)) post = SpecificClanWindow.Post(person) ?? "";
+        if (string.IsNullOrEmpty(post)) post = ClanPost(person) ?? "";
         post = TerminalIntel.Strip(post);
         return post.Length > 8 ? post.Substring(0, 8) : post;
     }

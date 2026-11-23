@@ -227,6 +227,8 @@ nav button.on .ic{opacity:1;filter:none}
 /* 典册：树(同辈一行、父居子中、直角连线，整棵放在能拖的框里)与史册 */
 .tree{position:relative;overflow:hidden;height:62vh;min-height:260px;margin-top:8px;background:#22261f;border:2px solid var(--edge);touch-action:none;cursor:grab}
 .tree-in{position:absolute;left:0;top:0;transform-origin:0 0}
+body.tree-on #sheet,body.tree-on #toast{z-index:90}
+body .tree.tree-full,body.main .tree.tree-full{position:fixed;left:0;top:0;right:0;bottom:0;width:100vw;height:100vh;height:100dvh;min-height:0;margin:0;z-index:80;border-width:0}
 .tree-tools{position:absolute;right:6px;top:6px;z-index:1;display:flex;gap:4px}
 .tree-tools button{min-height:34px;min-width:38px;padding:2px 6px;margin:0;display:flex;align-items:center;justify-content:center}
 .tree-in svg{position:absolute;left:0;top:0}
@@ -468,6 +470,7 @@ body.main #p-aseats,body.main #p-aroom,body.main #p-ahist{position:fixed;z-index
     <div id="warn" data-t="offline"></div>
     <div id="stale" class="banner" hidden data-t="stale"></div>
     <div id="away" class="banner" hidden></div>
+    <div id="possess-bar" class="banner" hidden data-t="adm_possess_bar"></div>
   </div>
 
   <div id="p-reports" hidden>
@@ -528,6 +531,7 @@ body.main #p-aseats,body.main #p-aroom,body.main #p-ahist{position:fixed;z-index
     <div class="card" id="fiscal-card" data-sec="fiscal" hidden><h2><img class="ic" data-ic="k_treasury" width="20" height="20" alt=""><span data-t="fs_title"></span></h2><div id="fiscal"></div></div>
     <div class="card" id="court-card" data-sec="court" hidden><h2><img class="ic" data-ic="k_officials" width="20" height="20" alt=""><span id="court-title"></span></h2><div id="court"></div></div>
     <div class="card" id="dscale-card" data-sec="decisions" hidden><h2><img class="ic" data-ic="k_officials" width="20" height="20" alt=""><span id="dscale-title"></span></h2><div id="dscale"></div></div>
+    <div class="card" id="papacy-card" data-sec="papacy" hidden><h2><img class="ic" data-ic="k_mandate" width="20" height="20" alt=""><span id="papacy-title"></span></h2><div id="papacy"></div></div>
     <div class="card" data-sec="war"><h2><img class="ic" data-ic="k_war" width="20" height="20" alt=""><span data-t="wars"></span></h2><div class="rows" id="wars"></div></div>
     <div class="card" id="a2hs" data-sec="overview" hidden><h2 data-t="a2hs"></h2><div id="fixed-box" hidden><div class="sub" id="fixed-note"></div><button class="act" id="fixed-go" data-t="a2hs_fixed"></button></div><div class="sub" data-t="a2hs_ios"></div><div class="sub" data-t="a2hs_android" style="margin-top:4px"></div></div>
     <div class="card" data-sec="cities"><h2><img class="ic" data-ic="k_cities" width="20" height="20" alt=""><span data-t="cities"></span></h2><div class="sub" data-t="cities_note"></div><div class="rows" id="cities" style="margin-top:6px"></div></div>
@@ -683,7 +687,11 @@ adm_self:"身份",adm_to_seat:"回到君主席位",adm_to_seat_sub:"这部手机
 adm_logout:"退出管理员",adm_logout_sub:"这部手机不再是管理员，别的管理员不受影响",adm_switch:"切到管理员",adm_switch_sub:"这部手机已登入管理员：全图、席位、房间",adm_entry_sub:"填管理员码进入（码在电脑上的终端窗口里）",
 adm_army_total:"共 {0} 人",adm_n_gone:"那个席位已经不在了",adm_n_kicked:"已除名：{0}",adm_n_recalled:"已收回：{0}",adm_n_speed:"世界流速已定为 {0}",adm_n_paused:"世界已暂停",adm_n_resumed:"世界已继续",
 adm_n_new_code:"配对码已换",adm_n_room_open:"房间已公开",adm_n_room_private:"房间已改为凭配对码",adm_n_room_name:"房间名：{0}",adm_n_seat_limit:"席位上限：{0}",
-why_recalled:"管理员收回了{0}的{1}，在图上另选一位君主。"},
+why_recalled:"管理员收回了{0}的{1}，在图上另选一位君主。",
+adm_possess:"以此国操作",adm_possess_back:"回到此国",adm_possess_card:"附身",adm_possess_none:"眼下没有附身哪一国。在图上点一个没有席位领着的国，选「以此国操作」。",adm_possess_go:"切过去",adm_release:"放手",adm_release_sub:"交还朝廷自己办；奏报、眼界、军令一并撤掉",adm_held_admin:"别的管理员附身着",adm_held_self:"眼下附身着",adm_god:"回到上帝视角",adm_possess_bar:"管理员附身中 · 点此回到上帝视角（附身不放）",adm_possess_note:"附身期间别国照没人领看待，有席位来领就让给他们。",adm_n_possessed:"已附身：{0}",adm_n_unpossessed:"已放手：{0}",adm_n_possess_taken:"{0}已有人领着，附身不了",adm_n_possess_gone:"这位君主已不在位",adm_n_yielded:"{0}有席位来领，已让出",adm_n_possess_idle:"许久没来，附身的国已交还朝廷",why_yielded:"有席位来领{0}的{1}，已让出。在图上另选一位君主，或回到上帝视角。",
+rs_papacy:"教廷",pp_title:"{0} · 教廷",pp_papal_crown:"请冕",pp_papal_crown_sub:"赴圣地请教宗加冕：献礼为一年经常收入的一成；封建制帝国要先远征圣地，到了才加冕",pp_papal_penance:"悔罪",pp_cost:"献上 {0}，教权回升，放弃叙任权之争",pp_papal_crusade:"号召圣战",pp_papal_crusade_sub:"照本宗的圣战目标号召诸国讨伐",pp_papal_order:"创立骑士团",pp_papal_order_sub:"东道国是教廷所在国，从本国挑团长",pp_ban:"绝罚",pp_pardon:"赦免",pp_banned:"绝罚中",pp_emperors:"各国皇帝（绝罚、赦免）",pp_go:"办",cr_more:"点开看详情",
+pz_open:"议和台",pz_title:"议和 · {0}",pz_gone:"这场仗已经不在议和台上了。",pz_early:"开战 {0} 年，满 {1} 年才签得了约；台子可以先摆。",pz_mine:"本国意愿",pz_theirs:"{0}意愿",pz_human:"由对面的君主裁决",pz_give:"本国出",pz_take:"{0}出",pz_hu:"{0} 户",pz_offer:"照目标开价",pz_mediate:"撮合",pz_clear:"清空",pz_sign:"签约",pz_send:"递给对面",pz_withdraw:"罢兵",pz_withdraw_sub:"算作没打成，照败方赔：{0}",pz_parts:"所得 {0} · 所失 {1} · 战局 {2} · 疲敝 {3} · 势头 {4} · 死战 {5} · 民族意识 {6}",pz_ok:"肯 {0}",pz_no:"不肯 {0}",pz_new:"新加",pz_none:"没有可出的条件。",pz_note:"点一项加上台或撤下。对面意愿 ≥ 0 才肯签；本国意愿是朝中的估量，只作参考，签不签由君主定。",
+cl_ov:"总览",cl_members:"族人",cl_chron:"大事记",cl_tree:"亲属树",cl_bio:"列传",cl_home:"回到本人",cl_center:"以此人为中心看族谱",cl_more:"还有 {0} 位没列出",cl_more_ev:"还有 {0} 条更早的",cl_none:"这一位没有族谱。",cl_full:"铺满",cl_tap:"点人换成他：亲属树以他为中心，往上翻得到先祖。"},
 ch:{adm_entry:"管理員入口",adm_code:"管理員碼（八位字母數字，在電腦上的終端窗口裡）",adm_go:"以管理員進入",adm_e_code:"管理員碼是八位字母數字",adm_e_wrong:"管理員碼不對",
 adm_lost:"管理員身份已失效（碼換過了），要重新填碼",adm_title:"管理員",adm_bar:"席位 {0}/{1} · 在線 {2}",adm_bar_srv:"席位 {0} · 在線 {1}/{2}",adm_unslowed:"無君主在線，照常速",tab_aseats:"席位",tab_aroom:"房間",
 adm_k_seats:"席位",adm_k_online:"在線",adm_k_ruling:"領君主",adm_seats:"各席位",adm_no_seats:"還沒有手機配對",adm_online:"在線",adm_away:"離線",
@@ -700,7 +708,11 @@ adm_self:"身份",adm_to_seat:"回到君主席位",adm_to_seat_sub:"這部手機
 adm_logout:"退出管理員",adm_logout_sub:"這部手機不再是管理員，別的管理員不受影響",adm_switch:"切到管理員",adm_switch_sub:"這部手機已登入管理員：全圖、席位、房間",adm_entry_sub:"填管理員碼進入（碼在電腦上的終端窗口裡）",
 adm_army_total:"共 {0} 人",adm_n_gone:"那個席位已經不在了",adm_n_kicked:"已除名：{0}",adm_n_recalled:"已收回：{0}",adm_n_speed:"世界流速已定為 {0}",adm_n_paused:"世界已暫停",adm_n_resumed:"世界已繼續",
 adm_n_new_code:"配對碼已換",adm_n_room_open:"房間已公開",adm_n_room_private:"房間已改為憑配對碼",adm_n_room_name:"房間名：{0}",adm_n_seat_limit:"席位上限：{0}",
-why_recalled:"管理員收回了{0}的{1}，在圖上另選一位君主。"},
+why_recalled:"管理員收回了{0}的{1}，在圖上另選一位君主。",
+adm_possess:"以此國操作",adm_possess_back:"回到此國",adm_possess_card:"附身",adm_possess_none:"眼下沒有附身哪一國。在圖上點一個沒有席位領著的國，選「以此國操作」。",adm_possess_go:"切過去",adm_release:"放手",adm_release_sub:"交還朝廷自己辦；奏報、眼界、軍令一併撤掉",adm_held_admin:"別的管理員附身著",adm_held_self:"眼下附身著",adm_god:"回到上帝視角",adm_possess_bar:"管理員附身中 · 點此回到上帝視角（附身不放）",adm_possess_note:"附身期間別國照沒人領看待，有席位來領就讓給他們。",adm_n_possessed:"已附身：{0}",adm_n_unpossessed:"已放手：{0}",adm_n_possess_taken:"{0}已有人領著，附身不了",adm_n_possess_gone:"這位君主已不在位",adm_n_yielded:"{0}有席位來領，已讓出",adm_n_possess_idle:"許久沒來，附身的國已交還朝廷",why_yielded:"有席位來領{0}的{1}，已讓出。在圖上另選一位君主，或回到上帝視角。",
+rs_papacy:"教廷",pp_title:"{0} · 教廷",pp_papal_crown:"請冕",pp_papal_crown_sub:"赴聖地請教宗加冕：獻禮為一年經常收入的一成；封建制帝國要先遠征聖地，到了才加冕",pp_papal_penance:"悔罪",pp_cost:"獻上 {0}，教權回升，放棄敘任權之爭",pp_papal_crusade:"號召聖戰",pp_papal_crusade_sub:"照本宗的聖戰目標號召諸國討伐",pp_papal_order:"創立騎士團",pp_papal_order_sub:"東道國是教廷所在國，從本國挑團長",pp_ban:"絕罰",pp_pardon:"赦免",pp_banned:"絕罰中",pp_emperors:"各國皇帝（絕罰、赦免）",pp_go:"辦",cr_more:"點開看詳情",
+pz_open:"議和台",pz_title:"議和 · {0}",pz_gone:"這場仗已經不在議和台上了。",pz_early:"開戰 {0} 年，滿 {1} 年才簽得了約；台子可以先擺。",pz_mine:"本國意願",pz_theirs:"{0}意願",pz_human:"由對面的君主裁決",pz_give:"本國出",pz_take:"{0}出",pz_hu:"{0} 戶",pz_offer:"照目標開價",pz_mediate:"撮合",pz_clear:"清空",pz_sign:"簽約",pz_send:"遞給對面",pz_withdraw:"罷兵",pz_withdraw_sub:"算作沒打成，照敗方賠：{0}",pz_parts:"所得 {0} · 所失 {1} · 戰局 {2} · 疲敝 {3} · 勢頭 {4} · 死戰 {5} · 民族意識 {6}",pz_ok:"肯 {0}",pz_no:"不肯 {0}",pz_new:"新加",pz_none:"沒有可出的條件。",pz_note:"點一項加上台或撤下。對面意願 ≥ 0 才肯簽；本國意願是朝中的估量，只作參考，簽不簽由君主定。",
+cl_ov:"總覽",cl_members:"族人",cl_chron:"大事記",cl_tree:"親屬樹",cl_bio:"列傳",cl_home:"回到本人",cl_center:"以此人為中心看族譜",cl_more:"還有 {0} 位沒列出",cl_more_ev:"還有 {0} 條更早的",cl_none:"這一位沒有族譜。",cl_full:"鋪滿",cl_tap:"點人換成他：親屬樹以他為中心，往上翻得到先祖。"},
 en:{adm_entry:"Admin entry",adm_code:"Admin code (8 letters and digits, shown in the terminal window on the computer)",adm_go:"Enter as admin",adm_e_code:"The admin code has 8 letters and digits",adm_e_wrong:"Wrong admin code",
 adm_lost:"Admin sign-in expired (the code was changed). Enter the new code.",adm_title:"Admin",adm_bar:"Seats {0}/{1} · {2} online",adm_bar_srv:"{0} seats · {1}/{2} online",adm_unslowed:"no ruler online, full speed",tab_aseats:"Seats",tab_aroom:"Room",
 adm_k_seats:"Seats",adm_k_online:"Online",adm_k_ruling:"Ruling",adm_seats:"Seats",adm_no_seats:"No phone has paired yet",adm_online:"Online",adm_away:"Away",
@@ -717,7 +729,11 @@ adm_self:"Identity",adm_to_seat:"Back to the ruler seat",adm_to_seat_sub:"This p
 adm_logout:"Sign out of admin",adm_logout_sub:"This phone stops being admin; other admins are unaffected",adm_switch:"Switch to admin",adm_switch_sub:"This phone is signed in as admin: whole map, seats, room",adm_entry_sub:"Enter the admin code shown in the terminal window on the computer",
 adm_army_total:"{0} men in all",adm_n_gone:"That seat is gone",adm_n_kicked:"Removed: {0}",adm_n_recalled:"Recalled: {0}",adm_n_speed:"World speed set to {0}",adm_n_paused:"World paused",adm_n_resumed:"World resumed",
 adm_n_new_code:"Pairing code changed",adm_n_room_open:"Room is open",adm_n_room_private:"Room is code-only",adm_n_room_name:"Room name: {0}",adm_n_seat_limit:"Seat limit: {0}",
-why_recalled:"An admin recalled {1} of {0}. Pick another ruler on the map."}
+why_recalled:"An admin recalled {1} of {0}. Pick another ruler on the map.",
+adm_possess:"Play this realm",adm_possess_back:"Back to this realm",adm_possess_card:"Possession",adm_possess_none:"Not playing any realm. Tap a realm no seat holds on the map and choose “Play this realm”.",adm_possess_go:"Switch to it",adm_release:"Let go",adm_release_sub:"The court runs it again; reports, sight and orders are dropped",adm_held_admin:"Another admin is playing it",adm_held_self:"You are playing it",adm_god:"Back to the god view",adm_possess_bar:"Admin playing this realm · tap for the god view (keeps it)",adm_possess_note:"Other realms treat it as unheld; a seat that picks it takes it over.",adm_n_possessed:"Now playing: {0}",adm_n_unpossessed:"Let go: {0}",adm_n_possess_taken:"{0} is already held",adm_n_possess_gone:"That ruler is no longer on the throne",adm_n_yielded:"A seat picked {0}; handed over",adm_n_possess_idle:"Idle too long; the realm went back to its court",why_yielded:"A seat picked {1} of {0}, so it was handed over. Pick another ruler on the map, or go back to the god view.",
+rs_papacy:"See",pp_title:"{0} · the See",pp_papal_crown:"Seek coronation",pp_papal_crown_sub:"Be crowned by the pope; the gift is a tenth of a year’s steady income. Feudal empires must first journey to the see",pp_papal_penance:"Do penance",pp_cost:"Offer {0}; papal authority recovers and the investiture fight is dropped",pp_papal_crusade:"Call a holy war",pp_papal_crusade_sub:"Rally the faithful against this church’s holy-war target",pp_papal_order:"Found a knightly order",pp_papal_order_sub:"Hosted by the see’s realm, with a grand master from it",pp_ban:"Excommunicate",pp_pardon:"Pardon",pp_banned:"under a ban",pp_emperors:"Emperors (ban or pardon)",pp_go:"Do it",cr_more:"Tap for details",
+pz_open:"Peace table",pz_title:"Peace · {0}",pz_gone:"This war is no longer at the peace table.",pz_early:"{0} years into the war; signing needs {1}. The table can be set now.",pz_mine:"Our will",pz_theirs:"{0}’s will",pz_human:"Their ruler decides",pz_give:"We give",pz_take:"{0} gives",pz_hu:"{0} households",pz_offer:"Price by war goals",pz_mediate:"Mediate",pz_clear:"Clear",pz_sign:"Sign",pz_send:"Send to them",pz_withdraw:"Withdraw",pz_withdraw_sub:"Counted as a loss; pays as the loser: {0}",pz_parts:"gain {0} · loss {1} · standing {2} · wear {3} · momentum {4} · last stand {5} · nationhood {6}",pz_ok:"willing {0}",pz_no:"unwilling {0}",pz_new:"new",pz_none:"Nothing to offer.",pz_note:"Tap a term to put it on or take it off. They sign at will ≥ 0; our will is the court’s estimate, only advice — the ruler decides.",
+cl_ov:"Overview",cl_members:"Members",cl_chron:"Chronicle",cl_tree:"Family tree",cl_bio:"Biography",cl_home:"Back to myself",cl_center:"Center the family tree here",cl_more:"{0} more not listed",cl_more_ev:"{0} earlier entries",cl_none:"This person has no family record.",cl_full:"Full screen",cl_tap:"Tap anyone to switch to them; the tree recenters, so you can climb to the ancestors."}
 };for(var l in A)for(var k in A[l])T[l][k]=A[l][k]})();
 var lang=/^zh/i.test(navigator.language||"")?(/tw|hk|hant/i.test(navigator.language)?"ch":"cz"):"en";
 function t(key){var s=(T[lang]||T.en)[key];if(s==null)s=T.en[key]||key;for(var i=1;i<arguments.length;i++)s=s.split("{"+(i-1)+"}").join(arguments[i]);return s}
@@ -738,18 +754,31 @@ function short(v){
 }
 
 // 这份网页要游戏里的终端至少是第几版(见 TerminalHost.Version)
-var NEED=17;
+var NEED=20;
+T.cz.stale_core="服务器核心的版本落后于网页。请先存档，更新并重启核心，再刷新本页。";
+T.ch.stale_core="伺服器核心的版本落後於網頁。請先存檔，更新並重啟核心，再重新整理本頁。";
+T.en.stale_core="The server core is older than this page. Save the world, update and restart the core, then refresh this page.";
+function staleText(){return t(SRV?"stale_core":"stale")}
+function renderStale(){
+  var banner=$("stale");
+  banner.hidden=(state.v||0)>=NEED;
+  if(!banner.hidden)banner.textContent=staleText();
+}
 // 网页所在的路径：直连时是空的；经联机大厅进来是 /r/房间号。接口都接在它后面，令牌也按它分开存(一个大厅域名下有许多房间)
 var BASE=location.pathname.replace(/\/[^\/]*$/,""),TOKEN_KEY="ec_token"+(BASE?":"+BASE:"");
 var token=store(TOKEN_KEY),state=null,map=null,page="map",fails=0,openReport=null,openCity=null,lastMapAt=0;
 // 管理员(见 TerminalHost.Admin)：管理员令牌另存；这部手机眼下用哪个身份(seat 领君主 / admin 管理员)也记着
 var ADMIN_KEY="ec_admin"+(BASE?":"+BASE:""),ROLE_KEY="ec_role"+(BASE?":"+BASE:"");
 var adminToken=store(ADMIN_KEY),role=adminToken&&store(ROLE_KEY)==="admin"?"admin":"seat";
+// 附身(见 TerminalHost.Possess)：管理员附身某国时用附身席位的令牌，接口同普通席位
+var POSSESS_KEY="ec_possess"+(BASE?":"+BASE:""),possessToken=store(POSSESS_KEY),possessWant=null;
+if(adminToken&&possessToken&&store(ROLE_KEY)==="possess")role="possess";
 function asAdmin(){return role==="admin"&&!!adminToken}
+function possessing(){return role==="possess"&&!!adminToken&&!!possessToken}
 
 function api(method,path,body){
   var opt={method:method,headers:{},cache:"no-store"};
-  var tk=asAdmin()?adminToken:token;
+  var tk=asAdmin()?adminToken:possessing()?possessToken:token;
   if(tk)opt.headers["X-Terminal-Token"]=tk;
   if(body){opt.body=JSON.stringify(body);opt.headers["Content-Type"]="application/json"}
   return fetch(BASE+path,opt).then(function(r){return r.json().then(function(j){return{status:r.status,json:j}},function(){return{status:r.status,json:{}}})});
@@ -797,13 +826,15 @@ function renderWorldDate(){
   if(date.textContent!==text)date.textContent=text;
 }
 function poll(){
-  if(!token&&!asAdmin()){show("s-pair");admEntryLabels();autoPair();return}
+  if(!token&&!asAdmin()&&!possessing()){show("s-pair");admEntryLabels();autoPair();return}
   var asked=role,request=++pollIssued;
   api("GET","/api/state").then(function(r){
     // 换了身份，这一回问的作废
     if(asked!==role||request<=pollAccepted)return;
     pollAccepted=request;
     if(r.status===401&&asked==="admin"){adminLost();return}
+    // 附身席位撤了(放手、许久没来、管理员令牌作废)：回上帝视角
+    if(r.status===401&&asked==="possess"){possessToken=null;store(POSSESS_KEY,null);switchRole("admin");return}
     if(r.status===401){token=null;store(TOKEN_KEY,null);show("s-pair");autoPair();return}
     // 独立服务器同时在线到了上限：等着，有人离线了自己接上
     if(r.status===503&&r.json.error==="server_full"){fails=0;$("warn").style.display="none";srvFull(r.json);return}
@@ -903,9 +934,10 @@ function render(){
   $("ruler").textContent=t("ruler",state.ruler.name,state.ruler.age)+" · "+t("role_"+state.realm.role);
   $("pace").textContent=state.paused?t("paused"):state.actual>=0?t("pace_slow",xs(state.speed),xs(state.actual)):t("pace",xs(state.speed));
   renderVote();
-  $("stale").hidden=(state.v||0)>=NEED;
+  renderStale();
   $("away").hidden=!state.away;
   if(state.away)$("away").textContent=state.away.kind==="campaign"?t("away_campaign"):t("away_tour",state.away.city,state.away.left);
+  $("possess-bar").hidden=!possessing();
   renderReports();renderRealm();renderSight();renderDecrees();renderMapActs();renderAdminEntry();
   fit();
   if(map&&!map.win)drawMap();
@@ -955,7 +987,7 @@ function renderVacant(){
   if(!picking){picking=true;resetMap();mapInto(true)}
   var f=state.former||{},why=state.reason||"none";
   $("vacant-why").textContent=why==="none"||!f.realm?t("why_none"):t("why_"+why,f.realm,f.ruler);
-  renderNext();
+  renderNext();admEntryLabels();
   if(map)drawMap();
 }
 // 身后(用户 2026-11-12 "君主死后可以选择是继续玩他的子嗣, 如果亡国了可以选择是不是接着玩下一个天命或者占领首都的国家")：
@@ -1194,8 +1226,109 @@ function fiscalDetail(box,fd){
   lv.corps.forEach(function(c){box.appendChild(li(c.name,c.sub,decreeButton(c,c.name),null))});
   var note=el("div","sub",lv.note);note.style.marginTop="6px";box.appendChild(note);
 }
+// 教廷(见 TerminalHost.Papacy)：教权、加冕、教宗、圣地、圣战、骑士团几行(游戏给好的字)，底下是君主能办的事：
+// 皇帝请冕、悔罪；教宗绝罚赦免各国皇帝、号召圣战、创立骑士团。收不回来的点一下先变"确认"，再点才发
+var papArm=null;
+function papTone(v,tone){var c=tone==="g"?"green":tone==="b"?"red":tone==="i"?"cyan":"";return el("span","tag"+(c?" "+c:""),v)}
+function papButton(key,label,body,disabled){
+  var on=papArm===key,b=el("button","act"+(on?" armed":""),on?t("d_confirm",label):label);
+  b.disabled=!!disabled;
+  b.onclick=function(e){e.stopPropagation();if(papArm!==key){papArm=key;renderPapacy(true);return}papArm=null;b.disabled=true;sendDecree(body,label)};
+  return b;
+}
+function renderPapacy(force){
+  var card=$("papacy-card"),box=$("papacy"),p=state.papacy;
+  card.hidden=!p;if(!p)return;
+  var sig=JSON.stringify([p,lang,papArm]);if(!force&&box._sig===sig)return;box._sig=sig;box.textContent="";
+  $("papacy-title").textContent=t("pp_title",p.church);
+  (p.rows||[]).forEach(function(r){box.appendChild(li(r[0],null,papTone(r[1],r[2]),null))});
+  var bans=(p.acts||[]).filter(function(a){return a.id==="papal_ban"});
+  (p.acts||[]).forEach(function(a){
+    if(a.id==="papal_ban")return;
+    var label=t("pp_"+a.id),sub=a.no||(a.cost!=null?t("pp_cost",short(a.cost)):t("pp_"+a.id+"_sub"));
+    box.appendChild(liAct(label,sub,papButton(a.id,label,{id:a.id},!!a.no)));
+  });
+  if(bans.length){
+    box.appendChild(el("div","world",t("pp_emperors")));
+    bans.forEach(function(a){
+      var label=t(a.banned?"pp_pardon":"pp_ban");
+      box.appendChild(liAct(a.l,a.who+(a.banned?" · "+t("pp_banned"):""),papButton("ban"+a.target,label,{id:"papal_ban",target:a.target})));
+    });
+  }
+}
+// 议和台(见 TerminalHost.Peace)：照游戏战争窗口的议和页。台子在游戏那头算：发一步，再隔一会儿取(peek)，见 rev 变了就换上；
+// 开着时每 5 秒重算一回(战局在变)。收不回来的(签约、罢兵)点一下先变"确认"
+var peace=null;
+function openPeace(w){
+  peace={war:w.id,rev:0,data:null,armed:null};
+  openSheet({title:t("pz_title",w.enemy),note:t("pz_note"),items:[],custom:renderPeaceBody,peace:true});
+  peaceAsk("view");
+}
+function peaceOpen(me){return peace===me&&sheet&&sheet.peace}
+function peaceTake(me,j){
+  if(!peaceOpen(me)||!j||!j.ready||j.rev<=me.rev)return false;
+  me.rev=j.rev;me.data=j;renderSheet();return true;
+}
+function peaceAsk(op,key){
+  var me=peace;if(!me)return;
+  clearTimeout(me.tm);
+  var tries=0;
+  api("POST","/api/peace",{war:me.war,op:op,key:key||""}).then(function(r){
+    (function peek(){
+      me.tm=setTimeout(function(){
+        if(!peaceOpen(me))return;
+        api("POST","/api/peace",{war:me.war,op:"peek"}).then(function(q){
+          if(peaceTake(me,q.json)||++tries>=12){me.tm=setTimeout(function(){if(peaceOpen(me))peaceAsk("view")},5000);return}
+          peek();
+        },function(){if(++tries<12)peek()});
+      },tries?450:250);
+    })();
+  },function(){toast(t("e_net"),true)});
+}
+function peaceWill(label,w){
+  var tag=el("span","tag "+(w.ok?"green":"red"),t(w.ok?"pz_ok":"pz_no",num(w.total)));
+  return li(label,t("pz_parts",num(w.gain),num(w.loss),num(w.standing),num(w.wear),num(w.momentum),num(w.desperate),num(w.nation)),tag,null);
+}
+function peaceBtn(key,label,op,primary){
+  var me=peace,on=me.armed===key,b=el("button","act"+(on?" armed":primary?" primary":""),on?t("d_confirm",label):label);
+  b.style.margin="0 6px 6px 0";
+  b.onclick=function(){
+    if((op==="sign"||op==="withdraw")&&me.armed!==key){me.armed=key;renderSheet();return}
+    me.armed=null;b.disabled=true;peaceAsk(op);
+  };
+  return b;
+}
+function renderPeaceBody(box){
+  var me=peace,d=me&&me.data;
+  if(!d){box.appendChild(el("div","sub",t("an_loading")));return}
+  if(d.gone){box.appendChild(el("div","sub",t("pz_gone")));return}
+  if(!d.may){var e=el("div","sub",t("pz_early",d.years,d.min));e.style.color="var(--amber)";box.appendChild(e)}
+  box.appendChild(peaceWill(t("pz_mine"),d.mine));
+  box.appendChild(peaceWill(t("pz_theirs",d.other)+(d.human?" · "+t("pz_human"):""),d.theirs));
+  if(d.hint&&(d.hint[0]||d.hint[1]))box.appendChild(el("div","sub",d.hint[0]+(d.hint[1]?" · "+d.hint[1]:"")));
+  if(d.sum){var sm=el("div","sub",d.sum);sm.style.marginTop="4px";box.appendChild(sm)}
+  var bar=el("div");bar.style.margin="8px 0 4px";
+  bar.appendChild(peaceBtn("offer",t("pz_offer"),"offer"));
+  bar.appendChild(peaceBtn("mediate",t("pz_mediate"),"mediate"));
+  bar.appendChild(peaceBtn("clear",t("pz_clear"),"clear"));
+  bar.appendChild(peaceBtn("sign",t(d.human?"pz_send":"pz_sign"),"sign",true));
+  if(d.withdraw!=null)bar.appendChild(peaceBtn("withdraw",t("pz_withdraw"),"withdraw"));
+  box.appendChild(bar);
+  if(d.withdraw)box.appendChild(el("div","sub",t("pz_withdraw_sub",d.withdraw)));
+  [[t("pz_give"),d.give],[t("pz_take",d.other),d.take]].forEach(function(side){
+    box.appendChild(el("div","world",side[0]));
+    if(!side[1].length)box.appendChild(el("div","sub",t("pz_none")));
+    side[1].forEach(function(x){
+      var right=el("span","hl");
+      if(x.new)right.appendChild(el("span","tag cyan",t("pz_new")));
+      right.appendChild(el("span","tag"+(x.on?" gold":""),(x.on?"✓ ":"")+t("pz_hu",num(x.value))));
+      var row=li(x.label,x.tag||null,right,function(){peaceAsk("toggle",x.key)});
+      box.appendChild(row);
+    });
+  });
+}
 // 国势分页：顶上一排图标，点哪个只显示那一块(没有内容的那一块不出图标，如王国没有朝局)
-var REALM_SECS=[["overview","k_trust"],["fiscal","k_treasury"],["purse","tk_money"],["court","g_court"],["decisions","i_seal"],["war","k_war"],["cities","k_cities"],["review","i_office"]];
+var REALM_SECS=[["overview","k_trust"],["fiscal","k_treasury"],["purse","tk_money"],["court","g_court"],["decisions","i_seal"],["papacy","k_mandate"],["war","k_war"],["cities","k_cities"],["review","i_office"]];
 var realmSec=store("ec_realm_sec")||"overview";
 function renderRealmMenu(){
   var menu=$("realm-menu");if(!menu)return;
@@ -1446,6 +1579,7 @@ function reviewSheet(p){
   }});
 }
 function renderRealm(){
+  renderPapacy();
   renderFiscal();
   renderCourt();
   renderPurse();
@@ -1464,7 +1598,10 @@ function renderRealm(){
     var sw=el("span","sw");sw.style.background=w.color||"#888";name.appendChild(sw);
     name.appendChild(document.createTextNode(t(w.attacker?"w_att":"w_def",w.enemy)));
     if(w.player){name.appendChild(document.createTextNode(" "));name.appendChild(playerTag(w.player))}
-    row.appendChild(name);row.appendChild(el("span","sub",span(w.months)));wars.appendChild(row);
+    row.appendChild(name);
+    var right=el("span","hl");right.appendChild(el("span","sub",span(w.months)));
+    if(w.table){var pb=el("button","act",t("pz_open"));pb.style.margin="0";pb.onclick=function(e){e.stopPropagation();openPeace(w)};right.appendChild(pb)}
+    row.appendChild(right);wars.appendChild(row);
   });
   var cities=$("cities");cities.textContent="";
   (state.cities||[]).forEach(function(c){
@@ -1534,7 +1671,7 @@ function clearWardrobePreviews(){
   if(wdPreviewObserver){wdPreviewObserver.disconnect();wdPreviewObserver=null}
 }
 function openSheet(s){sheet=s;sheet.armed=null;renderSheet()}
-function closeSheet(){clearWardrobePreviews();sheet=null;$("sheet").hidden=true}
+function closeSheet(){clearWardrobePreviews();if(peace){clearTimeout(peace.tm);peace=null}sheet=null;$("sheet").hidden=true}
 function renderSheet(){
   clearWardrobePreviews();
   var root=$("sheet");if(!sheet){root.hidden=true;return}
@@ -1851,15 +1988,27 @@ function drawTree(host,nodes,make,focus,tap,links){
     inner.style.transform="translate("+view.x+"px,"+view.y+"px) scale("+view.s+")";
   }
   function zoom(f,px,py){
-    var s=Math.min(2,Math.max(Math.min(.25,fitScale()),view.s*f));
+    var s=Math.min(3,Math.max(Math.min(.25,fitScale()),view.s*f));
     if(px==null){px=frame.clientWidth/2;py=frame.clientHeight/2}
     view.x=px-(px-view.x)*s/view.s;view.y=py-(py-view.y)*s/view.s;view.s=s;apply();
   }
   function fit(){view.s=fitScale();apply()}
   var tools=el("div","tree-tools");
-  [["c_fit",fit],["c_in",function(){zoom(1.4)}],["c_out",function(){zoom(1/1.4)}]].forEach(function(x){
+  // 铺满屏幕(用户 2026-11-18 "族谱和世系表都没法放大看")：框挪到页面最外层、占满整屏(横屏时典册在左边窄栏里，铺满才盖得住)；再点还原
+  var holder=null,fullBtn=null;
+  function full(){
+    var on=!frame.classList.contains("tree-full");
+    if(on){holder=document.createComment("tree");frame.parentNode.insertBefore(holder,frame);document.body.appendChild(frame)}
+    else if(holder&&holder.parentNode){holder.parentNode.insertBefore(frame,holder);holder.parentNode.removeChild(holder);holder=null}
+    frame.classList.toggle("tree-full",on);document.body.classList.toggle("tree-on",on);
+    fullBtn.textContent="";fullBtn.appendChild(ic(on?"c_unfull":"c_full",18));
+    setTimeout(fit,0);
+  }
+  drawTree.exitFull=function(){if(frame.classList.contains("tree-full"))full()};
+  [["c_full",full],["c_fit",fit],["c_in",function(){zoom(1.4)}],["c_out",function(){zoom(1/1.4)}]].forEach(function(x){
     var b=el("button","act");b.appendChild(ic(x[0],18));b.onclick=function(e){e.stopPropagation();x[1]()};
     b.onpointerdown=function(e){e.stopPropagation()};tools.appendChild(b);
+    if(x[0]==="c_full")fullBtn=b;
   });
   frame.appendChild(tools);
   // 拖动、捏合：手指挪过 6 点就算拖，松手时不算点了一格
@@ -1893,12 +2042,14 @@ function drawTree(host,nodes,make,focus,tap,links){
     else fit();
   },0);
 }
-function nodeSheet(n){
+function nodeSheet(n,center){
   var lines=(n.detail||[]).slice();
   openSheet({title:n.name,note:n.title||"",items:[],custom:function(box){
     if(n.look!=null&&PORTRAIT){var face=el("div","face");face.appendChild(portrait(n.look,n.id,80));box.appendChild(face)}
     if(!lines.length)box.appendChild(el("div","sub",t("an_none")));
     lines.forEach(function(x){box.appendChild(li(x[0],null,x[1],null))});
+    if(center){var go=el("button","pick primary");go.appendChild(el("span",null,t("cl_center")));go.style.justifyContent="center";
+      go.onclick=function(){closeSheet();if(drawTree.exitFull)drawTree.exitFull();center(n.id)};box.appendChild(go)}
   }});
 }
 function nodeFace(n,box){
@@ -1906,6 +2057,137 @@ function nodeFace(n,box){
   box.appendChild(el("b",null,n.name));
   if(n.title)box.appendChild(el("span","t",n.title));
   if(n.years)box.appendChild(el("span","y",n.years));
+}
+// 宗族页(见 TerminalHost.Clan；照游戏的宗族窗口)：页头是宗族名牌与眼下这个人，下面五页——总览、族人、大事记、亲属树、列传。
+// 点任何一个人就换成他(人在别的宗族连宗族一起换)，亲属树以他为中心，往上翻得到先祖；顶上"回到本人"。
+// 这一份是点进来才要的：发 id(族谱身份编号，当字；空的是本人)，游戏那头算好了再取
+var clanData=null,clanId="",clanBusy=false,clanSub=store("ec_clan_sub")||"ov";
+var CLAN_SUBS=[["ov","a_clan"],["members","k_people"],["chron","a_history"],["tree","a_lineage"],["bio","k_officials"]];
+function clanGo(id){clanId=id||"";clanData=null;if(page==="annals")renderAnnals();clanLoad(0)}
+function clanLoad(tries){
+  if(clanBusy&&!tries)return;
+  clanBusy=true;var want=clanId;
+  api("POST","/api/clan",{id:want}).then(function(r){
+    if(want!==clanId){clanBusy=false;return}
+    if(r.status===200&&r.json.ready){clanData=r.json;clanBusy=false;if(page==="annals"&&annalsTab==="clan")renderAnnals();return}
+    if(r.status===200&&tries<20){setTimeout(function(){clanLoad(tries+1)},600);return}
+    clanBusy=false;
+    if(r.status!==200&&r.status!==401){clanData={old:true};if(page==="annals")renderAnnals()}
+  },function(){clanBusy=false});
+}
+function clanTone(v,tone){var c={g:"green",b:"red",y:"gold",i:"cyan"}[tone];var e=el("span","tag"+(c?" "+c:""),v);if(tone==="m")e.style.opacity=".6";return e}
+function clanRows(card,rows){
+  (rows||[]).forEach(function(r){
+    card.appendChild(li(r[0],null,clanTone(r[1],r[2]),r[3]?function(){clanGo(r[3])}:null));
+  });
+}
+function clanPerson(card,p){
+  var row=li(p.name,[p.life,p.post].filter(Boolean).join(" · "),p.office?el("span","tag gold",p.post):null,function(){clanGo(p.id)});
+  card.appendChild(row);
+}
+function renderClan(box){
+  var d=clanData;
+  if(!d){var w=el("div","card");w.appendChild(el("div","sub",t("an_loading")));box.appendChild(w);clanLoad(0);return}
+  if(d.old){var o=el("div","card");o.appendChild(el("div","sub",staleText()));box.appendChild(o);return}
+  if(!d.clan){var n=el("div","card");n.appendChild(el("div","sub",t("cl_none")));box.appendChild(n);
+    if(clanId){var bk=el("button","act more",t("cl_home"));bk.onclick=function(){clanGo("")};box.appendChild(bk)}return}
+  // 宗族名牌与眼下这个人
+  var head=el("div","card gold");
+  var strip=el("div");strip.style.cssText="height:3px;margin:-2px 0 6px;background:"+(d.clan.color||"#888");head.appendChild(strip);
+  var hr=el("div","row");hr.appendChild(el("h2",null,d.clan.name));hr.appendChild(clanTone(d.clan.standing,d.clan.tone));head.appendChild(hr);
+  head.appendChild(el("div","sub",d.clan.sum));
+  var who=el("div","row");who.style.marginTop="8px";
+  var left=el("div","hl");
+  if(d.person.look!=null&&PORTRAIT)left.appendChild(portrait(d.person.look,d.id,34));
+  var nm=el("div");nm.appendChild(el("div","sub",d.person.caption));nm.appendChild(el("b",null,d.person.name));nm.appendChild(el("div","sub",d.person.post+" · "+d.person.life));
+  left.appendChild(nm);who.appendChild(left);
+  if(d.home&&d.id!==d.home){var back=el("button","act",t("cl_home"));back.style.margin="0";back.onclick=function(){clanGo("")};who.appendChild(back)}
+  head.appendChild(who);
+  box.appendChild(head);
+  // 五页
+  var tabs=el("div","tiles");tabs.style.marginTop="10px";
+  CLAN_SUBS.forEach(function(x){
+    var tile=el("button","tile"+(x[0]===clanSub?" on":""));tile.appendChild(ic(x[1],24));tile.appendChild(el("span",null,t("cl_"+x[0])));
+    tile.onclick=function(){clanSub=x[0];store("ec_clan_sub",x[0]);renderAnnals()};tabs.appendChild(tile);
+  });
+  box.appendChild(tabs);
+  var card=el("div","card");box.appendChild(card);
+  if(clanSub==="ov")clanOverview(card,box,d.overview||{});
+  else if(clanSub==="members"){
+    var m=d.members||{};var mh=el("div","row");mh.appendChild(hd("k_people",m.title||t("cl_members")));mh.appendChild(el("span","sub",m.chip||""));card.appendChild(mh);
+    (m.list||[]).forEach(function(x){card.appendChild(li(x.name,x.detail,x.office?el("span","tag gold","●"):null,function(){clanGo(x.id)}))});
+    if(m.more)card.appendChild(el("div","sub",t("cl_more",m.more)));
+  }else if(clanSub==="chron"){
+    var c=d.chronicle||{};var ch=el("div","row");ch.appendChild(hd("a_history",c.title||t("cl_chron")));ch.appendChild(el("span","sub",c.chip||""));card.appendChild(ch);
+    if(!(c.list||[]).length)card.appendChild(el("div","sub",c.empty||t("an_none")));
+    var year=null;
+    (c.list||[]).forEach(function(h){
+      if(h.year!==year){year=h.year;card.appendChild(el("div","world",h.year))}
+      var row=el("div","hist");if(h.when)row.appendChild(el("span","sub",h.when+" "));
+      var tx=el("span",null,h.text);if(h.tone==="y")tx.style.color="var(--gold)";else if(h.tone==="b")tx.style.color="var(--red)";else if(h.tone==="i")tx.style.color="var(--cyan)";
+      row.appendChild(tx);if(h.pid){row.style.cursor="pointer";row.onclick=function(){clanGo(h.pid)}}card.appendChild(row);
+    });
+    if(c.more)card.appendChild(el("div","sub",t("cl_more_ev",c.more)));
+  }else if(clanSub==="tree"){
+    var tr=d.tree||{};var th=el("div","row");th.appendChild(hd("a_lineage",tr.title||t("cl_tree")));if(tr.sum)th.appendChild(el("span","sub",tr.sum));card.appendChild(th);
+    if(!(tr.nodes||[]).length){card.appendChild(el("div","sub",t("an_none")));return}
+    drawTree(card,tr.nodes,nodeFace,tr.focus,function(n){nodeSheet(n,clanGo)});
+    var legend=el("div","sub legend");
+    [["ruler","an_lg_ruler"],["self","an_lg_self"],["dead","an_lg_dead"]].forEach(function(x){
+      var s2=el("span");s2.appendChild(el("i","node "+x[0]));s2.appendChild(document.createTextNode(t(x[1])));legend.appendChild(s2)});
+    card.appendChild(legend);card.appendChild(el("div","sub",t("an_tree_hint")));card.appendChild(el("div","sub",t("cl_tap")));
+  }else{
+    var b=d.bio||{};
+    var bh=el("div","row");bh.appendChild(hd("k_officials",b.name||""));if(b.talent)bh.appendChild(el("span","tag gold",b.talent));card.appendChild(bh);
+    if(b.detail)card.appendChild(el("div","sub",b.detail));
+    if(b.text){card.appendChild(el("div","world",b.textTitle||""));var bt=el("div");bt.style.cssText="font-size:14px;line-height:1.6;white-space:pre-wrap";bt.textContent=b.text;card.appendChild(bt)}
+    if((b.ties||[]).length){card.appendChild(el("div","world",b.tiesTitle||""));clanRows(card,b.ties)}
+    var an=el("div","card");box.appendChild(an);
+    var ah=el("div","row");ah.appendChild(hd("a_history",b.annalsTitle||""));ah.appendChild(el("span","sub",b.annalsChip||""));an.appendChild(ah);
+    if(!(b.annals||[]).length)an.appendChild(el("div","sub",b.empty||t("an_none")));
+    var yr=null;
+    (b.annals||[]).forEach(function(h){
+      if(h.year!==yr){yr=h.year;an.appendChild(el("div","world",h.year))}
+      var row=el("div","hist");if(h.when)row.appendChild(el("span","sub",h.when+" "));
+      var tx=el("span",null,h.text);if(h.tone==="y")tx.style.color="var(--gold)";row.appendChild(tx);
+      if(h.pid){row.style.cursor="pointer";row.onclick=function(){clanGo(h.pid)}}an.appendChild(row);
+    });
+    if((b.related||[]).length){
+      var rc=el("div","card");box.appendChild(rc);rc.appendChild(hd("a_history",b.relatedTitle||""));
+      b.related.forEach(function(h){var row=el("div","hist");row.appendChild(el("span","sub",h.when+" "));row.appendChild(el("span",null,h.text));
+        if(h.pid){row.style.cursor="pointer";row.onclick=function(){clanGo(h.pid)}}rc.appendChild(row)});
+    }
+  }
+  var again=el("button","act more",t("an_refresh"));again.onclick=function(){clanData=null;renderAnnals();clanLoad(0)};
+  box.appendChild(again);
+}
+function clanOverview(card,box,o){
+  var L=o.labels||{};
+  var oh=el("div","row");oh.appendChild(hd("a_clan",t("cl_ov")));if(o.since)oh.appendChild(el("span","sub",o.since));card.appendChild(oh);
+  if(o.founder){var f=li(o.founder,null,null,o.founderId?function(){clanGo(o.founderId)}:null);card.appendChild(f)}
+  var grid=el("div","grid");grid.style.marginTop="8px";
+  (o.kpis||[]).forEach(function(k){var c=el("div","kpi");c.appendChild(el("span","sub",k[0]));var v=el("b",null,k[1]);
+    var col={g:"var(--green)",b:"var(--red)",y:"var(--gold)",i:"var(--cyan)"}[k[2]];if(col)v.style.color=col;c.appendChild(v);grid.appendChild(c)});
+  card.appendChild(grid);
+  function section(title,rows,empty){
+    var c=el("div","card");c.appendChild(el("h2",null,title));
+    if(!(rows||[]).length&&empty)c.appendChild(el("div","sub",empty));
+    clanRows(c,rows);box.appendChild(c);return c;
+  }
+  section(L.pedigree||"",o.pedigree);
+  var lc=section(L.lineage||"",o.lineage);if(o.noBranch)lc.appendChild(el("div","sub",o.noBranch));
+  if(o.trend&&o.trend.values&&o.trend.values.length>1){
+    var tc=el("div","card");tc.appendChild(el("h2",null,L.trend||""));
+    var vals=o.trend.values,bars=el("div");bars.style.cssText="display:flex;align-items:flex-end;gap:1px;height:60px;margin-top:6px";
+    vals.forEach(function(v){var b=el("i");b.style.cssText="flex:1;background:var(--amber);height:"+Math.max(2,Math.min(100,v))*0.6+"px";bars.appendChild(b)});
+    tc.appendChild(bars);tc.appendChild(el("div","sub",o.trend.years[0]+" — "+o.trend.years[o.trend.years.length-1]));box.appendChild(tc);
+  }
+  section(L.land||"",o.land,L.noLand);
+  section(L.spread||"",o.spread);
+  if((o.notables||[]).length){
+    var nc=el("div","card");nc.appendChild(el("h2",null,L.notables||""));
+    o.notables.forEach(function(p){clanPerson(nc,p)});box.appendChild(nc);
+  }
 }
 function annalsSend(body,label){
   api("POST","/api/decree",body).then(function(r){
@@ -2110,6 +2392,8 @@ function dynastySheet(d){
   }});
 }
 function renderAnnals(){
+  // 铺满着的树先收回来(不然挪到页面最外层的那个框留在屏幕上)
+  if(drawTree.exitFull)drawTree.exitFull();
   var box=$("annals");box.textContent="";
   var strip=el("div","tiles");
   ANNALS.forEach(function(x){
@@ -2121,13 +2405,14 @@ function renderAnnals(){
   box.appendChild(strip);
   var card=el("div","card");box.appendChild(card);
   if(!annals){card.appendChild(el("div","sub",t("an_loading")));return}
-  if(annals.old){card.appendChild(el("div","sub",t("stale")));return}
+  if(annals.old){card.appendChild(el("div","sub",staleText()));return}
   var a=annals[annalsTab]||{};
   var head=el("div","row");head.appendChild(hd(ANNALS.filter(function(x){return x[0]===annalsTab})[0][1],a.title||t("an_"+annalsTab)));
   if(a.sum)head.appendChild(el("span","sub",a.sum));
   card.appendChild(head);
   if(a.note)card.appendChild(el("div","sub",a.note));
-  if(annalsTab==="lineage"||annalsTab==="clan"){
+  if(annalsTab==="clan"){box.removeChild(card);renderClan(box);return}
+  if(annalsTab==="lineage"){
     if(!(a.nodes||[]).length){card.appendChild(el("div","sub",t("an_none")));return}
     drawTree(card,a.nodes,nodeFace,a.focus,nodeSheet,a.succ);
     var legend=el("div","sub legend");
@@ -2923,6 +3208,16 @@ function applyLayer(){
     if(!g.rgb)g.rgb=big&&big.rgb||[136,136,136];
   }
   nodes.forEach(function(o){if(!o.rgb)o.rgb=[136,136,136]});
+  // 同一家(同一级、同名)上一份图里算好的铭牌：版图没变(块数、重心一样)直接沿用；变了的照样重算，算出来以前先照旧的位置画(见 drawLabel)
+  var before=map.nodes||map.prevNodes;map.prevNodes=null;
+  if(before){
+    var byName={};before.forEach(function(o){byName[o.lvl+"|"+o.name]=o});
+    nodes.forEach(function(o){
+      var p=byName[o.lvl+"|"+o.name];if(!p)return;
+      var L=p.lab!==undefined?p.lab:p.labOld;if(L===undefined)return;
+      if(p.lab!==undefined&&p.n===o.n&&Math.abs(p.x-o.x)<.01&&Math.abs(p.y-o.y)<.01)o.lab=p.lab;else if(L)o.labOld=L;
+    });
+  }
   map.nodes=nodes;map.tops=tops;map.zLeaf=zl;map.openKey=null;map.off=null;
 }
 // 按眼下的远近定哪几家展开了：shown[叶] 是这片叶眼下按哪一家上色、标名(自己或上头某一级)，cityOpen[叶] 是拉近到叶、该标城了；
@@ -2948,8 +3243,11 @@ function openTree(x,y,w,h,kc){
   // 展开到城只看远近(用户 2026-11-12 "城出现的太早了，至少要到我发的图那样才可以显示城市的名称")：一格地在屏幕上占到 CITY_PX 点
   // (那张图约八点)才标城、画城；帝国、天下在屏幕里看得见的部分占到三成五就展开到下一级
   var cityZoom=kc/(map.tile||8)>=CITY_PX;
+  // 上面几级(天下、帝国)只按看得见的部分占屏幕几成展开，窗口多大都照这个比例；"拉近到城"只作用在叶(国、行政区)上。
+  // 以前拉近到城那一档连上面几级也一并打开：窗口大的时候帝国还没占满三成五，放大就越过行政区直接到了城(用户 2026-11-18
+  // "窗口太大的话，我放大就逃过行政区直接显示城市了""为什么不检测窗口大小")
   function walk(id,s){
-    var o=nodes[id],leaf=!o.kids.length,open=cityZoom||!leaf&&vis[id]>=total*(was[id]?UNCOVER:COVER);
+    var o=nodes[id],leaf=!o.kids.length,open=leaf?cityZoom:vis[id]>=total*(was[id]?UNCOVER:COVER);
     was[id]=open?1:0;
     if(s<0&&!open){s=id;front.push(id)}
     if(!o.kids.length){shown[id]=s>=0?s:id;city[id]=s<0?1:0;return}
@@ -3522,6 +3820,8 @@ function loadMap(){
     var old=map;
     map=decodeMap(r.json);
     if(old&&old.grid&&old.w===map.w&&old.h===map.h)map.flip={grid:old.grid,zcity:old.zcity,realms:old.realms,cityAt:old.cityAt,t0:0};
+    // 旧图上各家算好的铭牌交给新图接着用(见 applyLayer)：以前新图一到全得重算，一帧算不完的那些国名空一帧，隔几秒闪一下
+    map.prevNodes=old&&old.w===map.w&&old.h===map.h?old.nodes:null;
     applyLayer();drawMap();
     if(map.ts&&(!terr||terr.ts!==map.ts))loadTerrain();
   },function(){});
@@ -3590,7 +3890,9 @@ function loadArmies(){
     if(r.status!==200||!r.json.ready||r.json.same)return;
     var now=Date.now(),was={},gap=armyGot&&now-armyGot<15000?now-armyGot:armyGap||3000,movingUntil=0;
     armyGap=armyGap?(armyGap+gap)/2:gap;armyGot=now;
-    var dur=Math.max(600,Math.min(6000,Math.max(gap,armyGap)*1.15));
+    // 游戏现在报的就是兵牌画的位置(统领所在的格子或行军插值，见 CorpsSystem.ShownPosition)，本身是一路往前的：
+    // 走的时长贴着到手的间隔，只放长一点点免得走完停着等，不再拖成慢一大拍
+    var dur=Math.max(300,Math.min(4000,Math.max(gap,armyGap)*1.05));
     // 没有编号的(旧版服务器发来的别国之军)对不上前后，不走，直接落过去：不然都挤在同一个空编号上，从同一个点滑出去
     if(armies&&armies.armies)armies.armies.forEach(function(a){if(a.id!=null)was[a.id]=a});
     r.json.armies&&r.json.armies.forEach(function(a){
@@ -3719,12 +4021,13 @@ function labHit(A,B){
 // 画一家的铭牌。boxes 是已画的斜字框，placed 是城名用的正框(见 drawMap 的 free)；头一回排要花点工夫，一帧排不完的下一帧再排
 function drawLabel(ctx,o,x,y,k,dpr,cv,boxes,placed,t0){
   if(o.lab===undefined){
-    if(Date.now()-t0>40){clearTimeout(drawLabel.tm);drawLabel.tm=setTimeout(drawMap,30);return}
-    o.lab=labPlace(o);
+    // 这一帧算不完的：下一帧接着算；上一份图里有这一家的铭牌就先照它画，不空一帧
+    if(Date.now()-t0>40){clearTimeout(drawLabel.tm);drawLabel.tm=setTimeout(drawMap,30);if(!o.labOld)return}
+    else o.lab=labPlace(o);
   }
   // 本国排不下(地太碎)也标：照旧放在这一家的重心，横着写
-  if(!o.lab&&o.home)o.lab={x:o.x+.5,y:o.y+.5,a:0,hw:0,hh:0,cv:0,M:labMeasure(o.name)};
-  var L=o.lab;if(!L)return;
+  if(o.lab===null&&o.home)o.lab={x:o.x+.5,y:o.y+.5,a:0,hw:0,hh:0,cv:0,M:labMeasure(o.name)};
+  var L=o.lab!==undefined?o.lab:o.labOld;if(!L)return;
   var f=2*L.hh*k*.9,small=9*dpr,cap=Math.max(16*dpr,Math.min(cv.width,cv.height)*.22);
   if(f<small&&!o.home)return;
   var alpha=o.home?1:Math.min(1,(f-small)/(3*dpr)+.25);
@@ -3913,6 +4216,7 @@ function drawMap(){
   drawWars(ctx,x,y,k,dpr,cv);
   drawBattles(ctx,x,y,k,dpr,cv);
   drawArmies(ctx,x,y,k,dpr,cv);
+  drawCrowns(ctx,x,y,k,dpr,cv);
   $("z-out").disabled=mv.z<=1.001;$("z-in").disabled=mv.z>=map.maxz-.001;$("z-reset").disabled=mv.z<=1.001;
   var tag=$("map-intel"),line=armies?(armies.every===0?t("intel_live"):t("intel_at",Math.floor(armies.at/12)+1,armies.at%12+1,armies.every)):"";
   $("intel-row").hidden=!line;tag.textContent=line;
@@ -3964,6 +4268,55 @@ function drawBattles(ctx,x,y,k,dpr,cv){
     ctx.font=(9*dpr)+"px sans-serif";ctx.fillStyle="#f4e9d6";ctx.fillText(line,px,py+6*dpr);
     hits.push({kind:"battle",x:px/dpr,y:py/dpr,b:b});
   });
+}
+// 皇帝、教宗标记(同游戏纯净地图，见 TerminalHost.Papacy)：所在之城上方一枚圆印，印面是帝国(教廷所在国)的国色，旧铜环，
+// 上面一顶冠——华夏冕(平板垂旒)、西方帝冠(三尖)、教宗三重冕。出行时沿路走(随军情报来的位置)。画在兵牌上面；
+// 皇帝与教宗挨着时左右错开。点开看同游戏悬停的那几行
+function drawCrowns(ctx,x,y,k,dpr,cv){
+  if(!armies||!armies.crowns||!armies.crowns.length)return;
+  var r=9*dpr,list=[];
+  armies.crowns.forEach(function(c){
+    var px=(c.x-x)*k,py=(c.y-y)*k-16*dpr;
+    if(px<-30*dpr||py<-30*dpr||px>cv.width+30*dpr||py>cv.height+30*dpr)return;
+    list.push({c:c,px:px,py:py});
+  });
+  for(var i=0;i<list.length;i++)for(var j=i+1;j<list.length;j++){
+    var a=list[i],b=list[j];if(a.c.k==="e"&&b.c.k==="e")continue;
+    var dx=b.px-a.px,dy=b.py-a.py,push=(2*r+2*dpr-Math.hypot(dx,dy))/2;if(push<=0)continue;
+    var side=dx>=0?1:-1;a.px-=side*push;b.px+=side*push;
+  }
+  list.forEach(function(m){
+    var c=m.c,px=m.px,py=m.py,g="#f3d27a";
+    ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fillStyle=c.c||"#c8a040";ctx.fill();
+    ctx.lineWidth=2*dpr;ctx.strokeStyle=c.me?"#f3c34a":"#9a7432";ctx.stroke();
+    ctx.fillStyle=g;ctx.strokeStyle="#3a2a10";ctx.lineWidth=1*dpr;
+    var u=r/9;
+    if(c.k==="p"){
+      // 三重冕：三道冠箍，顶上一个小球
+      ctx.beginPath();ctx.moveTo(px-5*u,py+5*u);ctx.lineTo(px-4*u,py-3*u);ctx.quadraticCurveTo(px,py-8*u,px+4*u,py-3*u);ctx.lineTo(px+5*u,py+5*u);ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.strokeStyle="#7a5a1c";ctx.beginPath();
+      [3,0,-3].forEach(function(o){ctx.moveTo(px-4.6*u,py+o*u);ctx.lineTo(px+4.6*u,py+o*u)});ctx.stroke();
+      ctx.beginPath();ctx.arc(px,py-7*u,1.3*u,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    }else if(c.w==="roma"){
+      // 西方帝冠：冠圈加三尖
+      ctx.beginPath();ctx.moveTo(px-5.5*u,py+4*u);ctx.lineTo(px-5.5*u,py-4*u);ctx.lineTo(px-2.7*u,py-0.5*u);ctx.lineTo(px,py-5.5*u);
+      ctx.lineTo(px+2.7*u,py-0.5*u);ctx.lineTo(px+5.5*u,py-4*u);ctx.lineTo(px+5.5*u,py+4*u);ctx.closePath();ctx.fill();ctx.stroke();
+    }else{
+      // 华夏冕：冠身、顶上平板(綖)、前后垂旒
+      ctx.fillRect(px-3*u,py-2*u,6*u,6*u);ctx.strokeRect(px-3*u,py-2*u,6*u,6*u);
+      ctx.fillRect(px-6.5*u,py-4.5*u,13*u,2.2*u);ctx.strokeRect(px-6.5*u,py-4.5*u,13*u,2.2*u);
+      ctx.strokeStyle=g;ctx.lineWidth=0.9*dpr;ctx.beginPath();
+      [-5.5,-4,4,5.5].forEach(function(o){ctx.moveTo(px+o*u,py-2.3*u);ctx.lineTo(px+o*u,py+1.5*u)});ctx.stroke();
+    }
+    hits.push({kind:"crown",x:px/dpr,y:py/dpr,c:c});
+  });
+}
+function showCrown(c){
+  sel=null;aim=false;
+  var lines=[c.s];
+  (c.rows||[]).forEach(function(r){lines.push(r[0]+"："+r[1])});
+  panel(c.n,lines);
+  drawMap();
 }
 // 点开交战牌子：攻守双方、本朝在攻在守、胜算、兵力、已占几块
 function showBattle(b){
@@ -4194,13 +4547,15 @@ function empireHead(ei){
 function pickAt(clientX,clientY){
   if(!map||!map.win)return;
   var rect=$("map").getBoundingClientRect(),win=map.win,px=clientX-rect.left,py=clientY-rect.top;
-  var army=null,city=null,battle=null,ad=20,cd=aim?24:14,bd=18;
+  var army=null,city=null,battle=null,crown=null,ad=20,cd=aim?24:14,bd=18,rd=14;
   hits.forEach(function(h){
     var d=Math.hypot(h.x-px,h.y-py);
     if(h.kind==="army"&&d<ad){ad=d;army=h}
     if(h.kind==="city"&&d<cd){cd=d;city=h.c}
     if(h.kind==="battle"&&d<bd){bd=d;battle=h.b}
+    if(h.kind==="crown"&&d<rd){rd=d;crown=h.c}
   });
+  if(crown&&!aim){showCrown(crown);return}
   if(army&&!aim){if(state&&state.admin)adminArmies(army.list);else showArmies(army.list);return}
   if(battle&&!aim){showBattle(battle);return}
   var gx=win.x+px/rect.width*win.w,gy=win.y+py/rect.height*win.h,x=Math.floor(gx),y=Math.floor(gy);
@@ -4344,7 +4699,8 @@ function adminSend(body){
 }
 // 换身份：图、军情、加载都从头来(两个身份看到的图不一样)
 function switchRole(r){
-  role=r==="admin"&&adminToken?"admin":"seat";store(ROLE_KEY,role==="admin"?"admin":null);
+  role=r==="admin"&&adminToken?"admin":r==="possess"&&adminToken&&possessToken?"possess":"seat";store(ROLE_KEY,role==="seat"?null:role);
+  possessWant=null;
   state=null;worldClock=null;pollAccepted=++pollIssued;admSeen=null;admArm=null;closeSheet();
   if(picking){picking=false;mapInto(false)}
   resetMap();document.body.classList.remove("admin");
@@ -4381,16 +4737,16 @@ function adminEntry(){
 }
 // 各处"管理员入口"的字：登入过的写"切到管理员"
 function admEntryLabels(){
-  var k=adminToken?"adm_switch":"adm_entry";
+  var k=possessing()?"adm_god":adminToken?"adm_switch":"adm_entry";
   ["admin-open-t","vacant-admin-t"].forEach(function(id){var e=$(id);if(e){e.setAttribute("data-t",k);e.textContent=t(k)}});
 }
 // 国势页底下一张卡：进管理员
 function renderAdminEntry(){
-  var box=$("adm-entry"),k=adminToken?"adm_switch":"adm_entry",sig=k+lang;
+  var box=$("adm-entry"),k=possessing()?"adm_god":adminToken?"adm_switch":"adm_entry",sig=k+lang;
   if(!box||box._sig===sig)return;
   box._sig=sig;box.textContent="";
   box.appendChild(hd("i_lock",t("adm_title")));
-  var row=li(t(k),t(adminToken?"adm_switch_sub":"adm_entry_sub"),null,adminEntry);row.style.borderTop="0";
+  var row=li(t(k),possessing()?t("adm_possess_note"):t(adminToken?"adm_switch_sub":"adm_entry_sub"),null,adminEntry);row.style.borderTop="0";
   box.appendChild(row);
 }
 function renderAdmin(){
@@ -4410,9 +4766,10 @@ function renderAdmin(){
   // 抬头一行放不下"无君主在线"的说明：房间页里写着
   $("pace").textContent=state.paused?t("paused"):state.actual>=0?t("pace_slow",xs(state.speed),xs(state.actual)):t("pace",xs(state.speed));
   $("vote-banner").hidden=true;
-  $("stale").hidden=(state.v||0)>=NEED;
-  $("away").hidden=true;
+  renderStale();
+  $("away").hidden=true;$("possess-bar").hidden=true;
   adminNotes();renderAdminSeats();renderAdminRoom();
+  if(possessWant&&state.possess&&state.possess.kid===possessWant&&state.possess.token){possessToken=state.possess.token;store(POSSESS_KEY,possessToken);switchRole("possess");return}
   fit();
   if(map&&!map.win)drawMap();
 }
@@ -4487,7 +4844,7 @@ function adminSeatSheet(s){
 function renderAdminRoom(){
   var box=$("aroom"),r=state.room||{},v=state.speedVote,seats=state.seats||[];
   var lagging=state.actual>=0;
-  var sig=JSON.stringify([state.speed,lagging?Math.round(state.actual/10):-1,state.slowed,state.paused,state.code,state.limit,seats.length,r,v&&[v.id,v.yes,v.no,v.need],admArm,lang,!!token,srvRev]);
+  var sig=JSON.stringify([state.speed,lagging?Math.round(state.actual/10):-1,state.slowed,state.paused,state.code,state.limit,seats.length,r,v&&[v.id,v.yes,v.no,v.need],admArm,lang,!!token,srvRev,state.possess||null]);
   if(box._sig===sig)return;
   box._sig=sig;box.textContent="";
   // 世界：流速、暂停
@@ -4517,6 +4874,16 @@ function renderAdminRoom(){
   lobby.appendChild(liAct(t("adm_open"),t(r.open?"adm_open_on":"adm_open_off")+" · "+t("adm_open_note"),open));
   lobby.appendChild(li(t("adm_room_name"),r.name?null:t("adm_room_auto",r.auto||""),el("span","sub",r.name||r.auto||""),adminRoomSheet));
   box.appendChild(lobby);
+  // 附身：眼下附身的国(切过去、放手)
+  var pos=el("div","card");pos.appendChild(hd("i_crown",t("adm_possess_card")));
+  var ps=state.possess;
+  if(ps&&ps.realm){
+    var go=el("button","act primary");go.style.margin="0";go.appendChild(document.createTextNode(t("adm_possess_go")));
+    go.onclick=function(){go.disabled=true;adminPossess(ps.rid,ps.kid)};
+    pos.appendChild(liAct(ps.realm+" · "+ps.ruler,t("role_"+ps.role)+" · "+t("adm_possess_note"),go));
+    pos.appendChild(liAct(t("adm_release"),t("adm_release_sub"),admArmBtn("release",t("adm_release"),"i_return",function(){adminRelease()},"no")));
+  }else pos.appendChild(el("div","sub",t("adm_possess_none")));
+  box.appendChild(pos);
   // 身份：回君主席位(或去配一个)、退出管理员
   var self=el("div","card");self.appendChild(hd("i_seal",t("adm_self")));
   self.appendChild(li(t(token?"adm_to_seat":"adm_pair_seat"),t(token?"adm_to_seat_sub":"adm_pair_seat_sub"),null,function(){switchRole("seat")}));
@@ -4524,8 +4891,21 @@ function renderAdminRoom(){
   box.appendChild(self);
   srvAdminCards(box);
 }
+// 附身一国(id 是君主的人物编号、kid 是国的编号)：游戏那头办好了(管理员状态里 possess 对上了)才切过去，附身不了的有提示
+function adminPossess(id,kid){
+  var cur=state&&state.possess;
+  if(cur&&cur.kid===kid&&cur.token){possessToken=cur.token;store(POSSESS_KEY,possessToken);switchRole("possess");return}
+  api("POST","/api/admin/possess",id?{id:id}:{kid:kid}).then(function(r){
+    if(r.status!==200){toast(t("sent_fail"),true);return}
+    possessWant=kid;setTimeout(function(){if(possessWant===kid)possessWant=null},12000);
+    setTimeout(poll,400);setTimeout(poll,1200);setTimeout(poll,2500);
+  },function(){toast(t("e_net"),true)});
+}
+function adminRelease(){
+  api("POST","/api/admin/possess",{id:"-1"}).then(function(){possessToken=null;store(POSSESS_KEY,null);setTimeout(poll,400);setTimeout(poll,1500)},function(){toast(t("e_net"),true)});
+}
 function adminLogout(){
-  var done=function(){adminToken=null;store(ADMIN_KEY,null);switchRole("seat")};
+  var done=function(){adminToken=null;store(ADMIN_KEY,null);possessToken=null;store(POSSESS_KEY,null);switchRole("seat")};
   api("POST","/api/admin/logout").then(done,done);
 }
 // 世界流速：五档直接点，别的数自己填
@@ -4574,12 +4954,19 @@ function adminRealm(r,title){
   if(!r){panel(title||t("m_wild"),[]);return}
   var who=r.id?(state.rulers||[]).filter(function(x){return x.kid===r.id})[0]:null;
   var view=r.id?{label:t("ah_view"),icon:"a_history",go:function(){openRealmHistory(r.id,r.name)}}:null;
-  if(!who){panel(title||r.name,[title?r.name:null,belongOf(r)||null],view?[view]:[]);adminFigs(r.id);return}
+  if(!who){
+    // 君主名单有上限：名单外的国按国的编号附身(游戏那头找它的君主)；有席位领着的不给
+    var acts0=view?[view]:[],mine0=state.possess&&state.possess.kid===r.id;
+    if(r.id&&!(state.seats||[]).some(function(s){return s.kid===r.id}))
+      acts0.push({label:t(mine0?"adm_possess_back":"adm_possess"),icon:"i_crown",primary:true,go:function(){panel();adminPossess(null,r.id)}});
+    panel(title||r.name,[title?r.name:null,belongOf(r)||null],acts0);adminFigs(r.id);return;
+  }
   var seat=(state.seats||[]).filter(function(s){return s.kid===who.kid})[0],acts=[];
   if(view)acts.push(view);
   if(seat)acts.push({label:t("adm_recall"),icon:"i_return",go:function(){adminSeatSheet(seat)}});
+  else if(who.held!=="admin")acts.push({label:t(who.held==="self"?"adm_possess_back":"adm_possess"),icon:"i_crown",primary:true,go:function(){panel();adminPossess(who.id,who.kid)}});
   panel(title||who.realm+" · "+who.ruler,[title?who.realm+" · "+who.ruler:null,t("ruler_detail",t("role_"+who.kind),who.cities,who.age),belongOf(r)||null,
-    seat?t("adm_held",seat.name):t("adm_free")],acts);
+    seat?t("adm_held",seat.name):who.held?t(who.held==="self"?"adm_held_self":"adm_held_admin"):t("adm_free")],acts);
   adminFigs(r.id);
 }
 // 点的那一国的基本数值(用户 2026-11-16 "这里让我能看到他的积弊正统国库年号等基本数值")：年号、正统、王朝积弊、国库、腐败率、人口、兵力，
@@ -4638,12 +5025,14 @@ $("admin-pass").onkeydown=function(e){if(e.key==="Enter")$("admin-go").onclick()
 $("admin-code").onkeydown=function(e){if(e.key==="Enter")$("admin-go").onclick()};
 $("admin-code").oninput=function(){$("admin-err").textContent=""};
 $("vacant-admin").onclick=adminEntry;
+$("possess-bar").onclick=function(){switchRole("admin")};
 
 // 页签。舆图是底(群里的意见 "这个网页主体就是这个地图，然后功能键移动到侧边或者上面")：办事的那一页是浮在图上的窗口，
 // 再点一下它的页签、点窗口右上角的关、点"地图"页签，都是收起来只看图
 var tabs=document.querySelectorAll("nav button");
 function goPage(p){
   commitSeen();
+  if(drawTree.exitFull)drawTree.exitFull();
   if(p===page&&p!=="map")p="map";
   page=p;
   $("win-title").textContent=page==="map"?"":t("tab_"+page);

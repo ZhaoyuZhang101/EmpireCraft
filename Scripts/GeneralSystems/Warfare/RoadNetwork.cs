@@ -347,7 +347,8 @@ public static class RoadNetwork
         }
     }
 
-    private static bool IsRoadTile(WorldTile tile) => tile?.data != null && TileGrades.ContainsKey(tile.data.tile_id);
+    // 这一格上有没有修通的路(各国修的干道、神力画的路)；军牌沿路走也用(见 CorpsSystem.MarchLine、TerrainSystem.StepCost)
+    internal static bool IsRoadTile(WorldTile tile) => tile?.data != null && TileGrades.ContainsKey(tile.data.tile_id);
 
     // 能补成接头的格：走得了(不是山、城墙、岩浆)；water 为假时只要陆地，为真时水面要能架桥的等级
     private static WorldTile JointTile(WorldTile tile, int grade, bool water = false)

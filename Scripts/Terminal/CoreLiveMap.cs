@@ -21,9 +21,14 @@ namespace EmpireCraft.Scripts.Terminal;
 //   · 数据：游戏以管理员身份连本机核心(管理员码，配了账号密码的向核心要一张一次性的票)，每秒问一回
 //     /api/admin/live/map 与 /api/admin/live/army(见 TerminalHost.Live)，版本号没变就不重画。下载、解析、算底图的像素都在后台线程，
 //     主线程只换贴图、摆字；
-//   · 底图：一块地几个像素，按归属涂国色，国与国之间描深一号的界线，交战两国之间描朱红战线，水与无主地另配色；
-//   · 上层：国名(版图大才写，按版图大小定字号，互不压着)、都城与城(拉近了才出)、军队(同一国挨得近的并成一个牌子，写总人数)、
-//     交战牌子(拉远是小红方块，拉近写"某城之战 胜算")；鼠标底下是哪一国写在顶上；
+//   · 底图照原版的像素(用户 2026-11-18 "核心地图模式不能完全仿照原版的像素吗")：一格地一个像素，颜色同原版(地形格的 Type.color，
+//     从游戏冻住的这一局世界取一回，核心跑着时地形基本不动)；国色半透明叠上去，国界在地块边上描深一号，交战两国之间描朱红；
+//     核心那边新报来的归属整张重算(后台线程)，换上时淡入，国界不再一下跳过去；
+//   · 政体、法理两层(速度栏上切换)，逐级展开、铭牌贴着版图写，都照手机舆图(见 CoreLiveMap.Tree)；
+//   · 上层：城与都城用原版的城、皇冠图标(拉近到城才出)；军队用游戏里兵牌那一套框
+//     (按任务分色)加兵种图标，同一国挨得近的并成一个牌子写总人数，在两份军情之间按时间插值走(同手机舆图)，不再一跳一跳；
+//     交战牌子用游戏里交战标记的框，拉远是原版的战争图标；鼠标底下是哪一国写在顶上；
+//   · 游戏本体的世界一直冻着、不算任何东西；画面只换国色那张图(几秒一回)和每帧摆军牌；
 //   · 操作：滚轮缩放(以鼠标为准)、按住左键或右键拖动；牌子缩到左上角，「收起地图」回到黑屏；
 //   · 速度(用户 2026-11-18 "不要用 3000 这种计量了，还是沿用游戏的")：右上角一条速度栏，按原版的速度档(×0.5～×40，
 //     见 AssetManager.time_scales)一档一档加减、暂停与继续；档位折成核心的流速(×N = N×100%，原版音速档每帧两步也算进去)
@@ -31,7 +36,7 @@ namespace EmpireCraft.Scripts.Terminal;
 //     核心接手后头一回连上时，核心改用游戏原来选的那一档；"实际"按核心报的实际流速折成 ×N；
 //   · 不改游戏本体的世界：原版摄像机照旧什么都不画，这块地图挂在黑屏牌子的画布底下(黑屏关画布时跳过它，恢复画面时一起收)。
 // 只看不改(指令转发是下一步)。核心那头没这两个接口(老核心)就在顶上说一声，照旧黑屏
-internal static class CoreLiveMap
+internal static partial class CoreLiveMap
 {
     // 牌子上「看地图 / 收起地图」(默认看)
     internal static bool Wanted = true;
@@ -50,12 +55,13 @@ internal static class CoreLiveMap
     {
         public string Name;
         public float X, Y;
-        public int R, Z;
+        public int R, Z, Dk, De, Dt;
         public bool Cap;
     }
 
     private struct Army
     {
+        public string Id, Arm, T;
         public int R, N;
         public float X, Y;
     }
@@ -70,11 +76,19 @@ internal static class CoreLiveMap
 
     private sealed class MapData
     {
-        public int W, H, Stamp, Scale;
+        public int W, H, Stamp, Tile;
         public ushort[] Cells;
+        // 每块地属哪座城(Towns 的下标，0xFFFF 没有)
+        public ushort[] ZoneCity;
         public Realm[] Realms;
         public Town[] Towns;
-        public Color32[] Pixels;
+        public HashSet<int> Fronts;
+        // 各国所在帝国(EmpName 的下标，-1 独立)
+        public int[] RealmEmp;
+        public string[] EmpName, DkName, DeName, DtName;
+        public Color32[] EmpColor, DkColor, DeColor, DtColor;
+        // 政体、法理两棵树(见 CoreLiveMap.Tree)
+        public Tree[] Trees;
     }
 
     private sealed class ArmyData
@@ -103,9 +117,18 @@ internal static class CoreLiveMap
     // ───────── 主线程的画面 ─────────
     private static GameObject _root;
     private static Canvas _canvas;
-    private static RectTransform _rootRect, _mapRect, _layer;
-    private static RawImage _mapImage;
-    private static Texture2D _texture;
+    private static RectTransform _rootRect, _mapRect, _layer, _armyLayer;
+    // 两张底图轮着用：新的一张淡入盖在旧的上面，淡完旧的收起(见 Fade)
+    private static readonly RawImage[] MapImages = new RawImage[2];
+    private static readonly Texture2D[] Textures = new Texture2D[2];
+    private static int _shown = -1, _fadingTo = -1;
+    private static float _fadeAt;
+    private const float FadeSeconds = 0.6f;
+    // 原版像素的地形(一格一个颜色，贴图的第 0 行在下)：主线程从冻住的世界取一回，后台线程拿来画底图
+    private static volatile Color32[] _terrain;
+    private static volatile int _terrainW, _terrainH;
+    // 国色叠在地形上的浓淡(原版王国图层的样子：国色为主、地形透出来)
+    private const float TintAlpha = 0.62f;
     private static Text _hover, _notice;
     private static Font _font;
     private static MapData _map;
@@ -139,13 +162,17 @@ internal static class CoreLiveMap
             _port = TerminalHost.Port;
             _code = CoreHost.AdminCodeNow;
             if (string.IsNullOrEmpty(_code) && string.IsNullOrEmpty(_ticket) && _token == null) _ticket = CoreHost.TakeLiveTicket();
+            if (_terrain == null) CaptureTerrain();
             StartWorker();
             SyncSpeed();
             Apply();
+            Fade();
+            Filter();
             RefreshSpeedBar();
             HandleInput();
             if (_dirty || _dragging && Time.unscaledTime - _layoutAt >= DragRelayoutSeconds || _zoom != _layoutZoom) Layout();
             else Shift();
+            PlaceArmies();
             _notice.text = _map == null ? _problem ?? LM.Get("terminal_live_waiting") : "";
         }
         catch (Exception exception)
@@ -168,6 +195,15 @@ internal static class CoreLiveMap
         _pendingMap = null;
         _pendingArmy = null;
         _fitted = false;
+        _terrain = null;
+        _lastTrees = null;
+        _paintWant = null;
+        _painted = null;
+        _openKey = null;
+        _openTree = null;
+        Movers.Clear();
+        _lastArmyAt = -1f;
+        _shown = _fadingTo = -1;
         if (_root != null) _root.SetActive(false);
     }
 
@@ -188,8 +224,23 @@ internal static class CoreLiveMap
 
     private static void Work()
     {
+        int nextFetch = Environment.TickCount;
         while (_run)
         {
+            try
+            {
+                PaintPending();
+            }
+            catch (Exception exception)
+            {
+                _problem = exception.Message;
+            }
+            if (unchecked(Environment.TickCount - nextFetch) < 0)
+            {
+                Thread.Sleep(30);
+                continue;
+            }
+            nextFetch = Environment.TickCount + 1000;
             try
             {
                 if (_token == null) _token = Pair();
@@ -215,7 +266,6 @@ internal static class CoreLiveMap
             {
                 _problem = exception.Message;
             }
-            Thread.Sleep(1000);
         }
     }
 
@@ -308,22 +358,57 @@ internal static class CoreLiveMap
             towns[i] = new Town
             {
                 Name = row.Value<string>("name") ?? "", X = row.Value<float>("x"), Y = row.Value<float>("y"), R = row.Value<int?>("r") ?? -1,
-                Z = row.Value<int?>("z") ?? 0, Cap = row.Value<bool?>("cap") == true
+                Z = row.Value<int?>("z") ?? 0, Cap = row.Value<bool?>("cap") == true, Dk = row.Value<int?>("dk") ?? -1,
+                De = row.Value<int?>("de") ?? -1, Dt = row.Value<int?>("dt") ?? -1
             };
         }
+        var realmEmp = new int[realms.Length];
+        for (int i = 0; i < realms.Length; i++) realmEmp[i] = ((JObject)realmRows[i]).Value<int?>("emp") ?? -1;
         var fronts = new HashSet<int>();
         if (json["fronts"] is JArray pairs)
             foreach (JToken pair in pairs)
                 fronts.Add(pair.Value<int>(0) << 16 | pair.Value<int>(1));
+        // 每块地属哪座城(老核心没报：都算没有，法理层就空着)
+        var zoneCity = new ushort[w * h];
+        if (json["zl"] != null)
+        {
+            byte[] zl = Unpack(json.Value<string>("zl"), w * h), zh = Unpack(json.Value<string>("zh"), w * h);
+            for (int i = 0; i < zoneCity.Length; i++) zoneCity[i] = (ushort)(zl[i] | zh[i] << 8);
+        }
+        else
+        {
+            for (int i = 0; i < zoneCity.Length; i++) zoneCity[i] = 0xFFFF;
+        }
+        void Table(JToken rows, out string[] names, out Color32[] colors)
+        {
+            var list = rows as JArray ?? new JArray();
+            names = new string[list.Count];
+            colors = new Color32[list.Count];
+            for (int i = 0; i < list.Count; i++)
+            {
+                names[i] = list[i].Value<string>("name") ?? "";
+                colors[i] = ParseColor(list[i].Value<string>("color"));
+            }
+        }
         var data = new MapData
         {
-            W = w, H = h, Stamp = stamp, Cells = cells, Realms = realms, Towns = towns,
-            Scale = Mathf.Clamp(1024 / Mathf.Max(1, Mathf.Max(w, h)), 1, 6)
+            W = w, H = h, Stamp = stamp, Cells = cells, ZoneCity = zoneCity, Realms = realms, Towns = towns, Fronts = fronts,
+            RealmEmp = realmEmp, Tile = json.Value<int?>("tile") ?? 8
         };
-        data.Pixels = Paint(data, fronts);
+        Table(json["empires"], out data.EmpName, out data.EmpColor);
+        JToken dejure = json["dejure"];
+        Table(dejure?["k"], out data.DkName, out data.DkColor);
+        Table(dejure?["e"], out data.DeName, out data.DeColor);
+        Table(dejure?["t"], out data.DtName, out data.DtColor);
+        data.Trees = new[] { BuildPolTree(data), BuildDejureTree(data) };
+        for (int i = 0; i < 2; i++) PlaceLabels(data.Trees[i], _lastTrees?[i], data);
+        _lastTrees = data.Trees;
         _mapStamp = stamp;
         _pendingMap = data;
     }
+
+    // 上一份图的两棵树(后台线程用)：铭牌没变的接着用
+    private static Tree[] _lastTrees;
 
     private static void TakeArmies(string text)
     {
@@ -336,7 +421,11 @@ internal static class CoreLiveMap
         for (int i = 0; i < armies.Length; i++)
         {
             var row = (JObject)armyRows[i];
-            armies[i] = new Army { R = row.Value<int?>("r") ?? -1, N = row.Value<int?>("n") ?? 0, X = row.Value<float>("x"), Y = row.Value<float>("y") };
+            armies[i] = new Army
+            {
+                Id = row.Value<string>("id") ?? i.ToString(), Arm = row.Value<string>("arm") ?? "", T = row.Value<string>("t") ?? "",
+                R = row.Value<int?>("r") ?? -1, N = row.Value<int?>("n") ?? 0, X = row.Value<float>("x"), Y = row.Value<float>("y")
+            };
         }
         var battleRows = (JArray)json["battles"];
         var battles = new Battle[battleRows.Count];
@@ -385,42 +474,31 @@ internal static class CoreLiveMap
         }
     }
 
-    // 底图的像素(后台线程)：一块地 Scale×Scale 个像素，贴图的第 0 行在下
-    private static Color32[] Paint(MapData data, HashSet<int> fronts)
-    {
-        int s = data.Scale, w = data.W, h = data.H, tw = w * s, th = h * s;
-        var pixels = new Color32[tw * th];
-        Color32 ColorOf(ushort value) =>
-            value == TerminalHost.LiveWater ? Sea : value >= data.Realms.Length ? Wild : data.Realms[value].Color;
-        bool Realm(ushort value) => value < data.Realms.Length;
-        bool Fronted(ushort a, ushort b) => Realm(a) && Realm(b) && fronts.Contains(Math.Min(a, b) << 16 | Math.Max(a, b));
-        for (int cy = 0; cy < h; cy++)
-        for (int cx = 0; cx < w; cx++)
-        {
-            ushort here = data.Cells[cy * w + cx];
-            Color32 fill = ColorOf(here);
-            ushort left = cx > 0 ? data.Cells[cy * w + cx - 1] : here, right = cx < w - 1 ? data.Cells[cy * w + cx + 1] : here;
-            ushort up = cy > 0 ? data.Cells[(cy - 1) * w + cx] : here, down = cy < h - 1 ? data.Cells[(cy + 1) * w + cx] : here;
-            for (int py = 0; py < s; py++)
-            for (int px = 0; px < s; px++)
-            {
-                Color32 color = fill;
-                ushort other = here;
-                if (px == 0 && left != here) other = left;
-                else if (px == s - 1 && right != here) other = right;
-                else if (py == 0 && up != here) other = up;
-                else if (py == s - 1 && down != here) other = down;
-                if (other != here && Realm(here))
-                    color = Fronted(here, other) ? Front
-                        : Realm(other) || other == TerminalHost.LiveWild ? Darken(fill) : fill;
-                int x = cx * s + px, y = th - 1 - (cy * s + py);
-                pixels[y * tw + x] = color;
-            }
-        }
-        return pixels;
-    }
+    // 底图的像素在 CoreLiveMap.Tree 的 PaintPending 里涂(按眼下展开的样子)
 
     private static Color32 Darken(Color32 color) => new((byte)(color.r * 0.5f), (byte)(color.g * 0.5f), (byte)(color.b * 0.5f), 255);
+
+    // 主线程：从冻住的这一局取原版的地形色(一格一个，贴图的第 0 行在下，同原版的格子坐标)
+    private static void CaptureTerrain()
+    {
+        MapBox world = World.world;
+        if (world == null || !Config.game_loaded || SmoothLoader.isLoading()) return;
+        int tw = MapBox.width, th = MapBox.height;
+        if (tw <= 0 || th <= 0) return;
+        var colors = new Color32[tw * th];
+        for (int y = 0; y < th; y++)
+        for (int x = 0; x < tw; x++)
+        {
+            WorldTile tile = world.GetTile(x, y);
+            colors[y * tw + x] = tile?.Type != null ? tile.Type.color : Sea;
+        }
+        _terrainW = tw;
+        _terrainH = th;
+        _terrain = colors;
+        // 先前按色块画的底图：换成原版像素的
+        _openKey = null;
+        _dirty = true;
+    }
 
     // ───────── 主线程 ─────────
     private static void Build(Transform parent, Canvas canvas)
@@ -438,17 +516,30 @@ internal static class CoreLiveMap
         Image sea = _root.GetComponent<Image>();
         sea.color = Sea;
         sea.raycastTarget = false;
-        var mapObject = new GameObject("Map", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+        var mapObject = new GameObject("Map", typeof(RectTransform));
         mapObject.transform.SetParent(_root.transform, false);
         _mapRect = (RectTransform)mapObject.transform;
         _mapRect.anchorMin = _mapRect.anchorMax = _mapRect.pivot = Vector2.zero;
-        _mapImage = mapObject.GetComponent<RawImage>();
-        _mapImage.raycastTarget = false;
-        _mapImage.enabled = false;
+        for (int i = 0; i < MapImages.Length; i++)
+        {
+            var face = new GameObject("Face" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage));
+            face.transform.SetParent(_mapRect, false);
+            var faceRect = (RectTransform)face.transform;
+            faceRect.anchorMin = Vector2.zero;
+            faceRect.anchorMax = Vector2.one;
+            faceRect.offsetMin = faceRect.offsetMax = Vector2.zero;
+            MapImages[i] = face.GetComponent<RawImage>();
+            MapImages[i].raycastTarget = false;
+            MapImages[i].enabled = false;
+        }
         var layer = new GameObject("Marks", typeof(RectTransform));
         layer.transform.SetParent(_root.transform, false);
         _layer = (RectTransform)layer.transform;
         _layer.anchorMin = _layer.anchorMax = _layer.pivot = Vector2.zero;
+        var armyLayer = new GameObject("Armies", typeof(RectTransform));
+        armyLayer.transform.SetParent(_root.transform, false);
+        _armyLayer = (RectTransform)armyLayer.transform;
+        _armyLayer.anchorMin = _armyLayer.anchorMax = _armyLayer.pivot = Vector2.zero;
         _hover = NewText(_root.transform, 16, new Color(0.97f, 0.93f, 0.8f));
         var hoverRect = (RectTransform)_hover.transform;
         hoverRect.anchorMin = hoverRect.anchorMax = new Vector2(0.5f, 1f);
@@ -474,14 +565,14 @@ internal static class CoreLiveMap
         Image back = bar.GetComponent<Image>();
         back.color = new Color(0.05f, 0.06f, 0.07f, 0.82f);
         back.raycastTarget = true;
-        Text BarButton(string name, float x, float width, string label, UnityEngine.Events.UnityAction click)
+        Text BarButton(string name, float x, float width, string label, UnityEngine.Events.UnityAction click, float y = -6f, float height = 24f)
         {
             var holder = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             holder.transform.SetParent(_bar, false);
             var rect = (RectTransform)holder.transform;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = new Vector2(x, -6f);
-            rect.sizeDelta = new Vector2(width, 24f);
+            rect.anchoredPosition = new Vector2(x, y);
+            rect.sizeDelta = new Vector2(width, height);
             holder.GetComponent<Image>().color = new Color(0.24f, 0.42f, 0.5f);
             holder.GetComponent<Button>().onClick.AddListener(click);
             Text text = NewText(holder.transform, 14, Color.white);
@@ -501,8 +592,11 @@ internal static class CoreLiveMap
         var actualRect = (RectTransform)_actualText.transform;
         actualRect.anchorMin = actualRect.anchorMax = actualRect.pivot = new Vector2(0f, 1f);
         actualRect.anchoredPosition = new Vector2(6f, -32f);
-        actualRect.sizeDelta = new Vector2(238f, 16f);
+        actualRect.sizeDelta = new Vector2(176f, 16f);
         _actualText.alignment = TextAnchor.MiddleLeft;
+        _layerText = BarButton("Layer", 184f, 60f, LM.Get(MapLayer == LayerDejure ? "terminal_live_layer_dj" : "terminal_live_layer_pol"),
+            ToggleLayer, -30f, 16f);
+        _layerText.fontSize = 11;
     }
 
     // 原版的速度档，从慢到快(每档实际倍数 = 倍率 × 每帧几步)
@@ -634,29 +728,151 @@ internal static class CoreLiveMap
         if (map != null)
         {
             _pendingMap = null;
-            int tw = map.W * map.Scale, th = map.H * map.Scale;
-            if (_texture == null || _texture.width != tw || _texture.height != th)
-            {
-                if (_texture != null) Object.Destroy(_texture);
-                _texture = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            }
-            _texture.SetPixels32(map.Pixels);
-            _texture.Apply(false);
-            map.Pixels = null;
-            _mapImage.texture = _texture;
-            _mapImage.enabled = true;
             bool resized = _map == null || _map.W != map.W || _map.H != map.H;
             _map = map;
+            _openKey = null;
             if (resized) _fitted = false;
             _dirty = true;
+        }
+        Painted painted = _painted;
+        if (painted != null && ReferenceEquals(painted.Map, _map))
+        {
+            _painted = null;
+            // 上一张还在淡入：先让它到位
+            if (_fadingTo >= 0) FinishFade();
+            int next = _shown < 0 ? 0 : 1 - _shown;
+            int tw = painted.Width, th = painted.Height;
+            Texture2D texture = Textures[next];
+            if (texture == null || texture.width != tw || texture.height != th)
+            {
+                if (texture != null) Object.Destroy(texture);
+                // 带多级纹理：整张缩小着看时一格不到一个屏幕像素，硬缩会一拖就闪(见 Filter)
+                Textures[next] = texture = new Texture2D(tw, th, TextureFormat.RGBA32, true)
+                    { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            }
+            texture.SetPixels32(painted.Pixels);
+            texture.Apply(true);
+            _filterFor = -1f;
+            RawImage face = MapImages[next];
+            face.texture = texture;
+            face.enabled = true;
+            face.transform.SetAsLastSibling();
+            bool jump = _shownTexW != tw || _shownTexH != th;
+            _shownTexW = tw;
+            _shownTexH = th;
+            _texScale = tw / Mathf.Max(1, painted.Map.W);
+            // 头一张、换了大小、从色块换成像素的：直接换上；平常淡入
+            if (_shown < 0 || jump)
+            {
+                face.color = Color.white;
+                if (_shown >= 0) MapImages[_shown].enabled = false;
+                _shown = next;
+            }
+            else
+            {
+                face.color = new Color(1f, 1f, 1f, 0f);
+                _fadingTo = next;
+                _fadeAt = Time.unscaledTime;
+            }
+        }
+        else if (painted != null)
+        {
+            // 涂的是已经换掉的那份图：不要了(新图会另涂)
+            _painted = null;
         }
         ArmyData armies = _pendingArmy;
         if (armies != null)
         {
             _pendingArmy = null;
             _armies = armies;
+            TakeMovers(armies);
             _dirty = true;
         }
+    }
+
+    // 一格占几个屏幕像素：不到一个半用多级纹理平滑缩小(不闪)，再大就是原版那样的硬像素
+    private static float _filterFor = -1f;
+    private static int _shownTexW, _shownTexH, _texScale = 1;
+
+    private static void Filter()
+    {
+        if (_map == null) return;
+        bool sharp = _zoom / Mathf.Max(1, _texScale) * (_canvas != null ? _canvas.scaleFactor : 1f) >= 1.5f;
+        float key = sharp ? 1f : 0f;
+        if (key == _filterFor) return;
+        _filterFor = key;
+        foreach (Texture2D texture in Textures)
+            if (texture != null) texture.filterMode = sharp ? FilterMode.Point : FilterMode.Trilinear;
+    }
+
+    private static void Fade()
+    {
+        if (_fadingTo < 0) return;
+        float t = (Time.unscaledTime - _fadeAt) / FadeSeconds;
+        if (t >= 1f) FinishFade();
+        else MapImages[_fadingTo].color = new Color(1f, 1f, 1f, t);
+    }
+
+    private static void FinishFade()
+    {
+        MapImages[_fadingTo].color = Color.white;
+        if (_shown >= 0 && _shown != _fadingTo) MapImages[_shown].enabled = false;
+        _shown = _fadingTo;
+        _fadingTo = -1;
+    }
+
+    // ───────── 军队：两份军情之间插值 ─────────
+    private sealed class Mover
+    {
+        public float FromX, FromY, ToX, ToY, Start, End;
+        public int R, N;
+        public string Arm, Task;
+    }
+
+    private static readonly Dictionary<string, Mover> Movers = new();
+    private static float _lastArmyAt = -1f, _armyGap = 1f;
+    // 跳得太远(换了主人、渡海、整编)的不插值，直接到位
+    private const float SnapCells = 6f;
+
+    private static void TakeMovers(ArmyData armies)
+    {
+        float now = Time.unscaledTime;
+        if (_lastArmyAt > 0f) _armyGap = Mathf.Clamp(now - _lastArmyAt, 0.3f, 5f);
+        _lastArmyAt = now;
+        var seen = new HashSet<string>();
+        foreach (Army army in armies.Armies)
+        {
+            seen.Add(army.Id);
+            if (Movers.TryGetValue(army.Id, out Mover mover))
+            {
+                Vector2 at = Where(mover, now);
+                bool jump = Mathf.Abs(at.x - army.X) > SnapCells || Mathf.Abs(at.y - army.Y) > SnapCells;
+                mover.FromX = jump ? army.X : at.x;
+                mover.FromY = jump ? army.Y : at.y;
+            }
+            else
+            {
+                Movers[army.Id] = mover = new Mover { FromX = army.X, FromY = army.Y };
+            }
+            mover.ToX = army.X;
+            mover.ToY = army.Y;
+            mover.Start = now;
+            mover.End = now + _armyGap * 1.05f;
+            mover.R = army.R;
+            mover.N = army.N;
+            mover.Arm = army.Arm;
+            mover.Task = army.T;
+        }
+        var gone = new List<string>();
+        foreach (string id in Movers.Keys)
+            if (!seen.Contains(id)) gone.Add(id);
+        foreach (string id in gone) Movers.Remove(id);
+    }
+
+    private static Vector2 Where(Mover mover, float now)
+    {
+        float t = mover.End <= mover.Start ? 1f : Mathf.Clamp01((now - mover.Start) / (mover.End - mover.Start));
+        return new Vector2(mover.FromX + (mover.ToX - mover.FromX) * t, mover.FromY + (mover.ToY - mover.FromY) * t);
     }
 
     private static Vector2 ScreenSize => _rootRect.rect.size;
@@ -699,7 +915,7 @@ internal static class CoreLiveMap
         if (Mathf.Abs(wheel) > 0.01f && !CoreHostCardUnder())
         {
             Vector2 before = CellAt(mouse);
-            _zoom = Mathf.Clamp(_zoom * Mathf.Pow(1.18f, wheel), _fit * 0.7f, 48f);
+            _zoom = Mathf.Clamp(_zoom * Mathf.Pow(1.18f, wheel), _fit * 0.7f, Mathf.Max(_fit * 2f, _map.Tile * 16f));
             Vector2 after = CellAt(mouse);
             _cx += before.x - after.x;
             _cy += before.y - after.y;
@@ -731,13 +947,7 @@ internal static class CoreLiveMap
         // 鼠标底下是哪一国
         Vector2 cell = CellAt(mouse);
         int x = Mathf.FloorToInt(cell.x), y = Mathf.FloorToInt(cell.y);
-        string hover = "";
-        if (x >= 0 && y >= 0 && x < _map.W && y < _map.H)
-        {
-            ushort value = _map.Cells[y * _map.W + x];
-            if (value < _map.Realms.Length) hover = _map.Realms[value].Name;
-        }
-        _hover.text = hover;
+        _hover.text = HoverName(x, y);
     }
 
     // 鼠标在左上角的牌子上：滚轮、拖动留给牌子(见 LightweightHostMode.CardContains)
@@ -765,10 +975,10 @@ internal static class CoreLiveMap
             _mapRect.anchoredPosition = origin;
             _mapRect.sizeDelta = new Vector2(_map.W * _zoom, _map.H * _zoom);
             Vector2 size = ScreenSize;
+            if (OpenTree()) RequestPaint();
             var taken = new List<Rect>();
             PlaceBattles(size, taken);
-            PlaceArmies(size, taken);
-            PlaceRealms(size, taken);
+            PlaceNameplates(size, taken);
             PlaceTowns(size, taken);
         }
         for (int i = _labelsUsed; i < Labels.Count; i++) Labels[i].gameObject.SetActive(false);
@@ -786,49 +996,26 @@ internal static class CoreLiveMap
         return true;
     }
 
-    // 国名：版图大的先写，地方不够大、压着别的字的不写
-    private static void PlaceRealms(Vector2 size, List<Rect> taken)
-    {
-        var order = new List<int>();
-        for (int i = 0; i < _map.Realms.Length; i++)
-            if (_map.Realms[i].N > 0 && _map.Realms[i].X >= 0f) order.Add(i);
-        order.Sort((a, b) => _map.Realms[b].N.CompareTo(_map.Realms[a].N));
-        foreach (int i in order)
-        {
-            Realm realm = _map.Realms[i];
-            float area = realm.N * _zoom * _zoom;
-            if (area < 1600f) break;
-            Vector2 at = ScreenOf(realm.X, realm.Y);
-            if (!OnScreen(at, size, 0f)) continue;
-            int font = Mathf.Clamp(Mathf.RoundToInt(Mathf.Sqrt(area) * 0.16f), 10, 30);
-            float width = font * Mathf.Max(2, realm.Name.Length) * 0.95f, height = font * 1.3f;
-            var rect = new Rect(at.x - width / 2f, at.y - height / 2f, width, height);
-            if (!Free(taken, rect)) continue;
-            taken.Add(rect);
-            Text label = Label();
-            label.fontSize = font;
-            label.color = new Color(0.98f, 0.95f, 0.86f);
-            label.text = realm.Name;
-            ((RectTransform)label.transform).anchoredPosition = at;
-        }
-    }
-
-    // 城：都城拉到一国看得清时出(带名字)，别的城再拉近些才出
+    // 城(同手机舆图)：拉近到城的那几片里才出，都城用原版皇冠、别的城用原版城市图标，写城名
     private static void PlaceTowns(Vector2 size, List<Rect> taken)
     {
-        if (_zoom < 5f) return;
-        foreach (Town town in _map.Towns)
+        Tree tree = CurrentTree;
+        if (tree == null || _cityOpen == null || _cityOpen.Length != tree.Nodes.Count) return;
+        Sprite crown = Icon("ui/Icons/iconKings"), city = Icon("ui/icons/iconCity");
+        for (int t = 0; t < _map.Towns.Length; t++)
         {
-            if (!town.Cap && _zoom < 11f) continue;
+            Town town = _map.Towns[t];
+            int leaf = t < tree.TownLeaf.Length ? tree.TownLeaf[t] : -1;
+            if (leaf < 0 || _cityOpen[leaf] == 0) continue;
             Vector2 at = ScreenOf(town.X, town.Y);
             if (!OnScreen(at, size, 10f)) continue;
-            float half = town.Cap ? 4f : 2.5f;
-            Image dot = Mark();
-            dot.color = town.Cap ? new Color(0.98f, 0.82f, 0.3f) : new Color(0.93f, 0.9f, 0.82f);
+            float half = town.Cap ? 7f : 5f;
+            Sprite sprite = town.Cap ? crown : city;
+            Image dot = Mark(sprite);
+            dot.color = sprite != null ? Color.white : town.Cap ? new Color(0.98f, 0.82f, 0.3f) : new Color(0.93f, 0.9f, 0.82f);
             var rect = (RectTransform)dot.transform;
             rect.sizeDelta = new Vector2(half * 2f, half * 2f);
             rect.anchoredPosition = at;
-            if (_zoom < (town.Cap ? 8f : 16f)) continue;
             int font = town.Cap ? 13 : 11;
             float width = font * Mathf.Max(2, town.Name.Length) * 0.95f;
             var box = new Rect(at.x - width / 2f, at.y - half - font * 1.4f, width, font * 1.3f);
@@ -842,78 +1029,198 @@ internal static class CoreLiveMap
         }
     }
 
-    // 军队：同一国在屏幕上挨得近(一格 36 个单位)的并成一个牌子，写总人数
-    private static void PlaceArmies(Vector2 size, List<Rect> taken)
+    // 军队(每帧)：同一国在屏幕上挨得近的并成一个牌子，写总人数；牌子用游戏里兵牌那一套框(按任务分色)加人数最多那一支的兵种图标，
+    // 左边一道本国国色。位置在两份军情之间插值(见 TakeMovers)
+    private static readonly List<Image> ArmyFrames = new(), ArmyIcons = new(), ArmyBars = new();
+    private static readonly List<Text> ArmyTexts = new();
+
+    private sealed class Group
     {
-        if (_armies == null || _armies.Map != _map.Stamp && _armies.Map != 0) return;
-        float grid = _zoom >= 20f ? 24f : 36f;
-        var groups = new Dictionary<(int, int, int), (float x, float y, int n, int count)>();
-        foreach (Army army in _armies.Armies)
+        public float X, Y;
+        public int N, Count, R, Lead;
+        public string Arm, Task;
+    }
+
+    private static void PlaceArmies()
+    {
+        int used = 0;
+        if (_map != null && Movers.Count > 0)
         {
-            Vector2 at = ScreenOf(army.X, army.Y);
-            if (!OnScreen(at, size, 20f)) continue;
-            var key = (army.R, Mathf.FloorToInt(at.x / grid), Mathf.FloorToInt(at.y / grid));
-            groups.TryGetValue(key, out var group);
-            groups[key] = (group.x + at.x, group.y + at.y, group.n + army.N, group.count + 1);
+            Vector2 size = ScreenSize;
+            float now = Time.unscaledTime, grid = _zoom >= 20f ? 26f : 38f;
+            var groups = new Dictionary<(int, int, int), Group>();
+            foreach (Mover mover in Movers.Values)
+            {
+                Vector2 cell = Where(mover, now);
+                Vector2 at = ScreenOf(cell.x, cell.y);
+                if (!OnScreen(at, size, 24f)) continue;
+                var key = (mover.R, Mathf.FloorToInt(at.x / grid), Mathf.FloorToInt(at.y / grid));
+                if (!groups.TryGetValue(key, out Group group)) groups[key] = group = new Group { R = mover.R };
+                group.X += at.x;
+                group.Y += at.y;
+                group.Count++;
+                group.N += mover.N;
+                if (mover.N >= group.Lead)
+                {
+                    group.Lead = mover.N;
+                    group.Arm = mover.Arm;
+                    group.Task = mover.Task;
+                }
+            }
+            foreach (Group group in groups.Values)
+            {
+                var at = new Vector2(group.X / group.Count, group.Y / group.Count);
+                Color realm = group.R >= 0 && group.R < _map.Realms.Length ? (Color)_map.Realms[group.R].Color : new Color(0.7f, 0.68f, 0.6f);
+                Image frame = Pooled(ArmyFrames, used);
+                Sprite box = FrameSprite(group.Task switch
+                {
+                    "attack" => "CorpsFrame_lacquer",
+                    "defend" => "CorpsFrame_azure",
+                    "retreat" => "CorpsFrame_ash",
+                    "sea" => "CorpsFrame_sea",
+                    _ => "CorpsFrame_olive"
+                });
+                frame.sprite = box;
+                frame.type = box != null ? Image.Type.Sliced : Image.Type.Simple;
+                frame.color = box != null ? Color.white : new Color(0.16f, 0.17f, 0.15f, 0.95f);
+                var frameRect = (RectTransform)frame.transform;
+                frameRect.sizeDelta = new Vector2(24f, 20f);
+                frameRect.anchoredPosition = at;
+                Image bar = Pooled(ArmyBars, used);
+                bar.sprite = null;
+                bar.color = realm;
+                var barRect = (RectTransform)bar.transform;
+                barRect.sizeDelta = new Vector2(3f, 14f);
+                barRect.anchoredPosition = at + new Vector2(-9f, 0f);
+                Image icon = Pooled(ArmyIcons, used);
+                Sprite arm = string.IsNullOrEmpty(group.Arm) ? null : Icon("ui/icons/corps/arm_" + group.Arm);
+                icon.sprite = arm;
+                icon.enabled = arm != null;
+                var iconRect = (RectTransform)icon.transform;
+                iconRect.sizeDelta = new Vector2(14f, 14f);
+                iconRect.anchoredPosition = at + new Vector2(2f, 0f);
+                if (_armyTextsFont == null) _armyTextsFont = _font;
+                Text count = PooledText(used);
+                count.color = Color.Lerp(realm, Color.white, 0.35f);
+                count.text = Short(group.N) + (group.Count > 1 ? " ×" + group.Count : "");
+                ((RectTransform)count.transform).anchoredPosition = new Vector2(at.x, at.y - 17f);
+                used++;
+            }
         }
-        foreach (KeyValuePair<(int, int, int), (float x, float y, int n, int count)> pair in groups)
+        for (int i = used; i < ArmyFrames.Count; i++)
         {
-            var at = new Vector2(pair.Value.x / pair.Value.count, pair.Value.y / pair.Value.count);
-            int r = pair.Key.Item1;
-            Color edge = r >= 0 && r < _map.Realms.Length ? (Color)_map.Realms[r].Color : new Color(0.7f, 0.68f, 0.6f);
-            Image frame = Mark();
-            frame.color = edge;
-            var frameRect = (RectTransform)frame.transform;
-            frameRect.sizeDelta = new Vector2(14f, 12f);
-            frameRect.anchoredPosition = at;
-            Image face = Mark();
-            face.color = new Color(0.16f, 0.17f, 0.15f, 0.95f);
-            var faceRect = (RectTransform)face.transform;
-            faceRect.sizeDelta = new Vector2(10f, 8f);
-            faceRect.anchoredPosition = at;
-            Text count = MarkText();
-            count.fontSize = 10;
-            count.color = edge;
-            count.text = Short(pair.Value.n) + (pair.Value.count > 1 ? " ×" + pair.Value.count : "");
-            ((RectTransform)count.transform).anchoredPosition = new Vector2(at.x, at.y - 13f);
-            taken.Add(new Rect(at.x - 16f, at.y - 18f, 32f, 26f));
+            ArmyFrames[i].gameObject.SetActive(false);
+            ArmyBars[i].gameObject.SetActive(false);
+            ArmyIcons[i].gameObject.SetActive(false);
+            ArmyTexts[i].gameObject.SetActive(false);
         }
     }
 
-    // 交战：拉远一个小红方块，拉近写战役名与攻方胜算(同手机舆图的交战牌子)
+    private static Font _armyTextsFont;
+
+    // 军牌的几样(框、国色条、图标、人数)各一个池子，下标对齐；按建的先后叠放(框在下)
+    private static Image Pooled(List<Image> pool, int index)
+    {
+        while (pool.Count <= index)
+        {
+            if (pool == ArmyFrames) EnsureArmySlot();
+            else break;
+        }
+        Image image = pool[index];
+        if (!image.gameObject.activeSelf) image.gameObject.SetActive(true);
+        return image;
+    }
+
+    private static Text PooledText(int index)
+    {
+        Text text = ArmyTexts[index];
+        if (!text.gameObject.activeSelf) text.gameObject.SetActive(true);
+        return text;
+    }
+
+    private static void EnsureArmySlot()
+    {
+        Image Made(string name)
+        {
+            var holder = new GameObject(name, typeof(RectTransform), typeof(Image));
+            holder.transform.SetParent(_armyLayer, false);
+            var rect = (RectTransform)holder.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            Image image = holder.GetComponent<Image>();
+            image.raycastTarget = false;
+            return image;
+        }
+        ArmyFrames.Add(Made("Frame"));
+        ArmyBars.Add(Made("Bar"));
+        Image icon = Made("Arm");
+        icon.preserveAspect = true;
+        ArmyIcons.Add(icon);
+        ArmyTexts.Add(NewText(_armyLayer, 10, Color.white));
+    }
+
+    // 图标(原版、模组现成的像素图)：取一回记下，像素图不插值
+    private static readonly Dictionary<string, Sprite> Sprites = new();
+
+    private static Sprite Icon(string path)
+    {
+        if (Sprites.TryGetValue(path, out Sprite sprite)) return sprite;
+        sprite = SpriteTextureLoader.getSprite(path);
+        if (sprite != null) sprite.texture.filterMode = FilterMode.Point;
+        Sprites[path] = sprite;
+        return sprite;
+    }
+
+    // 游戏里兵牌、交战标记用的九宫格小框(见 CorpsMapRenderer.Frame，边距 6)
+    private static Sprite FrameSprite(string name)
+    {
+        string key = "frame:" + name;
+        if (Sprites.TryGetValue(key, out Sprite sliced)) return sliced;
+        Sprite source = SpriteTextureLoader.getSprite("ui/" + name);
+        if (source != null)
+        {
+            source.texture.filterMode = FilterMode.Point;
+            sliced = Sprite.Create(source.texture, source.rect, new Vector2(0.5f, 0.5f), source.pixelsPerUnit, 0,
+                SpriteMeshType.FullRect, new Vector4(6f, 6f, 6f, 6f));
+        }
+        Sprites[key] = sliced;
+        return sliced;
+    }
+
+    // 交战：拉远是原版的战争图标，拉近是游戏里交战标记的框，写战役名与攻方胜算(同手机舆图的交战牌子)
     private static void PlaceBattles(Vector2 size, List<Rect> taken)
     {
         if (_armies == null) return;
         bool far = _zoom < 9f;
+        Sprite war = Icon("ui/icons/iconWar"), plateBox = FrameSprite("CorpsBattle");
         foreach (Battle battle in _armies.Battles)
         {
-            Vector2 at = ScreenOf(battle.X, battle.Y) + new Vector2(0f, far ? 0f : -16f);
+            Vector2 at = ScreenOf(battle.X, battle.Y) + new Vector2(0f, far ? 0f : -18f);
             if (!OnScreen(at, size, 40f)) continue;
             if (far)
             {
-                var small = new Rect(at.x - 5f, at.y - 5f, 10f, 10f);
+                var small = new Rect(at.x - 6f, at.y - 6f, 12f, 12f);
                 if (!Free(taken, small)) continue;
                 taken.Add(small);
-                Image dot = Mark();
-                dot.color = Front;
+                Image dot = Mark(war);
+                dot.color = war != null ? Color.white : Front;
                 var dotRect = (RectTransform)dot.transform;
-                dotRect.sizeDelta = new Vector2(8f, 8f);
+                dotRect.sizeDelta = new Vector2(12f, 12f);
                 dotRect.anchoredPosition = at;
                 continue;
             }
             string title = string.Format(LM.Get(battle.L ? "terminal_live_landing" : "terminal_live_battle"), battle.C, battle.P, battle.H, battle.Z);
-            float width = 11f * Mathf.Max(6, title.Length) * 0.95f + 10f;
-            var box = new Rect(at.x - width / 2f, at.y - 9f, width, 18f);
+            float width = 11f * Mathf.Max(6, title.Length) * 0.95f + 14f;
+            var box = new Rect(at.x - width / 2f, at.y - 10f, width, 20f);
             if (!Free(taken, box)) continue;
             taken.Add(box);
-            Image plate = Mark();
-            plate.color = new Color(0.36f, 0.08f, 0.06f, 0.92f);
+            Image plate = Mark(plateBox, true);
+            plate.color = plateBox != null ? Color.white : new Color(0.36f, 0.08f, 0.06f, 0.92f);
             var plateRect = (RectTransform)plate.transform;
-            plateRect.sizeDelta = new Vector2(width, 18f);
+            plateRect.sizeDelta = new Vector2(width, 20f);
             plateRect.anchoredPosition = at;
             Text label = MarkText();
             label.fontSize = 11;
-            label.color = new Color(1f, 0.85f, 0.55f);
+            label.color = new Color(1f, 0.88f, 0.6f);
             label.text = title;
             ((RectTransform)label.transform).anchoredPosition = at;
         }
@@ -943,7 +1250,7 @@ internal static class CoreLiveMap
         return text;
     }
 
-    private static Image Mark()
+    private static Image Mark(Sprite sprite = null, bool sliced = false)
     {
         if (_marksUsed == Marks.Count)
         {
@@ -958,6 +1265,9 @@ internal static class CoreLiveMap
         Image image = Marks[_marksUsed++];
         image.gameObject.SetActive(true);
         image.transform.SetAsLastSibling();
+        image.sprite = sprite;
+        image.type = sliced && sprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        image.preserveAspect = sprite != null && !sliced;
         return image;
     }
 }

@@ -228,6 +228,23 @@ public static class TerrainSystem
         return count;
     }
 
+    // 军牌在两块地之间按格走一步的代价(见 CorpsSystem.MarchLine；只管画在哪，行军快慢照旧按地块算)：
+    // 修通的路最省(桥也是路，过得了河)；平地 1；林地、丛林 1.4；丘陵、沼泽 2；山地、山巅、水面、岩浆走不了，返回负数
+    internal static float StepCost(WorldTile tile)
+    {
+        TileTypeBase type = tile?.Type;
+        if (type == null) return -1f;
+        if (RoadNetwork.IsRoadTile(tile)) return 0.5f;
+        if (type.lava) return -1f;
+        int marks = Marks(type);
+        if ((marks & MarkWater) != 0) return -1f;
+        int under = tile.main_type != null ? Marks(tile.main_type) : 0;
+        if (((marks | under) & MarkBlock) != 0) return -1f;
+        if ((marks & (MarkHills | MarkSnowHills | MarkSwamp)) != 0 || (under & MarkHills) != 0) return 2f;
+        if ((marks & (MarkJungle | MarkWoods)) != 0) return 1.4f;
+        return 1f;
+    }
+
     // 一格挡不挡路：原版的阻挡格(山地、山巅)，看地面层与顶层(同 ClassifyTiles)
     private static bool Blocks(WorldTile tile)
     {

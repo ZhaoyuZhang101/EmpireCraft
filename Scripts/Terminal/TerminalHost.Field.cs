@@ -485,9 +485,14 @@ public static partial class TerminalHost
             using var profile = FrameProfiler.Measure("终端·席位军情");
             JArray seen = SeeArmies(seat);
             JArray battles = SeeBattles(seat, false);
-            string text = seen.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None);
+            // 皇帝、教宗的标记(见 TerminalHost.Papacy)
+            JArray crowns = SeeCrowns(seat, false);
+            string text = seen.ToString(Newtonsoft.Json.Formatting.None) + battles.ToString(Newtonsoft.Json.Formatting.None) +
+                          crowns.ToString(Newtonsoft.Json.Formatting.None);
             SeenBattles.Remove(seat);
             SeenBattles.Add(seat, battles);
+            SeenCrowns.Remove(seat);
+            SeenCrowns.Add(seat, crowns);
             // 有电报时几秒看一回：各军都没动就不算新军情，手机不用再取
             if (seat.ArmySeen == null || text != seat.ArmySeenText || month != seat.ArmyMonth) seat.ArmyDirty = true;
             seat.ArmySeen = seen;
@@ -511,6 +516,7 @@ public static partial class TerminalHost
         {
             ["ready"] = true, ["at"] = seat.ArmyMonth, ["every"] = every, ["armies"] = seat.ArmySeen,
             ["battles"] = SeenBattles.TryGetValue(seat, out JArray seenBattles) ? seenBattles : new JArray(),
+            ["crowns"] = SeenCrowns.TryGetValue(seat, out JArray seenCrowns) ? seenCrowns : new JArray(),
             ["writs"] = writs, ["orders"] = orders
         });
     }
@@ -541,6 +547,7 @@ public static partial class TerminalHost
     // 君主看得见本朝打的仗和看得见的地方的仗(迷雾里别国的仗不知道)；管理员(god)全图都看得见
     private const int MaxBattles = 120;
     private static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<Seat, JArray> SeenBattles = new();
+    private static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<Seat, JArray> SeenCrowns = new();
 
     internal static JArray SeeBattles(Seat seat, bool god)
     {
@@ -591,8 +598,9 @@ public static partial class TerminalHost
         foreach (CorpsData corps in realm.GetOrCreate().corps ?? new List<CorpsData>())
         {
             if (corps.strength < 1f || armies.Count >= MaxArmies) continue;
-            WorldTile at = CorpsSystem.Zone(corps)?.centerTile;
-            if (at == null) continue;
+            if (CorpsSystem.Zone(corps)?.centerTile == null) continue;
+            // 同游戏里的兵牌画的位置(统领所在的格子或行军插值)，不再是所在地块的中心
+            Vector3 at = CorpsSystem.ShownPosition(corps);
             (double x, double y) = CellOf(seat, at.x, at.y);
             var row = new JObject
             {
@@ -634,8 +642,9 @@ public static partial class TerminalHost
             {
                 if (armies.Count >= MaxArmies) break;
                 if (corps.strength < 1f) continue;
-                WorldTile at = CorpsSystem.Zone(corps)?.centerTile;
-                if (at == null || Fogged(seat, at.x, at.y)) continue;
+                if (CorpsSystem.Zone(corps)?.centerTile == null) continue;
+                Vector3 at = CorpsSystem.ShownPosition(corps);
+                if (Fogged(seat, at.x, at.y)) continue;
                 (double x, double y) = CellOf(seat, at.x, at.y);
                 var row = new JObject
                 {

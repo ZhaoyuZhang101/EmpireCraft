@@ -381,14 +381,16 @@ public static partial class TerminalHost
         seat.NextDecrees = seat.NextState = 0f;
         if (id == "speed_propose" || id == "speed_vote")
         {
-            // 流速之议(见 TerminalHost.Speed)
-            SpeedDecree(seat, id, target, choice);
+            // 流速之议(见 TerminalHost.Speed)；管理员附身时不议(他在管理页上直接定)
+            if (seat.Possessor == null) SpeedDecree(seat, id, target, choice);
             return;
         }
         // 查账里当场办的：抽查、问责、结案(见 TerminalHost.Books)
         if (BooksDecree(seat, id, target)) return;
         // 衣冠：买一件、换上(见 TerminalHost.Wardrobe)
         if (WearDecree(seat, id, target)) return;
+        // 教廷：请冕、悔罪、绝罚赦免、圣战、骑士团(见 TerminalHost.Papacy)
+        if (PapacyDecree(seat, id, target)) return;
         if (id == "memorial")
         {
             // 批红：皇帝就在宫里，当场生效

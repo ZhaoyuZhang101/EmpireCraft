@@ -52,9 +52,10 @@ public static partial class TerminalHost
         public float Since;
     }
 
-    // 领着这一国的别的席位(对面是不是真人)
+    // 领着这一国的别的席位(对面是不是真人)。管理员附身的国照不领算(见 TerminalHost.Possess)：
+    // 他随时可能走开，别国递来的事照常由朝廷自己裁，不挂着等他
     private static Seat HostOf(Kingdom kingdom, Seat except) =>
-        SeatByToken.Values.FirstOrDefault(seat => seat != except && seat.Ruler != null && seat.Realm == kingdom);
+        SeatByToken.Values.FirstOrDefault(seat => seat != except && seat.Ruler != null && seat.Realm == kingdom && seat.Possessor == null);
 
     // 这件事乙要多少(户)；负数是乙也乐意
     private static int Need(string action, Kingdom from, Kingdom to)
@@ -275,7 +276,9 @@ public static partial class TerminalHost
         {
             Kingdom from = World.world.kingdoms.get(offer.FromRealm);
             string detail = VassalOffer(offer) ? VassalOfferDetail(seat, offer, from)
-                : from?.data == null || from.isRekt() ? "" : Describe(ParseTerms(offer.Terms, from, seat.Realm), true);
+                : from?.data == null || from.isRekt() ? ""
+                : offer.Terms.StartsWith(PeaceTermsTag, StringComparison.Ordinal) ? PeaceOfferDetail(seat, offer)
+                : Describe(ParseTerms(offer.Terms, from, seat.Realm), true);
             pending.Add(new JObject
             {
                 ["id"] = "offer:" + offer.Id, ["kind"] = "offer",
@@ -307,6 +310,8 @@ public static partial class TerminalHost
             if (from?.data == null || from.isRekt() || action == null && offer.Action != Trade && offer.Action != Submit) failure = LM.Get("terminal_fail_gone");
             else if (offer.Action == Trade) failure = Settle(from, seat.Realm, null, ParseTerms(offer.Terms, from, seat.Realm));
             else if (offer.Action == Submit) failure = DoSubmit(from, seat.Realm);
+            else if (offer.Action == "peace" && offer.Terms.StartsWith(PeaceTermsTag, StringComparison.Ordinal))
+                failure = AcceptPeace(seat, offer, from);
             else if (offer.Action == "peace")
             {
                 War war = WarBetween(seat.Realm, from);

@@ -28,13 +28,15 @@ public static partial class TerminalHost
     private static bool Recent(Seat seat) =>
         DateTime.UtcNow.Ticks - Interlocked.Read(ref seat.LastClientTicks) < TimeSpan.FromSeconds(OnlineSeconds).Ticks;
 
-    public static bool SeatOnline(string token) => !string.IsNullOrEmpty(token) && SeatByToken.TryGetValue(token, out Seat seat) && Recent(seat);
+    // 管理员的附身席位(见 TerminalHost.Possess)不占同时在线的名额
+    public static bool SeatOnline(string token) =>
+        !string.IsNullOrEmpty(token) && SeatByToken.TryGetValue(token, out Seat seat) && (Recent(seat) || seat.Possessor != null);
 
     public static int OnlineSeats()
     {
         int online = 0;
         foreach (Seat seat in SeatByToken.Values)
-            if (Recent(seat)) online++;
+            if (Recent(seat) && seat.Possessor == null) online++;
         return online;
     }
 
@@ -75,7 +77,7 @@ public static partial class TerminalHost
     {
         var rulers = new Dictionary<string, long>();
         foreach (Seat seat in SeatByToken.Values)
-            if (seat.RulerId >= 0) rulers[seat.Token] = seat.RulerId;
+            if (seat.RulerId >= 0 && seat.Possessor == null) rulers[seat.Token] = seat.RulerId;
         return rulers;
     }
 

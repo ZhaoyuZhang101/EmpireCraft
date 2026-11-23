@@ -4,6 +4,7 @@ using System.Threading;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.services;
 using Newtonsoft.Json.Linq;
@@ -15,6 +16,8 @@ namespace EmpireCraft.Scripts.Terminal;
 // 管理员才取得到的两份数据，同手机总图分开备——手机那份一格一个字节，至多认 250 国，大图上多出来的国都成了无主地；这里每格两个字节、国数不封顶，
 // 也不管迷雾(上帝视角)。
 //   GET /api/admin/live/map   每块地归哪一国(被敌军占着的算占领方，同游戏里的图)、各国名字颜色与版图重心、各城、交战的两两国家；
+//                             政体、法理两层图要的(同手机总图，见 TerminalHost.Field.MapCities)：各国所在帝国(emp → empires)、
+//                             每块地属哪座城(zl/zh)、各城的王国法理/帝国法理/天下(dk/de/dt → dejure 的 k/e/t)；
 //                             地图有人取着才备：战线动了隔一秒重算，平时四秒一回，内容没变不换版本号
 //   GET /api/admin/live/army  各军(哪国、多少人、在哪、去哪)与各处交战(见 FrontSystem.Battles)、年月、流速(设定与实际，百分数；
 //                             游戏那头折成原版的 ×N 档显示)、暂停没有，每秒一回
@@ -23,7 +26,7 @@ public static partial class TerminalHost
 {
     private const float LiveMapSeconds = 4f, LiveMapMinSeconds = 1f, LiveIdleSeconds = 15f;
     private const int MaxLiveArmies = 4000, MaxLiveBattles = 400;
-    internal const ushort LiveWater = 0xFFFF, LiveWild = 0xFFFE;
+    internal const ushort LiveWater = 0xFFFF, LiveWild = 0xFFFE, LiveNoCity = 0xFFFF;
     private static long _liveWant;
     private static volatile string _liveMapJson, _liveArmyJson;
     private static float _liveMapAt = -999f;
@@ -88,6 +91,10 @@ public static partial class TerminalHost
         LiveIndex.Clear();
         var kingdoms = new List<Kingdom>();
         var cells = new ushort[width * height];
+        var zoneCity = new ushort[width * height];
+        var cityIndex = new Dictionary<long, int>();
+        var cityList = new List<City>();
+        for (int i = 0; i < zoneCity.Length; i++) zoneCity[i] = LiveNoCity;
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
         {
@@ -100,6 +107,15 @@ public static partial class TerminalHost
             }
             City city = zone.city;
             if (city?.data == null || city.isRekt()) city = null;
+            if (city != null && city.kingdom != null)
+            {
+                if (!cityIndex.TryGetValue(city.getID(), out int ci))
+                {
+                    cityIndex[city.getID()] = ci = cityList.Count;
+                    cityList.Add(city);
+                }
+                if (ci < LiveNoCity) zoneCity[to] = (ushort)ci;
+            }
             int at = LiveIndexOf(city?.kingdom ?? WildernessSystem.OwnerOf(zone), kingdoms);
             if (at < 0) cells[to] = zone.centerTile?.Type == null || zone.centerTile.Type.liquid ? LiveWater : LiveWild;
             else cells[to] = (ushort)at;
@@ -138,6 +154,8 @@ public static partial class TerminalHost
             count[value]++;
         }
         var realms = new JArray();
+        var empires = new JArray();
+        var empireAt = new Dictionary<Empire, int>();
         for (int i = 0; i < kingdoms.Count; i++)
         {
             Kingdom kingdom = kingdoms[i];
@@ -146,6 +164,26 @@ public static partial class TerminalHost
                 ["id"] = kingdom.getID().ToString(), ["name"] = NameOf(kingdom), ["color"] = Hex(RealmMiniMap.KingdomColor(kingdom)),
                 ["n"] = count[i]
             };
+            try
+            {
+                Empire court = kingdom.GetEmpire();
+                if (court?.data != null)
+                {
+                    if (!empireAt.TryGetValue(court, out int courtAt))
+                    {
+                        empireAt[court] = courtAt = empires.Count;
+                        empires.Add(new JObject
+                        {
+                            ["name"] = TerminalIntel.Strip(EmpireLabel(court)), ["color"] = Hex(RealmMiniMap.KingdomColor(court.CoreKingdom ?? kingdom))
+                        });
+                    }
+                    row["emp"] = courtAt;
+                }
+            }
+            catch (Exception)
+            {
+                // 帝国一时取不到：这一国照独立的画
+            }
             if (count[i] > 0)
             {
                 row["x"] = Math.Round(sumX[i] / count[i], 1);
@@ -153,10 +191,22 @@ public static partial class TerminalHost
             }
             realms.Add(row);
         }
-        var cities = new JArray();
+        // 城的次序同每块地记的城号(zl/zh)：先是领着地的城，再是别的
         foreach (City city in World.world.cities)
         {
-            if (city?.data == null || city.isRekt() || city.kingdom == null) continue;
+            if (city?.data == null || city.isRekt() || city.kingdom == null || cityIndex.ContainsKey(city.getID())) continue;
+            cityIndex[city.getID()] = cityList.Count;
+            cityList.Add(city);
+        }
+        var cities = new JArray();
+        var titles = new JArray();
+        var cores = new JArray();
+        var lands = new JArray();
+        var titleAt = new Dictionary<long, int>();
+        var coreAt = new Dictionary<long, int>();
+        var landAt = new Dictionary<long, int>();
+        foreach (City city in cityList)
+        {
             Vector2 center = city.city_center;
             (double x, double y) = LiveCell(center.x, center.y);
             var row = new JObject
@@ -165,6 +215,46 @@ public static partial class TerminalHost
                 ["r"] = LiveIndex.TryGetValue(city.kingdom.getID(), out int at) ? at : -1, ["z"] = city.zones?.Count ?? 0
             };
             if (city.kingdom.capital == city) row["cap"] = true;
+            try
+            {
+                KingdomTitle title = city.GetTitle();
+                if (title?.data != null && !title.isRekt())
+                {
+                    if (!titleAt.TryGetValue(title.id, out int k))
+                    {
+                        titleAt[title.id] = k = titles.Count;
+                        titles.Add(new JObject { ["name"] = TerminalIntel.Strip(title.data.name ?? ""), ["color"] = HexOf(DeJureMap.TitleColor(title)) });
+                    }
+                    row["dk"] = k;
+                }
+                EmpireCore core = DeJureMap.CoreOf(city);
+                if (core != null)
+                {
+                    if (!coreAt.TryGetValue(core.id, out int e))
+                    {
+                        coreAt[core.id] = e = cores.Count;
+                        cores.Add(new JObject
+                        {
+                            ["name"] = TerminalIntel.Strip(EmpireCoreManager.GetDisplayName(core) ?? ""), ["color"] = HexOf(DeJureMap.CoreMeta(core)?.getColor())
+                        });
+                    }
+                    row["de"] = e;
+                }
+                EmpireCore lead = TianxiaSystem.LeadOf(city);
+                if (lead != null)
+                {
+                    if (!landAt.TryGetValue(lead.id, out int t))
+                    {
+                        landAt[lead.id] = t = lands.Count;
+                        lands.Add(new JObject { ["name"] = TerminalIntel.Strip(TianxiaSystem.Name(lead) ?? ""), ["color"] = TianxiaMap.HexOf(lead) });
+                    }
+                    row["dt"] = t;
+                }
+            }
+            catch (Exception)
+            {
+                // 法理还没排好：这座城先不标
+            }
             cities.Add(row);
         }
         // 交战的两两国家(攻守两边各国连同参战的)：游戏这头把两国版图相接处描成朱红战线
@@ -191,15 +281,21 @@ public static partial class TerminalHost
         }
         var low = new byte[cells.Length];
         var high = new byte[cells.Length];
+        var zoneLow = new byte[cells.Length];
+        var zoneHigh = new byte[cells.Length];
         for (int i = 0; i < cells.Length; i++)
         {
             low[i] = (byte)cells[i];
             high[i] = (byte)(cells[i] >> 8);
+            zoneLow[i] = (byte)zoneCity[i];
+            zoneHigh[i] = (byte)(zoneCity[i] >> 8);
         }
         var json = new JObject
         {
             ["ready"] = true, ["w"] = width, ["h"] = height, ["tile"] = _liveTile, ["lo"] = Convert.ToBase64String(TerminalIntel.Rle(low)),
-            ["hi"] = Convert.ToBase64String(TerminalIntel.Rle(high)), ["realms"] = realms, ["cities"] = cities, ["fronts"] = fronts
+            ["hi"] = Convert.ToBase64String(TerminalIntel.Rle(high)), ["realms"] = realms, ["cities"] = cities, ["fronts"] = fronts,
+            ["empires"] = empires, ["dejure"] = new JObject { ["k"] = titles, ["e"] = cores, ["t"] = lands },
+            ["zl"] = Convert.ToBase64String(TerminalIntel.Rle(zoneLow)), ["zh"] = Convert.ToBase64String(TerminalIntel.Rle(zoneHigh))
         };
         string body = json.ToString(Newtonsoft.Json.Formatting.None);
         if (body == _liveMapBody && _liveMapJson != null) return;
@@ -221,10 +317,15 @@ public static partial class TerminalHost
             {
                 if (armies.Count >= MaxLiveArmies) break;
                 if (corps == null || corps.strength < 1f) continue;
-                WorldTile tile = CorpsSystem.Zone(corps)?.centerTile;
-                if (tile == null) continue;
-                (double x, double y) = LiveCell(tile.x, tile.y);
-                var row = new JObject { ["r"] = r, ["n"] = Mathf.RoundToInt(corps.strength), ["x"] = x, ["y"] = y };
+                if (CorpsSystem.Zone(corps) == null) continue;
+                // 行军途中按进度画在两块地之间(同游戏里的兵牌，见 CorpsSystem.DrawPosition)，游戏那头再在两份军情之间插值，走得平滑
+                Vector3 pos = CorpsSystem.DrawPosition(corps);
+                (double x, double y) = LiveCell(pos.x, pos.y);
+                var row = new JObject
+                {
+                    ["id"] = corps.id.ToString(), ["r"] = r, ["n"] = Mathf.RoundToInt(corps.strength), ["x"] = x, ["y"] = y,
+                    ["arm"] = CorpsArmSystem.Of(corps).ToString().ToLowerInvariant()
+                };
                 string task = corps.embarked ? "sea" : corps.task;
                 if (!string.IsNullOrEmpty(task) && task != "reserve") row["t"] = task;
                 WorldTile goal = corps.target_zone_id == corps.zone_id ? null : CorpsSystem.ZoneById(corps.target_zone_id)?.centerTile;

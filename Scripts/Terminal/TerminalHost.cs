@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 17;
+    public const int Version = 20;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -133,6 +133,9 @@ public static partial class TerminalHost
         internal JArray DecisionOptions;
         internal float NextDecisionOptions;
         internal long LastClientTicks;
+        // 附身(见 TerminalHost.Possess)：这是哪位管理员的附身席位(管理员令牌；普通席位为空)；
+        // 管理员自己那一份(AdminByToken 里的)记着他附身席位的令牌
+        internal string Possessor, PossessToken;
         internal float NextState, NextSight;
         // 上回备总图时战线动到第几回(FrontSystem.TerritoryStamp)
         internal int FrontSeen;
@@ -441,6 +444,8 @@ public static partial class TerminalHost
     {
         if (seat == null) return false;
         if (actorId >= 0 && (!WorldReady() || !Free(World.world.units.get(actorId), seat))) return false;
+        // 管理员附身着这位君主：让给来领的席位(见 TerminalHost.Possess)
+        if (actorId >= 0 && seat.Possessor == null) YieldPossession(actorId);
         seat.Vacate("none");
         seat.RulerId = actorId;
         if (WorldReady()) Resolve(seat);
@@ -665,6 +670,10 @@ public static partial class TerminalHost
         if (method == "POST" && path == "/api/armies") return ArmiesReply(mine, body);
         if (method == "POST" && path == "/api/terrain") return TerrainReply(mine, body);
         if (method == "POST" && path == "/api/annals") return AnnalsReply(mine);
+        // 宗族页：总览、名录、大事记、亲属树、列传(见 TerminalHost.Clan)
+        if (method == "POST" && path == "/api/clan") return ClanReply(mine, body);
+        // 议和台(见 TerminalHost.Peace)
+        if (method == "POST" && path == "/api/peace") return PeaceReply(mine, body);
         if (method == "POST" && path == "/api/choose")
         {
             if (!long.TryParse(Field(body, "id"), out long id)) return TerminalServer.Reply.Error(400, "bad_request");
@@ -789,10 +798,12 @@ public static partial class TerminalHost
     // 在位、且没被别的席位领着
     private static bool Free(Actor actor, Seat asking) => Eligible(actor) && TakenBy(actor.getID(), asking) == null;
 
+    // 管理员的附身席位不挡普通席位(来领就让，见 TerminalHost.Possess)；附身要挑的得是谁都没领着的
     private static Seat TakenBy(long actorId, Seat except = null)
     {
+        bool possessing = except?.Possessor != null;
         foreach (Seat seat in SeatByToken.Values)
-            if (seat != except && seat.RulerId == actorId) return seat;
+            if (seat != except && seat.RulerId == actorId && (seat.Possessor == null || possessing)) return seat;
         return null;
     }
 
@@ -1195,6 +1206,8 @@ public static partial class TerminalHost
             reports.Add(row);
         }
         state["reports"] = reports;
+        // 教廷页(西方君主、教宗才有，见 TerminalHost.Papacy)
+        AddPapacy(state, seat);
         return state;
     }
 
@@ -1217,7 +1230,10 @@ public static partial class TerminalHost
             wars.Add(new JObject
             {
                 ["enemy"] = enemy?.data?.name ?? "", ["attacker"] = attacker, ["months"] = Date.getMonthsSince(war.data.created_time),
-                ["color"] = enemy == null ? null : Hex(RealmMiniMap.KingdomColor(enemy)), ["player"] = PlayerOf(enemy, seat)
+                ["color"] = enemy == null ? null : Hex(RealmMiniMap.KingdomColor(enemy)), ["player"] = PlayerOf(enemy, seat),
+                // 本国是主攻、主守的国战才上议和台(见 TerminalHost.Peace)
+                ["id"] = war.data.id.ToString(),
+                ["table"] = PeaceTable.Usable(war) && (war.main_attacker == realm || war.main_defender == realm)
             });
         }
         return wars;
