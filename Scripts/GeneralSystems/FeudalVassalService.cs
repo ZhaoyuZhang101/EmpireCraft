@@ -633,6 +633,8 @@ public static class FeudalVassalService
     public static bool CanSeekIndependence(Kingdom subject)
     {
         Kingdom lord = GetOverlord(subject);
+        // 质子在宗主那里，或质子回国即位不久：不求独立(见 HostageSystem)
+        if (HostageSystem.Binds(subject)) return false;
         double defectedAt = subject?.data == null ? -1d : subject.GetOrCreate().feudal_defected_at;
         if (defectedAt >= 0d && Date.getYearsSince(defectedAt) < DefectorLoyaltyYears) return false;
         // 去留冷却(见 MembershipCooldown)：神力强制附庸的十五年内、新附的附庸十年内不闹独立

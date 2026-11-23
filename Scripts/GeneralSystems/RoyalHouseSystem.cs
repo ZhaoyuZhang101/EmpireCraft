@@ -338,6 +338,8 @@ public static class RoyalHouseSystem
                     PrinceLineage.GrantPrinces(empire);
                 }
             foreach (Kingdom kingdom in World.world.kingdoms.list.ToList()) Enfeoff(kingdom);
+            // 质子：即位、身故、宗属关系没了(见 HostageSystem)
+            HostageSystem.Yearly();
             // 个人恩怨：构陷、复仇、投敌(见 PersonalTieSystem)；志向(见 AmbitionSystem)
             PersonalTieSystem.Yearly();
             AmbitionSystem.Yearly();

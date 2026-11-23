@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using EmpireCraft.Scripts.AI.ActorAI;
 using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
@@ -213,6 +214,54 @@ public static class WarCommandSystem
         if (type == EmpireWarType.攘夷 || CultureService.IsValidCulture(ours) && CultureService.IsValidCulture(theirs) &&
             !CultureService.SameKin(ours, theirs)) return "barbarian";
         return goal == WarGoal.吞并 ? "annex" : "attack";
+    }
+
+    // 凯旋受赏(群友 2026-11-22 "集结规模十万及以上主将为大元帅，获胜赐爵，可册封名将")：一场仗打赢了(议和不算)，
+    // 胜方主战之国的统帅——
+    //   · 记一笔军功名望(TriumphRenown，按军中兵数加到三倍)；
+    //   · 十万之师(WarMuster.GrandHost)的统帅：朝廷有空着的虚封爵位就赐一个(武爵在前)；这一国的名将不满 TriumphFamousCap 位、
+    //     他自己还不是名将的，册为名将(FamousTalentSystem.Bestow)。
+    // 君主亲征的不自封；已经有爵的不再赐。
+    private const float TriumphRenown = 30f;
+    private const int TriumphFamousCap = 3;
+
+    public static void OnWarEnded(War war, WarWinner winner)
+    {
+        if (!CorpsSystem.Enabled || war?.data == null) return;
+        Kingdom main = winner == WarWinner.Attackers ? war.main_attacker : winner == WarWinner.Defenders ? war.main_defender : null;
+        if (main?.data == null || main.isRekt()) return;
+        try
+        {
+            Kingdom realm = Realm(main) ?? main;
+            Actor commander = Commander(realm);
+            if (commander == null || commander == realm.king) return;
+            float host = Host(realm);
+            RenownSystem.OnBattle(commander, TriumphRenown * Mathf.Clamp(host / 20000f, 0.5f, 3f));
+            Kingdom foe = winner == WarWinner.Attackers ? war.main_defender : war.main_attacker;
+            string title = TitleOf(realm), foeName = foe?.GetKingdomName() ?? "";
+            if (host < WarMuster.GrandHost)
+            {
+                commander.RecordPersonalHistory(string.Format(LM.Get("personal_history_triumph"), title, foeName));
+                return;
+            }
+            string text = string.Format(LM.Get("war_triumph_history"), realm.GetKingdomName(), title, commander.getName(), foeName);
+            Empire empire = realm.GetEmpire();
+            if (empire != null && !empire.isRekt() && !commander.HasHonoraryPeerage())
+                foreach (string key in (realm.GetRegime()?.virtual_honorary_peerages ?? new List<string>())
+                         .OrderBy(key => key.Contains("wujun") || key.Contains("zhongyong") ? 0 : 1))
+                    if (!empire.IsHonoraryPeerageReserved(key) && commander.GrantHonoraryPeerage(empire, key)) break;
+            long empireId = empire?.id ?? -1L;
+            if (!FamousTalentSystem.IsFamous(commander) &&
+                FamousTalentSystem.Alive().Count(record => record.kind == TalentKind.General &&
+                                                           (empireId >= 0L ? record.empire_id == empireId : record.kingdom_id == realm.id)) < TriumphFamousCap)
+                FamousTalentSystem.Bestow(commander, TalentKind.General);
+            commander.RecordPersonalHistory(string.Format(LM.Get("personal_history_triumph"), title, foeName));
+            EventRecorder.Record(realm, text, commander);
+        }
+        catch (global::System.Exception exception)
+        {
+            NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][凯旋受赏] 结算失败: {exception.Message}");
+        }
     }
 
     // 本国(帝国中央连同各成员国)军中的兵

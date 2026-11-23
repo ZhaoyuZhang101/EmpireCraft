@@ -286,7 +286,8 @@ public class EmpireCraftKingdomBehCheckEmpire:GameAIKingdomBase
 
     public void CheckEmpireAlliance(Kingdom pKingdom)
     {
-        if (pKingdom.NeedToRemoveTakenAlliance())
+        // 有质子在上国的不自行退出朝贡(见 HostageSystem)
+        if (pKingdom.NeedToRemoveTakenAlliance() && !EmpireCraft.Scripts.GeneralSystems.HostageSystem.Binds(pKingdom))
         {
             pKingdom.RemoveTakenAlliance();
         }

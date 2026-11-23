@@ -278,6 +278,8 @@ public class WarPatch: GamePatch
             WarChronicle.Ended(pWar, pWinner);
             // 按开战目标结算和约(赔款、割地、吞并，见 WarGoalSystem)
             EmpireCraft.Scripts.GeneralSystems.WarGoalSystem.Settle(pWar, pWinner);
+            // 凯旋受赏：胜方统帅记功，十万之师的赐爵、册为名将(见 WarCommandSystem.OnWarEnded)
+            EmpireCraft.Scripts.GeneralSystems.WarCommandSystem.OnWarEnded(pWar, pWinner);
             // 圣战：圣地交接、教权与正统
             EmpireCraft.Scripts.GeneralSystems.PapacySystem.OnWarEnded(pWar, pWinner);
             // 帝国战争、执行禁令、宗教战争的结局

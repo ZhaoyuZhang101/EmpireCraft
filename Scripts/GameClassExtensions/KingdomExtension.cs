@@ -424,6 +424,11 @@ public static class KingdomExtension
         public bool muster_wide;
         // 察觉邻国大军集结、预先设防的时间(见 CityPopulationSystem.Alert、FrontSystem.Forewarned)
         public double forewarned_at = -1d;
+        // 质子(见 HostageSystem)：送去为质的人、在哪一国为质、哪年送的、质子回国即位的时间
+        public long hostage_actor_id = -1L;
+        public long hostage_holder_id = -1L;
+        public double hostage_since = -1d;
+        public double hostage_crowned_at = -1d;
         // 战时统帅(见 WarCommandSystem)：人与官名的本地化键(拜将时按时代、文化、战争性质定下)
         public long war_commander_id = -1L;
         public string war_commander_title = "";

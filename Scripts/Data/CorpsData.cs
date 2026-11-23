@@ -72,6 +72,8 @@ public sealed class CorpsData
     // 渡海先遣军(见 FrontSystem.Assign、CorpsSystem.Detach)：整军装不下运输船时按运力分出的一支，记原军 id；-1 = 不是。
     // 不补员、不另占兵额，原军补员时把它算在内；仗打完或回到驻地就并回原军
     public long parent_id = -1L;
+    // 先锋营(见 CorpsSystem.EnsureVanguard)：从本军分出来的几百名突骑死士，打仗时先登、骚扰，仗打完并回原军
+    public bool vanguard;
     // 建制(见 FormationSystem)：Formations.json 里的 id；空是旧档还没定。与兵种分开，换政体、换文化、换装都不改
     public string formation = "";
     // 建制番号(范围见配置)；0 是还没编。分遣队不占番号

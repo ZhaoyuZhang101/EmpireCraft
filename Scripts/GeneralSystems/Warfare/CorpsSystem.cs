@@ -816,6 +816,8 @@ public static class CorpsSystem
                 part.formation_serial = 0;
                 continue;
             }
+            // 先锋营打着仗不并回(见 EnsureVanguard)，仗打完同先遣军一样并回原军
+            if (part.vanguard && war) continue;
             bool back = part.task == "reserve" && !part.embarked && Zone(part) is TileZone at && at == Home(part)?.getTile()?.zone;
             if (back || !war && part.task is not ("attack" or "defend")) Rejoin(kingdom, parent, part);
         }
@@ -977,7 +979,10 @@ public static class CorpsSystem
             }
         }
         if (war)
+        {
             foreach (List<CorpsData> group in byHome.Values) MergeRemnants(kingdom, group, awayByParent);
+            EnsureVanguard(kingdom);
+        }
         // 手动组建的军：只补员，不随兵额增减
         if (!unpaid)
             foreach (CorpsData corps in list.Where(corps => corps.manual && !corps.embarked && corps.supply >= 0.5f &&
@@ -1133,6 +1138,57 @@ public static class CorpsSystem
         Disband(kingdom, corps);
         FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_manual_disbanded"), name));
         return true;
+    }
+
+    // 手动合并(军事页各行的"合并"，群友 2026-11-22 "要是能合并军团就好了")：把这支军并进本国离它 MergeReach 块以内最近的另一支军。
+    //   · 正规军并正规军：两支合起来装得进其中一支的满编才并(收拢残军)，满编取大的；空出来的兵额照常由军镇再征，不多出兵来；
+    //   · 手动组建的军并手动组建的军：满编相加(本来就在兵额之外)；一支正规一支手动的不并；
+    //   · 义军、骑士团的军、渡海先遣军和分着先遣军的、在船上的、被围的、正在攻守的不并。
+    public const int MergeReach = 6;
+
+    private static bool Mergeable(Kingdom kingdom, CorpsData corps) =>
+        corps != null && !corps.militia && corps.order_id < 0 && corps.parent_id < 0 && !corps.embarked && corps.pocket_months <= 0 &&
+        corps.strength >= 1f && corps.task is not ("attack" or "defend") &&
+        !Of(kingdom).Any(part => part.parent_id == corps.id);
+
+    // 这支军能并进哪一支(没有为 null)
+    public static CorpsData MergeTarget(Kingdom kingdom, CorpsData corps)
+    {
+        if (!Enabled || kingdom?.data == null || kingdom.isRekt() || !Mergeable(kingdom, corps)) return null;
+        TileZone at = Zone(corps);
+        if (at == null) return null;
+        CorpsData best = null;
+        float nearest = float.MaxValue;
+        foreach (CorpsData other in Of(kingdom))
+        {
+            if (other == corps || other.manual != corps.manual || !Mergeable(kingdom, other)) continue;
+            if (!corps.manual && corps.strength + other.strength > Mathf.Max(corps.full, other.full)) continue;
+            float distance = ZoneDistance(Zone(other), at);
+            if (distance > MergeReach || distance >= nearest) continue;
+            best = other;
+            nearest = distance;
+        }
+        return best;
+    }
+
+    public static CorpsData MergeManual(Kingdom kingdom, CorpsData corps)
+    {
+        CorpsData into = MergeTarget(kingdom, corps);
+        if (into == null) return null;
+        string name = Name(corps);
+        if (corps.manual)
+        {
+            into.full += corps.full;
+            into.legions += corps.legions;
+        }
+        else
+        {
+            into.full = Mathf.Max(into.full, corps.full);
+            into.legions = Mathf.Max(into.legions, corps.legions);
+        }
+        Rejoin(kingdom, into, corps);
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_merged"), name, Name(into)));
+        return into;
     }
 
     #endregion
@@ -1386,6 +1442,26 @@ public static class CorpsSystem
         PathFailures.Remove(part.id);
         EmbarkRetry.Remove(part.id);
         Of(kingdom).Remove(part);
+    }
+
+    // 先锋营(群友 2026-11-22 "独立出突骑和敢死队先锋队，人数规模在 100 以上，用于实行偷袭骚扰突围先登等")：
+    // 打着仗的国从兵最多的一支正规军(够 VanguardParent 人)里分出 VanguardShare 的兵、VanguardMin~VanguardMax 人，
+    // 自成一营随军上阵，一国至多一营。攻城时先登(隔城墙的折损减轻)、每月骚扰守军(守军多掉组织度)，自己的伤亡加倍
+    // (见 FrontSystem.ResolveCity)；不补员、不另占兵额，仗打完并回原军。起义军不分
+    private const float VanguardShare = 0.03f, VanguardMin = 100f, VanguardMax = 800f, VanguardParent = 3000f;
+
+    private static void EnsureVanguard(Kingdom kingdom)
+    {
+        List<CorpsData> list = Of(kingdom);
+        if (Insurgent(kingdom) || !kingdom.hasEnemies() || list.Any(corps => corps.vanguard)) return;
+        CorpsData parent = list.Where(corps => CanDetach(corps) && !corps.manual && corps.strength >= VanguardParent &&
+                                               corps.pocket_months <= 0 && corps.task != "retreat")
+            .OrderByDescending(corps => corps.strength).FirstOrDefault();
+        if (parent == null) return;
+        CorpsData part = Detach(kingdom, parent, Mathf.Clamp(parent.strength * VanguardShare, VanguardMin, VanguardMax));
+        if (part == null) return;
+        part.vanguard = true;
+        FrontSystem.Log(kingdom, string.Format(LM.Get("corps_log_vanguard"), Name(parent), Mathf.RoundToInt(part.strength)));
     }
 
     // 残军合并(群友 2026-11-22 "要是能合并军团就好了")：同一军镇的两支军都在待命、站在同一块地上，合起来还装得进

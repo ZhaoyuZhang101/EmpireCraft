@@ -274,6 +274,8 @@ public static class WarMuster
             (target.cities?.Count ?? 0) > DeterMaxCities || FeudalVassalService.GetOverlord(target) != null ||
             RulerTraitSystem.FounderShield(target) || target.hasEnemies() || UnityEngine.Random.value >= DeterChance) return false;
         if (!SmallStateSubmissionSystem.Submit(kingdom, target)) return false;
+        // 乞和纳质：把储君送到上国都城为质(见 HostageSystem)
+        HostageSystem.Send(kingdom, target);
         FrontSystem.Log(kingdom, string.Format(LM.Get("war_muster_deterred"), target.GetKingdomName(), kingdom.GetKingdomName()));
         LogService.LogInfo($"[EmpireCraft][集结] {target.GetKingdomName()} 闻 {kingdom.GetKingdomName()} 大军压境称臣：{host:0} 对 {theirs:0}");
         return true;

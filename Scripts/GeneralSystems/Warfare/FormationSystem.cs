@@ -290,7 +290,8 @@ public static class FormationSystem
         if (corps.parent_id >= 0)
         {
             CorpsData parent = FindParent(corps);
-            return parent == null ? null : string.Format(LM.Get("corps_name_detachment"), CorpsSystem.Name(parent));
+            return parent == null ? null
+                : string.Format(LM.Get(corps.vanguard ? "corps_name_vanguard" : "corps_name_detachment"), CorpsSystem.Name(parent));
         }
         FormationDef def = Def(corps.formation);
         if (def == null || corps.formation_serial <= 0) return null;

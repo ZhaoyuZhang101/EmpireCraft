@@ -102,6 +102,7 @@ public static partial class FrontSystem
         Engaged.Clear();
         MassSince.Clear();
         ThreatCache.Clear();
+        GuestPosts.Clear();
         Logs.Clear();
         ResetSmooth();
         TerrainSystem.ResetWorldState();
@@ -1075,17 +1076,12 @@ public static partial class FrontSystem
         // 边防看邻国(群友 2026-11-22 "边防驻军的数量应该与接壤国家的好感度挂钩")：以前只分"挨着外国"与否，盟友、附庸的边上
         // 同虎视眈眈的强邻边上一样驻军。现在边境的城按邻国的威胁排先后(见 BorderThreat)，军先驻到最吃紧的边上
         var threats = new Dictionary<City, float>();
+        float gravest = -1f;
         foreach (City city in cities)
         {
-            float worst = -1f;
-            foreach (TileZone zone in city.zones)
-                foreach (TileZone next in zone?.neighbours_all ?? Array.Empty<TileZone>())
-                {
-                    Kingdom other = next?.city?.kingdom;
-                    if (other?.data == null || other == kingdom) continue;
-                    worst = Mathf.Max(worst, BorderThreat(kingdom, other));
-                }
+            float worst = CityThreat(kingdom, city);
             threats[city] = worst;
+            gravest = Mathf.Max(gravest, worst);
         }
         List<City> order = cities.OrderByDescending(city => city == kingdom.capital)
             .ThenByDescending(city => threats[city]).ThenByDescending(city => CityPopulationSystem.GetBackgroundTotal(city)).ToList();
@@ -1111,7 +1107,80 @@ public static partial class FrontSystem
             TileZone station = group[turn % group.Count].getTile().zone;
             result[entry.id] = Walkable(kingdom, entry, station) ? station.id : NearestStation(kingdom, entry, order);
         }
+        Garrison(kingdom, corps, gravest, result);
         return result;
+    }
+
+    // 这座城挨着的外国里威胁最大的那一家(见 BorderThreat)；不挨着外国为 -1
+    private static float CityThreat(Kingdom kingdom, City city)
+    {
+        float worst = -1f;
+        foreach (TileZone zone in city.zones)
+            foreach (TileZone next in zone?.neighbours_all ?? Array.Empty<TileZone>())
+            {
+                Kingdom other = next?.city?.kingdom;
+                if (other?.data == null || other == kingdom) continue;
+                worst = Mathf.Max(worst, BorderThreat(kingdom, other));
+            }
+        return worst;
+    }
+
+    // 内地协防边省(群友 2026-11-22 "相邻省份也会往边境省份输送驻扎兵力""尽量使边境省份维持在数千至上万边军的水平")：
+    // 听调遣的成员国自己的边上没有像样的边患(GuestCalm 以下：不挨外国，或只挨自己人、有约在身的)，太平时把军派到
+    // 相邻的本帝国省份里边患最重的那座城去驻(那座城的威胁要到 GuestThreat)：有两支以上的留一支看家，只有一支的
+    // 要本省完全不挨外国才派。本省或中央打起仗来照常各归战线(见 Assign)。地方军、手令在身的不派
+    private const float GuestCalm = 0.5f, GuestThreat = 1f;
+    private const double GuestCacheSeconds = 60d;
+    private static readonly Dictionary<long, (double at, long city)> GuestPosts = new();
+
+    private static City GuestPost(Kingdom kingdom)
+    {
+        Layer.Empire empire = kingdom.GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        if (core == null || core == kingdom || kingdom.cities == null || !GamePatches.EmpirePeacePatch.Obeys(empire, kingdom)) return null;
+        double now = World.world.getCurWorldTime();
+        if (GuestPosts.TryGetValue(kingdom.id, out var cached) && now >= cached.at && now - cached.at < GuestCacheSeconds)
+            return cached.city < 0L ? null : World.world.cities.get(cached.city) is City kept && kept.data != null && !kept.isRekt() &&
+                                             kept.kingdom?.GetEmpire() == empire ? kept : null;
+        City best = null;
+        float worst = GuestThreat;
+        var seen = new HashSet<Kingdom>();
+        foreach (City city in kingdom.cities)
+        {
+            if (city?.data == null || city.isRekt() || city.neighbours_cities == null) continue;
+            foreach (City next in city.neighbours_cities)
+            {
+                Kingdom province = next?.kingdom;
+                if (province?.data == null || province == kingdom || province.isRekt() || province.cities == null ||
+                    province.GetEmpire() != empire || !seen.Add(province)) continue;
+                foreach (City border in province.cities)
+                {
+                    if (border?.data == null || border.isRekt() || border.kingdom != province || border.getTile()?.zone == null) continue;
+                    float threat = CityThreat(province, border);
+                    if (threat < worst) continue;
+                    worst = threat;
+                    best = border;
+                }
+            }
+        }
+        if (GuestPosts.Count > 2048) GuestPosts.Clear();
+        GuestPosts[kingdom.id] = (now, best?.data.id ?? -1L);
+        return best;
+    }
+
+    private static void Garrison(Kingdom kingdom, List<CorpsData> corps, float gravest, Dictionary<long, int> result)
+    {
+        if (gravest >= GuestCalm || _atWar.Contains(kingdom) || CityPopulationSystem.IsMobilizing(kingdom)) return;
+        City post = GuestPost(kingdom);
+        TileZone station = post?.getTile()?.zone;
+        if (station == null) return;
+        List<CorpsData> movable = corps.Where(entry => !entry.militia && entry.order_id < 0 && entry.parent_id < 0 && !entry.manual &&
+                                                        !FormationSystem.LocalCommand(entry) && !CorpsDirectOrders.Has(entry))
+            .OrderBy(entry => entry.id).ToList();
+        // 留一支看家；只有一支的要本省完全不挨外国才派
+        int send = movable.Count >= 2 ? movable.Count - 1 : movable.Count == 1 && gravest < 0f ? 1 : 0;
+        foreach (CorpsData entry in movable.Skip(movable.Count - send))
+            if (Walkable(kingdom, entry, station)) result[entry.id] = station.id;
     }
 
     // 本国的城连成几片：经本方、同一势力和并肩作战的友邦、许本方借道的国家的城连着，或隔着走得通的无人区小径连着；
@@ -1376,6 +1445,8 @@ public static partial class FrontSystem
             ? Mathf.Max(corps.entrench, ForewarnedEntrench) : corps.entrench;
     }
 
+    private const float VanguardWall = 1.15f, VanguardHarass = 3f, VanguardLoss = 2f;
+
     private static void ResolveCity(City city, List<(Kingdom kingdom, CorpsData corps)> group, double now, bool landing)
     {
         Kingdom owner = city.kingdom;
@@ -1437,6 +1508,9 @@ public static partial class FrontSystem
         // 隔城墙攻坚：攻方要推进的那块地与攻方一侧隔着城墙，攻方战力打折，红夷大炮破城时减半(见 FrontSystem.Wall)
         bool walled = WallBetween(attacker, battleZone, spearheads);
         if (walled) attack *= WallAttackFactor(breach);
+        // 先锋营(见 CorpsSystem.EnsureVanguard)：先登——隔城墙攻坚时攻方战力找回一成五；骚扰——守军这个月多掉 VanguardHarass 组织度
+        bool vanguard = attackers.Any(entry => entry.corps.vanguard);
+        if (vanguard && walled) attack *= VanguardWall;
         // 困守一隅的守军战力打折(见 RemnantFactor)
         float remnant = RemnantFactor(city);
         float defend = holders.Sum(entry => Effective(entry.corps) * Firepower(entry.kingdom, entry.corps) *
@@ -1478,7 +1552,9 @@ public static partial class FrontSystem
             Compatibility.WarBoxCompatibility.LoseVehicles(side, holdLoss);
         foreach (var entry in attackers)
         {
-            CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f));
+            // 先锋营是敢死之士，伤亡加倍
+            CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * (1f - ratio) * (defend > 0f ? 1f : 0.2f) *
+                                                (entry.corps.vanguard ? VanguardLoss : 1f));
             entry.corps.org = Mathf.Max(0f, entry.corps.org - (8f + 20f * (1f - ratio) + ground.AttackerOrg) * CorpsVeterancy.OrgLossFactor(entry.corps));
             CorpsVeterancy.Gain(entry.kingdom, entry.corps, ratio);
             Engaged.Add(entry.corps.id);
@@ -1486,7 +1562,8 @@ public static partial class FrontSystem
         foreach (var entry in holders)
         {
             CorpsSystem.Casualties(entry.corps, entry.corps.strength * CasualtyRate * ratio);
-            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio + ground.DefenderOrg) * CorpsVeterancy.OrgLossFactor(entry.corps));
+            entry.corps.org = Mathf.Max(0f, entry.corps.org - (6f + 20f * ratio + ground.DefenderOrg + (vanguard ? VanguardHarass : 0f)) *
+                                                CorpsVeterancy.OrgLossFactor(entry.corps));
             CorpsVeterancy.Gain(entry.kingdom, entry.corps, 1f - ratio);
             Engaged.Add(entry.corps.id);
         }

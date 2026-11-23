@@ -942,15 +942,22 @@ public static class WarGoalSystem
                     // 降部戍边：游牧政权败给施行了羁縻的帝国，整部内附为羁縻州(见 FrontierRelations)
                     if (FrontierRelations.SettleSurrenderedTribe(lord, subject)) { }
                     else if (TributaryRelations.Submit(lord, subject))
+                    {
                         TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_tributary"), subject.GetKingdomName(),
                             lord.GetEmpire()?.GetEmpireName() ?? lord.GetKingdomName()), lord);
+                        // 城下之盟：送质子(见 HostageSystem)
+                        HostageSystem.Send(lord, subject);
+                    }
                     else WarReparationsSystem.Impose(subject, lord);
                 }
                 // 鞭长莫及的不立封建附庸，改赔款(见 FeudalVassalService.TooFar)
                 else if (FeudalVassalService.TooFar(lord, subject)) WarReparationsSystem.Impose(subject, lord);
                 else if (FeudalVassalService.ForceBind(lord, subject))
+                {
                     TranslateHelper.LogEventMessage(string.Format(LM.Get("war_peace_vassalized"), subject.GetKingdomName(),
                         lord.GetKingdomName()), lord);
+                    HostageSystem.Send(lord, subject);
+                }
                 else WarReparationsSystem.Impose(subject, lord);
             }
             catch (Exception exception)

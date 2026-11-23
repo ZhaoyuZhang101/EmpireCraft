@@ -295,25 +295,52 @@ namespace EmpireCraft.Scripts.UI.Windows
                 corps.org < 30f ? OrgLowColor : OrgColor);
             org.AddTextIntoHoriLayout(Mathf.RoundToInt(corps.org).ToString(), true, TextAnchor.MiddleLeft,
                 new Vector2(W(4) * 0.4f - 3f, 12f)).UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            if (!corps.manual)
+            Kingdom owner = World.world.kingdoms.get(corps.kingdom_id);
+            const float DisbandWidth = 22f;
+            // 合并(见 CorpsSystem.MergeManual)：近处有能并进去的军才给按钮
+            CorpsData mergeInto = CorpsSystem.MergeTarget(owner, corps);
+            float buttons = (corps.manual ? DisbandWidth + 2f : 0f) + (mergeInto != null ? DisbandWidth + 2f : 0f);
+            if (buttons <= 0f)
             {
                 row.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5), 12f))
                     .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
                 AddLocateCell(row, W(6), corps);
                 return;
             }
-            // 手动组建的军：任务后带"解散"按钮(交战中的不能解散)
-            const float DisbandWidth = 22f;
+            // 任务后带按钮：能合并的"合并"，手动组建的军另有"解散"(交战中的不能解散)
             var cell = row.BeginHoriGroup(new Vector2(W(5), 12f), TextAnchor.MiddleLeft, 2, new RectOffset(0, 0, 0, 0));
-            var task = cell.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(W(5) - DisbandWidth - 2f, 12f));
+            var task = cell.AddTextIntoHoriLayout(TaskText(corps), true, TextAnchor.MiddleLeft, new Vector2(Mathf.Max(10f, W(5) - buttons), 12f));
             task.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
-            Kingdom owner = World.world.kingdoms.get(corps.kingdom_id);
-            AdvancedButton disband = null;
+            AdvancedButton disband = null, merge = null;
+            if (mergeInto != null)
+            {
+                merge = cell.AddButtonIntoHoriLayout($"corps_merge_{corps.id}", LM.Get("corps_merge"), () =>
+                {
+                    CorpsData into = CorpsSystem.MergeManual(owner, corps);
+                    if (into == null || merge == null)
+                    {
+                        WorldTip.showNow(LM.Get("corps_merge_unavailable"), false, "top", 3f);
+                        return;
+                    }
+                    task.text.text = string.Format(LM.Get("corps_merged_into"), CorpsSystem.Name(into)).ColorString("#8FA0A8");
+                    merge.gameObject.SetActive(false);
+                    if (disband != null) disband.gameObject.SetActive(false);
+                }, size: new Vector2(DisbandWidth, 10f));
+                merge.Text.fontSize = 6;
+                UIHelper.AttachTextTooltip(merge.gameObject, $"corps_merge_{corps.id}", LM.Get("corps_merge"),
+                    string.Format(LM.Get("corps_merge_tip"), CorpsSystem.Name(mergeInto)));
+            }
+            if (!corps.manual)
+            {
+                AddLocateCell(row, W(6), corps);
+                return;
+            }
             disband = cell.AddButtonIntoHoriLayout($"corps_disband_{corps.id}", LM.Get("corps_manual_disband"), () =>
             {
                 if (!CorpsSystem.DisbandManual(owner, corps) || disband == null) return;
                 task.text.text = LM.Get("corps_manual_disbanded").ColorString("#8FA0A8");
                 disband.gameObject.SetActive(false);
+                if (merge != null) merge.gameObject.SetActive(false);
             }, size: new Vector2(DisbandWidth, 10f));
             if (corps.task is "attack" or "defend") disband.Button.interactable = false;
             AddLocateCell(row, W(6), corps);
