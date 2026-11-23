@@ -133,6 +133,7 @@ public static class WarScopeSystem
             }
             else AddCenters(CityPopulationSystem.EnemyOf(kingdom));
             float radius = NearDistance * (level >= Wider ? 2f : 1f);
+            float radiusSquared = radius * radius;
             // 军团只驻在军镇(都城、军区首都、州郡，见 CityPopulationSystem.PostOf)：范围里得有军镇才有兵可出
             CityPopulationSystem.ArmyDoctrine doctrine = CityPopulationSystem.DoctrineOf(kingdom);
             bool Post(City city) => CityPopulationSystem.PostOf(city, doctrine) != CityPopulationSystem.ArmyPost.None;
@@ -142,8 +143,8 @@ public static class WarScopeSystem
             foreach (City city in kingdom.cities)
             {
                 if (city?.data == null || city.isRekt()) continue;
-                float nearest = Nearest(city);
-                if (level >= Total || nearest <= radius * radius || Occupied(city))
+                float nearest = level >= Total ? 0f : Nearest(city, radiusSquared);
+                if (nearest <= radiusSquared || Occupied(city))
                 {
                     Scope.Add(city.id);
                     garrisoned |= Post(city);
@@ -247,13 +248,14 @@ public static class WarScopeSystem
             if (city?.data != null && !city.isRekt()) HostileCenters.Add(city.city_center);
     }
 
-    private static float Nearest(City city)
+    private static float Nearest(City city, float radiusSquared)
     {
         float best = float.MaxValue;
         Vector2 at = city.city_center;
         foreach (Vector2 center in HostileCenters)
         {
             float distance = (center - at).sqrMagnitude;
+            if (distance <= radiusSquared) return distance;
             if (distance < best) best = distance;
         }
         return best;

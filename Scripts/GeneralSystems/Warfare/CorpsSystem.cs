@@ -5,6 +5,7 @@ using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GameLibrary;
+using EmpireCraft.Scripts.HelperFunc;
 using NeoModLoader.General;
 using NeoModLoader.services;
 using UnityEngine;
@@ -125,6 +126,9 @@ public static class CorpsSystem
         GeneralsByCity.Clear();
         GeneralIndex.Clear();
         _lastSecond = _lastMonth = -1d;
+        _monthStartFrame = -1;
+        _framesPerMonth = 30f;
+        _stepMs = 0.5d;
         ResetMonthCycle();
         LastMonthTick.Clear();
         GeneralMoves.Clear();
@@ -168,10 +172,9 @@ public static class CorpsSystem
         }
         UI.Components.CorpsMapRenderer.EnsureHost();
         double now = World.world.getCurWorldTime();
-        if (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1)
+        if (now < _lastMonth) ResetMonthCycle();
+        if (_monthPhase == MonthPhase.Idle && (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1))
         {
-            // 下个月到了上个月还没结完：先当场结完
-            if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: true);
             bool first = _lastMonth < 0d;
             _lastMonth = now;
             int frame = Time.frameCount;
@@ -182,7 +185,7 @@ public static class CorpsSystem
         }
         // 战线段多核算用的地形层(打仗时每帧滚动重建一点，见 FrontSystem.Parallel)
         FrontSystem.ParallelTick();
-        if (_monthPhase != MonthPhase.Idle) AdvanceMonth(unbounded: false);
+        if (_monthPhase != MonthPhase.Idle) AdvanceMonth();
         // 平滑国界下的逐格占领(见 FrontSystem.Smooth)
         using (FrameProfiler.Measure("战线·逐格推进")) FrontSystem.SmoothTick();
         // 路网与航线(行军、航行据此寻路；自己按真实时间限频，见 RoadNetwork)
@@ -218,13 +221,10 @@ public static class CorpsSystem
     // 月度结算分帧：以前月初一帧里把全世界各国的征召补员后勤、海军、战线分派与交战一次结完，大图开战时那一帧卡几百毫秒。
     // 现在月初把各国排队，每帧结几国(本段不过 MonthSliceMilliseconds，至少一国)，
     // 各国都结完再结海军(一次)、战线(开头一次，逐国分派，交战结算一次)，最后重建计兵数缓存；先后次序与以前一样。
-    // 下个月到了上个月还没结完，先当场结完上个月。
-    // 每帧的时间片按"这个月还剩几帧、还剩几步"自适应(至少 MonthSliceMilliseconds，至多 MaxMonthSliceMilliseconds)，
-    // 赶在下个月之前均匀结完(用户 2026-10-27 性能日志：游戏开得快、一个月只有几帧时，固定 3 毫秒总结不完，
-    // 下个月一到就当场一口气结完上百国，后台·军团战线单帧峰值两秒多)
+    // 时间片随剩余工作适度放宽。快进越过月界前如果这一轮还没结完，先在月界等队列分帧跑完。
     private enum MonthPhase { Idle, Kingdoms, Navy, FrontBegin, FrontAssign, FrontEnd }
 
-    private const double MonthSliceMilliseconds = 3d, MaxMonthSliceMilliseconds = 30d;
+    private const double MonthSliceMilliseconds = 3d, GameMonthSliceLimit = 8d, ServerMonthSliceLimit = 64d;
     // 每步(一国征召或分派)平均耗时、一个月有几帧：滑动平均
     private static double _stepMs = 0.5d;
     private static float _framesPerMonth = 30f;
@@ -232,6 +232,8 @@ public static class CorpsSystem
 
     private static double MonthSlice()
     {
+        double limit = SimulationFrameBudget.ServerMilliseconds.HasValue ? ServerMonthSliceLimit : GameMonthSliceLimit;
+        if (Date.getMonthsSince(_lastMonth) >= 1) return limit;
         int remaining = _monthPhase switch
         {
             MonthPhase.Kingdoms => MonthQueue.Count + (World.world?.kingdoms?.Count ?? 0) + 3,
@@ -242,12 +244,23 @@ public static class CorpsSystem
         int elapsed = _monthStartFrame < 0 ? 0 : Time.frameCount - _monthStartFrame;
         float framesLeft = Mathf.Max(1f, _framesPerMonth - elapsed - 1f);
         double wanted = remaining * _stepMs / framesLeft;
-        return wanted < MonthSliceMilliseconds ? MonthSliceMilliseconds : wanted > MaxMonthSliceMilliseconds ? MaxMonthSliceMilliseconds : wanted;
+        return Math.Min(limit, Math.Max(MonthSliceMilliseconds, wanted));
     }
     private static MonthPhase _monthPhase = MonthPhase.Idle;
     private static readonly Queue<Kingdom> MonthQueue = new();
     private static double _monthAt;
     private static bool _monthFirst;
+
+    internal static float LimitMonthElapsed(float elapsed)
+    {
+        if (_monthPhase == MonthPhase.Idle || _lastMonth < 0d || elapsed <= 0f ||
+            !ReferenceEquals(_world, World.world) || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return elapsed;
+
+        double now = World.world.getCurWorldTime();
+        if (now < _lastMonth) return elapsed;
+        // 保留到月界的时间。卡在月界时仍然逐帧结算，Idle 后世界自然继续走。
+        return (float)Math.Min(elapsed, Math.Max(0d, _lastMonth + Date.getMonthTime() - now));
+    }
 
     private static void ResetMonthCycle()
     {
@@ -267,18 +280,14 @@ public static class CorpsSystem
         _monthPhase = MonthPhase.Kingdoms;
     }
 
-    private static void AdvanceMonth(bool unbounded)
+    private static void AdvanceMonth()
     {
         var watch = global::System.Diagnostics.Stopwatch.StartNew();
         int done = 0;
-        double slice = unbounded ? double.MaxValue : MonthSlice();
+        double slice = MonthSlice();
         while (_monthPhase != MonthPhase.Idle)
         {
-            // 只看本段自己的用时：后台共用预算(SimulationFrameBudget)在这之前多已被人口等队列用完，看它就只能一帧一国，
-            // 几百国的大图一个月结不完
-            // 多核一批算好了陆上战线段的国(见 FrontSystem.Parallel)这一帧分派完：留到下一帧就作废了
-            if (!unbounded && done > 0 && watch.Elapsed.TotalMilliseconds >= slice &&
-                !(_monthPhase == MonthPhase.FrontAssign && MonthQueue.Count > 0 && FrontSystem.PrefetchPending))
+            if (done > 0 && watch.Elapsed.TotalMilliseconds >= slice)
             {
                 _stepMs = _stepMs * 0.8d + watch.Elapsed.TotalMilliseconds / done * 0.2d;
                 return;
@@ -319,9 +328,10 @@ public static class CorpsSystem
                         break;
                     }
                     Kingdom assigned = MonthQueue.Dequeue();
+                    int prefetch = Math.Max(1, (int)((slice - watch.Elapsed.TotalMilliseconds) / Math.Max(0.1d, _stepMs)));
                     using (FrameProfiler.Measure("军团·战线月度"))
                     using (FrameProfiler.Measure("战线·分派"))
-                        FrontSystem.AssignMonth(assigned, MonthQueue);
+                        FrontSystem.AssignMonth(assigned, MonthQueue, prefetch);
                     break;
                 case MonthPhase.FrontEnd:
                     if (MonthStep("军团·战线月度", FrontSystem.EndMonth)) FinishMonth();

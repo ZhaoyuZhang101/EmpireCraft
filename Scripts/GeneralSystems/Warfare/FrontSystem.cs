@@ -115,6 +115,8 @@ public static partial class FrontSystem
         LandRoutes.Clear();
         MonthPressure.Clear();
         MonthLandingSectors.Clear();
+        SectorCache.Clear();
+        SectorSignatures.Clear();
         _assignFrame = -1;
         ResetLandings();
         ResetParallel();
@@ -269,14 +271,16 @@ public static partial class FrontSystem
     // 陆上那份照旧共用，只有登陆另算(以前只要有一国算出了登陆，同签名的各国连陆上战线段一起每国重算一遍)；
     // 同签名第一国没算出登陆的，后面的国也不另算登陆(同以前)
     private static readonly Dictionary<string, (List<Sector> land, bool landing)> SectorCache = new();
+    private static readonly Dictionary<Kingdom, string> SectorSignatures = new();
 
     private static string SectorSignature(Kingdom side)
     {
+        if (SectorSignatures.TryGetValue(side, out string signature)) return signature;
         var key = new global::System.Text.StringBuilder();
         key.Append(Realm(side).id).Append(':');
         foreach (Kingdom other in _atWar)
             if (Hostile(side, other)) key.Append(other.id).Append(',');
-        return key.ToString();
+        return SectorSignatures[side] = key.ToString();
     }
 
     private static List<Sector> CachedSectors(Kingdom side)
@@ -568,7 +572,7 @@ public static partial class FrontSystem
         AtWarSet.Clear();
         AtWarSet.UnionWith(_atWar);
         PrefetchedLand.Clear();
-        PendingPrefetch.Clear();
+        _snapshotFrame = -1;
         DefenseByCity.Clear();
         CityDistricts.Reset();
         EncirclementSystem.BeginAssign();
@@ -595,13 +599,13 @@ public static partial class FrontSystem
             }
         MonthLandingSectors.Clear();
         SectorCache.Clear();
+        SectorSignatures.Clear();
         _frontsNext.Clear();
     }
 
     // upcoming：队里排在后面、这个月还要分派的国(多核时一起算陆上战线段，见 FrontSystem.Parallel)
-    public static void AssignMonth(Kingdom kingdom, IEnumerable<Kingdom> upcoming = null)
+    public static void AssignMonth(Kingdom kingdom, IEnumerable<Kingdom> upcoming = null, int maxBatch = int.MaxValue)
     {
-        if (kingdom != null) PendingPrefetch.Remove(kingdom);
         List<CorpsData> list = kingdom?.data == null || kingdom.isRekt() ? null : kingdom.GetOrCreate().corps;
         if (list == null || list.Count == 0) return;
         // 分几帧分派时，共用的陆上战线段只在同一帧里共用：隔了几帧，逐格推进可能已改了地块归属
@@ -610,12 +614,12 @@ public static partial class FrontSystem
         {
             _assignFrame = frame;
             SectorCache.Clear();
+            SectorSignatures.Clear();
             PrefetchedLand.Clear();
-            PendingPrefetch.Clear();
         }
         try
         {
-            PrefetchSectors(kingdom, upcoming);
+            PrefetchSectors(kingdom, upcoming, maxBatch);
         }
         catch (Exception exception)
         {
@@ -638,8 +642,9 @@ public static partial class FrontSystem
     {
         double now = _monthNow;
         SectorCache.Clear();
+        SectorSignatures.Clear();
         PrefetchedLand.Clear();
-        PendingPrefetch.Clear();
+        _snapshotFrame = -1;
         SwapFronts();
         Engaged.Clear();
         using (FrameProfiler.Measure("战线·交战结算")) Resolve(now, MonthLandingSectors);

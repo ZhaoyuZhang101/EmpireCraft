@@ -763,6 +763,8 @@ public static class Program
         int slices = Math.Max(1, (int)Math.Ceiling(baseSeconds * factor / MaxSliceSeconds));
         float slice = baseSeconds / slices;
         long started = Stopwatch.GetTimestamp();
+        bool ready = Config.game_loaded && !SmoothLoader.isLoading();
+        double worldBefore = world.getCurWorldTime();
         int done = 0;
         for (; done < slices; done++)
         {
@@ -778,7 +780,10 @@ public static class Program
         }
         _lagging = done < slices;
         _roundLoad = _lagging ? 1d : Stopwatch.GetElapsedTime(started).TotalSeconds / RoundBudgetSeconds;
-        return done * slice * factor;
+        // 月结积压时世界可能停在月界，按实际推进量报流速。
+        return ready && Config.game_loaded && !SmoothLoader.isLoading()
+            ? (float)Math.Max(0d, world.getCurWorldTime() - worldBefore)
+            : 0f;
     }
 
     // 排查用(--profile)：各计时段自开跑以来的累计，折成每个世界月多少毫秒(嵌套的段各算各的，上下级不能相加)
@@ -944,7 +949,7 @@ public static class Program
         ShimCities.Refresh();
         world.FrameSeconds = seconds;
         float elapsed = world.calculateCurElapsed();
-        if (Config.game_loaded && !Config.paused && !SmoothLoader.isLoading())
+        if (elapsed > 0f && Config.game_loaded && !Config.paused && !SmoothLoader.isLoading())
         {
             world.Advance(elapsed);
             // 国、城、人各自的行为任务(立君、收税、城主、官职、纳妾……，见 ServerAi)

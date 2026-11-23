@@ -57,7 +57,7 @@ public static partial class FrontSystem
         _layerZoneCount = -1;
         _layerTouchedAt = _layerDoneAt = -1d;
         PrefetchedLand.Clear();
-        PendingPrefetch.Clear();
+        _snapshotFrame = -1;
         AtWarSet.Clear();
     }
 
@@ -177,7 +177,8 @@ public static partial class FrontSystem
     [ThreadStatic] private static int _kernelStamp;
     [ThreadStatic] private static Queue<TileZone> _kernelQueue;
 
-    // 这一批共用的快照
+    // 同一帧分派只调整军团命令，多批搜索可以共用地块归属快照。
+    private static int _snapshotFrame = -1;
     private static int[] _owner = Array.Empty<int>();
     // 各城的城心那块(同 TerrainSystem 的 Seat：城心总能进、与邻块总走得通)
     private static bool[] _seat = Array.Empty<bool>();
@@ -189,13 +190,8 @@ public static partial class FrontSystem
     private static byte[] _wildBlock;
     private static double _kernelNow;
 
-    // 这一帧多核算好了、还没分派的国：这一帧要分派完(留到下一帧就作废了，见 CorpsSystem.AdvanceMonth)
-    private static readonly HashSet<Kingdom> PendingPrefetch = new();
-
-    public static bool PrefetchPending => PendingPrefetch.Count > 0 && UnityEngine.Time.frameCount == _assignFrame;
-
     // 分派前：kingdom 这一帧还没有现成的陆上战线段，就连同队里接下来几国一起多核算好
-    private static void PrefetchSectors(Kingdom kingdom, IEnumerable<Kingdom> upcoming)
+    private static void PrefetchSectors(Kingdom kingdom, IEnumerable<Kingdom> upcoming, int maxBatch)
     {
         // 只有一个核也照快照算(比逐国问各处缓存快得多)，只是不分线程
         if (!ParallelSectors || _terrainFlags == null || upcoming == null) return;
@@ -204,7 +200,7 @@ public static partial class FrontSystem
         if (SectorCache.ContainsKey(first) || PrefetchedLand.ContainsKey(first)) return;
         var batch = new List<(Kingdom side, string signature)> { (kingdom, first) };
         var seen = new HashSet<string> { first };
-        int limit = Math.Max(2, ParallelWork.MaxWorkers + 1);
+        int limit = Math.Min(maxBatch, Math.Max(2, ParallelWork.MaxWorkers + 1));
         foreach (Kingdom next in upcoming)
         {
             if (batch.Count >= limit) break;
@@ -223,11 +219,8 @@ public static partial class FrontSystem
         {
             // 出了岔子：这一批照原样逐国算
             LogService.LogWarning($"[EmpireCraft][军团] 战线段多核算失败，改回逐国算: {exception}");
-            foreach (var (side, signature) in batch)
-            {
+            foreach (var (_, signature) in batch)
                 PrefetchedLand.Remove(signature);
-                PendingPrefetch.Remove(side);
-            }
         }
     }
 
@@ -236,9 +229,13 @@ public static partial class FrontSystem
         var jobs = new List<SideJob>(batch.Count);
         using (FrameProfiler.Measure("战线段·取快照"))
         {
-            _kernelNow = World.world.getCurWorldTime();
-            _wildBlock = WildernessPassage.BlockSnapshot();
-            using (FrameProfiler.Measure("快照·归属")) BuildOwners();
+            if (_snapshotFrame != _assignFrame)
+            {
+                _kernelNow = World.world.getCurWorldTime();
+                _wildBlock = WildernessPassage.BlockSnapshot();
+                using (FrameProfiler.Measure("快照·归属")) BuildOwners();
+                _snapshotFrame = _assignFrame;
+            }
             foreach (var (side, signature) in batch) jobs.Add(PrepareJob(side, signature));
         }
         ParallelWork.For(jobs.Count, index =>
@@ -272,7 +269,6 @@ public static partial class FrontSystem
                     if (!found) MilitaryAccessSystem.NoteBlocked(job.Side, candidate.City);
                 }
                 PrefetchedLand[job.Signature] = land;
-                PendingPrefetch.Add(job.Side);
                 ParallelSides++;
             }
     }

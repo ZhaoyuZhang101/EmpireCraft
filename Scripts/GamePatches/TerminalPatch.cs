@@ -84,5 +84,13 @@ public class TerminalPatch : GamePatch
     {
         float factor = TerminalHost.SpeedFactor;
         if (factor != 1f) __result *= factor;
+#if EC_SERVER
+        const int worldTicks = 1;
+#else
+        // MapBox 会把本次计算的步长重复用于整帧的模拟步骤，30 帧模式还会把步长翻倍。
+        int worldTicks = ScrollWindow.isWindowActive() ? 1 : Math.Max(1, Config.time_scale_asset?.ticks ?? 1);
+        if (Config.fps_lock_30) worldTicks *= 2;
+#endif
+        __result = EmpireCraft.Scripts.GeneralSystems.CorpsSystem.LimitMonthElapsed(__result * worldTicks) / worldTicks;
     }
 }
