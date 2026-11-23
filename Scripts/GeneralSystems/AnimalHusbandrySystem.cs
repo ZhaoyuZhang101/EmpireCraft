@@ -124,8 +124,11 @@ public static class AnimalHusbandrySystem
 
     // 每月开一轮时把各城的草场、山林程度分给几个核一起数(只读地块，各城互不相干)，主线程收回来记进缓存，
     // 这个月里谁来问都是现成的。以前轮到哪座城现数：六百城一个月要过上百万格，流速三千时占主线程 3.5%
+    // 只在独立核心里这样做(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：游戏里主线程要在这一帧干等各核把全图数完，
+    // 每月卡一下(核少的机器更明显)；游戏里照旧轮到哪座城现数、记一个月，散在各帧里
     private static void PrewarmTerrain(List<City> cities, double now)
     {
+        if (!SimulationFrameBudget.ServerMilliseconds.HasValue) return;
         if (ParallelWork.MaxWorkers <= 1 || cities.Count < 8) return;
         var measured = new (bool ok, float range, float wild)[cities.Count];
         ParallelWork.For(cities.Count, index =>

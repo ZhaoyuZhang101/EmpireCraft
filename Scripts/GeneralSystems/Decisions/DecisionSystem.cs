@@ -51,6 +51,7 @@ public static class DecisionSystem
     private const float PaceBase = 6f, LapseFactor = 4f, StandingPerTier = 85f, MinEffort = 10f;
     // 每帧推进与发起合用的时限(毫秒)；到了就留到下一帧
     private const double TickMilliseconds = 0.35d;
+    private const int MustPerTick = 2;
 
     private static readonly Dictionary<string, PlotAsset> Defs = new();
     private static readonly List<PlotAsset> Initiable = new();
@@ -423,10 +424,12 @@ public static class DecisionSystem
         if (ReadyList.Count == 0) return;
         double now = World.world.getCurWorldTime();
         double stale = now - 2d * Date.getMonthTime();
-        // 到了时候的有几个：每帧至少办掉四分之一(快进时一个月只有十来帧，光按时限会越积越多)，其余按时限
+        // 到了时候的有几个：每帧至少办掉四分之一、至多 MustPerTick 个(快进时一个月只有十来帧，光按时限会越积越多)，其余按时限。
+        // 2026-11-24 群友"11/5 那版更流畅，之后越来越卡"：以前这四分之一不封顶，月初到期几十上百人时头几帧不看时限连办几十件，
+        // 每件都在主线程跑决议自己的条件(开战类还要搜目标)；积着没轮到的过两个月自己作废(见下 stale)，不会越积越多
         int due = 0;
         for (int i = _readyCursor; i < ReadyList.Count && ReadyList[i].due <= now; i++) due++;
-        int must = (due + 3) / 4;
+        int must = Math.Min((due + 3) / 4, MustPerTick);
         for (int n = 0; _readyCursor < ReadyList.Count; n++)
         {
             if (n >= must && (n >= DispatchPerTick || Clock.Elapsed.TotalMilliseconds > TickMilliseconds)) break;

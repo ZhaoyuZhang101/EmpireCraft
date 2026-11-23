@@ -90,6 +90,8 @@ public static class ConnectivitySystem
     private static readonly Dictionary<(long, long), (int revision, int zoneA, int zoneB, ConnectivityEdge edge)> EdgeCache = new();
     // 主线程按需算的单城最短路(每轮清空)
     private static readonly Dictionary<(int node, int mode), Dictionary<int, float>> CityPaths = new();
+    // 算的先后(满了从最早的丢起，见 PathsFrom)
+    private static readonly Queue<(int node, int mode)> CityPathOrder = new();
 
     // 后台线程：开不起来或卡住就改主线程切片
     private static Thread _thread;
@@ -129,6 +131,7 @@ public static class ConnectivitySystem
         ClearPass();
         EdgeCache.Clear();
         CityPaths.Clear();
+        CityPathOrder.Clear();
         _nodeCities = Array.Empty<City>();
         Volatile.Write(ref _queued, null);
         Version++;
@@ -596,6 +599,7 @@ public static class ConnectivitySystem
         _result = job.Result;
         _nodeCities = PassNodeCities.Count == job.Result.Nodes.Length ? PassNodeCities.ToArray() : ResolveCities(job.Result);
         CityPaths.Clear();
+        CityPathOrder.Clear();
         Version++;
         ConnectivityResult r = _result;
         LogService.LogInfo($"{LogTag} {r.Nodes.Length} 城、陆路 {r.LandEdges}(新寻路 {r.AStarRuns}、沿用 {r.Reused}、不通 {r.AStarFailed})、" +
@@ -866,8 +870,12 @@ public static class ConnectivitySystem
         ConnectivityTravel travel = TravelAt(node, mode);
         float cutoff = ConnectivityRules.CostFor(Config.min_strength, travel.Length, Config);
         paths = _result.From(node, travel, cutoff);
-        if (CityPaths.Count >= CityCacheLimit) CityPaths.Clear();
+        // 满了丢掉最早算的一半(2026-11-24)：以前整表清空，有谁挨个问遍全图的城(几百个源)，刚算好的又全丢、反复重算
+        if (CityPaths.Count >= CityCacheLimit)
+            for (int drop = CityCacheLimit / 2; drop > 0 && CityPathOrder.Count > 0; drop--)
+                CityPaths.Remove(CityPathOrder.Dequeue());
         CityPaths[(node, modeKey)] = paths;
+        CityPathOrder.Enqueue((node, modeKey));
         return paths;
     }
 

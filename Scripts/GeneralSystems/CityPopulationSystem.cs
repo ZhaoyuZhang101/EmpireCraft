@@ -456,10 +456,20 @@ public static class CityPopulationSystem
     private static readonly List<(City city, Kingdom owner)> AwaitingGrowth = new();
     private const int MaxAwaitingGrowth = 64;
 
+    // 收尾也限时(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：以前等着的城后台一算完，这里一帧里全部清点收尾
+    // (至多 MaxAwaitingGrowth 座，每座整城重建人群组)，不看时间；现在一帧至少收一座、收到 AwaitGrowthMs 毫秒为止，
+    // 剩下的下一帧接着收。独立核心没有画面要让，照旧一次收完
+    private const double AwaitGrowthMs = 1.5d;
+
     private static void CompleteAwaitingGrowth()
     {
+        bool limited = !SimulationFrameBudget.ServerMilliseconds.HasValue;
+        long started = Stopwatch.GetTimestamp();
+        int completed = 0;
         for (int i = AwaitingGrowth.Count - 1; i >= 0; i--)
         {
+            if (limited && completed > 0 &&
+                (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency >= AwaitGrowthMs) break;
             (City city, Kingdom owner) = AwaitingGrowth[i];
             if (city?.data == null || city.isRekt() || city.kingdom == null || city.kingdom != owner)
             {
@@ -469,6 +479,7 @@ public static class CityPopulationSystem
             }
             if (!PopulationParallelSystem.TryCompleteGrowth(city)) continue;
             AwaitingGrowth.RemoveAt(i);
+            completed++;
             try
             {
                 Census(city, Get(city), keepBackground: true);
