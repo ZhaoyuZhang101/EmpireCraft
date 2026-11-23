@@ -429,7 +429,9 @@ public static class DecisionSystem
         // 每件都在主线程跑决议自己的条件(开战类还要搜目标)；积着没轮到的过两个月自己作废(见下 stale)，不会越积越多
         int due = 0;
         for (int i = _readyCursor; i < ReadyList.Count && ReadyList[i].due <= now; i++) due++;
-        int must = Math.Min((due + 3) / 4, MustPerTick);
+        // 欠得久了才放开：排在最前的已经逾期半个月以上，照旧办四分之一、不封顶，免得一直卡着时到期的总办不上、两个月后成批作废
+        bool overdue = _readyCursor < ReadyList.Count && ReadyList[_readyCursor].due < now - 0.5d * Date.getMonthTime();
+        int must = overdue ? (due + 3) / 4 : Math.Min((due + 3) / 4, MustPerTick);
         for (int n = 0; _readyCursor < ReadyList.Count; n++)
         {
             if (n >= must && (n >= DispatchPerTick || Clock.Elapsed.TotalMilliseconds > TickMilliseconds)) break;

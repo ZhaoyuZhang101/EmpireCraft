@@ -167,8 +167,12 @@ public static class EmpireCraftStrategicScheduler
         // 帝国与王国也不至于一帧一个都轮不上(平常模式以前不受预算管，现在受管，见 FrameJobs)。
         // 2026-11-24 群友"11/5 那版更流畅，之后越来越卡"：以前这个不看预算的量是 minimum——按"两秒轮完一遍"照帧时长折出来的，
         // 三百国、一帧 100 毫秒就是 15 国，帧越慢硬干得越多(上限 64 国、32 个帝国)。现在不看预算的只留一两个，其余照旧看预算
-        int forcedEmpires = Math.Min(minimumEmpires, ForcedEmpiresPerFrame);
-        int forcedKingdoms = Math.Min(minimumKingdoms, ForcedKingdomsPerFrame);
+        // 落后了才追：上一遍轮完已经是 SweepDeadlineMonths 个游戏月以前，这一帧就照 minimum 硬干(见 Behind)。
+        // 没落后时帧再慢也不加码；只有真的积压了才加，赶上了又放回去——以前是帧一慢就加，不管欠没欠
+        _kingdomsBehind = Behind(ref _kingdomSweepAt);
+        bool empiresBehind = Behind(ref _empireSweepAt);
+        int forcedEmpires = empiresBehind ? minimumEmpires : Math.Min(minimumEmpires, ForcedEmpiresPerFrame);
+        int forcedKingdoms = _kingdomsBehind ? minimumKingdoms : Math.Min(minimumKingdoms, ForcedKingdomsPerFrame);
         int processedEmpires = 0;
         do
         {
@@ -210,6 +214,8 @@ public static class EmpireCraftStrategicScheduler
         _boundWorld = world;
         _kingdomCursor = 0;
         _empireCursor = 0;
+        _kingdomSweepAt = _empireSweepAt = -1d;
+        _kingdomsBehind = false;
         _nextCompatibilityRefresh = 0f;
         _nextStatePrune = 0f;
         KingdomStates.Clear();
@@ -280,12 +286,32 @@ public static class EmpireCraftStrategicScheduler
 
     private const int MinMajorsPerFrame = 1, ForcedEmpiresPerFrame = 1, ForcedKingdomsPerFrame = 2;
     private static int _majorCursor;
+    // 王国、帝国上一遍轮完的世界时间(游标绕回开头时记)；超过 SweepDeadlineMonths 个游戏月没轮完一遍算落后
+    private const int SweepDeadlineMonths = 2;
+    private static double _kingdomSweepAt = -1d, _empireSweepAt = -1d;
+    private static bool _kingdomsBehind;
+
+    private static bool Behind(ref double sweepAt)
+    {
+        double now = World.world.getCurWorldTime();
+        // 头一回、读了更早的存档：从现在起算
+        if (sweepAt < 0d || now < sweepAt)
+        {
+            sweepAt = now;
+            return false;
+        }
+        return Date.getMonthsSince(sweepAt) >= SweepDeadlineMonths;
+    }
 
     // 轮转到下一国(重要的国家另在前面过，这里跳过)
     private static bool ProcessNextKingdom(float realtime, IList<Kingdom> kingdoms)
     {
         if (kingdoms == null || kingdoms.Count == 0) return false;
-        if (_kingdomCursor >= kingdoms.Count) _kingdomCursor = 0;
+        if (_kingdomCursor >= kingdoms.Count)
+        {
+            _kingdomCursor = 0;
+            _kingdomSweepAt = World.world.getCurWorldTime();
+        }
         Kingdom kingdom = kingdoms[_kingdomCursor++];
         if (RealmPriority.IsMajor(kingdom)) return true;
         ProcessKingdom(realtime, kingdom, false);
@@ -341,9 +367,10 @@ public static class EmpireCraftStrategicScheduler
                     state.LastStrategicWorldTime = World.world.getCurWorldTime();
                     state.MonthlyPhase = 0;
                 }
-                // 各个检查分别续跑，不把正在执行的旧月度工作重置为下一月。重要的国家预算用完也至少推进一步
+                // 各个检查分别续跑，不把正在执行的旧月度工作重置为下一月。重要的国家预算用完也至少推进一步；
+                // 全图落后了(见 Behind)别的国家也至少推进一步——以前预算一直被用光时，寻常国家轮到了也一步不走，月度检查一直欠着
                 int steps = 0;
-                while (state.MonthlyPhase >= 0 && (SimulationFrameBudget.HasTime || major && steps == 0))
+                while (state.MonthlyPhase >= 0 && (SimulationFrameBudget.HasTime || (major || _kingdomsBehind) && steps == 0))
                 {
                     steps++;
                     switch (state.MonthlyPhase++)
@@ -396,7 +423,11 @@ public static class EmpireCraftStrategicScheduler
     private static bool ProcessNextEmpire(float realtime, IList<Empire> empires)
     {
         if (empires == null || empires.Count == 0) return false;
-        if (_empireCursor >= empires.Count) _empireCursor = 0;
+        if (_empireCursor >= empires.Count)
+        {
+            _empireCursor = 0;
+            _empireSweepAt = World.world.getCurWorldTime();
+        }
         Empire empire = empires[_empireCursor++];
         if (empire == null || empire.IsArchived() || empire.isRekt() ||
             AncientWarfareCompatibility.OwnsObject(empire)) return true;

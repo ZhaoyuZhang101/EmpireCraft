@@ -458,12 +458,14 @@ public static class CityPopulationSystem
 
     // 收尾也限时(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：以前等着的城后台一算完，这里一帧里全部清点收尾
     // (至多 MaxAwaitingGrowth 座，每座整城重建人群组)，不看时间；现在一帧至少收一座、收到 AwaitGrowthMs 毫秒为止，
-    // 剩下的下一帧接着收。独立核心没有画面要让，照旧一次收完
+    // 剩下的下一帧接着收。独立核心没有画面要让，照旧一次收完。
+    // 等着的积到上限的一半就不限时了：再积下去月结队列要停下来等(见 MaxAwaitingGrowth)，一帧只结得完一座城，
+    // 全图一遍又要拖上几年(那正是 11-16 修掉的毛病)
     private const double AwaitGrowthMs = 1.5d;
 
     private static void CompleteAwaitingGrowth()
     {
-        bool limited = !SimulationFrameBudget.ServerMilliseconds.HasValue;
+        bool limited = !SimulationFrameBudget.ServerMilliseconds.HasValue && AwaitingGrowth.Count < MaxAwaitingGrowth / 2;
         long started = Stopwatch.GetTimestamp();
         int completed = 0;
         for (int i = AwaitingGrowth.Count - 1; i >= 0; i--)
