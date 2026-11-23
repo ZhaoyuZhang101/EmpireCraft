@@ -1714,19 +1714,22 @@ public static class CorpsSystem
         {
             if (generals) EnsureGeneral(kingdom, corps);
             else RemoveGeneral(corps);
-            for (int beat = 0; beat < beats; beat++) MarchBeat(corps);
+            MarchBeat(corps, beats);
             MoveGeneral(corps);
         }
     }
 
-    // 一个军团走一拍(一个世界秒)
-    private static void MarchBeat(CorpsData corps)
+    // 一个军团走 beats 拍(一拍一个世界秒)。几拍的路程并成一次算(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：
+    // 以前欠几拍就把下面这一套(地形道路判速度、找目标地块、记插值)原样做几遍，快进时一帧八遍、几百支军就是几千遍；
+    // 现在速度与目标一帧判一次，进度一次加足 beats 拍，该迈几块照样迈几块(迈进新地块后兵牌按新地块的速度插值，
+    // 这一趟里剩下的路程仍按出发那块的速度算，差的那一点下一趟就按新地块算了)。船上的照旧一拍一步
+    private static void MarchBeat(CorpsData corps, int beats = 1)
     {
         if (corps.embarked)
         {
             // 在船上按船速走(见 Sail)
             MarchRates.Remove(corps.id);
-            StepTowardTarget(corps);
+            for (int beat = 0; beat < beats; beat++) StepTowardTarget(corps);
         }
         else
         {
@@ -1740,7 +1743,7 @@ public static class CorpsSystem
                 return value;
             }
             float speed = SpeedIn(Zone(corps));
-            corps.march_progress += speed;
+            corps.march_progress += speed * beats;
             int target = FrontSystem.TargetZone(corps)?.id ?? -1;
             bool blocked = MarchBlocked.TryGetValue(corps.id, out int blockedAt) && blockedAt == target;
             if (!blocked) MarchBlocked.Remove(corps.id);

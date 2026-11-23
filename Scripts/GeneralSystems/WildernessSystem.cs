@@ -2001,8 +2001,13 @@ public static class WildernessSystem
 
     private static float ClaimStep(TileZone zone) => Mathf.Max(1f, TerrainResistance.TerrainStep(zone));
 
+    // 上回认领时的局面(各城的地块数、所属国、远近；见 Claim 开头)
+    private static long _claimSign;
+
     private static void Claim(City[] before)
     {
+        // 到点例行的那一核(不是城没了、也不是刚重挂过法理)
+        bool routine = before == null && !_claimPending;
         _claimPending = false;
         _claimAt = Time.realtimeSinceStartup + ClaimSeconds;
         int size = Math.Min(_zones.Length, _regionOf.Length);
@@ -2021,6 +2026,22 @@ public static class WildernessSystem
             if (!reachOf.TryGetValue(kingdom, out float reach)) reachOf[kingdom] = reach = ReachOf(kingdom);
             return reach;
         }
+        // 局面没变就不重算(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：只要还有领不到的地，以前每 ClaimSeconds 秒把全图
+        // 从头认领一遍——按时代限了远近以后，前期地图上几乎一直有领不到的地，等于每半分钟卡一下。能让结果不同的只有
+        // 各城的地(扩张、建城、城没了)、城归哪国、那国眼下够得着多远；这些都没变，再算一遍也是原样
+        long sign = 1_469_598_103_934_665_603L ^ size ^ ((long)_regions.Count << 32);
+        foreach (City city in World.world.cities)
+        {
+            if (!ClaimSource(city)) continue;
+            float reach = Limit(city);
+            long entry = (1_469_598_103_934_665_603L ^ city.id) * 1_099_511_628_211L;
+            entry = (entry ^ (city.zones?.Count ?? 0)) * 1_099_511_628_211L;
+            entry = (entry ^ city.kingdom.id) * 1_099_511_628_211L;
+            entry = (entry ^ (float.IsInfinity(reach) ? -1L : (long)(reach * 16f))) * 1_099_511_628_211L;
+            sign += entry ^ (entry >> 32);
+        }
+        if (routine && sign == _claimSign) return;
+        _claimSign = sign;
         // 比较的底：挂法理以前各块认领的城(没有就是整理前的)；最后真换了城、远近变了的才算改了
         City[] reference = before ?? (City[])_parents.Clone();
         bool[] farBefore = (bool[])_far.Clone();
@@ -2092,12 +2113,20 @@ public static class WildernessSystem
             open.Add(id);
         }
         // 分完(远近以内)：一圈圈往里分，每圈同时定，免得先后顺序偏向哪座城；每块交给四邻里票最多、走得到的那座城
+        // 头一圈看全部放出来的地块，往后每圈只看上一圈刚被领走的地块的四邻：别的地块四周没变，再看也是原样。
+        // 以前每圈都把还没领到的全部地块扫一遍，领不到的越多、圈数越多越慢(几千块领不到、走几十圈，就是几十万次)
         var votes = new Dictionary<City, int>();
         var best = new Dictionary<City, float>();
-        for (int pass = 0; pass < ClaimPasses && open.Count > 0; pass++)
+        var waiting = new bool[size];
+        foreach (int id in open) waiting[id] = true;
+        var queued = new bool[size];
+        var frontier = new List<int>(open);
+        var upcoming = new List<int>();
+        var moves = new List<(int id, City city, float cost)>();
+        for (int pass = 0; pass < ClaimPasses && frontier.Count > 0; pass++)
         {
-            var moves = new List<(int id, City city, float cost)>();
-            foreach (int id in open)
+            moves.Clear();
+            foreach (int id in frontier)
             {
                 votes.Clear();
                 best.Clear();
@@ -2119,7 +2148,15 @@ public static class WildernessSystem
                     if (!best.TryGetValue(city, out float low) || through < low) best[city] = through;
                 }
                 if (votes.Count == 0) continue;
-                City pick = votes.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key.data.id).First().Key;
+                // 票最多的那座城，票一样取编号小的
+                City pick = null;
+                int most = 0;
+                foreach (KeyValuePair<City, int> pair in votes)
+                    if (pick == null || pair.Value > most || pair.Value == most && pair.Key.data.id < pick.data.id)
+                    {
+                        pick = pair.Key;
+                        most = pair.Value;
+                    }
                 moves.Add((id, pick, best[pick]));
             }
             if (moves.Count == 0) break;
@@ -2129,9 +2166,20 @@ public static class WildernessSystem
                 _titles[id] = city.GetTitle();
                 cost[id] = through;
                 claimed[id] = true;
+                waiting[id] = false;
             }
-            open.RemoveAll(id => claimed[id]);
+            upcoming.Clear();
+            foreach ((int id, City _, float _) in moves)
+                foreach (TileZone next in _zones[id].neighbours_all ?? Array.Empty<TileZone>())
+                {
+                    if (next == null || next.id < 0 || next.id >= size || !waiting[next.id] || queued[next.id]) continue;
+                    queued[next.id] = true;
+                    upcoming.Add(next.id);
+                }
+            foreach (int id in upcoming) queued[id] = false;
+            (frontier, upcoming) = (upcoming, frontier);
         }
+        open.RemoveAll(id => claimed[id]);
         foreach (int id in open) _parents[id] = kept[id];
         _anyFar = open.Count > 0;
         for (int id = 0; id < size; id++) _far[id] = Wild(id) && !claimed[id];

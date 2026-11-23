@@ -7,15 +7,15 @@ namespace EmpireCraft.Scripts.HelperFunc;
 
 // 所有后台队列共用预算。40 FPS = 25 ms，给原版模拟与绘制留出大部分时间。
 // 以前只在无小人模式下管(平常模式 HasTime 一律为真，挂在这里的二十来个系统不限时地跑)；现在两种模式都管，
-// 快进时按倍数放宽(至多三倍)，各系统的每帧入口按档排队见 FrameJobs(用户 2026-11-11 第一档③)
+// 各系统的每帧入口按档排队见 FrameJobs(用户 2026-11-11 第一档③)。
+// 预算不随游戏速度放大(2026-11-24 群友"11/5 那版更流畅，之后越来越卡")：11-11 起快进时按倍数放宽到三倍(3~12 毫秒)，
+// 帧一慢预算本来就按帧时长涨，再乘三倍，越卡后台干得越多；回到 Beta5 的 1~4 毫秒，快进时后台晚几帧结，不丢东西
 public static class SimulationFrameBudget
 {
     private static bool Enabled => true;
-    private const float MaxSpeedFactor = 3f;
     public static double BudgetMilliseconds => _budget;
     // 独立服务器(不带游戏的开服工具)：没有画面要画，每一步给后台的时间由它定(按世界流速放宽)；游戏里不设，照下面按帧算
     public static double? ServerMilliseconds;
-    public static float SpeedFactor { get; private set; } = 1f;
     public const double TargetFramesPerSecond = 40d;
     public const double TargetFrameMilliseconds = 1000d / TargetFramesPerSecond;
     private static int _frame = -1;
@@ -47,8 +47,7 @@ public static class SimulationFrameBudget
         _frame = Time.frameCount;
         _spent = 0d;
         _depth = 0;
-        SpeedFactor = Mathf.Clamp(Config.time_scale_asset?.multiplier ?? 1f, 1f, MaxSpeedFactor);
-        _budget = ServerMilliseconds ?? ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d)) * SpeedFactor;
+        _budget = ServerMilliseconds ?? ResolveMilliseconds(Math.Max(0d, Time.unscaledDeltaTime * 1000d));
         double seconds = Math.Max(0d, Time.unscaledDeltaTime);
         _sampleSeconds += seconds;
         _sampleFrames++;

@@ -23,6 +23,7 @@ public static class EmpireCraftStrategicScheduler
     {
         public double LastStrategicWorldTime = -1d;
         public float NextMembershipCheck;
+        public float NextFactionTick;
         public int MonthlyPhase = -1;
     }
 
@@ -162,15 +163,19 @@ public static class EmpireCraftStrategicScheduler
         // title scan on every physics tick.
         using (FrameProfiler.Measure("头衔管理")) ModClass.KINGDOM_TITLE_MANAGER?.update(0f);
 
-        // 每帧至少处理最少的那几个(minimum)，再看共享预算：前面的子系统、军团用光了预算时，帝国与王国也不至于一帧一个都轮不上
-        // (平常模式以前不受预算管，现在受管，见 FrameJobs)
+        // 预算用光了也至少过这么几个(ForcedEmpiresPerFrame、ForcedKingdomsPerFrame)：前面的子系统、军团用光了预算时，
+        // 帝国与王国也不至于一帧一个都轮不上(平常模式以前不受预算管，现在受管，见 FrameJobs)。
+        // 2026-11-24 群友"11/5 那版更流畅，之后越来越卡"：以前这个不看预算的量是 minimum——按"两秒轮完一遍"照帧时长折出来的，
+        // 三百国、一帧 100 毫秒就是 15 国，帧越慢硬干得越多(上限 64 国、32 个帝国)。现在不看预算的只留一两个，其余照旧看预算
+        int forcedEmpires = Math.Min(minimumEmpires, ForcedEmpiresPerFrame);
+        int forcedKingdoms = Math.Min(minimumKingdoms, ForcedKingdomsPerFrame);
         int processedEmpires = 0;
         do
         {
-            if (processedEmpires >= minimumEmpires && !SimulationFrameBudget.HasTime || !ProcessNextEmpire(realtime, empires)) break;
+            if (processedEmpires >= forcedEmpires && !SimulationFrameBudget.HasTime || !ProcessNextEmpire(realtime, empires)) break;
             processedEmpires++;
         }
-        while ((processedEmpires < minimumEmpires || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
+        while ((processedEmpires < forcedEmpires || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
             processedEmpires, minimumEmpires, maximumEmpires, ElapsedMilliseconds(started), Math.Max(MinimumEmpireBudgetMilliseconds,
                 budgetMilliseconds * EmpireBudgetShare)));
 
@@ -185,10 +190,10 @@ public static class EmpireCraftStrategicScheduler
         int processed = 0;
         do
         {
-            if (processed >= minimumKingdoms && !SimulationFrameBudget.HasTime || !ProcessNextKingdom(realtime, kingdoms)) break;
+            if (processed >= forcedKingdoms && !SimulationFrameBudget.HasTime || !ProcessNextKingdom(realtime, kingdoms)) break;
             processed++;
         }
-        while ((processed < minimumKingdoms || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
+        while ((processed < forcedKingdoms || SimulationFrameBudget.HasTime) && EmpireCraftFrameSchedulingRules.CanContinue(
             processed, minimumKingdoms, maximumKingdoms, ElapsedMilliseconds(started), budgetMilliseconds));
     }
 
@@ -273,7 +278,7 @@ public static class EmpireCraftStrategicScheduler
         }
     }
 
-    private const int MinMajorsPerFrame = 2;
+    private const int MinMajorsPerFrame = 1, ForcedEmpiresPerFrame = 1, ForcedKingdomsPerFrame = 2;
     private static int _majorCursor;
 
     // 轮转到下一国(重要的国家另在前面过，这里跳过)
@@ -306,7 +311,13 @@ public static class EmpireCraftStrategicScheduler
                 state.NextMembershipCheck = realtime + (0.5f + (Math.Abs(kingdom.id) % 8) * 0.025f) * Math.Max(1, SimulationStretch.Months);
             }
 
-            ProcessTemporaryFactions(kingdom);
+            // 重要的国家几乎每帧都过一遍(见上 majors)，诉求的倒计时却是过一遍减一(以前照轮转大约两秒一遍)：
+            // 帝国核心的诉求冷却因此快了几十倍。重要的国家按轮转原来的节奏、KingdomSweepTargetSeconds 秒才推一次
+            if (!major || realtime >= state.NextFactionTick)
+            {
+                if (major) state.NextFactionTick = realtime + (float)EmpireCraftFrameSchedulingRules.KingdomSweepTargetSeconds;
+                ProcessTemporaryFactions(kingdom);
+            }
             if (!CityPopulationSystem.AbstractPopulationEnabled) state.MonthlyPhase = -1;
             if (!CityPopulationSystem.AbstractPopulationEnabled &&
                 (state.LastStrategicWorldTime < 0d || Date.getMonthsSince(state.LastStrategicWorldTime) >= 1))
