@@ -26,7 +26,7 @@ public static class PartialEnfeoffment
     public const float ClientShare = 0.2f, ClientChance = 0.5f;
     public const float ApanageShare = 0.15f, ProvincialUlusShare = 0.3f;
     public const float KhanShare = 0.5f;
-    public const int UlusMinRealmCities = 6, UlusMandate = 3;
+    public const int UlusMinRealmCities = 3, UlusMandate = 3;
     public const float GrantIntervalYears = 1f;
 
     // ───── 规则(纯函数，回归测这几样) ─────
