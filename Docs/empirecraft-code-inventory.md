@@ -1,0 +1,3371 @@
+# EmpireCraft 代码结构清单
+
+> 从 Scripts 下 C# 源码自动提取，供机制检索。只列声明和方法签名，不复制实现。
+
+
+## AI
+
+- `AI\ActorAI\EmpireCaftActorJudgeClass.cs`
+  - 类型：EmpireCaftActorJudgeClass
+  - 方法：IsNoble、JudgeClass、IsManualWorkerJob
+- `AI\ActorAI\EmpireCraftActorAddLover.cs`
+  - 类型：EmpireCraftActorAddLover
+- `AI\ActorAI\EmpireCraftActorCheckCity.cs`
+  - 类型：EmpireCraftActorCheckCity
+- `AI\ActorAI\EmpireCraftActorCheckEmperrorBaby.cs`
+  - 类型：EmpireCraftActorCheckEmperorBaby
+- `AI\ActorAI\EmpireCraftActorCheckEmpireLaw.cs`
+  - 类型：EmpireCraftActorCheckEmpireLaw
+- `AI\ActorAI\EmpireCraftActorCheckFaction.cs`
+  - 类型：EmpireCraftActorCheckFaction
+  - 方法：EnrollOfficials、TryJoin
+- `AI\ActorAI\EmpireCraftActorCheckOffice.cs`
+  - 类型：EmpireCraftActorCheckOffice
+- `AI\ActorAI\EmpireCraftActorCheckSkeleton.cs`
+  - 类型：EmpireCraftActorCheckSkeleton
+- `AI\ActorAI\EmpireCraftActorCheckTax.cs`
+  - 类型：EmpireCraftActorCheckTax
+  - 方法：SettleVirtualCity、SettleCity、Submit
+- `AI\ActorAI\EmpireCraftActorCheckTraits.cs`
+  - 类型：EmpireCraftActorCheckTraits
+- `AI\ActorAI\EmpireCraftActorCheckWarrior.cs`
+  - 类型：EmpireCraftActorCheckWarrior、CityRecruitState、KingdomRecruitJob
+  - 方法：ClearRuntimeState、QueueWarStartFill、ProcessEmergencyRecruitmentJobs、ProcessArmyPopulationMaintenance、RequestDemobilizationCheck、GetAllCenterArmy、CountAllCenterArmy
+- `AI\ActorAI\EmpireCraftActorCheckWarriorMove.cs`
+  - 类型：EmpireCraftActorCheckWarriorMove、MobilizeEntry、TaxiEntry、FrontZoneCacheEntry、ActorMoveState
+  - 方法：ClearRuntimeState、QueueKingdomMobilizationOnWarStart、QueueActorForWarMobilization、ProcessQueuedMovementJobs、FindTargetZone、FindEnemyWarriorInZone
+- `AI\ActorAI\EmpireCraftActorCheckWarriorMoveAdvanced.cs`
+  - 类型：EmpireCraftActorCheckWarriorMoveAdvanced
+  - 方法：ClearRuntimeState、TryGetFrontLineMoveTileForActor、HandleCurrentZoneWarState、FindEnemyWarriorInZone
+- `AI\ActorAI\GameAIActorBase.cs`
+  - 类型：GameAIActorBase
+- `AI\CityAI\EmpireCraftCityBehCheckArmy.cs`
+  - 类型：EmpireCraftCityBehCheckArmy
+  - 方法：CreateNewArmy
+- `AI\CityAI\EmpireCraftCityBehCheckJoinRebellion.cs`
+  - 类型：EmpireCraftCityBehCheckJoinRebellion
+- `AI\CityAI\EmpireCraftCityBehCheckLaw.cs`
+  - 类型：EmpireCraftCityBehCheckLaw
+- `AI\CityAI\EmpireCraftCityBehCheckLeader.cs`
+  - 类型：EmpireCraftCityBehCheckLeader
+- `AI\CityAI\EmpireCraftCityBehCheckLovers.cs`
+  - 类型：EmpireCraftCityBehCheckLovers
+- `AI\CityAI\EmpireCraftCityBehCheckOffice.cs`
+  - 类型：EmpireCraftCityBehCheckOffice
+  - 方法：UpdateOffice
+- `AI\CityAI\EmpireCraftCityBehCheckReligion.cs`
+  - 类型：EmpireCraftCityBehCheckReligion
+- `AI\CityAI\EmpireCraftCityBehCheckTax.cs`
+  - 类型：EmpireCraftCityBehCheckTax
+- `AI\CityAI\EmpireCraftCityBehCheckTitle.cs`
+  - 类型：EmpireCraftCityBehCheckTitle
+- `AI\CityAI\EmpireCraftCityBehProduceBoat.cs`
+  - 类型：EmpireCraftBehCheckBoat
+- `AI\CityAI\EmpireCraftCityCombineHouses.cs`
+  - 类型：EmpireCraftCityCombineHouses
+- `AI\CityAI\GameAICityBase.cs`
+  - 类型：GameAICityBase
+- `AI\EmpireAI\EmpireCraftEmpireBehCheckCabinet.cs`
+  - 类型：EmpireCraftEmpireBehCheckCabinet
+  - 方法：IsCabinetControlEmpire、SetCabinetForLvLing、SetCabinetForFeudalism
+- `AI\EmpireAI\EmpireCraftEmpireBehCheckInnerOffice.cs`
+  - 类型：EmpireCraftEmpireBehCheckInnerOffice
+  - 方法：CheckOfficePower、SelectOfficer
+- `AI\EmpireAI\EmpireCraftEmpireBehCheckMandate.cs`
+  - 类型：EmpireCraftEmpireBehCheckMandate
+- `AI\EmpireAI\EmpireCraftEmpireBehCheckPeerages.cs`
+  - 类型：EmpireCraftEmpireBehCheckPeerages
+- `AI\EmpireAI\EmpireCraftEmpireBehSyncMapView.cs`
+  - 类型：EmpireCraftEmpireBehSyncMapView
+- `AI\EmpireAI\GameAIEmpireBase.cs`
+  - 类型：GameAIEmpireBase
+- `AI\EmpireCraftOpinionAddition.cs`
+  - 类型：EmpireCraftOpinionAddition
+  - 方法：init
+- `AI\EmpireCraftPlotsAddition.cs`
+  - 类型：EmpireCraftPlotsAddition
+  - 方法：init、BecomeEmpireAndStartEnfeoff、SkipsWarPlotRulerGate、UsesVanillaWarPlot、CanInitiateNormalWar、GetWarTarget
+- `AI\GameAIMain.cs`
+  - 类型：GameAIMain
+  - 方法：KingdomAIs、KingdomMindAIs、EmpireAIs、CityAIs、ActorAIs
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckCentreArmy.cs`
+  - 类型：EmpireCraftKingdomBehCheckCentreArmy
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckEmpire.cs`
+  - 类型：EmpireCraftKingdomBehCheckEmpire
+  - 方法：CheckCorruption、SyncData、CalcMilitaryExpenditure、CheckPossible、CanStartEmpireFormation、CheckEmpireAlliance
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckEmpireLaw.cs`
+  - 类型：EmpireCraftKingdomBehCheckEmpireLaw
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckExam.cs`
+  - 类型：EmpireCraftKingdomBehCheckExam
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckHeir.cs`
+  - 类型：EmpireCraftKingdomBehCheckHeir、ChildRepairState
+  - 方法：PrepareForSuccession、ReplaceBarredHeir、PredecessorOf、static、SexEligible、HeirCandidates、HeirCandidateCount、ForeignRuler、MaleOnlyThrone、BarredBySex
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckKing.cs`
+  - 类型：EmpireCraftKingdomBehCheckKing
+  - 方法：ResetWorldState、NeedSuccession、ChooseKingFromHeir、TryToGiveGoldenTooth、MakeKingAndMoveToCapital
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckKingdomType.cs`
+  - 类型：ConditionType、EmpireCraftKingdomBehCheckKingdomType
+  - 方法：SyncKingdomStatus、CalcCityType、GetCityNamingSetting、CalcKingdomType、IsHereditaryGarrison
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckPlots.cs`
+  - 类型：EmpireCraftKingdomBehCheckPlots
+  - 方法：CheckMainTitle、CheckProgress、CheckRebellionWar、CheckJoinReligionWar、CheckJoinWar、ResetWorldState
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckReligionKingdom.cs`
+  - 类型：EmpireCraftKingdomBehCheckReligionKingdom
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckTax.cs`
+  - 类型：EmpireCraftKingdomBehCheckTax
+- `AI\KingdomAI\EmpireCraftKingdomBehCheckTemporaryFaction.cs`
+  - 类型：EmpireCraftKingdomBehCheckTemporaryFaction
+  - 方法：CheckTf
+- `AI\KingdomAI\GameAIKingdomBase.cs`
+  - 类型：GameAIKingdomBase
+- `AI\KingdomMindAI\EmpireCraftKingdomBehCheckCentreMind.cs`
+  - 类型：EmpireCraftKingdomBehCheckCentreMind
+- `AI\KingdomMindAI\GameAIKingdomMindBase.cs`
+  - 类型：GameAIKingdomMindBase
+
+## Compatibility
+
+- `Compatibility\AncientWarfareCompatibility.cs`
+  - 类型：AncientWarfareCompatibility、LevelCache
+  - 方法：Refresh、Owns、BlocksEmpireFormation、OwnsObject、OwnsAny
+- `Compatibility\AncientWarfareIsolation.cs`
+  - 类型：AncientWarfareIsolation
+  - 方法：EnableWhenAvailable、InstallWhenReady、CaptureOriginalCallbacks、Install
+- `Compatibility\AncientWarfareNameplates.cs`
+  - 类型：AncientWarfareNameplates
+  - 方法：Install
+- `Compatibility\AncientWarfareNaming.cs`
+  - 类型：AncientWarfareNaming
+  - 方法：Install、IsNamingCallback、RemoveNamingPatches、UsesEmpireNames
+- `Compatibility\AncientWarfareRules.cs`
+  - 类型：AncientWarfareRules
+  - 方法：OwnsKingdom、IsXia
+- `Compatibility\CompatLocalization.cs`
+  - 类型：CompatLocalization
+  - 方法：Initialize、AfterSetLanguage、Apply
+- `Compatibility\NuclearDoctrineSystem.cs`
+  - 类型：NuclearDoctrineSystem
+  - 方法：TryYearlyScan、IsNuclearPower、IsRenounced、IsResearchBanned、BlocksNuclearUse、DeterrenceOpinion、IsDeterred
+- `Compatibility\WarBoxCompatibility.cs`
+  - 类型：WarBoxCompatibility
+  - 方法：FillMissingTraitIcons、EnsureApplied、AreBound、BeforeSetRelation、BeforePactBlock、BeforeDiplomacyEventRecord、BeforeDiplomacyEventChronicle、AfterHasTreaty、BeforeWarSpoils、BeforeRequestPeace
+- `Compatibility\WarBoxGeneralStaff.cs`
+  - 类型：WarBoxCompatibility、EmpireStaffCache
+  - 方法：BeforeGetGeneralStaff、BeforeStaffSidebar、BeforeRenderStaff
+- `Compatibility\WarBoxResourcePatch.cs`
+  - 类型：WarBoxResourcePatch
+  - 方法：Initialize、EnsureApplied、BeforeMobilizationFinish、BeforeGunpowderMill、AfterCanProduce、KingdomUranium、AfterNuclearCanStart、BeforeStartPaidPlot、AfterStartPaidPlot
+- `Compatibility\WarBoxVehicles.cs`
+  - 类型：WarBoxCompatibility
+  - 方法：IsMilitaryVehicle、VirtualVehicles、SweepVehicles、LoseVehicles
+
+## Data
+
+- `Data\CityPopulationData.cs`
+  - 类型：PopGroup、CityPopulationData
+  - 方法：SameKind、ShouldSerializecivilian_wallet_reserve
+- `Data\CityStabilityData.cs`
+  - 类型：CityStabilityData
+- `Data\CityWorks.cs`
+  - 类型：WorkLot、CityWorks、WorksSummary
+  - 方法：ShouldSerializebuilding、ShouldSerializebuilding_zone、ShouldSerializeprogress
+- `Data\ColonyState.cs`
+  - 类型：ColonyState
+- `Data\ConfigActions.cs`
+  - 类型：ConfigActions
+  - 方法：SwitchTitleFreezeCallBack、TextTitleBeenDestroyCallBack、TitleMaxCitiesCallBack、TitleShareLimitCallBack、CoreShareLimitCallBack、TianxiaShareLimitCallBack、CityMaxZonesCallBack、SettlementBaseGoldCallBack、SettlementPerCityGoldCallBack、SettlementReserveGoldCallBack
+- `Data\ConfigData.cs`
+  - 类型：ConfigData
+- `Data\ConstitutionalEconomyState.cs`
+  - 类型：CompletedTradeVoyage、ParliamentBillRecord、ParliamentSeat、ProvincePolitics、GovernmentAgenda、IdeologyPressureSource、ConstitutionalEconomyState
+- `Data\ConstitutionData.cs`
+  - 类型：ConstitutionFormOfState、ConstitutionPowerCenter、ConstitutionHeadSelection、ConstitutionSuffrage、ConstitutionPartySystem、ConstitutionTerritory、ConstitutionEconomy、ConstitutionReligion、ConstitutionEmergency、ConstitutionAmendment
+  - 方法：Clone
+- `Data\CorpsData.cs`
+  - 类型：CorpsData
+- `Data\CourtState.cs`
+  - 类型：CourtState、CourtSuccession、CourtSuccessionCandidate、CourtFactionState、CourtDeal、CourtTerm、CourtMemorial、CourtScaleFactor、CourtMemorialRecord、CourtLogEntry
+- `Data\CultureRules.cs`
+  - 类型：CultureRule、Setting、GrandNameSetting、SettlementSetting、ConstitutionSetting、PartySetting、UnitSetting、FamilySetting、ClanSetting、KingdomSetting
+  - 方法：ReadSetting、CultureRuleFiles、GetCultureColor、GetInstitutionLine、GetTianxiaId、HasExplicitTianxia、GetUnificationDrive、HasPoliticalTrait、IsNomadCulture、GetCultureTranslate
+- `Data\CultureTechState.cs`
+  - 类型：CultureTechState、RealmTechState
+  - 方法：Has、Adopt
+- `Data\DataManager.cs`
+  - 类型：DataManager
+  - 方法：ResetCurrentSaveDataPath、LoadAll、SaveAll
+- `Data\ExclaveMaintenanceData.cs`
+  - 类型：ExclaveMaintenanceData
+- `Data\FactorySite.cs`
+  - 类型：FactorySite、FactoryUnit
+- `Data\FleetData.cs`
+  - 类型：FleetData
+- `Data\HolyRomanData.cs`
+  - 类型：HolyRomanState、PawnRecord、MediatizationRecord、ElectionRecord、PrivateWarRecord、LawsuitRecord、AuthorityEntry、DietRecord
+- `Data\InstitutionConfig.cs`
+  - 类型：InstitutionGlobalConfig、ConstitutionConfig、InstitutionLineConstitutionConfig、InstitutionReformCompetitionConfig、InstitutionSocialUnrestConfig、InstitutionAbsorptionRuleConfig、InstitutionCultureLevelConfig、InstitutionTreeConfig、InstitutionTemplateFileConfig、InstitutionNodeConfig
+  - 方法：Normalize、DefaultCultureLevels
+- `Data\InstitutionState.cs`
+  - 类型：InstitutionReformStage、CultureInstitutionState、InstitutionEmpireState、InstitutionReformState、InstitutionStateNormalizer
+  - 方法：Normalize
+- `Data\IslamicSchismData.cs`
+  - 类型：IslamicSchismState、RivalCaliphateData、ReformMovementData
+- `Data\LegionPopulationData.cs`
+  - 类型：LegionPopulationContribution、LegionPopulationRules
+  - 方法：Add、Merge、Total、ReduceTo
+- `Data\MilitaryAccessData.cs`
+  - 类型：MilitaryAccessData、MilitaryAccessGrant
+- `Data\PapacyData.cs`
+  - 类型：KnightOrderData、PapalRelationState、PapalSchismData、RivalPopeRecord、SplitOriginData
+- `Data\ParallelSaveWriter.cs`
+  - 类型：ParallelSaveWriter、Piece
+  - 方法：Write
+- `Data\PopulationSettlementRules.cs`
+  - 类型：PopulationSettlementRules
+  - 方法：SynchronizeMode、FoodSatisfaction
+- `Data\RealmNameData.cs`
+  - 类型：JingRecord
+- `Data\RebellionCauseData.cs`
+  - 类型：RebellionCauseData
+- `Data\ReligionTenetConfig.cs`
+  - 类型：ReligionTenetFile、ReligionHomeConfig、ReligionSyncretismConfig、ReligionRevelationConfig、ReligionTenetDef
+- `Data\RoadTreatyData.cs`
+  - 类型：RoadTreatyData
+- `Data\RuralSettlement.cs`
+  - 类型：RuralSettlement
+- `Data\SaveData.cs`
+  - 类型：SaveData
+- `Data\SettingGroups.cs`
+  - 类型：SettingGroups
+  - 方法：OfSetting、OfLaw
+- `Data\StateBond.cs`
+  - 类型：StateBond
+- `Data\StateSettlementData.cs`
+  - 类型：StateSettlementData、CityResettlementProject、StateSettlementProject、SettlementRoutePoint、SettlementMigration、SettlementCargo
+- `Data\SteppeData.cs`
+  - 类型：SteppeState、PastureFeudState、RaidWarState
+- `Data\TalentData.cs`
+  - 类型：TalentKind、TalentRank、TalentFall、TalentRecord、TalentSaveData
+- `Data\TechDriveState.cs`
+  - 类型：TechDriveState、TechDriveRecord
+- `Data\TransmigrantState.cs`
+  - 类型：TransmigrantState、SenatorSeat
+- `Data\TreasuryData.cs`
+  - 类型：TreasuryData、TreasuryPeriod
+- `Data\WalletReserve.cs`
+  - 类型：WalletReserve
+- `Data\WarObjectiveData.cs`
+  - 类型：WarChronicleEntry、ResourceTribute
+- `Data\WarReparation.cs`
+  - 类型：WarReparation
+- `Data\ZhouEraState.cs`
+  - 类型：ZhouEraState
+
+## Diagnostics
+
+- `Diagnostics\BugReportService.cs`
+  - 类型：BugReportSendStatus、BugReportSendResult、BugReportService、ReportFile、UploadReceipt、ReportEnvironment
+  - 方法：FindPlayerLog、Send、BeginSend、GetSendSnapshot、FindEmpireCraftSaveData、GetModAuthor、OpenPlayerLogFolder、OpenEmpireCraftSaveFolder
+- `Diagnostics\EmpireCraftDebugProbe.cs`
+  - 类型：EmpireCraftDebugProbeSettings、EmpireCraftDebugProbe
+  - 方法：Initialize、Hit、Observe
+- `Diagnostics\EmpireCraftUpdateService.cs`
+  - 类型：EmpireCraftUpdateStatus、EmpireCraftUpdateSnapshot、EmpireCraftUpdateService、UpdateManifest、PendingSwap
+  - 方法：Initialize、GetSnapshot、SetManualPackageMode、SetArchiveCurrentVersion、CheckForUpdates、DownloadAndInstall、OpenModsFolder、OpenArchivedVersionsFolder、EnableTls12、CompareVersions
+- `Diagnostics\EmpireLossDiagnostics.cs`
+  - 类型：EmpireLossDiagnostics、Snapshot
+  - 方法：OnLoaded、OnCoreMoved、OnDissolveSkipped、OnDissolving、Tick
+- `Diagnostics\FrameProfiler.cs`
+  - 类型：FrameProfiler、Sample、Scope
+  - 方法：Scope、Dispose、SetEnabled、Measure、Record、FrameTick、Reset
+- `Diagnostics\NativeBenchmarkSnapshot.cs`
+  - 类型：NativeBenchmarkSnapshot
+  - 方法：Record、ActorPrefixOwners
+- `Diagnostics\PerformanceTraceFile.cs`
+  - 类型：PerformanceTraceFile
+  - 方法：Configure、Record
+- `Diagnostics\PerfTimer.cs`
+  - 类型：PerfTimer
+  - 方法：PerfTimer、Dispose、Begin、Slow、Warn
+- `Diagnostics\SaveIntegrityChecker.cs`
+  - 类型：SaveIntegrityChecker
+  - 方法：Run
+- `Diagnostics\StackGuard.cs`
+  - 类型：StackGuard
+  - 方法：Probe
+- `Diagnostics\TextureUploadCounter.cs`
+  - 类型：TextureUploadCounter、Tally
+  - 方法：EnsurePatched、BeforeApply、BeforeWrite32、BeforeWrite、AfterCall、BuildReport、Reset
+
+## Enums
+
+- `Enums\CustomDataType.cs`
+  - 类型：CustomDataType
+- `Enums\EmpireCraftMapMode.cs`
+  - 类型：EmpireCraftMapMode
+- `Enums\EmpireExamLevel.cs`
+  - 类型：EmpireExamLevel
+- `Enums\EmpireHeirLawType.cs`
+  - 类型：EmpireHeirLawType
+- `Enums\EmpireHistoryType.cs`
+  - 类型：EmpireHistoryType
+- `Enums\EmpirePeriod.cs`
+  - 类型：EmpirePeriod
+- `Enums\OnomasticsType.cs`
+  - 类型：OnomasticsType、OnomasticsTypeExtensions
+  - 方法：ToStringList、GetDescription
+- `Enums\PeeragesLevel.cs`
+  - 类型：PeeragesLevel、PeerageType、countryLevel
+- `Enums\SuccessionLawType.cs`
+  - 类型：SuccessionLawType
+- `Enums\WarType.cs`
+  - 类型：WarGoal、EmpireWarType
+
+## GameClassExtensions
+
+- `GameClassExtensions\ActorExtension.cs`
+  - 类型：Name、OfficeIdentity、PerformanceEventType、ActorExtension、ActorExtraData
+  - 方法：has_whole_name、hasFamilyName、hasFirstName、hasCulture、Initialize、SetName、RepairOrder、init、GetHonoraryOfficialName、EnterCabinet
+- `GameClassExtensions\BookExtension.cs`
+  - 类型：BookExtension、BookExtraData
+  - 方法：TryGetIdeologyTreatise、GetOrCreate、TryGetLandmark
+- `GameClassExtensions\CityExtension.cs`
+  - 类型：CityExtension、CityExtraData
+  - 方法：ShouldSerializeshared_titles、ShouldSerializedejure_last_title、ShouldSerializecontested_claims、ShouldSerializedisaster_level、ShouldSerializedisaster_until、ShouldSerializedisaster_kind、ShouldSerializeplan_zones_in、ShouldSerializeplan_zones_out、ShouldSerializeplan_palace_zone、ShouldSerializeplan_walls
+- `GameClassExtensions\ClanExtension.cs`
+  - 类型：ClanExtension、ClanExtraData
+  - 方法：GetOrCreate、HasSpecificClan、GetSpecificClan、SetSpecificClan、RemoveSpecificClan、GetMemberSurname、GetClanName、HasHistoryEmpire、ClearHistoricalName、GetHistoryEmpireName
+- `GameClassExtensions\ExtensionBase.cs`
+  - 类型：ExtensionBase
+- `GameClassExtensions\ExtensionManager.cs`
+  - 类型：ExtensionManager
+  - 方法：GetOrCreate、Update、Remove、Clear
+- `GameClassExtensions\ExtraDataBase.cs`
+  - 类型：ExtraDataBase
+- `GameClassExtensions\FamilyExtension.cs`
+  - 类型：FamilyExtension、FamilyExtraData
+  - 方法：ApplyCulture、HasCultureApplied、GetOrCreate
+- `GameClassExtensions\KingdomExtension.cs`
+  - 类型：TemporaryPushProgress、KingdomExtension、KingdomExtraData
+  - 方法：CalcPolicyProgressAdd、GetPusher、AddSupporter、HasSupporter、Stop、StartToPush、Push、ConsumeInfluenceAndCalcAdd、PushOneMonths、Execute
+- `GameClassExtensions\MetaTypeExtension.cs`
+  - 类型：MetaTypeExtension
+  - 方法：ToMetaString
+- `GameClassExtensions\ReligionExtension.cs`
+  - 类型：ReligionExtension、ReligionExtraData、SyncreticTenetData、ReligionHeadRecord、ReligionEventData
+  - 方法：GetOrCreate、GetLeader、SetLeader、SetCity、GetCity
+- `GameClassExtensions\StringExtensions.cs`
+  - 类型：StringExtensions
+  - 方法：ColorString、LocalFormat
+- `GameClassExtensions\UnitProfessionExtension.cs`
+  - 类型：UnitProfessionExtension
+- `GameClassExtensions\WarExtension.cs`
+  - 类型：WarExtension、WarExtraData
+  - 方法：SetEmpireWarType、GetTitleTarget、IsMainDefenderEliminated、AreAllDeJureTitleZonesControlledByAttackers、InitializeLegitimacyChallenge、HasLegitimacyOccupationThreshold、GetEmpireTarget、GetEmpireWarType、GetEmpireFaction、GetOrCreate
+
+## GameLibrary
+
+- `GameLibrary\EmpireCraftActorAssetLibrary.cs`
+  - 类型：EmpireCraftActorAssetLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftActorTraitGroupLibrary.cs`
+  - 类型：EmpireCraftActorTraitGroupLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftActorTraitLibrary.cs`
+  - 类型：EmpireCraftActorTraitLibrary
+  - 方法：init、been_soldier、been_elite_soldier
+- `GameLibrary\EmpireCraftBehaviourTaskActorLibrary.cs`
+  - 类型：EmpireCraftBehaviourTaskActorLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftBehaviourTaskLibrary.cs`
+  - 类型：EmpireCraftBehaviourTaskLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftBuildingLibrary.cs`
+  - 类型：EmpireCraftBuildingLibrary
+  - 方法：BuildingCulture、init
+- `GameLibrary\EmpireCraftCitizenJobLibrary.cs`
+  - 类型：EmpireCraftCitizenJobLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftHistoryDataLibrary.cs`
+  - 类型：EmpireCraftHistoryDataLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftHotKeyLibrary.cs`
+  - 类型：EmpireCraftHotKeyLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftLegalityLibrary.cs`
+  - 类型：LegalProperty、EmpireCraftLegalityLibrary
+  - 方法：GetSum、Add、init
+- `GameLibrary\EmpireCraftLoyaltyLibrary.cs`
+  - 类型：EmpireCraftLoyaltyLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftMetaTypeLibrary.cs`
+  - 类型：EmpireCraftMetaTypeLibrary
+  - 方法：init、AddTianxiaMeta、AddCityViewMeta、AddMineralMeta、AddNationMeta、AddWealthMeta、AddEdificationMeta、AddMarketMeta、AddGovernanceMeta、AddIdeologyMeta
+- `GameLibrary\EmpireCraftNamePlateLibrary.cs`
+  - 类型：EmpireCraftNamePlateLibrary、CultureMapColor
+  - 方法：RequestRefresh、ResetWorldState、init、GetIdeologyColorAsset、ConfigureIdeologyMapAsset、TryGetRulingIdeology、showTextCultureForCity、TryCultureLayerMeta、GetDisplayName、showTextKingdom
+- `GameLibrary\EmpireCraftQuantumSpriteLibrary.cs`
+  - 类型：EmpireCraftQuantumSpriteLibrary
+  - 方法：init、ShowEmpireZones
+- `GameLibrary\EmpireCraftTooltipLibrary.cs`
+  - 类型：EmpireCraftTooltipLibrary、IdeologyRegionSummary
+  - 方法：init、showKingdom、showTitleList、showEmpireToolTip、showKingdomTitleToolTip、showEmpireCoreToolTip
+- `GameLibrary\EmpireCraftWarshipLibrary.cs`
+  - 类型：EmpireCraftWarshipLibrary
+  - 方法：init、IdFor
+- `GameLibrary\EmpireCraftWorldLawGroupLibrary.cs`
+  - 类型：EmpireCraftWorldLawGroupLibrary
+  - 方法：init
+- `GameLibrary\EmpireCraftWorldLawLibrary.cs`
+  - 类型：EmpireCraftWorldLawLibrary
+  - 方法：init、Apply、ResetToDefaults、RefreshLaws
+- `GameLibrary\EmpireCraftWorldLogLibrary.cs`
+  - 类型：EmpireCraftWorldLogLibrary
+  - 方法：init
+- `GameLibrary\IdeologyTraitIcons.cs`
+  - 类型：IdeologyTraitIcons
+  - 方法：Path、Register
+
+## GamePatches
+
+- `GamePatches\ActorPatch.cs`
+  - 类型：ActorPatch
+  - 方法：Initialize、CheckInside、ShowWhisperTip、BeforeAddMoney、AddMoney、RecordBoatTradeArrival、BeforeTradeUnload、AfterTradeUnload、BeforeGatherUnload、AfterGatherUnload
+- `GamePatches\ActorTextureSubAssetPatch.cs`
+  - 类型：ActorTextureSubAssetPatch
+  - 方法：Initialize、getUnitTexturePath、RepairAnimationContainer、CalculateMainSpriteFinalizer
+- `GamePatches\AlliancePatch.cs`
+  - 类型：AlliancePatch
+  - 方法：Initialize、can_join
+- `GamePatches\ArmyPatch.cs`
+  - 类型：ArmyPatch
+  - 方法：Initialize、attacking_zone_available、load_captains、save
+- `GamePatches\BabyHelperPatch.cs`
+  - 类型：BabyHelperPatch
+  - 方法：Initialize、MakeBaby、JudgeBabyJoinMainParent、ApplyParentsMeta、CheckReproduction、SpawnBabyFromSpore、MakeBabyFromMiracle、ActionBabyFinish、IsMetaLimitsReached、CanMakeBabies
+- `GamePatches\BoatLanePatch.cs`
+  - 类型：BoatLanePatch
+  - 方法：Initialize
+- `GamePatches\BuildingMinimapPatch.cs`
+  - 类型：BuildingMinimapPatch
+  - 方法：Initialize、GetColorForMinimapPrefix
+- `GamePatches\BuildingPatch.cs`
+  - 类型：BuildingPatch
+  - 方法：Initialize、UpdateStats、GetHit
+- `GamePatches\CaptureSpeedPatch.cs`
+  - 类型：CaptureSpeedPatch
+  - 方法：Initialize
+- `GamePatches\CityAIThrottlePatch.cs`
+  - 类型：CityAIThrottlePatch
+  - 方法：Initialize
+- `GamePatches\CityBehBorderShrinkPatch.cs`
+  - 类型：CityBehBorderShrinkPatch
+  - 方法：Initialize、execute
+- `GamePatches\CityBuildSafetyPatch.cs`
+  - 类型：CityBuildSafetyPatch
+  - 方法：Initialize、ExecuteFinalizer、ResolveOrderBuilding、AfterGetActorAsset、BeforeCalcPossibleBuildings、BeforeBuildTick
+- `GamePatches\CityCenterPatch.cs`
+  - 类型：CityCenterPatch
+  - 方法：Initialize、Prefix、Postfix、AfterUpdateCityCenter
+- `GamePatches\CityExpansionPatch.cs`
+  - 类型：CityExpansionPatch、ManualScope
+  - 方法：Initialize、AtLimit、BeginManual、EndManual、Manual、Dispose、CanAddZone、AfterAddZone、AfterCanStartCityHere、CanClaimZone
+- `GamePatches\CityLedgerPatch.cs`
+  - 类型：CityLedgerPatch
+  - 方法：Initialize、BeforeSupply、AfterAttackZone、AfterCountType、AfterCountId、AfterCountAll、AfterHasType、AfterStatus、AfterMaxHouses、AfterHasSuitableFood
+- `GamePatches\CityPatch.cs`
+  - 类型：CityPatch
+  - 方法：Initialize、CanUseBuildAsset、GetHouseLimit、AddCapturePoints、getMainSubspecies、TryToMakeWarrior、FinishedCapture、countWarriors、getPopulationPeople、isArmyOverLimit
+- `GamePatches\CityWindowPatch.cs`
+  - 类型：CityWindowPatch
+  - 方法：Initialize、showStatsRows、startShowingWindow、AddSettingTab、CreateCitySettingContent、OpenCityNameHistoryWindow、InputCityPopLimit、LimitationToggleSwitch
+- `GamePatches\CivilianProtectionPatch.cs`
+  - 类型：CivilianProtectionPatch
+  - 方法：Initialize
+- `GamePatches\ClanPatch.cs`
+  - 类型：ClanPatch
+  - 方法：Initialize、removeData、set_clan_name
+- `GamePatches\ClanWindowPatch.cs`
+  - 类型：ClanWindowPatch
+  - 方法：Initialize、onNameChange
+- `GamePatches\CorpsPatch.cs`
+  - 类型：CorpsPatch
+  - 方法：Initialize
+- `GamePatches\CulturePatch.cs`
+  - 类型：CulturePatch、NamingTemplateState
+  - 方法：Initialize、NamingTemplateState、ResetWorldState、EnsureEmpireNaming、GetInjectedCultureName、SyncCultureDisplayName、ImportCultureBindings、GetOnomasticDataSafe、insertCultureTemplate、static
+- `GamePatches\CultureWindowRedirectPatch.cs`
+  - 类型：CultureWindowRedirectPatch
+  - 方法：Initialize、OpenVanilla、RedirectPrefix
+- `GamePatches\DBManagerPatch.cs`
+  - 类型：DBManagerPatch
+  - 方法：Initialize、on_application_quit、on_quit、AllClear
+- `GamePatches\DecisionPatch.cs`
+  - 类型：DecisionPatch
+  - 方法：Initialize
+- `GamePatches\DiplomacyManagerPatch.cs`
+  - 类型：DiplomacyManagerPatch
+  - 方法：Initialize、get_alliance_target
+- `GamePatches\DynamicSpritePatch.cs`
+  - 类型：DynamicSpritePatch
+  - 方法：Initialize、GetRecoloredBuilding
+- `GamePatches\EmpireColorPatch.cs`
+  - 类型：EmpireColorPatch
+  - 方法：Initialize、Open、SyncFromCore
+- `GamePatches\EmpirePeacePatch.cs`
+  - 类型：EmpirePeacePatch、Snapshot
+  - 方法：Initialize、BeforeRemove、AfterRemove、BeforeEnd、AfterEnd、Obeys、FollowsIntoWar、IsWarAlreadyLeft、HasLeft
+- `GamePatches\FamilyPatch.cs`
+  - 类型：FamilyPatch
+  - 方法：Initialize、showStatsRows、set_family_name
+- `GamePatches\ForeignSaveRepairPatch.cs`
+  - 类型：ForeignSaveRepairPatch
+  - 方法：Initialize、AfterConvert
+- `GamePatches\GamePatch.cs`
+  - 类型：GamePatch、HelperFunc
+  - 方法：Initialize、GetFamilyName
+- `GamePatches\IdeologyRowPatch.cs`
+  - 类型：IdeologyRowPatch
+  - 方法：Initialize、ShowIdeologyTooltip、WindowRowPostfix、ContainerRowPostfix
+- `GamePatches\IndustryBuildingPatch.cs`
+  - 类型：IndustryBuildingPatch
+  - 方法：Initialize、AfterIsGoodTile、BeforeTryToBuildInZones、BeforeUpgradeBuilding、AfterLimitOfBuildingsType
+- `GamePatches\KingdomFlagPatch.cs`
+  - 类型：KingdomFlagPatch
+  - 方法：Initialize、AfterSetup
+- `GamePatches\KingdomNamePatch.cs`
+  - 类型：KingdomNamePatch
+  - 方法：Initialize
+- `GamePatches\KingdomOverviewPatch.cs`
+  - 类型：KingdomOverviewPatch
+  - 方法：Initialize
+- `GamePatches\KingdomPatch.cs`
+  - 类型：KingdomPatch
+  - 方法：Initialize、RememberCapitalCity、RefreshCapitalCityNames、GetMaxCities、removeData、new_emperor、before_new_emperor、emperor_left、RepairKingdomAsset、RepairBeforeRemoval
+- `GamePatches\KingdomWindowPatch.cs`
+  - 类型：KingdomWindowPatch
+  - 方法：Initialize、BeforeKingdomRename、OnEnable、showStatsRows
+- `GamePatches\LaunguagePatch.cs`
+  - 类型：LaunguagePatch
+  - 方法：Initialize
+- `GamePatches\LightweightHostPatch.cs`
+  - 类型：LightweightHostPatch
+  - 方法：Initialize、BeforeLocalPresentation、GateLayerDraw、DrawLayer
+- `GamePatches\LocalizeKeyPatch.cs`
+  - 类型：LocalizeKeyPatch
+  - 方法：Initialize
+- `GamePatches\LogHandlerPatch.cs`
+  - 类型：LogHandlerPatch
+  - 方法：Initialize、TrimLog
+- `GamePatches\MapWallPatch.cs`
+  - 类型：MapWallPatch
+  - 方法：Initialize、BeforeTerraform、BeforeDemolish、BeforeSetType、AfterSetTopTileType、AfterSetTileType
+- `GamePatches\MetaTypeExtensionsPatch.cs`
+  - 类型：MetaTypeExtensionsPatch
+  - 方法：Initialize、AsString
+- `GamePatches\ModSettingsPatch.cs`
+  - 类型：ModSettingsPatch
+  - 方法：Initialize、BeforeShowWindow
+- `GamePatches\NameplateManagerPatch.cs`
+  - 类型：NameplateManagerPatch
+  - 方法：Initialize、UpdateOverlappingPosition
+- `GamePatches\NameplateTextPatch.cs`
+  - 类型：NameplateTextPatch
+  - 方法：Initialize、prepare
+- `GamePatches\NativeWorldOptimizationPatch.cs`
+  - 类型：NativeWorldOptimizationPatch、MiniMapRefresh、BuildingScope
+  - 方法：Initialize、BeforeMiniMap、BeforeEdges、BeforeLavaLights、BeforeFlashes、BeforeUnitDots、BeforeLavaLayer、BeforeTiles、AfterBuilding、AfterFruit
+- `GamePatches\NightMapLayerPatch.cs`
+  - 类型：NightMapLayerPatch
+  - 方法：Initialize
+- `GamePatches\NoCommonersPatch.cs`
+  - 类型：NoCommonersPatch
+  - 方法：Initialize、BeforeTurnCityToNeutral、AfterRecalculateMaxHouses、BeforeFarmDecay、AfterPlanAllowsBuilding、BeforeJoinAnotherKingdom、AfterGetHit、BeforeTryToMakeWarrior、BeforeSetLeader、WarNeedPopulation
+- `GamePatches\OptimizationPatch.cs`
+  - 类型：OptimizationPatch
+  - 方法：Initialize、Prefix_VisualUpdate、Prefix_BeginCivilianAiTick、Prefix_CivilianAi、Prefix_CivilianDecision、Prefix_CalculateVisibleActors
+- `GamePatches\PlateauPatch.cs`
+  - 类型：PlateauPatch
+  - 方法：Initialize、AfterPrepare
+- `GamePatches\PlotAssetPatch.cs`
+  - 类型：PlotAssetPatch
+  - 方法：Initialize、checkIsPossible、canBeDoneByRole
+- `GamePatches\ProjectileGuardPatch.cs`
+  - 类型：ProjectileGuardPatch
+  - 方法：Initialize、BeforeSpawn
+- `GamePatches\PublicMaterialPatch.cs`
+  - 类型：PublicMaterialPatch
+  - 方法：Initialize、BeforeTake、AfterTake、BeforeSpend、AfterSpend
+- `GamePatches\PureMapPatch.cs`
+  - 类型：PureMapPatch、Kind、Slot、CityPlan
+  - 方法：Initialize、PlanZone、StampOf、Redraw、BuiltZones、Walled、WinterCamp、UrbanTile
+- `GamePatches\PureMapPatch.Detail.cs`
+  - 类型：PureMapPatch、DetailStyle、DetailImage、DetailLabel、Canvas
+  - 方法：DrawnLabelsOf、DetailEligible、DetailKey、DetailTint、TileAt、Canvas、In、Kind、Put、Tile
+- `GamePatches\PureMapPatch.Factory.cs`
+  - 类型：PureMapPatch
+- `GamePatches\PureMapPatch.Fringe.cs`
+  - 类型：PureMapPatch
+- `GamePatches\PureMapPatch.Labels.cs`
+  - 类型：PureMapPatch、LabelSlot、LabelPlan
+  - 方法：LabelSlot、LabelsOf
+- `GamePatches\PureMapPatch.Landmark.cs`
+  - 类型：PureMapPatch、LandmarkArea、LandmarkBrush
+  - 方法：Contains、Put、Kind、Box、Frame、Side、Open、Gate、Gates、Shade
+- `GamePatches\PureMapPatch.Manual.cs`
+  - 类型：PureMapPatch、PlanFacts
+  - 方法：FactsOf、ZoneInTown、TownZoneIds、LandmarkZone、TileInTown、TerrainColor
+- `GamePatches\PureMapPatch.Modern.cs`
+  - 类型：PureMapPatch、HighriseShape、Highrise
+- `GamePatches\PureMapPatch.Palace.cs`
+  - 类型：PureMapPatch、PalaceBrush
+  - 方法：Put、R、L、Span、Box、Mirror、Hip、Hip2、Terrace、Court
+- `GamePatches\PureMapPatch.Tribal.cs`
+  - 类型：PureMapPatch
+- `GamePatches\RegionPathGuardPatch.cs`
+  - 类型：RegionPathGuardPatch
+  - 方法：Initialize
+- `GamePatches\ReligionPatch.cs`
+  - 类型：ReligionPatch
+  - 方法：Initialize、InsertReligionNameTemplate
+- `GamePatches\ReligionWindowRedirectPatch.cs`
+  - 类型：ReligionWindowRedirectPatch
+  - 方法：Initialize、OpenVanilla、RedirectPrefix
+- `GamePatches\RenderThrottlePatch.cs`
+  - 类型：RenderThrottlePatch
+  - 方法：Initialize、BeforeWildBuildings、BeforeMapLayers、BeforeBuildings、BeforeStep、AfterStep、WrapQuantumSprites
+- `GamePatches\RenownPatch.cs`
+  - 类型：RenownPatch
+  - 方法：Initialize、Before、After、CityBefore、CityAfter
+- `GamePatches\SaveManagerPatch.cs`
+  - 类型：SaveManagerPatch
+  - 方法：Initialize、BeforeLoadActors、loadActors、last_gc、clear_data、BeforeClearWorld、save_mod_data、load_mod_data、ClearCachesAfterSave
+- `GamePatches\ScreenFeedPatch.cs`
+  - 类型：ScreenFeedPatch、Level
+  - 方法：Initialize、BeforeNewWar、BeforeWarEnded、BeforeTotalWar、AfterWarLog、PublicNews、BeforeNewHistory
+- `GamePatches\SpriteResourcePathPatch.cs`
+  - 类型：SpriteResourcePathPatch
+  - 方法：Initialize
+- `GamePatches\StateSettlementPatch.cs`
+  - 类型：StateSettlementPatch
+  - 方法：Initialize、BeforeFoundation、ResourceAmount、TotalFood、HasFood、TakeSupplies、StoreOverflow、FlushSupplies、PrioritizeSettlementBuildings
+- `GamePatches\SuccessionToolPatch.cs`
+  - 类型：SuccessionToolPatch
+  - 方法：Initialize、findNextHeir
+- `GamePatches\TechnologyPatch.cs`
+  - 类型：TechnologyPatch
+  - 方法：Initialize、AfterBookWritten、AfterBookRead、EnsureModPatches、FilterCraftList、BeforeSetItem、CanBeUpgraded、CanUseBuildOrder、BeforeTryToBuild、EnterSwapGuard
+- `GamePatches\TemporaryFactionExecutePatch.cs`
+  - 类型：TemporaryFactionExecutePatch
+  - 方法：Initialize、RecordExecutionResult
+- `GamePatches\TerminalPatch.cs`
+  - 类型：TerminalPatch
+  - 方法：Initialize、BeforeDecide、BeforeProsecute、BeforeTerraform、AfterElapsed
+- `GamePatches\TextOverflowGuardPatch.cs`
+  - 类型：TextOverflowGuardPatch
+  - 方法：Initialize、Finalizer、Tick
+- `GamePatches\TransmigrantPatch.cs`
+  - 类型：TransmigrantPatch
+  - 方法：Initialize、BannerGet
+- `GamePatches\TreasuryTooltipPatch.cs`
+  - 类型：TreasuryTooltipPatch
+  - 方法：Initialize、CityMoney、TradeRouteLine、AddMoneyLine、CityTreasury
+- `GamePatches\UnitWindowPatch.cs`
+  - 类型：UnitWindowPatch
+  - 方法：Initialize、applyInputName、OnEnable、OpenHistoryRecordWindow、GetTooltipAllTitles
+- `GamePatches\UrbanFabric.cs`
+  - 类型：UrbanFabric、Geometry、Kind、Road、CachedLink、Part、Rural
+  - 方法：SeedOf、Build、InTown、NearOutline、IsYurt、StyleAt、PosKey、SettlementKey、Buildable、ManualGround
+- `GamePatches\VanillaGuardPatch.cs`
+  - 类型：VanillaGuardPatch
+  - 方法：Initialize
+- `GamePatches\VanillaIdentityPatch.cs`
+  - 类型：VanillaIdentityPatch
+  - 方法：Initialize、BeforeCheckNewSpecies、AfterCheckNewSpecies、BeforePlotProgress
+- `GamePatches\WarMarkerPatch.cs`
+  - 类型：WarMarkerPatch
+  - 方法：Initialize
+- `GamePatches\WarPatch.cs`
+  - 类型：WarPatch
+  - 方法：Initialize、BeforeLeaveWar、BeforeLostWar、DropBrokenWar、update、army_update_population、removeData、end_war、AfterWarStats、new_war
+- `GamePatches\WarReachPatch.cs`
+  - 类型：WarReachPatch
+  - 方法：Initialize、BeforeStartWar、AfterStartWar、BeforeNewWar
+- `GamePatches\WarReadinessPatch.cs`
+  - 类型：WarReadinessPatch
+  - 方法：Initialize
+- `GamePatches\WarTargetPatch.cs`
+  - 类型：WarTargetPatch
+  - 方法：Initialize
+- `GamePatches\WarWindowRedirectPatch.cs`
+  - 类型：WarWindowRedirectPatch
+  - 方法：Initialize、OpenVanilla、RedirectPrefix
+- `GamePatches\WindmillRequirementPatch.cs`
+  - 类型：WindmillRequirementPatch
+  - 方法：Initialize、Before、After
+- `GamePatches\WindowAnimationStabilityPatch.cs`
+  - 类型：WindowAnimationStabilityPatch
+  - 方法：Initialize、Finalizer_SwallowException
+- `GamePatches\WindowBackPatch.cs`
+  - 类型：WindowBackPatch
+  - 方法：Initialize、BackPrefix、BackFinalizer、AddedPostfix、ClearPostfix、ShowPrefix、ShowLeftPrefix、ShowLeftPostfix
+- `GamePatches\WorldLogNamePatch.cs`
+  - 类型：WorldLogNamePatch
+  - 方法：Initialize、UseDisplayNames
+- `GamePatches\WorldMapTemplatePatch.cs`
+  - 类型：WorldMapTemplatePatch
+  - 方法：Initialize、AfterSetLanguage
+- `GamePatches\ZhouEraPatch.cs`
+  - 类型：ZhouEraPatch
+  - 方法：Initialize
+- `GamePatches\ZonePaintBudget.cs`
+  - 类型：ZonePaintBudget
+  - 方法：Initialize、ForceRound、ResetLayerPending、FirstLayerPaint、WaitNote、TerrainChanged、TakeFullRequests、RepaintEverything
+- `GamePatches\ZonesPatch.cs`
+  - 类型：ZonesPatch
+  - 方法：Initialize、GetCurrentMapBorderMode、CanBeClaimedByCityPrefix、CanBeClaimedByCityFinalizer
+
+## GeneralSystems
+
+- `GeneralSystems\ActorMoneyTransfers.cs`
+  - 类型：ActorMoneyTransfers、ReferenceComparer
+  - 方法：Equals、GetHashCode、IsNonIncomeCredit、CreditNonIncome、Received、TryTransferNonIncome
+- `GeneralSystems\AdministrationReorganizationSystem.cs`
+  - 类型：AdministrationReorganizationSystem、Region、Work
+  - 方法：IsRunning、ResetWorldState、CanPropose、ShouldPropose、CanContinue、Begin、Resume、Tick
+- `GeneralSystems\AdministrativeControlSystem.cs`
+  - 类型：AdministrativeControlSystem
+  - 方法：ResetWorldState、Refresh、Get、Known、StabilityLoss、IsIndirect、MarkConquered、RootCauseResolved、static、GenerationExhausted
+- `GeneralSystems\AmbitionSystem.cs`
+  - 类型：AmbitionSystem
+  - 方法：Wants、Yearly、Describe
+- `GeneralSystems\AncientSchoolsSystem.cs`
+  - 类型：AncientSchoolsSystem
+  - 方法：Orthodox、Contending、SpreadFactor、Requirements、Yearly、SetOrthodox、OrthodoxyEnacted
+- `GeneralSystems\AnimalHusbandrySystem.cs`
+  - 类型：AnimalHusbandrySystem
+  - 方法：IsGame、IsNomadic、CountBuildings、Pastures、Slaughterhouses、HerdCapacity、Rangeland、Wildness、ResetWorldState、Tick
+- `GeneralSystems\AosongFiscalRules.cs`
+  - 类型：AosongFiscalRules
+  - 方法：TakePriority、ScripWanted、ScripFromCity
+- `GeneralSystems\BackgroundReligionSystem.cs`
+  - 类型：BackgroundReligionSystem
+  - 方法：ReplacesVanillaPlot、YearlyPass、ForeignChance、Contacts、Reach、ControlFactor、RangeFactor、Convert
+- `GeneralSystems\BakufuSystem.cs`
+  - 类型：BakufuSystem
+  - 方法：IsBakufu、OnRegimeChanged、Emperor
+- `GeneralSystems\BannerRules.cs`
+  - 类型：BannerRules
+  - 方法：KeepsHome、CombatFactor、EntryPay、TargetShare、ToEnroll、ToRelease、NextLand、TaxFactor、StipendDue、StipendPaid
+- `GeneralSystems\BannerSystem.Conquest.cs`
+  - 类型：BannerSystem
+  - 方法：SelfSupplied、PayFactor、QueueStabilityLoss
+- `GeneralSystems\BannerSystem.cs`
+  - 类型：BannerSystem、Summary
+  - 方法：Practices、RulingCultureOf、Organized、RegimeName、Establish、TryEnter、SettleAll、Settle、TaxFactor、LandShare
+- `GeneralSystems\BannerSystem.Frontier.cs`
+  - 类型：BannerSystem
+  - 方法：LeagueBound、LeagueRestrains、Sealed、MigrationBarred
+- `GeneralSystems\BannerSystem.Livelihood.cs`
+  - 类型：BannerSystem
+  - 方法：IdleShare
+- `GeneralSystems\BarrenLandSystem.cs`
+  - 类型：BarrenLandSystem
+  - 方法：ResetWorldState、KindOf、Barren、BarrenAt、TryMonthlyScan
+- `GeneralSystems\BiographySystem.cs`
+  - 类型：BiographySystem、Pending
+  - 方法：IsRoutine、Trim、ResetWorldState、NoteDeath、Kill、WasExecuted、DeathText、Notable、RecordKiller、Note
+- `GeneralSystems\BoatFunding.cs`
+  - 类型：BoatFunding
+  - 方法：Plan、Pay
+- `GeneralSystems\BookNamingSystem.cs`
+  - 类型：BookNamingSystem
+  - 方法：Rename、RepairLegacyNames、ClaimUnique、IsUsed、MarkUsed、Pool
+- `GeneralSystems\CaliphateFaith.cs`
+  - 类型：CaliphateFaith
+  - 方法：PreIslamic、IsCaliphate、Bound、MayAdopt、Attracts、StateFactor、MarkScenarioFaith、YearlyPass、TrySettle
+- `GeneralSystems\CapitalLossNamingSystem.cs`
+  - 类型：CapitalLossNamingSystem
+  - 方法：TryYearlyScan、ApplyNow、IsTemporaryCapital
+- `GeneralSystems\CityAssetSettlement.cs`
+  - 类型：CityAssetSettlement
+  - 方法：MoveSavingsWithMigrants、ReturnArrearsToDebtor、OnCityDestroyed
+- `GeneralSystems\CityConstructionSystem.cs`
+  - 类型：CityConstructionSystem、WealthParts
+  - 方法：SeatBonus、WealthParts、Wealth、WealthBreakdown、Settle、TakeStats、CountRuins、StartSettlement、static
+- `GeneralSystems\CityDissolution.cs`
+  - 类型：CityDissolution
+  - 方法：IsLastCity、Dissolve、TryAbandon
+- `GeneralSystems\CityFragmentSystem.cs`
+  - 类型：CityFragmentSystem、CityFragmentMove
+  - 方法：ResetWorldState、Load、Save、static、Restorable、RestoreAll、AfterBuild、Tick
+- `GeneralSystems\CityGeographySystem.cs`
+  - 类型：CityGeographySystem、Geo
+  - 方法：Factor、Industry、Commerce
+- `GeneralSystems\CityLedger.cs`
+  - 类型：CityLedger、Item
+  - 方法：Uses、Virtual、Asset、Works、SummaryOf、CountType、CountId、Total、HousingSlots、MaxHouses
+- `GeneralSystems\CityLedgerSupply.cs`
+  - 类型：CityLedgerSupply
+  - 方法：Cooldown、Takes、Surplus、Run
+- `GeneralSystems\CityPlacementSystem.cs`
+  - 类型：CityPlacementSystem
+  - 方法：PlaceCity、Found、BuildPalace
+- `GeneralSystems\CityPlanEditing.cs`
+  - 类型：CityPlanEditing、Snapshot
+  - 方法：Of、Restore、BeginStroke、EndStroke、Undo、HasOverrides、Editable、IsManual、Summary、ZoneEditable
+- `GeneralSystems\CityPlanWorks.cs`
+  - 类型：CityPlanWorks
+  - 方法：CityWallTiles、ResetWorldState、Planned、Tick、SyncWalls、Walled、PlaceSettlement、Raze、PaintRoad、EraseRoad
+- `GeneralSystems\CityPopulationSystem.cs`
+  - 类型：CityPopulationSystem、ArmyPost、ArmyDoctrine、GrowthFactors
+  - 方法：ArmyDoctrine、DoctrineOf、PostOf、LevyTarget、OnWarFooting、IsMobilizing、EnemyOf、FrontZones、FrontTile、MarchToFront
+- `GeneralSystems\CityRelocationSystem.cs`
+  - 类型：CityRelocationSystem
+  - 方法：Click、Relocate
+- `GeneralSystems\CityResettlementSystem.cs`
+  - 类型：CityResettlementSystem、Work
+  - 方法：Request、Tick、ResetWorldState、ModeChanged
+- `GeneralSystems\CityResourceTransferSystem.cs`
+  - 类型：CityResourceTransferSystem
+  - 方法：Move
+- `GeneralSystems\CityStabilityMath.cs`
+  - 类型：CityStabilityInput、CityStabilityBudget、CityStabilityMath
+  - 方法：CityStabilityInput、Equals、CityStabilityBudget、Compute
+- `GeneralSystems\CityStabilityRules.cs`
+  - 类型：CityStabilityRules
+  - 方法：Clamp、Natural、RequiredGarrison、GovernanceAnnual、GarrisonAnnual、MilitaryAnnual、CorpsAnnual、Invoice、Advance、Suppression
+- `GeneralSystems\CityStabilitySystem.cs`
+  - 类型：CityStabilitySystem、Request、Batch、Retirement、GuardCount
+  - 方法：GuardCount、ResetWorldState、Tick、State、Effective、HasArrears、Disaffected、CanRise、ControlsTax、FundedSlots
+- `GeneralSystems\CityStateService.cs`
+  - 类型：CityStateService
+  - 方法：IsCityState、IsPrincipateRealm、HasSenate、ApplyCityName、GrantAutonomy、RepairEstateAutonomy、OnCityBuilt、EnforceOneCity、TryResolveCapture、FindLocalLeader
+- `GeneralSystems\CityStyleSystem.cs`
+  - 类型：CityStyleSystem
+  - 方法：Family、Nomad、CapacityFactor、Roadless、RoadGradeCap、CurrentFamily、Established、Camp、static、CanRebuild
+- `GeneralSystems\CityTerritoryProtection.cs`
+  - 类型：CityTerritoryProtection
+  - 方法：BeginFounding、EndFounding、LocksAdd、LocksRemove、PreserveWarLayout、ShouldPreventDestruction、ShouldKeepVirtualOwner、CanRemoveZone
+- `GeneralSystems\CityZoningSystem.cs`
+  - 类型：CityZoningSystem、Outcome、Placed、Waiting
+  - 方法：TypeOf、Manual、SlotsPerZone、UrbanSet、InUrban、Managed、IsHouse、InZone、AssetsIn、HousesMax
+- `GeneralSystems\CivMusic.cs`
+  - 类型：CivMusic、Voice、CivMusicHost
+  - 方法：EnsureHost、Tick、Family、ReleaseFiles
+- `GeneralSystems\ClaimAgendaSystem.cs`
+  - 类型：ClaimAgendaContext、ClaimAgendaView、ClaimAgendaSystem
+  - 方法：BuildContext、Evaluate
+- `GeneralSystems\ClaimPolicySystem.cs`
+  - 类型：ClaimPolicySystem
+  - 方法：MigrationPolicy、FinancePolicy、SetMigrationPolicy、SetFinancePolicy、MigrationPolicyText、FinancePolicyText、TradeIncomeFactor、UpdateYear、Cities、HasForeignBorder
+- `GeneralSystems\ClaimRules.cs`
+  - 类型：ClaimRules、LineRule、Rule
+  - 方法：IsAllowed、FindPushTarget、AfterExecute、HasTrait
+- `GeneralSystems\ClaimTargetRules.cs`
+  - 类型：ClaimTargetOption、ClaimTargetRules、Spec、Context
+  - 方法：Of、Has、WarnMissing、BuiltinAuto、Options、AnySelectable、Auto、LosingWar、LosingWarBadly、CedeCity
+- `GeneralSystems\ClaimTuning.cs`
+  - 类型：ClaimTuning
+  - 方法：IsCourtWar、Duration、BudgetShares、Share、Cost、OutcomeKey、Outcome
+- `GeneralSystems\ClanBranchSystem.cs`
+  - 类型：ClanBranchSystem
+  - 方法：TryYearlyScan
+- `GeneralSystems\ClanSystem.cs`
+  - 类型：SpecificClanType、ClanRelation、SpecificClan、SpecificClanManager、PersonalClanIdentity、PersonalTie、PersonalHistoryRecord、CrimeRecord
+  - 方法：ShouldSerializegentry_relief_at、ShouldSerializegentry_kin、ShouldSerializepedigree_years、ShouldSerializepedigree_values、ShouldSerializegentry_noted_grade、ShouldSerializeclan_history、SurnameRoot、SurnameLine、VanillaClanName、GetDisplayName
+- `GeneralSystems\ClassSystem.cs`
+  - 类型：SocialClass、ClassSystem
+  - 方法：ToTranslate、IsPeasantry
+- `GeneralSystems\CliqueSystem.cs`
+  - 类型：CliqueSystem
+  - 方法：IsEunuch、Applies、IdentityStance、IsClassClique、Yearly、CreateManual、DefaultName、OfficialSchool、CanPurgeEunuchs、PurgeEunuchs
+- `GeneralSystems\ColonySystem.cs`
+  - 类型：ColonySystem
+  - 方法：HasGovernor、ColonialPower、LeaseTarget、Port、Defer、ForeignAffairsByMetropole、Of、MetropoleOf、IsColony、ColoniesOf
+- `GeneralSystems\CommodityMarketSystem.cs`
+  - 类型：CommodityConfig、TradePolicy、CommodityRecipe、CommodityFileConfig、CommodityMarketSystem、Market、CityBook
+  - 方法：BasePrice、RootOf、MarketOf、UnionOf、JoinUnion、LeaveUnion、PolicyOf、SetPolicy、PolicyName、PolicyTariff
+- `GeneralSystems\CompositeEmpireService.Conquest.cs`
+  - 类型：CompositeEmpireService
+  - 方法：NativistActive、NativistClaimApplies、CanProclaimNativism、NativismUrgency、ProclaimNativism、Dissolve
+- `GeneralSystems\CompositeEmpireService.cs`
+  - 类型：CompositeEmpireService、CulturalNameCandidate、AdoptionStatus
+  - 方法：IsMultiethnic、IsComposite、GetRoute、GetCourtCulture、GetRouteName、GetRouteDetail、GetRulingCulture、GetInstitutionalCulture、UsesMilitaryTradition、GetMilitaryTraditionName
+- `GeneralSystems\ConnectivityJob.cs`
+  - 类型：ConnectivityZoneGrid、ConnectivityNode、ConnectivityLandLink、ConnectivityPair、ConnectivityResult、ConnectivityHeap、ConnectivityJob、Stage、WildKindCode
+  - 方法：Resize、Has、EdgeBetween、Clear、Push、Pop、ConnectivityJob、Cancel、Advance
+- `GeneralSystems\ConnectivityRules.cs`
+  - 类型：ConnectivityMode、ConnectivityBarrier、ConnectivityLevel、ConnectivityConfig、ConnectivityTravel、ConnectivityEdge、ConnectivityRules
+  - 方法：Normalize、RoadFactor、LandCost、SeaRange、SeaCost、EdgeCost、Strength、CostFor、Level、AddBarriers
+- `GeneralSystems\ConnectivitySystem.cs`
+  - 类型：ConnectivitySystem、Phase、ConnectivityLink、ConnectivityNeighbour、ConnectivityRoute、ConnectivityContact
+  - 方法：ResetWorldState、Tick、RealmOf、TravelOf、InfoLength、DecayLength、Knows、Strength、LearnStrength、Isolation
+- `GeneralSystems\ConsortKinSystem.cs`
+  - 类型：ConsortKinSystem
+  - 方法：ConsortClan、IsConsortKin、Chief、IsChief、RegentFor、DominantFor、Backed、Yearly
+- `GeneralSystems\ConstitutionalEconomySystem.cs`
+  - 类型：TradeDeliverySnapshot、ConstitutionalEconomyView、ConstitutionalEconomySystem
+  - 方法：RecordArrival、BeforeUnload、AfterUnload、RecordTrade、Update、GetWelfareAnnualCost、ResetCultureStability、IsCultureConstitutional、GetCultureConstitution、IsForcedModernized
+- `GeneralSystems\ConstitutionalSuccessionSystem.cs`
+  - 类型：ConstitutionalSuccessionSystem
+  - 方法：Unbroken、ThroneBound、BlocksRivalThrone、IsProtected、CanInherit、HasLivingDynasty、SelectRoyalHeir、SelectionRelation、TryHandleVacancy
+- `GeneralSystems\ConstitutionSystem.cs`
+  - 类型：ConstitutionSystem、Kind、TemplateFile
+  - 方法：Get、GetClauses、HasConstitution、IsDerived、IsPlayerLocked、TryGetLockedSuffrage、TryGetLockedPowerCenter、TryGetLockedHeadSelection、ReleaseLock、Update
+- `GeneralSystems\CoreCapitalRestorationSystem.cs`
+  - 类型：CoreCapitalRestorationSystem
+  - 方法：TryMonthlyScan、IsAnchored、AlignAdministration
+- `GeneralSystems\CorruptionRules.cs`
+  - 类型：CorruptionRules
+  - 方法：Bound、Realm、AnnualOfficeChange、Leak、RecoveredMoney
+- `GeneralSystems\CorruptionSystem.cs`
+  - 类型：CorruptionSystem
+  - 方法：GetRate、Update、AnnualOfficeChange、CanCampaign、TryCampaign、TryYearlyCampaign、OnLawEnforced
+- `GeneralSystems\CorveeSystem.cs`
+  - 类型：CorveeSystem
+  - 方法：Add、AddPerCity、CorveeBurden、ConstructionBurden、AmbitionBurden、Ambitious、ExtraRoadProjects、PeasantPressure、static
+- `GeneralSystems\CourtActions.cs`
+  - 类型：CourtActions
+  - 方法：ResetWorldState、Wait、RewardCost、AppeaseCost、Reward、Rebuke、LeaderOffices、DismissLeader、MinisterFaction、Appease
+- `GeneralSystems\CourtCrisisRules.cs`
+  - 类型：CourtCrisisRules
+  - 方法：GrievanceChange、AdvanceYears、CanCoalition
+- `GeneralSystems\CourtDoctrine.cs`
+  - 类型：CourtDoctrine
+  - 方法：Weigh、Agreement
+- `GeneralSystems\CourtIssues.cs`
+  - 类型：CourtIssues
+  - 方法：PublicIssuesFor、IsPublic、IsDirectAction、OppositesOf、UniqueIssues、Stance、StanceLevel
+- `GeneralSystems\CourtSystem.Bargain.cs`
+  - 类型：CourtSystem、DealOpinion、DealDraft
+  - 方法：Draft、ClearDraft、BaseStance、DealOf、Evaluate、SwitchCost、TermValue、StanceName、CannotPay、Cheapest
+- `GeneralSystems\CourtSystem.Crisis.cs`
+  - 类型：CourtSystem
+  - 方法：BoycottShare、InCrisis
+- `GeneralSystems\CourtSystem.cs`
+  - 类型：CourtCouncilKind、CourtSystem
+  - 方法：Applies、State、FactionState、Factions、FindFaction、CouncilKind、Council、AgendaSetter、IsBoycotting、FindClaim
+- `GeneralSystems\CourtSystem.Divine.cs`
+  - 类型：CourtSystem
+  - 方法：CannotGodPropose、GodPropose、CanPickTarget、CanEditDebate、CycleStance、StanceOverridden、DivineApproval、CycleDivineApproval、CycleRate、AdjustFaction
+- `GeneralSystems\CourtSystem.Dynasty.cs`
+  - 类型：HuaxiaCourtStage、CourtSystem
+  - 方法：StageKey、Stage、UsesThreeDepartments、CentralOffice、DepartmentHead、CoreOfficeObjects、DivisionOfficeObjects、GetBureauOverride、EnsureBureau
+- `GeneralSystems\CourtSystem.Year.cs`
+  - 类型：CourtSystem
+  - 方法：Similarity、MaintainCabinet、CabinetSize、CabinetCandidates、Competence、AppointScore、CabinetEfficiency
+- `GeneralSystems\CultureDoctrines.cs`
+  - 类型：CultureDoctrines
+  - 方法：SetOf、IsHuaxia、Has、HasIn、Emerged、CultureOf、Key、Text、Name、Label
+- `GeneralSystems\CultureModernizationSystem.cs`
+  - 类型：CultureModernizationResult、CultureModernizationSystem
+  - 方法：CultureModernizationResult、ModernizeWorld、Modernize、TryYearlyRealmTransitionScan
+- `GeneralSystems\CultureRadiation.cs`
+  - 类型：CultureRadiation、Phase
+  - 方法：ResetWorldState、Share、AssimilationFactor、Intensity、static、Tick
+- `GeneralSystems\CultureReformSystem.cs`
+  - 类型：CultureReformSystem
+  - 方法：CanReform、FindCandidate、Enact、Force、ConvertRulers
+- `GeneralSystems\CultureService.cs`
+  - 类型：CultureService
+  - 方法：GetActiveCultureKeys、IsValidCulture、IsAssimilationEnabled、IsFixedDeJureCultureEnabled、GetActorCulture、GetFounderCulture、ResolveRecordedActorCulture、GetRealmCulture、GetInstitutionCulture、GetRegimeCulture
+- `GeneralSystems\CultureShareRules.cs`
+  - 类型：CultureShareRules
+  - 方法：IsAssimilated、CalculateNewbornLocalCultureChance、SetShare、Normalize、FindUnanimousConversionCulture
+- `GeneralSystems\CustomColorSystem.cs`
+  - 类型：CustomColorSystem
+  - 方法：Hex、Of、TryParse、Set
+- `GeneralSystems\Decisions\DecisionScale.cs`
+  - 类型：DecisionKind、ScaleWeight、DecisionScale、DefInfo、Snapshot、Option
+  - 方法：ScaleWeight、KindOf、Weigh
+- `GeneralSystems\Decisions\DecisionSystem.cs`
+  - 类型：DecisionCase、DecisionSystem、Ready、Council、Advice
+  - 方法：ResetWorldState、Manages、Def、OnPlotCreated、Tick、Standing、LastCouncilOf、CasesOf、PaceOf、LapseMonthsOf
+- `GeneralSystems\Decisions\RulerDecrees.cs`
+  - 类型：RulerDecrees
+  - 方法：IsManual、MinAuthority、Gravity、HasTargets、Authority、WhyNot、Candidates、Register
+- `GeneralSystems\DeJureAgenda.cs`
+  - 类型：DeJureAgenda
+  - 方法：HasClaimOn、HoldsCoreOf
+- `GeneralSystems\DeJureShareSystem.cs`
+  - 类型：DeJureShare、ContestClaim、DeJureShareSystem
+  - 方法：RefreshShareLimits、ResetWorldState、SharedTitles、SharedCities、AllCities、ShareTitle、UnshareTitle、ClearTitles、SharedCores、ShareCore
+- `GeneralSystems\DiplomacyActions.cs`
+  - 类型：DiplomacyActions、Action、Group
+  - 方法：GoalName、Check、Warn、Do、CanReachUnion、ForbiddenReason、EndWars、ApplyScenario、HistoryOpinion、GodOpinion
+- `GeneralSystems\DiplomacyLaws.cs`
+  - 类型：DiplomacyLaws、Kind
+  - 方法：ByPlayer、Blocked
+- `GeneralSystems\DiplomacyLedger.cs`
+  - 类型：DiplomacyLedger、Tie、Strength
+  - 方法：Realms、NeighboursOf、SameTianxia、TopOf、SameBloc、SameMarket、Allied、Standing、Dependents、RoleKey
+- `GeneralSystems\DisasterSystem.cs`
+  - 类型：DisasterSystem
+  - 方法：HarvestFactor、Active、RecentLevel、KindName、Monthly
+- `GeneralSystems\DormantActorAI.cs`
+  - 类型：DormantActorAI
+  - 方法：Dormant、NextTask
+- `GeneralSystems\DynasticCycleRules.cs`
+  - 类型：DynasticCycleRules
+  - 方法：PayArrears、AnnualGrowth、AgeFloor、Advance、Carry、MaladyShare、LegacyPressure、CollapseUprisingChance、MayRise、CapitalMayRise
+- `GeneralSystems\DynasticCycleSystem.cs`
+  - 类型：DynasticCycleSystem、Transition、Legacy
+  - 方法：Applies、GetPressure、InCrisis、PayArrears、IsSaturated、LegitimacyCollapsed、UprisingsUnbound、TooDecayedToReform、SaturatedYears、SaturatedUprisingStarted
+- `GeneralSystems\DynastyNaming.cs`
+  - 类型：DynastyNaming
+  - 方法：StageOf、HuaxiaOrigin、HuaxiaOriginEmpire、Term、LineSuffix、CultureVariant、TribalNaming、HuaxiaOriginEmpireKey、KingdomTypeKey、RankKey
+- `GeneralSystems\EconomicCircleSystem.cs`
+  - 类型：EconomicCircleSystem
+  - 方法：ResetWorldState、IsCore、CoreOf、Members、RegionTier、ConstructionFactor、Siphon
+- `GeneralSystems\EmirateSystem.cs`
+  - 类型：EmirateSystem
+  - 方法：ResetWorldState、Applies、IsSultanate、InvestitureGap、IsHereditaryEmir、OnRegimeChanged、Tick、DistantProvinces、DistantMax
+- `GeneralSystems\EmperorTourSystem.cs`
+  - 类型：EmperorTourSystem
+  - 方法：Tick、Away、DrawPosition、Home
+- `GeneralSystems\EmpireBankruptcySystem.cs`
+  - 类型：EmpireBankruptcySystem
+  - 方法：IsBankrupt、IsUnpaidGarrison、Update
+- `GeneralSystems\EmpireCoreControl.cs`
+  - 类型：EmpireCoreControl
+  - 方法：Sovereign、static、Invalidate、GetControlShare、HeldCities
+- `GeneralSystems\EmpireCoreNamingSystem.cs`
+  - 类型：EmpireCoreNamingSystem
+  - 方法：TryApplyCoreName、GetCoreBaseName
+- `GeneralSystems\EmpireCraftStrategicScheduler.cs`
+  - 类型：EmpireCraftStrategicScheduler、KingdomScheduleState、EmpireScheduleState
+  - 方法：Tick、Reset
+- `GeneralSystems\EmpireFormationService.cs`
+  - 类型：EmpireFormationRoute、EmpireFormationService
+  - 方法：GetInitialMandate、GetRouteName、RepairFoundingTitle、IsInFailureCooldown、GetBestRoute、GetBlocMembers、GetBlocPower、GetYearsWithoutEmpire、OnEmpireCreated、OnEmpireDissolving
+- `GeneralSystems\EmpireLaw\EmpireLawData.cs`
+  - 类型：LawCaseOutcome、LawStanceTier、LawRealmState、LawCaseRecord、LawConvictionRecord、LawImprisonment、LawCustomWeight、LawBail、LawFactor、LawStanceInfo
+  - 方法：ShouldSerializecases、ShouldSerializeprisoners、ShouldSerializeexecutions、ShouldSerializelast_amnesty、ShouldSerializelast_purge_penalty、ShouldSerializedescendant_bans、ShouldSerializepunishments、ShouldSerializenotes、ShouldSerializereason_key、ShouldSerializeaccuser_id
+- `GeneralSystems\EmpireLaw\EmpireLawEraConfig.cs`
+  - 类型：LawEraRule、EmpireLawEraConfig
+  - 方法：Defaults、Load
+- `GeneralSystems\EmpireLaw\EmpireLawSystem.cs`
+  - 类型：LawCategory、LawType、PunishmentLevel、EmpireLawConfig、Law、LawEnforcementContext、EmpireLawSystem
+  - 方法：init、LoadFromJson、GetConfig、HasLaw、CanEnforceLawInEmpireScope、CanEnforceLaw、TryEnforceLaw、PrepareEnforcement、Prosecute、TryApplyOptionalPunishment
+- `GeneralSystems\EmpireLaw\EmpireLawSystem.Divine.cs`
+  - 类型：EmpireLawSystem
+  - 方法：PendingCrimes、AddableCrimes、DefaultLoot、GodAddCrime、FindGuarantor、CannotBail、GodBail、GodRevokeBail、GodCustomWeight、CustomWeight
+- `GeneralSystems\EmpireLaw\EmpireLawSystem.Justice.cs`
+  - 类型：EmpireLawSystem、PenalRegime、RoyalRank
+  - 方法：IsGraveCrime、RealmKingdom、RealmEmpire、RealmRuler、IsRoyalKin、GetLawStance、GetJudicialStrength、JusticeScore、GetDiscoveryChanceInfo、GetEraTier
+- `GeneralSystems\EmpireLaw\EmpireLawSystem.Records.cs`
+  - 类型：EmpireLawSystem
+  - 方法：GetRealmState、FinishCase、ScaleFactors、IsImprisoned、GetImprisonment、GetImprisonmentYearsLeft、IsBarredFromOffice、TickRealm、GrantAmnesty、OnRulerAccession
+- `GeneralSystems\EmpireLaw\SentencingScale.cs`
+  - 类型：SentencingScale
+  - 方法：PriorFactor、DefianceFactor、HarshFactor、LenientFactor、PerformanceFactor、InfluenceFactor、RoyalBloodFactor、LootFactor、AccuserFactor、Balance
+- `GeneralSystems\EmpirePartitionSystem.cs`
+  - 类型：EmpirePartitionSystem、Plan、Flee
+  - 方法：Twin、InAmity、KhanateSplit、CaliphateSplit、Yearly、Monthly、OnWarStarted、QueueRestoration、SplitRivalCourt、CanUnite
+- `GeneralSystems\EnclaveFill.cs`
+  - 类型：EnclaveFill、Layer
+  - 方法：ResetWorldState、Tick
+- `GeneralSystems\EnterpriseSystem.cs`
+  - 类型：EnterpriseSystem
+  - 方法：IsEnterprise、Pool、ReturnToLocal、Cash、CashIn、TaxableCash、TakeCash、PublicPurchase、AccrueInvestment、SpendPool
+- `GeneralSystems\EntitySpawnStats.cs`
+  - 类型：EntitySpawnStats
+  - 方法：RecordCaller、Flush
+- `GeneralSystems\EthnicRankRules.cs`
+  - 类型：EthnicRankRules、Scheme
+  - 方法：TaxWeight、StabilityWeight、Weighted、TaxFactor、Stability、MilitiaFactor、FavorsRuling、CentralRecruits
+- `GeneralSystems\EthnicRankSystem.cs`
+  - 类型：EthnicRankSystem、Summary
+  - 方法：SchemeOf、EarlySubject、RankOf、Shares、MainRank、RankName、SchemeName、TaxFactor、StabilityShift、MilitiaFactor
+- `GeneralSystems\EventRecorder.cs`
+  - 类型：EventRecorder
+  - 方法：Record、RecordRoutine、ShowRoutine
+- `GeneralSystems\ExamSystem.cs`
+  - 类型：ExamSystem、ExamType、ActorAbility
+  - 方法：startExam、cityExamPrepare、provinceExamPrepare、empireExamPrepare、startCityExam、startProvinceExam、startEmpireExam、ActorAbility
+- `GeneralSystems\ExclaveMaintenanceRules.cs`
+  - 类型：ExclaveMaintenanceRules
+  - 方法：AnnualCost、FiscalPressure、ShouldRelease
+- `GeneralSystems\ExclaveMaintenanceSystem.cs`
+  - 类型：ExclaveMaintenanceSystem、Audit
+  - 方法：ResetWorldState、ModeChanged、Status、Check、Tick
+- `GeneralSystems\ExileGovernmentSystem.cs`
+  - 类型：ExileGovernmentSystem
+  - 方法：IsExiled、Host、PickHost、BeforeCityLeaves、Begin、ResetWorldState、Tick
+- `GeneralSystems\ExileRules.cs`
+  - 类型：ExileRules
+  - 方法：ModernEnough、HostScore、AcceptableHost、Expired、InLiberationWindow、Liberator
+- `GeneralSystems\FactionBalanceSystem.cs`
+  - 类型：FactionBalanceSystem、Direction
+  - 方法：Applies、Imbalance、Dominant、DirectionOf、Current、DirectionName、Yearly、MinisterBonus、BacksConsortKin、PalaceUnrest
+- `GeneralSystems\FactionClassSystem.cs`
+  - 类型：FactionClassSystem
+  - 方法：EnsureProfile、UpdateEmpire、UpdateRealm、EnsureEmpireProfiles、EnsureRealmProfiles、GetClassPowerContribution、ModifyFavor、ApplyInstitutionOutcome、ApplyClaimOutcome、GetClaimClassEffect
+- `GeneralSystems\FactionEditor.cs`
+  - 类型：FactionEditor、Court
+  - 方法：EmpireOf、CourtOf、Current、Seats、HasRoom、CultureOf、Seated、Defaults、DefaultSeated、AddDefault
+- `GeneralSystems\FactionPurgeSystem.cs`
+  - 类型：FactionPurgeSystem
+  - 方法：TryRaise、Active、IsPurge、MonthTick、Resolve
+- `GeneralSystems\FactionRebelNaming.cs`
+  - 类型：FactionRebelNaming、Kind
+  - 方法：RebelName、WarName
+- `GeneralSystems\FactorySystem.cs`
+  - 类型：FactorySystem
+  - 方法：readonly、IsModern、Capacity、Side、ResetWorldState、Load、Save、InCity、Count、ById
+- `GeneralSystems\FamineUnrestSystem.cs`
+  - 类型：FamineUnrestSystem
+  - 方法：Tick、InFamine、StrainDelta、FervorFactor、RoomLeft、CountRebelCities
+- `GeneralSystems\FamousTalentSystem.cs`
+  - 类型：FamousTalentSystem
+  - 方法：ResetWorldState、Import、Export、RefreshNames、Alive、Fallen、Of、IsFamous、OfActorId、ActorOf
+- `GeneralSystems\FarmlandSystem.cs`
+  - 类型：FarmlandSystem
+  - 方法：FarmToolTier、FishToolTier、Productivity、FishProductivity、Policy、RedLineShare、IsProtected、IsPlanned、IsWithinWindmillRange、HasFarmArea
+- `GeneralSystems\FavouriteSystem.cs`
+  - 类型：FavouriteSystem
+  - 方法：Of、Yearly、OnPurge
+- `GeneralSystems\FeudalConquestService.cs`
+  - 类型：FeudalConquestService
+  - 方法：AppliesTo、HasTributeInstitution、HasEnfeoffmentInstitution、TryResolveCapitalConquest、ProcessPeaceEnfeoff
+- `GeneralSystems\FeudalPosthumousSystem.cs`
+  - 类型：FeudalPosthumousSystem
+  - 方法：OnRulerDied
+- `GeneralSystems\FeudalVassalService.cs`
+  - 类型：FeudalVassalService
+  - 方法：IsPostMonarchy、GetOverlord、GetDirectVassals、IsInChain、Depth、CanBind、TooFar、Detached、UsesFeudalVassals、Bind
+- `GeneralSystems\FiscalBudgetPlanner.cs`
+  - 类型：FiscalBudgetPlanner、Plan
+  - 方法：ResetWorldState、IsPriority、Allowance、NormalRatio
+- `GeneralSystems\FiscalBudgetRules.cs`
+  - 类型：FiscalBudgetRules
+  - 方法：NormalRatio、SafeAdd、Allowance
+- `GeneralSystems\FiscalDiagnostics.cs`
+  - 类型：FiscalDiagnostics
+  - 方法：LargeDrain、Count、LogYearly
+- `GeneralSystems\FmodBridge.cs`
+  - 类型：FmodBridge、Api
+  - 方法：Bind、FindType、EnsureReady、CreateGroup、CreateStream、LengthMs、CreateSound、Play、Valid、Playing
+- `GeneralSystems\ForeignLandSystem.cs`
+  - 类型：ForeignLandSystem
+  - 方法：Tick、IsForeign、static
+- `GeneralSystems\FormationDiagnostics.cs`
+  - 类型：FormationDiagnostics
+  - 方法：Yearly
+- `GeneralSystems\FrontierRelations.cs`
+  - 类型：FrontierRelations
+  - 方法：ResetWorldState、IsNomadRealm、TryYearlyScan、SettleSurrenderedTribe
+- `GeneralSystems\GcPacing.cs`
+  - 类型：GcPacing
+  - 方法：Tick
+- `GeneralSystems\GentrySystem.Court.cs`
+  - 类型：GentrySystem
+  - 方法：Favor、ShiftFavor、Stance、static
+- `GeneralSystems\GentrySystem.cs`
+  - 类型：GentrySystem
+  - 方法：ResetWorldState、IsGentry、Pedigree、Grade、GradeName、Seat、JunWang、Of、Monopoly、Candidate
+- `GeneralSystems\GentrySystem.Events.cs`
+  - 类型：GentrySystem
+  - 方法：FameFactor
+- `GeneralSystems\GentrySystem.Fortress.cs`
+  - 类型：GentrySystem
+  - 方法：FortressOf、HasFortress、FortressFactor、YieldFactor、StabilityBonus
+- `GeneralSystems\GentrySystem.Kin.cs`
+  - 类型：GentrySystem
+  - 方法：Members、UnrecordedMembers、MemberCity、KinCap、SeatLand、Officials、KinFactor、Influence、KeepsLand、ShelteredBy
+- `GeneralSystems\GentrySystem.Lineage.cs`
+  - 类型：GentrySystem
+- `GeneralSystems\GoodsLedger.cs`
+  - 类型：GoodsLedger、Cargo、GoodsRow、GoodsSummary
+  - 方法：Made、Gathered、Delivered、UnitsYear、Used、Short、Roll、static、KeyOf、Summarize
+- `GeneralSystems\GraceEdictService.cs`
+  - 类型：GraceEdictService
+  - 方法：IsCommanderyKingdomActive、TryHandleVacancy、Crown、IsActive、OnKingCrowned
+- `GeneralSystems\GranarySystem.cs`
+  - 类型：GranarySystem
+  - 方法：Realm、Enabled、Policy、LevyShare、Stock、Collect、SurplusShare、Donate、Relieve、ReliefEfficiency
+- `GeneralSystems\GreatPowerDiplomacy.cs`
+  - 类型：GreatPowerDiplomacy
+  - 方法：ResetWorldState、Bound、EmperorRivalry、PactOpinionOf、TryYearlyScan、Aid
+- `GeneralSystems\GuoyeSystem.cs`
+  - 类型：GuoyeSystem
+  - 方法：Practices、IsGuo、CommonerOf、TaxFactor、Exempt、Settle、Yearly
+- `GeneralSystems\HaremSuccessionSystem.cs`
+  - 类型：HaremSuccessionSystem
+  - 方法：Yearly
+- `GeneralSystems\HarshRuleSystem.cs`
+  - 类型：HarshRuleSystem
+  - 方法：GetBurden、GetStreetStage、RecentlyRepressed、GetRealmBurden、OtherGovernanceBurden、Update、TryYearlyKingdomScan、LoyaltyPenalty、LegitimacyPenalty、DissentBonus
+- `GeneralSystems\HistoryRecordSystem.cs`
+  - 类型：HistoryRecordSystem
+  - 方法：RecordHistory、RecordNewEmperorHistory
+- `GeneralSystems\HolyRomanSystem.Authority.cs`
+  - 类型：HolyRomanSystem、MemberSnapshot
+  - 方法：Authority、AuthorityTracked、AuthorityTierText、ChangeAuthority、CanSpend、Spend、OnCrowned、NoteProtection、ResetWorldState
+- `GeneralSystems\HolyRomanSystem.cs`
+  - 类型：HolyRomanSystem
+  - 方法：State、IsElective、GoldenBullAtStart、HouseShare、Defies、KingOfRomans、TryElectHouse、Yearly、KingOfRomansCandidate、SecularPrince
+- `GeneralSystems\HolyRomanSystem.Decline.cs`
+  - 类型：HolyRomanSystem
+  - 方法：ProtectedBy、AbdicationBlocker、ActAbdicate、OnWarStarted
+- `GeneralSystems\HolyRomanSystem.Diet.cs`
+  - 类型：HolyRomanSystem、DietVoter
+  - 方法：HasDiet、Members、IsBanned、Voters、ImperialWar、BanWar、InImperialWar、static、Convene、AgendaText
+- `GeneralSystems\HolyRomanSystem.Election.cs`
+  - 类型：HolyRomanSystem
+  - 方法：Interregnum、Vicar、TryHoldElection、ContestWar、InContest
+- `GeneralSystems\HolyRomanSystem.Electors.cs`
+  - 类型：HolyRomanSystem
+  - 方法：SecularElectorKings、ElectorCandidate、ActGrantElector、ActStripElector、ChurchElectorsView、HasVacantSeat、BannedHoldsSeat
+- `GeneralSystems\HolyRomanSystem.Feuds.cs`
+  - 类型：HolyRomanSystem
+  - 方法：ContainedWar、ActiveFeuds、BlocksFeudCity
+- `GeneralSystems\HolyRomanSystem.Immediacy.cs`
+  - 类型：HolyRomanSystem
+  - 方法：static、ActDefendImmediacy、ActRedeem
+- `GeneralSystems\HolyRomanSystem.Leagues.cs`
+  - 类型：HolyRomanSystem
+  - 方法：LeagueWar、LeagueMembers、Schismatic、KeepsOldFaith、RomzugUnderway、Romzug、StartRomzug
+- `GeneralSystems\HolyRomanSystem.Members.cs`
+  - 类型：HolyRomanSystem
+  - 方法：Estate、IsFreeCity、IsChurchEstate、IsEcclesiastical、ActCharterFreeCity、CharterFreeCity、PawnFreeCity、ChurchBlocker、ActEndowChurch、EndowChurch
+- `GeneralSystems\HolyRomanSystem.Reform.cs`
+  - 类型：HolyRomanSystem
+  - 方法：ReformEnacted、ReformNodeEnacted、ReformBias、Circle、CircleCount、RollPartible
+- `GeneralSystems\IdeologyDynamicsSystem.cs`
+  - 类型：IdeologyDynamicsSystem、Line
+  - 方法：GetFatigue、GetTrend、Update、GetLiberation、GetSuppressed
+- `GeneralSystems\IdeologyEducationSystem.cs`
+  - 类型：IdeologyEducationSystem
+  - 方法：Update
+- `GeneralSystems\IdeologyFamilies.cs`
+  - 类型：IdeologyFamilies
+  - 方法：IsSocialist、IsLabourMovement、IsLeft、IsAgrarianRadical、IsLiberal、IsAncient、IsSchool、IsIdentityStance、FactionLeaning、HasExplicitIdeology
+- `GeneralSystems\IdeologyInstitutionPaths.cs`
+  - 类型：IdeologyInstitutionPaths、Profile
+  - 方法：Profile、GetProfile、Branch、StageFeature、TryGetIdeology、Visible、AddTo
+- `GeneralSystems\IdeologyParallelContact.cs`
+  - 类型：IdeologyPopulationSystem、ContactRequest
+  - 方法：FlushParallelContact
+- `GeneralSystems\IdeologyPopulationSystem.cs`
+  - 类型：IdeologyPopulationSystem、ActorReferenceComparer、CityEconomyProfile
+  - 方法：Equals、GetHashCode、TraitId、ClearCaches、ResetWorldState、SetTraitsReady、Forget、OnTraitAdded、Set、Get
+- `GeneralSystems\IdeologySpreadSystem.cs`
+  - 类型：IdeologySpreadSystem
+  - 方法：ResetWorldState、FeatureKey、TryParseFeature、SetStateIdeology、TryGetStateIdeology、TryYearlyScan
+- `GeneralSystems\ImperialAuthorityRules.cs`
+  - 类型：ImperialAuthorityRules
+  - 方法：Clamp、Tier、Initial、Gain、Apply、StanceBonus、RefusalFactor、FeudChance、CourtGrantChance、PetitionChance
+- `GeneralSystems\ImperialElectionRules.cs`
+  - 类型：ImperialElectionRules、Result
+  - 方法：Tally、BribeScore、CampaignBudget、InterregnumChance
+- `GeneralSystems\ImperialLegitimacyChallengeService.cs`
+  - 类型：ImperialLegitimacyChallengeService
+  - 方法：TryFindTarget、CanChallenge、CanContinueChallenge、StartChallenge、DeclareUsurpation、TryStartRivalryWar、DeclareDynasticRivals、AreRecognizedRivals、TryLegitimizeFalseCore、ClearRivalry
+- `GeneralSystems\ImperialSealSystem.cs`
+  - 类型：ImperialSealSystem
+  - 方法：Init、HeldBy、HeldByKingdom、Holds、FoundingMandateAdjustment、Give、Yearly
+- `GeneralSystems\IndustryBuildingSystem.cs`
+  - 类型：IndustryBuildingSystem
+  - 方法：Tier、IsMine、IsLumber、Init、Link、ExtraLimit、MineOutputFactor、LumberOutputFactor、TierFactor、FactoryBonus
+- `GeneralSystems\InstitutionDefinitionRegistry.cs`
+  - 类型：InstitutionDefinitionRegistry
+  - 方法：IsSharedEffect、HasLine、ResolveLine、Load、GetNodesWithFeature、GetConstitutionRequiredFeatures、GetConstitutionRequiredTechs、IsConstitutionRequiringCompositeEmpire、IsConstitutionEnabled、GetAllPrerequisites
+- `GeneralSystems\InstitutionRealm.cs`
+  - 类型：InstitutionRealm
+  - 方法：Of、IsSovereignKingdom、Record、Is
+- `GeneralSystems\InstitutionRules.cs`
+  - 类型：InstitutionRules
+  - 方法：Clamp100、CalculateAnnualProgress、CalculateDurationScaledAnnualProgress、CalculateAnnualRadicalism、ResolveStage、ResolveLevel、ResolveManualLevel、IsTierAbsorbable、IsExposureSatisfied
+- `GeneralSystems\InstitutionSystem.cs`
+  - 类型：InstitutionPoliticalBalance、InstitutionCultureRanking、InstitutionReformEnvironment、InstitutionNodeStatus、InstitutionNodeView、InstitutionSystem
+  - 方法：ResetWorldState、ImportCultureStates、GetCultureLine、IsSameLine、static、GetOrCreateCultureState、IsEnacted、IsSuperseded、IsPrerequisiteHeld、GetFeatureEnactedTime
+- `GeneralSystems\InstitutionSystem.Diagnostics.cs`
+  - 类型：InstitutionSystem、AiSkip、ReformDiagnostics
+- `GeneralSystems\InstitutionSystem.FactionAgenda.cs`
+  - 类型：InstitutionSystem、RevertBalanceView
+  - 方法：PreferenceOrder、PreferredNode、RevertTarget、IsRevertable、RevertBalance、CanStartRevert、StartRevert、ReformName、GodAdvanceReform
+- `GeneralSystems\InstitutionSystem.Realm.cs`
+  - 类型：InstitutionSystem
+  - 方法：KingdomReformsEnabledFor、TryYearlyKingdomScan、HasCultureEmpire、OnEmpireProclaimed、OnEmpireDissolving、ResyncKingdomEffects
+- `GeneralSystems\InternalBoundarySystem.cs`
+  - 类型：InternalBoundarySystem
+  - 方法：TryYearlyScan
+- `GeneralSystems\InterregnumSystem.cs`
+  - 类型：InterregnumSystem
+  - 方法：TryFracture
+- `GeneralSystems\IslamicSchismSystem.cs`
+  - 类型：IslamicSchismSystem
+  - 方法：ResetWorldState、State、AllRivals、ActiveRivals、Seat、Caliph、ObedienceOf、SeatFor、RivalSeatedIn、BranchOf
+- `GeneralSystems\JimiSystem.cs`
+  - 类型：JimiMode、JimiSystem
+  - 方法：Enacted、Mode、IsJimiRegion、IsJimiAdministration、Cycle、TryMonthlyScan
+- `GeneralSystems\JimiTributeSystem.cs`
+  - 类型：JimiTributeSystem
+  - 方法：Yearly
+- `GeneralSystems\KejuSystem.cs`
+  - 类型：KejuSystem
+  - 方法：HasKeju、TryRegular、GraceOpen、HoldGrace、FraudOpen、Punish、Yearly
+- `GeneralSystems\KingdomColorService.cs`
+  - 类型：KingdomColorService
+  - 方法：KeepsOwnColor、EnsureDistinctInZhou、ApplySphereFamily、ApplyGarrisonFamily、ApplyTribalFamilies、Restore
+- `GeneralSystems\KingdomFlagSystem.cs`
+  - 类型：KingdomFlagSystem
+  - 方法：FlagOf、BadgeOf
+- `GeneralSystems\KinRoster.cs`
+  - 类型：KinRoster
+  - 方法：Children、Siblings、Lineage、OnMap、Virtual、Counts、Adult、Male、CityOf、KingdomOf
+- `GeneralSystems\KinshipRules.cs`
+  - 类型：KinshipRules、KinshipPatch
+  - 方法：AreCloseKin、Initialize、AfterCanFallInLove
+- `GeneralSystems\LandEconomySystem.cs`
+  - 类型：CityLandHolderView、CityLandReport、ClanLandHoldingView、FamilyLandHoldingView、LandEconomySystem
+  - 方法：RecordIncome、IsLandlord、IsLandlessResident、IsLandMarketOpen、IsLandlordClassEnabled、OpenPrivateLandMarket、RedistributeLand、UpdateCity、GetReport、GetFamilyHoldings
+- `GeneralSystems\LandKinds.cs`
+  - 类型：LandKinds、Table
+  - 方法：Of、Is
+- `GeneralSystems\LandmarkBookSystem.cs`
+  - 类型：LandmarkBookConfig、LandmarkBookFileConfig、LandmarkBookSystem、CityIdeologyBook
+  - 方法：TryGetBook、GetTitle、MarkExisting、YearlyCheck、OnRead、ReceiveFoundingBook、FoundingBook、HasFoundingBook、CityIdeologyBook、GetCityIdeologyBooks
+- `GeneralSystems\LateImperialSystem.cs`
+  - 类型：LateImperialSystem
+  - 方法：SecretSuccession、Ability、Designate、MinisterGrowth、LandPollMerged、Yearly、TusiStabilityLoss
+- `GeneralSystems\LawEvents.cs`
+  - 类型：LawEvents
+  - 方法：TrackRebelLeader、OnWarEnded、FailedUsurper、Routed、CityFled、Sacked、ReliefSkimmed、HereticLeaders、Framed、Assassinated
+- `GeneralSystems\LayerDiagnostics.cs`
+  - 类型：LayerDiagnostics
+  - 方法：Tick
+- `GeneralSystems\LayerHooks.cs`
+  - 类型：LayerHooks
+  - 方法：Add、Contains
+- `GeneralSystems\LeftEmpireRepair.cs`
+  - 类型：LeftEmpireRepair
+  - 方法：AfterLoad
+- `GeneralSystems\LegacyInstitutionSystem.cs`
+  - 类型：LegacyInstitutionSystem
+  - 方法：Stored、TryGet、CurrentInstitutionCulture、WouldKeep、OnRealmCultureChanged、Deferred、Drop、AnnounceReform、TryYearlyScan、Label
+- `GeneralSystems\LegionStatisticsReadCache.cs`
+  - 类型：LegionStatisticsReadCache、Contribution、Entry
+  - 方法：Contribution、Reset、Read
+- `GeneralSystems\LineageKinship.cs`
+  - 类型：LineageKinship
+  - 方法：Term
+- `GeneralSystems\LivelihoodSystem.cs`
+  - 类型：LivelihoodSystem、Surroundings
+  - 方法：Key、Name、IsEnterprise、Of、At、Surroundings、RecheckOldRules、Shares、Level、LevelText
+- `GeneralSystems\MaladySystem.cs`
+  - 类型：MaladySystem
+  - 方法：Applies、Get、Severity、Average、Floor、FloorOf、Relieve、Aggravate、OnDynastyChanged、Yearly
+- `GeneralSystems\MapWallSystem.cs`
+  - 类型：MapWallSystem
+  - 方法：Contains、Blocks、CutsCorner、ResetWorldState、Load、Tick、OnTerraform、Remove、Add、OnTopTileSet
+- `GeneralSystems\MarketSystem.cs`
+  - 类型：MarketSystem、Good
+  - 方法：Stock、Reserve、Capacity、Embargoed、Blockaded、CheckSiegeSurrender、Price、Settle、ResetWorldState
+- `GeneralSystems\MassacreSystem.cs`
+  - 类型：MassacreSystem
+  - 方法：IsWartimeCivilianEncounter、WillMassacre、OnCivilianKilled、RecordBackgroundMassacre、LoyaltyPenalty
+- `GeneralSystems\MediaSystem.cs`
+  - 类型：MediaSystem
+  - 方法：PrintLevel、CommLevel、BookFactor、NeighbourFactor、IsMassIdeology、MassFactor、IsOpen、LinkLevel、CrossBorderExposurePerYear、CrossBorderPressureFactor
+- `GeneralSystems\MembershipCooldown.cs`
+  - 类型：MembershipCooldown
+  - 方法：ByGod、MarkRelease、MarkJoin、ReleaseYearsLeft、TruceForbids、ManualJoinActive、Settled、YearsSinceLeft、Desperate、BlocksVoluntary
+- `GeneralSystems\MemberWarAid.cs`
+  - 类型：MemberWarAid
+  - 方法：IsMemberWar、TryRaise、FindRequestWar、FindNeighbourWar、RequestValid、NeighbourValid、StartRequest、StartNeighbour、RequestContinues、NeighbourContinues
+- `GeneralSystems\MigrationRelations.cs`
+  - 类型：MigrationRelations
+  - 方法：Drained、Expelled、Opinion、TakeRefugees、RefugeeLoss、Describe
+- `GeneralSystems\MilitaryCoupSystem.cs`
+  - 类型：MilitaryCoupSystem
+  - 方法：Applies、Yearly、PalaceSeize
+- `GeneralSystems\MilitaryRegency.cs`
+  - 类型：MilitaryRegency
+  - 方法：Active、KindOf、Regent、TitleKey、Refresh、Maintain、Appoint、EstablishNow、CanTakeOver、Usurp
+- `GeneralSystems\MineralResourceSystem.cs`
+  - 类型：MineralResourceSystem、TerrainProfile
+  - 方法：readonly、TaperFactor、MiningLevel、ReserveOf、CooldownLeft、NameOf、IconOf、CooldownYears、RequiredTier、RemainingAmount
+- `GeneralSystems\ModAllianceService.cs`
+  - 类型：ModAllianceService
+  - 方法：Mark、IsModAlliance、IsVanillaAllianceBanned、LeaveAllianceForEmpire、RemoveEmpireMembersFromAlliances、DissolveVanillaAlliances
+- `GeneralSystems\ModernLegitimacy.cs`
+  - 类型：ModernLegitimacy
+  - 方法：Invalidate、Applies、Get
+- `GeneralSystems\ModernStability.cs`
+  - 类型：ModernStability
+  - 方法：IsModern、PassRebellionGate
+- `GeneralSystems\ModernStateFormationSystem.cs`
+  - 类型：ModernStateFormationSystem
+  - 方法：TryUpdate、TryClaimSeatTitle、FormGovernment、TryMergeIntoOverlordGovernment、MergeSameCoreVassals、ResolveGovernmentIdeology、GetNonGovernmentLabel、FormatLabel、NonGovernmentIdeology、GetProvisionalGovernmentLabel
+- `GeneralSystems\ModernTitleCentralization.cs`
+  - 类型：ModernTitleCentralization
+  - 方法：IsModernState、IsModernMember、IsModernDivisionType、BlocksMemberMainTitle、Update
+- `GeneralSystems\ModernWording.cs`
+  - 类型：ModernWording
+  - 方法：Applies、Key、Get
+- `GeneralSystems\MonarchyLegitimacy.cs`
+  - 类型：MonarchyLegitimacy
+  - 方法：Applies、UsesTraditionalModel、Get、Invalidate
+- `GeneralSystems\MonarchyLegitimacyRules.cs`
+  - 类型：MonarchyLegitimacyRules
+  - 方法：Dynasty、Treasury、Misrule、Corruption
+- `GeneralSystems\MultiCapitalSystem.cs`
+  - 类型：MultiCapitalSystem
+  - 方法：IsJing、AuxiliaryCities、JingName、JingNameOf、StabilityBonus、DescribeStability、Yearly
+- `GeneralSystems\MultiCapitalSystem.Decreed.cs`
+  - 类型：MultiCapitalSystem
+  - 方法：AuxiliaryCount、DecreeCandidates、DecreedCities、ZhiliCandidates、DecreeJing、RevokeJing、DecreeZhili
+- `GeneralSystems\MultiCapitalSystem.Zhili.cs`
+  - 类型：MultiCapitalSystem
+  - 方法：IsZhili、IsVacantZhili、ZhiliFront、HoldsVacancy
+- `GeneralSystems\NameCultureRepair.cs`
+  - 类型：NameCultureRepair
+  - 方法：Foreign、FromLine、RepairKingdom、RepairTitle、TryYearlyScan
+- `GeneralSystems\NationalSentimentSystem.cs`
+  - 类型：NationalSentimentSystem
+  - 方法：GetCity、GetEmpire、InUnitedFront、InSameUnitedFront、PartyColor、ColorKey、VoteFactor、UpdateWorld、RulerCulture、IsForeignRuled
+- `GeneralSystems\NationalUnificationSystem.cs`
+  - 类型：NationalUnificationSystem
+  - 方法：ResetWorldState、Consider、Tick
+- `GeneralSystems\NativeDefenseSystem.cs`
+  - 类型：NativeDefenseSystem
+  - 方法：Tick、IsNativeEmpire、Resisting、CombatFactor
+- `GeneralSystems\NativeFaithSystem.cs`
+  - 类型：NativeFaithSystem
+  - 方法：YearlyPass、RevealedOf、AllowsVanillaFounding
+- `GeneralSystems\NativeVegetationScheduler.cs`
+  - 类型：NativeVegetationScheduler
+  - 方法：Tick、Reconcile、Forget、Restore、Reset
+- `GeneralSystems\NaturalizationSystem.cs`
+  - 类型：NaturalizationState、NaturalizationConfig、NaturalizationFlow、NaturalizationReport、NaturalizationSnapshot、NaturalizationSystem
+  - 方法：Count、HasLedger、Completed、Identity、Untrained、Carry、Drafted、Returned、YieldFactor、Casualties
+- `GeneralSystems\NomadAppanageSystem.cs`
+  - 类型：NomadAppanageSystem
+  - 方法：OnChieftainSucceeded、Tick
+- `GeneralSystems\NomadCycleSystem.cs`
+  - 类型：NomadCycleSystem
+  - 方法：IsKhanate、OnKhanSucceeded、OnCaliphSucceeded、OnSultanSucceeded、RememberHero、DeclareIndependence、CollapseDue、KhanateCollapse、Scatters、UlusDrift
+- `GeneralSystems\NomadFeudalismSystem.cs`
+  - 类型：NomadFeudalismSystem
+  - 方法：FeudalizationTarget、NeedsLegacyRepair、RepairAfterLoad
+- `GeneralSystems\NomadRaidSystem.cs`
+  - 类型：NomadRaidSystem
+  - 方法：State、TryMonthlyScan、IsNomad、IsRaider、NoteMarket、MarketTreaty
+- `GeneralSystems\NomadRaidSystem.Defense.cs`
+  - 类型：NomadRaidSystem
+- `GeneralSystems\NomadRaidSystem.Hero.cs`
+  - 类型：NomadRaidSystem
+- `GeneralSystems\NomadRaidSystem.War.cs`
+  - 类型：NomadRaidSystem
+  - 方法：OnSack、OnWarEnded、ClaimTarget、ClaimTargets、RaidFromClaim
+- `GeneralSystems\OccupationPuppetSystem.cs`
+  - 类型：OccupationPuppetSystem
+  - 方法：Sentiment、ForeignNationalCity、NationalLand、Resistance、RealmResistance、static、QueueCession、Hand、ResetWorldState、Tick
+- `GeneralSystems\OccupationReadIndex.cs`
+  - 类型：OccupationReadIndex、Group、Entry、Control、ControlEntry
+  - 方法：Group、Invalidate、Reset、Read、Control、ReadControl、Membership
+- `GeneralSystems\OfficeBans.cs`
+  - 类型：OfficeBans
+  - 方法：Add、Banned
+- `GeneralSystems\OfficialRankRules.cs`
+  - 类型：OfficialRankEntry、OfficialRankForm、OfficialRankCivilizations、OfficialRankGeneralFloor、OfficialRankSoldierStep、OfficialRankConfig、OfficialRankRules
+  - 方法：Clamp、CivilizationOf、FormDef、SetOf、GradeSuffix、ShowsMerit、Key、ResolveKey、IsMilitary、MilitaryOffice
+- `GeneralSystems\OfficialRankSystem.cs`
+  - 类型：OfficialRank、OfficialRankSystem
+  - 方法：OfficialRank、FormOf、CivilizationOf、UsesPerformanceLadder、IsModern、PyramidKey、Of、OfPost、OnAppointed、OnPerformance
+- `GeneralSystems\PapacySystem.Actions.cs`
+  - 类型：PapacySystem
+  - 方法：CrownBlocker、ActCrown、CrownByForce、HasHolyName、HolyBlocker、TheChurch、HolyStays、ActHoly、GrantHoly、RevokeHoly
+- `GeneralSystems\PapacySystem.Antipope.cs`
+  - 类型：PapacySystem
+  - 方法：ActiveSchism、Antipope、AntipopeSee、AntipopeSeeCity、PapalObedience、FollowsAntipope、ObeyedSee、ObeyedPope、ObeyedSeeCity、static
+- `GeneralSystems\PapacySystem.Caliphate.cs`
+  - 类型：PapacySystem
+  - 方法：IsCaliphal、WagesHolyWar、AppliesCaliphal
+- `GeneralSystems\PapacySystem.Conflict.cs`
+  - 类型：PapacySystem
+  - 方法：IsSecularPath、InContest、HadClash、Excommunicate、Penance、PartyMembers、Party
+- `GeneralSystems\PapacySystem.Crusade.cs`
+  - 类型：PapacySystem
+  - 方法：ActiveCrusade、CrusadeCity、OnWarEnded
+- `GeneralSystems\PapacySystem.cs`
+  - 类型：PapacySystem
+  - 方法：State、ReligionOf、IsWestern、Applies、HolyCity、HasSee、CallsHolyWar、Papacy、Pope、IsCaptive
+- `GeneralSystems\PapacySystem.Events.cs`
+  - 类型：PapacySystem
+  - 方法：IsHolySee、BreakWithRome、ReligiousPeace
+- `GeneralSystems\PapacySystem.Orders.cs`
+  - 类型：PapacySystem
+  - 方法：OrderFactor、Orders、FindOrder、GrandMaster、Host、OrderCorps
+- `GeneralSystems\PapacySystem.PapalState.cs`
+  - 类型：PapacySystem
+  - 方法：PapalRule、HoldsHolyCity、PietyBeforeReload、KeepTheocracy、TryYearlyDiagnose
+- `GeneralSystems\PapacySystem.Reformation.cs`
+  - 类型：PapacySystem
+  - 方法：IsReformedChurch、SplitOrigin、Reformations、static、ReformationYearly、FoundReformedChurch、PrinceReformChance、AdoptReformation
+- `GeneralSystems\PapacySystem.Seat.cs`
+  - 类型：PapacySystem
+  - 方法：PopeOf、SeatCoronation、SeatPenance、SeatBannable、SeatToggleBan、SeatCrusadeBlocker、SeatCrusade、SeatOrderBlocker、SeatFoundOrder
+- `GeneralSystems\PapalElection.cs`
+  - 类型：PapalElection
+  - 方法：TryHandleVacancy、PickCandidate
+- `GeneralSystems\ParliamentBillSystem.cs`
+  - 类型：ParliamentBillSystem、Tally
+  - 方法：Applies、Paused、Sponsor、Stance、IdeologyLean、Count、Propose、IsPassedBill、Tick、static
+- `GeneralSystems\ParliamentSystem.cs`
+  - 类型：ParliamentSeatView、ParliamentFactionView、ParliamentView、ParliamentSystem
+  - 方法：TermYears、HasParliament、HasResponsibleGovernment、KeepsCabinet、GetPrimeMinister、IsGoverningFaction、GetGoverningFaction、HasWorkingMajority、GetHeadOfGovernment、GetRepresentatives
+- `GeneralSystems\ParliamentSystem.Government.cs`
+  - 类型：ParliamentSystem、GovernmentPlan
+  - 方法：SeatCount、ControlsMinistries、CivilService、PartyAppointsMinisters、PartyAppointsDivisions、PartyAppointsOffice、IsCareerCivilServiceOffice、InSpoilsTurnover、GetCoalitionIds、GetAgenda
+- `GeneralSystems\PartialEnfeoffment.cs`
+  - 类型：PartialEnfeoffment
+  - 方法：WithinShare、KhanKeepsHalf、GrantDue、Foreign、ClientRegimeAllowed、TryPick、MarkGranted、RevertsOnExtinction、TickUlus、Princes
+- `GeneralSystems\PartyBanSystem.cs`
+  - 类型：PartyBanSystem
+  - 方法：IsClosed、GetMode、GetConsultativeParties、CapConsultativeRatios、IsConsultative、IsLeadingParty、OnPartyRemoved、HasConsultation、IsAllowedParty、CanChooseElectoralSystem
+- `GeneralSystems\PartyFinanceSystem.cs`
+  - 类型：PartyFinanceSystem
+  - 方法：Yearly、Income、Campaign、CampaignFactor、ProvinceFactor、ApprovalFactor、VoteFactor、DistrictFactor、Approval、Adjust
+- `GeneralSystems\PartyInnerSystem.cs`
+  - 类型：PartyInnerSystem
+  - 方法：Yearly、AfterElection、SplitFactor、DisciplineTarget、HoldCongress
+- `GeneralSystems\PartyOpeningRules.cs`
+  - 类型：PartyOpeningPressure、PartyOpeningRules
+  - 方法：Measure
+- `GeneralSystems\PartyRelations.cs`
+  - 类型：PartyRelations
+  - 方法：Relation、AdjustVote、AfterBill、RefusesCoalition、NoConfidenceBias、Yearly、StreetPressure
+- `GeneralSystems\PartySystem.cs`
+  - 类型：IdeologyRoute、PartyIdeology、PartySystem
+  - 方法：FoundingShare、ClaimsOf、IsActive、IsIdeologyUnlocked、RouteOf、FactionTypeOf、GetPosition、GetRouteName、IsEnlightenmentIdeology、IsResearched
+- `GeneralSystems\PeaceTable.cs`
+  - 类型：PeaceTermKind、PeaceTerm、PeaceDeal、PeaceOpinion、PeaceBasis、PeaceTable、Source
+  - 方法：Copy、Has、ResetWorldState、Usable、Giver、Receiver、Draft、ResetToOffer、Clear、Toggle
+- `GeneralSystems\PeaceTermRules.cs`
+  - 类型：PeaceTermRules、Leverage、Wear
+  - 方法：readonly、CityValue、RealmValue、AverageCityValue、MoneyValue、IndemnityAmount、Share、SizeFactor、NationResistance、OccupationWear
+- `GeneralSystems\PerformanceSystem.cs`
+  - 类型：PerformanceEvent、PerformanceEvents
+  - 方法：trigger、init、GetPersonalPerformance、CalculateRate
+- `GeneralSystems\PersonalTieSystem.cs`
+  - 类型：PersonalTieSystem
+  - 方法：MakeRivals、MakePatron、OnKinKilled、TieOf、AreRivals、ProtegesInOffice、Yearly、ResetAvengers、Describe
+- `GeneralSystems\PersonalUnionService.cs`
+  - 类型：PersonalUnionService
+  - 方法：IsUnionRegime、AllowsFemaleSuccession、GetRealms、IsAtFeudalRealmLimit、CrownLocalVassal、CrownInUnion、OnKingCrowned、OnRulerDying、TryHandleVacancy、InheritTitlesAsUnion
+- `GeneralSystems\PersonRef.cs`
+  - 类型：PersonRef
+  - 方法：Alive、Person、Resolve、Present、Keeps
+- `GeneralSystems\PettyRebellion.cs`
+  - 类型：PettyRebellion
+  - 方法：Feudal、Mark、IsPetty、Blocks
+- `GeneralSystems\PlateauGenerator.cs`
+  - 类型：PlateauGenerator
+  - 方法：Generate
+- `GeneralSystems\PlateauPaintLedger.cs`
+  - 类型：PlateauPaintLedger、Placed
+  - 方法：Placed、With、Reset、Finish
+- `GeneralSystems\PlateauShaper.cs`
+  - 类型：PlateauShaper、Painting、Route、Noise
+  - 方法：Route、Shape、ShapePainted、Value、Fbm
+- `GeneralSystems\PlateauSides.cs`
+  - 类型：PlateauSides
+  - 方法：Differ
+- `GeneralSystems\PlateauTerrain.cs`
+  - 类型：PlateauTerrain
+  - 方法：IsPlateau、IsRugged、IsSteppe、IsAlpine、IsLoess、Register
+- `GeneralSystems\PopeLegitimacy.cs`
+  - 类型：PopeLegitimacy
+  - 方法：Applies、Get
+- `GeneralSystems\PopularGrievance.cs`
+  - 类型：PopularGrievance
+  - 方法：Index、Factor、Tier、CommonerGrievance、IsCommoner
+- `GeneralSystems\PopulationEconomyAccounts.cs`
+  - 类型：PopulationEconomyPeriod、PopulationEconomyAccounts
+  - 方法：Record
+- `GeneralSystems\PopulationEconomySystem.cs`
+  - 类型：PopulationEconomySystem、ProductionSnapshot、PrivateUseScope
+  - 方法：Settle、CaptureProduction、DepositFarmHarvest、IsFood、Savings、Dispose、PrivateUse、AddPublicStock、TakePublicStock、ChargePublicUse
+- `GeneralSystems\PopulationJurenRanking.cs`
+  - 类型：PopulationJurenRanking、Request
+  - 方法：Reset、Prewarm、BeginPass、TryIsKept、EndPass
+- `GeneralSystems\PopulationParallelSystem.cs`
+  - 类型：PopulationParallelSystem、Request
+  - 方法：ResetWorldState、PrewarmWorkforce、PrepareWorkforce、GetWorkforce、StartGrowth、TryCompleteGrowth、Discard、FlushGrowth
+- `GeneralSystems\PopulationRuntimeDiagnostics.cs`
+  - 类型：PopulationRuntimeDiagnostics
+  - 方法：Reset、Tick
+- `GeneralSystems\PrehistoricClanSystem.cs`
+  - 类型：PrehistoricClanSystem、SurnameEra
+  - 方法：Primordial、AncientGivenName、AncientKingdomName、PickShi、IsMatrilineal、ResetWorldState、EraOf、AncientNaming、ShiForming、ShiFrom
+- `GeneralSystems\PrinceLineage.cs`
+  - 类型：PrinceLineage
+  - 方法：NoteGrant、IsPrince、InLine、static、Describe、GrantPrinces、OnPrinceDied、BackfillPosthumous、Backfill
+- `GeneralSystems\PrinceStruggleSystem.cs`
+  - 类型：PrinceStruggleSystem
+  - 方法：QueueContest、Note、Yearly、Monthly
+- `GeneralSystems\PrivyPurse.cs`
+  - 类型：PrivyPurseData、PrivyPurse
+  - 方法：ResetWorldState、Save、Load、Book、Note、AllowanceOf、Tick、RoyalLand、MonthlyRent、SetTier
+- `GeneralSystems\ProductionInstitutionPaths.cs`
+  - 类型：ProductionInstitutionPaths
+  - 方法：AddTo
+- `GeneralSystems\ProvincialCollapseSystem.cs`
+  - 类型：ProvincialCollapseSystem、RisingStart
+  - 方法：Active、Crisis、Yearly、BeginRising、RisingMonths、Monthly、Absorb
+- `GeneralSystems\ProvincialPoliticsSystem.cs`
+  - 类型：ProvincialPoliticsSystem
+  - 方法：HasLocalElections、LoyaltyBonus、IsProvince、Get、GetGoverningParty、IsOppositionHeld、GetInfluence、CoalitionProvinceShare、YearsUntilLocalElection、Update
+- `GeneralSystems\PublicOpinionSystem.cs`
+  - 类型：PublicOpinionSystem
+  - 方法：GetLevel、GetLevelName、TryGetPreferred、GetPressure、PickPressured、Update、ApplyStrikeEffects、ExternalSusceptibility、Backlash、PreferredParty
+- `GeneralSystems\PuppetStateSystem.cs`
+  - 类型：PuppetStateSystem
+  - 方法：IsPuppet、Master、StandingLine、StandingTooltip、Years、PuppetsOf、Bound、Establish、Found、MasterIdeology
+- `GeneralSystems\PureMapMode.cs`
+  - 类型：PureMapMode
+  - 方法：Tick、IsDecor、Visible、ResetWorldState
+- `GeneralSystems\RealisticAgeSystem.cs`
+  - 类型：RealisticAgeSystem
+  - 方法：CheckNaturalDeath、MeanDeathAge、MaxDeathAge、NaturalDeathAge、Seed、AgeDeathDue、MinParentAge、OldEnoughToParent、YoungEnoughToParent、IsMinor
+- `GeneralSystems\RealmAuthority.cs`
+  - 类型：RealmAuthority
+  - 方法：Get、InRebellion、Invalidate
+- `GeneralSystems\RealmAuthorityRules.cs`
+  - 类型：RealmAuthorityRules
+  - 方法：Treasury、Corruption、Misrule、Prestige、Clamp、Total
+- `GeneralSystems\RealmCultureSystem.cs`
+  - 类型：RealmCultureSystem
+  - 方法：static
+- `GeneralSystems\RealmDiplomacySystem.cs`
+  - 类型：RealmDiplomacySystem
+  - 方法：CanChooseOverlord
+- `GeneralSystems\RealmNamingSystem.Contest.cs`
+  - 类型：RealmNamingSystem
+  - 方法：Monthly、ResolveName、HoldsHalfOfRealm
+- `GeneralSystems\RealmNamingSystem.cs`
+  - 类型：RealmNamingSystem
+  - 方法：LineOf、IsHuaxia、UsesCourtNames、IsWestern、CoreName、IsFormalCore、HolderOf、TianxiaBaseName、AncestralCore、MarkProvisionalCore
+- `GeneralSystems\RealmNamingSystem.Display.cs`
+  - 类型：RealmNamingSystem
+  - 方法：NameSourceLine、JingLine、ZhiliLine、SetTianxiaBase
+- `GeneralSystems\RealmNamingSystem.Founding.cs`
+  - 类型：RealmNamingSystem
+  - 方法：BeginChallengeFounding、EndChallengeFounding、SeatCore、GrandPrefixOf、GrandCore、PickGrandName、NormalizeGrandName、GrandNameMeaning、TryRaiseBanner、NameUsurper
+- `GeneralSystems\RealmNamingSystem.Huaxia.cs`
+  - 类型：RealmNamingSystem
+  - 方法：DominionCore、static、MainTitleCore、DominionRoute、DominionNote、PlanDominionBinding、SelectFoundingName、RestorationHouse、KeepsFoundingPrefix、FreshCoreName
+- `GeneralSystems\RealmNamingSystem.Modern.cs`
+  - 类型：RealmNamingSystem
+  - 方法：NamedAfterTianxia、SoleGovernment、ModernRealmName、ModernBaseName、NationalName、ClaimModernRealmName
+- `GeneralSystems\RealmNamingSystem.Place.cs`
+  - 类型：RealmNamingSystem
+  - 方法：IsPlaceName、PlaceTitle
+- `GeneralSystems\RealmNamingSystem.Universal.cs`
+  - 类型：RealmNamingSystem
+  - 方法：Capable、StillPrimate、HoldsUniversal、UniversalLead、SeeLead、NamedTianxia、PeopleName、OtherUniversal、ControlsPapacy、CoronationVia
+- `GeneralSystems\RealmPriority.cs`
+  - 类型：RealmPriority
+  - 方法：IsMajor、InMajorRealm、EnqueueByPriority
+- `GeneralSystems\RebellionRules.cs`
+  - 类型：RebellionRules
+  - 方法：GraceYearsRemaining、LegitimacyFactor
+- `GeneralSystems\RebellionSnowballSystem.cs`
+  - 类型：RebellionSnowballSystem
+  - 方法：Update、FindRebels
+- `GeneralSystems\RebellionStartupService.cs`
+  - 类型：RebellionStartupService
+  - 方法：RaiseUprisingMilitia、RollbackCitySplit
+- `GeneralSystems\RebellionSystem.cs`
+  - 类型：RebellionSystem
+  - 方法：GraceYearsRemaining、RebellionsBanned、CanAttempt、SecessionThresholdFor、SecessionAllegiance、ChanceFactor、CanContinueCityPlot、Capture、CityLoyaltyCauses、Metrics
+- `GeneralSystems\RegnalNameService.cs`
+  - 类型：RegnalNameService
+  - 方法：OnEmperorCrowned、Display、ToRoman
+- `GeneralSystems\ReignRecordSystem.cs`
+  - 类型：ReignRecordSystem
+  - 方法：OnReignStart、OnYear、OnReignEnd、RecoverMissingAccessions、RepairLegacyTenure、ReignStart、OnDynastyChanged、OnWarEnded
+- `GeneralSystems\ReligionChronicle.cs`
+  - 类型：ReligionChronicle
+  - 方法：Record、Clear
+- `GeneralSystems\ReligionConversionSystem.cs`
+  - 类型：ReligionConversionSystem
+  - 方法：RecentlyConverted、YearlyPass、Willingness、Convert
+- `GeneralSystems\ReligionDiagnostics.cs`
+  - 类型：ReligionDiagnostics
+  - 方法：Reset、Add、Flush
+- `GeneralSystems\ReligionFaith.cs`
+  - 类型：FaithType、ReligionFaith
+  - 方法：OfCulture、Of、Record、IsPapal、IsCaliphal、HasHierarchy、WagesHolyWar、FoundsOrders、IsExclusive、IsWorldFaith
+- `GeneralSystems\ReligionHeads.cs`
+  - 类型：ReligionHeads
+  - 方法：Note、YearlyPass
+- `GeneralSystems\ReligionReachRules.cs`
+  - 类型：ReligionReachRules
+  - 方法：Radius、Factor
+- `GeneralSystems\ReligionSchismSystem.cs`
+  - 类型：ReligionSchismSystem
+  - 方法：YearlyPass、OnSuccessionContest、EarlyReformation
+- `GeneralSystems\ReligionSphere.cs`
+  - 类型：ReligionSphere
+  - 方法：ResetWorldState、SphereOfCulture、SphereOfCity、SphereOf、OriginCulture、Record、IsNative、BranchParent、IsBranch、Root
+- `GeneralSystems\ReligionTenets.cs`
+  - 类型：ReligionTenets、Effects
+  - 方法：ResetWorldState、Invalidate、Def、Innate、Absorbed、Has、Of、MissionFactor、InertiaFactor、AtHome
+- `GeneralSystems\ReligiousPersecution.cs`
+  - 类型：ReligiousPersecution
+  - 方法：StabilityLoss、YearlyPass
+- `GeneralSystems\ReligiousTension.cs`
+  - 类型：ReligiousTension、Policy
+  - 方法：ResetWorldState、IsHeterodox、PolicyOf、LevyFactor、StabilityLoss、SentimentGain、Describe、TryYearlyScan、TryPersecutionRevolt、CanRevolt
+- `GeneralSystems\RenownSystem.cs`
+  - 类型：RenownSystem
+  - 方法：OfficeIncome、GentryIncome、Income、Yearly、OnBattle、ScaleVanilla
+- `GeneralSystems\RepublicSystem.cs`
+  - 类型：RepublicSystem、IdeologyBureau
+  - 方法：IsRepublic、IsRegimeLocked、IsOneParty、IsParliamentaryRepublic、IsPresidentialRepublic、GetHeadOfStateTitle、CustomHeadTitle、IsTransitioning、CanAbolish、UpdateAbolitionPressure
+- `GeneralSystems\ResourceTributeSystem.cs`
+  - 类型：ResourceTributeSystem
+  - 方法：Impose、TryMonthlyScan
+- `GeneralSystems\RestorationSystem.cs`
+  - 类型：RestorationSystem
+  - 方法：IsProclaimed、ImperialName、Update
+- `GeneralSystems\RitesSystem.cs`
+  - 类型：RitesSystem
+  - 方法：Yearly、OnWarDeclared
+- `GeneralSystems\RoyalHouseSystem.cs`
+  - 类型：RoyalHouseSystem、Fate
+  - 方法：IsRoyal、RoyalDeathAge、RoyalMeanDeathAge、OnBirthday、CanBirth、NoteBirth、Tick、Turmoil
+- `GeneralSystems\RoyalMarriageSystem.cs`
+  - 类型：RoyalMarriageSystem
+  - 方法：Applies、Monthly、ArrangeHeqin、Allied、OnWarStarted、HasClaim、BloodDistance
+- `GeneralSystems\RulerQualitySystem.cs`
+  - 类型：RulerQualitySystem、Grade
+  - 方法：Of、IsBad、Neglects、Indulgent、Assess、CorruptionDelta、static、StrainDelta、TyrannyBurden、MinisterBonus
+- `GeneralSystems\RulerTraitSystem.cs`
+  - 类型：RulerTraitSystem
+  - 方法：OnCrowned、CheckRestorer、HasActiveTrait、ReignedBy、FounderShield、FounderReigns、HeroicReign、FounderTitle、IsFounderUnificationWar、FounderCombat
+- `GeneralSystems\RuralSettlementSystem.cs`
+  - 类型：RuralSettlementSystem
+  - 方法：ResetWorldState、Load、Save、Forts、InCity、InCityShared、InZone、SettledZones、Add、Touch
+- `GeneralSystems\SchismSystem.cs`
+  - 类型：SchismSystem
+  - 方法：ResetWorldState、Active、KindOf、StageOf、InRising、IsBreakaway、Members、Watchers、IsContestWar、Describe
+- `GeneralSystems\ScorchedEarthSystem.cs`
+  - 类型：ScorchedEarthSystem
+  - 方法：WillScorch、IsOccupiedZone、OnCityCaptured、Settle、Kill、Plunder
+- `GeneralSystems\SecessionGate.cs`
+  - 类型：SecessionGate
+  - 方法：Decide、Banned、Forbids、Sanctioned、EnterGod、ExitGod
+- `GeneralSystems\SecessionSpread.cs`
+  - 类型：SecessionSpread
+  - 方法：Spread
+- `GeneralSystems\SectorTaxRules.cs`
+  - 类型：SectorTaxRules
+  - 方法：Rate、Assess
+- `GeneralSystems\SectUprisingSystem.cs`
+  - 类型：SectUprisingSystem
+  - 方法：YearlyPass、AtRisk
+- `GeneralSystems\SenateSystem.cs`
+  - 类型：SenateSystem
+  - 方法：SeatsFor、Maintain
+- `GeneralSystems\SettlementNaming.cs`
+  - 类型：SettlementNaming
+  - 方法：Name、TerrainOf、ResetWorldState、MigrateOldNames
+- `GeneralSystems\SettlementSeaSearch.cs`
+  - 类型：SettlementSeaSearch、SeaNode、Candidate、Landing
+  - 方法：Apply、FromLanding、Create、Next、SettlementSeaSearch、Advance、NextLanding、Accept、Navigable、Port
+- `GeneralSystems\ShanrangSystem.cs`
+  - 类型：ShanrangSystem
+  - 方法：ResetWorldState、Elective、Monthly、Score
+- `GeneralSystems\ShogunateDramaSystem.cs`
+  - 类型：ShogunateDramaSystem
+  - 方法：CourtRules、RisingOdds、SengokuDue、Yearly
+- `GeneralSystems\ShuiTuSystem.cs`
+  - 类型：ShuiTuSystem、Fit、UnitInfo、CityInfo、DryEntry
+  - 方法：ResetWorldState、TierOf、StabilityFor、NomadCombatFor、SettledLevyFor、SettledTaxFor、SettledCombatFor、NomadLevy、OffGrassTier、UnfitTier
+- `GeneralSystems\ShuiTuSystem.Display.cs`
+  - 类型：ShuiTuSystem
+  - 方法：DescribeCity、DescribeKingdom
+- `GeneralSystems\ShuiTuSystem.Outlets.cs`
+  - 类型：ShuiTuSystem
+  - 方法：OnNorthernRetreat、Delay、OnSuzerainSucceeded、OnOverlordSucceeded
+- `GeneralSystems\SlaverySystem.cs`
+  - 类型：SlaverySystem
+  - 方法：Practices、Abolished、Slaves、Unfree、CanRecruit、OwnerShare、WorkforceShare、Settle、OnCityCaptured、Convert
+- `GeneralSystems\SmallStateSubmissionSystem.cs`
+  - 类型：SmallStateSubmissionSystem
+  - 方法：Tick、Submit
+- `GeneralSystems\SmoothBorders.Canvas.cs`
+  - 类型：SmoothBorders
+  - 方法：CanvasDraws、CanvasOwns、ClaimChanged、WildReshaped、CanvasDraw
+- `GeneralSystems\SmoothBorders.cs`
+  - 类型：SmoothBorders、ShownState、Transition、SweepPlan、LayerFlip、Snapshot
+  - 方法：Set、Describe、IsOutline、IsForeign、FingerprintCovers、HoverUrgent、FrontNoise、BorderNoise、Highlight、FrameTick
+- `GeneralSystems\SmoothBorders.Diagnostics.cs`
+  - 类型：SmoothBorders
+  - 方法：DescribeDisplay、CanvasBlank
+- `GeneralSystems\SmoothBorders.LayerImage.cs`
+  - 类型：SmoothBorders、LayerImage
+  - 方法：Stamp、TakeLayerRestored
+- `GeneralSystems\SmoothBorders.Upload.cs`
+  - 类型：SmoothBorders
+  - 方法：MarkPixel
+- `GeneralSystems\SocialCrisisSystem.cs`
+  - 类型：SocialCrisisSystem、Material、Snapshot
+  - 方法：Material、Capture、For、UpdateMobilization、GetMobilization、GetSuppression、QuietReason、SpawnClassLeader
+- `GeneralSystems\SouthernGarrisonSystem.cs`
+  - 类型：SouthernGarrisonSystem
+  - 方法：Formed、Active、IsGarrison、IsInternalWar、Update、Enfeoff
+- `GeneralSystems\SouthernRetreatRules.cs`
+  - 类型：SouthernRetreatRules
+  - 方法：HoldsThird、Triggers、Sheltered、South、LegitimacyFloor、LegitimacyBonus
+- `GeneralSystems\SouthernRetreatSystem.cs`
+  - 类型：SouthernRetreatSystem
+  - 方法：Sheltered、LegitimacyBonus、Check
+- `GeneralSystems\SpeechFreedomSystem.cs`
+  - 类型：SpeechFreedomSystem
+  - 方法：BookReach、FatigueModifier、Update
+- `GeneralSystems\StableFrameRate.cs`
+  - 类型：StableFrameRate
+  - 方法：Set、SetIdle、SetViewing、Tick
+- `GeneralSystems\StateDebtRules.cs`
+  - 类型：StateDebtRules
+  - 方法：AnnualRate、MonthlyInterest、Annualize、BorrowRoom、RestructureKeep、BorrowNeed、Lendable、MergedRate
+- `GeneralSystems\StateDebtSystem.cs`
+  - 类型：StateDebtSystem
+  - 方法：Bonds、Outstanding、AverageRate、AnnualStableIncome、BorrowingIncome、DefaultedRecently、TryMonthlyScan
+- `GeneralSystems\StateModernization.cs`
+  - 类型：ModernizationRules、StateModernization
+  - 方法：RevolutionChance、Republican、ConstitutionDemonstration、IsModernPower、AdjustFounding、MarkFounding、TryRevolution、ConstitutionSupportBonus
+- `GeneralSystems\StateSettlementRules.cs`
+  - 类型：StateSettlementRules
+  - 方法：NearBestSite、AtZoneLimit、MigrantPeople、AdministrativeCost、CanPay
+- `GeneralSystems\StateSettlementSystem.cs`
+  - 类型：StateSettlementSystem、Search
+  - 方法：Search、FundingRealm、ExpansionCities、Check、DiscretionaryFunds、DiscretionaryBalance、Tick、AwaitingPopulation、Status、WantsPort
+- `GeneralSystems\SteppeOrderSystem.Attach.cs`
+  - 类型：SteppeOrderSystem
+  - 方法：AttachedCount
+- `GeneralSystems\SteppeOrderSystem.cs`
+  - 类型：SteppeOrderSystem
+  - 方法：PeacetimeWarAllowed、Yearly、Monthly
+- `GeneralSystems\SteppeOrderSystem.Feuds.cs`
+  - 类型：SteppeOrderSystem
+  - 方法：Rift、BlocksPastureCity、OnWarEnded
+- `GeneralSystems\SteppeOrderSystem.Tribute.cs`
+  - 类型：SteppeOrderSystem
+  - 方法：TributeGiftShare、NoteGift、Gifted、GiftCut
+- `GeneralSystems\SteppeRules.cs`
+  - 类型：SteppeRules
+  - 方法：Era、Herd、Treasury、Market、Total、JoinChance、SackGoal、Defense、LootFactor、TargetScore
+- `GeneralSystems\SubjectChain.cs`
+  - 类型：SubjectChain
+  - 方法：Lords、Under、Overturn、Untangle
+- `GeneralSystems\SuccessionCouncilSystem.cs`
+  - 类型：SuccessionCouncilSystem
+  - 方法：Applies、Current、static、InSession、Monthly、Support、GodChoose、Describe、KinLabel
+- `GeneralSystems\SuccessionLawSystem.cs`
+  - 类型：SuccessionLawSystem
+  - 方法：IsSuccessionLawUnlocked
+- `GeneralSystems\SurnameInheritanceSystem.cs`
+  - 类型：SurnameInheritanceSystem
+  - 方法：SelectParent、FamilyNameOf、Reigns、Dynasty、RepairPatrilineal、ApplySurname、ClanParent、RepairMaternalClan、ClanSurname、EnforceClanSurname
+- `GeneralSystems\SyncretismSystem.cs`
+  - 类型：SyncretismSystem
+  - 方法：YearlyPass、TenetName、SphereLabel、NoteFailedConversion、NoteConversion
+- `GeneralSystems\TaxErosionSystem.cs`
+  - 类型：TaxErosionSystem
+  - 方法：IsTax、static、Withholding、Round、RecordAssessed、RecordStolen、RecordWithheld
+- `GeneralSystems\TechCalendarRules.cs`
+  - 类型：TechCalendarSave、TechCalendarRules
+  - 方法：YearAfter、MaxTier
+- `GeneralSystems\TechDriveSystem.cs`
+  - 类型：TechDriveSystem、DriveOutlook
+  - 方法：Category、Stance、CultureOf、Reachable、PreferredTech、Funds、YearlyCost、Outlook、CannotStart、Start
+- `GeneralSystems\TechnologyContentRules.cs`
+  - 类型：TechContentSourceConfig、TechnologyContentRules
+  - 方法：FindSource、BuildingPattern
+- `GeneralSystems\TechnologyStateRules.cs`
+  - 类型：TechnologyStateRules
+  - 方法：Canonical、Normalize、SyncLegacy
+- `GeneralSystems\TechnologySystem.cs`
+  - 类型：TechResearchConfig、TechBoostConfig、TechEraConfig、TechResourceRequirement、TechMaterialConfig、TechInstitutionRequirement、TechLineVariant、TechNodeConfig、TechModGateConfig、TechSwapGuardConfig
+  - 方法：IsBeyondPremodern、IsModernInstitution、EnsureLoaded、TryGetTech、TryGetMaterial、ResetWorldState、AwaitingRegimeBackfill、ImportStates、GetState、HasTech
+- `GeneralSystems\TechnologySystem.EraLock.cs`
+  - 类型：TechnologySystem
+  - 方法：SetEraLock、ImportEraLock、BeyondEraLock、InstitutionBeyondEraLock、ModernInstitutionBlocked、ModernInstitutionReason、EraNameOfTier、TopEraTier
+- `GeneralSystems\TechRollbackSystem.cs`
+  - 类型：TechRollbackResult、TechRollbackSystem、Job、WorldJob、Placement
+  - 方法：ResetWorldState、StepBack、ToPrimitive、WorldToPrimitive、RevokeInstitutions、Tick
+- `GeneralSystems\TemplateNameRepair.cs`
+  - 类型：TemplateNameRepair
+  - 方法：IsRaw、RepairCultures、RepairNames
+- `GeneralSystems\TerrainResistance.cs`
+  - 类型：TerrainResistance
+  - 方法：ResetWorldState、InvalidateWall、Base、TerrainStep、Step、LineCost、HasWall、WallLevel
+- `GeneralSystems\TerritoryGrain.cs`
+  - 类型：TerritoryGrain
+  - 方法：At
+- `GeneralSystems\ThroneSuspicion.cs`
+  - 类型：ThroneSuspicion
+  - 方法：Yearly
+- `GeneralSystems\TianxiaSystem.cs`
+  - 类型：TianxiaSystem
+  - 方法：Phase、PhaseName、BarsContender、Lead、LeadOf、CoreLeadOf、Members、IsJoint、Leads、Cities
+- `GeneralSystems\TradeRouteSystem.cs`
+  - 类型：TradeRouteSystem
+  - 方法：PartnerOf、RouteCost、Describe、TryMonthlyScan、HasPort、ImposeTreaty、TreatyPartner、Closed、ClosedByLaw
+- `GeneralSystems\TransmigrantSystem.cs`
+  - 类型：TransmigrantSystem、RosterRow
+  - 方法：Of、IsTransmigrant、Governs、TryHandleVacancy、Active、InitPower、AppendBanners、Land、FullName、PostOf
+- `GeneralSystems\TransmigrantSystem.Events.cs`
+  - 类型：TransmigrantSystem
+  - 方法：EventFired、EventYear、OnWarEnded
+- `GeneralSystems\TransmigrantSystem.Fiscal.cs`
+  - 类型：TransmigrantSystem
+  - 方法：MonthlySettledCities、IssuesScrip
+- `GeneralSystems\TransmigrantSystem.Growth.cs`
+  - 类型：TransmigrantSystem
+  - 方法：SeaTradePartners、NaturalizedPopulation、SoldierDemand、CombatFactor、Mobilizes、DisguiseLord、DisguiseForbids、DisguiseStaysOut、IndustryFactor、IsSenator
+- `GeneralSystems\TransmigrantSystem.Navy.cs`
+  - 类型：TransmigrantSystem
+  - 方法：NavalState、NavalRealm、EnsureBases
+- `GeneralSystems\TreasuryHoardSystem.cs`
+  - 类型：TreasuryHoardSystem
+  - 方法：Reserve、Surplus、RecordSubsidy、Tick
+- `GeneralSystems\TreasuryRules.cs`
+  - 类型：TreasuryCategory、TreasuryReport、TreasuryRules
+  - 方法：QuoteBalance、ChangeBalance、ArrearsCategory、Record、AttributeTaxTransfer、EssentialExpense、Report、StableIncomeKey、Allocate、Available
+- `GeneralSystems\TreasurySystem.cs`
+  - 类型：TreasuryMonth、TreasurySystem
+  - 方法：MonthlyFlows、Consolidated、FundingReport、FlowText、TransferText、SpendingText、Enabled、Record、Report、SafetyReserve
+- `GeneralSystems\TribalAssemblySystem.cs`
+  - 类型：TribalAssemblySystem
+  - 方法：Monthly、AttendChance、Tribute、OnConcede、DefiantTo、BreakawayFactor、OpinionOf
+- `GeneralSystems\TribalCouncilSystem.cs`
+  - 类型：TribalCouncilSystem
+  - 方法：Active、Tribes、Members、Monthly、Maintain
+- `GeneralSystems\TribalFissionService.cs`
+  - 类型：TribalFissionService、RoyalCandidate
+  - 方法：IsTribal、OverlordOf、Stage、Capacity、Reach、Confederations、InvalidateVassals、ResetWorldState、VassalsOf、Bound
+- `GeneralSystems\TribalWarSystem.cs`
+  - 类型：TribalWarSystem
+  - 方法：Unified、Settling、TrySubmit、Concede
+- `GeneralSystems\TributaryAbolitionService.cs`
+  - 类型：TributaryAbolitionService、Choice
+  - 方法：OnMonarchyAbolished
+- `GeneralSystems\TributaryRelations.cs`
+  - 类型：TributaryRelations
+  - 方法：ResetWorldState、Direct、InReach、DriftedAway、Protect、AfterTribute、IsWestern、Renounce、Submit
+- `GeneralSystems\UnificationDrive.cs`
+  - 类型：UnificationDrive
+  - 方法：Of、Prefers、PacifyChance
+- `GeneralSystems\UnificationSystem.cs`
+  - 类型：UnificationSystem、Realm、ContestBlock
+  - 方法：ResetWorldState、Unifying、GraceYearsLeft、InGrace、IsUnificationWar、Contends、SameRealm、SameSphere、PushFactor、OnDynastyChanged
+- `GeneralSystems\UpheavalGuard.cs`
+  - 类型：UpheavalGuard、Budget
+  - 方法：Cities、InCooldown、Blocked、Mark、Budget、Fits、Take
+- `GeneralSystems\UrbanCitizenSystem.cs`
+  - 类型：UrbanCitizenSystem
+  - 方法：IsCitizen、UpdateCity、GetCapacity
+- `GeneralSystems\UrbanEmploymentSystem.cs`
+  - 类型：UrbanEmploymentReport、UrbanEmploymentSystem
+  - 方法：IsEmployed、GetReport、HouseholdCapacity、UpdateCity、CountFactories
+- `GeneralSystems\UrbanLabelNaming.cs`
+  - 类型：UrbanLabelNaming、Names
+  - 方法：For、Names、Residence、Numbered、Building
+- `GeneralSystems\VanillaIdentitySystem.cs`
+  - 类型：VanillaIdentitySystem
+  - 方法：BlocksPlot、TryReuseLanguage、ApplyPlotPolicy
+- `GeneralSystems\VassalColorService.cs`
+  - 类型：VassalColorService
+  - 方法：Apply、Clear、IsComposite、TickReassert
+- `GeneralSystems\VassalInvestitureService.cs`
+  - 类型：InvestitureMode、VassalInvestitureService
+  - 方法：IsSelfSuccessionEnacted、Evaluate、OnVassalSuccession、IsDefiantCapitalTaken、CheckDefianceWar、ResolveDefianceWar、ResolveVirtualSuccession
+- `GeneralSystems\VassalReduction.cs`
+  - 类型：VassalReduction、Weight、Scale、Extra
+  - 方法：IsRebelOf、KindOf、Weigh、Extras、Pick、Settle、Convert、Rise、Alarm、AlarmOpinion
+- `GeneralSystems\VassalReductionRules.cs`
+  - 类型：VassalReductionRules
+  - 方法：BaseShare、Standing、Arms、Estrangement、Lineage、Custom、Legitimacy、Might、Grace、Title
+- `GeneralSystems\VirtualFarmScan.cs`
+  - 类型：VirtualFarmScan
+  - 方法：Reset、Refresh
+- `GeneralSystems\VirtualGenealogySystem.cs`
+  - 类型：VirtualGenealogySystem
+  - 方法：ResetWorldState、Virtualize、TryVirtualize、RealizeFirst、RealizeAll、VirtualRenown、Realize、RestoreStoredWallet、CancelVirtualization、SettleStoredEstate
+- `GeneralSystems\VirtualIndustrySystem.cs`
+  - 类型：VirtualIndustrySystem
+  - 方法：Factories、IsVirtual、VirtualUnlocks、ResetWorldState
+- `GeneralSystems\WalletReserveTransfers.cs`
+  - 类型：WalletReserveTransfers
+  - 方法：HasAssets、TryCapture、Restore、RollbackCapture、TryMoveShare、GrantPerCapita、TryMove
+- `GeneralSystems\WallGateSystem.cs`
+  - 类型：WallGateSystem
+  - 方法：Reach、IsGate、IsCityGate、GatesAround、Covered、SnapToWall、LetsThrough、Refresh
+- `GeneralSystems\WallPassage.cs`
+  - 类型：WallPassage、Mask
+  - 方法：ResetWorldState、InvalidateZone、Blocks、BlocksKnown
+- `GeneralSystems\WarCatalog.cs`
+  - 类型：WarCatalog、Category
+  - 方法：KindKey、Kind、CategoryOf、Color、Tags、GoalText、Outcome、Cities、TitleName、ResourceName
+- `GeneralSystems\WarChronicle.cs`
+  - 类型：WarChronicle
+  - 方法：Record、Between、Declared、Joined、Left、Fallen、CityTaken、RecordFor、Ended、Casualties
+- `GeneralSystems\Warfare\AosongNavyRules.cs`
+  - 类型：AosongNavyRules
+  - 方法：FloorWarships、FloorTransports、UnderWarshipFloor、UnderTransportFloor、WantWarships、WantTransports、Pace
+- `GeneralSystems\Warfare\BattleDrama.cs`
+  - 类型：BattleDrama
+  - 方法：AfterBattle、Surrendered、CityFell
+- `GeneralSystems\Warfare\BattleSound.cs`
+  - 类型：BattleSound、Spot、AmbientVoice、Tally、BattleSoundHost
+  - 方法：Clear、EnsureHost、Tick
+- `GeneralSystems\Warfare\BattleSoundBank.cs`
+  - 类型：BattleSoundBank
+  - 方法：HasAmbient、Variants、EnsureLoaded、Ambient、Shot、Play、Valid、Playing、SetVolume、Stop
+- `GeneralSystems\Warfare\CityDistricts.cs`
+  - 类型：CityDistricts
+  - 方法：Reset、ZonesOf、SameDistrict、Count、ZonesOfSettlement
+- `GeneralSystems\Warfare\CorpsArmSystem.cs`
+  - 类型：CorpsArmSystem、Arm、Spec
+  - 方法：Spec、Of、Upgrade、UpgradeOf、CanRefit、RefitCost、Refit、Monthly、Speed、Breaches
+- `GeneralSystems\Warfare\CorpsCommandSystem.cs`
+  - 类型：CorpsCommandSystem
+  - 方法：ResetWorldState、HoldCity、AttackCity、Command、Ordered
+- `GeneralSystems\Warfare\CorpsDirectOrders.cs`
+  - 类型：CorpsDirectOrders
+  - 方法：ResetWorldState、Has、Set、Clear、ClearKingdom、Target、Ours、Count
+- `GeneralSystems\Warfare\CorpsSystem.cs`
+  - 类型：CorpsSystem、MonthPhase
+  - 方法：Of、Find、Home、Zone、ZoneById、Equivalent、EquivalentAt、GeneralsAt、IsGeneral、CommandOf
+- `GeneralSystems\Warfare\CorpsVeterancy.cs`
+  - 类型：CorpsVeterancy
+  - 方法：CombatFactor、OrgLossFactor、Tier、TierName、TierHex、Gain、Dilute、Monthly
+- `GeneralSystems\Warfare\EncirclementSystem.cs`
+  - 类型：EncirclementSystem
+  - 方法：Encircled、Monthly、Hold、BeginAssign、ResetWorldState、ScoreBonus
+- `GeneralSystems\Warfare\FormationSystem.cs`
+  - 类型：FormationEchelon、FormationDef、FormationRegimeMap、FormationConfig、FormationSystem
+  - 方法：Def、Resolve、Ensure、EnsureAll、Reassign、Reorganize、MergeEarly、ReorganizeCandidates、Name、DisplayName
+- `GeneralSystems\Warfare\FrontCollapse.cs`
+  - 类型：FrontCollapse
+  - 方法：ResetWorldState、Collapsing、PushFactor、Militia、Capture、Check、Prune、Release、WarWeariness、DescribeWeariness
+- `GeneralSystems\Warfare\FrontLineCleanup.cs`
+  - 类型：FrontLineCleanup
+  - 方法：Monthly
+- `GeneralSystems\Warfare\FrontSystem.cs`
+  - 类型：FrontSystem、BattleView、Sector
+  - 方法：EngagedLastMonth、ResetWorldState、Realm、Hostile、HasFront、Friendly、Belligerent、Controller、Passable、MonthTick
+- `GeneralSystems\Warfare\FrontSystem.Landing.cs`
+  - 类型：FrontSystem
+  - 方法：MustSail
+- `GeneralSystems\Warfare\FrontSystem.Parallel.cs`
+  - 类型：FrontSystem、Candidate、SideJob
+  - 方法：ParallelTick
+- `GeneralSystems\Warfare\FrontSystem.PushDiagnostics.cs`
+  - 类型：FrontSystem、PushEnd
+- `GeneralSystems\Warfare\FrontSystem.Smooth.cs`
+  - 类型：FrontSystem、Push、PushClaim
+  - 方法：SmoothTick、CopyPushZones、SmoothPushOn、SmoothCovers
+- `GeneralSystems\Warfare\FrontSystem.Wall.cs`
+  - 类型：FrontSystem
+  - 方法：WallBetween、WallAttackFactor、WallPaceFactor
+- `GeneralSystems\Warfare\GarrisonCutRules.cs`
+  - 类型：GarrisonCutRules
+  - 方法：static
+- `GeneralSystems\Warfare\LogisticsSystem.cs`
+  - 类型：LogisticsSystem
+  - 方法：AttackFactor、Foraging、MonthTick、CanForage、Forage
+- `GeneralSystems\Warfare\MilitaryAccessSystem.cs`
+  - 类型：MilitaryAccessSystem、Term
+  - 方法：ResetWorldState、Load、Save、Find、Grants、Sign、Revoke、NoteCrossing、NoteBlocked、Monthly
+- `GeneralSystems\Warfare\MusterSystem.cs`
+  - 类型：MusterSystem
+  - 方法：IsRebellion、Months、Mustering、DefenseFactor、MonthTick
+- `GeneralSystems\Warfare\NavySystem.cs`
+  - 类型：NavySystem、BattleView
+  - 方法：ResetWorldState、Of、Home、Port、Ports、IsFlagship、NavyEra、ShipCapacity、Tier、PowerBonus
+- `GeneralSystems\Warfare\PalaceArmySystem.cs`
+  - 类型：PalaceArmySystem
+  - 方法：IsPalace、Palace、RealShare、Refuses、Monthly、Yearly
+- `GeneralSystems\Warfare\RoadBuildingSystem.cs`
+  - 类型：RoadLink、RoadBuildingSystem
+  - 方法：DetourLimit、ResetWorldState、GradeFor、Get、UpkeepPerTile、CentralPayer、Refresh、Tick、SeedAtScenarioStart、SeedIfOldWorld
+- `GeneralSystems\Warfare\RoadNetwork.cs`
+  - 类型：RoadNetwork、RoadPlan
+  - 方法：Buildable、GradeCap、PlanOf、MarkDirty、RefreshNow、Replan、ReplanCity、IsRoad、IsTrail、Spans
+- `GeneralSystems\Warfare\RoadPaintSystem.cs`
+  - 类型：PaintedRoad、RoadPaintSystem
+  - 方法：ShouldSerializesilk、ResetWorldState、Load、TileOf、GradeAt、Paint、Lay、IsSilk、Erase、RequestRedraw
+- `GeneralSystems\Warfare\RoadTreatySystem.cs`
+  - 类型：RoadTreatySystem
+  - 方法：ResetWorldState、Load、Save、Has、WereFriendly、Yearly、Partner、Sign
+- `GeneralSystems\Warfare\SeaLanding.cs`
+  - 类型：SeaLanding
+  - 方法：ResetWorldState、Shores、static、WhyNoBeachhead
+- `GeneralSystems\Warfare\SeaLandingDiagnostics.cs`
+  - 类型：SeaLandingDiagnostics、PairState、SideState
+  - 方法：ResetWorldState、Pair、Landing、Deployable、Vanguard、Landed、MonthTick
+- `GeneralSystems\Warfare\SeaRegionSystem.cs`
+  - 类型：SeaRegionSystem、Region、Shore
+  - 方法：ResetWorldState、OnTileChanged、ShoreOf、IsSea、Get、Of、RegionsAround、Route、Distance
+- `GeneralSystems\Warfare\SecondBeats.cs`
+  - 类型：SecondBeats
+  - 方法：Due
+- `GeneralSystems\Warfare\StraitReach.cs`
+  - 类型：StraitReach
+  - 方法：Across、Radius、Reaches、Within、Near
+- `GeneralSystems\Warfare\TerrainSystem.cs`
+  - 类型：FrontTerrain、TerrainEffect、TerrainSystem、Entry
+  - 方法：TerrainEffect、ResetWorldState、Invalidate、GroundChanged、RiverZone、Mountainous、Crossable、CrossableTerrain、ImpassableTerrain、StepCost
+- `GeneralSystems\Warfare\WarBalanceDiagnostics.cs`
+  - 类型：WarBalanceDiagnostics
+  - 方法：Realm、Battle
+- `GeneralSystems\Warfare\WarCommandSystem.cs`
+  - 类型：WarCommandSystem
+  - 方法：Commander、Quartermaster、TitleOf、QuartermasterTitleOf、Factor、QuartermasterSupply、QuartermasterSaving、MonthTick、Appoint
+- `GeneralSystems\Warfare\WarMuster.cs`
+  - 类型：WarMuster
+  - 方法：ResetWorldState、Mustering、Following、Wide、Months、Declare、MonthTick
+- `GeneralSystems\Warfare\WarReach.cs`
+  - 类型：WarReach
+  - 方法：IsFar、MayDeclare、LawForbids、ResetWorldState、Reachable、WarNear、AcrossWild、WalkableNeighbours、WalkableNeighbourKingdoms、WalkableWildNeighbours
+- `GeneralSystems\Warfare\WarReadinessSystem.cs`
+  - 类型：WarReadinessSystem
+  - 方法：ResetWorldState、Ready、Spotted、Hold、Massing
+- `GeneralSystems\Warfare\WarScopeSystem.cs`
+  - 类型：WarScopeSystem
+  - 方法：ResetWorldState、Level、DispatchedFor、Dispatched、Unbounded、Dispatch、ReportShortfall、InScope、DistanceTo、Near
+- `GeneralSystems\Warfare\WarWeather.cs`
+  - 类型：WarWeather、Kind、Hardship
+  - 方法：Hardship、KindOf、Apply、SlowsMarch、Harshness、AttritionRate、Name、Tag、SeasonLine
+- `GeneralSystems\Warfare\WildernessNeighbours.cs`
+  - 类型：WildernessNeighbours
+  - 方法：ResetWorldState、Of
+- `GeneralSystems\WarGate.cs`
+  - 类型：WarGate
+  - 方法：CanDeclare、Forbidden
+- `GeneralSystems\WarGoalSystem.cs`
+  - 类型：WarGoalSystem、GoalFacts
+  - 方法：ResetWorldState、UsesPeaceTable、Get、Preset、GoalFacts、Facts、Review、Ensure、Convertible、Convert
+- `GeneralSystems\WarlordEraSystem.cs`
+  - 类型：WarlordEraSystem、Role
+  - 方法：HasStrongUnification、RealmOf、CentralOf、IsProvisionalGovernment、DecorateName、TryGetNonGovernmentKingdomName、CanFormGovernment、GovernmentIdeology、UpdateWorld、Dependent
+- `GeneralSystems\WarlordUnificationSystem.cs`
+  - 类型：WarlordEraSystem
+  - 方法：IsCivilWar、FounderCapitulation、AbsorbDefector
+- `GeneralSystems\WarObjective.cs`
+  - 类型：WarObjective
+  - 方法：ResetWorldState、Achievable、Refine、Aim、Value、Pastures、Held、HeldShareOf、Check、RebelTarget
+- `GeneralSystems\WarPeaceRules.cs`
+  - 类型：WarPeaceRules
+  - 方法：MayNegotiate
+- `GeneralSystems\WarReparationsSystem.cs`
+  - 类型：WarReparationsSystem
+  - 方法：Impose、TryMonthlyScan、static、InstallmentTotal
+- `GeneralSystems\WarSituation.cs`
+  - 类型：WarSituation
+  - 方法：SideKey、SideCities、SideWarriors、Power、TooBusyForWar、Overstretched、RecordParticipant、FindWar、WarYears、CitiesLost
+- `GeneralSystems\WartimeCustodySystem.cs`
+  - 类型：WartimeCustodySystem
+  - 方法：CustodianFor、Record、Clear、InCustody、TryMonthlyScan、ResetWorldState
+- `GeneralSystems\WildernessDevelopmentSystem.cs`
+  - 类型：WildDevelopmentData、WildDevelopmentZone、WildDevelopmentEdict、WildernessDevelopmentSystem、Realm、Pick
+  - 方法：ShouldSerializeplots、Develops、DevelopmentOf、Passable、DeveloperOf、HeldKind、DevelopedZones、Fade、ResetWorldState、Load
+- `GeneralSystems\WildernessNaming.cs`
+  - 类型：WildernessNaming、Word、WildernessSetting
+  - 方法：Word、Name、KindName
+- `GeneralSystems\WildernessPassage.cs`
+  - 类型：WildernessPassage
+  - 方法：ResetWorldState、Passable、BlockSnapshot、CivilPassable、PassableByRoad、Way、CivilWay、Open、Reachable、CivilReachable
+- `GeneralSystems\WildernessPlotSystem.cs`
+  - 类型：WildPlot、WildernessPlotSystem、Graph
+  - 方法：PlotOf、IdAt、CityOf、MayTake、Taken、ResetWorldState、Load、Save、Tick、Year
+- `GeneralSystems\WildernessSystem.cs`
+  - 类型：WildKind、WildRegion、WildRegionData、WildernessSystem、SettleScope、Counts、OldRegion、Nearest、ReachEntry
+  - 方法：ShouldSerializecustom_name、ShouldSerializeorigins、ShouldSerializeneutral、ShouldSerializeneutralZones、ShouldSerializepainted、ShouldSerializerule、ShouldSerializecarved、ShouldSerializecarve、RegionOf、IsWild
+- `GeneralSystems\WorldChronicle.cs`
+  - 类型：ChronicleEntry、WorldChronicle
+  - 方法：ResetWorldState、Save、Load、Note、KindOfAsset、KindOfType、KindOfTypeName
+- `GeneralSystems\WorldMap\AdministrativeBoundaryRules.cs`
+  - 类型：AdministrativeBoundaryRules
+  - 方法：Bounds、Contains
+- `GeneralSystems\WorldMap\EarthBeaches.cs`
+  - 类型：EarthBeaches
+  - 方法：Migrate
+- `GeneralSystems\WorldMap\EarthTerrain.cs`
+  - 类型：WorldMapFrame、EarthTerrain
+  - 方法：DegreesPerTile、IndexFor、Bounds、EnsureLoaded、SetOverrides、CodeOf、PreviewColorOf、UseGrid、UseEarth、Preview
+- `GeneralSystems\WorldMap\FrontierWalls.cs`
+  - 类型：FrontierWalls、Line
+  - 方法：ResetWorldState、Set、Load、Save、Build、Behind、Separates、Split
+- `GeneralSystems\WorldMap\PlateauPasses.cs`
+  - 类型：PlateauPasses、Pass
+  - 方法：Shape
+- `GeneralSystems\WorldMap\ScenarioBrush.cs`
+  - 类型：ScenarioBrush、Shape
+  - 方法：Inside、static、ZoneCells
+- `GeneralSystems\WorldMap\ScenarioEditing.cs`
+  - 类型：ScenarioEditing、FieldsOnly
+  - 方法：Open、CreateBlank、Save、Close、BeginStroke、EndStroke、Undo、SetName、SetDescription、SetAuthor
+- `GeneralSystems\WorldMap\ScenarioEventSystem.cs`
+  - 类型：ScenarioEventSave、ScenarioRally、ScenarioRebelLeader、ScenarioEventSystem
+  - 方法：Begin、Load、Save、ResetWorldState、IsScripted、IsReserved、Shield、IsProtected、Tick、NameKeys
+- `GeneralSystems\WorldMap\ScenarioFillerRules.cs`
+  - 类型：ScenarioFillerRules
+  - 方法：LargestPiece、Shattered
+- `GeneralSystems\WorldMap\ScenarioModernPolitics.cs`
+  - 类型：ScenarioModernPolitics
+  - 方法：ParseIdeology、BeforeEmpire、AfterEmpire、Settle、ChangeIdeology、MakeWarlordMember
+- `GeneralSystems\WorldMap\ScenarioNaming.cs`
+  - 类型：ScenarioNaming
+  - 方法：TryCity、TryPass
+- `GeneralSystems\WorldMap\ScenarioPlotRules.cs`
+  - 类型：ScenarioPlotRules、RebelFate
+  - 方法：SplitGrand、Names、Protected、Retriable、Desperate、AddHeir、NextHeir、RallyChance、FateOfRebelLeader
+- `GeneralSystems\WorldMap\ScenarioPreviewRules.cs`
+  - 类型：ScenarioPreviewRules
+  - 方法：KeepIfSame、ChunksOf、Spread、Vote、MarkWall、BaseValue
+- `GeneralSystems\WorldMap\ScenarioWallTrace.cs`
+  - 类型：ScenarioWallTrace
+- `GeneralSystems\WorldMap\ScenarioWilderness.cs`
+  - 类型：ScenarioWilderness、Source、Piece、Layout、Sampled
+  - 方法：Reset、CellOf、CellsOf、SetGrid、KindColor、Update、Preview、Grid、Claimable、CenterCells
+- `GeneralSystems\WorldMap\ScenarioWorldExport.cs`
+  - 类型：ScenarioWorldExport、Projection、Realm
+  - 方法：LonLat、DefaultName、Export
+- `GeneralSystems\WorldMap\SilkRoadSystem.cs`
+  - 类型：WorldMapSilkRoute、SilkRouteSave、SilkRoadSystem
+  - 方法：ResetWorldState、Load、Save、Build
+- `GeneralSystems\WorldMap\WorldMapAdministrativeBoundaries.cs`
+  - 类型：WorldMapAdministrativeBoundary、WorldMapAdministrativeBoundaries、FileData
+  - 方法：For、Shared
+- `GeneralSystems\WorldMap\WorldMapData.cs`
+  - 类型：WorldMapRegion、WorldMapTitle、WorldMapCity、WorldMapCore、WorldMapPerson、WorldMapPaint、WorldMapTribes、ScenarioCells、WorldMapEvent、WorldMapEventStep
+  - 方法：ActiveIn、NameIn、Pack、Unpack、Key、FromMap、AsPerson、FullPartition、ShouldSerializewilderness_regions、ShouldSerializespecies
+- `GeneralSystems\WorldMap\WorldMapDevelopment.cs`
+  - 类型：WorldMapDevArea、WorldMapDevelopment、AreaFile、Plot
+  - 方法：AreaAt、NearCity、ParseValue、Apply
+- `GeneralSystems\WorldMap\WorldMapGenerator.cs`
+  - 类型：WorldMapGenerator
+  - 方法：MarkDone、Start
+- `GeneralSystems\WorldMap\WorldMapHistory.cs`
+  - 类型：WorldMapHistory、Realm、Ancestor
+  - 方法：Apply、RegisterTexts、ReigningAt
+- `GeneralSystems\WorldMap\WorldMapImporter.cs`
+  - 类型：WorldMapImport、WorldMapImporter、Loaded
+  - 方法：Uses、PathOf、Load、Blank、WriteLegend
+- `GeneralSystems\WorldMap\WorldMapReligion.cs`
+  - 类型：WorldMapReligion、Definition、FileData、Place
+  - 方法：Apply
+- `GeneralSystems\WorldMap\WorldMapScale.cs`
+  - 类型：WorldMapScale
+  - 方法：SetFromFrame
+- `GeneralSystems\WorldMap\WorldMapScenario.cs`
+  - 类型：WorldMapScenario、PlannedCity、PlannedPolity、AnchorPlan
+  - 方法：Schedule、HistoryAge、StartingAge、StartingStrain、HouseOf、SpeciesFor、KnownSpecies、LabelOf、CitiesOf、WallLines
+- `GeneralSystems\WorldMap\WorldMapWalls.cs`
+  - 类型：WorldMapWalls、Corridor
+  - 方法：Plan、OnPlanned、Build、Corridor、Allows
+- `GeneralSystems\WorldMap\WorldMapWilderness.cs`
+  - 类型：WorldMapWildUnit、ScenarioAdministrativeOrigin、ScenarioLandOrigin、WorldMapWildSave、WorldMapWilderness、UnitFile、Match、Plan
+  - 方法：ShouldSerializepinned、ShouldSerializeregional、ShouldSerializeterritory、ShouldSerializebounded_anchors、SetOwnWild、SetCityClaims、CityClaim、Keep、Kept、RepairRiverSurfaces
+- `GeneralSystems\WorldMap\WorldMapZones.cs`
+  - 类型：WorldMapZones、MinHeap
+  - 方法：Build、SetWalls、Behind、Partition、RootedPartition、SettledLand、Rough、NearestOf、IndexOf、Zone
+- `GeneralSystems\WorldWarSystem.cs`
+  - 类型：WorldWarSystem、PoliticalBloc
+  - 方法：TryEscalate、Resolve
+- `GeneralSystems\ZhouEraSystem.cs`
+  - 类型：ZhouEraSystem
+  - 方法：Applies、State、Era、GateTech、TechReady、RoyalReclaimBlocked、SphereOf、RealmOfCulture、HasSettledRealm、BlocksRivalEmpire
+
+## GodPowers
+
+- `GodPowers\ActorCreateKingdom.cs`
+  - 类型：ActorCreateKingdom
+  - 方法：init、getActorFromTile
+- `GodPowers\AddProvinceButton.cs`
+  - 类型：AddProvinceButton
+  - 方法：init
+- `GodPowers\AddTitleButton.cs`
+  - 类型：AddTitleButton
+  - 方法：init
+- `GodPowers\AddTitleToEmpireCoreButton.cs`
+  - 类型：AddTitleToEmpireCoreButton
+  - 方法：init
+- `GodPowers\CityCulturePower.cs`
+  - 类型：CityCulturePower
+  - 方法：Id
+- `GodPowers\CityDissolutionPower.cs`
+  - 类型：CityDissolutionPower
+  - 方法：init
+- `GodPowers\CityResourcePowers.cs`
+  - 类型：CityResourcePowers
+  - 方法：DepositId、ChangePopulation
+- `GodPowers\CorpsCommandPower.cs`
+  - 类型：CorpsCommandPower
+  - 方法：init
+- `GodPowers\CreateEmpireButton.cs`
+  - 类型：CreateEmpireButton
+  - 方法：init、clickKingdom、selectKingdom、CreateEmpire
+- `GodPowers\CreateEmpireCoreButton.cs`
+  - 类型：CreateEmpireCoreButton
+  - 方法：init
+- `GodPowers\CreateProvinceButton.cs`
+  - 类型：CreateProvinceButton
+  - 方法：init
+- `GodPowers\CreateTitleButton.cs`
+  - 类型：CreateTitleButton
+  - 方法：init
+- `GodPowers\DebugFrontLineButton.cs`
+  - 类型：DebugFrontLineButton
+  - 方法：init
+- `GodPowers\DeJureSharePowers.cs`
+  - 类型：DeJureSharePowers
+  - 方法：init
+- `GodPowers\DestroyEmpireCoreButton.cs`
+  - 类型：DestroyEmpireCoreButton
+  - 方法：init
+- `GodPowers\DiplomacyPower.cs`
+  - 类型：DiplomacyPower
+  - 方法：Selected、Init
+- `GodPowers\EmpireEnfeoffButton.cs`
+  - 类型：EmpireEnfeoffButton
+  - 方法：init
+- `GodPowers\EmpireFormButton.cs`
+  - 类型：EmpireFormButton
+  - 方法：init
+- `GodPowers\FamousTalentPowers.cs`
+  - 类型：FamousTalentPowers
+  - 方法：init
+- `GodPowers\HolyCityPower.cs`
+  - 类型：HolyCityPower
+  - 方法：init
+- `GodPowers\IdeologySeedPower.cs`
+  - 类型：IdeologySeedPower
+  - 方法：Id、Init
+- `GodPowers\JimiPolicyPower.cs`
+  - 类型：JimiPolicyPower
+  - 方法：Init
+- `GodPowers\PlateauPowers.cs`
+  - 类型：PlateauPowers
+  - 方法：readonly、Init、Tick、ResetWorldState
+- `GodPowers\RealmCulturePowers.cs`
+  - 类型：RealmCulturePowers
+  - 方法：Init、ApplyRealm
+- `GodPowers\RemoveEmpireButton.cs`
+  - 类型：RemoveEmpireButton
+  - 方法：init
+- `GodPowers\RemoveProvinceButton.cs`
+  - 类型：RemoveProvinceButton
+  - 方法：init
+- `GodPowers\RemoveTitleButton.cs`
+  - 类型：RemoveTitleButton
+  - 方法：init
+- `GodPowers\RemoveTitleFromEmpireCoreButton.cs`
+  - 类型：RemoveTitleFromEmpireCoreButton
+  - 方法：init
+- `GodPowers\RoadPowers.cs`
+  - 类型：RoadPowers
+  - 方法：Init
+- `GodPowers\SettlementPowers.cs`
+  - 类型：SettlementPowers
+  - 方法：Init、Build、RazeAt
+- `GodPowers\SwitchBattleSoundButton.cs`
+  - 类型：SwitchBattleSoundButton
+  - 方法：init
+- `GodPowers\SwitchCivMusicButton.cs`
+  - 类型：SwitchCivMusicButton
+  - 方法：init
+- `GodPowers\SwitchEmpireAllianceButton.cs`
+  - 类型：SwitchEmpireAllianceButton
+  - 方法：init
+- `GodPowers\SwitchGarrisonButton.cs`
+  - 类型：SwitchGarrisonButton
+  - 方法：init
+- `GodPowers\SwitchRealNumButton.cs`
+  - 类型：SwitchRealNumButton
+  - 方法：init
+- `GodPowers\SwitchSimpleNameplateButton.cs`
+  - 类型：SwitchSimpleNameplateButton
+  - 方法：init
+- `GodPowers\TechRollbackPowers.cs`
+  - 类型：TechRollbackPowers
+  - 方法：Init
+- `GodPowers\TianxiaPowers.cs`
+  - 类型：TianxiaPowers
+  - 方法：init
+- `GodPowers\VanillaBenchmarkButton.cs`
+  - 类型：VanillaBenchmarkButton、VanillaBenchRecorder
+  - 方法：init、Start、Stop
+- `GodPowers\VassalPowerButtons.cs`
+  - 类型：VassalPowerButtons
+  - 方法：SelectedLord、init
+- `GodPowers\ZhouEraPowers.cs`
+  - 类型：ZhouEraPowers
+  - 方法：init
+
+## HelperFunc
+
+- `HelperFunc\CacheAudit.cs`
+  - 类型：CacheAudit
+  - 方法：Sampled、Compare、Report
+- `HelperFunc\ColorSelector.cs`
+  - 类型：ColorSelector
+  - 方法：NextColor、ToHexString
+- `HelperFunc\EmpireCraftFrameSchedulingRules.cs`
+  - 类型：EmpireCraftFrameSchedulingRules
+  - 方法：ResolveBudgetMilliseconds、ResolveMaximumKingdoms、ResolveMaximumEmpires、ResolveMaximumTitles、CanContinue、ResolveMinimumItemsForSweep
+- `HelperFunc\EmpireCraftVersionRules.cs`
+  - 类型：EmpireCraftVersionRules
+  - 方法：Compare
+- `HelperFunc\EmpirePopulation.cs`
+  - 类型：EmpirePopulation
+  - 方法：Enumerate
+- `HelperFunc\EnfeoffmentHelper.cs`
+  - 类型：EnfeoffmentHelper
+  - 方法：IsRealmCapital、RegimeForbids、Nomadic、WarBlocks、IsFrontCity、DeferCity、Contested、AtFront、TitleDeferred、KingdomAtFront
+- `HelperFunc\FactionRatioConverter.cs`
+  - 类型：FactionRatioConverter
+  - 方法：ResetLegacyDiscardCount
+- `HelperFunc\FrameBudgetQueue.cs`
+  - 类型：FrameBudgetQueue
+  - 方法：FrameBudgetQueue、Start、Cancel、Tick
+- `HelperFunc\FrameJobs.cs`
+  - 类型：FrameJobs、Priority、State
+  - 方法：Run、BuildReport、Reset
+- `HelperFunc\FrameStamp.cs`
+  - 类型：FrameStamp
+- `HelperFunc\HeirFinderHelper.cs`
+  - 类型：HeirFinderHelper
+  - 方法：HeirFinderHelper
+- `HelperFunc\HighPopulationPerformance.cs`
+  - 类型：HighPopulationPerformance
+  - 方法：GetFrontLineCacheKey
+- `HelperFunc\HistoryDateFormatter.cs`
+  - 类型：HistoryDateFormatter、HistoryDateParts
+  - 方法：GetYear、GetMonthDay、Split、TryParseTime、SplitText、HistoryDateParts
+- `HelperFunc\IncomeStatisticsMath.cs`
+  - 类型：IncomeStatisticsMath
+  - 方法：Add、MerchantThreshold
+- `HelperFunc\KingdomFrontLineHelper.cs`
+  - 类型：KingdomFrontLineHelper
+  - 方法：ClearCache、GetAllEnemyFrontZones、GetEnemyFrontZones、GetDirectEnemyFrontZones、GetNearSideEnemyBorderZones、GetFriendlyFrontSourceZonesFacingEnemy、GetFriendlyWarKingdoms、GetAllFriendlyControlledZones、GetKingdomZones、GetEffectiveControlledZones
+- `HelperFunc\MinHeap.cs`
+  - 类型：MinHeap
+  - 方法：Clear、Push
+- `HelperFunc\MoneyDisplay.cs`
+  - 类型：MoneyDisplay
+  - 方法：Format
+- `HelperFunc\OccupiedStatusConverter.cs`
+  - 类型：OccupiedStatusConverter
+- `HelperFunc\OfficeCandidateRoster.cs`
+  - 类型：OfficeCandidateRoster、Entry
+  - 方法：Invalidate、Empire
+- `HelperFunc\OfficeSelector.cs`
+  - 类型：OfficeSelector
+  - 方法：IsPreferredOfficeCandidate、Select、TryGetHarem、RankStrongestCandidates
+- `HelperFunc\OnomasticsHelper.cs`
+  - 类型：OnomasticsHelper
+  - 方法：Configure、PreloadCultureFilesAsync、HasCharacterSet、getKeysFromPath
+- `HelperFunc\OverallHelperFunc.cs`
+  - 类型：OverallHelperFunc、IdGenerator
+  - 方法：NextId、GetCultureFromSpecies、GetLocal、AppendWithNarrowSpace、IsEnglishLanguage、JoinNameParts、SplitNameParts、ReduceNarrowSpaces、UseLocalizedNameSeparator、WrapEnglishDisplayName
+- `HelperFunc\PackedKeyComparer.cs`
+  - 类型：PackedKeyComparer
+  - 方法：Equals、GetHashCode
+- `HelperFunc\ParallelWork.cs`
+  - 类型：ParallelWork
+  - 方法：For
+- `HelperFunc\PopulationClassificationCache.cs`
+  - 类型：PopulationClassificationCache
+  - 方法：TryGet、Set、Warm、Prune
+- `HelperFunc\PopulationContactMath.cs`
+  - 类型：ContactOption、ContactSubject、ContactSettings、PopulationContactInput、ContactRandom、ContactMove、PopulationContactResult、PopulationContactMath
+  - 方法：ContactOption、Has、ContactSubject、PopulationContactInput、Copy、ContactRandom、Value、Range、ContactMove、Compute
+- `HelperFunc\PopulationMathWorkers.cs`
+  - 类型：PopulationGroupValue、PopulationNumericInput、PopulationRankValue、PopulationNumericResult、PopulationMathWorkers、Job
+  - 方法：PopulationGroupValue、PopulationNumericInput、PopulationRankValue、Job、TryGetResult、Initialize、Submit、Reset、Compute
+- `HelperFunc\PopulationProductionMath.cs`
+  - 类型：ProductionOutput、PopulationProductionInput、PopulationProductionResult、PopulationProductionMath
+  - 方法：ProductionOutput、PopulationProductionInput、Copy、Matches、Compute
+- `HelperFunc\PosthumousNameGenerator.cs`
+  - 类型：PosthumousNameGenerator、Result
+  - 方法：Decide、static、LongName、ShiTitle、EnsureLong、CanExtend、CanSimplify、Simplify、Extend
+- `HelperFunc\PrefabHelper.cs`
+  - 类型：PrefabHelper
+  - 方法：FindPrefabByName
+- `HelperFunc\SafeTypeDiscovery.cs`
+  - 类型：SafeTypeDiscovery
+  - 方法：GetConcreteDerivedTypes
+- `HelperFunc\SimulationFrameBudget.cs`
+  - 类型：SimulationFrameBudget、WorkScope
+  - 方法：ResolveMilliseconds、BeginFrame、HasShare、Reset、Measure、WorkScope、Dispose
+- `HelperFunc\SimulationStretch.cs`
+  - 类型：SimulationStretch
+- `HelperFunc\SpriteGetHelper.cs`
+  - 类型：SpriteGetHelper
+  - 方法：GetUiSprite
+- `HelperFunc\TemporaryFactionConverter.cs`
+  - 类型：TemporaryFactionConverter
+- `HelperFunc\TranslateHelper.cs`
+  - 类型：TranslateHelper
+  - 方法：GetPeerageTranslate、LogNewEmpire、TryTranslate、LogministerTryAqcuireEmpire、LogPowerfulMinisterAcquireTitle、LogPowerfulMinisterControlsCourt、LogPowerfulMinisterNineBestowments、LogPowerfulMinisterUsurpation、LogEmpressDowagerInstallsSon、LogCreateTitle
+- `HelperFunc\YearlyStagger.cs`
+  - 类型：YearlyStagger
+  - 方法：Initial、Next
+- `HelperFunc\YearNameHelper.cs`
+  - 类型：YearNameHelper
+  - 方法：generateName
+
+## Layer
+
+- `Layer\AdministrativeDivisionNameRules.cs`
+  - 类型：AdministrativeDivisionNameRules
+  - 方法：SelectProvinceNameHolder
+- `Layer\CityDevelopment.cs`
+  - 类型：CityDevelopment、Stats
+  - 方法：Emblem、HouseTier、Tier
+- `Layer\CityValueRules.cs`
+  - 类型：CityValueSnapshot、CityValueRules
+  - 方法：Evaluate、GetIsolationRebellionLoyaltyThreshold、CanRebelWhileContent、GetExclaveDisengagementChance
+- `Layer\CityViewMap.cs`
+  - 类型：CityViewColor、CityViewMap
+  - 方法：Create、Configure
+- `Layer\CompositeEmpireRules.cs`
+  - 类型：CompositeEmpireIntegrationStage、CompositeEmpireRules
+  - 方法：GetStage、GetAnnualIntegrationDelta、CapIntegration、GetCentralLegitimacyDelta、GetRulingLegitimacyDelta
+- `Layer\CoreEmpireTitle.cs`
+  - 类型：EmpireCore、MandateRecord
+  - 方法：ShouldSerializeshared_titles、ShouldSerializeshared_tianxia、SetCoreCapital、GetCoreCapital、AddTitle、RemoveTitle
+- `Layer\CoreEmpireTitleManager.cs`
+  - 类型：EmpireCoreManager
+  - 方法：SyncCitiesFromTitles、RestoreParentCities、IsClaimedByContest、RepairContestedCoreOwners、RepairFrozenTitleRecords、DropRecordsHeldElsewhere、RestoreAllParentCities、newEmpireCore、Get、GetCities
+- `Layer\DefeatedEmpireHouse.cs`
+  - 类型：DefeatedEmpireHouse、AnlePeerageRules
+  - 方法：DefeatedEmpireHouse、CandidatePriority
+- `Layer\DeJureMap.cs`
+  - 类型：DeJureCoreColor、DeJureMap
+  - 方法：Create、SetColor、TitleColor、CoreMeta、CoreOf
+- `Layer\DeJureTitleBindingRules.cs`
+  - 类型：DeJureTitleBindingRules
+  - 方法：IsAdministrativeAcquisitionBlocked、GetLandedPeerageKey
+- `Layer\DeJureTitleClaimRules.cs`
+  - 类型：DeJureTitleClaimRules
+  - 方法：ControlsRequiredShare、IsStrongEnough、CanDeclare、CanAcquireWithoutWar、ControlsAll
+- `Layer\Empire.cs`
+  - 类型：Empire
+  - 方法：HasEmperor、AddMandate、IsNeedToIncreaseMandate、IsArchived、Archive、AddTaxRate、SubTaxRate、GetKingdomNeighbours、GetMembersWithTrait、IsNeedToExam
+- `Layer\EmpireData.cs`
+  - 类型：EmpireData、RoyalFeedLevel、EmpireAddition、EmpireCraftHistory、RegnalRecord、HistoryDescription
+  - 方法：ShouldSerializetribal_council、Add、toString
+- `Layer\EmpireFoundingNameRules.cs`
+  - 类型：EmpireFoundingNameSource、EmpireFoundingNameChoice、EmpireFoundingNameRules
+  - 方法：EmpireFoundingNameChoice、Select
+- `Layer\EmpireHistoryDisplay.cs`
+  - 类型：EmpireHistoryDisplay
+  - 方法：FullName
+- `Layer\EmpireManager.cs`
+  - 类型：EmpireManager
+  - 方法：EmpireManager、RepairAfterLoad、CheckLiveness、dissolveEmpire、GetAllZones、RemoveArchivedEmpire、PurgeArchivedOlderThanYears、EnsureDistinctColor、NewEmpire、forceEmpire
+- `Layer\EmpireMembershipService.cs`
+  - 类型：EmpireMembershipService
+  - 方法：BelongsTo、MapEmpire、MapVassals、EnumerateCities、NormalizeLoadedMembership
+- `Layer\EmpireSubmissionRules.cs`
+  - 类型：EmpireSubmissionRules
+  - 方法：CanAcceptVoluntarySubmission、CanVoluntarilyBecomeTributary、IsOriginalRebellionEmpire
+- `Layer\FallenEmpireRecords.cs`
+  - 类型：FallenEmpireRecord、FallenEmpireRecords
+  - 方法：ResetWorldState、Load、Save、Record、AdoptArchived、Histories、PurgeOlderThanYears
+- `Layer\IdeologyMapColor.cs`
+  - 类型：IdeologyMapColorData、IdeologyMapColor
+  - 方法：Create
+- `Layer\ImperialLegitimacyRules.cs`
+  - 类型：ImperialLegitimacyRules
+  - 方法：CanChallenge、RequiredOccupiedZones、HasOccupiedThird
+- `Layer\KingdomTitle.cs`
+  - 类型：KingdomTitle
+  - 方法：SetOwner、GetTitleBeenControlledYear、newKingdomTitle、HasOwner、RecordJurisdiction、EndJurisdiction、getElementIcon、getElementBackground、countPopulation、countWarriors
+- `Layer\KingdomTitleData.cs`
+  - 类型：KingdomTitleJurisdictionRecord、KingdomTitleData
+  - 方法：ShouldSerializedejure_last_core
+- `Layer\KingdomTitleRelationResolver.cs`
+  - 类型：KingdomTitleHolderRelation、KingdomTitleRelationResolver
+  - 方法：ResolveCurrentHolders、FindCurrentAdministrations
+- `Layer\KingdomTtitleManager.cs`
+  - 类型：KingdomTitleManager
+  - 方法：KingdomTitleManager、getBackgroundsList、getIconsList、newKingdomTitle、checkTitleExist、CountTitleCities、HasRoomFor、AddUntitledCities、AddCityToTitle、forceTitle
+- `Layer\LayerCityCache.cs`
+  - 类型：LayerCityCache、Cache
+  - 方法：Cache、Get、Invalidate、Ideology、Culture
+- `Layer\MarketMap.cs`
+  - 类型：MarketMapColor、MarketMap
+  - 方法：Create、LeaderOf、ShowGood、Shortage、Bucket、Configure、Name、SubmitLabels、ShowTooltip
+- `Layer\MineralMap.cs`
+  - 类型：MineralMapColor、MineralMap、MineralIconRenderer、MineralIconHost
+  - 方法：Create、Configure、ShowTooltip、Submit、HostLateUpdate
+- `Layer\NationalPowerRules.cs`
+  - 类型：NationalPowerRules
+  - 方法：Calculate、IsWithinShare
+- `Layer\NationMap.cs`
+  - 类型：NationMapColor、NationMap
+  - 方法：Create、Bucket、Configure、ShowTooltip
+- `Layer\PeerageSuccessionRules.cs`
+  - 类型：PeerageSuccessionRules
+- `Layer\PowerfulMinisterRules.cs`
+  - 类型：PowerfulMinisterRules
+  - 方法：IsMandateCollapsed、ShouldPreferEmpressDowager、ApplyEmpressDowagerRate、IsVulnerableNewEmperor、MonthlyChange、ApplyMandate、OppositionPenalty、ShouldRiseAgainstMinister、Advance、CanAdvance
+- `Layer\RadianceMap.cs`
+  - 类型：RadianceMapColor、RadianceLayers、EdificationMap、GovernanceMap
+  - 方法：Create、Shown、Configure、ShowTooltip、Bucket
+- `Layer\RealmNameRules.cs`
+  - 类型：RealmNameRules
+  - 方法：TakesOldName、RequiredCities、HoldsShare、Direction4、RestorationPrefix、AssignDirections、SplitBase、PressureMet、UncrownedTooLong
+- `Layer\ReligionMap.cs`
+  - 类型：ReligionMap
+  - 方法：ResetWorldState、Configure、SubmitLabels、ShowTooltip、ShowReligionTooltip
+- `Layer\TianxiaMap.cs`
+  - 类型：TianxiaMapColor、TianxiaMap
+  - 方法：Create、HexOf、Configure、SubmitLabels、ShowTooltip
+- `Layer\TributaryTitlePetitionRules.cs`
+  - 类型：TributaryTitlePetitionRules
+  - 方法：CanPetition、ControlsRequiredTerritory
+- `Layer\WealthMap.cs`
+  - 类型：WealthMapColor、WealthMap
+  - 方法：Create、Score、Hex、AbsoluteBucket、DisplayBucket、Bucket、Configure、ShowTooltip
+
+## ModClass.cs
+
+- `ModClass.cs`
+  - 类型：ModClass
+  - 方法：GetDeclaration、GetGameObject、GetUrl、LoadCultureNameTemplate、OnLoad、LoadUI、Reload、GetLocaleFilesDirectory、ModsConfigFolder、GetConfig
+
+## Regimes
+
+- `Regimes\FixedFaction.cs`
+  - 类型：FactionManager、not、PlayerFactionConfig、FactionType、FixedFaction
+  - 方法：init、ConvertToObjectFromFactionType、Save、Load、IsAnyTFactionRuns、RecoverTrait、GetAnyTFactionRuns、ToSaveCopy、Clone、DeepClone
+- `Regimes\OfficeSystem.cs`
+  - 类型：OfficerPowerType、BureauSetting、BureauConfig、OfficeManager、OfficeObject、CenterOffice
+  - 方法：Remove、RemoveAndRetire、Prune、Tick、GetName、DetectPower、GetPregnantYear、GetOfficeName、InitialOffice、ApplyConfig
+- `Regimes\RegimeSystem.cs`
+  - 类型：KingdomType、ArmyOfficialType、CityType、TaxLevel、LeaderSelectMethod、RegimeType、ReligionLevel、Regime、RegimeManager
+  - 方法：BlockFactionChange、IsFactionChangeBlocked、GetPlayerFactions、Clone、RecoverFactions、GetDominateFaction、GetAllFactionMembers、HasEraName、MaxTaxLevel、GetTaxLevel
+- `Regimes\TemporaryFactions\Claims\HolyRomanClaimRules.cs`
+  - 类型：HolyRomanClaimRules
+  - 方法：IsEligible、GetPrinces、GetSecularPrinces、HasElectoralCollege
+- `Regimes\TemporaryFactions\Claims\TempFac_罢兵议和.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_颁布帝国治安令.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_颁布金玺诏书.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_逼冕.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_裁省用度.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_册立储君.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_撤销军府.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_大赦天下.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_党锢.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_地方官叛乱.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_独尊官学.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_对外扩张.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_夺取诸侯开战权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_分封.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_封禅.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_封赏后族.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_扶持革命党.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_复辟帝制.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_割让城池.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_供养宗室.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_国语骑射.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_和亲.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_划地给教廷.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_宦官掌兵.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_恢复圣地.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_恢复世袭皇权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_加强神权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_建立共和.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_降低赋税.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_劫掠.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_禁党.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_开放党禁.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_开放互市.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_开放移民.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_开科取士.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_渴望共和.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_扩张地盘.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_谋求统一.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_迫使朝贡.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_强者继承法.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_清除移民.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_确立国教.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_确认诸侯特权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_设立内阁.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_设置行政区.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_神授君权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_收回地盘.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_输出革命.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_缩减金融霸权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_索取皇位.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_拓展金融霸权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_太后临朝.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_特开恩科.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_提高福利.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_提高赋税.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_提供岁币.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_通商减税.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_土地改革.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_推行普选.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_推行三省六部.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_屯田实边.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_文化同化.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_文化转化.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_兴兵讨伐.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_兴修水利.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_修氏族志.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_修筑城防.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_削藩.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_严查科场.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_盐铁专营.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_抑豪强.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_营建宫室.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_游牧化.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_游牧扩张.cs`
+  - 类型：TempFac_
+  - 方法：BorderTarget
+- `Regimes\TemporaryFactions\Claims\TempFac_允许诸侯自由开战.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_增设官署.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_招募新军.cs`
+  - 类型：TempFac_
+  - 方法：Wanted
+- `Regimes\TemporaryFactions\Claims\TempFac_赈济灾荒.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_争夺主教叙任权.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_整顿吏治.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_整军经武.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_制度融入.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_重定律令.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_重农抑商.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_诛宦官.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_转军府.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_转世袭.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_转天朝制度.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_转周制.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_自由信仰.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_宗教融入.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\Claims\TempFac_宗教同化.cs`
+  - 类型：TempFac_
+- `Regimes\TemporaryFactions\KingdomMinds\KingdomMind_打击贪腐.cs`
+  - 类型：KingdomMind_
+- `Regimes\TemporaryFactions\TemporaryFaction.cs`
+  - 类型：TemporaryFaction
+  - 方法：ResolveType、RunExecute、OffCooldown、OwnEnoughRenown、CopyRuntimeStateFrom、IsNeedToCountDown、SetEmpire、SetKingdom、GetKingdom、TargetCrimeOk
+- `Regimes\TemporaryFactions\TemporaryFactionType.cs`
+  - 类型：TemporaryFactionType
+- `Regimes\WesternPeerageRules.cs`
+  - 类型：WesternPeerageRules
+  - 方法：TryGetRulerLevel
+
+## Terminal
+
+- `Terminal\CoreGameId.cs`
+  - 类型：CoreGameId
+- `Terminal\CoreHost.cs`
+  - 类型：CoreHost、Phase、BundleProbe
+  - 方法：Tick、RequestStop、Shutdown、StatusLine、LinkLine、ScanUrl、ButtonText、SecondButtonText、ThirdButtonText、OnButton
+- `Terminal\CoreLiveMap.cs`
+  - 类型：CoreLiveMap、Realm、Town、Army、Battle、MapData、ArmyData、Mover、Group
+  - 方法：Tick、Reset
+- `Terminal\CoreLiveMap.Tree.cs`
+  - 类型：CoreLiveMap、Lab、Node、Tree、PaintJob、Painted、Box
+- `Terminal\CoreSaveExport.cs`
+  - 类型：CoreSaveExport
+  - 方法：Export、PeekSave
+- `Terminal\CoreSaveImport.cs`
+  - 类型：CoreSaveExport
+  - 方法：Import
+- `Terminal\LightweightHostMode.cs`
+  - 类型：LightweightHostMode
+  - 方法：Tick、Restore、CardContains
+- `Terminal\TerminalAdminPass.cs`
+  - 类型：TerminalAdminPass
+  - 方法：Tokens、Load、Has、TryLogin、Renew、Remove、Normalize
+- `Terminal\TerminalHost.Admin.cs`
+  - 类型：TerminalHost
+  - 方法：RenewAdmin、LockEra
+- `Terminal\TerminalHost.Annals.cs`
+  - 类型：TerminalHost、Kin
+- `Terminal\TerminalHost.Audit.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Books.cs`
+  - 类型：TerminalHost、BookLine、BookRow、BookCase
+- `Terminal\TerminalHost.Clan.cs`
+  - 类型：TerminalHost
+  - 方法：ClanPost
+- `Terminal\TerminalHost.Court.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.cs`
+  - 类型：TerminalHost、Report、Seat、RulerInfo
+  - 方法：ClearIntel、Vacate、NewCode、Kick、EnsureNow、PrimaryAddress、PairUrl、MeshAddress、Seats、HasTelegraph
+- `Terminal\TerminalHost.DecisionScale.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Decrees.cs`
+  - 类型：TerminalHost、Order、Case
+  - 方法：HoldsMemorial、HoldsCase
+- `Terminal\TerminalHost.Division.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Field.cs`
+  - 类型：TerminalHost、ArmyReport、Writ、Terrain
+  - 方法：ArmyReport、AddMarch、SeeBattles
+- `Terminal\TerminalHost.Fiscal.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.FiscalLevers.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.History.cs`
+  - 类型：TerminalHost、ChronicleRow
+- `Terminal\TerminalHost.Intrigue.cs`
+  - 类型：TerminalHost、Spy、CaughtSpy
+- `Terminal\TerminalHost.Journey.cs`
+  - 类型：TerminalHost
+  - 方法：CampaignFactor
+- `Terminal\TerminalHost.Live.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Lobby.cs`
+  - 类型：TerminalHost
+  - 方法：readonly、WebOf
+- `Terminal\TerminalHost.Papacy.cs`
+  - 类型：TerminalHost
+  - 方法：SeeCrowns
+- `Terminal\TerminalHost.Peace.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Possess.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Purse.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Review.cs`
+  - 类型：TerminalHost、Charge
+- `Terminal\TerminalHost.Scale.cs`
+  - 类型：TerminalHost、Term、Offer
+- `Terminal\TerminalHost.Speed.cs`
+  - 类型：TerminalHost、SpeedVote
+  - 方法：SpeedTimes、VoteLine
+- `Terminal\TerminalHost.Standalone.cs`
+  - 类型：TerminalHost
+  - 方法：IssueSeat、SeatOnline、OnlineSeats、HasSeat、DropSeat、IsAdmin、IssueAdmin、AdminLoginCode、RestoreSeatRulers
+- `Terminal\TerminalHost.Succession.cs`
+  - 类型：TerminalHost、Legacy
+- `Terminal\TerminalHost.Survey.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Trade.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Vassal.cs`
+  - 类型：TerminalHost
+- `Terminal\TerminalHost.Wardrobe.cs`
+  - 类型：TerminalHost、Garment
+- `Terminal\TerminalIntel.cs`
+  - 类型：TerminalIntel、Sight
+  - 方法：SightOf、Hash、Unit、Reported、RoundSig、Clarity、Trust、DelayMonths、Lost、ApplyFog
+- `Terminal\TerminalMdns.cs`
+  - 类型：TerminalMdns
+  - 方法：Start、Stop、Answer
+- `Terminal\TerminalQr.cs`
+  - 类型：TerminalQr
+  - 方法：Encode
+- `Terminal\TerminalRelay.cs`
+  - 类型：TerminalRelay
+  - 方法：Start、Stop、Update
+- `Terminal\TerminalServer.cs`
+  - 类型：TerminalServer、Reply、TerminalPairing
+  - 方法：IsPortraitPage、Json、Html、Error、Start、Stop、Load、NewCodeNow、Remove、Issue
+
+## UI
+
+- `UI\Components\AdvancedButton.cs`
+  - 类型：AdvancedButton
+  - 方法：Setup、SetStatus、OriginalSetup、_init
+- `UI\Components\BakedGlyphFont.cs`
+  - 类型：BakedGlyphFont、Entry
+  - 方法：TryLoad、Supports、Width、Ensure
+- `UI\Components\BundledTerritoryFonts.cs`
+  - 类型：BundledFont、BundledTerritoryFonts
+  - 方法：BundledFont、Load、Reset、Supports、TryAdapt、Find、Of、IsBundled、BakedOf、DisplayName
+- `UI\Components\CityDetailOverlay.cs`
+  - 类型：CityDetailOverlay、Variant、Entry
+  - 方法：ResetWorldState、Update
+- `UI\Components\CityPlanOverlay.cs`
+  - 类型：CityPlanOverlay、Chunk
+  - 方法：ResetWorldState、MarkZone、MarkCity、MarkAll、PlanRebuilt、Update
+- `UI\Components\ClaimScalePanel.cs`
+  - 类型：ClaimScalePanel
+  - 方法：Render、DealTerms、PartLabel、Succeeded、OutcomeKind
+- `UI\Components\ClaimTargetMap.cs`
+  - 类型：ClaimTargetMap、Frame
+  - 方法：AddLabel、ForgetViews、Create、Home、Whole、OnPointerClick、OnPointerEnter、OnPointerExit、OnScroll、OnBeginDrag
+- `UI\Components\CorpsMapRenderer.cs`
+  - 类型：CorpsMapRenderer、Counter、Marker、Hit、CounterGroup、FleetGroup、Glider、CorpsMapRendererHost
+  - 方法：ClearLocate、Locate、TextStale、EnsureHost、HostLateUpdate、TryClick、ShowCounterTooltip、ShowFleetTooltip、ShowNavalTooltip、ShowBattleTooltip
+- `UI\Components\CourtActionsPanel.cs`
+  - 类型：CourtActionsPanel
+  - 方法：RenderCourt、RenderOptions、RenderLevers、RenderPurse
+- `UI\Components\CourtPanel.cs`
+  - 类型：CourtPanel
+  - 方法：Render、StanceMark
+- `UI\Components\CultureIcons.cs`
+  - 类型：CultureIcons
+  - 方法：Get
+- `UI\Components\DecisionScalePanel.cs`
+  - 类型：DecisionScalePanel
+  - 方法：Render
+- `UI\Components\EmperorMarkerRenderer.cs`
+  - 类型：EmperorMarkerRenderer、Kind、Mark、Entry、EmperorMarkerHost
+  - 方法：EnsureHost、HostLateUpdate、ShowTooltip、ShowPopeTooltip
+- `UI\Components\FactionPieChart.cs`
+  - 类型：FactionPieChart、Slice
+  - 方法：Create、OnPointerEnter、OnPointerExit、OnPointerClick
+- `UI\Components\FillToWindowBottom.cs`
+  - 类型：FillToWindowBottom
+- `UI\Components\GoodsCard.cs`
+  - 类型：GoodsCard
+  - 方法：Draw
+- `UI\Components\GraphLayout.cs`
+  - 类型：GraphLayout、Node、Result
+  - 方法：Node、Result、TieredLanes
+- `UI\Components\GraphView.cs`
+  - 类型：GraphOrientation、GraphView
+  - 方法：Create、ClearNodes、ClearEdges、CreateElbow、CreateSegment、SetContent、ResetView、OnBeginDrag、OnDrag、OnScroll
+- `UI\Components\HemicycleChart.cs`
+  - 类型：HemicycleChart、Seat
+  - 方法：Create
+- `UI\Components\HiResIconFilter.cs`
+  - 类型：HiResIconFilter
+  - 方法：Apply、Smooth
+- `UI\Components\HistoryEventRow.cs`
+  - 类型：HistoryEventRowMarker、HistoryEventRow
+  - 方法：HistoryEventRowMarker、Add
+- `UI\Components\HoverMarqueeText.cs`
+  - 类型：HoverMarqueeText
+  - 方法：Attach、OnPointerEnter、OnPointerExit
+- `UI\Components\HoverVerticalScrollText.cs`
+  - 类型：HoverVerticalScrollText
+  - 方法：Attach、OnPointerEnter、OnPointerExit
+- `UI\Components\InstitutionGraphView.cs`
+  - 类型：InstitutionGraphView、NodeCardInfo
+  - 方法：NodeCardInfo、Create、Rebuild、SetSelected、GetLegendColor、ResetView
+- `UI\Components\LawPanel.cs`
+  - 类型：LawPanel、PenalView
+  - 方法：Chips、Render、RealmPrisoners、YearsLeft、RenderPerson、RenderScale、RenderScaleBoard、Of
+- `UI\Components\LegislatureCharts.cs`
+  - 类型：LegislatureCharts
+  - 方法：CreateHall、CreateBenches、CreateControlBar
+- `UI\Components\MaladyPanel.cs`
+  - 类型：MaladyPanel
+  - 方法：Render
+- `UI\Components\MapLabelOverlay.cs`
+  - 类型：MapLabelOverlay、Label、Spec
+  - 方法：Spec、Update
+- `UI\Components\MapOverlayCanvas.cs`
+  - 类型：MapOverlayCanvas
+  - 方法：Ensure、Sync、IsMap、NameplateFont
+- `UI\Components\MapWallOverlay.cs`
+  - 类型：MapWallOverlay
+  - 方法：Update、StoneAt
+- `UI\Components\MapZoomTier.cs`
+  - 类型：MapZoomTier
+  - 方法：PixelsPerTile、Past
+- `UI\Components\MarketCard.cs`
+  - 类型：MarketCard
+  - 方法：DrawPolicy、Draw
+- `UI\Components\PartyAffairsPanel.cs`
+  - 类型：PartyAffairsPanel
+  - 方法：Render
+- `UI\Components\RailSettler.cs`
+  - 类型：RailSettler
+- `UI\Components\RealmMiniMap.cs`
+  - 类型：RealmMiniMap、MapData、Painted
+  - 方法：Invalidate、Snapshot、Whole、Region、Mix、KingdomColor、Paint
+- `UI\Components\RoadOverlay.cs`
+  - 类型：RoadOverlay、Sheet
+  - 方法：GradeColor、Update
+- `UI\Components\SchismPanel.cs`
+  - 类型：SchismPanel
+  - 方法：Render
+- `UI\Components\SimpleText.cs`
+  - 类型：SimpleText
+  - 方法：Setup、UseFixedFontSize、RefreshAutoHeight
+- `UI\Components\SimpleToggle.cs`
+  - 类型：SimpleToggle
+- `UI\Components\SimpleWindowTab.cs`
+  - 类型：SimpleWindowTab
+  - 方法：Forget、CurrentOf、Setup
+- `UI\Components\SpecificClanGraphView.cs`
+  - 类型：SpecificClanGraphView
+  - 方法：Create、Rebuild、ResetView
+- `UI\Components\SteppePanel.cs`
+  - 类型：SteppePanel
+  - 方法：Render
+- `UI\Components\TechGraphView.cs`
+  - 类型：TechGraphView、NodeInfo
+  - 方法：NodeInfo、Create、ResetView、Rebuild、SetSelected、Icon、GetBranchIcon、GetStatusColor
+- `UI\Components\TerminalConnectCard.cs`
+  - 类型：TerminalConnectCard
+  - 方法：Draw
+- `UI\Components\TerritoryFontSettings.cs`
+  - 类型：TerritoryFontSettings
+  - 方法：FallbackCandidates、InstalledFonts、Rescan、static、OtherFonts、IsInstalled、ResolveFontName
+- `UI\Components\TerritoryLabelProjection.cs`
+  - 类型：TerritoryLabelProjection
+  - 方法：AtlasCapacity、RasterStepFor、RasterFontSize、FitScale、Visibility、ScreenCoverageVisibility、OrientedRectanglesOverlap
+- `UI\Components\TerritoryLabelRenderer.cs`
+  - 类型：TerritoryLabelOrientation、TerritoryLabelStyle、TerritoryLabelRenderer、WildEntry、RuntimeLabel、ScreenLabelBounds、TerritoryPlacement、TerritoryLabelRendererHost、TerritoryLabelGoldGradient、TerritoryLabelOutline
+  - 方法：RenderLawLayer、BeginFrame、SubmitCities、SubmitEmpireCore、SubmitZones、SubmitPoints、EndFrame、ClericalFallback、CanRender、GetOsFont
+- `UI\Components\TreasuryChart.cs`
+  - 类型：TreasuryChart、Column
+  - 方法：static
+- `UI\Components\UIHelper.cs`
+  - 类型：UIHelper、FactionOverviewHost
+  - 方法：CreateUIPanel、ClearChildren、CreateVerticalLayoutContainer、CreateHorizontalLayoutContainer、actorClick、CreateAvatarView、SetupWideWindowContentRoot、AddSectionHeader、FixPanelWidth、BeginColumns
+- `UI\Components\UpdateBadge.cs`
+  - 类型：UpdateBadge
+  - 方法：Attach
+- `UI\Components\WarBadge.cs`
+  - 类型：WarBadge
+  - 方法：MainWar、Add、Place、Bind、IconFor、OnPointerEnter、OnPointerExit、OnPointerClick
+- `UI\Components\WideKit.cs`
+  - 类型：WideKit
+  - 方法：Hex、Grade、AddRailTitle、BeginRailMenu、AddRailOption、AddRailLink、AddRailButton、AddKpiRow、AddEmptyCard、AddColorStrip
+- `UI\Components\WideScrollWindow.cs`
+  - 类型：MyWindow、WideScrollWindow、BackState
+  - 方法：CaptureBackState、PrepareBackRestore、Refresh
+- `UI\Components\WideStatsField.cs`
+  - 类型：WideStatsField
+  - 方法：Bind
+- `UI\Components\WideWindowScrollArea.cs`
+  - 类型：WideWindowScrollArea
+  - 方法：Configure、SetLeftInset
+- `UI\Components\WildernessOverlay.cs`
+  - 类型：WildernessOverlay、Look、Chunk
+  - 方法：ResetWorldState、MarkZone、MarkAround、Update、CanvasRebuilt、ColorOf、TipShown、ShowTooltip
+- `UI\Components\WildernessShape.cs`
+  - 类型：WildernessShape
+  - 方法：AreaAt、SlotAt、RegionOfSlot、ZoneWild、ZoneSlot、ZoneTouched、ZoneStamp、TouchedZones、Tick、TerrainChanged
+- `UI\Components\WildernessTerritory.cs`
+  - 类型：WildernessTerritory、Layer
+  - 方法：ResetWorldState、AddClaimed、Claims、Owner、KingdomAt、AdministrativeCityAt、ProvinceShade、ZonesOf、ZonesFollowing、Nudge
+- `UI\Components\WindowBackState.cs`
+  - 类型：IBackRestorable、WindowBackState、Snapshot
+  - 方法：OnAdded、OnLeaving、BeforeReturn、AfterReturn、Clear
+- `UI\Components\WorldMapLoadingScreen.cs`
+  - 类型：WorldMapLoadingScreen
+  - 方法：Show、Hide
+- `UI\Components\ZhouPanel.cs`
+  - 类型：ZhouPanel
+  - 方法：Render、Rank
+- `UI\Components\ZoneFlipOverlay.cs`
+  - 类型：ZoneFlipOverlay、Entry
+  - 方法：CameraView、Begin、Card、End、Hide
+- `UI\EmpireCraftStatsRow.cs`
+  - 类型：EmpireCraftStatsRow
+  - 方法：tryToShowActor、showStatsMetaUnit、IShowStatsRow、showStatRowMeta、showEmptyStatRow
+- `UI\FixFunctions.cs`
+  - 类型：FixFunctions
+  - 方法：CloneExistingLayerButton、CreateLayerButton
+- `UI\MainTab.cs`
+  - 类型：MainTab
+  - 方法：Init
+- `UI\Windows\AddFactionMemberWindow.cs`
+  - 类型：AddFactionMemberWindow
+  - 方法：InitData、Clear、InitActors
+- `UI\Windows\AddFactionWindow.cs`
+  - 类型：AddFactionWindow
+- `UI\Windows\BugReportWindow.cs`
+  - 类型：BugReportWindow
+- `UI\Windows\ChangeUnitWindow.cs`
+  - 类型：ChangeUnitWindow
+  - 方法：StarSearchUnit、Clear、InitTopPart、SortByPower、ShowUnitGroup、ChangeAvatar
+- `UI\Windows\CityNameHistoryWindow.cs`
+  - 类型：CityNameHistoryWindow
+- `UI\Windows\CityPlanScreen.cs`
+  - 类型：CityPlanScreen、Tool、Btn、CityPlanScreenHost
+  - 方法：Set、Open、Close、Tick
+- `UI\Windows\CityStyleWindow.cs`
+  - 类型：CityStyleWindow
+  - 方法：Open
+- `UI\Windows\ClaimTargetWindow.cs`
+  - 类型：ClaimTargetWindow、Level
+  - 方法：Open
+- `UI\Windows\CultureBooksWindow.cs`
+  - 类型：CultureBooksWindow
+  - 方法：Open、GetCultureOf、GetCategory
+- `UI\Windows\CultureInfoWindow.cs`
+  - 类型：CultureInfoWindow
+  - 方法：Open、SelectCulture
+- `UI\Windows\CultureSpeciesPairWindow.cs`
+  - 类型：CultureSpeciesPairWindow
+  - 方法：InsertAllCulture
+- `UI\Windows\DiplomacyWindow.cs`
+  - 类型：DiplomacyWindow、Page、Filter
+  - 方法：Open、OpenMarket
+- `UI\Windows\DiplomacyWindow.Map.cs`
+  - 类型：DiplomacyWindow、Relation、MapStyle
+- `UI\Windows\DynastyLineageWindow.cs`
+  - 类型：DynastyLineageWindow、Node
+  - 方法：Open
+- `UI\Windows\EmpireBeaurauWindow.Banner.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireBeaurauWindow.Council.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireBeaurauWindow.cs`
+  - 类型：EmpireBeaurauWindow
+  - 方法：RenderInto、ShowCoreSpace、ShowDivisionSpace、ShowHaremSpace、ShowProvincesSpace、Clear、SetOfficeView
+- `UI\Windows\EmpireBeaurauWindow.EthnicRank.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireBeaurauWindow.Legislature.cs`
+  - 类型：EmpireBeaurauWindow、LegislatureKind
+- `UI\Windows\EmpireBeaurauWindow.Senate.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireBeaurauWindow.Transmigrant.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireBeaurauWindow.TribalCouncil.cs`
+  - 类型：EmpireBeaurauWindow
+- `UI\Windows\EmpireCoreWindow.cs`
+  - 类型：EmpireCoreWindow
+  - 方法：Clear
+- `UI\Windows\EmpireHistoryWindow.cs`
+  - 类型：EmpireHistoryWindow
+  - 方法：Clear、ShowArchived、ShowPersonalHistory、ListHistoryDescriptions
+- `UI\Windows\EmpireListWindow.cs`
+  - 类型：EmpireListWindow、Filter
+- `UI\Windows\EmpireSettingWindow.cs`
+  - 类型：EmpireSettingWindow
+  - 方法：SetToggle
+- `UI\Windows\EmpireWindow.ClaimScale.cs`
+  - 类型：EmpireWindow
+  - 方法：ShowScales
+- `UI\Windows\EmpireWindow.cs`
+  - 类型：EmpireWindow、BackState
+  - 方法：Clear、ShowTopPart、ShowKingdomList、ShowEmperors、ShowFinance、ShowDependencies、ShowConstitution、ShowPersonalHistory、ShowBureau、ShowKingdoms
+- `UI\Windows\EmpireWindow.Diet.cs`
+  - 类型：EmpireWindow
+  - 方法：ShowDiet
+- `UI\Windows\EmpireWindow.Gentry.cs`
+  - 类型：EmpireWindow
+  - 方法：ShowGentry
+- `UI\Windows\EmpireWindow.Law.cs`
+  - 类型：EmpireWindow
+  - 方法：OpenLaw、OpenScales、ShowLaw
+- `UI\Windows\EmpireWindow.Military.cs`
+  - 类型：EmpireWindow
+  - 方法：OpenMilitary、ShowMilitary、MilitaryChips、AddMilitaryDisabledHint、BuildMilitaryPage
+- `UI\Windows\EmpireWindow.Papacy.cs`
+  - 类型：EmpireWindow
+  - 方法：ShowPapacy
+- `UI\Windows\FactionDetailWindow.cs`
+  - 类型：FactionDetailWindow
+  - 方法：InitialTopPart、ShowFactionSaveSpace、InitTraitPart、ShowTrait、RemoveTrait、RecoverTrait、Clear、ChangeFactionName、ShowIdeologyPicker、DoctrineTip
+- `UI\Windows\FactionDetailWindow.Pages.cs`
+  - 类型：FactionDetailWindow、ClaimOutlook、InstEval
+  - 方法：ShowMembers、ShowClaims、ShowInstitutionStance、ShowClassBase、ShowPartyAffairs
+- `UI\Windows\FactoryWindow.cs`
+  - 类型：FactoryWindow
+  - 方法：Open、IconOf
+- `UI\Windows\FamousTalentWindow.cs`
+  - 类型：FamousTalentWindow、View、Sort
+- `UI\Windows\IdeologyInfoWindow.cs`
+  - 类型：IdeologyInfoWindow、WorldStats
+  - 方法：Open
+- `UI\Windows\InstitutionCultureWindow.cs`
+  - 类型：InstitutionCultureWindow、Mode
+  - 方法：Register、OpenBrowse、OpenConvert、OpenCulture、Ordered、SampleRealm、CurrentCustom
+- `UI\Windows\InstitutionWindow.cs`
+  - 类型：InstitutionWindow
+  - 方法：Open、BrowseCulture、FormatContribution
+- `UI\Windows\KingdomAffairsWindow.cs`
+  - 类型：KingdomAffairsWindow
+  - 方法：Open
+- `UI\Windows\KingdomLawWindow.cs`
+  - 类型：KingdomLawWindow
+  - 方法：Open
+- `UI\Windows\KingdomMilitaryWindow.cs`
+  - 类型：KingdomMilitaryWindow
+  - 方法：Open
+- `UI\Windows\KingdomOverviewWindow.cs`
+  - 类型：KingdomOverviewWindow
+  - 方法：Open
+- `UI\Windows\KingdomTitleWindow.cs`
+  - 类型：KingdomTitleWindow、ContentTab
+- `UI\Windows\MarketWindow.cs`
+  - 类型：MarketWindow、Page
+  - 方法：Open、OpenGood
+- `UI\Windows\MetaColorWindow.cs`
+  - 类型：MetaColorWindow、BannerSpec
+  - 方法：Open
+- `UI\Windows\ModSettingsWindow.cs`
+  - 类型：ModSettingsWindow、Kind、Setting、Card、Category
+  - 方法：SetText、SetSwitch、Open、RefreshTerminalPage
+- `UI\Windows\OnlineUpdateWindow.cs`
+  - 类型：OnlineUpdateWindow
+- `UI\Windows\PureMapNoticeWindow.cs`
+  - 类型：PureMapNoticeWindow
+  - 方法：TryShow
+- `UI\Windows\RegimeWindow.cs`
+  - 类型：RegimeWindow
+  - 方法：InitialTextInput、ChangeKingdomName
+- `UI\Windows\ReligionDisplay.cs`
+  - 类型：ReligionDisplay、Stat
+  - 方法：Alive、FaithName、SphereName、Parent、Children、static、HierarchyName、HierarchyValue、HeadTitle、HolyWarName
+- `UI\Windows\ReligionInfoWindow.cs`
+  - 类型：ReligionInfoWindow、Page
+  - 方法：Open
+- `UI\Windows\ReligionInfoWindow.Tenets.cs`
+  - 类型：ReligionInfoWindow
+- `UI\Windows\ScenarioEditorScreen.cs`
+  - 类型：ScenarioEditorScreen、Tool、Layer、Mode、LandMode、Btn、ScenarioEditorHost
+  - 方法：Set、Open、Close、Tick
+- `UI\Windows\SenateWindow.cs`
+  - 类型：SenateWindow、View
+- `UI\Windows\SettlementWindow.cs`
+  - 类型：SettlementWindow
+  - 方法：Open
+- `UI\Windows\SpecificClanListWindow.cs`
+  - 类型：SpecificClanListWindow、Filter、Entry
+- `UI\Windows\SpecificClanWindow.Biography.cs`
+  - 类型：SpecificClanWindow
+- `UI\Windows\SpecificClanWindow.Branches.cs`
+  - 类型：SpecificClanWindow
+  - 方法：Heir
+- `UI\Windows\SpecificClanWindow.Chronicle.cs`
+  - 类型：SpecificClanWindow、ChronicleFilter、ChronicleEntry
+- `UI\Windows\SpecificClanWindow.cs`
+  - 类型：SpecificClanWindow、Page
+  - 方法：ShowFor、ShowClan、OnOffice、ClanHex、static、RulingEmpire、Post
+- `UI\Windows\SpecificClanWindow.Members.cs`
+  - 类型：SpecificClanWindow、MemberFilter、MemberSort
+- `UI\Windows\SpecificClanWindow.Overview.cs`
+  - 类型：SpecificClanWindow
+- `UI\Windows\SpecificClanWindow.Relatives.cs`
+  - 类型：SpecificClanWindow、Side
+- `UI\Windows\TechWindow.cs`
+  - 类型：TechWindow
+  - 方法：Open
+- `UI\Windows\TerminalWindow.cs`
+  - 类型：TerminalWindow
+  - 方法：RefreshIfOpen
+- `UI\Windows\TerritoryFontWindow.cs`
+  - 类型：TerritoryFontWindow
+- `UI\Windows\TianxiaWindow.cs`
+  - 类型：TianxiaWindow
+  - 方法：Open
+- `UI\Windows\TraitsSelectWindow.cs`
+  - 类型：TraitsSelectWindow
+  - 方法：Clear
+- `UI\Windows\WarDisplay.cs`
+  - 类型：WarDisplay
+  - 方法：Alive、Side、Realms、Army、Cities、CitiesLost、Count、static、PeacePreview、TruceLimit
+- `UI\Windows\WarInfoWindow.cs`
+  - 类型：WarInfoWindow、Page
+  - 方法：Open
+- `UI\Windows\WildernessWindow.cs`
+  - 类型：WildernessWindow
+  - 方法：Open、TryOpen、HookClicks
+- `UI\Windows\WorldMapWindow.cs`
+  - 类型：WorldMapWindow
+- `UI\Windows\WorldReligionsWindow.cs`
+  - 类型：WorldReligionsWindow
+
+---
+
+统计：16 个子系统，1959 个类型声明。
