@@ -514,7 +514,8 @@ public static class ColonySystem
     // 地名：剧本给的、或首府所在的王国法理名，都没有用首府城名
     private static string Place(Kingdom colony, ColonyState state)
     {
-        if (!string.IsNullOrWhiteSpace(state?.place)) return WorldMap.WorldMapData.PickParts(state.place);
+        // 剧本给的地名本身带"某属"的(葡属印度)：换了宗主照样去掉，叫"法属印度"，不叫"法属葡属印度"
+        if (!string.IsNullOrWhiteSpace(state?.place)) return StripBrand(WorldMap.WorldMapData.PickParts(state.place));
         // 法理按"英属马来亚"这样的国名立的：去掉"某属"(以前暹罗收它作保护国叫"暹属英属马来亚")
         string title = StripBrand(colony.capital?.GetTitle()?.data?.name);
         if (!string.IsNullOrWhiteSpace(title)) return title;
