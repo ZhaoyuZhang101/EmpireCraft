@@ -228,12 +228,23 @@ public static class CommodityMarketSystem
     }
 
     // 改政策(外交界面、市场窗口的按钮；AI 每二十年自己定一次，见 Policies)：办不成返回原因键
-    public static string SetPolicy(Kingdom leader, TradePolicy policy)
+    // 这项政策定不定得了(诉求"关税壁垒""自由贸易"先问一遍)：定不了返回原因键，定得了返回 null
+    public static string CanSetPolicy(Kingdom leader, TradePolicy policy)
     {
         if (leader?.data == null || leader.isRekt()) return "diplomacy_reason_invalid";
         if (TradeRouteSystem.ClosedByLaw(leader) && TradeRouteSystem.TreatyPartner(leader) == null) return "market_policy_law";
         if (TradeRouteSystem.TreatyPartner(leader) != null && policy is TradePolicy.Closed or TradePolicy.Protective)
             return "market_policy_treaty_block";
+        // 关键行业六成以上操在外国资本手里：保护关税、闭关都改不成(见 CompanySystem)
+        if (policy is TradePolicy.Closed or TradePolicy.Protective && CompanySystem.Master(leader.GetEmpire()) != null)
+            return "market_policy_foreign_capital";
+        return null;
+    }
+
+    public static string SetPolicy(Kingdom leader, TradePolicy policy)
+    {
+        string blocked = CanSetPolicy(leader, policy);
+        if (blocked != null) return blocked;
         var data = leader.GetOrCreate();
         data.market_policy_at = World.world.getCurWorldTime();
         if (data.market_policy == (int)policy) return null;
@@ -267,7 +278,9 @@ public static class CommodityMarketSystem
     public static float TariffBetween(Market buyer, Market seller)
     {
         float rate = PolicyTariff(buyer.policy);
-        return TreatyBetween(buyer, seller) ? Mathf.Min(rate, PolicyTariff(TradePolicy.Free)) : rate;
+        if (TreatyBetween(buyer, seller)) return Mathf.Min(rate, PolicyTariff(TradePolicy.Free));
+        // 关税战：两国之间的关税翻倍(见 TradeWarSystem)
+        return TradeWarSystem.ApplyTariff(buyer.leader, seller.leader, rate);
     }
 
     private static bool TreatyBetween(Market a, Market b) =>
@@ -370,6 +383,25 @@ public static class CommodityMarketSystem
         }
         return need <= 0f ? 0.5f : met / need;
     }
+
+    // 消费品满足度(0~1；电气时代以后的汽车、电器、化工品，tier 为 consumer)：没有这样的需求(还没到那个时代)按一半
+    public static float ConsumerSatisfaction(Kingdom kingdom)
+    {
+        if (!_ready || !(MarketOf(kingdom) is Market market)) return 0.5f;
+        float need = 0f, met = 0f;
+        foreach (CommodityConfig good in Goods.Values)
+        {
+            if (good.tier != "consumer" || !market.demand.TryGetValue(good.id, out float demand) || demand <= 0f) continue;
+            market.shortage.TryGetValue(good.id, out float shortage);
+            need += demand;
+            met += demand * (1f - shortage);
+        }
+        return need <= 0f ? 0.5f : met / need;
+    }
+
+    // 消费品买不买得到：市民、劳工的怨气目标 ±ConsumerGrievance(见 InstitutionSystem)
+    private const float ConsumerGrievance = 5f;
+    public static float ConsumerGrievanceShift(Kingdom kingdom) => (0.5f - ConsumerSatisfaction(kingdom)) * 2f * ConsumerGrievance;
 
     // 城的自然稳定：奢侈品满足度一半为平，满足 +4、全缺 -4
     public static float LuxuryStability(City city) => (LuxurySatisfaction(city) - 0.5f) * 8f;
@@ -702,13 +734,16 @@ public static class CommodityMarketSystem
         if (ledgered)
             foreach (CommodityConfig good in Goods.Values)
                 if (Basic(good)) Add(book.wanted, good.id, FromLedger(ledgerUsed, good) + FromLedger(ledgerShort, good));
+        // 消费品、奢侈品的销路跟着市面走：萧条时没人买，工钱高了好卖(见 EconomicCycleSystem、LabourSystem)
+        float appetite = EconomicCycleSystem.DemandFactor(city.kingdom) * LabourSystem.DemandFactor(city.kingdom);
         if (data?.groups != null)
             foreach (PopGroup group in data.groups)
             {
                 if (group == null || group.size <= 0f) continue;
                 string cls = group.social_class.ToString();
                 foreach (CommodityConfig good in Goods.Values)
-                    if (!Basic(good) && era >= good.era && good.needs.TryGetValue(cls, out float need)) Add(book.wanted, good.id, group.size / 1000f * need);
+                    if (!Basic(good) && era >= good.era && good.needs.TryGetValue(cls, out float need))
+                        Add(book.wanted, good.id, group.size / 1000f * need * (good.tier is "luxury" or "consumer" ? appetite : 1f));
             }
         // 穿越政权的工业(见 TransmigrantSystem.IndustryFactor)：厂区产量翻倍，归化民按人头另出布匹、工具、军械、钢材、糖
         float industry = TransmigrantSystem.IndustryFactor(city);

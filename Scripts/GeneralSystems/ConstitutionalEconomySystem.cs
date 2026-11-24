@@ -234,8 +234,14 @@ public static class ConstitutionalEconomySystem
         EmpireManager.EnsureDistinctColor(empire);
         // WarBox 罢工：怨气、正统(所有国家)，并为民意计算统计罢工占比
         PublicOpinionSystem.ApplyStrikeEffects(empire, state);
+        // 市面兴衰(景气、崩盘、萧条与对策)与工会工潮：先于苛政、革命形势、民意(见 EconomicCycleSystem、LabourSystem)
+        EconomicCycleSystem.Update(empire, state);
+        LabourSystem.Update(empire, state);
         // 苛政：前现代官逼民反，现代街头抗争逐级升级(先于民意结算，抗争推高异见)
         HarshRuleSystem.Update(empire);
+        // 革命形势：矛盾积累、组织成长、当局应对、引爆与起事、革命之后(先于民意结算，见 RevolutionSystem)
+        RevolutionSystem.Update(empire, state);
+        if (empire.IsArchived() || empire.CoreKingdom == null) return;
         PublicOpinionSystem.Update(empire, state);
         // 国民教育：按宪法国体(立国理念)在国内扩散理念
         IdeologyDynamicsSystem.Update(empire, state);
@@ -278,6 +284,11 @@ public static class ConstitutionalEconomySystem
         UpdateBudding(empire, state);
         UpdateWelfare(empire, state);
         ClaimPolicySystem.UpdateYear(empire, state);
+        // 国民教育拨款；财阀与政治世家(见 ModernPolicySystem、ConglomerateSystem)
+        ModernPolicySystem.UpdateYear(empire, state);
+        // 公司的账、行业里的并购与哄抬、外资、股市(见 CompanySystem、StockMarketSystem)，先于财阀
+        CompanySystem.Update(empire, state);
+        ConglomerateSystem.Update(empire, state);
 
         if (state.constitutional_reform_active) AdvanceReform(empire, state);
         if (state.constitutional_monarchy && GetParliamentarySupport(empire) < Config.support_threshold &&
@@ -307,7 +318,8 @@ public static class ConstitutionalEconomySystem
     private static void UpdateWelfare(Empire empire, ConstitutionalEconomyState state)
     {
         int cost = GetWelfareAnnualCost(empire, state.welfare_level);
-        state.welfare_funded = cost > 0 && empire.CoreKingdom.GetMoney() >= cost;
+        // 萧条里当局紧缩：福利停发(见 EconomicCycleSystem)
+        state.welfare_funded = cost > 0 && empire.CoreKingdom.GetMoney() >= cost && !EconomicCycleSystem.WelfareSuspended(empire);
         if (state.welfare_funded) empire.CoreKingdom.SubMoney(cost, TreasuryCategory.Welfare);
     }
 

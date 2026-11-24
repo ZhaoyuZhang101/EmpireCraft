@@ -1849,6 +1849,38 @@ def obj_open_book(img):
                         IRON, bevel=1, flat=True))
 
 
+def obj_flask(img):
+    """化工厂：一只圆底烧瓶，半瓶绿色药液，瓶口一缕气。"""
+    over(img, shade(rrect([108, 40, 148, 124], 6), PARCH, bevel=6, gloss=0.8))
+    over(img, shade(rrect([98, 30, 158, 48], 6), PARCH, bevel=4, gloss=0.8))
+    over(img, shade(ellipse([52, 96, 204, 232]), PARCH, bevel=12, gloss=0.9))
+    over(img, shade(sub(ellipse([66, 110, 190, 220]), rrect([56, 100, 200, 164], 0)), JADE, bevel=8, gloss=1.0))
+    over(img, shade(lines([[(128, 30), (116, 12)]], 8), STEEL, bevel=2, flat=True))
+
+
+def obj_bulb(img):
+    """电器厂：一只亮着的灯泡，铜灯头。"""
+    glass = union(ellipse([60, 20, 196, 156]), poly([(90, 126), (166, 126), (152, 178), (104, 178)]))
+    over(img, shade(glass, GILT, bevel=12, gloss=1.0))
+    over(img, shade(lines([[(108, 150), (116, 96), (128, 120), (140, 96), (148, 150)]], 6), AMBER, bevel=1, flat=True))
+    over(img, shade(rrect([102, 176, 154, 216], 6), BRASS, bevel=6, gloss=0.8))
+    for y in (188, 202):
+        over(img, shade(rrect([100, y, 156, y + 5], 2), IRON, bevel=2))
+    over(img, shade(rrect([116, 214, 140, 234], 5), IRON, bevel=4))
+
+
+def obj_motorcar(img):
+    """汽车厂：一辆老式汽车(侧面)，黑车身、两只铁轮、一盏铜灯。"""
+    over(img, shade(poly([(84, 124), (100, 70), (176, 70), (196, 124)]), LACQ, bevel=8, gloss=0.7))
+    over(img, shade(poly([(106, 116), (114, 82), (136, 82), (136, 116)]), PARCH, bevel=3, gloss=1.0))
+    over(img, shade(poly([(146, 116), (146, 82), (168, 82), (178, 116)]), PARCH, bevel=3, gloss=1.0))
+    over(img, shade(rrect([24, 120, 232, 178], 14), LACQ, bevel=10, gloss=0.8))
+    for x in (72, 184):
+        over(img, shade(ellipse([x - 32, 148, x + 32, 212]), IRON, bevel=8, gloss=0.5))
+        over(img, shade(ellipse([x - 12, 168, x + 12, 192]), BRASS, bevel=4, gloss=0.9))
+    over(img, shade(ellipse([214, 126, 238, 150]), GILT, bevel=4, gloss=1.0))
+
+
 FACTORY_TYPES = {
     "kiln": obj_kiln,
     "mint": obj_cash_coins,
@@ -1864,6 +1896,9 @@ FACTORY_TYPES = {
     "heavy_shipyard": obj_steamship,
     "light_aircraft_factory": obj_biplane,
     "heavy_aircraft_factory": obj_bomber,
+    "chemical_plant": obj_flask,
+    "electrical_works": obj_bulb,
+    "motor_works": obj_motorcar,
 }
 
 

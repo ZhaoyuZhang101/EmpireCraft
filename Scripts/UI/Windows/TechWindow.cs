@@ -209,6 +209,11 @@ public class TechWindow : AbstractWideWindow<TechWindow>
         if (state.last_unfunded > 0.5f)
             bankLine += "  " + LM.Get("tech_unfunded").ColorString("#E9A85B");
         AddLine(panel, bankLine.ColorString("#B8C6CC"), 11f, 6);
+        // 末代的可重复研究(见 TechnologySystem.Repeat)
+        if (state.repeat_levels != null && state.repeat_levels.Count > 0 || state.repeat_progress != null && state.repeat_progress.Count > 0)
+            AddLine(panel, (LM.Get("tech_repeat_label") + "：" + string.Join("  ", TechnologySystem.RepeatLines.Select(line =>
+                string.Format(LM.Get("tech_repeat_entry"), LM.Get("tech_repeat_" + line), TechnologySystem.RepeatLevel(_culture, line)))))
+                .ColorString("#9FD0C8"), 11f, 6);
 
         foreach (TechNodeConfig current in activeResearch)
         {

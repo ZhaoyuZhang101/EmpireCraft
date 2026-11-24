@@ -100,6 +100,9 @@ public static class ModernStateFormationSystem
         }
         PartyIdeology ideology = ResolveGovernmentIdeology(kingdom);
         RepublicSystem.SyncWithRegime(empire, foundingIdeology: ideology);
+        // 革命打成僵局后自立的那一块(见 RevolutionSystem.OnPeace)：革命建立的政府，军阀时期里不因势弱被撤销
+        if (kingdom.GetOrCreate().revolutionary_seat && empire.data?.constitutional_economy != null)
+            empire.data.constitutional_economy.revolutionary_government = true;
         MergeSameCoreVassals(empire);
         // 华夏的唯一合法政府当即以天下之名为号(见 RealmNamingSystem.ClaimModernRealmName)
         RealmNamingSystem.ClaimModernRealmName(empire);

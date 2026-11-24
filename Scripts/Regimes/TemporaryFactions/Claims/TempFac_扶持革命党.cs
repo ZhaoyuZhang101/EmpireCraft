@@ -38,6 +38,8 @@ public class TempFac_扶持革命党 : TemporaryFaction
                          .OrderByDescending(city => CityPopulationSystem.GetTotal(city)).Take(3).ToList())
                 CityPopulationSystem.ConvertBackground(city, ideology, socialClass =>
                     socialClass is SocialClass.Labour or SocialClass.Peasant ? 0.04f : 0.01f);
+            // 革命组织跟着壮大(见 RevolutionSystem)
+            RevolutionSystem.ForeignSupport(empire, 8f);
             CompletionOutcome = string.Format(LM.Get("claim_outcome_扶持革命党_named"), faction.Name);
         }
         End();

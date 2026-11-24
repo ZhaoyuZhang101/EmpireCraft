@@ -20,6 +20,10 @@ public static class WarGate
             return false;
         // 世界法则「禁止AI宣战」(见 DiplomacyLaws)：玩家强制的不经这里，不受此限
         if (DiplomacyLaws.WarBlocked) return false;
+        // 核恐怖平衡：冷战双方的盟主都有核，彼此不直接开战(见 WorldOrderSystem)
+        if (WorldOrderSystem.MutuallyDeterred(attacker, target)) return false;
+        // 关键行业有三成以上操在对方资本手里：受制于人，不向它开战(见 CompanySystem)
+        if (CompanySystem.Beholden(attacker, target)) return false;
         // 傀儡不自行宣战，随主国参战(见 PuppetStateSystem)；流亡政府没有城，不开新仗；保护国、托管地、租借地外交归宗主(见 ColonySystem)
         if (PuppetStateSystem.IsPuppet(attacker) || ExileGovernmentSystem.IsExiled(attacker) ||
             ColonySystem.ForeignAffairsByMetropole(attacker)) return false;
@@ -40,6 +44,8 @@ public static class WarGate
         // 跨文明通好之国互不侵犯(见 GreatPowerDiplomacy)；扶立之君与扶立者二十年互不开战(见 WarGoalSystem)
         if (GreatPowerDiplomacy.Bound(attacker, target) || WarGoalSystem.Installed(attacker, target)) return true;
         if (attacker.IsInSameEmpire(target)) return true;
+        // 同一阵营的国互不开战(见 WorldOrderSystem)
+        if (WorldOrderSystem.SameBloc(attacker, target)) return true;
         Empire own = attacker.GetEmpire(), theirs = target.GetEmpire();
         if (own != null && (target.GetGivenAllianceEmpire() == own || target.GetTakenAllianceEmpire() == own && !ownTributary)) return true;
         if (theirs != null && (attacker.GetGivenAllianceEmpire() == theirs || attacker.GetTakenAllianceEmpire() == theirs)) return true;

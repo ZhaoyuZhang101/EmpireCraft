@@ -176,10 +176,12 @@ public static class CorpsSystem
         if (_monthPhase == MonthPhase.Idle && (_lastMonth < 0d || now < _lastMonth || Date.getMonthsSince(_lastMonth) >= 1))
         {
             bool first = _lastMonth < 0d;
+            // 上一轮拖过了月界(见 MonthSlice)，这两轮之间隔的就不止一个月：帧数按月折算
+            int months = first || now < _lastMonth ? 1 : Math.Max(1, Date.getMonthsSince(_lastMonth));
             _lastMonth = now;
             int frame = Time.frameCount;
             if (_monthStartFrame >= 0 && frame > _monthStartFrame)
-                _framesPerMonth = Mathf.Lerp(_framesPerMonth, frame - _monthStartFrame, 0.3f);
+                _framesPerMonth = Mathf.Lerp(_framesPerMonth, (frame - _monthStartFrame) / (float)months, 0.3f);
             _monthStartFrame = frame;
             BeginMonthCycle(now, first);
         }
@@ -221,10 +223,14 @@ public static class CorpsSystem
     // 月度结算分帧：以前月初一帧里把全世界各国的征召补员后勤、海军、战线分派与交战一次结完，大图开战时那一帧卡几百毫秒。
     // 现在月初把各国排队，每帧结几国(本段不过 MonthSliceMilliseconds，至少一国)，
     // 各国都结完再结海军(一次)、战线(开头一次，逐国分派，交战结算一次)，最后重建计兵数缓存；先后次序与以前一样。
-    // 时间片随剩余工作适度放宽。快进越过月界前如果这一轮还没结完，先在月界等队列分帧跑完。
+    // 时间片随剩余工作适度放宽。
+    // 下个月到了这一轮还没结完：游戏里世界照走，不停下来等(用户 2026-11-24：卡的时候世界一顿一顿地停，像被暂停了)，
+    // 也不当场一口气结完(那是单帧卡两秒)。按欠账加码——拖过月界越久时间片越大，拖满一个月到 LateMonthSliceLimit；
+    // 这一轮结完紧接着开下一轮，各国按欠的月数补(见 DueMonths)，战线、海军一轮结一回。
+    // 独立核心没有画面要顾，仍让世界在月界等这一轮结完(见 LimitMonthElapsed)。
     private enum MonthPhase { Idle, Kingdoms, Navy, FrontBegin, FrontAssign, FrontEnd }
 
-    private const double MonthSliceMilliseconds = 3d, GameMonthSliceLimit = 8d, ServerMonthSliceLimit = 64d;
+    private const double MonthSliceMilliseconds = 3d, GameMonthSliceLimit = 8d, LateMonthSliceLimit = 20d, ServerMonthSliceLimit = 64d;
     // 每步(一国征召或分派)平均耗时、一个月有几帧：滑动平均
     private static double _stepMs = 0.5d;
     private static float _framesPerMonth = 30f;
@@ -232,8 +238,11 @@ public static class CorpsSystem
 
     private static double MonthSlice()
     {
-        double limit = SimulationFrameBudget.ServerMilliseconds.HasValue ? ServerMonthSliceLimit : GameMonthSliceLimit;
-        if (Date.getMonthsSince(_lastMonth) >= 1) return limit;
+        if (SimulationFrameBudget.ServerMilliseconds.HasValue) return ServerMonthSliceLimit;
+        double limit = GameMonthSliceLimit;
+        // 拖过月界几个月了(小数)
+        double late = (World.world.getCurWorldTime() - _lastMonth) / Math.Max(0.001d, Date.getMonthTime()) - 1d;
+        if (late >= 0d) return limit + (LateMonthSliceLimit - limit) * Math.Min(1d, late);
         int remaining = _monthPhase switch
         {
             MonthPhase.Kingdoms => MonthQueue.Count + (World.world?.kingdoms?.Count ?? 0) + 3,
@@ -251,9 +260,10 @@ public static class CorpsSystem
     private static double _monthAt;
     private static bool _monthFirst;
 
+    // 只在独立核心里用(见 TerminalPatch.AfterElapsed)：月结没结完，世界时间走到月界就停住等
     internal static float LimitMonthElapsed(float elapsed)
     {
-        if (_monthPhase == MonthPhase.Idle || _lastMonth < 0d || elapsed <= 0f ||
+        if (!SimulationFrameBudget.ServerMilliseconds.HasValue || _monthPhase == MonthPhase.Idle || _lastMonth < 0d || elapsed <= 0f ||
             !ReferenceEquals(_world, World.world) || !Config.game_loaded || Config.paused || SmoothLoader.isLoading()) return elapsed;
 
         double now = World.world.getCurWorldTime();
@@ -380,6 +390,7 @@ public static class CorpsSystem
         bool war = IsAtWar(kingdom);
         int stretch = Math.Max(1, HelperFunc.SimulationStretch.Months);
         int span = 1;
+        double at = now;
         if (LastMonthTick.TryGetValue(kingdom.id, out var last) && now >= last.at)
         {
             int since = Date.getMonthsSince(last.at);
@@ -389,8 +400,11 @@ public static class CorpsSystem
                 if (since <= 0 || (month - Math.Abs(kingdom.id)) % stretch != 0) return 0;
             }
             span = Mathf.Clamp(since, 1, MaxCatchUpMonths);
+            // 记到结清的那个月为止，不足一个月的零头留给下回：月结拖过月界时(见 MonthSlice)两回隔一个多月，
+            // 记成"现在"就每回都丢掉那截零头，军饷、补员越结越少
+            if (since >= 1 && since <= MaxCatchUpMonths) at = Math.Min(now, last.at + since * (double)Date.getMonthTime());
         }
-        LastMonthTick[kingdom.id] = (now, war);
+        LastMonthTick[kingdom.id] = (at, war);
         return span;
     }
 
@@ -732,7 +746,9 @@ public static class CorpsSystem
         if (BannerSystem.SelfSupplied(kingdom)) return 1f;
         if (!TreasurySystem.Enabled(kingdom)) return 1f;
         if (TreasurySystem.Report(kingdom).months < 3) return 1f;
-        float share = !war ? PeaceBudgetShare : WarGoalSystem.FightingForSurvival(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
+        // 世界大战倾国而战，照生死存亡之战拨军费；军备竞赛中平时多拨(见 WorldOrderSystem)
+        float share = !war ? PeaceBudgetShare + WorldOrderSystem.ArmsBudget(kingdom)
+            : WarGoalSystem.FightingForSurvival(kingdom) || WorldOrderSystem.InWorldWar(kingdom) ? SurvivalBudgetShare : WarBudgetShare;
         double budget = StateDebtSystem.AnnualStableIncome(kingdom) * (double)share +
                         Math.Max(0L, kingdom.GetTreasuryBalance()) / (double)ReserveYears;
         float perSoldier = Math.Max(0.01f, (war ? WarCostPerSoldier : PeaceCostPerSoldier) * AverageUpkeep(kingdom));
@@ -851,7 +867,9 @@ public static class CorpsSystem
         // 兵源只分给军镇的兵额：城防守兵由城市治安另出钱从本城征(见 CityStabilitySystem)，不再把军团摊薄
         // (以前按含守兵的兵额平分，平时京师那一个军团只分到兵源的几分之一，大国平时也只有一千来人)。
         // 平时只征兵源的一部分(有常备军的多些)，战时全征
-        float peace = doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare;
+        // 军备竞赛中平时多征(见 WorldOrderSystem)
+        float peace = (doctrine.CentralStanding || doctrine.DistrictStanding ? StandingPoolShare : PeacePoolShare) +
+                      WorldOrderSystem.ArmsPool(kingdom);
         // 鞭长莫及：控制力低的城征不齐(见 AdministrativeControlSystem.Yield)
         float background = 0f;
         // 奴隶不征为兵、野人大半不征(见 SlaverySystem、GuoyeSystem)；收人头税的国家异教之民大半不征(见 ReligiousTension)；

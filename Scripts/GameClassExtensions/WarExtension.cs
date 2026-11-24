@@ -103,6 +103,8 @@ public static class WarExtension
         public bool republic_revolution_split_realm;
         public List<long> republic_revolution_allied_kingdom_ids = new List<long>();
         public int republic_revolution_defected_soldiers;
+        // 旧党反扑(见 RepublicSystem.StartCounterRevolution)：冲着哪个帝国
+        public long counter_revolution_empire_id = -1L;
         // Regional modernisation crisis: several imperial members form a defensive league,
         // secede together and seek to found a separate republic rather than replace the centre.
         public bool republic_regional_coalition;
@@ -125,6 +127,10 @@ public static class WarExtension
         // 纯净地图模式的核打击(见 NuclearDoctrineSystem.VirtualStrike)：这场战争里已挨过核弹的敌国，每国只用一次
         public List<long> nuclear_struck_kingdom_ids = new List<long>();
         public bool world_war_end_recorded;
+        // 万国公会议处过这场战事了(见 WorldOrderSystem.UpdateLeague)
+        public bool league_case;
+        // 这场战争里已经记过史书的空中大事(位：1 夺得制空权 2 战略轰炸 4 导弹袭击，见 AirPowerSystem)
+        public int air_noted;
         public double world_war_last_check = -1d;
         public int world_war_bloc_count;
         public float world_war_power_share;

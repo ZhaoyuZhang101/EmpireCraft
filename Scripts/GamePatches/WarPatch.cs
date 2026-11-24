@@ -407,6 +407,7 @@ public class WarPatch: GamePatch
                     InstitutionSystem.ResolveSocialRebellion(pWar, pWinner);
                     LandEconomySystem.ResolvePeasantLandRebellion(pWar, pWinner);
                     RepublicSystem.ResolveRevolutionWar(pWar, pWinner);
+                    RepublicSystem.ResolveCounterRevolution(pWar, pWinner);
                     attacker1.EndLocalRebelling();
                     break;
                 case EmpireWarType.索取法理:

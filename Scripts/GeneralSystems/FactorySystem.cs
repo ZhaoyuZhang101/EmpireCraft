@@ -47,7 +47,11 @@ public static class FactorySystem
         ("heavy_factory", "armored_warfare", 80f),
         ("heavy_shipyard", "armored_warfare", 80f),
         ("light_aircraft_factory", "aviation", 100f),
-        ("heavy_aircraft_factory", "strategic_aviation", 120f)
+        ("heavy_aircraft_factory", "strategic_aviation", 120f),
+        // 电气时代以后的消费品工业(用户 2026-11-24 第四批"电气时代之后的新商品"，配方见 Commodities.json)：化工品、电器、汽车
+        ("chemical_plant", "petrochemistry", 70f),
+        ("electrical_works", "electricity", 65f),
+        ("motor_works", "motorization", 70f)
     };
 
     // 古代手工工场(有了近代厂 AI 会逐步改建掉)
@@ -132,6 +136,9 @@ public static class FactorySystem
     public static int Count(City city) => All.Count == 0 ? 0 : InCity(city).Count;
 
     public static FactorySite ById(int id) => All.TryGetValue(id, out FactorySite site) ? site : null;
+
+    // 全部厂区(公司的账要逐片过，见 CompanySystem)
+    public static IEnumerable<FactorySite> AllSites => All.Values;
 
     public static City CityOf(FactorySite site) => site == null ? null : World.world?.GetTile(site.x, site.y)?.zone?.city;
 
@@ -269,8 +276,15 @@ public static class FactorySystem
         foreach (FactorySite site in InCity(city))
             foreach (FactoryUnit unit in site.units)
                 value += ValueOf(unit) * CommodityMarketSystem.FactoryFactor(city, unit.type) * TransmigrantSystem.IndustryFactor(city) *
-                         CommodityMarketSystem.FactoryPriceIndex(city, unit.type);
+                         CommodityMarketSystem.FactoryPriceIndex(city, unit.type) *
+                         // 经营它的公司：声誉、垄断加价或价格战、外资把利润汇走(见 CompanySystem)
+                         CompanySystem.OutputFactor(city, site, unit.type);
         if (value <= 0f) return;
+        // 工业时代以后：萧条开工不足、工潮减产、工钱与劳动法、官办民办、财阀的规模(见各系统)
+        value *= EconomicCycleSystem.FactoryFactor(city) * LabourSystem.OutputFactor(city) * ModernPolicySystem.OutputFactor(city) *
+                 ConglomerateSystem.OutputFactor(city) *
+                 // 挨了轰炸减产(见 AirPowerSystem)；核电、自动化与末代的工业精进(见 TechnologySystem.IndustryFactor)
+                 AirPowerSystem.BombedFactor(city) * TechnologySystem.IndustryFactor(city);
         // 记进工业那一栏(交工业税，官营的那份利润从这里拿，见 EnterpriseSystem.TakePublicProfit)
         float made = value * years;
         data.produced_value += made;

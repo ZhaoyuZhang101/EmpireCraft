@@ -684,6 +684,8 @@ public static class ColonySystem
         double own = colony.GetNationalPower(), lord = metropole.GetNationalPower();
         if (lord < own * 1.5d) gain += 4f;
         if (metropole.hasEnemies()) gain += 3f;
+        // 去殖民浪潮里各地离心大涨(见 DecolonizationSystem)
+        gain += DecolonizationSystem.DriftBonus;
         gain *= state.kind switch
         {
             ColonyState.Company => 0.7f,
@@ -719,8 +721,8 @@ public static class ColonySystem
         }
         if (state.autonomy < 100f || now - state.founded_at < RiseMinYears * 60d || colony.hasEnemies() || !colony.hasKing() ||
             state.rising_at >= 0d && now - state.rising_at < RiseCooldownYears * 60d) return;
-        // 宗主强过自己三倍又不在打仗的，不敢起兵
-        if (lord > own * 3d && !metropole.hasEnemies()) return;
+        // 宗主强过自己三倍(去殖民浪潮里六倍)又不在打仗的，不敢起兵
+        if (lord > own * DecolonizationSystem.DareRatio && !metropole.hasEnemies()) return;
         War war;
         _rising = true;
         try

@@ -150,7 +150,10 @@ public static class PublicOpinionSystem
         if (state.opinion_wave_years >= WaveYearsToRevolt && preferred.HasValue)
         {
             state.opinion_wave_years = 0;
-            Revolt(empire, state, preferred.Value);
+            // 革命要过"革命形势"的门(矛盾攒够、组织成形、有事点火，见 RevolutionSystem)：浪潮本身是一颗火星，
+            // 由那边统一点；形势没成熟时只是一场骚乱。没有革命形势可言的国家(本文化还不能废君等)照旧
+            if (RevolutionSystem.Applies(empire)) RevolutionSystem.OnOpinionWave(empire, preferred.Value);
+            else Revolt(empire, state, preferred.Value);
         }
     }
 
@@ -345,7 +348,8 @@ public static class PublicOpinionSystem
 
     #region 革命
 
-    private static void Revolt(Empire empire, ConstitutionalEconomyState state, PartyIdeology preferred)
+    // 也由 RevolutionSystem.Ignite 调用(形势成熟、有事点火时)
+    internal static void Revolt(Empire empire, ConstitutionalEconomyState state, PartyIdeology preferred)
     {
         FixedFaction party = PartySystem.GetParties(empire)
                                  .FirstOrDefault(candidate => candidate.Ideology == preferred && !candidate.Ban)

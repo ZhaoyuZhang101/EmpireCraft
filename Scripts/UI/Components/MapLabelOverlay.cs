@@ -201,6 +201,20 @@ public static class MapLabelOverlay
         label.Background.enabled = true;
     }
 
+    // 厂区上标经营它的公司的简称(用户 2026-11-25 "像素的建筑附上公司的名字可以点开查看经营业务"，见 CompanySystem)
+    private static void Companies(City city, List<Spec> specs)
+    {
+        foreach (FactorySite site in FactorySystem.InCity(city))
+        {
+            string name = CompanySystem.MapLabel(site);
+            if (!string.IsNullOrEmpty(name))
+                specs.Add(new Spec(new Vector2(site.x + 0.5f, site.y + 0.5f), name, IndustryColor, BuildingSize, false, 1, backdrop: true));
+        }
+    }
+
+    // 这座城的标注重排(公司成立、改名、并购以后厂区上的名字要换，见 CompanySystem)
+    public static void Invalidate(long cityId) => Cache.Remove(cityId);
+
     private static void HideAll()
     {
         foreach (Label label in Pool)
@@ -233,6 +247,7 @@ public static class MapLabelOverlay
         {
             List<Spec> fromDrawing = SpecsOfDrawing(city, drawn, houses, names);
             Settlements(city, PureMapPatch.LabelsOf(city), fromDrawing);
+            Companies(city, fromDrawing);
             Cache[city.id] = (stamp, houses, true, names.Key, fromDrawing);
             if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
             return fromDrawing;
@@ -266,6 +281,7 @@ public static class MapLabelOverlay
             if (!string.IsNullOrEmpty(text)) specs.Add(new Spec(slot.Tile, text, color, BuildingSize, false, 1));
         }
         Settlements(city, plan, specs);
+        Companies(city, specs);
         Cache[city.id] = (plan.Stamp, houses, false, names.Key, specs);
         if (Cache.Count > 64) Cache.Remove(Cache.Keys.First());
         return specs;

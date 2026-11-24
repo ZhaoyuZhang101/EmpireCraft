@@ -190,6 +190,8 @@ internal static class MainTab
         DiplomacyWindow.CreateAndInit(nameof(DiplomacyWindow), new Vector2(480f, 380f));
         // 市场汇总(见 CommodityMarketSystem、MarketWindow)
         MarketWindow.CreateAndInit(nameof(MarketWindow), new Vector2(480f, 380f));
+        // 公司、财富榜、股市(见 CompanySystem、StockMarketSystem、CompanyWindow)
+        CompanyWindow.CreateAndInit(nameof(CompanyWindow), new Vector2(480f, 380f));
         // 无人区(地图上点无人区、营建页「无人区」按钮打开，见 WildernessWindow)；各图层点地块没接的、点在无人区上的交给它
         WildernessWindow.CreateAndInit(nameof(WildernessWindow), new Vector2(480f, 380f));
         // 发起诉求时选目标(派系窗口诉求页的「发起」打开，见 ClaimTargetWindow)
@@ -227,6 +229,7 @@ internal static class MainTab
             [nameof(SenateWindow)] = "iconKings",
             [nameof(DiplomacyWindow)] = "iconKingdom",
             [nameof(MarketWindow)] = "iconMoney",
+            [nameof(CompanyWindow)] = "iconMoney",
             [nameof(ReligionInfoWindow)] = "iconReligion",
             [nameof(WorldReligionsWindow)] = "iconReligion",
             [nameof(WarInfoWindow)] = "iconWar",

@@ -20,6 +20,9 @@ public sealed class CultureTechState
     public Dictionary<string, double> timestamps = new();
     // 最近一年的研究点产出，只用于窗口显示(不必每次打开窗口都全图重算)
     public float last_yearly_points;
+    // 末代的可重复研究(见 TechnologySystem.Repeat)：各条线精进到第几级、这一级已经投了多少点
+    public Dictionary<string, int> repeat_levels = new();
+    public Dictionary<string, float> repeat_progress = new();
     // 第一次结算时按本文化已有的装备和建筑补齐对应技术(旧存档/开局前就存在的装备不会凭空"失传")
     public bool bootstrapped;
     // 海军科技线已按本文化的时代补齐过(旧存档读档后补一次，见 TechnologySystem.BackfillNavalLine)

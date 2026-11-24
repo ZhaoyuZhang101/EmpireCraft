@@ -377,7 +377,9 @@ public static class PopulationEconomySystem
         // 奢侈品买得到，手头活络，税多收一点(±5%，见 CommodityMarketSystem)
         // 旗人不纳粮、旗地不交田赋(见 BannerSystem)
         double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * BannerSystem.TaxFactor(city) * EthnicRankSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
-                          RuralSettlementSystem.OutputFactor(city) * CommodityMarketSystem.LuxuryTaxFactor(city);
+                          RuralSettlementSystem.OutputFactor(city) * CommodityMarketSystem.LuxuryTaxFactor(city) *
+                          // 市面兴衰：繁荣多收一点，恐慌、萧条少收(见 EconomicCycleSystem)
+                          EconomicCycleSystem.TaxFactor(city);
         float remaining = income, due = 0f;
         long wholeTotal = 0;
         // 税先从民间现金里交(每月最多现金盈余的一半)，不够的部分才按产值估值折算(旧模型)；

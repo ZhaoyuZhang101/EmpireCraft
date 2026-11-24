@@ -233,6 +233,16 @@ public static class DiplomacyLedger
         if (RoyalMarriageSystem.Allied(a, b)) Add("diplomacy_tie_marriage", "#FF8FB0", MarriageSince(a, b), 20);
         if (EmpirePartitionSystem.InAmity(a, b)) Add("diplomacy_tie_amity", Green, ea?.data?.partition_time ?? -1d, 40);
         if (GreatPowerDiplomacy.Bound(a, b)) Add("diplomacy_tie_pact", Green, PactSince(ea, eb), 30);
+        // 阵营、冷战、断绝通商(见 WorldOrderSystem)
+        if (WorldOrderSystem.SameBloc(a, b)) Add("diplomacy_tie_bloc", Green);
+        else if (WorldOrderSystem.ColdWarBetween(a, b) != null) Add("diplomacy_tie_cold_war", Red);
+        if (WorldOrderSystem.TradeCut(a, b)) Add("diplomacy_tie_trade_cut", Orange);
+        // 外国资本(见 CompanySystem)：关键行业操在对方手里
+        if (CompanySystem.Beholden(a, b)) Add("diplomacy_tie_beholden", Orange);
+        else if (CompanySystem.Beholden(b, a)) Add("diplomacy_tie_capital", Green);
+        // 关税战(见 TradeWarSystem)
+        if (TradeWarSystem.Between(a, b) is { } tradeWar)
+            Add(tradeWar.level >= TradeWarSystem.Embargo ? "diplomacy_tie_trade_embargo" : "diplomacy_tie_trade_war", Orange, tradeWar.since);
         if (HolyRomanSystem.ProtectedBy(b, a)) Add("diplomacy_tie_protected", Cyan, b.GetOrCreate().hre_protected_at, 30);
         if (HolyRomanSystem.ProtectedBy(a, b)) Add("diplomacy_tie_protector", Cyan, a.GetOrCreate().hre_protected_at, 30);
         if (WarGoalSystem.Installed(a, b))

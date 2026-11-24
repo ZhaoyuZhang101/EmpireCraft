@@ -85,12 +85,9 @@ public class TerminalPatch : GamePatch
         float factor = TerminalHost.SpeedFactor;
         if (factor != 1f) __result *= factor;
 #if EC_SERVER
-        const int worldTicks = 1;
-#else
-        // MapBox 会把本次计算的步长重复用于整帧的模拟步骤，30 帧模式还会把步长翻倍。
-        int worldTicks = ScrollWindow.isWindowActive() ? 1 : Math.Max(1, Config.time_scale_asset?.ticks ?? 1);
-        if (Config.fps_lock_30) worldTicks *= 2;
+        // 独立核心没有画面要顾：军团月结没结完，世界在月界等它(见 CorpsSystem.LimitMonthElapsed)。
+        // 游戏里不等——世界照走，月结按欠账加码去追(见 CorpsSystem.MonthSlice)
+        __result = EmpireCraft.Scripts.GeneralSystems.CorpsSystem.LimitMonthElapsed(__result);
 #endif
-        __result = EmpireCraft.Scripts.GeneralSystems.CorpsSystem.LimitMonthElapsed(__result * worldTicks) / worldTicks;
     }
 }

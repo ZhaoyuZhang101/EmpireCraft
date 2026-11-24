@@ -78,6 +78,17 @@ public sealed class IdeologyPressureSource
     public float amount;
 }
 
+// 一家财阀(见 ConglomerateSystem)：哪个宗族、字号、起家的时间与城、占本国工业的份额(0~1)、出钱扶持的政党
+public sealed class ConglomerateData
+{
+    public long clan_id = -1L;
+    public string name = "";
+    public double since = -1d;
+    public long city_id = -1L;
+    public float share;
+    public string party_id = "";
+}
+
 public sealed class ConstitutionalEconomyState
 {
     // —— 民意与理念压力(见 PublicOpinionSystem) ——
@@ -180,6 +191,89 @@ public sealed class ConstitutionalEconomyState
     public double bankrupt_since = -1d;
     // 革命建立的政府(地方互保同盟打赢后建国等)：军阀时期里即使不是中央也保留正常国家地位
     public bool revolutionary_government;
+    // —— 革命形势(见 RevolutionSystem) ——
+    // 矛盾积累、革命组织(0~100)；领头的党(空 = 秘密结社)与纲领；阶段：0 平静 1 暗流 2 成熟 3 起事
+    public float revolution_tension;
+    public float revolution_org;
+    public string revolution_party_id = "";
+    public int revolution_ideology = -1;
+    public int revolution_stage;
+    // 形势最大的成因(界面显示)；今年点火的那件事(语言键后缀，空 = 没有)与时间；血案的时间
+    public string revolution_cause = "";
+    public string revolution_spark = "";
+    public double revolution_spark_at = -1d;
+    public double revolution_massacre_at = -1d;
+    // 当局最近一次应对："repress" / "concede"
+    public string revolution_response = "";
+    public double revolution_response_at = -1d;
+    public bool revolution_response_by_player;
+    // 起事失败后余党转入地下；这场革命战争里外国已有几家下场
+    public bool revolution_underground;
+    public int revolution_interventions;
+    // 逊位谈判(和平改制先谈一年)：开始时间、逼宫的党、路数("mass" 凭选票 / "coup" 握有军队)
+    public double abdication_talks_since = -1d;
+    public string abdication_party_id = "";
+    public string abdication_route = "";
+    // 革命之后：成功的时间；阶段 1 激进 2 回摆 4 落幕；激进程度(0~100)；清洗过几回；领着革命的人；上一次旧党反扑
+    public double post_revolution_since = -1d;
+    public int post_revolution_phase;
+    public float post_revolution_radical;
+    public int post_revolution_purges;
+    public long post_revolution_leader_id = -1L;
+    public double post_revolution_counter_at = -1d;
+    // 正式建政的时间(见 WarlordEraSystem.Formalize)：军阀时期的临时政府立足几年后各自制宪转正，照旧争夺中央；-1 = 还没有
+    public double formal_government_at = -1d;
+    // —— 经济周期(见 EconomicCycleSystem)：工业时代起市面有兴衰 ——
+    // 阶段：0 不随行情(前工业、统制经济) 1 复苏 2 繁荣 3 过热 4 恐慌 5 萧条；景气热度 0~100；进这一阶段的时间
+    public int cycle_phase;
+    public float cycle_heat;
+    public double cycle_phase_since = -1d;
+    // 这场萧条还要几年；起因("bubble" 泡沫破灭 / "contagion" 外来 / "tariff" 关税战 / "war" 战后)与传来的国家；历次危机数、上一次的时间
+    public int cycle_depression_years;
+    public string cycle_cause = "";
+    public long cycle_contagion_from = -1L;
+    public int cycle_crises;
+    public double cycle_last_crisis = -1d;
+    // 当局的对策："" 还没定 / "laissez" 听其自然 / "stimulus" 兴办工程 / "austerity" 紧缩 / "tariff" 高筑关税；何时定的、是否亲自拍板
+    public string cycle_response = "";
+    public double cycle_response_at = -1d;
+    public bool cycle_response_by_player;
+    // —— 劳工(见 LabourSystem) ——
+    // 工会声势 0~100；工会的地位：-1 取缔 / 0 默许 / 1 合法；劳动立法 0~2 档；谈下来的工钱 0~3 档
+    public float union_strength;
+    public int union_status;
+    public int labour_law;
+    public int wage_level;
+    // 工潮：0 没有 / 1 罢工潮 / 2 总罢工；开始的时间；上一场的结局("concede" 让步 / "repress" 弹压 / "fade" 自行散去)与时间；是否亲自拍板
+    public int strike_stage;
+    public double strike_since = -1d;
+    public string strike_outcome = "";
+    public double strike_resolved_at = -1d;
+    public bool strike_response_by_player;
+    // —— 产业与教育(现代议题立下的国策，见 ModernPolicySystem) ——
+    // 产业归属：-1 私有化 / 0 官民并举 / 1 国有化；国民教育 0~2 档与是否拨得出钱
+    public int nationalization;
+    // 社会主义、共产主义立国的国家建政即国有化，只办一回(之后改不改看国策，见 ModernPolicySystem.EnsureFounding)
+    public bool founding_nationalized;
+    public int education_level;
+    public bool education_funded;
+    // —— 公司(见 CompanySystem) ——
+    // 各行业垄断加价按规模加权的平均(负 = 在打价格战)；已经记过"把持行业、哄抬市价"的行业
+    public float price_gouging;
+    public List<string> cartel_sectors = new();
+    // 外国资本在本国关键行业里控着几成(帝国编号 → 份额)；没收过哪国的产业、何时(帝国编号 → 时间)
+    public Dictionary<long, float> foreign_control = new();
+    public Dictionary<long, double> seizures = new();
+    // 上一回政商丑闻、上一回国库出手救财阀的时间
+    public double scandal_at = -1d;
+    public double bailout_at = -1d;
+    // —— 财阀与政治世家(见 ConglomerateSystem) ——
+    public List<ConglomerateData> conglomerates = new();
+    public double antitrust_at = -1d;
+    // 宗族出过几位政府首脑(宗族 id → 人数)、已经记过的首脑(同一人再任不重记，只留最近四十位)；已称得上政治世家的宗族
+    public Dictionary<long, int> house_terms = new();
+    public List<long> house_counted = new();
+    public List<long> political_houses = new();
     // —— 宪法(见 ConstitutionSystem)——现代国家的现行宪法/临时约法；非立宪君主制为 null
     public ConstitutionData constitution;
     // 本国颁布过几部正式宪法(临时约法不计)，新宪法按此编号

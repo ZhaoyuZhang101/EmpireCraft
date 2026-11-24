@@ -382,6 +382,8 @@ public static class DataManager
         CityFragmentSystem.Load(saveData.city_fragment_moves);
         RoadTreatySystem.Load(saveData.road_treaties);
         MilitaryAccessSystem.Load(saveData.military_access);
+        WorldOrderSystem.Load(saveData.world_order);
+        CompanySystem.Load(saveData.companies);
         EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Load(saveData.decisions);
         PrivyPurse.Load(saveData.privy_purse);
         // 模组数据里没记的(旧档、核心读档时已从 world.json 头上取到)不覆盖
@@ -634,6 +636,8 @@ public static class DataManager
         saveData.city_fragment_moves = CityFragmentSystem.Save();
         saveData.road_treaties = RoadTreatySystem.Save();
         saveData.military_access = MilitaryAccessSystem.Save();
+        saveData.world_order = WorldOrderSystem.Save();
+        saveData.companies = CompanySystem.Save();
         saveData.decisions = EmpireCraft.Scripts.GeneralSystems.Decisions.DecisionSystem.Save();
         saveData.privy_purse = PrivyPurse.Save();
         saveData.core_game_id = EmpireCraft.Scripts.Terminal.CoreGameId.Value;

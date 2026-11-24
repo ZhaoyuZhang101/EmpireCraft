@@ -1326,7 +1326,9 @@ public static partial class FrontSystem
     // 纯净地图模式：人物、载具都是数据，不靠 WarBox 的实体载具，火力按这支军的兵种(装备)算(见 CorpsArmSystem.Power)；
     // 其余模式照旧按本国载具数
     internal static float Firepower(Kingdom kingdom, CorpsData corps) =>
-        PureMapMode.Enabled ? CorpsArmSystem.Power(CorpsArmSystem.Of(corps)) : Firepower(kingdom);
+        (PureMapMode.Enabled ? CorpsArmSystem.Power(CorpsArmSystem.Of(corps)) : Firepower(kingdom)) *
+        // 制空权与末代的军事精进(见 AirPowerSystem)
+        AirPowerSystem.FirepowerFactor(kingdom);
 
     private static float Firepower(Kingdom kingdom)
     {

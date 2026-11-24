@@ -521,6 +521,9 @@ public static partial class InstitutionSystem
     // 永远停在旧政体——节点"已施行"后别国再也采纳不了)：独立国家与帝国核心每年看本文化制度树走到的政体，本国没跟上的，
     // 在本文化走到那一步后的第 2~5 年(属国已改的先改)、本国采纳了所需科技时改过去。
     // 原始政体(部落分迁管)、共和与现代(RepublicSystem 管)、手动选过或被锁定的、征服王朝(复合帝国)、周室之内的不动
+    private const int RegimeReformAge = 16, RegimeFollowNotableCities = 8;
+    private const float RegimeFollowChance = 0.35f;
+
     public static void TryAdvanceRegimeTransition(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt() || World.world == null || RegimeManager.regimes == null) return;
@@ -561,8 +564,18 @@ public static partial class InstitutionSystem
         if (!subjectsFirst && Date.getYearsSince(enactedAt) < 2 + kingdom.id % 4) return;
         // 本国还没采纳所需的科技：等采纳了再改
         if (!RealmCanAdoptRegime(kingdom, target)) return;
+        // 改制得有人主持、挑时候(用户 2026-11-24 "政权更替大多数情况下都是自发的")：以前到了年头、科技齐了就悄悄换，
+        // 只写日志，看不到是谁改的。现在要有成年的君主在位、眼下不在打仗，每年 RegimeFollowChance 的机会办成(属国已改的不掷)，
+        // 办成记在主持的君主名下、进史书，举足轻重的国上屏幕
+        Actor ruler = kingdom.king;
+        if (ruler == null || !ruler.isAlive() || ruler.getAge() < RegimeReformAge || kingdom.hasEnemies()) return;
+        if (!subjectsFirst && UnityEngine.Random.value >= RegimeFollowChance) return;
 
         LogService.LogInfo($"[EmpireCraft][制度] {kingdom.GetKingdomName()} 跟上本文化的政体：{current} → {target}");
+        string followed = string.Format(LM.Get("institution_regime_followed_history"), ruler.getName(), kingdom.GetKingdomName(),
+            CompositeEmpireService.GetRegimeName(current.Value), CompositeEmpireService.GetRegimeName(target));
+        if (empire != null) EventRecorder.RecordRoutine(empire, followed, ruler);
+        else if ((kingdom.cities?.Count ?? 0) >= RegimeFollowNotableCities) TranslateHelper.LogEventMessage(followed, kingdom);
         if (empire != null)
         {
             EnsureEmpireState(empire);
@@ -1988,6 +2001,19 @@ public static partial class InstitutionSystem
                 (socialClass == SocialClass.Labour || socialClass.IsPeasantry()))
                 target = InstitutionRules.Clamp100(target -
                     8f * empire.data.constitutional_economy.welfare_level);
+            // 工业时代以后：市面兴衰、工钱与劳动法、产业归属与教育、财阀垄断(见各系统的 GrievanceShift)
+            if (empire.data?.constitutional_economy != null)
+            {
+                float modern = EconomicCycleSystem.GrievanceShift(empire, socialClass) + LabourSystem.GrievanceShift(empire, socialClass) +
+                               ModernPolicySystem.GrievanceShift(empire, socialClass) + ConglomerateSystem.GrievanceShift(empire, socialClass) +
+                               CompanySystem.GrievanceShift(empire, socialClass) +
+                               // 汽车、电器这些消费品买不买得到(见 CommodityMarketSystem.ConsumerSatisfaction)
+                               (socialClass is SocialClass.Citizen or SocialClass.Labour
+                                   ? CommodityMarketSystem.ConsumerGrievanceShift(empire.CoreKingdom) : 0f) -
+                               // 末代的可重复研究"民生精进"(见 TechnologySystem.Repeat)
+                               Math.Min(10f, TechnologySystem.RepeatLevel(GetPrimaryCulture(empire), "welfare") * 0.5f);
+                if (modern != 0f) target = InstitutionRules.Clamp100(target + modern);
+            }
             float current = state.class_grievances[socialClass];
             float adjustment = config.annual_adjustment_rate;
             if (crisis)

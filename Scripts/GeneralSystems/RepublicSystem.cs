@@ -261,7 +261,9 @@ public static class RepublicSystem
         if (!CanAbolish(empire) || party == null || !party.IsParty || party.Ban ||
             party.Ideology == PartyIdeology.Conservatism || party.GetLeader() == null) return false;
         if (HasActiveRevolutionWar(empire)) return false;
-        return empire.Legitimacy < RevolutionMandate && GetCoreGrievance(empire, party) >= RevolutionGrievance &&
+        // 以前看正统 <30、本党所靠阶层怨气 ≥50 两条线，过线当年就起兵；现在要过"革命形势"的门：
+        // 矛盾攒够、组织成形，今年还得有事点火(见 RevolutionSystem.Ready)。正统与怨气都是形势的成因
+        return RevolutionSystem.Ready(empire) &&
                (FindRebelKingdom(empire, party) != null || FindSplitLeader(empire, party) != null);
     }
 
@@ -316,15 +318,21 @@ public static class RepublicSystem
         FixedFaction party = PartySystem.GetGovernmentParty(empire) ??
                              empire.CoreKingdom?.GetRegime()?.GetDominateFaction();
         if (!CanMassPoliticsTransition(empire, party)) return false;
-        Establish(empire, party, false, "republic_mass_transition_history");
-        return true;
+        // 不再当年就换：先谈判一年，君主可能拒绝(见 RevolutionSystem.BeginTalks)
+        return RevolutionSystem.BeginTalks(empire, party, "mass");
     }
+
+    // 逊位谈判谈成(RevolutionSystem.ResolveTalks)：coup = 握有军队的议会多数逼宫，否则是凭选票的群众政治转型
+    internal static void CompleteAbdication(Empire empire, FixedFaction party, bool coup) =>
+        Establish(empire, party, false, coup ? "republic_coup_history" : "republic_mass_transition_history");
 
     // 本文化已能废除君主制，帝国正统却跌到革命线以下：各地不再等政党政治成熟，
     // 高概率组成互保同盟另立革命政府，打赢了就逼皇帝退位(见 ResolveRegionalRepublicCoalition)。
     // 不要求开放党禁：没有政党时以帝国里势力最大的非保守理念为纲领。每年由 ConstitutionalEconomySystem 调用。
+    // 正统一时跌破线不算：矛盾要攒到成熟(见 RevolutionSystem)，各地才敢另立
     public static bool TryMandateCollapseCoalition(Empire empire) =>
-        empire != null && empire.Legitimacy < RevolutionMandate && TryRegionalRepublicCoalition(empire, true);
+        empire != null && empire.Legitimacy < RevolutionMandate &&
+        RevolutionSystem.Tension(empire) >= RevolutionSystem.RipeAt && TryRegionalRepublicCoalition(empire, true);
 
     public static bool TryRegionalRepublicCoalition(Empire empire, bool mandateCollapse = false)
     {
@@ -439,17 +447,17 @@ public static class RepublicSystem
     // 返回是否真的推动了改制(和平改制、退位或革命战争)；beforeAct 在真正动手前调用，用于先记下起因
     public static bool PushRepublic(Empire empire, FixedFaction party, Action beforeAct = null)
     {
+        // 和平的两条路不再当年就换：先谈判一年(见 RevolutionSystem.BeginTalks)；已经在谈的不重提
+        if (RevolutionSystem.InTalks(empire)) return false;
         if (CanMassPoliticsTransition(empire, party))
         {
             beforeAct?.Invoke();
-            Establish(empire, party, false, "republic_mass_transition_history");
-            return true;
+            return RevolutionSystem.BeginTalks(empire, party, "mass");
         }
         if (CanAbdicate(empire, party))
         {
             beforeAct?.Invoke();
-            Establish(empire, party, false, "republic_coup_history");
-            return true;
+            return RevolutionSystem.BeginTalks(empire, party, "coup");
         }
         if (!CanRevolt(empire, party)) return false;
         beforeAct?.Invoke();
@@ -488,6 +496,8 @@ public static class RepublicSystem
         if (!IsRepublic(empire) || IsTransitioning(empire) || HasActiveRevolutionWar(empire) || party == null ||
             !party.IsParty || party.Ban || party.GetLeader() == null) return false;
         if (!ModernStability.PassRebellionGate(empire.CoreKingdom)) return false;
+        // 同君主国的革命：要过"革命形势"的门
+        if (!RevolutionSystem.Ready(empire)) return false;
         if (FindRebelKingdom(empire, party) == null && FindSplitLeader(empire, party) == null) return false;
         return StartRevolutionWar(empire, party, modern: true);
     }
@@ -698,6 +708,13 @@ public static class RepublicSystem
         Actor leader = World.world.units?.get(snapshot.republic_revolution_leader_id);
         if (leader == null || leader.isRekt() || !leader.isAlive()) leader = war.getMainAttacker()?.king;
         Kingdom rebelKingdom = war.getMainAttacker();
+        // 打成僵局、被强制停战：立宪收场或各据一方(见 RevolutionSystem.OnPeace)
+        if (winner == WarWinner.Peace)
+        {
+            RevolutionSystem.OnPeace(empire, war, party, snapshot.republic_revolution_ideology,
+                snapshot.republic_revolution_split_realm);
+            return;
+        }
         if (snapshot.republic_modern_revolution && IsRepublic(empire))
         {
             if (winner == WarWinner.Attackers && rebelKingdom != null && !rebelKingdom.isRekt())
@@ -705,6 +722,7 @@ public static class RepublicSystem
                 if (snapshot.republic_revolution_split_realm)
                     empire.join(rebelKingdom, pForce: true, pLegitimacyTransfer: true);
                 ApplyModernRevolution(empire, party, snapshot.republic_revolution_ideology, leader);
+                RevolutionSystem.OnVictory(empire, snapshot.republic_revolution_ideology, leader, war);
                 return;
             }
             if (winner == WarWinner.Defenders)
@@ -712,6 +730,7 @@ public static class RepublicSystem
                 party?.BanFaction();
                 Record(empire, string.Format(LM.Get("republic_revolution_failed_history"),
                     snapshot.republic_revolution_party_name, empire.GetEmpireName()), leader);
+                RevolutionSystem.OnDefeat(empire, snapshot.republic_revolution_ideology);
             }
             return;
         }
@@ -727,6 +746,7 @@ public static class RepublicSystem
                 "republic_revolution_history");
             ResolveRevolutionaryRoyalFate(empire, formerMonarch, royalFamily,
                 snapshot.republic_revolution_ideology, revolutionaryGrievance, leader);
+            RevolutionSystem.OnVictory(empire, snapshot.republic_revolution_ideology, leader, war);
             return;
         }
         if (winner == WarWinner.Defenders)
@@ -734,7 +754,89 @@ public static class RepublicSystem
             party?.BanFaction();
             Record(empire, string.Format(LM.Get("republic_revolution_failed_history"),
                 snapshot.republic_revolution_party_name, empire.GetEmpireName()), leader);
+            RevolutionSystem.OnDefeat(empire, snapshot.republic_revolution_ideology);
         }
+    }
+
+    // 旧党反扑(革命之后的激进期，见 RevolutionSystem.Aftermath)：保守民心最盛的一座外城举兵，要把旧秩序请回来。
+    // 打赢了(攻下都城)：原是君主国的迎回旧主、复辟帝制，原是共和国的由举兵者主政、取缔革命党(见 ResolveCounterRevolution)
+    public static bool StartCounterRevolution(Empire empire)
+    {
+        if (!IsRepublic(empire) || HasActiveRevolutionWar(empire) || empire.CoreKingdom == null) return false;
+        City seat = empire.AllCities()
+            .Where(city => city != null && !city.isRekt() && city.kingdom != null && city != city.kingdom.capital &&
+                           RebellionSystem.CanAttempt(city.kingdom) && CityStabilitySystem.CanRise(city) &&
+                           IdeologyPopulationSystem.GetCityShare(city, PartyIdeology.Conservatism) >= 0.3f)
+            .OrderByDescending(city => IdeologyPopulationSystem.GetCityShare(city, PartyIdeology.Conservatism))
+            .FirstOrDefault();
+        if (seat == null) return false;
+        Actor leader = EmpirePopulation.Enumerate(empire.kingdoms_hashset)
+            .Where(actor => actor != null && !actor.isRekt() && actor.isAlive() && actor.isAdult() && !actor.isKing() &&
+                            actor.city == seat)
+            .OrderByDescending(actor => actor.renown).FirstOrDefault();
+        if (leader == null) return false;
+        Kingdom origin = seat.kingdom;
+        var cause = RebellionSystem.Capture(origin, seat, "rebellion_reason_counter_revolution");
+        Kingdom rebel = seat.makeOwnKingdom(leader, pRebellion: true);
+        if (rebel == null) return false;
+        if (!rebel.StartLocalRebelling(EmpireWarType.地方叛乱))
+        {
+            RebellionStartupService.RollbackCitySplit(seat, origin, rebel);
+            return false;
+        }
+        War war = World.world.diplomacy.startWar(rebel, empire.CoreKingdom, WarTypeLibrary.rebellion);
+        if (war == null)
+        {
+            rebel.EndLocalRebelling();
+            RebellionStartupService.RollbackCitySplit(seat, origin, rebel);
+            return false;
+        }
+        war.SetEmpireWarType(EmpireWarType.地方叛乱);
+        RebellionSystem.Record(rebel, war, cause);
+        war.data.name = string.Format(LM.Get("counter_revolution_war_name"), seat.GetCityName());
+        war.GetOrCreate().counter_revolution_empire_id = empire.id;
+        Record(empire, string.Format(LM.Get("counter_revolution_started_history"), leader.getName(), seat.GetCityName(),
+            empire.GetEmpireFullName()), leader);
+        return true;
+    }
+
+    public static void ResolveCounterRevolution(War war, WarWinner winner)
+    {
+        long empireId = war?.GetOrCreate().counter_revolution_empire_id ?? -1L;
+        if (empireId <= 0) return;
+        Empire empire = ModClass.EMPIRE_MANAGER?.get(empireId);
+        ConstitutionalEconomyState state = State(empire);
+        if (state == null || empire.CoreKingdom == null || empire.IsArchived() || !IsRepublic(empire)) return;
+        Kingdom rebel = war.getMainAttacker();
+        if (winner != WarWinner.Attackers || rebel == null || rebel.isRekt())
+        {
+            if (winner == WarWinner.Defenders)
+                Record(empire, string.Format(LM.Get("counter_revolution_failed_history"), empire.GetEmpireFullName()),
+                    empire.Emperor);
+            return;
+        }
+        Actor chief = rebel.king;
+        empire.join(rebel, pForce: true, pLegitimacyTransfer: true);
+        FixedFaction governing = PartySystem.GetGovernmentParty(empire);
+        state.post_revolution_phase = 4;
+        if (state.previous_regime >= 0)
+        {
+            // 原皇族有在世的成年人就迎回，否则举兵者自己登基
+            Actor monarch = VirtualGenealogySystem.RealizeFirst(SpecificClanManager.Get(state.deposed_royal_clan_id)
+                                    ?.all_valid_members.OrderByDescending(identity => identity.age),
+                                actor => !actor.isRekt() && actor.isAdult())
+                            ?? chief;
+            RestoreByStrongman(empire, monarch);
+            Record(empire, string.Format(LM.Get("counter_revolution_restored_history"), chief?.getName() ?? LM.Get("label_none"),
+                monarch?.getName() ?? LM.Get("label_none"), empire.GetEmpireFullName()), monarch);
+            return;
+        }
+        if (governing != null && !governing.Ban) governing.BanFaction();
+        if (IsOneParty(empire)) PartyBanSystem.Open(empire, "party_ban_reopened_core_history");
+        if (chief != null && !chief.isRekt() && chief.isAlive()) empire.InstallHeadOfState(chief);
+        state.last_parliament_election = -1d;
+        Record(empire, string.Format(LM.Get("counter_revolution_won_history"), chief?.getName() ?? LM.Get("label_none"),
+            empire.GetEmpireFullName()), chief);
     }
 
     // 现代革命胜利：革命党组建新政府——改以其理念立国、领袖出任元首；一党专政理念关闭党禁，

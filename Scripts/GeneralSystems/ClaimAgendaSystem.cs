@@ -183,7 +183,7 @@ public static class ClaimAgendaSystem
         // 种地的庶民里怨气最大的(国野之制下是国人、野人，见 GuoyeSystem)
         float Peasantry() => Mathf.Max(Grievance(SocialClass.Peasant),
             Mathf.Max(Grievance(SocialClass.Guoren), Grievance(SocialClass.Yeren)));
-        return type switch
+        float urgency = type switch
         {
             TemporaryFactionType.提高福利 =>
                 (Grievance(SocialClass.Labour) + Peasantry()) * 0.18f,
@@ -229,8 +229,27 @@ public static class ClaimAgendaSystem
             TemporaryFactionType.营建宫室 => 3f,
             TemporaryFactionType.和亲 => 6f,
             TemporaryFactionType.增设官署 => 4f + Grievance(SocialClass.Officer) * 0.15f,
+            // 现代议题(2026-11-24)：劳工怨气、工潮、萧条、垄断、国库各催各的
+            TemporaryFactionType.劳动立法 => Grievance(SocialClass.Labour) * 0.18f,
+            TemporaryFactionType.承认工会 => (empire.data?.constitutional_economy?.union_strength ?? 0f) * 0.15f + Grievance(SocialClass.Labour) * 0.08f,
+            TemporaryFactionType.取缔工会 => empire.data?.constitutional_economy?.strike_stage > 0 ? 16f
+                : (empire.data?.constitutional_economy?.union_strength ?? 0f) * 0.1f,
+            TemporaryFactionType.削减福利 => EmpireBankruptcySystem.IsBankrupt(empire) ? 16f
+                : (empire.data?.constitutional_economy?.welfare_level ?? 0) * 3f + Grievance(SocialClass.Merchant) * 0.1f,
+            // 命脉操在外国资本手里时"收回利权"的呼声大涨(见 CompanySystem.Master)
+            TemporaryFactionType.国有化 => (EconomicCycleSystem.InCrisis(empire) ? 12f : 4f) + ConglomerateSystem.Monopoly(empire) * 15f +
+                                         (CompanySystem.Master(empire) != null ? 20f : 0f),
+            TemporaryFactionType.私有化 => EmpireBankruptcySystem.IsBankrupt(empire) ? 14f : 4f + Grievance(SocialClass.Merchant) * 0.1f,
+            TemporaryFactionType.关税壁垒 => EconomicCycleSystem.InCrisis(empire) ? 14f : 4f,
+            TemporaryFactionType.自由贸易 => 4f + Grievance(SocialClass.Merchant) * 0.12f,
+            TemporaryFactionType.救市纾困 => 20f + Grievance(SocialClass.Labour) * 0.1f,
+            TemporaryFactionType.反托拉斯 => ConglomerateSystem.Monopoly(empire) * 40f +
+                                           Mathf.Max(0f, empire.data?.constitutional_economy?.price_gouging ?? 0f) * 120f,
+            TemporaryFactionType.普及教育 => 6f,
             _ => 0f
         };
+        // 财阀游说：冲着它来的议题提不上议程，合它意的更急(见 ConglomerateSystem.Lobby)
+        return ConglomerateSystem.Lobby(empire, type, urgency);
     }
 
     // 天下归于一家算统一完成(同 UnificationSystem 的九成)

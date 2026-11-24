@@ -54,6 +54,8 @@ public static class ClaimTuning
             TemporaryFactionType.兴兵讨伐 => 4f,
         TemporaryFactionType.整军经武 or TemporaryFactionType.营建宫室 => 3f,
         TemporaryFactionType.招募新军 => 4f,
+        TemporaryFactionType.救市纾困 => 3f,
+        TemporaryFactionType.普及教育 or TemporaryFactionType.国有化 => 2f,
         TemporaryFactionType.修筑城防 or TemporaryFactionType.和亲 or TemporaryFactionType.增设官署 => 2f,
         TemporaryFactionType.迫使朝贡 or TemporaryFactionType.逼冕 or TemporaryFactionType.提供岁币 or TemporaryFactionType.推行三省六部 or
             TemporaryFactionType.转天朝制度 or TemporaryFactionType.土地改革 or TemporaryFactionType.赈济灾荒 or

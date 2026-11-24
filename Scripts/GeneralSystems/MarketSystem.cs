@@ -108,6 +108,10 @@ public static class MarketSystem
     {
         if (a == null || b == null || a == b) return false;
         if (a.isEnemy(b)) return true;
+        // 万国公会的制裁、冷战两个阵营之间的铁幕(见 WorldOrderSystem)
+        if (WorldOrderSystem.TradeCut(a, b)) return true;
+        // 关税战升到断绝通商(见 TradeWarSystem)
+        if (TradeWarSystem.Cut(a, b)) return true;
         if (a.hasAlliance())
             foreach (Kingdom ally in a.getAlliance().kingdoms_list)
                 if (ally != null && ally != a && !ally.isRekt() && ally.isEnemy(b)) return true;

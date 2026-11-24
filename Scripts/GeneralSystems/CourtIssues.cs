@@ -84,7 +84,15 @@ public static class CourtIssues
         (TemporaryFactionType.招募新军, TemporaryFactionType.罢兵议和),
         (TemporaryFactionType.营建宫室, TemporaryFactionType.裁省用度),
         (TemporaryFactionType.增设官署, TemporaryFactionType.裁省用度),
-        (TemporaryFactionType.通商减税, TemporaryFactionType.重农抑商)
+        (TemporaryFactionType.通商减税, TemporaryFactionType.重农抑商),
+        // 现代议题(2026-11-24)
+        (TemporaryFactionType.承认工会, TemporaryFactionType.取缔工会),
+        (TemporaryFactionType.劳动立法, TemporaryFactionType.取缔工会),
+        (TemporaryFactionType.国有化, TemporaryFactionType.私有化),
+        (TemporaryFactionType.关税壁垒, TemporaryFactionType.自由贸易),
+        (TemporaryFactionType.关税壁垒, TemporaryFactionType.开放互市),
+        (TemporaryFactionType.提高福利, TemporaryFactionType.削减福利),
+        (TemporaryFactionType.反托拉斯, TemporaryFactionType.拓展金融霸权)
     };
 
     public const float SupportThreshold = 5f;

@@ -25,6 +25,8 @@ public class EmpireCore
     public double fragmented_since { get; set; } = -1d;
     // 分治已成定局(分裂满设定年数)：各国恢复正常国号
     public bool split_recognized { get; set; }
+    // 各理念的代表政府都已正式建政、彼此不动干戈的起点(相持够久互相承认，见 WarlordEraSystem.TryRecognizeStandoff)；-1 = 没有
+    public double standoff_since { get; set; } = -1d;
     // 帝国核心范围内的中央政府；与之对立、由不同理念军阀联合组建的另一个中央政府
     public long central_empire_id { get; set; } = -1L;
     public long rival_central_empire_id { get; set; } = -1L;

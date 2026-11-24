@@ -681,42 +681,9 @@ public class CityPatch : GamePatch
             }
         }
 
-        if (targetEmpire == null || !isEmpireCapital)
-            return;
-
-        Regime newRegime = capturingKingdom.GetRegime();
-        if (newRegime == null || newRegime.type != RegimeType.Modern)
-            return;
-
-        FixedFaction dominate = newRegime.GetDominateFaction();
-        if (dominate == null)
-            return;
-
-        newRegime.BlockFactionChange(50);
-        if (newRegime.PlayerFactions != null)
-        {
-            foreach (FixedFaction faction in newRegime.PlayerFactions)
-            {
-                if (faction.Type != dominate.Type)
-                {
-                    faction.BanFaction();
-                    faction.Ban = true;
-                    faction.Force = false;
-                }
-                else
-                {
-                    faction.Ban = false;
-                    faction.Force = true;
-                }
-            }
-        }
-
-        string revolution = string.Format(LM.Get("revolution_victory_history"), capturingKingdom.GetKingdomName(),
-            dominate.Name);
-        EmpireCraft.Scripts.HelperFunc.TranslateHelper.LogEventMessage(revolution, capturingKingdom);
-        capturingKingdom.GetEmpire()?.RecordHistory(directContent: revolution,
-            actorId: capturingKingdom.king?.id ?? -1L, kingdomId: capturingKingdom.id);
-        capturingKingdom.LoadRegime();
+        // 以前这里还有一段：现代政体的国家打下任何帝国的都城，就算"革命胜利"，当场取缔本国主导派系以外的所有派系。
+        // 那是没有政党、革命战争之前的旧写法——两个现代国家打一仗，赢的那国莫名其妙成了一党制。
+        // 革命的胜负另有结算(见 RepublicSystem.ResolveRevolutionWar)，这段撤掉
     }
 
     private static bool IsWarRelevantToCapture(
@@ -1260,6 +1227,7 @@ public class CityPatch : GamePatch
         ("年度扫描·和亲互市", FrontierRelations.TryYearlyScan),
         ("年度扫描·宗教", ReligiousTension.TryYearlyScan),
         ("年度扫描·大国通好", GreatPowerDiplomacy.TryYearlyScan),
+        ("年度扫描·世界格局", WorldOrderSystem.TryYearlyScan),
         ("年度扫描·制度接触", InstitutionSystem.TryYearlyWorldPass),
         ("年度扫描·制度·王国", InstitutionSystem.TryYearlyKingdomScan),
         ("年度扫描·教廷诊断", PapacySystem.TryYearlyDiagnose),

@@ -29,6 +29,8 @@ public class TempFac_输出革命 : TemporaryFaction
         FixedFaction faction = GetFaction();
         PartyIdeology ideology = faction?.IsParty == true ? faction.Ideology : PartyIdeology.Communism;
         Kingdom target = ClaimPolicySystem.ExportRevolution(empire, GetKingdomTarget(), ideology);
+        // 对方国内的革命组织得了外援(见 RevolutionSystem)
+        if (target != null) RevolutionSystem.ForeignSupport(target.GetEmpire(), 10f);
         if (target != null)
             CompletionOutcome = string.Format(LM.Get("claim_outcome_输出革命_target"), target.GetKingdomFullName());
         End();

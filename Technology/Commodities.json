@@ -21,6 +21,10 @@
     { "id": "arms", "tier": "manufactured", "price": 8.0, "era": 5, "craft_per_thousand": 1.5, "per_soldier": 0.02 },
     { "id": "steel", "tier": "manufactured", "price": 6.0, "era": 7, "needs": { "Labour": 0.5, "Citizen": 0.3 } },
 
+    { "id": "chemicals", "tier": "consumer", "price": 6.0, "era": 8, "needs": { "Peasant": 0.3, "Labour": 0.3, "Citizen": 0.5, "Merchant": 0.5, "Officer": 0.4 } },
+    { "id": "appliances", "tier": "consumer", "price": 8.0, "era": 8, "needs": { "Citizen": 0.8, "Merchant": 0.8, "Noble": 0.8, "Officer": 0.6, "Labour": 0.3, "Peasant": 0.05 } },
+    { "id": "automobiles", "tier": "consumer", "price": 14.0, "era": 8, "needs": { "Noble": 0.8, "Merchant": 0.6, "Officer": 0.4, "Citizen": 0.3, "Labour": 0.05 } },
+
     { "id": "silk", "tier": "luxury", "price": 10.0, "era": 3, "craft_cultures": ["Huaxia", "China", "Japan", "Aosong", "Shanhai"], "craft_per_thousand": 0.8, "craft_share": { "Persepolis": 0.5, "India": 0.4, "Roma": 0.35, "Arab": 0.3, "Frankish": 0.25 }, "craft_share_era": { "Persepolis": 5, "India": 4, "Roma": 5, "Arab": 5, "Frankish": 6 }, "needs": { "Noble": 3, "Officer": 2, "Merchant": 2, "Landlord": 1.5, "SlaveOwner": 1.5, "Citizen": 0.4 } },
     { "id": "porcelain", "tier": "luxury", "price": 10.0, "era": 4, "craft_cultures": ["Huaxia", "China", "Aosong", "Shanhai"], "craft_per_thousand": 0.5, "craft_share": { "Japan": 0.5, "Frankish": 0.3, "Germanic": 0.3 }, "craft_share_era": { "Japan": 6, "Frankish": 7, "Germanic": 7 }, "needs": { "Noble": 2, "Officer": 1.5, "Merchant": 1.5, "Landlord": 1, "Citizen": 0.3 } },
     { "id": "tea", "tier": "luxury", "price": 6.0, "era": 3, "resources": { "tea": 0.5 }, "biomes": { "biome_hill": 0.04, "biome_jungle": 0.02 }, "craft_cultures": ["Huaxia", "China", "Japan", "India", "Aosong"], "craft_per_thousand": 0.4, "needs": { "Noble": 2, "Officer": 2, "Merchant": 2, "Citizen": 1, "Landlord": 1 } },
@@ -44,7 +48,10 @@
     "heavy_factory": { "inputs": { "steel": 1.25, "coal": 0.75, "copper": 0.25 }, "outputs": { "tools": 2.5, "arms": 2 } },
     "heavy_shipyard": { "inputs": { "steel": 2, "coal": 0.5 }, "outputs": {} },
     "light_aircraft_factory": { "inputs": { "steel": 0.75, "oil": 0.5, "rubber": 0.5 }, "outputs": { "arms": 1.5 } },
-    "heavy_aircraft_factory": { "inputs": { "steel": 1.5, "oil": 0.75, "rubber": 0.75 }, "outputs": { "arms": 2.5 } }
+    "heavy_aircraft_factory": { "inputs": { "steel": 1.5, "oil": 0.75, "rubber": 0.75 }, "outputs": { "arms": 2.5 } },
+    "chemical_plant": { "inputs": { "oil": 0.75, "coal": 0.5 }, "outputs": { "chemicals": 3 } },
+    "electrical_works": { "inputs": { "copper": 0.75, "steel": 0.5, "coal": 0.5 }, "outputs": { "appliances": 2.5 } },
+    "motor_works": { "inputs": { "steel": 1, "rubber": 0.5, "oil": 0.25 }, "outputs": { "automobiles": 1.5 } }
   },
   "techs": {
     "gunpowder": ["saltpeter"],

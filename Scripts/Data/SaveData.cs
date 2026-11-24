@@ -67,6 +67,10 @@ public class SaveData
     public RoadTreatyData road_treaties = new RoadTreatyData();
     // 借道：主国许借道国借道，单向，有起止(见 MilitaryAccessSystem)。旧档没有，从无约起
     public MilitaryAccessData military_access = new MilitaryAccessData();
+    // 世界格局：阵营、冷战、万国公会、制裁(见 WorldOrderSystem)。旧档没有，从无到有
+    public WorldOrderData world_order = new WorldOrderData();
+    // 公司与证券交易所(见 CompanySystem、StockMarketSystem)。旧档没有，从无到有
+    public CompanyBook companies = new CompanyBook();
     // 在办的决议(见 DecisionSystem)
     // 内帑(见 PrivyPurse)
     public List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData> privy_purse = new List<EmpireCraft.Scripts.GeneralSystems.PrivyPurseData>();

@@ -1431,7 +1431,11 @@ public static partial class TechnologySystem
 
             Dictionary<string, float> income;
             using (FrameProfiler.Measure("科技·研究点")) income = CollectIncome(culture, pair.Value);
-            float points = income.Values.Sum() * (1f + GetResearchBonus(culture)) * GetEraOutputMultiplier(culture);
+            // 国民教育：各国教育档按城数加权(见 ModernPolicySystem)
+            float points = income.Values.Sum() * (1f + GetResearchBonus(culture) + ModernPolicySystem.ResearchBonus(pair.Value) +
+                                                  // 末代的学术精进
+                                                  RepeatPerLevel * RepeatLevel(culture, "science")) *
+                           GetEraOutputMultiplier(culture);
             state.last_income = income;
             state.last_yearly_points = points;
             state.research_bank += points;
@@ -1787,7 +1791,8 @@ public static partial class TechnologySystem
         for (int guard = 0; guard < 8 && points > 0f; guard++)
         {
             List<TechNodeConfig> targets = GetResearchTargets(culture);
-            if (targets.Count == 0) return points;
+            // 到了末代、再没有可研究的技术：投进可重复研究
+            if (targets.Count == 0) return Repeat(culture, points);
             float spent = 0f;
             foreach (TechNodeConfig target in targets)
                 spent = Math.Max(spent, Advance(culture, target, points, cities));
@@ -1796,6 +1801,71 @@ public static partial class TechnologySystem
         GetResearchTargets(culture);
         return points;
     }
+
+    #region 可重复研究
+
+    // 可重复研究(用户 2026-11-24 第五批)：以前研究完最后一个时代的技术，研究点就再没有去处。到了最后一个时代、
+    // 再没有可研究的技术时，点数投进四条"精进"——军事(陆军火力)、工业(工厂产值)、学术(研究点)、民生(各阶层怨气)，
+    // 哪条级数最低投哪条；每级 +2%(民生每级怨气目标 −0.5，至多 −10)，一级比一级贵两成五，各至多二十级
+    public static readonly string[] RepeatLines = { "military", "industry", "science", "welfare" };
+    public const int RepeatMaxLevel = 20;
+    private const float RepeatBaseCost = 3000f, RepeatCostGrowth = 0.25f, RepeatPerLevel = 0.02f;
+
+    public static int RepeatLevel(string culture, string line) =>
+        !string.IsNullOrEmpty(culture) && _states.TryGetValue(culture, out CultureTechState state) && state.repeat_levels != null &&
+        state.repeat_levels.TryGetValue(line, out int level) ? level : 0;
+
+    public static float RepeatFactor(string culture, string line) => 1f + RepeatPerLevel * RepeatLevel(culture, line);
+
+    public static float RepeatCost(int level) =>
+        RepeatBaseCost * Math.Max(0.1f, Config.research.cost_multiplier) * (1f + level * RepeatCostGrowth);
+
+    private static int LastTier() => Config.eras.Count == 0 ? 0 : Config.eras.Max(era => era.tier);
+
+    private static float Repeat(string culture, float points)
+    {
+        if (points <= 0f || GetEraTier(culture) < LastTier()) return points;
+        CultureTechState state = GetState(culture);
+        state.repeat_levels ??= new Dictionary<string, int>();
+        state.repeat_progress ??= new Dictionary<string, float>();
+        for (int guard = 0; guard < 4 && points > 0f; guard++)
+        {
+            string line = RepeatLines.Where(item => RepeatLevel(culture, item) < RepeatMaxLevel)
+                .OrderBy(item => RepeatLevel(culture, item)).FirstOrDefault();
+            if (line == null) return points;
+            int level = RepeatLevel(culture, line);
+            state.repeat_progress.TryGetValue(line, out float progress);
+            float needed = Math.Max(0f, RepeatCost(level) - progress);
+            if (points < needed)
+            {
+                state.repeat_progress[line] = progress + points;
+                return 0f;
+            }
+            points -= needed;
+            state.repeat_progress[line] = 0f;
+            state.repeat_levels[line] = level + 1;
+            IndustryCache.Remove(culture);
+            LogService.LogInfo($"[EmpireCraft][科技] {culture} 可重复研究 {line} 升到 {level + 1} 级");
+        }
+        return points;
+    }
+
+    // 工厂产值(见 FactorySystem.Produce)：核电 +8%、自动化 +10%、末代的工业精进；每年每个文化算一回
+    private static readonly Dictionary<string, (int year, float value)> IndustryCache = new();
+
+    public static float IndustryFactor(City city)
+    {
+        string culture = GetCultureOf(city);
+        if (string.IsNullOrEmpty(culture)) return 1f;
+        int year = Date.getCurrentYear();
+        if (IndustryCache.TryGetValue(culture, out var cached) && cached.year == year) return cached.value;
+        float value = (HasTech(culture, "nuclear_power") ? 1.08f : 1f) * (HasTech(culture, "automation") ? 1.1f : 1f) *
+                      RepeatFactor(culture, "industry");
+        IndustryCache[culture] = (year, value);
+        return value;
+    }
+
+    #endregion
 
     // 给一项技术投至多 budget 点，返回用掉的。离不开的物资本国市场缺，研究进度打折(点数照扣，见 CommodityMarketSystem.ResearchFactor)：
     // 先按折扣算还要投多少点才研成——以前按"用掉的 × 折扣"去逼近费用，折扣不到一就永远差一点，

@@ -74,6 +74,8 @@ public static class WorldWarSystem
             : string.Format(LM.Get("world_war_victory_history"), GetPolityName(winnerKingdom), war.data.name);
         RecordForParticipants(participants, text);
         TranslateHelper.LogEventMessage(text, winnerKingdom ?? war.getMainAttacker());
+        // 战后秩序：战败国正统大跌、革命形势陡增，战胜国发起万国公会(见 WorldOrderSystem)
+        WorldOrderSystem.OnWorldWarEnded(war, winner);
     }
 
     private static List<PoliticalBloc> BuildBlocs(IEnumerable<Kingdom> kingdoms)

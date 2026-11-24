@@ -347,6 +347,11 @@ public static class KingdomExtension
         // 立国出身(见 StateModernization)：1 从共和国分出、共和派起事或剧本按文化立(本文化已废君就能一立国即现代政体)；
         // 2 从君主国割据自立；0 旧档或别的途径立的(照本文化的君主政体)
         public int modern_origin;
+        // 独立君主国的共和风潮(见 StateModernization.TryRevolution)：逐年积累 0~100；风潮已起、提示过了
+        public float revolution_tension;
+        public bool revolution_warned;
+        // 革命打成僵局后自立的那一块(见 RevolutionSystem.OnPeace)：组建政府时算革命建立的政府
+        public bool revolutionary_seat;
         public double left_empire_at = -1d;
         // 和约(见 WarGoalSystem)：被迫开港与谁通商、从何时起(二十年)；被谁扶立为君、何时(二十年内两国互不开战)
         public long trade_treaty_partner_id = -1L;

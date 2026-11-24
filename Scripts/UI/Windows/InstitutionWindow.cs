@@ -222,6 +222,8 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         {
             AddSocialUnrest();
             AddStreetUnrest();
+            AddRevolution();
+            AddEconomy();
             AddPublicOpinion();
         }
         AddLegend();
@@ -866,6 +868,240 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         UIHelper.AttachTextTooltip(concede.gameObject, "street_concede_tip", LM.Get("street_response_concede"),
             LM.Get("street_response_concede_tip"));
         panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    // 革命形势(见 RevolutionSystem)：矛盾、组织、阶段、领头的党与主因；暗流以上给出镇压 / 让步，两年一回，
+    // 没按的话形势成熟时由 AI 决定。逊位谈判、革命之后的激进与回摆也在这张卡上
+    private void AddRevolution()
+    {
+        var state = _empire?.data?.constitutional_economy;
+        if (state == null) return;
+        bool aftermath = RevolutionSystem.InAftermath(_empire);
+        bool talks = RevolutionSystem.InTalks(_empire);
+        int stage = RevolutionSystem.Stage(_empire);
+        if (!aftermath && !talks && (!RevolutionSystem.Applies(_empire) || stage == RevolutionSystem.Calm &&
+                                                                       state.revolution_tension < 20f)) return;
+        bool respond = !aftermath && stage is >= RevolutionSystem.Undercurrent and < RevolutionSystem.Uprising && !_browsing;
+        float height = respond ? 44f : 32f;
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+        var head = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 3);
+        AddIcon(head.transform, Icon("ui/icons/iconWarning", "ui/icons/iconWar"), 9f);
+        if (aftermath)
+        {
+            AddLabel(head, $"{LM.Get("label_post_revolution")}: " + RevolutionSystem.AftermathPhaseName(_empire).ColorString("#E9A85B") +
+                           "   " + string.Format(LM.Get("post_revolution_line"), state.post_revolution_radical.ToString("0"),
+                               state.post_revolution_purges, Date.getYearsSince(state.post_revolution_since)),
+                PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
+            var note = panel.AddTextIntoVertLayout(LM.Get("post_revolution_hint").ColorString("#B8C6CC"),
+                true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10));
+            note.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+            panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+            return;
+        }
+        string color = stage >= RevolutionSystem.Ripe ? "#E05A4F" : stage >= RevolutionSystem.Undercurrent ? "#E9A85B" : "#E9D35B";
+        AddLabel(head, $"{LM.Get("label_revolution_situation")}: " + LM.Get("revolution_stage_" + Mathf.Clamp(stage, 0, 3)).ColorString(color) +
+                       "   " + string.Format(LM.Get("revolution_situation_line"), state.revolution_tension.ToString("0"),
+                           RevolutionSystem.RipeAt.ToString("0"), state.revolution_org.ToString("0"), RevolutionSystem.OrgNeeded.ToString("0")),
+            PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
+        string cause = string.IsNullOrEmpty(state.revolution_cause) ? "" : LM.Get("revolution_cause_" + state.revolution_cause);
+        string detail = talks
+            ? LM.Get("revolution_talks_line")
+            : string.Format(LM.Get("revolution_movement_line"), RevolutionSystem.MovementName(_empire), cause) +
+              (stage == RevolutionSystem.Ripe ? "  " + LM.Get("revolution_waiting_spark") : "");
+        var line = panel.AddTextIntoVertLayout(detail.ColorString("#D98C8C"), true, TextAnchor.MiddleCenter,
+            new Vector2(PanelWidth - 12f, 10));
+        line.UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+        if (respond)
+        {
+            bool can = RevolutionSystem.CanPlayerRespond(_empire) == null;
+            var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+            var repress = buttons.AddButtonIntoHoriLayout("revolution_response_repress",
+                LM.Get("revolution_response_repress").ColorString(can ? "#FFFFFF" : "#8FA0A8"),
+                () => RespondToRevolution(true), size: new Vector2(90, 11));
+            UIHelper.AttachTextTooltip(repress.gameObject, "revolution_repress_tip", LM.Get("revolution_response_repress"),
+                LM.Get("revolution_response_repress_tip"));
+            var concede = buttons.AddButtonIntoHoriLayout("revolution_response_concede",
+                LM.Get("revolution_response_concede").ColorString(can ? "#FFFFFF" : "#8FA0A8"),
+                () => RespondToRevolution(false), size: new Vector2(90, 11));
+            UIHelper.AttachTextTooltip(concede.gameObject, "revolution_concede_tip", LM.Get("revolution_response_concede"),
+                LM.Get("revolution_response_concede_tip"));
+        }
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    // 工业时代以后的经济民生三张卡：市面兴衰与对策、工会工潮、产业与财阀
+    // (见 EconomicCycleSystem、LabourSystem、ModernPolicySystem、ConglomerateSystem)
+    private void AddEconomy()
+    {
+        ConstitutionalEconomyState state = _empire?.data?.constitutional_economy;
+        if (state == null) return;
+        AddCycleCard(state);
+        AddLabourCard(state);
+        AddIndustryCard(state);
+    }
+
+    private AutoVertLayoutGroup BeginEconomyCard(float height, string icon, string head)
+    {
+        var panel = _root.BeginVertGroup(new Vector2(PanelWidth, height), pSpacing: 1,
+            pAlignment: TextAnchor.MiddleCenter, pPadding: new RectOffset(6, 6, 4, 4));
+        _content.Add(panel.gameObject);
+        var row = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 11), TextAnchor.MiddleCenter, 3);
+        AddIcon(row.transform, Icon(icon, "ui/icons/iconWarning"), 9f);
+        AddLabel(row, head, PanelWidth - 30f, 7, TextAnchor.MiddleLeft);
+        return panel;
+    }
+
+    private void AddEconomyLine(AutoVertLayoutGroup panel, string text, string color) =>
+        panel.AddTextIntoVertLayout(text.ColorString(color), true, TextAnchor.MiddleCenter, new Vector2(PanelWidth - 12f, 10))
+            .UseFixedFontSize(6, HorizontalWrapMode.Overflow);
+
+    private void AddCycleCard(ConstitutionalEconomyState state)
+    {
+        int phase = state.cycle_phase;
+        if (phase == EconomicCycleSystem.None) return;
+        bool crisis = EconomicCycleSystem.InCrisis(_empire);
+        bool respond = crisis && !_browsing;
+        float height = respond ? 44f : 32f;
+        string color = crisis ? "#E05A4F" : phase == EconomicCycleSystem.Overheat ? "#E9A85B" : "#7EE6A8";
+        string response = string.IsNullOrEmpty(state.cycle_response) ? LM.Get("economic_cycle_response_none")
+            : LM.Get("economic_cycle_response_" + state.cycle_response);
+        string head = $"{LM.Get("label_economic_cycle")}: " + EconomicCycleSystem.PhaseName(phase).ColorString(color) + "   " +
+                      (crisis
+                          ? string.Format(LM.Get("economic_cycle_slump_line"), Mathf.Max(1, state.cycle_depression_years), response)
+                          : string.Format(LM.Get("economic_cycle_heat_line"), state.cycle_heat.ToString("0"),
+                              EconomicCycleSystem.OverheatAt.ToString("0")));
+        var panel = BeginEconomyCard(height, "ui/icons/iconGold", head);
+        string detail = crisis
+            ? LM.Get("economic_cycle_cause_" + (string.IsNullOrEmpty(state.cycle_cause) ? "bubble" : state.cycle_cause))
+            : LM.Get("economic_cycle_hint_" + Mathf.Clamp(phase, 1, 3));
+        if (WorldOrderSystem.WorldDepression) detail += "  " + LM.Get("economic_cycle_world_depression");
+        AddEconomyLine(panel, detail, crisis ? "#D98C8C" : "#B8C6CC");
+        if (respond)
+        {
+            var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 3);
+            foreach (string kind in new[]
+                     {
+                         EconomicCycleSystem.Laissez, EconomicCycleSystem.Stimulus, EconomicCycleSystem.Austerity, EconomicCycleSystem.Tariff
+                     })
+            {
+                string chosen = kind;
+                bool can = EconomicCycleSystem.CanPlayerRespond(_empire, kind) == null;
+                bool current = state.cycle_response == kind;
+                var button = buttons.AddButtonIntoHoriLayout("economic_cycle_response_" + kind,
+                    LM.Get("economic_cycle_response_" + kind).ColorString(current ? "#E9D35B" : can ? "#FFFFFF" : "#8FA0A8"),
+                    () => RespondToSlump(chosen), size: new Vector2(60, 11));
+                UIHelper.AttachTextTooltip(button.gameObject, "economic_cycle_tip_" + kind, LM.Get("economic_cycle_response_" + kind),
+                    kind == EconomicCycleSystem.Stimulus
+                        ? string.Format(LM.Get("economic_cycle_response_stimulus_tip"), EconomicCycleSystem.StimulusCost(_empire))
+                        : LM.Get("economic_cycle_response_" + kind + "_tip"));
+            }
+        }
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    private void RespondToSlump(string kind)
+    {
+        string error = EconomicCycleSystem.PlayerRespond(_empire, kind);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        Rebuild();
+    }
+
+    private void AddLabourCard(ConstitutionalEconomyState state)
+    {
+        bool strike = state.strike_stage > LabourSystem.NoStrike;
+        if (!strike && (!LabourSystem.Applies(_empire) || state.union_strength < 5f && state.wage_level == 0 && state.labour_law == 0 &&
+                        state.union_status == LabourSystem.Tolerated)) return;
+        bool respond = strike && !_browsing;
+        float height = respond ? 44f : 32f;
+        string head = $"{LM.Get("label_labour")}: " + LabourSystem.UnionStatusName(state.union_status).ColorString("#E9D35B") + "   " +
+                      string.Format(LM.Get("labour_line"), state.union_strength.ToString("0"), LabourSystem.StrikeAt.ToString("0"),
+                          state.wage_level, state.labour_law, state.welfare_level);
+        var panel = BeginEconomyCard(height, "ui/icons/iconPopulation", head);
+        string detail = strike
+            ? LM.Get(state.strike_stage >= LabourSystem.GeneralStrike ? "labour_general_strike_line" : "labour_strike_wave_line")
+            : string.IsNullOrEmpty(state.strike_outcome) || state.strike_resolved_at < 0d
+                ? LM.Get("labour_quiet_line")
+                : string.Format(LM.Get("labour_last_strike_line"), Date.getYearsSince(state.strike_resolved_at),
+                    LM.Get("labour_outcome_" + state.strike_outcome));
+        AddEconomyLine(panel, detail, strike ? "#E05A4F" : "#B8C6CC");
+        if (respond)
+        {
+            var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+            var concede = buttons.AddButtonIntoHoriLayout("labour_response_concede", LM.Get("labour_response_concede"),
+                () => RespondToStrike(false), size: new Vector2(90, 11));
+            UIHelper.AttachTextTooltip(concede.gameObject, "labour_concede_tip", LM.Get("labour_response_concede"),
+                LM.Get("labour_response_concede_tip"));
+            var repress = buttons.AddButtonIntoHoriLayout("labour_response_repress", LM.Get("labour_response_repress"),
+                () => RespondToStrike(true), size: new Vector2(90, 11));
+            UIHelper.AttachTextTooltip(repress.gameObject, "labour_repress_tip", LM.Get("labour_response_repress"),
+                LM.Get("labour_response_repress_tip"));
+        }
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    private void RespondToStrike(bool repress)
+    {
+        string error = LabourSystem.PlayerRespond(_empire, repress);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        Rebuild();
+    }
+
+    private void AddIndustryCard(ConstitutionalEconomyState state)
+    {
+        var houses = ConglomerateSystem.Of(_empire);
+        var dynasties = ConglomerateSystem.Houses(_empire);
+        int firms = CompanySystem.All.Count(company => CompanySystem.RealmOf(company) == _empire);
+        if (firms == 0 && houses.Count == 0 && dynasties.Count == 0 && state.nationalization == ModernPolicySystem.Mixed &&
+            state.education_level == 0) return;
+        float height = firms > 0 ? 44f : 32f;
+        string head = $"{LM.Get("label_industry")}: " +
+                      ModernPolicySystem.NationalizationName(state.nationalization).ColorString("#E9D35B") + "   " +
+                      string.Format(LM.Get("industry_line"), Mathf.RoundToInt(ConglomerateSystem.Monopoly(_empire) * 100f),
+                          state.education_level, LM.Get(state.education_level > 0 && !state.education_funded
+                              ? "agenda_welfare_unfunded" : "agenda_welfare_funded"));
+        var panel = BeginEconomyCard(height, "ui/icons/iconBuildings", head);
+        var parts = new List<string>();
+        if (houses.Count > 0)
+            parts.Add(string.Join("、", houses.OrderByDescending(house => house.share)
+                .Select(house => $"{house.name} {Mathf.RoundToInt(house.share * 100f)}%")));
+        if (dynasties.Count > 0)
+            parts.Add(LM.Get("political_house_label") + ": " +
+                      string.Join("、", dynasties.Select(house => string.Format(LM.Get("political_house_entry"), house.name, house.terms))));
+        if (firms > 0) parts.Insert(0, string.Format(LM.Get("company_count"), firms));
+        AddEconomyLine(panel, parts.Count == 0 ? LM.Get("industry_no_houses") : string.Join("   ", parts), "#B8C6CC");
+        if (firms > 0)
+        {
+            // 公司一览、财富榜、股市(见 CompanyWindow)
+            var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
+            buttons.AddButtonIntoHoriLayout("company_page_realm", LM.Get("company_page_realm"), () => CompanyWindow.OpenRealm(_empire, 1),
+                size: new Vector2(80, 11));
+            buttons.AddButtonIntoHoriLayout("company_page_rich", LM.Get("company_page_rich"), () => CompanyWindow.OpenRealm(_empire, 2),
+                size: new Vector2(80, 11));
+            buttons.AddButtonIntoHoriLayout("company_page_stocks", LM.Get("company_page_stocks"), () => CompanyWindow.OpenRealm(_empire, 3),
+                size: new Vector2(80, 11));
+        }
+        panel.transform.AddStretchBackground("FactionFrame", new Vector2(PanelWidth, height));
+    }
+
+    private void RespondToRevolution(bool repress)
+    {
+        string error = RevolutionSystem.PlayerRespond(_empire, repress);
+        if (error != null)
+        {
+            ActionLibrary.showWhisperTip(error);
+            return;
+        }
+        Rebuild();
     }
 
     private void RespondToStreet(bool repress)

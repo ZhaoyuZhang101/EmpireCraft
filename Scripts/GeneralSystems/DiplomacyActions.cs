@@ -236,7 +236,12 @@ public static class DiplomacyActions
                 }, (a, b, _) => CommodityMarketSystem.JoinUnion(b, a)),
                 Make("diplomacy_act_union_out", (a, b) =>
                     CommodityMarketSystem.UnionOf(b) == a || CommodityMarketSystem.UnionOf(a) == b ? null : "diplomacy_reason_no_union",
-                    (a, b, _) => CommodityMarketSystem.LeaveUnion(CommodityMarketSystem.UnionOf(b) == a ? b : a))
+                    (a, b, _) => CommodityMarketSystem.LeaveUnion(CommodityMarketSystem.UnionOf(b) == a ? b : a)),
+                // 关税战(见 TradeWarSystem)：向对方加征关税、罢手言和
+                Make("diplomacy_act_trade_war", (a, b) => TradeWarSystem.CanStart(a.GetEmpire(), b.GetEmpire()),
+                    (a, b, _) => TradeWarSystem.Start(a.GetEmpire(), b.GetEmpire(), "decree")),
+                Make("diplomacy_act_trade_peace", (a, b) => TradeWarSystem.Between(a, b) != null ? null : "trade_war_reason_none",
+                    (a, b, _) => TradeWarSystem.Settle(a.GetEmpire(), b.GetEmpire()))
             }
         },
         new Group

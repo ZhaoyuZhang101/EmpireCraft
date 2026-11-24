@@ -113,23 +113,78 @@ public static class StateModernization
             kingdom.GetOrCreate().scenario_monarchy);
     }
 
-    // 独立君主国掷一次共和革命；成了改现代政体，史书记一笔(组建政府交给 ModernStateFormationSystem)
+    // 独立君主国的共和革命(用户 2026-11-24 "政权更替大多数情况下都是自发的")：以前每年按机会掷一次，掷中当场改现代政体。
+    // 现在同帝国的革命(见 RevolutionSystem)一样有先后：
+    //   · 风潮逐年积累(本国条件越坏涨得越快，一年至多 TensionRise)，到 BrewingAt 记一笔"共和之议日盛"；
+    //   · 攒满 ReadyAt 之后还得有事点火：有民心离散的城、正在打仗、幼主在位或君位空悬，或一桩偶然的冲突；
+    //   · 君主抉择：明君、庸弱、冲龄、昏聩的顺势逊位(和平废君)；其余弹压，共和派起事成败看风潮有多盛——
+    //     成了被迫退位，败了风潮退回去重新攒。
+    // 返回是否已改成现代政体(组建政府交给 ModernStateFormationSystem)
+    private const float TensionRise = 10f, TensionFall = 6f, BrewingAt = 60f, ReadyAt = 85f, CalmAt = 40f;
+    private const float IncidentChance = 0.15f, UprisingBase = 0.3f, UprisingPerChance = 0.4f, CrushedTension = 30f;
+    private const int NotableCities = 3, MinorAge = 16;
+
     public static bool TryRevolution(Kingdom kingdom)
     {
         // 时代锁在工业时代以前(见 TechnologySystem.EraLock)：君主国不再新起共和革命
         if (TechnologySystem.EraLockBlocksModern) return false;
-        float chance = RevolutionChance(kingdom);
-        if (chance <= 0f || UnityEngine.Random.value >= chance) return false;
+        KingdomExtension.KingdomExtraData data = kingdom.GetOrCreate();
         string name = kingdom.GetKingdomName();
+        Actor king = kingdom.king;
+        string kingName = king?.getName() ?? LM.Get("label_none");
+        // 革命打成僵局后自立的那一块(见 RevolutionSystem.OnPeace)：本就是革命政权，不必再攒
+        if (data.revolutionary_seat)
+        {
+            Convert(kingdom, data);
+            return true;
+        }
+        float chance = RevolutionChance(kingdom);
+        float target = Math.Min(100f, chance / ModernizationRules.RevolutionCap * 100f);
+        data.revolution_tension = target > data.revolution_tension
+            ? Math.Min(target, data.revolution_tension + TensionRise)
+            : Math.Max(target, data.revolution_tension - TensionFall);
+        bool notable = (kingdom.cities?.Count ?? 0) >= NotableCities;
+        if (data.revolution_tension < CalmAt) data.revolution_warned = false;
+        if (data.revolution_tension >= BrewingAt && !data.revolution_warned)
+        {
+            data.revolution_warned = true;
+            if (notable) TranslateHelper.LogEventMessage(string.Format(LM.Get("state_revolution_brewing_history"), name), kingdom);
+        }
+        if (data.revolution_tension < ReadyAt) return false;
+        bool unrest = kingdom.cities != null && kingdom.cities.Any(city => CityStabilitySystem.Disaffected(city));
+        bool weakThrone = king == null || !king.isAlive() || king.getAge() < MinorAge;
+        if (!unrest && !weakThrone && !kingdom.hasEnemies() && UnityEngine.Random.value >= IncidentChance) return false;
+
+        RulerQualitySystem.Grade grade = RulerQualitySystem.Of(king);
+        bool concedes = weakThrone || grade is RulerQualitySystem.Grade.Wise or RulerQualitySystem.Grade.Weak or
+            RulerQualitySystem.Grade.Minor or RulerQualitySystem.Grade.Fatuous;
+        string text;
+        if (concedes) text = string.Format(LM.Get("state_republican_abdication_history"), name, kingName);
+        else if (UnityEngine.Random.value < UprisingBase + UprisingPerChance * chance / ModernizationRules.RevolutionCap)
+            text = string.Format(LM.Get("state_republican_revolution_history"), name, kingName);
+        else
+        {
+            data.revolution_tension = CrushedTension;
+            data.revolution_warned = false;
+            text = string.Format(LM.Get("state_revolution_crushed_history"), name, kingName);
+            EventRecorder.Record(kingdom, text, king);
+            LogService.LogInfo($"[EmpireCraft][近代化] {name} 共和党人起事失败");
+            return false;
+        }
+        Convert(kingdom, data);
+        EventRecorder.Record(kingdom, text, king);
+        LogService.LogInfo($"[EmpireCraft][近代化] {name} 共和革命(本国条件 {chance:P1}，{(concedes ? "逊位" : "起事成功")})");
+        return true;
+    }
+
+    private static void Convert(Kingdom kingdom, KingdomExtension.KingdomExtraData data)
+    {
         kingdom.SetRegimeType(RegimeType.Modern);
         kingdom.LoadRegime();
         kingdom.SystemChange();
-        kingdom.GetOrCreate().scenario_monarchy = false;
-        string text = string.Format(LM.Get("state_republican_revolution_history"), name, kingdom.king?.getName() ?? LM.Get("label_none"));
-        EventRecorder.Record(kingdom, text, kingdom.king);
-        TranslateHelper.LogEventMessage(text, kingdom);
-        LogService.LogInfo($"[EmpireCraft][近代化] {name} 共和革命(机会 {chance:P1})");
-        return true;
+        data.scenario_monarchy = false;
+        data.revolution_tension = 0f;
+        data.revolution_warned = false;
     }
 
     #endregion

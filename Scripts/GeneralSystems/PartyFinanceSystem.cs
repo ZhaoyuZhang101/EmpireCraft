@@ -61,14 +61,17 @@ public static class PartyFinanceSystem
         int seats = ParliamentSystem.HasParliament(empire) ? state?.parliament_seats?.Count(seat => seat.faction_id == party.GetID()) ?? 0 : 0;
         float subsidy = seats * SubsidyPerSeat;
         float upkeep = members * UpkeepPerMember + UpkeepBase;
+        // 财阀的献金(见 ConglomerateSystem)
+        float houses = ConglomerateSystem.Donations(empire, party);
         if (parts != null)
         {
+            if (houses > 0f) parts["party_income_conglomerate"] = houses;
             parts["party_income_dues"] = dues;
             parts["party_income_donations"] = donations;
             parts["party_income_subsidy"] = subsidy;
             parts["party_income_upkeep"] = -upkeep;
         }
-        return dues + donations + subsidy - upkeep;
+        return dues + donations + subsidy + houses - upkeep;
     }
 
     private static void SettleFunds(Empire empire, ConstitutionalEconomyState state, FixedFaction party)
@@ -131,7 +134,7 @@ public static class PartyFinanceSystem
     // 竞选与执政表现，ApplyOpinionSwing 里乘到各党得票上(地方选举也算)；地方执政只进全国大选与选区(见 PartySystem.CountVotes)，
     // 不进地方选举，免得赢了几个省就越选越稳
     public static float VoteFactor(Empire empire, FixedFaction party) =>
-        CampaignFactor(empire, party) * ApprovalFactor(empire, party);
+        CampaignFactor(empire, party) * ApprovalFactor(empire, party) * ConglomerateSystem.VoteFactor(empire, party);
 
     // 普选分区：这个行政区的地方执政党在本区多得一成
     public static float DistrictFactor(Empire empire, FixedFaction party, long districtId)

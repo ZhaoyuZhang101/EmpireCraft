@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using EmpireCraft.Scripts.Data;
 using EmpireCraft.Scripts.Enums;
+using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.GameClassExtensions;
 using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.HelperFunc;
@@ -525,6 +527,111 @@ public partial class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
         Refresh();
     }
 
+    // 世界格局(见 WorldOrderSystem)：各阵营与成员、冷战的紧张、万国公会与在受制裁的国；世界上还没有这些时不画
+    private void DrawWorldOrder(AutoVertLayoutGroup page)
+    {
+        if (WorldOrderSystem.Blocs.Count == 0 && WorldOrderSystem.League == null && WorldOrderSystem.Sanctions.Count == 0 &&
+            TradeWarSystem.All.Count == 0 && !WorldOrderSystem.WorldDepression && SpaceRaceSystem.Firsts.Count == 0 &&
+            !DecolonizationSystem.Active) return;
+        Empire Find(long id)
+        {
+            Empire empire = ModClass.EMPIRE_MANAGER?.get(id);
+            return empire?.data != null && !empire.isRekt() && !empire.IsArchived() && Alive(empire.CoreKingdom) ? empire : null;
+        }
+        BlocData own = WorldOrderSystem.BlocOf(_focus);
+        foreach (BlocData bloc in WorldOrderSystem.Blocs)
+        {
+            Empire leader = WorldOrderSystem.LeaderOf(bloc);
+            var card = page.BeginCard(PageWidth, WorldOrderSystem.BlocName(bloc), bloc == own ? WideKit.Gold : WideKit.Cyan,
+                string.Format(LM.Get("world_bloc_card_header"), bloc.members.Count,
+                    LM.Get("world_arms_level_" + Mathf.Clamp(bloc.arms_level, 0, 3))));
+            int row = 0;
+            foreach (Empire member in bloc.members.Select(Find).Where(member => member != null)
+                         .OrderByDescending(member => member == leader).ThenByDescending(member => member.GetNationalPower()).Take(10))
+            {
+                Kingdom target = member.CoreKingdom;
+                card.AddListRow(PageWidth, row++, null, member.GetEmpireFullName(),
+                    member == leader ? LM.Get("world_bloc_leader") : PartySystem.GetIdeologyName(WarlordEraSystem.GovernmentIdeology(member)),
+                    () => Focus(target), member == leader ? WideKit.Gold : WideKit.Value, 150f);
+            }
+        }
+        if (WorldOrderSystem.ColdWars.Count > 0)
+        {
+            var card = page.BeginCard(PageWidth, "world_cold_war_title", WideKit.Red);
+            int row = 0;
+            double now = World.world.getCurWorldTime();
+            foreach (ColdWarData war in WorldOrderSystem.ColdWars)
+            {
+                BlocData x = WorldOrderSystem.Bloc(war.a), y = WorldOrderSystem.Bloc(war.b);
+                if (x == null || y == null) continue;
+                bool detente = war.detente_until >= 0d && now < war.detente_until;
+                string state = detente ? LM.Get("world_cold_war_detente")
+                    : war.tension >= WorldOrderSystem.IronCurtainAt ? LM.Get("world_cold_war_curtain") : LM.Get("world_cold_war_tense");
+                card.AddBarRow(PageWidth, row++, WorldOrderSystem.BlocName(x) + " · " + WorldOrderSystem.BlocName(y), war.tension / 100f,
+                    string.Format(LM.Get("world_cold_war_row"), Mathf.RoundToInt(war.tension), state, Date.getYearsSince(war.since), war.crises),
+                    WideKit.Value, detente ? WideKit.Cyan : WideKit.Red, "#3A4038", null, 150f, 80f);
+            }
+        }
+        // 航天竞赛与去殖民浪潮(见 SpaceRaceSystem、DecolonizationSystem)
+        if (SpaceRaceSystem.Firsts.Count > 0 || DecolonizationSystem.Active)
+        {
+            var card = page.BeginCard(PageWidth, SpaceRaceSystem.Firsts.Count > 0 ? "space_race_title" : "decolonization_title", WideKit.Cyan,
+                DecolonizationSystem.Active ? string.Format(LM.Get("decolonization_header"), Date.getYearsSince(DecolonizationSystem.Since)) : "");
+            int row = 0;
+            foreach (SpaceFirstData first in SpaceRaceSystem.Firsts)
+                card.AddListRow(PageWidth, row++, null, SpaceRaceSystem.StepName(first.kind),
+                    string.Format(LM.Get("space_first_row"), first.name, Date.getYearsSince(first.at)), null, WideKit.Gold, 90f);
+            Empire racer = _focus?.GetEmpire();
+            if (racer != null && SpaceRaceSystem.Level(racer) < SpaceRaceSystem.Moon &&
+                (SpaceRaceSystem.Progress(racer) > 0f || SpaceRaceSystem.Level(racer) > 0))
+                card.AddBarRow(PageWidth, row++, racer.GetEmpireFullName(), SpaceRaceSystem.Progress(racer) / 100f,
+                    string.Format(LM.Get("space_progress_row"), SpaceRaceSystem.StepName(SpaceRaceSystem.Level(racer) + 1)),
+                    WideKit.Value, WideKit.Cyan, "#3A4038", null, 150f, 80f);
+            if (row == 0) card.AddParagraph(PageWidth, LM.Get("decolonization_hint"), 6, WideKit.Muted);
+        }
+        // 关税战与世界性大萧条(见 TradeWarSystem、EconomicCycleSystem)
+        if (TradeWarSystem.All.Count > 0 || WorldOrderSystem.WorldDepression)
+        {
+            var card = page.BeginCard(PageWidth, "trade_war_title", WideKit.Gold, WorldOrderSystem.WorldDepression
+                ? string.Format(LM.Get("world_depression_header"), Date.getYearsSince(WorldOrderSystem.DepressionSince)) : "");
+            int row = 0;
+            foreach (TradeWarData war in TradeWarSystem.All)
+            {
+                Empire a = Find(war.a), b = Find(war.b);
+                if (a == null || b == null) continue;
+                Kingdom target = (a.CoreKingdom == _focus ? b : a).CoreKingdom;
+                card.AddListRow(PageWidth, row++, null, a.GetEmpireFullName() + " · " + b.GetEmpireFullName(),
+                    string.Format(LM.Get("trade_war_row"), LM.Get(war.level >= TradeWarSystem.Embargo ? "trade_war_level_2" : "trade_war_level_1"),
+                        Date.getYearsSince(war.since)),
+                    () => Focus(target), war.level >= TradeWarSystem.Embargo ? WideKit.Red : WideKit.Value, 150f);
+            }
+            if (row == 0 && WorldOrderSystem.WorldDepression) card.AddParagraph(PageWidth, LM.Get("world_depression_hint"), 6, WideKit.Muted);
+        }
+        LeagueData league = WorldOrderSystem.League;
+        if (league != null || WorldOrderSystem.Sanctions.Count > 0)
+        {
+            var card = page.BeginCard(PageWidth, "world_league_title", WideKit.Green, league == null ? ""
+                : string.Format(LM.Get("world_league_card_header"), league.members.Count, league.resolutions, league.failures));
+            int row = 0;
+            if (league != null)
+                foreach (Empire member in league.members.Select(Find).Where(member => member != null)
+                             .OrderByDescending(member => member.GetNationalPower()).Take(5))
+                {
+                    Kingdom target = member.CoreKingdom;
+                    card.AddListRow(PageWidth, row++, null, member.GetEmpireFullName(), LM.Get("world_league_council"),
+                        () => Focus(target), WideKit.Value, 150f);
+                }
+            foreach (SanctionData sanction in WorldOrderSystem.Sanctions)
+            {
+                Empire target = Find(sanction.target_id);
+                if (target == null) continue;
+                Kingdom core = target.CoreKingdom;
+                card.AddListRow(PageWidth, row++, null, target.GetEmpireFullName(), string.Format(LM.Get("world_sanction_row"),
+                        Mathf.Max(0, sanction.years - Date.getYearsSince(sanction.since))), () => Focus(core), WideKit.Red, 150f);
+            }
+        }
+    }
+
     // 体系图
     private void DrawSystem(AutoVertLayoutGroup page)
     {
@@ -540,6 +647,8 @@ public partial class DiplomacyWindow : WideScrollWindow<DiplomacyWindow>
             tree.AddListRow(PageWidth, index++, null, indent + kingdom.GetKingdomName(), role,
                 () => Focus(target), kingdom == _focus ? WideKit.Gold : depth == 0 ? WideKit.Cyan : WideKit.Value, 130f);
         }
+
+        DrawWorldOrder(page);
 
         // 天下
         EmpireCore lead = _focus.capital == null ? null : TianxiaSystem.LeadOf(_focus.capital);

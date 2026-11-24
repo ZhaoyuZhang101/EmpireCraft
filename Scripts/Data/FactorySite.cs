@@ -17,6 +17,8 @@ public sealed class FactorySite
     public bool state;
     // 神力手动放的(营地里也不拆，见 FactorySystem.Grow)
     public bool manual;
+    // 经营这片厂区的公司(见 CompanySystem；0 = 还没有)
+    public int company_id;
     // 区里的厂
     public List<FactoryUnit> units = new();
 }

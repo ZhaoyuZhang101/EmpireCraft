@@ -293,9 +293,16 @@ public static class IdeologyDynamicsSystem
             out float unemployment) && inCrisis;
         if (crisis) trend = Mathf.Min(trend, -0.15f);
         else if (unemployment > 0.15f) trend = Mathf.Min(trend, -0.05f - (unemployment - 0.15f));
-        bool started = crisis && !state.economic_crisis;
-        if (started)
+        // 模组自己的市面兴衰(见 EconomicCycleSystem)：恐慌、萧条同样算危机；崩盘那一下它自己记史，这里不重记
+        bool slump = EconomicCycleSystem.InCrisis(empire);
+        bool started = (crisis || slump) && !state.economic_crisis;
+        if (started && crisis && !slump)
             EventRecorder.Record(empire, string.Format(LM.Get("ideology_crisis_history"), empire.GetEmpireFullName()));
+        if (slump)
+        {
+            crisis = true;
+            trend = Mathf.Min(trend, -0.15f);
+        }
         state.economic_crisis = crisis;
         state.economic_trend = trend;
         // 衰退积累民怨，繁荣消解民怨

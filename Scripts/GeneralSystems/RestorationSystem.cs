@@ -50,7 +50,9 @@ public static class RestorationSystem
         switch (state.restoration_stage)
         {
             case 0:
-                if (CanAttempt(empire, state, head) && UnityEngine.Random.value < YearlyChance) Prepare(empire, state, head);
+                // 革命之后久乱思定，强人更容易上台(见 RevolutionSystem.StrongmanFactor)
+                if (CanAttempt(empire, state, head) &&
+                    UnityEngine.Random.value < YearlyChance * RevolutionSystem.StrongmanFactor(empire)) Prepare(empire, state, head);
                 break;
             case 1:
                 UpdatePreparation(empire, state, head);

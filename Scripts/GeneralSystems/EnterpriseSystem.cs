@@ -181,6 +181,8 @@ public static class EnterpriseSystem
     public static bool StatePreferred(Kingdom kingdom)
     {
         if (kingdom == null || kingdom.wild) return false;
+        // 定了国有化、私有化的照国策(见 ModernPolicySystem)
+        if (ModernPolicySystem.StatePreferred(kingdom) is bool decided) return decided;
         Empire empire = kingdom.GetEmpire();
         if (empire != null && InstitutionSystem.GetFeature(empire, StateEnterpriseFeature) > 0f) return true;
         // 没有国企制度：照原来规划决议的默认(重农、工业化时国家先出资)——缺粮的城占三成以上、工业时代国库充裕、

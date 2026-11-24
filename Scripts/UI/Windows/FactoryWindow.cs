@@ -120,9 +120,23 @@ public class FactoryWindow : AbstractWideWindow<FactoryWindow>
         ownRow.AddButtonIntoHoriLayout("factory_state", LM.Get(site.state ? "enterprise_to_private" : "enterprise_to_state"), () =>
         {
             FactorySite now = FactorySystem.ById(_selected);
-            if (now != null) now.state = !now.state;
+            if (now != null)
+            {
+                now.state = !now.state;
+                // 经营它的公司当场换(国企、私企，见 CompanySystem)
+                CompanySystem.Reassign(now);
+            }
             Draw();
         }, size: new Vector2(42f, 14f));
+        // 经营这片厂区的公司(见 CompanySystem)：点开看它的业务
+        if (CompanySystem.Of(site) is { } company)
+        {
+            var firm = info.BeginHoriGroup(new Vector2(RowWidth, 16f), TextAnchor.MiddleLeft, 3, new RectOffset(0, 0, 0, 0));
+            firm.AddTextIntoHoriLayout(company.name.ColorString("#F3C34A"), true, TextAnchor.MiddleLeft,
+                new Vector2(RowWidth - 46f, 14f)).UseFixedFontSize(7, HorizontalWrapMode.Overflow);
+            firm.AddButtonIntoHoriLayout("factory_company", LM.Get("company_open"),
+                () => CompanyWindow.Open(CompanySystem.Of(FactorySystem.ById(_selected))), size: new Vector2(42f, 14f));
+        }
         Line(info, (city == null
             ? LM.Get("settlement_unowned")
             : string.Format(LM.Get("settlement_owner"), city.GetCityName(), city.kingdom?.GetKingdomName() ?? "")).ColorString("#7FD8EA"));

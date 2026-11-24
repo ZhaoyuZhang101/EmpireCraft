@@ -288,6 +288,40 @@ public partial class PureMapPatch
                 Rect(gx, y0, 1, h, Rgb(214, 176, 60));
                 break;
             }
+            case "chemical_plant":
+            {
+                // 化工厂：一排圆储罐(罐顶一点亮)，角上一座细高的分馏塔冒着气
+                int tanks = Mathf.Clamp(bw / 2, 1, 3);
+                for (int k = 0; k < tanks; k++)
+                {
+                    Rect(bx0 + k * 2, by0, 1, Mathf.Max(2, bh - 1), Rgb(196, 200, 204));
+                    Rect(bx0 + k * 2, by0 + Mathf.Max(1, bh - 2), 1, 1, Rgb(236, 238, 240));
+                }
+                int tx = left ? x1 : x0;
+                Rect(tx, y0, 1, h, Rgb(120, 132, 110));
+                Smoke(tx, y0 + h - 1);
+                break;
+            }
+            case "motor_works":
+            {
+                // 汽车厂：长条总装车间(屋脊一道亮线)，门前停着两辆下线的车
+                Rect(bx0, by0, bw, bh, Rgb(104, 110, 120));
+                Rect(bx0, by0 + bh - 1, bw, 1, Rgb(168, 174, 182));
+                Rect(bx0, by0 > y0 ? by0 - 1 : by0, 1, 1, Rgb(176, 52, 48));
+                Rect(bx0 + 3, by0 > y0 ? by0 - 1 : by0, 1, 1, Rgb(40, 44, 52));
+                Chimney(left ? bx0 + bw : bx0 - 1, by0 + bh - 1);
+                break;
+            }
+            case "electrical_works":
+            {
+                // 电器厂：浅色厂房，一排亮着灯的窗，角上一座铁塔架着线
+                Rect(bx0, by0, bw, bh, Rgb(150, 156, 148));
+                for (int px = bx0 + 1; px < bx0 + bw; px += 2) Rect(px, by0 + bh / 2, 1, 1, Rgb(244, 220, 120));
+                int pylon = left ? x1 : x0;
+                Rect(pylon, y0, 1, h, Rgb(70, 74, 82));
+                Rect(pylon, y0 + h - 1, 1, 1, Rgb(244, 220, 120));
+                break;
+            }
             default:
             {
                 // 飞机厂：拱顶机库(由暗到亮的横条)加停机坪，坪上一架飞机

@@ -54,6 +54,37 @@ public static class EmpireCraftOpinionAddition
             translation_key_negative = "opinion_nuclear_superiority",
             calc = EmpireCraft.Scripts.Compatibility.NuclearDoctrineSystem.DeterrenceOpinion
         });
+        // 理念定亲疏：近代国家之间立国理念相近的亲善、相去甚远的提防、截然对立的敌视；还在激进期的革命政权，君主国都防着(见 WorldOrderSystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_ideology",
+            translation_key = "opinion_ideology_kin",
+            translation_key_negative = "opinion_ideology_foe",
+            calc = EmpireCraft.Scripts.GeneralSystems.WorldOrderSystem.IdeologyOpinion
+        });
+        // 阵营：同阵营 +40，冷战的对面 −40；万国公会会员对受制裁之国 −20(见 WorldOrderSystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_world_bloc",
+            translation_key = "opinion_world_bloc_ally",
+            translation_key_negative = "opinion_world_bloc_rival",
+            calc = EmpireCraft.Scripts.GeneralSystems.WorldOrderSystem.BlocOpinionOf
+        });
+        // 关税战：互加关税 −15，断绝通商 −25(见 TradeWarSystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_trade_war",
+            translation_key_negative = "opinion_trade_war",
+            calc = EmpireCraft.Scripts.GeneralSystems.TradeWarSystem.OpinionOf
+        });
+        // 外国资本：关键行业三成以上操在对方手里 +20；自己的产业被对方没收过(二十年内) −40(见 CompanySystem)
+        opl.add(new OpinionAsset
+        {
+            id = "opinion_foreign_capital",
+            translation_key = "opinion_foreign_capital",
+            translation_key_negative = "opinion_foreign_capital_seized",
+            calc = EmpireCraft.Scripts.GeneralSystems.CompanySystem.OpinionOf
+        });
         // 移民积怨：抽走本国人口 −25、往本国驱逐人口 −40，十年(见 MigrationRelations)
         opl.add(new OpinionAsset
         {
