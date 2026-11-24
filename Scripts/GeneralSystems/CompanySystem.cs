@@ -27,7 +27,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 外资：电气时代起，资本最厚的私企每年有机会收购通商的弱国里的关键企业(钢铁、化工、重工、飞机、重型船厂)，
 //     利润四成汇回。外国在一国关键行业里控到三成，那国就受制于它(不向它开战、不同它打关税战、好感高)；
 //     控到六成，连通商政策都改不成保护关税、闭关，市民、劳工怨"利权外溢"。出路是国有化——没收外资，
-//     被没收的一方记恨二十年、当场打起关税战。
+//     被没收的一方记恨二十年、当场打起关税战。没有买得起的企业时，就去通商的国家设厂开分公司(至多三处)；
+//   · 国家持股：国库可以入股私企，照股份分利润，入到三成外资买不走，五成起国家控股(见"国家持股"一段)。
 // 股票与股市另见 StockMarketSystem，财阀干政见 ConglomerateSystem。数值都是模组自己的规则。
 public static class CompanySystem
 {
@@ -36,6 +37,9 @@ public static class CompanySystem
     private const float MergeChance = 0.25f, EarlyMergeChance = 0.05f, PriceWarChance = 0.15f, FailChance = 0.2f, GroupBuyChance = 0.15f;
     private const float GougeFrom = 0.5f, GougePerShare = 0.6f, GougeBase = 0.05f, MaxGouge = 0.3f, PriceWarCut = -0.08f;
     private const float ForeignBidChance = 0.15f, ForeignRemit = 0.4f, WeakerShare = 0.8f;
+    // 去别国设厂：至少这么多资本、或自己年产值的这么多成；一家公司至多几处分公司
+    private const float BranchMinCost = 200f, BranchCostShare = 1f;
+    private const int MaxBranches = 3;
     public const float InfluenceAt = 0.3f, ControlAt = 0.6f;
     private const int SeizureGrudgeYears = 20, MaxNotes = 8, MinGroupScale = 4;
     public const int BeholdenOpinion = 20, SeizureOpinion = -40;
@@ -112,6 +116,7 @@ public static class CompanySystem
         if (company == null) return "";
         if (company.state) return LM.Get("company_kind_state");
         if (ForeignOwner(company) is { } foreign) return string.Format(LM.Get("company_kind_foreign"), foreign.GetEmpireFullName());
+        if (company.state_share >= ControlStake) return LM.Get("company_kind_state_held");
         return LM.Get(company.group_clan_id >= 0 ? "company_kind_group" : "company_kind_private");
     }
 
@@ -123,7 +128,7 @@ public static class CompanySystem
         string value = (name ?? "").Trim();
         if (company == null || value.Length == 0 || value == company.name) return;
         company.name = value.Length > 16 ? value.Substring(0, 16) : value;
-        company.short_name = company.name.Length > 8 ? company.name.Substring(0, 8) : company.name;
+        company.short_name = CompanyNaming.Brief(company.name);
         Relabel(company);
     }
 
@@ -211,6 +216,7 @@ public static class CompanySystem
             GroupBuys(empire, state, own);
             BidAbroad(empire, own, now);
         }
+        StateStakes(empire, state, own);
         ControlLedger(state, own);
         StockMarketSystem.Update(empire, state, own, now);
     }
@@ -354,8 +360,9 @@ public static class CompanySystem
         company.group_clan_id >= 0 ? company.group_clan_id + 1_000_000_000L
         : company.foreign_empire_id >= 0 ? -company.foreign_empire_id - 2L : -1_000_000_000L - company.id;
 
+    // 独立的私企(倒闭、被并购、被收购只找它们)：国家控股的不算
     private static bool Independent(CompanyData company) =>
-        !company.state && company.group_clan_id < 0 && company.foreign_empire_id < 0;
+        !company.state && company.group_clan_id < 0 && company.foreign_empire_id < 0 && company.state_share < ControlStake;
 
     private static string ProductName(string sector)
     {
@@ -587,7 +594,7 @@ public static class CompanySystem
 
     #region 外资
 
-    // 资本最厚的本国私企去通商的弱国收购关键企业
+    // 资本最厚的本国私企出海：先看通商的弱国里有没有买得起的关键企业，没有就去通商的国家设厂开分公司
     private static void BidAbroad(Empire empire, List<CompanyData> own, double now)
     {
         CompanyData buyer = own.Where(company => !company.state && company.foreign_empire_id < 0)
@@ -603,18 +610,27 @@ public static class CompanySystem
             if (World.world.kingdoms.get(leaderId)?.GetEmpire() is { } outside && outside != empire) hosts.Add(outside);
         hosts.RemoveWhere(host => !OpenToForeign(empire, host));
         if (hosts.Count == 0) return;
+        double power = empire.GetNationalPower();
         CompanyData best = null;
         float bestPrice = 0f;
         foreach (CompanyData company in _book.companies)
         {
-            if (!Independent(company) || !Strategic.Contains(company.sector) || !(RealmOf(company) is { } host) || !hosts.Contains(host)) continue;
+            // 国家入了三成股的买不走；国力不及买方八成的国家，企业才会落到外人手里
+            if (!Independent(company) || company.state_share >= ShieldStake || !Strategic.Contains(company.sector) ||
+                !(RealmOf(company) is { } host) || !hosts.Contains(host) || host.GetNationalPower() >= power * WeakerShare) continue;
             float price = Worth(company) * (company.listed ? 1.3f : 1.5f);
             if (buyer.capital < price || best != null && company.scale <= best.scale) continue;
             best = company;
             bestPrice = price;
         }
-        if (best == null) return;
+        if (best == null)
+        {
+            BuildAbroad(empire, buyer, hosts, now);
+            return;
+        }
         Empire seat = RealmOf(best);
+        // 东道国国库出手入股，挡下这笔收购
+        if (Defend(seat, best, empire)) return;
         buyer.capital -= bestPrice;
         best.foreign_empire_id = empire.id;
         best.foreign_company_id = buyer.id;
@@ -626,7 +642,38 @@ public static class CompanySystem
         WorldOrderSystem.Record(text, seat, new[] { empire });
     }
 
-    // 这个国家的企业买不买得：没有国有化、没有闭关、没在打仗、国力不及买方八成、没收过买方的产业还没过二十年的不卖
+    // 设厂：去通商的国家里厂最多的几座城挑一座放得下的，新建一片厂区，成立分公司(利润照外资汇回)
+    private static void BuildAbroad(Empire empire, CompanyData buyer, HashSet<Empire> hosts, double now)
+    {
+        float price = Mathf.Max(BranchMinCost, buyer.value * BranchCostShare);
+        if (buyer.capital < price || _book.companies.Count(company => company.foreign_company_id == buyer.id) >= MaxBranches) return;
+        foreach (Empire host in hosts.OrderByDescending(item => item.GetNationalPower()).Take(3))
+            foreach (City city in ClaimPolicySystem.Cities(host).OrderByDescending(FactorySystem.Units).Take(4).ToList())
+            {
+                FactorySite site = FactorySystem.FoundBranch(city, buyer.sector);
+                if (site == null) continue;
+                buyer.capital -= price;
+                var branch = new CompanyData
+                {
+                    id = _book.next_id++, sector = buyer.sector, culture = buyer.culture, city_id = city.id, founded = now,
+                    clan_id = buyer.clan_id, owner = buyer.owner, foreign_empire_id = empire.id, foreign_company_id = buyer.id,
+                    foreign_since = now, reputation = Mathf.Max(StartReputation, buyer.reputation * 0.7f)
+                };
+                (branch.name, branch.short_name) = CompanyNaming.Branch(buyer.culture, buyer.short_name, city.GetCityName());
+                _book.companies.Add(branch);
+                Index[branch.id] = branch;
+                site.company_id = branch.id;
+                RelabelCity(city.id);
+                string text = string.Format(LM.Get("company_branch_built_history"), buyer.name, empire.GetEmpireFullName(),
+                    city.GetCityName(), host.GetEmpireFullName(), branch.name);
+                Note(branch, text);
+                Note(buyer, text);
+                WorldOrderSystem.Record(text, host, new[] { empire });
+                return;
+            }
+    }
+
+    // 这个国家容不容外国资本：没有国有化、没有闭关、没在同买方打仗，没收过买方的产业还没过二十年的不容
     private static bool OpenToForeign(Empire buyer, Empire host)
     {
         ConstitutionalEconomyState state = host?.data?.constitutional_economy;
@@ -634,9 +681,7 @@ public static class CompanySystem
         if (state.nationalization >= ModernPolicySystem.Nationalized || buyer.CoreKingdom.isEnemy(host.CoreKingdom)) return false;
         Kingdom leader = CommodityMarketSystem.MarketOf(host.CoreKingdom)?.leader ?? host.CoreKingdom;
         if (CommodityMarketSystem.PolicyOf(leader) == TradePolicy.Closed) return false;
-        if (state.seizures != null && state.seizures.TryGetValue(buyer.id, out double at) && Date.getYearsSince(at) < SeizureGrudgeYears)
-            return false;
-        return host.GetNationalPower() < buyer.GetNationalPower() * WeakerShare;
+        return !(state.seizures != null && state.seizures.TryGetValue(buyer.id, out double at) && Date.getYearsSince(at) < SeizureGrudgeYears);
     }
 
     // 各外国在本国关键行业里控着几成
@@ -695,6 +740,94 @@ public static class CompanySystem
         if (b.data?.constitutional_economy?.seizures is { } seized && seized.TryGetValue(a.id, out double at) &&
             Date.getYearsSince(at) < SeizureGrudgeYears) opinion += SeizureOpinion;
         return opinion;
+    }
+
+    #endregion
+
+    #region 国家持股
+
+    // 国库入股私企(用户 2026-11-25 "公司的可以做"：国家持股)：一回买一成，至多九成(要全资就收归国有)。
+    //   · 钱从国库出、进总部那座城的民间(见 EnterpriseSystem.ReturnToLocal)，公司得一笔资本；减持时从民间现金里收回；
+    //   · 国家的股份折成官营的份数，照官营那样从工业产值里分利润上缴(见 EnterpriseSystem.TakePublicProfit)；
+    //   · 入到三成外资就买不走，五成起是国家控股——不倒闭、不被并购；
+    //   · AI：外国来收购关键企业时，不信自由放任的当局国库宽裕就入股三成挡下；萧条里以兴办工程为对策的，
+    //     给赔了本的最大私企入股一成；定了私有化的国家每年减持一成。公司窗口里也能直接入股、减持。
+    public const float StakeStep = 0.1f, MaxStake = 0.9f, ControlStake = 0.5f, ShieldStake = 0.3f;
+
+    private static int StakePrice(CompanyData company, float share) => Mathf.Max(1, Mathf.RoundToInt(Worth(company) * share));
+
+    // 入股：办不成返回原因键
+    public static string BuyStake(CompanyData company, float share = StakeStep)
+    {
+        Empire realm = RealmOf(company);
+        if (company == null || realm?.CoreKingdom == null) return "diplomacy_reason_invalid";
+        if (company.state) return "company_stake_state";
+        if (company.foreign_empire_id >= 0) return "company_stake_foreign";
+        if (company.state_share + share > MaxStake + 0.001f) return "company_stake_max";
+        int price = StakePrice(company, share);
+        if (realm.CoreKingdom.GetMoney() < price) return "company_stake_no_money";
+        realm.CoreKingdom.SubMoney(price, TreasuryCategory.PublicEnterprise);
+        if (Home(company) is { } home) EnterpriseSystem.ReturnToLocal(home, price);
+        company.capital += price;
+        company.state_share = Mathf.Min(MaxStake, company.state_share + share);
+        Note(company, string.Format(LM.Get("company_note_stake_bought"), Mathf.RoundToInt(company.state_share * 100f)));
+        return null;
+    }
+
+    // 减持：办不成返回原因键
+    public static string SellStake(CompanyData company, float share = StakeStep)
+    {
+        Empire realm = RealmOf(company);
+        if (company == null || realm?.CoreKingdom == null) return "diplomacy_reason_invalid";
+        if (company.state_share <= 0.001f) return "company_stake_none";
+        share = Mathf.Min(share, company.state_share);
+        int price = StakePrice(company, share);
+        CityPopulationData people = Home(company) is { } home ? CityPopulationSystem.Get(home) : null;
+        long got = people == null ? 0L : EnterpriseSystem.TakeCash(people, price);
+        if (got > 0) realm.CoreKingdom.AddMoney((int)Math.Min(got, int.MaxValue), TreasuryCategory.PublicEnterprise);
+        company.state_share = Mathf.Max(0f, company.state_share - share);
+        Note(company, string.Format(LM.Get("company_note_stake_sold"), Mathf.RoundToInt(company.state_share * 100f)));
+        return null;
+    }
+
+    // 外国来收购：东道国不信自由放任、国库又宽裕(三倍于入股款)的，入股三成挡下
+    private static bool Defend(Empire host, CompanyData target, Empire buyer)
+    {
+        PartyIdeology ideology = IdeologyFamilies.StateIdeology(host);
+        if (ideology is PartyIdeology.Libertarianism or PartyIdeology.Capitalism or PartyIdeology.ConservativeLiberalism) return false;
+        float need = ShieldStake - target.state_share;
+        if (need <= 0f) return true;
+        if (host.CoreKingdom.GetMoney() < StakePrice(target, need) * 3 || BuyStake(target, need) != null) return false;
+        WorldOrderSystem.Record(string.Format(LM.Get("company_stake_defended_history"), host.GetEmpireFullName(), target.name,
+            buyer.GetEmpireFullName()), host, new[] { buyer });
+        return true;
+    }
+
+    // 每年：萧条里以兴办工程为对策的救一家赔了本的私企；定了私有化的减持
+    private static void StateStakes(Empire empire, ConstitutionalEconomyState state, List<CompanyData> own)
+    {
+        if (state.nationalization <= ModernPolicySystem.Privatized)
+        {
+            foreach (CompanyData company in own)
+                if (company.state_share > 0f) SellStake(company);
+            return;
+        }
+        if (state.cycle_phase != EconomicCycleSystem.Depression || state.cycle_response != EconomicCycleSystem.Stimulus) return;
+        CompanyData failing = own.Where(company => !company.state && company.foreign_empire_id < 0 && company.capital < 0f &&
+                                                   company.state_share < ControlStake)
+            .OrderByDescending(company => company.scale).FirstOrDefault();
+        if (failing == null || empire.CoreKingdom.GetMoney() < StakePrice(failing, StakeStep) * 3 || BuyStake(failing) != null) return;
+        EventRecorder.RecordRoutine(empire, string.Format(LM.Get("company_stake_rescue_history"), empire.GetEmpireFullName(), failing.name));
+    }
+
+    // 这座城的私营厂区里国家的股份折成几份官营(见 EnterpriseSystem.TakePublicProfit)
+    public static float StateStake(City city)
+    {
+        if (_book.companies.Count == 0 || city == null) return 0f;
+        float stake = 0f;
+        foreach (FactorySite site in FactorySystem.InCity(city))
+            if (!site.state && Of(site) is { state_share: > 0f } company) stake += site.units.Count * company.state_share;
+        return stake;
     }
 
     #endregion

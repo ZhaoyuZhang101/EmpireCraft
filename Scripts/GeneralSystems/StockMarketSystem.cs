@@ -131,7 +131,8 @@ public static class StockMarketSystem
         foreach (CompanyData company in CompanySystem.All)
         {
             if (company.state || CompanySystem.RealmOf(company) == null) continue;
-            float stake = CompanySystem.Worth(company) * (company.listed ? OwnerStake : 1f);
+            // 国家入的股不算东家的
+            float stake = CompanySystem.Worth(company) * (company.listed ? OwnerStake : 1f) * (1f - company.state_share);
             // 外资子公司算到母公司的东家头上
             CompanyData holder = CompanySystem.ById(company.foreign_company_id) ?? company;
             Add(holder, stake);

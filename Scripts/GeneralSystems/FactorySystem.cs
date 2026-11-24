@@ -460,6 +460,28 @@ public static class FactorySystem
         if (city != null) PureMapPatch.Redraw(city);
     }
 
+    // 外国公司来设厂(见 CompanySystem.BuildAbroad)：城区边上新建一片民营的小厂区，厂都是那家公司的门类；放不下返回 null
+    internal static FactorySite FoundBranch(City city, string type)
+    {
+        if (!PureMapMode.Enabled || city?.zones == null || TypeIndex(type) < 0) return null;
+        WorldTile center = city.getTile();
+        HashSet<int> built = PureMapPatch.BuiltZones(city);
+        if (center == null || built == null) return null;
+        int tries = 0;
+        foreach (TileZone zone in city.zones.Where(zone => zone?.centerTile != null && !built.Contains(zone.id) && zone != center.zone)
+                     .OrderBy(zone => Toolbox.SquaredDistTile(zone.centerTile, center)).ToList())
+        {
+            if (++tries > 16) break;
+            Place(zone.centerTile, 1, out FactorySite placed);
+            if (placed == null) continue;
+            foreach (FactoryUnit unit in placed.units) unit.type = type;
+            placed.state = false;
+            Changed(placed);
+            return placed;
+        }
+        return null;
+    }
+
     // 放一片厂区：返回提示文字。manual 为神力手动放的(不设限，见上)
     public static string Place(WorldTile tile, int size, out FactorySite placed, bool manual = false)
     {

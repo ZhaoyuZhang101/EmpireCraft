@@ -6,10 +6,12 @@ using EmpireCraft.Scripts.GeneralSystems;
 using EmpireCraft.Scripts.Layer;
 using EmpireCraft.Scripts.UI.Components;
 using NeoModLoader.General;
+using NeoModLoader.General.UI.Prefabs;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.General.UI.Window.Layout;
 using NeoModLoader.General.UI.Window.Utils.Extensions;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace EmpireCraft.Scripts.UI.Windows;
 
@@ -137,6 +139,23 @@ public class CompanyWindow : WideScrollWindow<CompanyWindow>
         City home = CompanySystem.Home(company);
         page.AddPageHeader(PageWidth, company.name, CompanySystem.OwnershipName(company), TradeName(company));
         var overview = page.BeginCard(PageWidth, "company_card_overview", WideKit.Gold);
+        // 名号可改(地图上标的简称跟着换)
+        int renameId = company.id;
+        TextInput nameInput = Instantiate(TextInput.Prefab, null);
+        nameInput.Setup(company.name, text =>
+        {
+            CompanySystem.Rename(CompanySystem.ById(renameId), text);
+            Refresh();
+        });
+        nameInput.SetSize(new Vector2(PageWidth - 16f, 18f));
+        Text inputText = nameInput.input.textComponent;
+        if (inputText != null)
+        {
+            inputText.resizeTextMinSize = 6;
+            inputText.resizeTextMaxSize = 10;
+        }
+        nameInput.input.characterLimit = 16;
+        overview.AddChild(nameInput.gameObject);
         overview.AddMetricRow(PageWidth,
             (LM.Get("company_reputation"), Mathf.RoundToInt(company.reputation).ToString(),
                 company.reputation >= 60f ? WideKit.Green : company.reputation < 30f ? WideKit.Red : WideKit.Value),
@@ -154,6 +173,9 @@ public class CompanyWindow : WideScrollWindow<CompanyWindow>
         if (company.group_clan_id >= 0 && realm != null &&
             ConglomerateSystem.Of(realm).FirstOrDefault(house => house.clan_id == company.group_clan_id) is { } house)
             overview.AddListRow(PageWidth, row++, null, LM.Get("company_group"), house.name, null, WideKit.Gold, 70f);
+        if (company.state_share > 0f)
+            overview.AddListRow(PageWidth, row++, null, LM.Get("company_stake"),
+                Mathf.RoundToInt(company.state_share * 100f) + "%", null, WideKit.Cyan, 70f);
         if (CompanySystem.ForeignOwner(company) is { } foreign)
         {
             CompanyData parent = CompanySystem.ById(company.foreign_company_id);
@@ -171,6 +193,11 @@ public class CompanyWindow : WideScrollWindow<CompanyWindow>
             overview.AddButtonRow(PageWidth,
                 ("company_toggle_state", LM.Get(company.state ? "enterprise_to_private" : "enterprise_to_state"), () => ToggleState(id)),
                 ("company_view_realm", LM.Get("company_page_realm"), () => ShowRealm(realm)));
+            // 国库入股、减持(一回一成，见 CompanySystem.BuyStake)
+            if (!company.state && company.foreign_empire_id < 0)
+                overview.AddButtonRow(PageWidth,
+                    ("company_stake_buy", LM.Get("company_stake_buy"), () => Stake(id, true)),
+                    ("company_stake_sell", LM.Get("company_stake_sell"), () => Stake(id, false)));
         }
 
         // 经营业务：旗下各片厂区与出的货
@@ -216,6 +243,14 @@ public class CompanyWindow : WideScrollWindow<CompanyWindow>
             foreach (CompanyNote note in company.notes.AsEnumerable().Reverse())
                 notes.AddParagraph(PageWidth, string.Format(LM.Get("company_note_line"), Date.getYearsSince(note.at), note.text), 6, WideKit.Soft);
         }
+    }
+
+    private void Stake(int companyId, bool buy)
+    {
+        CompanyData company = CompanySystem.ById(companyId);
+        string error = buy ? CompanySystem.BuyStake(company) : CompanySystem.SellStake(company);
+        if (error != null) WorldTip.showNow(LM.Get(error), false, "top", 3f);
+        Refresh();
     }
 
     // 收归国有、发卖民营：旗下各片厂区一起改(见 CompanySystem.Reassign)

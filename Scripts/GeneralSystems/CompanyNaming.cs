@@ -71,6 +71,25 @@ public static class CompanyNaming
         return (string.Format(LM.Get("company_private_format"), cityName + LM.Get("company_second"), trade, suffix), fallback);
     }
 
+    // 外国公司来设的分公司：返回(全名, 简称)。照母公司的文化叫(分公司、支社)
+    public static (string full, string brief) Branch(string culture, string parentBrief, string cityName) =>
+        (string.Format(LM.Get("company_branch_format_" + Family(culture)), parentBrief, cityName),
+            string.Format(LM.Get("company_branch_brief"), parentBrief, cityName));
+
+    // 改名以后地图上标的简称：去掉本文化的后缀，再长就截到八个字
+    public static string Brief(string name)
+    {
+        string value = (name ?? "").Trim();
+        foreach (string family in new[] { "huaxia", "japan", "west" })
+        {
+            string suffix = LM.Get("company_suffix_" + family);
+            if (suffix.Length == 0 || value.Length <= suffix.Length || !value.EndsWith(suffix, StringComparison.Ordinal)) continue;
+            value = value.Substring(0, value.Length - suffix.Length).Trim();
+            break;
+        }
+        return value.Length > 8 ? value.Substring(0, 8) : value;
+    }
+
     // 国企：返回(全名, 简称)
     public static (string full, string brief) State(string culture, string cityName, string sector)
     {

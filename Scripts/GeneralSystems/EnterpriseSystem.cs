@@ -296,8 +296,10 @@ public static class EnterpriseSystem
         string key = TreasuryCategory.IndustrialTax.ToString();
         if (!data.produced_sector_values.TryGetValue(key, out float industrial) || industrial <= 0f) return 0f;
         CountEnterprises(city, out int total, out int publicCount);
-        if (total <= 0 || publicCount <= 0) return 0f;
-        float profit = industrial * publicCount / total * PublicProfitShare;
+        // 国家在私企里的股份折成几份官营，照样分利润(见 CompanySystem.StateStake)
+        float stake = CompanySystem.StateStake(city);
+        if (total <= 0 || publicCount <= 0 && stake <= 0f) return 0f;
+        float profit = industrial * Mathf.Min(total, publicCount + stake) / total * PublicProfitShare;
         data.produced_sector_values[key] = industrial - profit;
         float assessed = profit + data.public_profit_carry;
         int whole = Mathf.FloorToInt(assessed);

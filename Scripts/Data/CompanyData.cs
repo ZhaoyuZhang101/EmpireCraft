@@ -31,6 +31,8 @@ public sealed class CompanyData
     public long foreign_empire_id = -1L;
     public int foreign_company_id;
     public double foreign_since = -1d;
+    // 国家在这家私企里的股份(0~0.9，见 CompanySystem.BuyStake)：三成起外资买不走，五成起是国家控股
+    public float state_share;
     // 声誉 0~100；资本(抽象的账，并购、熬过萧条靠它)；上一年的盈利、年产值、厂的档次合计
     public float reputation = 30f;
     public float capital;
