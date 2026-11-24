@@ -480,7 +480,8 @@ public static class ColonySystem
             if (string.IsNullOrWhiteSpace(name)) return null;
             if (!string.IsNullOrWhiteSpace(branded) && string.Equals(name, branded, StringComparison.Ordinal))
                 return string.Equals(place, name, StringComparison.Ordinal) ? null : place;
-            return name.Length > 2 && (name[1] == '属' || name[1] == '屬') ? name.Substring(2) : null;
+            string stripped = StripBrand(name);
+            return stripped != name ? stripped : null;
         }
         try
         {
@@ -514,11 +515,35 @@ public static class ColonySystem
     private static string Place(Kingdom colony, ColonyState state)
     {
         if (!string.IsNullOrWhiteSpace(state?.place)) return WorldMap.WorldMapData.PickParts(state.place);
-        string title = colony.capital?.GetTitle()?.data?.name;
         // 法理按"英属马来亚"这样的国名立的：去掉"某属"(以前暹罗收它作保护国叫"暹属英属马来亚")
-        if (!string.IsNullOrWhiteSpace(title) && title.Length > 2 && title[1] is '属' or '屬') title = title.Substring(2);
-        return !string.IsNullOrWhiteSpace(title) ? title : colony.capital?.GetCityName() ?? colony.GetKingdomName();
+        string title = StripBrand(colony.capital?.GetTitle()?.data?.name);
+        if (!string.IsNullOrWhiteSpace(title)) return title;
+        string seat = colony.capital?.GetCityName();
+        if (!string.IsNullOrWhiteSpace(seat)) return seat;
+        // 没有都城(也就没有法理名、城名)：只剩本国的国名可用。国名这时多半已经是"某属某地"，每年重新起名(见 Yearly)都拿它再套
+        // 一层，就成了"吕属吕属吕属……"越叠越长(独立核心里没都城的国多，2026-11-17 长跑时见到)。头一回把"某属"去干净记下，往后照用
+        if (state != null && !string.IsNullOrWhiteSpace(state.own_name)) return state.own_name;
+        string own = StripBrand(colony.GetKingdomName());
+        if (state != null && !string.IsNullOrWhiteSpace(own)) state.own_name = own;
+        return own ?? "";
     }
+
+    // 去掉名字前头的"某属"，叠了几层去几层("吕属吕属莱" → "莱")；去完是空的照原样还回去。
+    // "某"按简称算，至多两个字(见 Abbrev)；英文的国号是"地名 (宗主)"，没有这个字，不动
+    internal static string StripBrand(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return name;
+        string rest = name;
+        while (true)
+        {
+            int at = rest.IndexOfAny(BrandMarks);
+            if (at < 1 || at > 2 || at + 1 >= rest.Length) break;
+            rest = rest.Substring(at + 1);
+        }
+        return rest;
+    }
+
+    private static readonly char[] BrandMarks = { '属', '屬' };
 
     #endregion
 

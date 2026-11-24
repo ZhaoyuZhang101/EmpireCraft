@@ -23,6 +23,9 @@ public sealed class ColonyState
     public double rising_at = -1d;
     // 地名("简体|英文|繁体")：国号"某属某地"的后半；空的取首府所在法理名
     public string place = "";
+    // 没有剧本给的地名、首府也没有法理名和城名可用时，头一回拿本国当时的国名当地名，记在这里往后照用
+    // (不记的话每年重新起名都拿已经带着"某属"的国名再套一层，见 ColonySystem.Place)
+    public string own_name = "";
     // 租借地：出租的国家与租期届满的时间
     public long lessor_id = -1L;
     public double lease_until = -1d;
