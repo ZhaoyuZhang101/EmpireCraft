@@ -5,12 +5,15 @@ namespace UnityEngine
     public partial class Input
     {
         public static global::UnityEngine.Vector3 mousePosition { get; set; }
+        public static global::UnityEngine.Vector2 mouseScrollDelta { get; set; }
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static global::System.Boolean GetKey(global::UnityEngine.KeyCode key) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("UnityEngine.Input::GetKey"); }
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static global::System.Boolean GetKeyDown(global::UnityEngine.KeyCode key) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("UnityEngine.Input::GetKeyDown"); }
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static global::System.Boolean GetMouseButton(global::System.Int32 button) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("UnityEngine.Input::GetMouseButton"); }
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static global::System.Boolean GetMouseButtonDown(global::System.Int32 button) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("UnityEngine.Input::GetMouseButtonDown"); }
         public Input() { }
     }
 }

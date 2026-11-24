@@ -15,6 +15,7 @@ namespace EmpireCraft.Scripts.Diagnostics
     }
     public static partial class EmpireCraftUpdateService
     {
+        public const global::System.String CoreManifestName = "EmpireCraftCore_win-x64.json";
         public const global::System.String InstallResultFileName = "install-result.json";
         public const global::System.String InstallStateFileName = "install-state.json";
         public const global::System.Int32 MaximumArchiveEntries = (global::System.Int32)(20000);
@@ -26,7 +27,11 @@ namespace EmpireCraft.Scripts.Diagnostics
         public const global::System.Int32 SwapAttempts = (global::System.Int32)(20);
         public const global::System.String UpdateSettingsFileName = "update-settings.json";
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static void FetchCore(global::System.String wantVersion, global::System.String folder, global::System.Action<global::System.Int32> progress) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService::FetchCore"); }
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static void Initialize() { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService::Initialize"); }
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static global::System.String InstalledVersion() { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService::InstalledVersion"); }
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static global::System.String ReplacedConfigPath() { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("EmpireCraft.Scripts.Diagnostics.EmpireCraftUpdateService::ReplacedConfigPath"); }
     }
@@ -573,17 +578,17 @@ namespace EmpireCraft.Scripts.UI.Windows
         public static void Open(global::Kingdom kingdom) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.UI.Windows.InstitutionWindow::Open"); }
         public InstitutionWindow() { }
     }
-    public partial class KingdomLawWindow : global::EmpireCraft.Scripts.UI.Components.WideScrollWindow<global::EmpireCraft.Scripts.UI.Windows.KingdomLawWindow>
-    {
-        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        public static void Open(global::Kingdom kingdom) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.UI.Windows.KingdomLawWindow::Open"); }
-        public KingdomLawWindow() { }
-    }
     public partial class KingdomAffairsWindow : global::EmpireCraft.Scripts.UI.Components.WideScrollWindow<global::EmpireCraft.Scripts.UI.Windows.KingdomAffairsWindow>
     {
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static void Open(global::Kingdom kingdom) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.UI.Windows.KingdomAffairsWindow::Open"); }
         public KingdomAffairsWindow() { }
+    }
+    public partial class KingdomLawWindow : global::EmpireCraft.Scripts.UI.Components.WideScrollWindow<global::EmpireCraft.Scripts.UI.Windows.KingdomLawWindow>
+    {
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static void Open(global::Kingdom kingdom) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.UI.Windows.KingdomLawWindow::Open"); }
+        public KingdomLawWindow() { }
     }
     public partial class KingdomMilitaryWindow : global::NeoModLoader.api.AbstractWideWindow<global::EmpireCraft.Scripts.UI.Windows.KingdomMilitaryWindow>
     {
@@ -688,8 +693,6 @@ namespace EmpireCraft.Scripts.UI.Windows
         public const global::System.Int32 NotableCount = (global::System.Int32)(6);
         public const global::System.Int32 OverviewRows = (global::System.Int32)(5);
         public const global::System.Single TreeHeight = 300f;
-        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-        public static global::System.String Post(global::EmpireCraft.Scripts.System.PersonalClanIdentity identity) { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("EmpireCraft.Scripts.UI.Windows.SpecificClanWindow::Post"); }
         [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         public static void ShowFor(global::EmpireCraft.Scripts.System.PersonalClanIdentity identity, global::EmpireCraft.Scripts.UI.Windows.SpecificClanWindow.Page page = (global::EmpireCraft.Scripts.UI.Windows.SpecificClanWindow.Page)(4)) { global::EmpireCraft.Server.Shim.Miss("EmpireCraft.Scripts.UI.Windows.SpecificClanWindow::ShowFor"); }
         public SpecificClanWindow() { }

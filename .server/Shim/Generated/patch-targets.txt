@@ -190,9 +190,11 @@ NeoModLoader.api.ModConfig::MergeWith
 PlayerControl::checkClickTouchInspectSelect
 PlayerControl::updateControls
 Plot::save
+Plot::updateProgress
 Plot::updateProgressTarget
 PlotAsset::canBeDoneByRole
 PlotAsset::checkIsPossible
+PlotManager::newPlot
 PowerLibrary::drawBorderBrush
 PowerLibrary::drawDemolish
 PowerLibrary::drawScissors

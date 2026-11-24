@@ -134,6 +134,11 @@ namespace UnityEngine.UI
     {
         public Outline() { }
     }
+    public partial class RawImage : global::UnityEngine.UI.MaskableGraphic
+    {
+        public global::UnityEngine.Texture texture { get; set; }
+        public RawImage() { }
+    }
     public partial class Selectable : global::UnityEngine.EventSystems.UIBehaviour
     {
         public Selectable() { }

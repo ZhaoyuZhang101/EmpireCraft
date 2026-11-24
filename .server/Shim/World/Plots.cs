@@ -1,7 +1,7 @@
 // 谋划对象(原版叫 plot)在服务器上只是个牌子：记着发起人、目标、进度，给模组各处查(actor.plot、plot.target_war……)。
 // 模组决议怎么发起、推进、办成或作罢都在模组自己的 DecisionSystem 里(Scripts/GeneralSystems/Decisions)，游戏与服务器同一套；
 // 这里不做任何推进。
-//# hand Plot: newPlot finishPlot getAsset getAuthor getProgressMax getProgressMod isActive isCancelled isFinished isSameType updateProgressTarget checkInitiatorAndTargets getState
+//# hand Plot: newPlot finishPlot getAsset getAuthor getProgressMax getProgressMod isActive isCancelled isFinished isSameType updateProgressTarget checkInitiatorAndTargets getState progress_target
 //# hand PlotAsset: canBeDoneByRole checkIsPossible isAllowedByWorldLaws
 //# hand PlotManager: newPlot isPlotTypeAlreadyRunning
 using System;

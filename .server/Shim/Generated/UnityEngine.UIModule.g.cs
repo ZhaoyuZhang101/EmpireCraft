@@ -5,8 +5,19 @@ namespace UnityEngine
     public partial class Canvas : global::UnityEngine.Behaviour
     {
         public global::UnityEngine.RenderMode renderMode { get; set; }
+        public global::System.Single scaleFactor { get; set; }
         public global::System.Int32 sortingOrder { get; set; }
         public Canvas() { }
+    }
+    public partial class CanvasRenderer : global::UnityEngine.Component
+    {
+        public CanvasRenderer() { }
+    }
+    public partial class RectTransformUtility
+    {
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static global::System.Boolean RectangleContainsScreenPoint(global::UnityEngine.RectTransform rect, global::UnityEngine.Vector2 screenPoint, global::UnityEngine.Camera cam) { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("UnityEngine.RectTransformUtility::RectangleContainsScreenPoint"); }
+        public RectTransformUtility() { }
     }
     public enum RenderMode : global::System.Int32
     {

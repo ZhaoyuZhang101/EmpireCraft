@@ -51,6 +51,7 @@ public partial class Actor : global::BaseSimObject, global::ILoadable<global::Ac
     public global::System.Int32 current_children_count { get; set; }
     public global::System.Int32 diplomacy { get; set; }
     public global::System.Int32 intelligence { get; set; }
+    public global::ActorBag inventory { get; set; }
     public global::System.Boolean is_army_captain { get; set; }
     public global::System.Boolean is_profession_citizen { get; set; }
     public global::System.Boolean is_unconscious { get; set; }
@@ -100,6 +101,8 @@ public partial class Actor : global::BaseSimObject, global::ILoadable<global::Ac
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public T getSimpleComponent<T>() where T : global::ActorSimpleComponent { return global::EmpireCraft.Server.Shim.Miss<T>("Actor::getSimpleComponent"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public global::System.Collections.Generic.IReadOnlyCollection<global::ActorTrait> getTraits() { return global::EmpireCraft.Server.Shim.Miss<global::System.Collections.Generic.IReadOnlyCollection<global::ActorTrait>>("Actor::getTraits"); }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public global::EquipmentAsset getWeaponAsset() { return global::EmpireCraft.Server.Shim.Miss<global::EquipmentAsset>("Actor::getWeaponAsset"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void giveInventoryResourcesToCity() { global::EmpireCraft.Server.Shim.Miss("Actor::giveInventoryResourcesToCity"); }
@@ -117,6 +120,8 @@ public partial class Actor : global::BaseSimObject, global::ILoadable<global::Ac
     public global::System.Boolean isArmyGroupLeader() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("Actor::isArmyGroupLeader"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public global::System.Boolean isArmyGroupWarrior() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("Actor::isArmyGroupWarrior"); }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public global::System.Boolean isCarryingResources() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("Actor::isCarryingResources"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public global::System.Boolean isImmuneToFire() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("Actor::isImmuneToFire"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -274,20 +279,45 @@ public partial class ActorAssetLibrary : global::BaseLibraryWithUnlockables<glob
     public void addTrait(global::System.String pTrait) { global::EmpireCraft.Server.Shim.Miss("ActorAssetLibrary::addTrait"); }
     public ActorAssetLibrary() { }
 }
+public partial class ActorBag
+{
+    public ActorBag() { }
+}
+public static partial class ActorBagExtensions
+{
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public static global::System.Collections.Generic.Dictionary<global::System.String, global::ResourceContainer> getResources(this global::ActorBag pBag) { return global::EmpireCraft.Server.Shim.Miss<global::System.Collections.Generic.Dictionary<global::System.String, global::ResourceContainer>>("ActorBagExtensions::getResources"); }
+}
 public partial class ActorData : global::BaseObjectData
 {
+    public global::UnitProfession profession;
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public global::System.Int64 transportID = -1L;
+    public global::System.Int32 x;
+    public global::System.Int32 y;
     public global::System.Int32 age_overgrowth { get; set; } = (global::System.Int32)(1);
+    public global::System.Int64 army { get; set; } = -1L;
     public global::System.String asset_id { get; set; }
+    public global::System.Int64 cityID { get; set; } = -1L;
+    public global::System.Int64 civ_kingdom_id { get; set; } = -1L;
+    public global::System.Int64 clan { get; set; } = -1L;
+    public global::System.Int64 culture { get; set; } = -1L;
+    public global::System.Int64 family { get; set; } = -1L;
+    public global::System.Int64 language { get; set; } = -1L;
+    public global::System.Int32 level { get; set; } = (global::System.Int32)(1);
     public global::System.Int32 loot { get; set; }
+    public global::System.Int64 lover { get; set; } = -1L;
     public global::System.Int32 money { get; set; }
     public global::System.Int32 nutrition { get; set; }
     public global::System.Int64 parent_id_1 { get; set; } = -1L;
     public global::System.Int64 parent_id_2 { get; set; } = -1L;
     public global::System.Int32 phenotype_index { get; set; }
     public global::System.Int32 phenotype_shade { get; set; }
+    public global::System.Int64 plot { get; set; } = -1L;
+    public global::System.Int64 religion { get; set; } = -1L;
     public global::System.Int32 renown { get; set; }
     public global::ActorSex sex { get; set; }
+    public global::System.Int64 subspecies { get; set; } = -1L;
     public ActorData() { }
 }
 public partial class ActorEquipment : global::System.Collections.Generic.IEnumerable<global::ActorEquipmentSlot>
@@ -405,6 +435,7 @@ public partial class AllianceBanner : global::BannerGeneric<global::Alliance, gl
 }
 public partial class AllianceData : global::MetaObjectData
 {
+    public global::System.Collections.Generic.List<global::System.Int64> kingdoms = new();
     public AllianceData() { }
 }
 public partial class AllianceManager : global::MetaSystemManager<global::Alliance, global::AllianceData>
@@ -523,6 +554,7 @@ public partial class AssetManager
     public static global::ai.behaviours.BehaviourTaskCityLibrary tasks_city;
     public static global::ai.behaviours.BehaviourTaskKingdomLibrary tasks_kingdom;
     public static global::TileLibrary tiles;
+    public static global::WorldTimeScaleLibrary time_scales;
     public static global::TooltipLibrary tooltips;
     public static global::TopTileLibrary top_tiles;
     public static global::ActorTraitGroupLibrary trait_groups;
@@ -690,6 +722,7 @@ public partial class BaseSystemData : global::System.IDisposable
 {
     public global::CustomDataContainer<global::System.Boolean> custom_data_bool = new();
     public global::CustomDataContainer<global::System.String> custom_data_string = new();
+    public global::System.Single this[global::System.String pKey] { get { return global::EmpireCraft.Server.Shim.Miss<global::System.Single>("BaseSystemData::Item"); } set { } }
     public global::System.Double created_time { get; set; }
     public global::System.Boolean custom_name { get; set; }
     public global::System.Double died_time { get; set; }
@@ -1050,6 +1083,7 @@ public partial class BuildingAsset : global::Asset
 public partial class BuildingData : global::BaseObjectData
 {
     public global::StorageBooks books;
+    public global::System.Int64 cityID = -1L;
     public BuildingData() { }
 }
 public partial class BuildingFruitGrowth : global::BaseBuildingComponent
@@ -1381,8 +1415,13 @@ public partial class CityData : global::MetaObjectData
     public global::System.Single timer_supply;
     public global::System.Double timestamp_kingdom;
     public global::System.Int32 total_leaders;
+    public global::System.Collections.Generic.List<global::ZoneData> zones = new();
     public global::System.Int64 founder_id { get; set; } = -1L;
     public global::System.String founder_name { get; set; }
+    public global::System.Int64 id_culture { get; set; } = -1L;
+    public global::System.Int64 id_language { get; set; } = -1L;
+    public global::System.Int64 id_religion { get; set; } = -1L;
+    public global::System.Int64 kingdomID { get; set; } = -1L;
     public global::System.Int64 last_kingdom_id { get; set; } = -1L;
     public global::System.Int64 last_leader_id { get; set; } = -1L;
     public global::System.Int64 leaderID { get; set; } = -1L;
@@ -1478,6 +1517,7 @@ public partial class ClanBanner : global::BannerGeneric<global::Clan, global::Cl
 }
 public partial class ClanData : global::MetaObjectData
 {
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public global::System.String original_actor_asset { get; set; }
     public ClanData() { }
 }
@@ -1538,6 +1578,7 @@ public partial class Config
     public const global::System.String currencyURL = "https://currency.superworldbox.com";
     public static global::System.Boolean disable_db;
     public const global::System.String firebaseDatabaseURL = "https://worldbox-g.firebaseio.com/";
+    public static global::System.Boolean fps_lock_30;
     public static global::System.Boolean game_loaded;
     public static global::System.Boolean isEditor;
     public static global::System.Boolean parallel_jobs_updater = true;
@@ -1547,6 +1588,8 @@ public partial class Config
     public static global::Kingdom whisper_B;
     public static global::System.String current_brush { get; set; }
     public static global::System.Boolean paused { get; set; }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public static void setWorldSpeed(global::WorldTimeScaleAsset pAsset, global::System.Boolean pUpdateDebug = true) { global::EmpireCraft.Server.Shim.Miss("Config::setWorldSpeed"); }
     public Config() { }
 }
 public partial class ConstructionCost
@@ -1575,6 +1618,7 @@ public partial class CoreSystemObject<TData> : global::NanoObject, global::ICore
 public partial class Culture : global::MetaObjectWithTraits<global::CultureData, global::CultureTrait>
 {
     public const global::System.Int32 MAX_LEVEL = (global::System.Int32)(5);
+    public global::System.Collections.Generic.Dictionary<global::MetaType, global::OnomasticsData> _onomastics_data = new();
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public void cloneAndEvolveOnomastics(global::Culture pFrom) { global::EmpireCraft.Server.Shim.Miss("Culture::cloneAndEvolveOnomastics"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
@@ -1598,6 +1642,8 @@ public partial class CultureData : global::MetaObjectData
     public global::System.String creator_city_name;
     public global::System.String creator_kingdom_name;
     public global::System.String creator_species_id;
+    public global::System.Collections.Generic.Dictionary<global::MetaType, global::System.String> onomastics = new();
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public global::System.String original_actor_asset { get; set; }
     public CultureData() { }
 }
@@ -1851,6 +1897,9 @@ public static partial class DiplomacyHelpers
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public static global::Kingdom getWarTarget(global::Kingdom pInitiatorKingdom) { return global::EmpireCraft.Server.Shim.Miss<global::Kingdom>("DiplomacyHelpers::getWarTarget"); }
 }
+public static partial class DiplomacyHelpersRebellion
+{
+}
 public partial class DiplomacyManager : global::CoreSystemManager<global::DiplomacyRelation, global::DiplomacyRelationData>
 {
     public static global::Kingdom kingdom_supreme;
@@ -1862,6 +1911,8 @@ public partial class DiplomacyRelation : global::CoreSystemObject<global::Diplom
 }
 public partial class DiplomacyRelationData : global::BaseSystemData
 {
+    public global::System.Int64 kingdom1_id;
+    public global::System.Int64 kingdom2_id;
     public global::System.Double timestamp_last_war_ended;
     public DiplomacyRelationData() { }
 }
@@ -2384,6 +2435,7 @@ public partial class KingdomCustomizeWindow : global::GenericCustomizeWindow<glo
 public partial class KingdomData : global::MetaObjectData
 {
     public global::System.Collections.Generic.List<global::LeaderEntry> past_rulers = new();
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public global::System.Single timer_new_king = 10f;
     public global::System.Double timestamp_alliance = -1d;
     public global::System.Double timestamp_king_rule = -1d;
@@ -2391,6 +2443,11 @@ public partial class KingdomData : global::MetaObjectData
     public global::System.Double timestamp_new_conquest = -1d;
     public global::System.Int32 banner_background_id { get; set; }
     public global::System.Int32 banner_icon_id { get; set; }
+    public global::System.Int64 capitalID { get; set; } = -1L;
+    public global::System.Int64 id_culture { get; set; } = -1L;
+    public global::System.Int64 id_language { get; set; } = -1L;
+    public global::System.Int64 id_religion { get; set; } = -1L;
+    public global::System.Int64 kingID { get; set; } = -1L;
     public global::System.String original_actor_asset { get; set; }
     public global::System.Int64 royal_clan_id { get; set; } = -1L;
     public KingdomData() { }
@@ -2465,6 +2522,7 @@ public partial class LanguageBanner : global::BannerGeneric<global::Language, gl
 public partial class LanguageData : global::MetaObjectData
 {
     public global::System.String creator_species_id;
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public LanguageData() { }
 }
 public partial class LanguageManager : global::MetaSystemManager<global::Language, global::LanguageData>
@@ -2590,6 +2648,7 @@ public partial class MapBox : global::UnityEngine.MonoBehaviour
     public global::PlayerControl player_control;
     public global::PlotManager plots;
     public global::ReligionManager religions;
+    public global::SaveManager save_manager;
     public global::System.Collections.Generic.HashSet<global::WorldTile> tiles_dirty = new();
     public global::WorldTile[] tiles_list;
     public global::LoadingScreen transition_screen;
@@ -2675,6 +2734,8 @@ public partial class MapStats
     public global::System.Single current_age_progress;
     public global::System.String name = "WorldBox";
     public global::System.Int64 peacesMade;
+    public global::System.Int64 population;
+    public global::System.Double world_time;
     public MapStats() { }
 }
 public delegate global::System.Boolean MetaCheckUnitWindowAction(global::Actor pUnit);
@@ -2689,6 +2750,8 @@ public partial class MetaObjectData : global::BaseSystemData
 public partial class MetaObjectWithTraits<TData, TBaseTrait> : global::MetaObject<TData> where TData : global::MetaObjectData where TBaseTrait : global::BaseTrait<TBaseTrait>
 {
     public virtual global::System.String species_id { get; set; }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public global::System.Collections.Generic.List<global::System.String> getTraitsAsStrings() { return global::EmpireCraft.Server.Shim.Miss<global::System.Collections.Generic.List<global::System.String>>("MetaObjectWithTraits`2::getTraitsAsStrings"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public override void loadData(TData pData) { global::EmpireCraft.Server.Shim.Miss("MetaObjectWithTraits`2::loadData"); base.loadData(pData); }
     public MetaObjectWithTraits() { }
@@ -3109,6 +3172,7 @@ public partial class PlayerOptionData
     public global::System.Boolean boolVal = true;
     public global::System.Int32 intVal;
     public global::System.String stringVal;
+    public PlayerOptionData(global::System.String pName) { }
     public PlayerOptionData() { }
 }
 public partial class Plot : global::MetaObject<global::PlotData>
@@ -3125,6 +3189,8 @@ public partial class Plot : global::MetaObject<global::PlotData>
     public global::UnityEngine.Sprite getSprite() { return global::EmpireCraft.Server.Shim.Miss<global::UnityEngine.Sprite>("Plot::getSprite"); }
     [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     public override void save() { global::EmpireCraft.Server.Shim.Miss("Plot::save"); base.save(); }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public void updateProgress(global::System.Single pElapsed) { global::EmpireCraft.Server.Shim.Miss("Plot::updateProgress"); }
     public Plot() { }
 }
 public delegate global::System.Boolean PlotAction(global::Actor pActor);
@@ -3140,8 +3206,8 @@ public partial class PlotAsset : global::BaseAugmentationAsset
     public global::PlotActorPlotDelegate check_other_plots;
     public global::PlotCheckerDelegate check_should_continue;
     public global::System.Boolean check_target_alliance;
-    public global::System.Boolean check_target_kingdom;
     public global::System.Boolean check_target_city;
+    public global::System.Boolean check_target_kingdom;
     public global::System.Boolean check_target_war;
     public global::System.Boolean is_basic_plot;
     public global::System.Int32 min_diplomacy = (global::System.Int32)(2);
@@ -3381,6 +3447,7 @@ public partial class ReligionData : global::MetaObjectData
 {
     public global::System.Int64 creator_kingdom_id = -1L;
     public global::System.String creator_species_id;
+    public global::System.Collections.Generic.List<global::System.String> saved_traits = new();
     public ReligionData() { }
 }
 public partial class ReligionManager : global::MetaSystemManager<global::Religion, global::ReligionData>
@@ -3448,20 +3515,33 @@ public partial class SaveManager : global::UnityEngine.MonoBehaviour
     public const global::System.String name_stats_data = "map_stats.s3db";
     public const global::System.String saveslot_base = "saves";
     public const global::System.String workshop_base = "workshop_upload";
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public static global::SavedMap currentWorldToSavedMap() { return global::EmpireCraft.Server.Shim.Miss<global::SavedMap>("SaveManager::currentWorldToSavedMap"); }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public static global::System.String folderPath(global::System.String pFolder) { return global::EmpireCraft.Server.Shim.Miss<global::System.String>("SaveManager::folderPath"); }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public void loadWorld(global::System.String pPath, global::System.Boolean pLoadWorkshop = false) { global::EmpireCraft.Server.Shim.Miss("SaveManager::loadWorld"); }
     public SaveManager() { }
 }
 public partial class SavedMap
 {
     public global::System.Collections.Generic.List<global::ActorData> actors_data = new();
+    public global::System.Collections.Generic.List<global::AllianceData> alliances = new();
+    public global::System.Collections.Generic.List<global::ArmyData> armies = new();
+    public global::System.Collections.Generic.List<global::BuildingData> buildings = new();
     public global::System.Collections.Generic.List<global::CityData> cities = new();
     public global::System.Collections.Generic.List<global::ClanData> clans = new();
     public global::System.Collections.Generic.List<global::CultureData> cultures = new();
     public global::System.Collections.Generic.List<global::FamilyData> families = new();
     public global::System.Collections.Generic.List<global::KingdomData> kingdoms = new();
     public global::System.Collections.Generic.List<global::LanguageData> languages = new();
+    public global::MapStats mapStats;
+    public global::System.Collections.Generic.List<global::PlotData> plots = new();
+    public global::System.Collections.Generic.List<global::DiplomacyRelationData> relations = new();
     public global::System.Collections.Generic.List<global::ReligionData> religions = new();
     public global::System.Collections.Generic.List<global::SubspeciesData> subspecies = new();
     public global::System.Collections.Generic.List<global::WarData> wars = new();
+    public global::WorldLaws worldLaws;
     public SavedMap() { }
 }
 public partial class ScrollWindow : global::UnityEngine.MonoBehaviour
@@ -4267,6 +4347,8 @@ public partial class WorldTile : global::System.IDisposable
     public global::System.Int32 y;
     public global::TileZone zone;
     public global::System.Int32 Height { get; set; }
+    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public global::System.Boolean isTemporaryFrozen() { return global::EmpireCraft.Server.Shim.Miss<global::System.Boolean>("WorldTile::isTemporaryFrozen"); }
     public void Dispose() { }
     public WorldTile() { }
 }
@@ -4309,7 +4391,12 @@ public partial class WorldTilemap : global::BaseMapObject
 public partial class WorldTimeScaleAsset : global::Asset
 {
     public global::System.Single multiplier;
+    public global::System.Int32 ticks = (global::System.Int32)(1);
     public WorldTimeScaleAsset() { }
+}
+public partial class WorldTimeScaleLibrary : global::AssetLibrary<global::WorldTimeScaleAsset>
+{
+    public WorldTimeScaleLibrary() { }
 }
 public partial class WorldTip : global::UnityEngine.MonoBehaviour
 {
@@ -4389,6 +4476,12 @@ public partial class ZoneCamera
 public partial struct ZoneConnection
 {
     public global::TileZone zone;
+}
+public partial class ZoneData
+{
+    public global::System.Int32 x;
+    public global::System.Int32 y;
+    public ZoneData() { }
 }
 public partial class ZoneFlash : global::BaseEffect
 {

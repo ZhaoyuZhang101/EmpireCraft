@@ -4,10 +4,15 @@ namespace UnityEngine
 {
     public partial class Application
     {
+        public static global::System.String dataPath { get; set; }
         public static global::System.Boolean isMobilePlatform { get; set; }
         public static global::System.String persistentDataPath { get; set; }
         public static global::System.Boolean runInBackground { get; set; }
         public static global::System.Int32 targetFrameRate { get; set; }
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static void OpenURL(global::System.String url) { global::EmpireCraft.Server.Shim.Miss("UnityEngine.Application::OpenURL"); }
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static void Quit() { global::EmpireCraft.Server.Shim.Miss("UnityEngine.Application::Quit"); }
         public Application() { }
     }
     public partial class Behaviour : global::UnityEngine.Component
@@ -417,6 +422,12 @@ namespace UnityEngine
         public static global::System.Int32 vSyncCount { get; set; }
         public QualitySettings() { }
     }
+    public partial struct Quaternion
+    {
+        public const global::System.Single kEpsilon = 1E-06f;
+        [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public static global::UnityEngine.Quaternion Euler(global::System.Single x, global::System.Single y, global::System.Single z) { return global::EmpireCraft.Server.Shim.Miss<global::UnityEngine.Quaternion>("UnityEngine.Quaternion::Euler"); }
+    }
     public partial struct RectInt
     {
         public global::System.Int32 height { get; set; }
@@ -444,6 +455,7 @@ namespace UnityEngine
         public global::UnityEngine.Vector2 offsetMax { get; set; }
         public global::UnityEngine.Vector2 offsetMin { get; set; }
         public global::UnityEngine.Vector2 pivot { get; set; }
+        public global::UnityEngine.Rect rect { get; set; }
         public global::UnityEngine.Vector2 sizeDelta { get; set; }
         public RectTransform() { }
     }
