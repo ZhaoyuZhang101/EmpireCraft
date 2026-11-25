@@ -111,6 +111,10 @@ public class ModClass : MonoBehaviour, IMod, IReloadable, ILocalizable, IConfigu
         EmpireCraft.Scripts.Terminal.LightweightHostMode.Tick();
         if (!EmpireCraft.Scripts.Terminal.LightweightHostMode.SkipDrawing)
             EmpireCraft.Scripts.GeneralSystems.SmoothBorders.FrameTick();
+        // 轻量主机模式停了画图：城乡的更新(村镇、厂区的自建)原先挂在画图钩子上，这时从这里走(见 PureMapPatch.HeadlessTick)。
+        // 服务器核心接手着这一局、或世界暂停着时不走：世界没在往前走，不该有东西变
+        else if (!EmpireCraft.Scripts.Terminal.CoreHost.Holding && World.world != null && !World.world.isPaused())
+            EmpireCraft.Scripts.GamePatches.PureMapPatch.HeadlessTick();
         using (FrameProfiler.Measure("后台·原生植被")) EmpireCraft.Scripts.GeneralSystems.NativeVegetationScheduler.Tick();
         using (FrameProfiler.Measure("后台·纯净地图")) EmpireCraft.Scripts.GeneralSystems.PureMapMode.Tick();
         EmpireCraft.Scripts.GeneralSystems.MapWallSystem.Tick();

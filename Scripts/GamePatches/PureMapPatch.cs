@@ -250,7 +250,7 @@ public partial class PureMapPatch : GamePatch
     private static int _urbanCursor;
     private static float _urbanCredit, _urbanLast = -1f;
 
-    // 不画图的地方(独立核心的主循环)也让城乡照样往前走：按轮重算各城的平面图(村镇是重算平面图时在城郊生出来的，见 UrbanFabric)，
+    // 不画图的地方(独立核心的主循环，见 .server/Program.cs；游戏里的轻量主机模式，见 ModClass.Update)也让城乡照样往前走：按轮重算各城的平面图(村镇是重算平面图时在城郊生出来的，见 UrbanFabric)，
     // 再走村镇、厂区、手动城区的月度更新。以前这些只挂在画图的钩子上，核心里 AI 从不建厂区村镇。
     // 没人看图，各城一分钟轮一遍就够(建不建按世界里的年月算，不看这个)
     private const float HeadlessCycleSeconds = 60f;
