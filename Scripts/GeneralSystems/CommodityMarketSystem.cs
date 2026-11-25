@@ -864,6 +864,14 @@ public static class CommodityMarketSystem
         {
             Warn("市场间贸易", exception);
         }
+        try
+        {
+            DomesticPayments();
+        }
+        catch (Exception exception)
+        {
+            Warn("国内货款", exception);
+        }
         foreach (Market market in Markets.Values)
             foreach (CommodityConfig good in Goods.Values)
             {
@@ -1160,8 +1168,155 @@ public static class CommodityMarketSystem
         return false;
     }
 
+    // ───────── 货款收现钱(用户 2026-11-25 "卖货收现金""这个也可以加") ─────────
+    // 以前真钱只在国库发工钱的城里落下来(都城、驻军的城)，百姓卖货的收入只记家底估值，出货的城手里没有现钱，
+    // 民间投资无钱可投。现在每年结市场时，货款里百姓手头有现钱的那部分真付现钱、跟着货走：
+    //   · 国内：同一市场里各城的出产、需用按底价折钱，出得多的是卖家、用得多的是买家(公家的储备不算)；
+    //     买家城的百姓拿闲钱付给卖家城，按各自多出、多用的份额摊；
+    //   · 花销：都城、驻军的城一年收的军饷俸禄是自己出产的几十上百倍，光结上面那点货款花不出去(实测国内货款一年才几十)。
+    //     所以结完货款，各城再拿剩下闲钱的 SpendShare 买本国市场的货，按各城出产(折底价)的份额付给出货的城——
+    //     当兵的、当官的拿了饷，花在全国的出产上，钱这才流回产地；
+    //   · 进口：买方各城摊到的货款里卖方实得的那部分(运费、关税不算，那两样照旧)先付现钱，现钱按卖方市场各城的出口收入摊过去；
+    //     付了现钱的，家底估值里就不再扣这一份。
+    // 只挪现钱，不铸钱；买方一年至多拿出闲钱(每户底线以上)的一半
+    private const float SaleCashShare = 0.5f;
+    private const float SpendShare = 0.5f;
+    private static readonly Dictionary<Market, Dictionary<City, float>> ExportIncome = new();
+
+    private static void Hand(List<(City city, CityPopulationData data, float weight)> takers, float total, long cash)
+    {
+        if (cash <= 0L || total <= 0f || takers.Count == 0) return;
+        long left = cash;
+        for (int index = 0; index < takers.Count && left > 0L; index++)
+        {
+            (City city, CityPopulationData data, float weight) = takers[index];
+            long share = index == takers.Count - 1 ? left : Math.Min(left, (long)Math.Floor(cash * (double)(weight / total)));
+            if (share <= 0L) continue;
+            EnterpriseSystem.ReceiveSaleCash(city, data, share);
+            left -= share;
+        }
+    }
+
+    private static void DomesticPayments()
+    {
+        foreach (Market market in Markets.Values)
+        {
+            var buyers = new List<(City city, CityPopulationData data, float owe)>();
+            var sellers = new List<(City city, CityPopulationData data, float weight)>();
+            var makers = new List<(City city, CityPopulationData data, float weight)>();
+            var all = new List<(City city, CityPopulationData data)>();
+            float owed = 0f, spare = 0f, output = 0f;
+            foreach (Kingdom member in market.members)
+            {
+                if (member?.cities == null) continue;
+                foreach (City city in member.cities)
+                {
+                    CityPopulationData data = city?.data == null || city.isRekt() ? null : CityPopulationSystem.Get(city);
+                    if (data == null || !Books.TryGetValue(city.id, out CityBook book)) continue;
+                    float net = 0f;
+                    foreach (KeyValuePair<string, float> pair in book.made) net += pair.Value * BasePrice(pair.Key);
+                    all.Add((city, data));
+                    if (net > 0f)
+                    {
+                        makers.Add((city, data, net));
+                        output += net;
+                    }
+                    foreach (KeyValuePair<string, float> pair in book.wanted)
+                        net -= Mathf.Max(0f, pair.Value - (book.reserve.TryGetValue(pair.Key, out float held) ? held : 0f)) * BasePrice(pair.Key);
+                    if (net >= 1f)
+                    {
+                        sellers.Add((city, data, net));
+                        spare += net;
+                    }
+                    else if (net <= -1f)
+                    {
+                        buyers.Add((city, data, -net));
+                        owed -= net;
+                    }
+                }
+            }
+            if (buyers.Count > 0 && sellers.Count > 0)
+            {
+                float traded = Mathf.Min(owed, spare);
+                long collected = 0L;
+                foreach ((City city, CityPopulationData data, float owe) in buyers)
+                    collected += EnterpriseSystem.PayIdleCash(city, data, (long)Math.Floor(owe * (double)(traded / owed)), SaleCashShare);
+                if (collected > 0L)
+                {
+                    Hand(sellers, spare, collected);
+                    FiscalDiagnostics.Count("国内货款现钱", (int)Math.Min(int.MaxValue, collected));
+                }
+            }
+            // 花销：剩下的闲钱再花一份在本国的出产上(先都收上来再分，自己城出的货也有自己一份)
+            if (makers.Count == 0 || output <= 0f) continue;
+            long spent = 0L;
+            foreach ((City city, CityPopulationData data) in all)
+                spent += EnterpriseSystem.PayIdleCash(city, data, long.MaxValue, SpendShare);
+            if (spent <= 0L) continue;
+            Hand(makers, output, spent);
+            FiscalDiagnostics.Count("民间花销现钱", (int)Math.Min(int.MaxValue, spent));
+        }
+    }
+
+    // 进口货款里付现钱的部分：在各城的家底估值已经照旧扣过整笔货款之后(见 PayImports)，付了现钱的把那一份估值还回去
+    private static void ImportCash(Dictionary<Market, (float paid, float duty)> bills,
+        Dictionary<Market, List<(City city, Kingdom kingdom, CityPopulationData data, float weight)>> payers, HashSet<Market> privateTrade)
+    {
+        foreach (KeyValuePair<Market, (float paid, float duty)> bill in bills)
+        {
+            Market buyer = bill.Key;
+            if (!privateTrade.Contains(buyer) || bill.Value.paid <= 0f || buyer.leader == null ||
+                !payers.TryGetValue(buyer, out List<(City city, Kingdom kingdom, CityPopulationData data, float weight)> cities)) continue;
+            // 卖给这个市场、又有出货的城可以收钱的各个卖方市场，各得了多少
+            var sellers = new List<(Market market, float earned)>();
+            float earnedAll = 0f;
+            foreach (Market seller in Markets.Values)
+            {
+                if (seller == buyer || !seller.soldTo.TryGetValue(buyer.leader.id, out float earned) || earned <= 0f ||
+                    !ExportIncome.TryGetValue(seller, out Dictionary<City, float> makers) || makers.Count == 0) continue;
+                sellers.Add((seller, earned));
+                earnedAll += earned;
+            }
+            float weights = cities.Sum(entry => entry.weight);
+            if (earnedAll <= 0f || weights <= 0f) continue;
+            float cashable = Mathf.Min(1f, earnedAll / bill.Value.paid);
+            long collected = 0L;
+            foreach ((City city, Kingdom kingdom, CityPopulationData data, float weight) in cities)
+            {
+                long paid = EnterpriseSystem.PayIdleCash(city, data, (long)Math.Floor(bill.Value.paid * (double)(weight / weights) * cashable), SaleCashShare);
+                if (paid <= 0L) continue;
+                PopulationEconomySystem.AddSavings(city, data, paid);
+                collected += paid;
+            }
+            if (collected <= 0L) continue;
+            long left = collected;
+            for (int index = 0; index < sellers.Count && left > 0L; index++)
+            {
+                long part = index == sellers.Count - 1 ? left : Math.Min(left, (long)Math.Floor(collected * (double)(sellers[index].earned / earnedAll)));
+                if (part <= 0L) continue;
+                Dictionary<City, float> makers = ExportIncome[sellers[index].market];
+                var takers = new List<(City city, CityPopulationData data, float weight)>();
+                float total = 0f;
+                foreach (KeyValuePair<City, float> pair in makers)
+                {
+                    CityPopulationData data = pair.Key?.data == null || pair.Key.isRekt() ? null : CityPopulationSystem.Get(pair.Key);
+                    if (data == null || pair.Value <= 0f) continue;
+                    takers.Add((pair.Key, data, pair.Value));
+                    total += pair.Value;
+                }
+                if (takers.Count == 0) continue;
+                Hand(takers, total, part);
+                left -= part;
+            }
+            // 卖方那头没人收得了的(整座城没了)：退回买方头一座城，钱不能没了
+            if (left > 0L && cities.Count > 0) EnterpriseSystem.CashIn(cities[0].data, left);
+            FiscalDiagnostics.Count("进口货款现钱", (int)Math.Min(int.MaxValue, collected - left));
+        }
+    }
+
     private static void Trade()
     {
+        ExportIncome.Clear();
         _routed = ConnectivitySystem.Ready;
         RouteCosts.Clear();
         FreightFactors.Clear();
@@ -1423,6 +1578,8 @@ public static class CommodityMarketSystem
             buyer.leader.SubMoney(Mathf.RoundToInt(bill.Value.paid), TreasuryCategory.PublicTrade);
             buyer.memberImports[buyer.leader.id] = (buyer.memberImports.TryGetValue(buyer.leader.id, out float before) ? before : 0f) + bill.Value.paid;
         }
+        // 进口货款里百姓手头有现钱的部分真付现钱(见上)
+        ImportCash(bills, payers, privateTrade);
     }
 
     // 转口贸易：丝绸、瓷器、茶这类又轻又贵的奢侈品，经中间市场一站站转卖(丝路上的粟特、波斯商人，海路上的商站)。
@@ -1510,6 +1667,9 @@ public static class CommodityMarketSystem
         {
             float income = earned * made / total;
             data.produced_value += income;
+            // 记下各城的出口收入：进口货款的现钱按它摊过来(见 ImportCash)
+            if (!ExportIncome.TryGetValue(seller, out Dictionary<City, float> incomes)) ExportIncome[seller] = incomes = new Dictionary<City, float>();
+            incomes[city] = (incomes.TryGetValue(city, out float earlier) ? earlier : 0f) + income;
             var sectors = data.produced_sector_values ??= new Dictionary<string, float>();
             sectors.TryGetValue(sector, out float previous);
             sectors[sector] = previous + income;

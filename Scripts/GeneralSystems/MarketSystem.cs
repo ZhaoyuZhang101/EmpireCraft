@@ -13,7 +13,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   市场：同一国家(帝国则是整个帝国)的城市组成国内市场；有市场或码头的城还能和相邻、未交战的外国城市通商。
 //   商品：粮食、木材、石料、金属。每城按户数算出应有储备(粮食一年口粮；木石按建设；金属按打造装备，交战时多备)。
 //   交换：每月，储备不足的城向市场里有余量(超出储备一半以上)的城买进，按价格付钱
-//        (粮食由民间存款付，木石金属由城市国库付，卖方的货是百姓的，见 PopulationEconomySystem.Savings)，
+//        (粮食由民间存款付，木石金属由城市国库付，卖方的货是百姓的，见 PopulationEconomySystem.Savings；
+//        百姓的货卖出去收到的是真钱，见 EnterpriseSystem.SaleCash)，
 //        卖方收九成(一成是商人的利润，归卖方城里的背景商人；
 //        卖粮的钱里租地收成那部分归地主，见 LandEconomySystem.AddBackgroundIncome)；每月能买卖多少受商贸能力限制(商人越多、有市场码头越多)。
 //   价格：按市场总需求 ÷ 总供给在基础价的 0.25~4 倍之间浮动。
@@ -339,6 +340,8 @@ public static class MarketSystem
                     int rent = good == Good.Food
                         ? Mathf.FloorToInt(sellerGets * LandEconomySystem.BackgroundRentShare(seller)) : 0;
                     LandEconomySystem.AddBackgroundIncome(seller, privateValue - sellerGets, rent);
+                    // 百姓的货卖出去收的是真钱(见 EnterpriseSystem.SaleCash)：公家买的由买方国库付的钱里出，百姓买的粮由买方百姓的现钱付
+                    EnterpriseSystem.SaleCash(buyer, data, seller, sellerGets, good == Good.Food);
                     need -= moved;
                     capacity -= moved;
                     bought += value;

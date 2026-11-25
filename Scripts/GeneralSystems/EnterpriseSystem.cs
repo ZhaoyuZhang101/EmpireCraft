@@ -101,6 +101,49 @@ public static class EnterpriseSystem
         PopulationEconomySystem.AddSavings(city, data, -paid);
     }
 
+    // ---- 卖货收现金(用户 2026-11-25 "这个也可以加"；城际买卖见 MarketSystem.Settle) ----
+    // 以前百姓卖粮卖货的收入只记家底估值，真钱只在国库发工钱的城里落下来，产地手里没有现钱。现在货款是真钱、跟着货走：
+    //   · 公家买的木石金属(fromPeople 为假)：买方城的国库已经付了钱，买百姓的货那部分进卖方城的民间现金
+    //     (以前这笔钱付出去就没了)；
+    //   · 百姓自己买的粮(fromPeople 为真)：买方城百姓手里的现钱(每户底线以上的部分)先付，不够的照旧按家底估值换。
+    // 不铸新钱：现钱只是从买方挪到卖方。收了现钱的一方，家底估值同额转出(货变成了钱，家底不变)；付了现钱的买方，
+    // 估值里就不用再出这一份。返回付了多少现钱
+    public static long SaleCash(City buyer, CityPopulationData buyerData, City seller, long amount, bool fromPeople)
+    {
+        if (!Active || amount <= 0L || seller?.data == null || seller.isRekt()) return 0L;
+        CityPopulationData sellerData = CityPopulationSystem.Get(seller);
+        if (sellerData == null) return 0L;
+        long paid = amount;
+        if (fromPeople)
+        {
+            if (buyer?.data == null || buyerData == null) return 0L;
+            long idle = Cash(buyerData) - (long)CityPopulationSystem.BackgroundHouseholds(buyer) * CashReservePerHousehold;
+            paid = idle <= 0L ? 0L : TakeCash(buyerData, Math.Min(amount, idle));
+            if (paid <= 0L) return 0L;
+            PopulationEconomySystem.AddSavings(buyer, buyerData, paid);
+        }
+        CashIn(sellerData, paid);
+        PopulationEconomySystem.AddSavings(seller, sellerData, -paid);
+        FiscalDiagnostics.Count("卖货现金", (int)Math.Min(int.MaxValue, paid));
+        return paid;
+    }
+
+    // 商品市场的货款(见 CommodityMarketSystem.DomesticPayments / ImportCash)：买方城百姓拿闲着的现钱(每户底线以上的 share 那一份)付，
+    // 返回付了多少；卖方城收下，家底估值同额转出(出产时已经按估值记过收入，货卖成了钱，家底不变)
+    public static long PayIdleCash(City city, CityPopulationData data, long amount, float share)
+    {
+        if (!Active || amount <= 0L || city?.data == null || data == null) return 0L;
+        long idle = Cash(data) - (long)CityPopulationSystem.BackgroundHouseholds(city) * CashReservePerHousehold;
+        return idle <= 0L ? 0L : TakeCash(data, Math.Min(amount, (long)Math.Floor(idle * (double)Mathf.Clamp01(share))));
+    }
+
+    public static void ReceiveSaleCash(City city, CityPopulationData data, long amount)
+    {
+        if (!Active || amount <= 0L || city?.data == null || data == null) return;
+        CashIn(data, amount);
+        PopulationEconomySystem.AddSavings(city, data, -amount);
+    }
+
     // ---- 2. 民间投资 ----
     // 只投真钱：民间现金超过每户底线的部分，每年按 InvestSharePerYear 转入投资池
     // (投资花出去的工钱回到民间现金并交工资税——投资与收税都是真钱流转，不由估值变出钱来)
