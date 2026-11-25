@@ -250,7 +250,29 @@ public partial class PureMapPatch : GamePatch
     private static int _urbanCursor;
     private static float _urbanCredit, _urbanLast = -1f;
 
-    private static void RefreshUrbanSlice()
+    // 不画图的地方(独立核心的主循环)也让城乡照样往前走：按轮重算各城的平面图(村镇是重算平面图时在城郊生出来的，见 UrbanFabric)，
+    // 再走村镇、厂区、手动城区的月度更新。以前这些只挂在画图的钩子上，核心里 AI 从不建厂区村镇。
+    // 没人看图，各城一分钟轮一遍就够(建不建按世界里的年月算，不看这个)
+    private const float HeadlessCycleSeconds = 60f;
+    private static bool _headlessFailed;
+    private static double _headlessWorld = -1d;
+
+    internal static void HeadlessTick()
+    {
+        if (!PureMapMode.Enabled) return;
+        try
+        {
+            RefreshUrbanSlice(true);
+        }
+        catch (global::System.Exception exception)
+        {
+            // 哪座城的平面图算不出来：跳过它接着轮，头一回记一笔
+            if (!_headlessFailed) NeoModLoader.services.LogService.LogWarning($"[EmpireCraft][城乡] 不画图时更新出错: {exception.Message}");
+            _headlessFailed = true;
+        }
+    }
+
+    private static void RefreshUrbanSlice(bool headless = false)
     {
         float now = Time.unscaledTime;
         var cities = World.world?.cities?.list;
@@ -270,11 +292,21 @@ public partial class PureMapPatch : GamePatch
         float delta = _urbanLast < 0f ? 0f : Mathf.Clamp(now - _urbanLast, 0f, 0.5f);
         _urbanLast = now;
         // 欠下的额度至多攒两帧的量(卡了一下不一口气补几十座)
-        _urbanCredit = Mathf.Min(_urbanCredit + UrbanQueue.Count / UrbanCycleSeconds * delta, MaxPlanRebuilds * 2f);
+        float earned = UrbanQueue.Count / (headless ? HeadlessCycleSeconds : UrbanCycleSeconds) * delta, cap = MaxPlanRebuilds * 2f;
+        if (headless)
+        {
+            // 世界开得快时一分钟里过去好几年：再按世界里的月份给额度，一年也把各城轮上一遍(村镇是轮到时才有机会生出来的)
+            double worldNow = World.world.getCurWorldTime();
+            int months = _headlessWorld >= 0d && worldNow >= _headlessWorld ? Date.getMonthsSince(_headlessWorld) : -1;
+            if (months != 0) _headlessWorld = worldNow;
+            if (months > 0) earned += UrbanQueue.Count / 12f * Mathf.Min(months, 12);
+            cap = Mathf.Max(cap, UrbanQueue.Count / 6f);
+        }
+        _urbanCredit = Mathf.Min(_urbanCredit + earned, cap);
         // 原有一格一像素粗图随城市变化；精细贴图的近景门槛由 CityDetailOverlay 单独控制。
-        bool detail = CitiesShown;
+        bool detail = !headless && CitiesShown;
         // 粗图、精细层、铭牌(都要城市显示开着)与夜景灯光用得着平面图才重建
-        bool needed = detail || LightsWanted();
+        bool needed = headless || detail || LightsWanted();
         long started = global::System.Diagnostics.Stopwatch.GetTimestamp();
         long budget = (long)(PlanRebuildBudgetMs * global::System.Diagnostics.Stopwatch.Frequency / 1000d);
         int rebuilt = 0;

@@ -957,6 +957,9 @@ public static class Program
         }
         world.Update();
         modUpdate();
+        // 城乡的更新(村镇、厂区的自建)：游戏里挂在画图的钩子上，核心不画图，在这里走(见 PureMapPatch.HeadlessTick)
+        if (Config.game_loaded && !Config.paused && !SmoothLoader.isLoading() && world.cities.Count > 0)
+            EmpireCraft.Scripts.GamePatches.PureMapPatch.HeadlessTick();
     }
 
     // 按剧本开局：走模组自己的"生成世界地图"那一套。name 是预设剧本的名字、自定剧本的文件夹名，或一个文件夹的路径
