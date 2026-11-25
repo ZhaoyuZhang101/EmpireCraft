@@ -21,86 +21,118 @@ public static partial class TerminalHost
 {
     private static readonly string[] FactionActs = { "reward", "rebuke", "dismiss" };
 
-    private static JObject CourtJson(Seat seat)
+    private const int MaxCourtFactions = 6;
+    private static readonly string[] FactionColors = { "o", "i", "p", "g", "a", "u", "w", "b" };
+    private static readonly Dictionary<string, string> FactionActIcons = new() { ["reward"] = "x_wealth", ["rebuke"] = "g_law", ["dismiss"] = "i_dead" };
+
+    // 像素面板(见 TerminalHost.Panels)：一张「权柄」卡(各派占比的堆叠条、权威、失衡、积弊)，有权臣时一张红框的权臣卡，再一张各派的人物卡
+    //(首领的脸、圣眷与怨望两条读数、能动用的筹码)
+    private static JObject CourtJson(Seat seat) => CachedPanel(seat, "court", () => BuildCourt(seat));
+
+    private static JObject BuildCourt(Seat seat)
     {
         Empire empire = OwnEmpire(seat);
         if (empire?.data == null) return null;
-        var factions = new JArray();
-        foreach (FixedFaction faction in CourtSystem.Factions(empire).OrderByDescending(faction => faction.CentralRatio))
-        {
-            CourtFactionState state = CourtSystem.FactionState(empire, faction);
-            string id = faction.GetID();
-            Actor leader = faction.GetLeader();
-            var acts = new JArray();
-            foreach (string kind in FactionActs)
-            {
-                int wait = CourtActions.Wait(empire, id, kind);
-                var act = new JObject { ["id"] = "faction:" + id + ":" + kind, ["label"] = LM.Get("court_act_" + kind) };
-                if (kind == "reward") act["note"] = string.Format(LM.Get("court_act_cost"), CourtActions.RewardCost(empire));
-                if (wait > 0) act["off"] = string.Format(LM.Get("court_act_wait"), wait);
-                else if (kind == "dismiss" && CourtActions.LeaderOffices(empire, faction).Count == 0) act["off"] = LM.Get("court_act_no_office");
-                acts.Add(act);
-            }
-            FixedFaction ally = string.IsNullOrEmpty(state.ally) ? null : CourtSystem.FindFaction(empire, state.ally);
-            factions.Add(new JObject
-            {
-                ["id"] = id, ["name"] = TerminalIntel.Strip(faction.Name ?? ""), ["ratio"] = faction.CentralRatio,
-                ["leader"] = leader != null && leader.isAlive() ? leader.getName() : null,
-                ["favor"] = Mathf.RoundToInt(state.favor), ["grievance"] = Mathf.RoundToInt(state.grievance),
-                ["capital"] = Mathf.RoundToInt(state.capital), ["obstruction"] = Mathf.RoundToInt(state.obstruction * 100f),
-                ["ally"] = ally == null ? null : TerminalIntel.Strip(ally.Name ?? ""),
-                ["action"] = string.IsNullOrEmpty(state.last_action) ? null : LM.Has("court_action_" + state.last_action)
-                    ? LM.Get("court_action_" + state.last_action) : state.last_action,
-                ["acts"] = acts
-            });
-        }
-        var result = new JObject
-        {
-            ["title"] = LM.Get("court_card_title"), ["note"] = LM.Get("court_card_note"), ["factions"] = factions,
-            ["labels"] = new JObject
-            {
-                ["ratio"] = LM.Get("court_lbl_ratio"), ["leader"] = LM.Get("court_lbl_leader"), ["favor"] = LM.Get("court_lbl_favor"),
-                ["grievance"] = LM.Get("court_lbl_grievance"), ["capital"] = LM.Get("court_lbl_capital"),
-                ["obstruction"] = LM.Get("court_lbl_obstruction"), ["ally"] = LM.Get("court_lbl_ally"), ["action"] = LM.Get("court_lbl_action"),
-                ["minister"] = LM.Get("court_lbl_minister"), ["noMinister"] = LM.Get("court_lbl_no_minister"),
-                ["push"] = LM.Get("decision_scale_push"), ["pull"] = LM.Get("decision_scale_pull"),
-                ["more"] = LM.Get("court_lbl_more")
-            }
-        };
-        int crisis = CourtSystem.State(empire)?.crisis_years ?? 0;
-        if (crisis > 0) result["crisis"] = string.Format(LM.Get("court_lbl_crisis"), crisis);
+        List<FixedFaction> factions = CourtSystem.Factions(empire).OrderByDescending(faction => faction.CentralRatio).ToList();
         Actor minister = empire.GetPowerfulMinister();
+        if (factions.Count == 0 && minister == null) return null;
+        var cards = new List<JObject>();
+
+        JObject power = XCard(LM.Get("terminal_court_power_card"), "g_court");
+        int crisis = CourtSystem.State(empire)?.crisis_years ?? 0;
+        if (crisis > 0)
+        {
+            power["tag"] = string.Format(LM.Get("court_lbl_crisis"), crisis);
+            power["tagTone"] = "b";
+        }
+        var parts = new List<(string, float, string)>();
+        float total = 0f;
+        for (int index = 0; index < factions.Count; index++)
+        {
+            float ratio = Convert.ToSingle(factions[index].CentralRatio);
+            parts.Add((TerminalIntel.Strip(factions[index].Name ?? ""), ratio, FactionColors[index % FactionColors.Length]));
+            total += ratio;
+        }
+        if (total < 100f) parts.Add((LM.Get("terminal_court_unaligned"), 100f - total, "k"));
+        power.XAdd(XStack(parts));
+        int authority = Authority(empire.CoreKingdom);
+        power.XAdd(XGauge(LM.Get("terminal_policy_authority"), authority, 100f, authority.ToString(), "i", "k_mandate"));
+        float imbalance = FactionBalanceSystem.Imbalance(empire);
+        if (imbalance >= 1f)
+            power.XAdd(XGauge(LM.Get("terminal_court_imbalance"), imbalance, 100f, Mathf.RoundToInt(imbalance).ToString(), imbalance >= 60f ? "b" : null, null, 60f));
+        float decay = DynasticCycleSystem.GetPressure(empire);
+        if (decay >= 1f)
+            power.XAdd(XGauge(LM.Get("terminal_court_decay"), decay, 100f, Mathf.RoundToInt(decay).ToString(), "b"));
+        cards.Add(power);
+
         if (minister != null)
         {
+            JObject card = XCard(LM.Get("court_lbl_minister"), "x_minister", "b");
             var weights = new List<ScaleWeight>();
             float ratio = CourtActions.CurbScale(empire, weights);
             FixedFaction side = CourtActions.MinisterFaction(empire, minister);
-            var acts = new JArray();
             int appeaseWait = CourtActions.Wait(empire, "minister", "appease"), curbWait = CourtActions.Wait(empire, "minister", "curb");
-            var appease = new JObject
+            float progress = Convert.ToSingle(empire.data.powerful_minister_progress);
+            card.XAdd(new JObject
             {
-                ["id"] = "minister:appease", ["label"] = LM.Get("court_act_appease"),
-                ["note"] = string.Format(LM.Get("court_act_cost"), CourtActions.AppeaseCost(empire))
-            };
-            if (appeaseWait > 0) appease["off"] = string.Format(LM.Get("court_act_wait"), appeaseWait);
-            var curb = new JObject
-            {
-                ["id"] = "minister:curb", ["label"] = LM.Get("court_act_curb"),
-                ["note"] = string.Format(LM.Get(ratio >= CourtActions.CurbHigh ? "court_curb_dismiss" : ratio >= 1f ? "court_curb_ok" : "court_curb_fail"), ratio)
-            };
-            if (curbWait > 0) curb["off"] = string.Format(LM.Get("court_act_wait"), curbWait);
-            acts.Add(appease);
-            acts.Add(curb);
-            result["minister"] = new JObject
-            {
-                ["name"] = minister.getName(), ["faction"] = side == null ? null : TerminalIntel.Strip(side.Name ?? ""),
-                ["status"] = TerminalIntel.Strip(empire.GetPowerfulMinisterStatusText() ?? "").Replace("\n", " · "),
-                ["progress"] = empire.data.powerful_minister_progress,
-                ["ratio"] = string.Format(LM.Get("decision_scale_ratio"), ratio),
-                ["push"] = WeightsJson(weights, true), ["pull"] = WeightsJson(weights, false), ["acts"] = acts
-            };
+                ["t"] = "who", ["look"] = Look(minister), ["pid"] = minister.getID().ToString(), ["name"] = minister.getName(),
+                ["sub"] = side == null ? null : TerminalIntel.Strip(side.Name ?? ""), ["tag"] = Mathf.RoundToInt(progress) + "%", ["tagTone"] = "b",
+                ["tone"] = "b",
+                ["bars"] = new JArray(new JObject { ["label"] = LM.Get("terminal_court_minister_progress"), ["v"] = Mathf.RoundToInt(progress), ["tone"] = "b" }),
+                ["note"] = TerminalIntel.Strip(empire.GetPowerfulMinisterStatusText() ?? "").Replace("\n", " · ") + " · " +
+                           string.Format(LM.Get("decision_scale_ratio"), ratio),
+                ["chips"] = new JArray(
+                    XChip("minister:appease", LM.Get("court_act_appease"), "x_wealth", string.Format(LM.Get("court_act_cost"), CourtActions.AppeaseCost(empire)),
+                        appeaseWait > 0 ? string.Format(LM.Get("court_act_wait"), appeaseWait) : null, "g"),
+                    XChip("minister:curb", LM.Get("court_act_curb"), "g_law",
+                        string.Format(LM.Get(ratio >= CourtActions.CurbHigh ? "court_curb_dismiss" : ratio >= 1f ? "court_curb_ok" : "court_curb_fail"), ratio) +
+                        " " + string.Join("、", WeightsJson(weights, true).Concat(WeightsJson(weights, false)).Select(token => token.ToString())),
+                        curbWait > 0 ? string.Format(LM.Get("court_act_wait"), curbWait) : null, "b"))
+            });
+            cards.Add(card);
         }
-        return result;
+
+        if (factions.Count > 0)
+        {
+            JObject card = XCard(LM.Get("terminal_court_factions_card"), "g_staff");
+            card["note"] = LM.Get("terminal_court_factions_note");
+            foreach (FixedFaction faction in factions.Take(MaxCourtFactions))
+            {
+                CourtFactionState state = CourtSystem.FactionState(empire, faction);
+                string id = faction.GetID();
+                Actor leader = faction.GetLeader();
+                bool alive = leader != null && leader.isAlive();
+                var chips = new JArray();
+                foreach (string kind in FactionActs)
+                {
+                    int wait = CourtActions.Wait(empire, id, kind);
+                    chips.Add(XChip("faction:" + id + ":" + kind, LM.Get("court_act_" + kind), FactionActIcons[kind],
+                        kind == "reward" ? string.Format(LM.Get("court_act_cost"), CourtActions.RewardCost(empire)) : LM.Get("terminal_court_" + kind + "_tip"),
+                        wait > 0 ? string.Format(LM.Get("court_act_wait"), wait)
+                        : kind == "dismiss" && CourtActions.LeaderOffices(empire, faction).Count == 0 ? LM.Get("court_act_no_office") : null,
+                        kind == "reward" ? "g" : kind == "dismiss" ? "b" : null));
+                }
+                var notes = new List<string> { LM.Get("court_lbl_capital") + " " + Mathf.RoundToInt(state.capital) };
+                if (state.obstruction > 0f) notes.Add(LM.Get("court_lbl_obstruction") + " " + Mathf.RoundToInt(state.obstruction * 100f) + "%");
+                FixedFaction ally = string.IsNullOrEmpty(state.ally) ? null : CourtSystem.FindFaction(empire, state.ally);
+                if (ally != null) notes.Add(LM.Get("court_lbl_ally") + " " + TerminalIntel.Strip(ally.Name ?? ""));
+                if (!string.IsNullOrEmpty(state.last_action))
+                    notes.Add(LM.Has("court_action_" + state.last_action) ? LM.Get("court_action_" + state.last_action) : state.last_action);
+                card.XAdd(new JObject
+                {
+                    ["t"] = "who", ["look"] = alive ? Look(leader) : null, ["pid"] = alive ? leader.getID().ToString() : null, ["icon"] = "g_court",
+                    ["name"] = TerminalIntel.Strip(faction.Name ?? ""), ["sub"] = alive ? LM.Get("court_lbl_leader") + " " + leader.getName() : null,
+                    ["tag"] = Mathf.RoundToInt(Convert.ToSingle(faction.CentralRatio)) + "%", ["tagTone"] = "o",
+                    ["tone"] = state.grievance >= 60f ? "b" : null,
+                    ["bars"] = new JArray(
+                        new JObject { ["label"] = LM.Get("court_lbl_favor"), ["v"] = Mathf.RoundToInt(state.favor), ["tone"] = "g" },
+                        new JObject { ["label"] = LM.Get("court_lbl_grievance"), ["v"] = Mathf.RoundToInt(state.grievance), ["tone"] = "b", ["mark"] = 60 }),
+                    ["note"] = string.Join(" · ", notes), ["chips"] = chips
+                });
+            }
+            cards.Add(card);
+        }
+        return XPanelOf(LM.Get("court_card_title"), cards);
     }
 
     // 政令：下到这里记一道命令(一个月后办)；认不得的返回 false

@@ -118,7 +118,46 @@ ICONS = {
     'g_division': 'ui/icons/iconToolProvinceCreate.png',
     'dv_add': 'ui/icons/iconToolProvinceAdd.png',
     'dv_remove': 'ui/icons/iconToolProvinceRemove.png',
+    # 六签里新的两签、国策页签
+    'tab_build': 'ui/icons/godpowers/factory_medium.png',
+    'tab_court': 'ui/icons/godpowers/zhou_conference.png',
+    'g_policy': 'ui/icons/godpowers/governance_layer.png',
+    # 像素面板里的行首图标(游戏那头按名字点，见 TerminalHost.Panels)
+    'x_market': 'ui/icons/godpowers/market_layer.png',
+    'x_wealth': 'ui/icons/godpowers/wealth_layer.png',
+    'x_factory': 'ui/icons/godpowers/factory_medium.png',
+    'x_factory_s': 'ui/icons/godpowers/factory_small.png',
+    'x_factory_l': 'ui/icons/godpowers/factory_large.png',
+    'x_road': 'ui/icons/godpowers/road_connect.png',
+    'x_city': 'ui/icons/godpowers/place_city.png',
+    'x_town': 'ui/icons/godpowers/place_town.png',
+    'x_village': 'ui/icons/godpowers/place_village.png',
+    'x_fort': 'ui/icons/godpowers/place_fort.png',
+    'x_palace': 'ui/icons/godpowers/build_palace.png',
+    'x_flourish': 'ui/icons/godpowers/city_flourish.png',
+    'x_edify': 'ui/icons/godpowers/edification_layer.png',
+    'x_govern': 'ui/icons/godpowers/governance_layer.png',
+    'x_people': 'ui/icons/godpowers/population_add.png',
+    'x_wild': 'ui/icons/godpowers/wild_develop.png',
+    'x_talent': 'ui/icons/godpowers/famous_talents.png',
+    'x_minister': 'ui/icons/godpowers/bestow_famous_minister.png',
+    'x_general': 'ui/icons/godpowers/bestow_famous_general.png',
+    'x_diplo': 'ui/icons/godpowers/diplomacy.png',
+    'x_tianxia': 'ui/icons/godpowers/tianxia_layer.png',
+    'x_tech': 'ui/icons/godpowers/institution_browse_culture.png',
+    'x_house': 'ui/icons/citydev/house.png',
+    'x_shop': 'ui/icons/citydev/market.png',
+    'x_port': 'ui/icons/citydev/port.png',
+    'x_temple': 'ui/icons/citydev/temple.png',
+    'x_barracks': 'ui/icons/citydev/barracks.png',
+    'x_works': 'ui/icons/citydev/factory.png',
 }
+# 各种厂、各种矿：图标名就是 f_厂种、r_矿种
+for _name in ('chemical_plant electrical_works gunpowder_mill heavy_aircraft_factory heavy_factory heavy_shipyard iron_foundry kiln '
+              'light_aircraft_factory light_factory light_shipyard mint motor_works paper_mill print_shop steel_mill wooden_shipyard').split():
+    ICONS['f_' + _name] = 'ui/icons/factories/' + _name + '.png'
+for _name in 'aluminium coal copper oil rare_earth saltpeter sulfur uranium'.split():
+    ICONS['r_' + _name] = 'ui/icons/resources/iconRes_' + _name + '.png'
 
 # 模组里没有的几个操作符号(全屏、退出全屏、放大、缩小、全览、关)：照像素图标的画法现画——象牙白的笔画，四周一圈深色描边
 DRAWN = {

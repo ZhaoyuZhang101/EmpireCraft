@@ -49,7 +49,9 @@ public static partial class TerminalHost
     private static readonly Dictionary<string, int> DiplomacyNeeds = new()
     {
         ["declare"] = int.MinValue, ["peace"] = int.MinValue, ["ally"] = 30, ["leave_alliance"] = int.MinValue, ["marry"] = 0,
-        ["pact"] = 10, ["opinion_up"] = int.MinValue
+        ["pact"] = 10, ["opinion_up"] = int.MinValue,
+        // 关税战(见 TradeWarSystem)：加征是单方面的事；议定关税要对方不太记恨才肯
+        ["trade_war"] = int.MinValue, ["trade_peace"] = -20
     };
 
     private static string Suffix(string key) => key != null && key.StartsWith("diplomacy_act_", StringComparison.Ordinal)
@@ -451,6 +453,14 @@ public static partial class TerminalHost
         {
             // 开源节流：调税、裁军(见 TerminalHost.FiscalLevers)
         }
+        else if (PolicyOrder(seat, id, made) || BuildOrder(seat, id, made))
+        {
+            // 国策、营建(见 TerminalHost.Policy)
+        }
+        else if (ModernOrder(seat, id, made))
+        {
+            // 近世：萧条对策、工潮、革命形势、公司(见 TerminalHost.Modern)
+        }
         else if (CourtOrder(seat, id, made))
         {
             // 朝局：对各派、对权臣(见 TerminalHost.Court)
@@ -803,6 +813,12 @@ public static partial class TerminalHost
                 return EmpireCraftPlotsAddition.BecomeEmpireAndStartEnfeoff(seat.Ruler) ? null : LM.Get("terminal_fail_generic");
             case "fiscal":
                 return FiscalExecute(seat, order);
+            case "modern":
+                return ModernExecute(seat, order);
+            case "policy":
+                return PolicyExecute(seat, order);
+            case "build":
+                return BuildExecute(seat, order);
             case "purse":
                 return PurseExecute(seat, order);
             case "faction":

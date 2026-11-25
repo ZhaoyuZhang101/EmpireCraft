@@ -41,10 +41,12 @@ public static partial class TerminalHost
     // 主线程：一回只备一份
     private static void RunAnnals(float now)
     {
-        if (now < _nextAnnals || AnnalsWant.IsEmpty && ClanWant.IsEmpty) return;
+        if (now < _nextAnnals || AnnalsWant.IsEmpty && ClanWant.IsEmpty && FirmsWant.IsEmpty) return;
         _nextAnnals = now + AnnalsSeconds;
         // 宗族页(见 TerminalHost.Clan)
         RunClan();
+        // 公司页(见 TerminalHost.Modern)
+        RunFirms();
         if (!WorldReady()) return;
         foreach (string token in AnnalsWant.Keys.ToList())
         {

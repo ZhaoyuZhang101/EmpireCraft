@@ -39,7 +39,7 @@ public static partial class TerminalHost
     // 终端这一头的版本：手机网页每次打开都读磁盘上最新的文件，游戏里跑的却是启动时编译的那一份。
     // 网页要的版本比这个高，就提示重启游戏(用户 2026-11-11 进游戏后："很多政令我点了都没有回应"——新按钮发给了旧服务)。
     // 加了网页用得着的新命令、新字段就加一
-    public const int Version = 20;
+    public const int Version = 22;
     public static int Port = 8765;
     // 有席位领着君主时世界流速的百分比
     public static int SpeedPercent = 10;
@@ -672,6 +672,8 @@ public static partial class TerminalHost
         if (method == "POST" && path == "/api/annals") return AnnalsReply(mine);
         // 宗族页：总览、名录、大事记、亲属树、列传(见 TerminalHost.Clan)
         if (method == "POST" && path == "/api/clan") return ClanReply(mine, body);
+        // 公司、财富榜、股市(见 TerminalHost.Modern.cs)
+        if (method == "POST" && path == "/api/firms") return FirmsReply(mine, body);
         // 议和台(见 TerminalHost.Peace)
         if (method == "POST" && path == "/api/peace") return PeaceReply(mine, body);
         if (method == "POST" && path == "/api/choose")
@@ -1181,9 +1183,14 @@ public static partial class TerminalHost
         try
         {
             state["decisions"] = DecisionScaleJson(seat);
-            state["court"] = CourtJson(seat);
+            state["courtp"] = CourtJson(seat);
             state["fiscalDetail"] = FiscalDetailJson(seat);
             state["purse"] = PurseJson(seat);
+            // 近世国势：市面、劳工、产业、革命形势、世界格局(见 TerminalHost.Modern.cs)
+            state["modern"] = ModernJson(seat);
+            // 施政页的国策、营建页(见 TerminalHost.Policy.cs)
+            state["govern"] = GovernJson(seat);
+            state["build"] = BuildJson(seat);
         }
         catch (Exception exception)
         {

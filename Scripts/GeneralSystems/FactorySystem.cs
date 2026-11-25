@@ -466,9 +466,11 @@ public static class FactorySystem
         if (!PureMapMode.Enabled || city?.zones == null || TypeIndex(type) < 0) return null;
         WorldTile center = city.getTile();
         HashSet<int> built = PureMapPatch.BuiltZones(city);
-        if (center == null || built == null) return null;
+        if (center == null) return null;
+        // 城区平面图还没算过(独立核心不画图，从来不算)：不知道哪些地块是城区，就让开城心四周那一圈
         int tries = 0;
-        foreach (TileZone zone in city.zones.Where(zone => zone?.centerTile != null && !built.Contains(zone.id) && zone != center.zone)
+        foreach (TileZone zone in city.zones.Where(zone => zone?.centerTile != null && zone != center.zone &&
+                     (built != null ? !built.Contains(zone.id) : Toolbox.SquaredDistTile(zone.centerTile, center) >= 200))
                      .OrderBy(zone => Toolbox.SquaredDistTile(zone.centerTile, center)).ToList())
         {
             if (++tries > 16) break;
