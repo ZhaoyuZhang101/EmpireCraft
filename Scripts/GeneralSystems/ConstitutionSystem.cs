@@ -424,7 +424,10 @@ public static class ConstitutionSystem
         constitution.amendments ??= new List<ConstitutionAmendmentRecord>();
         bool monarchy = IsConstitutionalMonarchy(empire, state);
         ConstitutionHeadSelection head = DeriveHeadSelection(empire, monarchy);
-        clauses.founding_ideology = monarchy || !state.is_republic ? IdeologyFamilies.StateIdeology(empire) : state.republic_ideology;
+        // 君主国的旗号剧本定死了的照剧本(见 ConstitutionalEconomyState.flag_ideology)，不跟着执政党换
+        clauses.founding_ideology = !monarchy && state.is_republic ? state.republic_ideology
+            : state.flag_ideology >= 0 && Enum.IsDefined(typeof(PartyIdeology), state.flag_ideology) ? (PartyIdeology)state.flag_ideology
+            : IdeologyFamilies.StateIdeology(empire);
         // 穿越政权是现代国家：主席个人的理念若是诸子百家这类古代理念(以前立国理念成了"黄老")，立国理念记作中间派
         if (TransmigrantSystem.Governs(empire) && clauses.founding_ideology >= PartyIdeology.Confucianism)
             clauses.founding_ideology = PartyIdeology.Centrism;

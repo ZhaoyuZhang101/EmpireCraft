@@ -127,6 +127,10 @@ public static class ScenarioModernPolitics
                     string.IsNullOrWhiteSpace(entry.leader) ? null : person(entry.leader), WorldMapData.PickParts(entry.name ?? ""));
                 if (party != null && party != ruling) others.Add(party);
             }
+            // 君主国、君主立宪：旗号照剧本定死(写了 flag 的照 flag，没写的照执政理念)，不随日后换届变
+            if (Regime(data) != "republic" && empire.data?.constitutional_economy is { } economy &&
+                (ParseIdeology(modern.flag) ?? ParseIdeology(modern.ideology)) is PartyIdeology flag)
+                economy.flag_ideology = (int)flag;
             // 政体模板里的派系并进执政党，不再被改组成一串额外的党
             PartySystem.FoldScenarioFactions(empire, ruling);
             SetRatios(empire.CoreKingdom, ruling, others);
@@ -156,6 +160,8 @@ public static class ScenarioModernPolitics
         FixedFaction ruling = PartySystem.ScenarioFoundParty(empire, ideology.Value, leader, party);
         if (ruling == null) return "立不了党";
         if (RepublicSystem.IsRepublic(empire)) RepublicSystem.SetFoundingIdeology(empire, ideology.Value);
+        // 君主国：旗号跟着这回的剧情事件改(战后日本施行新宪法)
+        else if (empire.data?.constitutional_economy is { } economy) economy.flag_ideology = (int)ideology.Value;
         SetRatios(kingdom, ruling, new List<FixedFaction>());
         if (oneParty) PartyBanSystem.Close(empire, ruling, Enumerable.Empty<FixedFaction>(), "party_ban_one_party_history");
         // 不再一党专政(战后日本修宪)：重开党禁

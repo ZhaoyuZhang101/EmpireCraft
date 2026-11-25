@@ -52,6 +52,8 @@ public class BlocData
     public int ideology;
     public double since = -1d;
     public List<long> members = new List<long>();
+    // 战时盟友：理念未必相近，只因有共同的敌人入的盟(见 WorldOrderSystem.JoinWartime)；仗打完理念不合的退出
+    public List<long> wartime = new List<long>();
     // 军备竞赛 0~3：平时多养兵、多拨军费
     public int arms_level;
     // 没有对手的起点(-1 = 眼下有对手)：太久没有对手就散
@@ -68,6 +70,8 @@ public class ColdWarData
     public double detente_until = -1d;
     public double last_crisis = -1d;
     public int crises;
+    // 两边盟主真打过(立阵营时就在交战，或冷战转热)：收场时不说"不战而终"
+    public bool hot;
 }
 
 public class LeagueData

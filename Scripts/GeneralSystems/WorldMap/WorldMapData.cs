@@ -229,6 +229,9 @@ public sealed class WorldMapModern
     public string regime = "";
     // 执政理念(PartyIdeology 的名字，如 Centrism、Communism、Fascism、Conservatism)
     public string ideology = "";
+    // 旗号(君主国、君主立宪用)：这个国家在世界上打的是哪面旗(PartyIdeology 的名字)，不随选举换届变；
+    // 不写的照执政理念。军部主导的日本执政党是权威主义，旗号写 Fascism
+    public string flag = "";
     // 执政党名号 "简体|英文|繁体"(中国国民党、全联盟共产党)；空的照理念起名
     public string party = "";
     // 一党专政(训政、苏联、纳粹德国)

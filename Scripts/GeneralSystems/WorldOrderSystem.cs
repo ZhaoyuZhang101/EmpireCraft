@@ -316,6 +316,7 @@ public static class WorldOrderSystem
         if (!DiplomacyLaws.AllianceBlocked)
         {
             FormBlocs(greats, now);
+            JoinWartime(states);
             JoinBlocs(states);
         }
         _indexDirty = true;
@@ -353,6 +354,8 @@ public static class WorldOrderSystem
         foreach (BlocData bloc in _data.blocs.ToList())
         {
             bloc.members.RemoveAll(id => !alive.Contains(id));
+            bloc.wartime ??= new List<long>();
+            bloc.wartime.RemoveAll(id => !bloc.members.Contains(id));
             Empire leader = Living(bloc.leader_id);
             bool leaderFit = leader != null && alive.Contains(leader.id) && greats.Contains(leader) &&
                              PartySystem.IdeologyDistance(Ideology(leader), (PartyIdeology)bloc.ideology) < FarIdeology;
@@ -379,7 +382,23 @@ public static class WorldOrderSystem
             foreach (long id in bloc.members.ToList())
             {
                 Empire member = Living(id);
-                if (member == null || member == leader || Distance(member, bloc) < FarIdeology) continue;
+                if (member == null || member == leader) continue;
+                if (Distance(member, bloc) < FarIdeology)
+                {
+                    // 理念本就合得来的战时盟友：仗打完留下，算正经的盟友
+                    if (bloc.wartime.Contains(id) && CommonEnemy(member, bloc) == null) bloc.wartime.Remove(id);
+                    continue;
+                }
+                // 战时盟友：还在共同对敌就留着
+                if (bloc.wartime.Contains(id))
+                {
+                    if (CommonEnemy(member, bloc) != null) continue;
+                    bloc.wartime.Remove(id);
+                    bloc.members.Remove(id);
+                    Record(string.Format(LM.Get("world_bloc_left_wartime_history"), member.GetEmpireFullName(), BlocName(bloc)), member,
+                        new[] { leader });
+                    continue;
+                }
                 bloc.members.Remove(id);
                 Record(string.Format(LM.Get("world_bloc_left_history"), member.GetEmpireFullName(), BlocName(bloc)), member,
                     new[] { leader });
@@ -406,8 +425,9 @@ public static class WorldOrderSystem
         foreach (Empire great in greats)
         {
             if (BlocOf(great) != null) continue;
+            // 正在交战的也算(以前要求没在交战：两个对立的大国开局就在打，阵营永远立不起来，仗也就只是两国的仗)
             Empire rival = greats.FirstOrDefault(other => other != great && Distance(great, other) >= OpposedIdeology &&
-                                                          !great.CoreKingdom.isInWarWith(other.CoreKingdom) && Contact(great, other));
+                                                          (Contact(great, other) || great.CoreKingdom.isInWarWith(other.CoreKingdom)));
             if (rival == null) continue;
             // 已有同道的阵营就入盟，不另起炉灶；够不着它的盟主就先等着(免得同一面旗号下立两个阵营)
             BlocData kin = _data.blocs.Where(bloc => Distance(great, bloc) <= CloseIdeology && LeaderOf(bloc) != null)
@@ -434,6 +454,42 @@ public static class WorldOrderSystem
         bloc.members.Add(state.id);
         _indexDirty = true;
         EventRecorder.RecordRoutine(state, string.Format(LM.Get("world_bloc_joined_history"), state.GetEmpireFullName(), BlocName(bloc)));
+    }
+
+    // 共同的敌人(用户 2026-11-25 "先修世界阵营"；同盟国里理念各异，只因都在打轴心国)：这个阵营的盟主正在打的另一个阵营的盟主，
+    // 也正是这一国在打的——返回那个敌对阵营
+    private static BlocData CommonEnemy(Empire state, BlocData bloc)
+    {
+        Kingdom core = state?.CoreKingdom, lead = LeaderOf(bloc)?.CoreKingdom;
+        if (core == null || lead == null) return null;
+        foreach (BlocData enemy in _data.blocs)
+        {
+            Kingdom foe = enemy == bloc ? null : LeaderOf(enemy)?.CoreKingdom;
+            if (foe != null && foe != core && lead.isInWarWith(foe) && core.isInWarWith(foe)) return enemy;
+        }
+        return null;
+    }
+
+    // 战时入盟：不看理念远近，只要不是敌对阵营的同道、没在打这个阵营的盟主、够得着它(或正并肩打着同一个敌人)
+    private static void JoinWartime(List<Empire> states)
+    {
+        foreach (Empire state in states)
+        {
+            if (BlocOf(state) != null) continue;
+            Kingdom core = state.CoreKingdom;
+            foreach (BlocData bloc in _data.blocs)
+            {
+                Empire leader = LeaderOf(bloc);
+                BlocData enemy = leader == null || leader == state || core.isInWarWith(leader.CoreKingdom) ? null : CommonEnemy(state, bloc);
+                if (enemy == null || Distance(state, enemy) <= CloseIdeology) continue;
+                bloc.members.Add(state.id);
+                (bloc.wartime ??= new List<long>()).Add(state.id);
+                _indexDirty = true;
+                Record(string.Format(LM.Get("world_bloc_joined_wartime_history"), state.GetEmpireFullName(), BlocName(bloc),
+                    LeaderOf(enemy).GetEmpireFullName()), state, new[] { leader });
+                break;
+            }
+        }
     }
 
     private static void JoinBlocs(List<Empire> states)
@@ -516,10 +572,11 @@ public static class WorldOrderSystem
             if (lx == null || ly == null) continue;
             bool hostile = PartySystem.IdeologyDistance((PartyIdeology)x.ideology, (PartyIdeology)y.ideology) >= FarIdeology;
             ColdWarData war = ColdWarBetween(x, y);
-            if (hostile && war == null && Contact(lx, ly))
+            bool fighting = lx.CoreKingdom.isInWarWith(ly.CoreKingdom);
+            if (hostile && war == null && (fighting || Contact(lx, ly)))
             {
-                _data.cold_wars.Add(new ColdWarData { a = x.id, b = y.id, since = now, tension = StartTension });
-                Record(string.Format(LM.Get("cold_war_started_history"), BlocName(x), BlocName(y), lx.GetEmpireFullName(),
+                _data.cold_wars.Add(new ColdWarData { a = x.id, b = y.id, since = now, tension = fighting ? 100f : StartTension, hot = fighting });
+                Record(string.Format(LM.Get(fighting ? "bloc_war_started_history" : "cold_war_started_history"), BlocName(x), BlocName(y), lx.GetEmpireFullName(),
                     ly.GetEmpireFullName()), lx, Members(x).Concat(Members(y)));
             }
             else if (!hostile && war != null) EndColdWar(war, null, null);
@@ -538,6 +595,7 @@ public static class WorldOrderSystem
             // 已经打起来了：等这一仗打完
             if (cx.isInWarWith(cy))
             {
+                war.hot = true;
                 war.tension = 100f;
                 continue;
             }
@@ -628,7 +686,7 @@ public static class WorldOrderSystem
         Empire leader = LeaderOf(winner);
         if (leader == null) return;
         leader.AddMandate(10);
-        Record(string.Format(LM.Get("cold_war_won_history"), years, BlocName(winner), leader.GetEmpireFullName()), leader,
+        Record(string.Format(LM.Get(war.hot ? "bloc_war_won_history" : "cold_war_won_history"), years, BlocName(winner), leader.GetEmpireFullName()), leader,
             Members(winner).Concat(losers ?? new List<Empire>()));
         // 输的一方人心动摇
         foreach (Empire loser in losers ?? new List<Empire>()) RevolutionSystem.Shock(loser, 20f);

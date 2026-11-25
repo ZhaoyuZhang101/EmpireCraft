@@ -370,9 +370,12 @@ public static partial class WarlordEraSystem
         holder.hasKing() && holder.HasMainTitle() &&
         !Compatibility.AncientWarfareCompatibility.BlocksEmpireFormation(holder);
 
-    // 政府代表的理念：宪法规定的立国理念 → 共和国的建国理念 → 执政理念
+    // 政府代表的理念：剧本给君主国定死的旗号 → 宪法规定的立国理念 → 共和国的建国理念 → 执政理念
     public static PartyIdeology GovernmentIdeology(Empire government)
     {
+        ConstitutionalEconomyState pinned = government?.data?.constitutional_economy;
+        if (pinned != null && !pinned.is_republic && pinned.flag_ideology >= 0 &&
+            Enum.IsDefined(typeof(PartyIdeology), pinned.flag_ideology)) return (PartyIdeology)pinned.flag_ideology;
         ConstitutionClauses clauses = ConstitutionSystem.GetClauses(government);
         if (clauses != null) return clauses.founding_ideology;
         ConstitutionalEconomyState state = government?.data?.constitutional_economy;
