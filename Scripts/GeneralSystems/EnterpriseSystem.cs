@@ -28,7 +28,10 @@ public static class EnterpriseSystem
     // 每户留作日用的现金，超出部分才投资
     private const int CashReservePerHousehold = 2;
     private const float PoolCap = 200000f;
-    private const float PoolFloor = 100f;
+    // 投资池的底数：没投过资的城也攒得到这个数。要够民间办成头一件事——设一座带墙的镇 180、新建一片近代小厂区 200 上下，
+    // 也要过得了"民间出资加快施工"那条线(PrivateFundingThreshold)。以前是 100，比镇(120)和厂区(120 起)都低，
+    // 池子永远付不起，实投是 0 上限就一直是 100，民间一片厂区也办不成，全由国库出钱记成官营
+    private const float PoolFloor = 400f;
     private const float PublicProfitShare = 0.35f;
     private const int BaseEnterpriseCost = 10;
     // 投资池超过这个数，民间出资加快施工(每 10 点施工 1 金)
@@ -201,6 +204,9 @@ public static class EnterpriseSystem
         return era < 4;
     }
 
+    // 定了私有化的国家(见 ModernPolicySystem)：新办的产业国库不出钱，民间出不起就不办(以前退回国库出钱、记成官营，和国策对不上)
+    private static bool PrivateOnly(Kingdom kingdom) => ModernPolicySystem.StatePreferred(kingdom) == false;
+
     public static int EnterpriseCost(BuildingAsset asset) => BaseEnterpriseCost + Math.Max(0, asset.construction_progress_needed) / 2;
 
     // 新开工的建筑：产业建筑按出资方登记所有权
@@ -211,7 +217,7 @@ public static class EnterpriseSystem
         bool state = StatePreferred(city.kingdom);
         if (state && PayPublicFirst(city, cost)) { RegisterPublic(city, building); return; }
         if (Pool(city) >= cost) { SpendPool(city, cost); return; }
-        if (!state && PayPublicFirst(city, cost)) { RegisterPublic(city, building); return; }
+        if (!state && !PrivateOnly(city.kingdom) && PayPublicFirst(city, cost)) { RegisterPublic(city, building); return; }
         // 没人出钱：百姓用自备材料自建，归民营
     }
 
@@ -245,7 +251,7 @@ public static class EnterpriseSystem
             SpendPool(city, cost);
             return true;
         }
-        if (!prefer && PayPublicFirst(city, cost))
+        if (!prefer && !PrivateOnly(city.kingdom) && PayPublicFirst(city, cost))
         {
             state = true;
             return true;
@@ -253,7 +259,8 @@ public static class EnterpriseSystem
         return selfBuild;
     }
 
-    public static bool CanFund(City city, int cost) => !Active || city?.data == null || CanPay(city, cost, true);
+    public static bool CanFund(City city, int cost) => !Active || city?.data == null ||
+                                                     (PrivateOnly(city.kingdom) ? Pool(city) >= cost : CanPay(city, cost, true));
 
     // 已有的扩建、添厂、升级：官营的国库出钱，民营的民间投资池出钱
     public static bool FundOwned(City city, int cost, bool state)
