@@ -120,6 +120,68 @@ public static class EnterpriseSystem
         data.investment_acc += move;
     }
 
+    // ---- 2b. 跨城投资(用户 2026-11-25 选"做跨城投资") ----
+    // 真钱只在国库发工钱的地方落下来(都城、驻军的城)，囤在那几座城里；别的城百姓卖粮卖货的收入只记家底估值，手里没有现钱，
+    // 光靠本城的投资池办不成产业。所以办民营的镇村、厂区时，除了本城的投资池，还能动用本国各城闲着的现金
+    // (每户底线以上的部分)：本城的闲钱肯拿出一半，外城的肯拿出四分之一；本城先出，外城里闲钱多的先出。
+    // 钱付给办产业那座城的工匠(工钱回到那座城的民间现金并交工资税)，记作出钱那座城的民间实投。只在一国之内，不跨国
+    private const float HomeIdleShare = 0.5f, OutsideIdleShare = 0.25f;
+
+    private static long IdleOffer(City source, City target)
+    {
+        if (source?.data == null || source.isRekt()) return 0L;
+        CityPopulationData data = CityPopulationSystem.Get(source);
+        if (data == null) return 0L;
+        long idle = Cash(data) - (long)CityPopulationSystem.BackgroundHouseholds(source) * CashReservePerHousehold;
+        return idle <= 0L ? 0L : (long)Math.Floor(idle * (double)(source == target ? HomeIdleShare : OutsideIdleShare));
+    }
+
+    private static IEnumerable<City> Investors(City city)
+    {
+        Kingdom kingdom = city.kingdom;
+        if (kingdom == null || kingdom.wild) return new[] { city };
+        return kingdom.getCities();
+    }
+
+    // 这座城办民营产业能动用的民间资本：本城投资池，加本国各城闲着的现金里肯拿出来的那一份
+    public static long PrivateCapital(City city)
+    {
+        if (!Active || city?.data == null) return 0L;
+        long total = (long)Mathf.Floor(Mathf.Max(0f, Pool(city)));
+        foreach (City source in Investors(city)) total += IdleOffer(source, city);
+        return total;
+    }
+
+    // 付民营的建设款：本城投资池 → 本城闲钱 → 本国别的城的闲钱(多的先出)；全额付得起才付
+    public static bool SpendPrivate(City city, int cost)
+    {
+        if (cost <= 0) return true;
+        if (!Active || city?.data == null || PrivateCapital(city) < cost) return false;
+        long left = cost - SpendPool(city, cost);
+        if (left <= 0L) return true;
+        var offers = new List<(City source, long offer)>();
+        foreach (City source in Investors(city))
+        {
+            long offer = IdleOffer(source, city);
+            if (offer > 0L) offers.Add((source, offer));
+        }
+        offers.Sort((a, b) => a.source == city ? -1 : b.source == city ? 1 : b.offer.CompareTo(a.offer));
+        long paid = 0L;
+        foreach ((City source, long offer) in offers)
+        {
+            if (left <= 0L) break;
+            CityPopulationData data = CityPopulationSystem.Get(source);
+            long taken = TakeCash(data, Math.Min(left, offer));
+            if (taken <= 0L) continue;
+            data.private_investment_spent_acc += taken;
+            if (source != city) FiscalDiagnostics.Count("跨城投资", (int)Math.Min(int.MaxValue, taken));
+            left -= taken;
+            paid += taken;
+        }
+        if (paid > 0L) ReturnToLocal(city, (int)Math.Min(int.MaxValue, paid));
+        return left <= 0L;
+    }
+
     // 从投资池付建设款，付给本城工匠(回到民间资产)；返回付出的整数金额
     public static int SpendPool(City city, int amount)
     {
@@ -216,7 +278,7 @@ public static class EnterpriseSystem
         int cost = EnterpriseCost(building.asset);
         bool state = StatePreferred(city.kingdom);
         if (state && PayPublicFirst(city, cost)) { RegisterPublic(city, building); return; }
-        if (Pool(city) >= cost) { SpendPool(city, cost); return; }
+        if (SpendPrivate(city, cost)) return;
         if (!state && !PrivateOnly(city.kingdom) && PayPublicFirst(city, cost)) { RegisterPublic(city, building); return; }
         // 没人出钱：百姓用自备材料自建，归民营
     }
@@ -246,11 +308,7 @@ public static class EnterpriseSystem
             state = true;
             return true;
         }
-        if (Pool(city) >= cost)
-        {
-            SpendPool(city, cost);
-            return true;
-        }
+        if (SpendPrivate(city, cost)) return true;
         if (!prefer && !PrivateOnly(city.kingdom) && PayPublicFirst(city, cost))
         {
             state = true;
@@ -260,16 +318,13 @@ public static class EnterpriseSystem
     }
 
     public static bool CanFund(City city, int cost) => !Active || city?.data == null ||
-                                                     (PrivateOnly(city.kingdom) ? Pool(city) >= cost : CanPay(city, cost, true));
+                                                     PrivateCapital(city) >= cost || !PrivateOnly(city.kingdom) && CanPay(city, cost, false);
 
-    // 已有的扩建、添厂、升级：官营的国库出钱，民营的民间投资池出钱
+    // 已有的扩建、添厂、升级：官营的国库出钱，民营的民间资本出钱(本城投资池，不够再动本国各城的闲钱，见 SpendPrivate)
     public static bool FundOwned(City city, int cost, bool state)
     {
         if (!Active || city?.data == null || cost <= 0) return true;
-        if (state) return PayPublicFirst(city, cost);
-        if (Pool(city) < cost) return false;
-        SpendPool(city, cost);
-        return true;
+        return state ? PayPublicFirst(city, cost) : SpendPrivate(city, cost);
     }
 
     // 建成的产业建筑中官营的占比(顺带清掉已经不存在的登记)；纯净地图按林场、矿、牧的镇村与厂区里的厂算(见 LivelihoodSystem)
