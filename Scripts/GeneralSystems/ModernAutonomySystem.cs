@@ -25,8 +25,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   离心 = 兵权(本省兵力占本省与中央合计的份额 × 40) + 中央正统不足(正统 50 以下每差 1 点 +0.4，至多 20)
 //        + 中央欠饷亏空 15 + 中央在对外的仗里丢了城 15 + 鞭长莫及((1 − 政令) × 15) + 异文化 10 + 理念与中央政府相去甚远 10
 //        − 外敌当前而中央守住了(同仇敌忾) 10；
-//   ≥ 55 往上挪：直辖 → 实力派要本省至少 3 城(拥兵坐大)；实力派 → 割据；割据 → 离开要 ≥ 70，且没在开国宽限里、没关自立；
-//   ≤ 25 往下挪：割据 → 实力派(复奉号令)；实力派 → 直辖是整编：没有外敌压境、兵力至少是本省三倍、国库出得起整编费
+//   往上挪：直辖 → 实力派要 ≥ 50 且本省至少 3 城(拥兵坐大)；实力派 → 割据要 ≥ 28；割据 → 离开要 ≥ 60，且没在开国宽限里、没关自立；
+//   ≤ 20 往下挪：割据满三年 → 实力派(复奉号令)；实力派 → 直辖是整编：外敌没打上门、兵力至少是本省两倍、国库出得起整编费
 //        (本省每城 50)，六成收编成功(本省的军团交给中央)，四成激起兵变、径直割据。
 // 只管近代国家(核心是现代政体)的成员；傀儡、属地、流亡政府不是成员，不在此列。分裂进程进行中的帝国不动(两套割据不叠)。
 // 旧档：头一回结算按现状定档(剧本的地方实力派、有兵的州算实力派，其余算直辖)
@@ -36,10 +36,16 @@ public static class ModernAutonomySystem
     // 实力派缴中央的成数(近代国家照常六成，联邦制三成五，见 TreasurySystem.TaxShares)
     public const int StrongmanCentralPercent = 20;
 
-    private const float UpAt = 55f, LeaveAt = 70f, DownAt = 25f;
+    // 门槛(用户 2026-11-27 "把门槛调低一点，让割据和整编常见些"：以前坐大、割据都是 55，离开 70，整编线 25，
+    // 1937 剧本里民国各派离心 15~37，三十年一档没挪)
+    private const float RiseAt = 50f, DefyAt = 28f, LeaveAt = 60f, DownAt = 20f;
+    // 割据了至少这么多年才复奉号令(兵变之后第二年就复奉，等于没闹)
+    private const int DefyMinYears = 3;
     private const int ConfirmYears = 2;
     private const int RiseMinCities = 3;
-    private const float ReorgArmyRatio = 3f, ReorgSuccess = 0.6f;
+    private const float ReorgArmyRatio = 2f, ReorgSuccess = 0.6f;
+    // 够了条件的实力派每年只有这一成会被拿来整编：不然仗一停，各派同一年一齐被整编、一齐兵变
+    private const float ReorgChance = 0.35f;
     private const int ReorgCostPerCity = 50;
 
     // ───────── 查询 ─────────
@@ -139,7 +145,7 @@ public static class ModernAutonomySystem
             {
                 Step(empire, core, member, context);
                 int tier = Tier(member);
-                if (tier != Direct || member.GetOrCreate().autonomy_score >= UpAt)
+                if (tier != Direct || member.GetOrCreate().autonomy_score >= RiseAt)
                     lines.Add($"{member.GetKingdomName()} {tier}档 离心{Mathf.RoundToInt(member.GetOrCreate().autonomy_score)}");
             }
             catch (Exception exception)
@@ -155,7 +161,7 @@ public static class ModernAutonomySystem
     {
         public float army;
         public int legitimacy;
-        public bool bankrupt, lostForeign, defendingForeign, foreignWar;
+        public bool bankrupt, lostForeign, defendingForeign, foreignWar, invaded;
         public string culture;
         public PartyIdeology ideology;
     }
@@ -178,8 +184,14 @@ public static class ModernAutonomySystem
         foreach (War war in ForeignWars(empire, core))
         {
             context.foreignWar = true;
-            if (WarSituation.CitiesLost(war, core) > 0) context.lostForeign = true;
-            else if (war.getMainDefender() == core) context.defendingForeign = true;
+            // 外敌打上门(中央是守方)；丢了城另记(剧本开局就在打的仗没记开战时的城数，丢没丢看不出来)
+            bool defending = war.getMainDefender() == core;
+            if (defending) context.defendingForeign = true;
+            if (WarSituation.CitiesLost(war, core) > 0)
+            {
+                context.lostForeign = true;
+                if (defending) context.invaded = true;
+            }
         }
         return context;
     }
@@ -211,8 +223,10 @@ public static class ModernAutonomySystem
         float score = Score(empire, member, context);
         extra.autonomy_score = score;
         int tier = Mathf.Clamp(extra.autonomy_tier, Direct, Defiant);
-        bool up = score >= (tier == Defiant ? LeaveAt : UpAt) && (tier != Direct || (member.cities?.Count ?? 0) >= RiseMinCities);
-        bool down = tier > Direct && score <= DownAt;
+        float upAt = tier == Direct ? RiseAt : tier == Strongman ? DefyAt : LeaveAt;
+        bool up = score >= upAt && (tier != Direct || (member.cities?.Count ?? 0) >= RiseMinCities);
+        bool down = tier > Direct && score <= DownAt &&
+                    (tier != Defiant || extra.autonomy_since < 0d || Date.getYearsSince(extra.autonomy_since) >= DefyMinYears);
         // 连着两年过线才挪一档：往上记正数、往下记负数，中间回落就清零
         extra.autonomy_years = up ? Math.Max(0, extra.autonomy_years) + 1 : down ? Math.Min(0, extra.autonomy_years) - 1 : 0;
         if (extra.autonomy_years >= ConfirmYears)
@@ -267,16 +281,17 @@ public static class ModernAutonomySystem
         Record(empire, member, "modern_autonomy_obey_history");
     }
 
-    // 实力派 → 直辖：整编。外敌打上门、对外丢着城的时候不整编，本省自己挑头打着仗的也不动；
-    // 兵力不到本省三倍、国库出不起的不动手(以前打着任何外战都不整编，中央随征的仗几乎年年有，三十年一次也没整编过)
+    // 实力派 → 直辖：整编。外敌打上门的时候不整编，本省自己挑头打着仗的也不动；
+    // 兵力不到本省两倍、国库出不起的不动手(以前打着任何外战都不整编，中央随征的仗几乎年年有，三十年一次也没整编过)
     private static void Reorganize(Empire empire, Kingdom core, Kingdom member, Context context)
     {
-        if (context.defendingForeign || context.lostForeign) return;
+        if (context.defendingForeign || UnityEngine.Random.value >= ReorgChance) return;
         if (member.getWars().Any(war => war.getMainAttacker() == member || war.getMainDefender() == member)) return;
         float own = Army(member);
         if (context.army < own * ReorgArmyRatio) return;
         int cost = ReorgCostPerCity * Math.Max(1, member.cities?.Count ?? 1);
-        if (!TreasurySystem.TrySpend(core, cost, TreasuryCategory.Military)) return;
+        // 整编费直接从国库出，不看可支配余款：可支配余款要先留安全储备，民国国库两万多照样一文不剩，六十回整编一回也没出得起钱
+        if (!TreasurySystem.TrySpend(core, cost, TreasuryCategory.Military, discretionary: false)) return;
         if (UnityEngine.Random.value >= ReorgSuccess)
         {
             Set(member, Defiant);
