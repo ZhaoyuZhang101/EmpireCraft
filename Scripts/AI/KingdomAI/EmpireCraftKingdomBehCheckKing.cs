@@ -106,6 +106,8 @@ public class EmpireCraftKingdomBehCheckKing : GameAIKingdomBase
                 VacantSince.Remove(pKingdom.id);
             }
         } 
+        // 近代国家里的派系军阀：首领由本家或部将接班，不由党派人、不从百姓里随便挑(见 ModernAutonomySystem.TryHandleVacancy)
+        if (ModernAutonomySystem.TryHandleVacancy(pKingdom)) return BehResult.Continue;
         // 选举制国家的行政区：省长出缺由本省执政党递补
         if (ProvincialPoliticsSystem.TryFillGovernorVacancy(pKingdom)) return BehResult.Continue;
         // 主教领：主教不世袭，出缺时按叙任权另派(见 HolyRomanSystem.Members)

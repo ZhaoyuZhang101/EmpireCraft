@@ -297,6 +297,10 @@ public static class EmpireCraftTooltipLibrary
 		if (SchismSystem.StatusText(kingdom) is string schismStatus)
 			pTooltip.addLineText("schism_member_status", schismStatus,
 				SchismSystem.IsBreakaway(kingdom) ? "#FF5555" : "#E9A85B");
+		// 近代国家成员的自主度：地方实力派、割据(见 ModernAutonomySystem)
+		if (ModernAutonomySystem.StatusText(kingdom) is string autonomyStatus)
+			pTooltip.addLineText("modern_autonomy_status", autonomyStatus,
+				ModernAutonomySystem.IsDefiant(kingdom) ? "#FF5555" : "#E9A85B");
 		pTooltip.addLineText("ruler_money", EmpireCraft.Scripts.HelperFunc.MoneyDisplay.Format(kingdom.GetTreasuryBalance()));
         if (CityPopulationSystem.AbstractPopulationEnabled && ExclaveMaintenanceSystem.Status(kingdom) is string exclaveStatus)
             pTooltip.addLineText("exclave_maintenance", exclaveStatus);

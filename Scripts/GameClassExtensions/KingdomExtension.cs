@@ -307,6 +307,12 @@ public static class KingdomExtension
         public double emirate_hereditary_at = -1d;
         // 分裂进程里割据(见 SchismSystem，用户 2026-10-21 选"先割据后独立")：割据起始时间与所属帝国；-1 = 没割据。
         // 割据的成员仍在帝国里、地图颜色不变，但不向中央缴税、不随征、不奉诏；进程化解或收场时清掉
+        // 近代国家成员的自主度(见 ModernAutonomySystem)：-1 还没定档，0 直辖、1 地方实力派、2 割据；
+        // years 连着过线的年数(往上正、往下负)，score 去年的离心，since 定这一档的时刻
+        public int autonomy_tier = -1;
+        public int autonomy_years;
+        public float autonomy_score;
+        public double autonomy_since = -1d;
         public double schism_breakaway_at = -1d;
         public long schism_breakaway_empire_id = -1L;
         // 去留冷却(见 MembershipCooldown)：神力从哪个帝国、哪位宗主放出，何时；神力拉入哪个帝国、归哪位宗主，何时；

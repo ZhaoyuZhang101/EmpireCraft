@@ -84,7 +84,11 @@ public static class ProvincialCollapseSystem
     private static bool Applies(Empire empire) =>
         empire?.data != null && !empire.isRekt() && !empire.IsArchived() && empire.CoreKingdom != null &&
         !empire.CoreKingdom.isRekt() && !RepublicSystem.IsRepublic(empire) && RegimeFactor(empire) > 0f &&
-        !TransmigrantSystem.Governs(empire) && !ZhouShielded(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom);
+        !TransmigrantSystem.Governs(empire) && !ZhouShielded(empire) && !AncientWarfareCompatibility.Owns(empire.CoreKingdom) &&
+        // 近代国家(立了宪、有议会，或已进电气时代，见 StateModernization.IsModernPower)：内忧深重走政变、革命(见 RevolutionSystem)、
+        // 被占领，不再各省首义、割据(用户 2026-11-26 认可的看法：1937 剧本里大日本帝国开战几年就"北海道、九州割据，福冈首义"，
+        // 瑞典、荷兰、伊朗也进了瓦解)。没立宪、还没进电气时代的老帝国(清末)照旧，那里的各省响应就是辛亥那样的近代革命
+        !ConstitutionSystem.HasConstitution(empire) && !StateModernization.IsModernPower(empire.CoreKingdom);
 
     // 周制：春秋诸侯尊王，周室不瓦解，正统跌破 ZhouSpringCollapseLegitimacy 例外；战国(只剩王畿诸郡，郡也会割据)、
     // 一统之后照常(用户 2026-10-27 截图西大和朝、赵朝：以前春秋、战国整段豁免，周室正统 0、积弊满额也没有出口)

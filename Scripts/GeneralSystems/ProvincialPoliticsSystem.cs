@@ -256,6 +256,8 @@ public static class ProvincialPoliticsSystem
     // 由本省胜选党的党员出任省长：优先没有官职的，住在本省的
     private static void TryInstallGovernor(Empire empire, Kingdom province, FixedFaction party)
     {
+        // 派系军阀的首领自家人接、部将接(见 ModernAutonomySystem.CliqueSuccessor)，不由党派人、不随地方选举换人
+        if (ModernAutonomySystem.IsClique(province)) return;
         if (!OfficeManager.Offices.TryGetValue(province.GetOfficeID(), out OfficeObject office)) return;
         Actor governor = office.GetActor();
         if (governor?.GetFaction() == party) return;

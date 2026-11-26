@@ -281,6 +281,8 @@ public static class ConstitutionalEconomySystem
         CityStateService.RepairEstateAutonomy(empire);
         EmpireBankruptcySystem.Update(empire, state);
         ModernTitleCentralization.Update(empire);
+        // 近代国家成员的自主度：直辖、地方实力派、割据，离开(见 ModernAutonomySystem)
+        ModernAutonomySystem.Yearly(empire);
         UpdateBudding(empire, state);
         UpdateWelfare(empire, state);
         ClaimPolicySystem.UpdateYear(empire, state);

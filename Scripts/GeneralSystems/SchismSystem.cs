@@ -101,6 +101,8 @@ public static class SchismSystem
     public static bool IsBreakaway(Kingdom kingdom)
     {
         if (kingdom?.data == null || kingdom.isRekt()) return false;
+        // 近代国家里割据的地方实力派(见 ModernAutonomySystem)：同样不缴税、不随征、不奉诏
+        if (ModernAutonomySystem.IsDefiant(kingdom)) return true;
         KingdomExtension.KingdomExtraData extra = kingdom.GetOrCreate();
         if (extra.schism_breakaway_at < 0d) return false;
         Empire empire = kingdom.GetEmpire();
