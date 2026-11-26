@@ -434,7 +434,13 @@ public class Empire : MetaObject<EmpireData>
                 if (pool.Count > 0 && !pool.Contains(ideologySuffix))
                     ideologySuffix = extra.ideology_country_suffix = PartySystem.PickCountrySuffix(this, stateIdeology);
             }
-            if (!string.IsNullOrWhiteSpace(ideologySuffix)) return OverallHelperFunc.JoinNameParts(coreName, ideologySuffix);
+            if (!string.IsNullOrWhiteSpace(ideologySuffix))
+            {
+                // 国名已带国体字样的不叠(见 OverallHelperFunc.MergeStateSuffix)
+                string ideologyName = coreName, ideologyTail = ideologySuffix;
+                OverallHelperFunc.MergeStateSuffix(ref ideologyName, ref ideologyTail);
+                return OverallHelperFunc.JoinNameParts(ideologyName, ideologyTail);
+            }
             // 从属之国不用帝号：全称只称"某国"，不带帝国、朝的后缀与序数、美号(见 EmpireFormationService.StyledAsSubject)
             if (EmpireFormationService.StyledAsSubject(CoreKingdom))
                 return OverallHelperFunc.FormatEmpireFullName(coreName, LM.Get("subject_realm_suffix"), "", GetNamingCulture());
@@ -449,6 +455,8 @@ public class Empire : MetaObject<EmpireData>
 
             // 手选的后缀顶替政体给的那个(EmpireData.suffix_choice)
             if (!string.IsNullOrWhiteSpace(data.suffix_choice)) typeName = data.suffix_choice.Trim();
+            // 国名已带国体字样的不叠(见 OverallHelperFunc.MergeStateSuffix)
+            OverallHelperFunc.MergeStateSuffix(ref coreName, ref typeName);
 
             string localizedPrefix = OverallHelperFunc.LocalizeDirectPrefix(data);
             if (ShowsWesternOrdinal())

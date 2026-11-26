@@ -70,6 +70,38 @@ namespace EmpireCraft.Scripts.HelperFunc
                    language == "en";
         }
 
+        // 国名本身已带的国体字样(长的在前)：剧本国名多是整名(法兰西共和国、意大利王国)。"民国"不拆(中华民国拆成"中华"不成话)
+        private static readonly string[] StateWords =
+        {
+            "社会主义共和国", "人民共和国", "联邦共和国", "联合王国", "共和国", "合众国", "王国", "帝国", "联邦",
+            "汗国", "苏丹国", "酋长国", "大公国", "公国", "自治邦",
+            "社會主義共和國", "人民共和國", "聯邦共和國", "聯合王國", "共和國", "合眾國", "王國", "帝國", "聯邦",
+            "汗國", "蘇丹國", "酋長國", "大公國", "公國", "自治邦"
+        };
+
+        // 国名补国体后缀之前：名字已经以国体字样结尾的，后缀相同、或后缀只是泛称"国"、或后缀本就是名字的结尾，就不再补；
+        // 后缀是别的国体，换掉名字里原来那个(意大利王国称帝 → 意大利 帝国)，换完只剩一个字的不换，照旧不补。
+        // 以前照补不误，拼出"法兰西共和国 共和国""意大利王国 帝国""土耳其共和国 国"
+        public static void MergeStateSuffix(ref string name, ref string suffix)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(suffix)) return;
+            string trimmed = name.Trim(), tail = suffix.Trim();
+            string word = StateWords.FirstOrDefault(item => trimmed.EndsWith(item, StringComparison.Ordinal));
+            if (word == null)
+            {
+                if (trimmed.EndsWith(tail, StringComparison.Ordinal)) suffix = "";
+                return;
+            }
+            if (tail == word || tail == "国" || tail == "國" || word.EndsWith(tail, StringComparison.Ordinal))
+            {
+                suffix = "";
+                return;
+            }
+            string stem = trimmed.Substring(0, trimmed.Length - word.Length).TrimEnd(ModClass.NARROW_SPACE.ToCharArray()).Trim();
+            if (stem.Length < 2) suffix = "";
+            else name = stem;
+        }
+
         public static string JoinNameParts(params string[] parts)
         {
             if (parts == null || parts.Length == 0) return "";
