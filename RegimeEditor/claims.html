@@ -163,10 +163,11 @@
       try {
         // 决议列表：直接读 C# 枚举，新加的决议也能编辑
         const enumText = await readFile("Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
-        if (enumText == null) throw new Error("找不到 Scripts/Regimes/TemporaryFactions/TemporaryFactionType.cs");
-        const members = parseEnum(enumText, "TemporaryFactionType");
-        S.claims = members.map(m => m.name);
-        S.descriptions = Object.fromEntries(members.filter(m => m.desc).map(m => [m.name, m.desc]));
+        // 只有数据、没有源码的目录(独立游戏的 Data、编辑器自带数据)：决议列表退回 ClaimRules.json 里已有的条目
+        // (用户 2026-11-28 "目前已经有的我希望都能和我的政体编辑器兼容")；还没写规则的新决议这时加不进来
+        const members = enumText != null ? parseEnum(enumText, "TemporaryFactionType") : null;
+        S.claims = members ? members.map(m => m.name) : [];
+        S.descriptions = members ? Object.fromEntries(members.filter(m => m.desc).map(m => [m.name, m.desc])) : {};
 
         const rulesCode = await readFile("Scripts/GeneralSystems/ClaimRules.cs").catch(() => null);
         const selfBlock = rulesCode?.match(/SelfReforming\s*=\s*new\(\)\s*\{([\s\S]*?)\}/);
@@ -179,6 +180,10 @@
         const parsed = parseJsonLoose(rulesText || "{}");
         if (!isObj(parsed)) throw new Error(`${FILE} 最外层不是 { } 对象，编辑器不敢改，请先手动修好`);
         S.rules = parsed;
+        if (!members) {
+          S.claims = Object.keys(parsed).filter(k => !k.startsWith("_"));
+          toast("这是数据目录(没有源码)：决议列表取自 ClaimRules.json 已有的条目");
+        }
         if (rulesText != null) {
           S.fmt = {
             indent: (rulesText.match(/\n([ \t]+)"/) || [, "  "])[1],
