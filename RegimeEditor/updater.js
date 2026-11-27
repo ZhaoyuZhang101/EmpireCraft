@@ -23,8 +23,8 @@ const MANIFESTS = [
 ];
 // 同模组更新用的两个地址(见 Scripts/Diagnostics/EmpireCraftUpdateService.cs)，前一个不通试后一个
 const BASES = [
-  "https://update.cmhai.tech/releases/",
-  "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/"
+  "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/",
+  "https://update.cmhai.tech/releases/"
 ];
 
 // 版本号按数字一段一段比("0.5.10" 比 "0.5.9" 新)；段里不是数字的部分不管

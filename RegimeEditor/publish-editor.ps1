@@ -6,7 +6,7 @@
 # 安装程序一百来兆，更新服务一回收不了这么大的就切成几片传(-PartMB，默认 90)，编辑器下载时按清单接起来。
 [CmdletBinding()]
 param(
-    [string]$UpdateUrl = "https://update.cmhai.tech",
+    [string]$UpdateUrl = "https://empirecraft-update.zhangzhaoyu101.workers.dev",
     [string]$Notes = "",
     [int]$PartMB = 90,
     [switch]$NoBuild,

@@ -48,11 +48,11 @@ public sealed class EmpireCraftUpdateSnapshot
 public static class EmpireCraftUpdateService
 {
     // 更新服务的地址：前一个不通试后一个。cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 整个封了(403 "Website Access Blocked")，
-    // 改挂 cmhai.tech；workers.dev 留作备用。被封的旧域名不再信任(域名日后落到别人手里也冒充不了更新)
+    // 先走 workers.dev；cmhai.tech 接到 Cloudflare 以后作另一个地址。被封的旧域名不再信任(域名日后落到别人手里也冒充不了更新)
     private static readonly string[] ManifestEndpoints =
     {
-        "https://update.cmhai.tech/releases/latest.json",
-        "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/latest.json"
+        "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/latest.json",
+        "https://update.cmhai.tech/releases/latest.json"
     };
 
     private static readonly HashSet<string> TrustedDownloadHosts =

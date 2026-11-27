@@ -3,10 +3,10 @@ name = "empirecraft-lobby"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
-# 挂在自己的域名上(域名要在同一个 Cloudflare 账号里)；发布时会自动建好这条解析和证书
-routes = [
-  { pattern = "lobby-global.cmhai.tech", custom_domain = true }
-]
+# 原来挂在 lobby.cmhgamedev.dpdns.org，2026-11-28 被 Cloudflare 封了：先用 workers.dev 地址
+# (https://empirecraft-lobby.zhangzhaoyu101.workers.dev)。以后要挂自己的域名(域名要在同一个 Cloudflare 账号里)，
+# 加回 routes = [ { pattern = "lobby-global.cmhai.tech", custom_domain = true } ]
+workers_dev = true
 
 # 图标、像素框按原样打进去(worker.js 里 import 进来是一段字节)
 [[rules]]

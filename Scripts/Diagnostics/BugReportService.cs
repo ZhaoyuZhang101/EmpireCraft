@@ -45,9 +45,9 @@ public static class BugReportService
     // retried against the fallback endpoint.
     private static readonly string[] BugReportEndpoints =
     {
-        // cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 封了，改挂 cmhai.tech
-        "https://bug.cmhai.tech/",
-        "https://empirecraft-bug-report.zhangzhaoyu101.workers.dev/"
+        // cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 封了：先走 workers.dev，cmhai.tech 接到 Cloudflare 以后作另一个地址
+        "https://empirecraft-bug-report.zhangzhaoyu101.workers.dev/",
+        "https://bug.cmhai.tech/"
     };
 
     private const int UploadTimeoutMilliseconds = 120000;
