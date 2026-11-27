@@ -250,9 +250,7 @@ public static partial class FrontSystem
     private static string ShippingShortage(Kingdom kingdom)
     {
         if (!NavySystem.NavyEra(kingdom) && !NavySystem.NavyEra(Realm(kingdom))) return "缺运力(还没到有水师的时代)";
-        Kingdom realm = Realm(kingdom);
-        List<City> ports = NavySystem.Ports(kingdom).ToList();
-        if (realm != null && realm != kingdom) ports.AddRange(NavySystem.Ports(realm));
+        List<City> ports = NavySystem.Sides(kingdom).SelectMany(NavySystem.Ports).ToList();
         if (ports.Count == 0) return "缺运力(没有港口)";
         if (ports.All(NavySystem.IsBlockaded)) return "缺运力(港口被封锁，新船出港就被击沉)";
         return "缺运力(运输船还没造够)";

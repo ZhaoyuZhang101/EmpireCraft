@@ -63,6 +63,7 @@ public static class NavySystem
         Courses.Clear();
         FlagshipIndex.Clear();
         DesiredLanding.Clear();
+        CoastCache.Clear();
         SeaRegionSystem.ResetWorldState();
         SeaLanding.ResetWorldState();
     }
@@ -95,7 +96,44 @@ public static class NavySystem
     public static Building Port(City city) => SettlementSeaSearch.Port(city);
 
     public static IEnumerable<City> Ports(Kingdom kingdom) =>
-        (kingdom?.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt() && Port(city) != null);
+        (kingdom?.cities ?? new List<City>()).Where(city => city?.data != null && !city.isRekt() && IsPort(city));
+
+    // 水师的港口：有原版码头，或城的地块挨着海区(沿海)。原版码头要小人盖，无小人模式(纯净地图自动开)没人盖、盖了也会拆，
+    // 以前只认码头，1937 剧本三十年全图一支舰队都没有、水师辐射全是 0，日本过不了海，隔海的仗全打不起来。
+    // 港口等级、旗舰停靠仍看码头(没有码头的按最低一级，不出旗舰)
+    public static bool IsPort(City city)
+    {
+        if (city?.data == null || city.isRekt()) return false;
+        if (Port(city) != null) return true;
+        int zones = city.zones?.Count ?? 0;
+        if (CoastCache.TryGetValue(city.data.id, out var cached) && cached.zones == zones) return cached.coastal;
+        // 只认外海(湖边的城不算，见 SeaRegionSystem.IsOpenSea)
+        bool coastal = zones > 0 && SeaRegionSystem.RegionsAround(city).Any(SeaRegionSystem.IsOpenSea);
+        if (CoastCache.Count > 4096) CoastCache.Clear();
+        CoastCache[city.data.id] = (zones, coastal);
+        return coastal;
+    }
+
+    private static readonly Dictionary<long, (int zones, bool coastal)> CoastCache = new();
+
+    // 海陆之重：本国这一支水师(见 Sides)沿海的城占全境几成，满 MaritimeFull 成按满额造战舰，越少越少造，至少 MaritimeFloor。
+    // 岛国(日本、英国)几乎城城临海，水师是立国之本；大陆国家(中国、苏联)兵饷先给陆军。
+    // 以前每个港口定额一样，海岸线长的大陆国家港口多、舰队反比岛国大(1937 剧本民国水师反登陆日本本土)
+    private const float MaritimeFull = 0.6f, MaritimeFloor = 0.25f;
+
+    public static float MaritimeShare(Kingdom kingdom)
+    {
+        int total = 0, coastal = 0;
+        // 按整个帝国算(行政区自己多半整片临海，单看它就满额了)
+        foreach (Kingdom side in Sides(FrontSystem.Realm(kingdom) ?? kingdom))
+            foreach (City city in side.cities ?? new List<City>())
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                total++;
+                if (IsPort(city)) coastal++;
+            }
+        return total <= 0 ? 1f : Mathf.Clamp(coastal / (float)total / MaritimeFull, MaritimeFloor, 1f);
+    }
 
     public static bool IsFlagship(Actor actor) => actor?.data != null && FlagshipIndex.ContainsKey(actor.id);
 
@@ -148,15 +186,27 @@ public static class NavySystem
         _ => "navy_tier_0"
     };
 
-    // 本国(连同宗主帝国中央)运输船能装下多少人
+    // 同一支水师的各国：本国、宗主帝国中央；本国是帝国中央的，连同听调遣的成员国(行政区、藩镇；割据的不算)。
+    // 以前帝国中央只算自己的船和港口：日本中央直辖 2 城，九州、畿内这些行政区的港口与舰队一艘不算，登陆运力常年是 0
+    public static List<Kingdom> Sides(Kingdom kingdom)
+    {
+        var sides = new List<Kingdom>();
+        if (kingdom?.data == null || kingdom.isRekt()) return sides;
+        sides.Add(kingdom);
+        Kingdom realm = FrontSystem.Realm(kingdom);
+        if (realm != null && realm != kingdom) sides.Add(realm);
+        else if (kingdom.GetEmpire() is { } empire && !empire.isRekt() && empire.kingdoms_list != null)
+            foreach (Kingdom member in empire.kingdoms_list)
+                if (member?.data != null && !member.isRekt() && member != kingdom && FrontSystem.Realm(member) == kingdom &&
+                    !SchismSystem.IsBreakaway(member)) sides.Add(member);
+        return sides;
+    }
+
+    // 本国(连同宗主帝国中央、帝国中央连同成员国)运输船能装下多少人
     public static float TransportCapacity(Kingdom kingdom)
     {
         if (kingdom == null) return 0f;
-        float capacity = Of(kingdom).Sum(fleet => fleet.transports) * ShipCapacity(kingdom);
-        Kingdom realm = FrontSystem.Realm(kingdom);
-        if (realm != null && realm != kingdom)
-            capacity += Of(realm).Sum(fleet => fleet.transports) * ShipCapacity(realm);
-        return capacity;
+        return Sides(kingdom).Sum(side => Of(side).Sum(fleet => fleet.transports) * ShipCapacity(side));
     }
 
     private static float Power(Kingdom kingdom, FleetData fleet) =>
@@ -242,25 +292,20 @@ public static class NavySystem
     public static bool Escorted(Kingdom side, SeaRegionSystem.Region region)
     {
         if (side == null || region == null) return false;
-        Kingdom realm = FrontSystem.Realm(side);
-        return Of(side).Any(fleet => fleet.region_id == region.Id && fleet.warships > 0) ||
-               realm != null && realm != side && Of(realm).Any(fleet => fleet.region_id == region.Id && fleet.warships > 0);
+        return Sides(side).Any(member => Of(member).Any(fleet => fleet.region_id == region.Id && fleet.warships > 0));
     }
 
     // 本国(连同宗主中央)战舰总数
     public static int Warships(Kingdom kingdom)
     {
         if (kingdom == null) return 0;
-        int total = Of(kingdom).Sum(fleet => fleet.warships);
-        Kingdom realm = FrontSystem.Realm(kingdom);
-        if (realm != null && realm != kingdom) total += Of(realm).Sum(fleet => fleet.warships);
-        return total;
+        return Sides(kingdom).Sum(side => Of(side).Sum(fleet => fleet.warships));
     }
 
     // 港口被封锁：港外任一海区在敌方手里
     public static bool IsBlockaded(City city)
     {
-        if (!CorpsSystem.Enabled || city?.kingdom == null || Port(city) == null) return false;
+        if (!CorpsSystem.Enabled || city?.kingdom == null || !IsPort(city)) return false;
         return SeaRegionSystem.RegionsAround(city).Any(region => HostileControl(city.kingdom, region));
     }
 
@@ -268,8 +313,7 @@ public static class NavySystem
     public static List<SeaRegionSystem.Region> HomeWaters(Kingdom kingdom)
     {
         var result = new List<SeaRegionSystem.Region>();
-        Kingdom realm = FrontSystem.Realm(kingdom);
-        foreach (Kingdom side in realm != null && realm != kingdom ? new[] { kingdom, realm } : new[] { kingdom })
+        foreach (Kingdom side in Sides(kingdom))
             foreach (City port in Ports(side))
                 result.AddRange(SeaRegionSystem.RegionsAround(port));
         return result.Distinct().ToList();
@@ -353,7 +397,29 @@ public static class NavySystem
         foreach (FleetData fleet in list.ToList())
         {
             City home = Home(fleet);
-            if (home != null && home.kingdom == kingdom && Port(home) != null) continue;
+            if (home != null && home.kingdom == kingdom && IsPort(home)) continue;
+            // 母港转给了同一帝国的另一成员(战时代管交中央、划省设行政区)：舰队跟着港口走。以前并进本国别的港，
+            // 新主人又在原港另建舰队、照定额重造，城在中央和各省之间转几回，舰队就翻几倍(1937 剧本民国每港十来艘)
+            if (home?.kingdom is Kingdom owner && owner != kingdom && owner.data != null && !owner.isRekt() && IsPort(home) &&
+                FrontSystem.Realm(owner) == FrontSystem.Realm(kingdom) && TransmigrantSystem.NavalState(kingdom) == null &&
+                // 同一帝国里打起来的、割据的成员夺了港口，舰队不送给它
+                !kingdom.isInWarWith(owner) && !SchismSystem.IsBreakaway(owner) && !SchismSystem.IsBreakaway(kingdom))
+            {
+                // 旗舰挂在原主名下，撤了由新主人下月补
+                RemoveFlagship(fleet);
+                Courses.Remove(fleet.id);
+                list.Remove(fleet);
+                fleet.kingdom_id = owner.id;
+                List<FleetData> theirs = Of(owner);
+                FleetData existing = theirs.FirstOrDefault(entry => entry.home_city_id == home.id);
+                if (existing != null)
+                {
+                    existing.warships += fleet.warships;
+                    existing.transports += fleet.transports;
+                }
+                else theirs.Add(fleet);
+                continue;
+            }
             City other = ports.Where(port => list.All(existing => existing == fleet || existing.home_city_id != port.id))
                              .OrderBy(port => SeaRegionSystem.Distance(SeaRegionSystem.Get(fleet.region_id),
                                  SeaRegionSystem.RegionsAround(port).FirstOrDefault())).FirstOrDefault()
@@ -419,11 +485,17 @@ public static class NavySystem
     private static void Build(Kingdom kingdom, List<City> ports)
     {
         bool war = CorpsSystem.IsAtWar(kingdom);
-        bool landing = DesiredLanding.ContainsKey(kingdom.id);
+        // 帝国中央要登陆的，听调遣的成员国(港口多在它们手里)也照着多造运输船
+        Kingdom landingSide = DesiredLanding.ContainsKey(kingdom.id) ? kingdom
+            : FrontSystem.Realm(kingdom) is { } realmCore && realmCore != kingdom && DesiredLanding.ContainsKey(realmCore.id) &&
+              !SchismSystem.IsBreakaway(kingdom) ? realmCore : null;
+        bool landing = landingSide != null;
         float tier = Tier(kingdom);
         // 澳宋：全军的船数、港口数合起来算定额，定额以内不走国库(见 AosongNavyRules)
         TransmigrantState aosong = TransmigrantSystem.NavalState(kingdom);
         int realmWar = 0, realmTransport = 0, realmPorts = ports.Count;
+        // 海陆之重：沿海的城占全境越少，各港造的战舰越少(见 MaritimeShare)
+        float maritime = aosong != null ? 1f : MaritimeShare(kingdom);
         if (aosong != null)
         {
             realmPorts = 0;
@@ -437,21 +509,32 @@ public static class NavySystem
         int landingExtra = 0;
         if (landing)
         {
-            float biggest = CorpsSystem.Of(kingdom).Select(corps => corps.strength).DefaultIfEmpty(0f).Max();
+            float biggest = CorpsSystem.Of(landingSide).Select(corps => corps.strength).DefaultIfEmpty(0f).Max();
             int ships = Mathf.CeilToInt(biggest / ShipCapacity(kingdom));
-            landingExtra = Mathf.Clamp(Mathf.CeilToInt(ships / (float)Mathf.Max(1, ports.Count)), 4, MaxLandingTransportsPerPort);
+            // 各港分摊，每港至少 1 艘(以前至少 4 艘：海岸线长的国家港口多，几十个港一摊，运力动辄几十万人)
+            // 按要登陆的那一方(帝国中央连同各成员)的港口总数分摊，不是各成员各自运下一整支军
+            int sharing = Sides(landingSide).Sum(side => Ports(side).Count());
+            landingExtra = Mathf.Clamp(Mathf.CeilToInt(ships / (float)Mathf.Max(1, sharing)), 1, MaxLandingTransportsPerPort);
         }
         foreach (FleetData fleet in Of(kingdom))
         {
             City home = Home(fleet);
-            Building port = home == null ? null : Port(home);
-            if (port == null || fleet.task == "retreat" && fleet.region_id != HomeRegion(fleet)?.Id) continue;
-            float level = 1f + 0.5f * Mathf.Clamp(port.asset.upgrade_level, 0, 3);
+            if (home == null || !IsPort(home) || fleet.task == "retreat" && fleet.region_id != HomeRegion(fleet)?.Id) continue;
+            // 没有码头的沿海港口按最低一级
+            Building port = Port(home);
+            float level = 1f + 0.5f * Mathf.Clamp(port?.asset?.upgrade_level ?? 0, 0, 3);
             int wantWar = aosong != null ? AosongNavyRules.WantWarships(aosong.stage, war, level, realmPorts)
-                : Mathf.RoundToInt((war ? 6 : 2) * level);
+                : Mathf.Max(1, Mathf.RoundToInt((war ? 6 : 2) * level * maritime));
             int wantTransport = (aosong != null ? AosongNavyRules.WantTransports(aosong.stage, war, level, realmPorts)
-                : Mathf.RoundToInt((war ? 4 : 1) * level)) + landingExtra;
+                : Mathf.Max(1, Mathf.RoundToInt((war ? 4 : 1) * level * maritime))) + landingExtra;
             int lackWar = wantWar - fleet.warships, lackTransport = wantTransport - fleet.transports;
+            // 超编退役：超出定额一半以上的船每月退役一艘(澳宋按全军定额另算，不在这里退)。以前船只造不退，港口丢了舰队并进别港、
+            // 新得的港又照定额重造，几十年下来一港十来艘战舰、全国运力几十万人
+            if (aosong == null)
+            {
+                if (fleet.warships > wantWar + Mathf.Max(1, wantWar / 2)) fleet.warships--;
+                if (fleet.transports > wantTransport + Mathf.Max(1, wantTransport / 2)) fleet.transports--;
+            }
             if (lackWar <= 0 && lackTransport <= 0) continue;
             fleet.build_progress += aosong != null ? AosongNavyRules.Pace(war) : war ? 1f : 0.5f;
             while (fleet.build_progress >= 1f && (lackWar > 0 || lackTransport > 0))
@@ -463,7 +546,8 @@ public static class NavySystem
                 if (freeWar != freeTransport) warship = freeWar;
                 bool free = warship ? freeWar : freeTransport;
                 int cost = Mathf.RoundToInt((warship ? 15f : 6f) * tier);
-                if (!free && !TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military)) { fleet.build_progress = 0f; break; }
+                // 战时造舰是军需，不先留安全储备(以前开战后可支配余款挤不出来，一艘也造不成)
+                if (!free && !TreasurySystem.TrySpend(kingdom, cost, TreasuryCategory.Military, discretionary: !war)) { fleet.build_progress = 0f; break; }
                 fleet.build_progress -= 1f;
                 if (warship) { fleet.warships++; lackWar--; realmWar++; }
                 else { fleet.transports++; lackTransport--; realmTransport++; }

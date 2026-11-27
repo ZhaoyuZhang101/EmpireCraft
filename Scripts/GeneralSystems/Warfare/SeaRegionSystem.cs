@@ -17,6 +17,16 @@ public static class SeaRegionSystem
 {
     private const int RegionSize = 60;
     private const int MaxGround = 16;
+    // 外海：连成一片的水域至少有这么多个海区(每区至多 RegionSize 块)。湖泊(洞庭、鄱阳、青海湖)多半只有一两个海区，
+    // 湖边的城不算水师港口(见 NavySystem.IsPort)——湖里的船出不了海
+    private const int OpenSeaRegions = 3;
+    private static readonly Dictionary<int, int> BasinSizes = new();
+
+    public static bool IsOpenSea(Region region)
+    {
+        EnsureBuilt();
+        return region != null && BasinSizes.TryGetValue(region.Basin, out int size) && size >= OpenSeaRegions;
+    }
     private const int FallbackYears = 10;
 
     public sealed class Region
@@ -211,6 +221,12 @@ public static class SeaRegionSystem
                         open.Push(Regions[next]);
                     }
             basins++;
+        }
+        BasinSizes.Clear();
+        foreach (Region region in Regions)
+        {
+            BasinSizes.TryGetValue(region.Basin, out int count);
+            BasinSizes[region.Basin] = count + 1;
         }
         foreach (Region region in Regions)
             if (region.Center != null && oldControl.TryGetValue(region.Center.id, out var control))
