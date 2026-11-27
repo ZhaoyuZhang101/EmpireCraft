@@ -96,7 +96,12 @@ public static class SouthernRetreatSystem
         EmpireCore lead = TianxiaSystem.Lead(EmpireCoreManager.Get(empire));
         if (invader == null && lead != null)
         {
-            (Dictionary<Kingdom, int> held, int total) = TianxiaSystem.Holdings(lead);
+            // 只数本天下自己的城，不数兼属进来的(DeJureShareSystem)：明清鼎革里满洲、漠南、天山南北兼属中华，清开局守着
+            // 自己的老家就"据天下三分之一"(137 城里占 46 城，本天下自己的才 76 城)，第二年明还在北京就结成了南明
+            List<City> own = TianxiaSystem.Cities(lead).Where(city => city?.kingdom != null && !city.kingdom.isRekt() &&
+                                                                      !city.kingdom.wild && TianxiaSystem.LeadOf(city) == lead).ToList();
+            Dictionary<Kingdom, int> held = EmpireCoreControl.CountHolders(own);
+            int total = own.Count;
             foreach (KeyValuePair<Kingdom, int> pair in held)
             {
                 if (!Alien(pair.Key, culture) || !SouthernRetreatRules.HoldsThird(pair.Value, total)) continue;

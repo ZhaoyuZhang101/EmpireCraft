@@ -2864,6 +2864,9 @@ public static partial class InstitutionSystem
         {
             if (effect == null || string.IsNullOrWhiteSpace(effect.type)) continue;
             if (sharedOnly && !InstitutionDefinitionRegistry.IsSharedEffect(effect.type)) continue;
+            // 编旗之国(清)借华夏制度立朝廷，不承前朝的税级：明的盐铁专卖、一条鞭法补到清头上，开局税级就到"高"、税率六成，
+            // 满洲各城民变四起。清自己定税(入关后废三饷加派)，自己施行的改革照样改税级
+            if (sharedOnly && effect.type == "change_tax_level" && realm?.Core != null && BannerSystem.Organized(realm.Core)) continue;
             try
             {
                 ApplyEffect(realm, node, effect);
