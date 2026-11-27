@@ -23,8 +23,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     研究出金融以后，派出的殖民船多半由特许公司经营；
 //   · 总督府：总督由宗主国任免，任期 GovernorTermYears 年，出缺当场补派(穿越政体的宗主国派元老去当总督)；每年把经常收入的
 //     RemitShare 解送宗主国；
-//   · 特许公司：董事会选总督(同投票)，自己养兵、开战；国库超出储备的余钱每年一半分红给宗主国；做到 NationalizeCities 座城，
-//     或亏空成债，就被宗主国收归国有、改设总督府；
+//   · 特许公司：董事会选总督(同投票)，自己养兵、开战；国库超出储备的余钱每年一半分红，照股份分给宗主国库与股东；做到 NationalizeCities 座城，
+//     或亏空成债，就被宗主国收归国有、改设总督府；特许状到期不续也改设总督府(特许公司同时算宗主国的公司，见 CompanySystem.Charter.cs)；
 //   · 离心：路远、立得久、宗主不如自己强、宗主在打仗就涨，满了起兵独立(复用"附庸独立"这类战争)，打赢就脱离，打输压回去。
 // 属地(殖民地的延伸，用户 2026-11-10 "还有那种美属, 英属 这种属国前缀和属国机制要做""应该算殖民地的延申"
 // "x属的x只取国名的第一个字""战争要求里面也可以把这几种属国类型加进去")：
@@ -41,8 +41,10 @@ public static class ColonySystem
     public const string OceanTech = "ocean_navigation", CompanyTech = "banking";
     private const int ColonyDistance = 36;            // 地块
     private const int GovernorTermYears = 6;
-    private const float RemitShare = 0.3f, DividendShare = 0.5f;
-    private const int NationalizeCities = 6;
+    private const float RemitShare = 0.3f;
+    // 特许公司的分红几成、做到几座城收归国有：在 CompanyRules.json 的 charter 一段(政体编辑器可改)
+    private static float DividendShare => CompanyRules.Charter.dividend_share;
+    private static int NationalizeCities => CompanyRules.Charter.nationalize_cities;
     private const int VoyageCooldownYears = 8, VoyageCost = 600, Settlers = 300, VoyageMinCapital = 1500;
     private const float VoyageChance = 0.35f, CompanyChance = 0.6f;
     private const int RiseMinYears = 30, RiseCooldownYears = 10;
@@ -619,14 +621,17 @@ public static class ColonySystem
         else if (state.kind == ColonyState.Dominion) { }
         else
         {
+            // 特许状到期：续或撤(撤了改设总督府，见 CompanySystem.CharterDue)
+            if (CompanySystem.CharterDue(colony, metropole, state, now)) return;
             long surplus = TreasuryHoardSystem.Surplus(colony);
             int dividend = (int)Math.Min(int.MaxValue, (long)(surplus * DividendShare));
             if (dividend > 0)
             {
                 colony.SubMoney(dividend, TreasuryCategory.Tribute);
-                metropole.AddMoney(dividend, TreasuryCategory.Tribute);
                 state.dividends += dividend;
             }
+            // 照股份分：国库那份进宗主国库，股东那份进宗主国都城的民间
+            CompanySystem.PayCharterDividend(colony, metropole, Math.Max(0, dividend));
             if (colony.cities.Count >= NationalizeCities || colony.GetTreasuryBalance() < 0 && now - state.founded_at >= 10 * 60d)
             {
                 Nationalize(colony, metropole, state);
@@ -663,8 +668,18 @@ public static class ColonySystem
         TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_lease_returned"), name, lessor.GetKingdomFullName()), lessor);
     }
 
+    // 撤销特许(特许状到期不续、宗主国下令撤销)：改设总督府
+    public static bool RevokeCharter(Kingdom colony, string key)
+    {
+        ColonyState state = Of(colony);
+        Kingdom metropole = MetropoleOf(colony);
+        if (state == null || metropole == null || state.kind != ColonyState.Company) return false;
+        Nationalize(colony, metropole, state, key);
+        return true;
+    }
+
     // 特许公司收归国有，改设总督府
-    private static void Nationalize(Kingdom colony, Kingdom metropole, ColonyState state)
+    private static void Nationalize(Kingdom colony, Kingdom metropole, ColonyState state, string key = "colony_nationalized")
     {
         string before = colony.GetKingdomFullName();
         state.kind = ColonyState.Governorate;
@@ -674,7 +689,8 @@ public static class ColonySystem
         TransmigrantSystem.InstallRuler(colony, governor);
         state.governor_id = governor?.id ?? -1L;
         state.governor_since = World.world.getCurWorldTime();
-        TranslateHelper.LogEventMessage(string.Format(LM.Get("colony_nationalized"), metropole.GetKingdomFullName(), before,
+        state.charter_until = -1d;
+        TranslateHelper.LogEventMessage(string.Format(LM.Get(key), metropole.GetKingdomFullName(), before,
             colony.GetKingdomFullName()), metropole);
     }
 

@@ -1081,9 +1081,9 @@ public class InstitutionWindow : AbstractWideWindow<InstitutionWindow>
         AddEconomyLine(panel, parts.Count == 0 ? LM.Get("industry_no_houses") : string.Join("   ", parts), "#B8C6CC");
         if (firms > 0)
         {
-            // 公司一览、财富榜、股市(见 CompanyWindow)
+            // 公司格局(产业格局、势力、城市)、财富榜、股市(见 CompanyWindow)
             var buttons = panel.BeginHoriGroup(new Vector2(PanelWidth - 12f, 13), TextAnchor.MiddleCenter, 4);
-            buttons.AddButtonIntoHoriLayout("company_page_realm", LM.Get("company_page_realm"), () => CompanyWindow.OpenRealm(_empire, 1),
+            buttons.AddButtonIntoHoriLayout("company_landscape_button", LM.Get("company_landscape_button"), () => CompanyWindow.OpenRealm(_empire, 4),
                 size: new Vector2(80, 11));
             buttons.AddButtonIntoHoriLayout("company_page_rich", LM.Get("company_page_rich"), () => CompanyWindow.OpenRealm(_empire, 2),
                 size: new Vector2(80, 11));

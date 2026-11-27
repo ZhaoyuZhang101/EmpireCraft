@@ -1,0 +1,371 @@
+{
+  "_about": "公司与商号的规则，政体编辑器「杂项配置 → 公司与商号」可改；缺项按代码默认。名字是\"简体|English|繁體\"三段，占位 {head} 字号、{trade} 行业、{shop} 店名、{city} 城名、{city1} 城名头一个字、{realm} 国名。",
+  "forms": [
+    {
+      "id": "shop",
+      "era_min": 0,
+      "min_scale": 0,
+      "listed": false,
+      "guild": true,
+      "license": true,
+      "stake": false,
+      "label": "商号|Merchant house|商號",
+      "reform": ""
+    },
+    {
+      "id": "firm",
+      "era_min": 7,
+      "min_scale": 0,
+      "listed": true,
+      "guild": false,
+      "license": false,
+      "stake": true,
+      "label": "公司|Company|公司",
+      "reform": "{realm}兴办实业，旧式商号纷纷改称公司、局|{realm} takes up modern industry; the old merchant houses restyle themselves as companies|{realm}興辦實業，舊式商號紛紛改稱公司、局"
+    },
+    {
+      "id": "corp",
+      "era_min": 8,
+      "min_scale": 0,
+      "listed": true,
+      "guild": false,
+      "license": false,
+      "stake": true,
+      "label": "有限公司|Limited company|有限公司",
+      "reform": "{realm}颁行公司法，各公司改组为有限责任的股份公司|{realm} enacts a companies act; firms reorganise with limited liability|{realm}頒行公司法，各公司改組為有限責任的股份公司"
+    },
+    {
+      "id": "group",
+      "era_min": 9,
+      "min_scale": 8,
+      "listed": true,
+      "guild": false,
+      "license": false,
+      "stake": true,
+      "label": "集团|Group|集團",
+      "reform": "{realm}的大公司纷纷改组为集团|The great firms of {realm} regroup as conglomerates|{realm}的大公司紛紛改組為集團"
+    }
+  ],
+  "families": {
+    "huaxia": [
+      "Huaxia",
+      "China",
+      "Aosong",
+      "Shanhai"
+    ],
+    "japan": [
+      "Japan"
+    ]
+  },
+  "default_family": "west",
+  "names": {
+    "huaxia": {
+      "shop": {
+        "heads": {
+          "hao": 70,
+          "city": 30
+        },
+        "private": "{head}{shop}|{head} {shop}|{head}{shop}",
+        "private_surname": "",
+        "brief": "",
+        "state": "{city}官{trade}局|{city} {trade} Bureau|{city}官{trade}局",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {
+          "kiln": "{city}官窑|{city} Imperial Kilns|{city}官窯",
+          "mint": "宝{city1}局|{city} Mint|寶{city1}局",
+          "iron_foundry": "{city}铁冶务|{city} Iron Bureau|{city}鐵冶務",
+          "wooden_shipyard": "{city}船厂|{city} Shipyard|{city}船廠",
+          "gunpowder_mill": "{city}火药局|{city} Powder Bureau|{city}火藥局",
+          "print_shop": "{city}官书局|{city} Official Press|{city}官書局"
+        },
+        "shops": {
+          "default": "号|& Co.|號",
+          "kiln": "窑|Kilns|窯",
+          "mint": "钱庄|Bank|錢莊",
+          "paper_mill": "纸坊|Paper House|紙坊",
+          "print_shop": "书坊|Press|書坊",
+          "iron_foundry": "冶坊|Ironworks|冶坊",
+          "wooden_shipyard": "船坞|Shipwrights|船塢",
+          "gunpowder_mill": "硝坊|Powder House|硝坊"
+        }
+      },
+      "firm": {
+        "heads": {
+          "hao": 50,
+          "city": 30,
+          "prefix": 20
+        },
+        "private": "{head}{trade}公司|{head} {trade} Company|{head}{trade}公司",
+        "private_surname": "",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "{city}{trade}局|{city} {trade} Bureau|{city}{trade}局",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {
+          "steel_mill": "{city}铁厂|{city} Ironworks|{city}鐵廠",
+          "light_factory": "{city}织布局|{city} Cotton Mill|{city}織布局",
+          "light_shipyard": "{city}船政局|{city} Navy Yard|{city}船政局",
+          "heavy_shipyard": "{city}船政局|{city} Navy Yard|{city}船政局",
+          "heavy_factory": "{city}机器制造局|{city} Arsenal|{city}機器製造局",
+          "gunpowder_mill": "{city}火药局|{city} Powder Bureau|{city}火藥局"
+        },
+        "shops": {}
+      },
+      "corp": {
+        "heads": {
+          "hao": 50,
+          "city": 30,
+          "prefix": 20
+        },
+        "private": "{head}{trade}股份有限公司|{head} {trade} Co., Ltd.|{head}{trade}股份有限公司",
+        "private_surname": "",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "国营{city}{trade}总厂|{city} State {trade} Works|國營{city}{trade}總廠",
+        "state_republic": "",
+        "state_brief": "国营{city}{trade}|State {city} {trade}|國營{city}{trade}",
+        "state_sectors": {},
+        "shops": {}
+      },
+      "group": {
+        "heads": {
+          "hao": 50,
+          "city": 30,
+          "prefix": 20
+        },
+        "private": "{head}集团|{head} Group|{head}集團",
+        "private_surname": "",
+        "brief": "",
+        "state": "{city}{trade}集团|{city} {trade} Group|{city}{trade}集團",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {},
+        "shops": {}
+      }
+    },
+    "japan": {
+      "shop": {
+        "heads": {
+          "city": 60,
+          "yago": 40
+        },
+        "private": "{head}{shop}|{head}{shop}|{head}{shop}",
+        "private_surname": "",
+        "brief": "",
+        "state": "{city}御用{trade}所|{city} Official {trade} Works|{city}御用{trade}所",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {
+          "mint": "{city}钱座|{city} Mint|{city}錢座",
+          "kiln": "{city}藩窑|{city} Domain Kiln|{city}藩窯"
+        },
+        "shops": {
+          "default": "屋|-ya|屋",
+          "kiln": "窑| Kiln|窯",
+          "mint": "两替屋| Money Changers|兩替屋"
+        }
+      },
+      "firm": {
+        "heads": {
+          "surname": 45,
+          "city": 30,
+          "prefix": 25
+        },
+        "private": "{head}{trade}会社|{head} {trade} Kaisha|{head}{trade}會社",
+        "private_surname": "{head}组|{head}-gumi|{head}組",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "官营{city}{trade}所|State {city} {trade} Works|官營{city}{trade}所",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {},
+        "shops": {}
+      },
+      "corp": {
+        "heads": {
+          "surname": 45,
+          "city": 30,
+          "prefix": 25
+        },
+        "private": "{head}{trade}株式会社|{head} {trade} K.K.|{head}{trade}株式會社",
+        "private_surname": "",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "国营{city}{trade}所|National {city} {trade} Works|國營{city}{trade}所",
+        "state_republic": "",
+        "state_brief": "国营{city}{trade}|National {city} {trade}|國營{city}{trade}",
+        "state_sectors": {},
+        "shops": {}
+      },
+      "group": {
+        "heads": {
+          "surname": 45,
+          "city": 30,
+          "prefix": 25
+        },
+        "private": "{head}集团|{head} Group|{head}集團",
+        "private_surname": "",
+        "brief": "",
+        "state": "{city}{trade}公社|{city} {trade} Public Corp.|{city}{trade}公社",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {},
+        "shops": {}
+      }
+    },
+    "west": {
+      "shop": {
+        "heads": {
+          "surname": 60,
+          "city": 40
+        },
+        "private": "{head}{shop}|{head} {shop}|{head}{shop}",
+        "private_surname": "{head}父子{shop}|{head} & Sons {shop}|{head}父子{shop}",
+        "brief": "{head}{shop}|{head} {shop}|{head}{shop}",
+        "state": "皇家{city}{trade}工场|Royal {city} {trade} Manufactory|皇家{city}{trade}工場",
+        "state_republic": "{city}官办{trade}工场|{city} Public {trade} Manufactory|{city}官辦{trade}工場",
+        "state_brief": "",
+        "state_sectors": {
+          "mint": "{city}铸币厂|{city} Mint|{city}鑄幣廠",
+          "wooden_shipyard": "{city}海军船坞|{city} Naval Dockyard|{city}海軍船塢"
+        },
+        "shops": {
+          "default": "商行|Trading House|商行",
+          "kiln": "陶坊|Pottery|陶坊",
+          "mint": "银号|Bank|銀號",
+          "paper_mill": "纸坊|Paper Mill|紙坊",
+          "print_shop": "印书馆|Press|印書館",
+          "iron_foundry": "铁坊|Ironworks|鐵坊",
+          "wooden_shipyard": "船坞|Shipyard|船塢",
+          "gunpowder_mill": "火药坊|Powder Mill|火藥坊"
+        }
+      },
+      "firm": {
+        "heads": {
+          "surname": 35,
+          "city": 35,
+          "prefix": 30
+        },
+        "private": "{head}{trade}公司|{head} {trade} & Co.|{head}{trade}公司",
+        "private_surname": "",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "皇家{city}{trade}厂|Royal {city} {trade} Works|皇家{city}{trade}廠",
+        "state_republic": "{city}国立{trade}厂|{city} National {trade} Works|{city}國立{trade}廠",
+        "state_brief": "",
+        "state_sectors": {},
+        "shops": {}
+      },
+      "corp": {
+        "heads": {
+          "surname": 35,
+          "city": 35,
+          "prefix": 30
+        },
+        "private": "{head}{trade}有限公司|{head} {trade} Ltd.|{head}{trade}有限公司",
+        "private_surname": "",
+        "brief": "{head}{trade}|{head} {trade}|{head}{trade}",
+        "state": "{city}国营{trade}公司|{city} State {trade} Company|{city}國營{trade}公司",
+        "state_republic": "",
+        "state_brief": "国营{city}{trade}|State {city} {trade}|國營{city}{trade}",
+        "state_sectors": {},
+        "shops": {}
+      },
+      "group": {
+        "heads": {
+          "surname": 35,
+          "city": 35,
+          "prefix": 30
+        },
+        "private": "{head}集团|{head} Group|{head}集團",
+        "private_surname": "",
+        "brief": "",
+        "state": "{city}国营{trade}集团|{city} State {trade} Group|{city}國營{trade}集團",
+        "state_republic": "",
+        "state_brief": "",
+        "state_sectors": {},
+        "shops": {}
+      }
+    }
+  },
+  "tables": {
+    "yago_japan": "大黑,惠比寿,丸,万,鹤,龟,升,大和,三河,近江|Daikoku,Ebisu,Maru,Yorozu,Tsuru,Kame,Masu,Yamato,Mikawa,Omi|大黑,惠比壽,丸,萬,鶴,龜,升,大和,三河,近江"
+  },
+  "company": {
+    "min_era": 0,
+    "trust_era": 8,
+    "margin": 0.1,
+    "start_reputation": 25,
+    "merge_chance": 0.25,
+    "early_merge_chance": 0.05,
+    "price_war_chance": 0.15,
+    "fail_chance": 0.2,
+    "group_buy_chance": 0.15,
+    "gouge_from": 0.5,
+    "gouge_per_share": 0.6,
+    "gouge_base": 0.05,
+    "max_gouge": 0.3,
+    "price_war_cut": -0.08,
+    "foreign_bid_chance": 0.15,
+    "foreign_remit": 0.4,
+    "weaker_share": 0.8,
+    "branch_min_cost": 200,
+    "branch_cost_share": 1,
+    "max_branches": 3,
+    "influence_at": 0.3,
+    "control_at": 0.6,
+    "seizure_grudge_years": 20,
+    "min_group_scale": 4,
+    "beholden_opinion": 20,
+    "seizure_opinion": -40,
+    "stake_step": 0.1,
+    "max_stake": 0.9,
+    "control_stake": 0.5,
+    "shield_stake": 0.3
+  },
+  "guild": {
+    "guild_min_firms": 3,
+    "guild_markup": 0.04,
+    "license_chance": 0.1,
+    "license_markup": 0.12,
+    "license_fee": 0.3,
+    "license_years": 30,
+    "license_squeeze": 2
+  },
+  "charter": {
+    "years": 20,
+    "renew_fee_share": 0.5,
+    "renew_fee_min": 100,
+    "state_share": 0.4,
+    "first_holder": 0.25,
+    "second_holder": 0.1,
+    "dividend_share": 0.5,
+    "nationalize_cities": 6,
+    "renew_chance": 0.7
+  },
+  "stock": {
+    "exchange_tech": "banking",
+    "shares": 100,
+    "min_firms": 3,
+    "years": 30,
+    "list_value": 120,
+    "list_reputation": 40,
+    "ipo_raise": 0.15,
+    "owner_stake": 0.6
+  },
+  "conglomerate": {
+    "min_industry": 6,
+    "industry_per_house": 12,
+    "max_houses": 4,
+    "found_chance": 0.25,
+    "start_share": 0.08,
+    "growth": 0.02,
+    "max_share": 0.35,
+    "max_monopoly": 0.8,
+    "donation_scale": 300,
+    "house_vote": 1.08,
+    "output_per_monopoly": 0.15,
+    "house_terms": 3,
+    "scandal_years": 8,
+    "antitrust_cooldown_years": 15,
+    "scandal_chance": 0.15,
+    "bailout_share": 0.15
+  }
+}

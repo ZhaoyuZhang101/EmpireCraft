@@ -703,6 +703,32 @@ public static class WideKit
         }
     }
 
+    // 叠色占比条(行业里各家公司、股东各占几成)：一条横条按 parts 依次分段上色，没分完的留深色底
+    public static void AddStackBar(this AutoVertLayoutGroup card, float cardWidth, IList<(float share, string hex)> parts, float height = 7f)
+    {
+        float inner = cardWidth - CardPadding;
+        var box = new GameObject("StackBar", typeof(RectTransform), typeof(LayoutElement));
+        var rect = box.GetComponent<RectTransform>();
+        rect.SetParent(card.transform, false);
+        rect.sizeDelta = new Vector2(inner, height);
+        LayoutElement layout = box.GetComponent<LayoutElement>();
+        layout.minWidth = layout.preferredWidth = inner;
+        layout.minHeight = layout.preferredHeight = height;
+        Plain(rect, Vector2.zero, new Vector2(inner, height), new Color(0.137f, 0.153f, 0.122f, 1f));
+        if (parts == null) return;
+        float x = 0f;
+        foreach ((float share, string hex) in parts)
+        {
+            float w = Mathf.Min(inner - x, Mathf.Clamp01(share) * inner);
+            if (w < 1f) continue;
+            ColorUtility.TryParseHtmlString(hex, out Color color);
+            // 段与段之间留一像素缝
+            Plain(rect, new Vector2(x, 0f), new Vector2(Mathf.Max(1f, w - (x + w < inner - 0.5f ? 1f : 0f)), height), color);
+            x += w;
+            if (x >= inner) break;
+        }
+    }
+
     // 左下角定位的纯色块(图表用)
     private static void Plain(RectTransform parent, Vector2 position, Vector2 size, Color color)
     {

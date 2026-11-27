@@ -267,6 +267,8 @@ public sealed class ConstitutionalEconomyState
     // 外国资本在本国关键行业里控着几成(帝国编号 → 份额)；没收过哪国的产业、何时(帝国编号 → 时间)
     public Dictionary<long, float> foreign_control = new();
     public Dictionary<long, double> seizures = new();
+    // 本国眼下的企业形态(CompanyRules.forms 的 id，空 = 还没定)：进到新的一档那年记一笔(商号改称公司、颁行公司法……)
+    public string company_form = "";
     // 上一回政商丑闻、上一回国库出手救财阀的时间
     public double scandal_at = -1d;
     public double bailout_at = -1d;

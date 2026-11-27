@@ -372,11 +372,13 @@ public static class MapLabelOverlay
         _pressed = false;
         if ((Input.mousePosition - _pressedAt).sqrMagnitude > 64f || World.world.isOverUI() || World.world.isAnyPowerSelected()) return;
         WorldTile clicked = World.world.getMouseTilePos();
-        // 点到厂区：打开厂区小窗口(见 FactoryWindow)
+        // 点到厂区：有公司、商号经营的直接打开它(经营业务里再点厂区进厂区小窗口)，没有的打开厂区小窗口(见 FactoryWindow)
         FactorySite factory = FactorySystem.At(clicked);
         if (factory != null)
         {
-            EmpireCraft.Scripts.UI.Windows.FactoryWindow.Open(factory);
+            if (CompanySystem.Of(factory) is { } company && CompanySystem.RealmOf(company) != null)
+                EmpireCraft.Scripts.UI.Windows.CompanyWindow.Open(company);
+            else EmpireCraft.Scripts.UI.Windows.FactoryWindow.Open(factory);
             return;
         }
         RuralSettlement settlement = RuralSettlementSystem.Near(clicked);

@@ -20,13 +20,20 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //   · 股指：开业那年 100，每年按各上市公司股价涨跌(按市值加权)连乘；
 //   · 财富榜：公司按身价排(上市的按市值，没上市的按盈利与家底估)；富豪按东家的宗族排——财阀旗下的并到财阀名下，
 //     上市公司东家只算六成股份，国企不算，外资子公司算到母公司的东家头上。
-// 每年跟在公司的账后面结(见 CompanySystem.Update)。数值都是模组自己的规则。
+// 商号不上市(合伙、无限责任，见 CompanyRules.forms 的 listed)；特许公司从来就是股份制，宗主国有交易所就挂牌，
+// 有特许公司的国家研究出银行业也开交易所(哪怕还在古代)。
+// 每年跟在公司的账后面结(见 CompanySystem.Update)。数值在 CompanyRules.json 的 stock 一段(政体编辑器可改)，都是模组自己的规则。
 public static class StockMarketSystem
 {
-    public const int Shares = 100;
-    public const string ExchangeTech = "banking";
-    private const float ListValue = 120f, ListReputation = 40f, IpoRaise = 0.15f, OwnerStake = 0.6f;
-    private const int MinFirms = 3, Years = 30;
+    private static StockNumbers S => CompanyRules.Stock;
+    public static int Shares => S.shares;
+    public static string ExchangeTech => S.exchange_tech;
+    private static float ListValue => S.list_value;
+    private static float ListReputation => S.list_reputation;
+    private static float IpoRaise => S.ipo_raise;
+    private static float OwnerStake => S.owner_stake;
+    private static int MinFirms => S.min_firms;
+    private static int Years => S.years;
 
     public static IReadOnlyList<StockExchangeData> Exchanges => CompanySystem.Book.exchanges;
 
@@ -49,7 +56,9 @@ public static class StockMarketSystem
         if (exchange == null)
         {
             // 国有化的国家不开交易所
-            if (state.nationalization >= ModernPolicySystem.Nationalized || own.Count(company => !company.state) < MinFirms ||
+            if (state.nationalization >= ModernPolicySystem.Nationalized ||
+                own.Count(company => !company.state && (CompanyRules.FormOf(company).listed || CompanySystem.IsCharter(company))) < MinFirms &&
+                !own.Any(CompanySystem.IsCharter) ||
                 !TechnologySystem.HasTech(InstitutionSystem.GetPrimaryCulture(empire), ExchangeTech)) return;
             exchange = new StockExchangeData { empire_id = empire.id, since = now };
             CompanySystem.Book.exchanges.Add(exchange);
@@ -63,12 +72,15 @@ public static class StockMarketSystem
                 company.listed = false;
                 continue;
             }
-            if (company.listed || company.value < ListValue || company.reputation < ListReputation) continue;
+            bool charter = CompanySystem.IsCharter(company);
+            // 商号不上市；特许公司不看门槛
+            if (company.listed || !charter && (!CompanyRules.FormOf(company).listed || company.value < ListValue ||
+                                                company.reputation < ListReputation)) continue;
             company.listed = true;
             company.listed_at = now;
             company.price = Fair(company, state);
             company.prices = new List<float>();
-            company.capital += company.price * Shares * IpoRaise;
+            if (!charter) company.capital += company.price * Shares * IpoRaise;
             // 上市的多，只记进公司自己的大事记
             CompanySystem.Note(company, string.Format(LM.Get("stock_listed_history"), company.name, empire.GetEmpireFullName()));
         }
@@ -131,6 +143,20 @@ public static class StockMarketSystem
         foreach (CompanyData company in CompanySystem.All)
         {
             if (company.state || CompanySystem.RealmOf(company) == null) continue;
+            // 特许公司：各家大股东照股份算
+            if (CompanySystem.IsCharter(company))
+            {
+                foreach (CompanyHolder big in company.holders ?? new List<CompanyHolder>())
+                {
+                    if (big.clan_id < 0 || big.share <= 0f) continue;
+                    if (!fortunes.TryGetValue(big.clan_id, out Fortune held))
+                        fortunes[big.clan_id] = held = new Fortune { clanId = big.clan_id, realm = CompanySystem.RealmOf(company), name = big.owner };
+                    held.wealth += CompanySystem.Worth(company) * big.share;
+                    held.companies++;
+                    if (string.IsNullOrEmpty(held.name)) held.name = big.owner;
+                }
+                continue;
+            }
             // 国家入的股不算东家的
             float stake = CompanySystem.Worth(company) * (company.listed ? OwnerStake : 1f) * (1f - company.state_share);
             // 外资子公司算到母公司的东家头上

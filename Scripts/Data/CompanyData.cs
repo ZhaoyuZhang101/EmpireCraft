@@ -46,6 +46,24 @@ public sealed class CompanyData
     public List<float> prices = new();
     // 大事记(只留最近八条)
     public List<CompanyNote> notes = new();
+    // 企业形态(CompanyRules.forms 的 id：shop 商号、firm 公司、corp 有限公司、group 集团……；空 = 旧档还没定)；
+    // 字号(名号里随改组留着的那一截)；改过名的不随改组换名
+    public string form = "";
+    public string head = "";
+    public bool renamed;
+    // 皇商(古代官府特许专营，见 CompanySystem 行会与皇商一段)：特许的时间(-1 = 没有)
+    public double licensed_at = -1d;
+    // 特许公司(东印度公司这类殖民地政权，见 CompanySystem 特许公司一段)：那个殖民地国的编号(-1 = 不是)；各家大股东(余下是散户)
+    public long charter_kingdom_id = -1L;
+    public List<CompanyHolder> holders = new();
+}
+
+// 一家大股东：宗族与几成股份
+public sealed class CompanyHolder
+{
+    public long clan_id = -1L;
+    public string owner = "";
+    public float share;
 }
 
 // 一国的证券交易所：开业时间、股指(开业那年为 100)与近三十年的年末指数

@@ -137,6 +137,9 @@ public class CityWindowPatch : GamePatch
         __instance.showStatRow("city_job_sources",
             string.Format(LM.Get("city_job_sources_format"), employment.Buildings, employment.Merchants,
                 employment.RecentVoyages, employment.Factories), "#B8C6CC", pIconPath: "iconMoney");
+        // 本城的商号、公司：几家、头号是谁占几成(见 CompanyWindow 城市页)
+        if (CompanyCityLine(metaObject) is string companies)
+            __instance.showStatRow("city_companies", companies, "#F3C34A", pIconPath: "iconMoney");
         __instance.showStatRow("city_worker_population", employment.Workers.ToString(), "#7FD8EA",
             pIconPath: "iconChildren");
         __instance.showStatRow("city_job_seekers", employment.AvailableResidents.ToString(), "#B8C6CC",
@@ -150,6 +153,26 @@ public class CityWindowPatch : GamePatch
         }
         return false;
     }
+    // "8 家 · 头号 恒裕窑 38%"：按厂区产值算
+    private static string CompanyCityLine(City city)
+    {
+        if (CompanySystem.All.Count == 0) return null;
+        var values = new Dictionary<CompanyData, float>();
+        float total = 0f;
+        foreach (FactorySite site in FactorySystem.InCity(city))
+        {
+            float value = site.units.Sum(FactorySystem.ValueOf);
+            total += value;
+            if (CompanySystem.Of(site) is not { } company) continue;
+            values.TryGetValue(company, out float sum);
+            values[company] = sum + value;
+        }
+        if (values.Count == 0) return null;
+        KeyValuePair<CompanyData, float> top = values.OrderByDescending(pair => pair.Value).First();
+        return string.Format(LM.Get("city_companies_value"), values.Count, top.Key.short_name,
+            Mathf.RoundToInt(total <= 0f ? 0f : top.Value / total * 100f));
+    }
+
     // 矿场、伐木场的最高等级
     private static void ShowZoneRows(CityWindow window, City city)
     {

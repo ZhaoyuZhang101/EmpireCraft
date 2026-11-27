@@ -28,16 +28,26 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //     政府首脑出自财阀的宗族时再重五成；政商丑闻——扶持的党在台上时每年有机会案发，执政表现大跌；
 //     大而不倒——市面崩盘那年，国库拿得出钱就得出手救最大的财阀(劳工、市民不满)，拿不出它就垮台、旗下公司各自独立。
 // 二、政治世家——共和国、议会制下，同一宗族出过三位政府首脑(同一人再任不重记)即称政治世家：党魁出自政治世家的党多得百分之八的票。
-// 数值都是模组自己的规则。
+// 数值在 CompanyRules.json 的 conglomerate 一段(政体编辑器可改)，都是模组自己的规则。
 public static class ConglomerateSystem
 {
-    private const int MinIndustry = 6, IndustryPerHouse = 12, MaxHouses = 4;
-    private const float FoundChance = 0.25f, StartShare = 0.08f, Growth = 0.02f, MaxShare = 0.35f, MaxMonopoly = 0.8f;
-    private const float DonationScale = 300f, HouseVote = 1.08f, OutputPerMonopoly = 0.15f;
-    public const int HouseTerms = 3;
-    private const int ScandalYears = 8;
-    private const float ScandalChance = 0.15f, BailoutShare = 0.15f;
-    private const int AntitrustCooldownYears = 15;
+    private static ConglomerateNumbers H => CompanyRules.Houses;
+    private static int MinIndustry => H.min_industry;
+    private static int IndustryPerHouse => H.industry_per_house;
+    private static int MaxHouses => H.max_houses;
+    private static float FoundChance => H.found_chance;
+    private static float StartShare => H.start_share;
+    private static float Growth => H.growth;
+    private static float MaxShare => H.max_share;
+    private static float MaxMonopoly => H.max_monopoly;
+    private static float DonationScale => H.donation_scale;
+    private static float HouseVote => H.house_vote;
+    private static float OutputPerMonopoly => H.output_per_monopoly;
+    public static int HouseTerms => H.house_terms;
+    private static int ScandalYears => H.scandal_years;
+    private static float ScandalChance => H.scandal_chance;
+    public static float BailoutShare => H.bailout_share;
+    private static int AntitrustCooldownYears => H.antitrust_cooldown_years;
 
     private static ConstitutionalEconomyState State(Empire empire) => empire?.data?.constitutional_economy;
     private static ConstitutionalEconomyState State(Kingdom kingdom) => kingdom?.GetEmpire()?.data?.constitutional_economy;

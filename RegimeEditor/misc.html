@@ -91,6 +91,29 @@
     .erf > table,.erf > .maps{justify-self:start}
     table.sheet.mapt th,table.sheet.eff th{position:static}
     .rule .row input[data-rule-note]{min-width:230px}
+    /* 公司与商号 */
+    #coRoot .warn-box:empty{display:none}
+    .tabs .cnt{font-size:11px;color:var(--danger)}
+    .cof{border:1px solid var(--line);padding:8px 10px;display:grid;gap:4px;margin-bottom:8px}
+    .cof.bad{border-color:var(--danger)}
+    .cof-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+    .cof-head .acts{margin-left:auto;display:flex;gap:4px}
+    .cof-head label.kv{font-size:13px;gap:4px}
+    .tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:4px;align-items:center}
+    .tri.stack{grid-template-columns:60px minmax(0,1fr)}
+    .tri.stack button{grid-column:2;justify-self:start}
+    .tri input{padding:4px 8px}
+    .trirow{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px;align-items:start;padding:3px 0}
+    .trirow > .lbl{font-size:13px;padding-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+    .trirow .pv{font-size:12px;color:var(--muted);margin-top:2px}
+    .trirow .pv b{color:var(--c-gold,#8d6836);font-weight:normal}
+    table.sheet.comat td,table.sheet.comat th{text-align:center;padding:3px 6px}
+    table.sheet.comat td:first-child{text-align:left}
+    .heads{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px}
+    .heads label{display:grid;gap:2px;font-size:13px}
+    .heads input{padding:4px 8px}
+    table.sheet.cofam{table-layout:auto}
+    table.sheet.cofam td{padding:4px 8px;vertical-align:top}
   </style>
   <link rel="stylesheet" href="pixel-theme.css" />
 </head>
@@ -472,6 +495,7 @@
       { id: "laws", label: "帝国律法", icon: "iconBooksWritten", path: "Scripts/GeneralSystems/EmpireLaw/EmpireLawConfig.json", kind: "json", bom: true, empty: "[]\n", render: renderLaws },
       { id: "lawEras", label: "律法时代与宽严", icon: "iconBooks", path: "Scripts/GeneralSystems/EmpireLaw/EmpireLawEras.json", kind: "json", empty: "{}\n", render: renderLawEras },
       { id: "performance", label: "官员考绩事件", icon: "iconHistory", path: "Scripts/Data/PerformanceData.json", kind: "json", empty: "{}\n", render: renderPerformance },
+      { id: "companies", label: "公司与商号", icon: "iconMoney", path: "CompanyRules.json", kind: "json", empty: "{}\n", render: renderCompanies },
       { id: "peerages", label: "爵位名称", icon: "iconTitleLayer", path: "Locales/PeeragesLevelNames.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
         about: "人物爵位的显示名。键 = 文化_peerages_档位：0 最高(皇帝、天子)，6 为无爵；本文化没配的档位退回 default_peerages_档位。default_peerages_2(王)还用作封王的后缀。" },
       { id: "honorary", label: "散官名称", icon: "iconKings", path: "Locales/HonoraryOfficial.csv", kind: "csv", quoting: true, empty: "key,cz,en,ch\n", render: renderLocaleTable,
@@ -675,6 +699,7 @@
       } catch (e) { st.error = e.message; }
       if (!st.error && f.id === "laws") await loadLawLocales(st);
       if (!st.error && f.id === "lawEras") await loadEraNoteLocales(st);
+      if (!st.error && f.id === "companies") await loadCompanyLookups(st);
       return st;
     }
     // 文件里用到、语言文件里还没读的卷宗说明键
@@ -2661,6 +2686,975 @@
         addRow(at + 1, cells);
         document.querySelector(`#editor tr[data-li="${at + 2}"] input[data-c="0"]`)?.focus();
       });
+    }
+
+    // ================= 7. 公司与商号(CompanyRules.json) =================
+    // 游戏读法见 Scripts/GeneralSystems/CompanyRules.cs：Newtonsoft 整份读——缺的键按代码默认，不认识的键忽略；
+    // 值的类型不对(整数写成小数、该是列表的写成别的)整份读不进、按默认(日志记 [公司])。forms / families / names / tables 写了就整项替换代码默认。
+    // 显示的名字都是"简体|English|繁體"三段(同剧本地名，WorldMapData.PickParts)：只写一段三种语言都用它，English、繁體 空着用简体。
+    const CO_KNOWN = ["_about", "forms", "families", "default_family", "names", "tables", "company", "guild", "charter", "stock", "conglomerate"];
+    // 厂区种类(公司的行业)；charter 是特许公司(CompanyRules.CharterSector)
+    const CO_SECTORS = ["kiln", "mint", "paper_mill", "print_shop", "iron_foundry", "wooden_shipyard", "gunpowder_mill", "steel_mill", "light_factory",
+      "light_shipyard", "heavy_factory", "heavy_shipyard", "light_aircraft_factory", "heavy_aircraft_factory", "chemical_plant", "electrical_works", "motor_works", "charter"];
+    const CO_FORM_FLAGS = [["listed", "可上市", "能在证券交易所上市"], ["guild", "结行会", "同业商号够数就结行会定价"],
+      ["license", "皇商特许", "官府可把一个行业特许给它专营"], ["stake", "国库入股", "国库可以入股"]];
+    // 字号取法(CompanyNaming.RollHead)
+    const CO_HEADS = [["hao", "两个吉字", "字表 hao_分系(恒裕、同泰)；本系没有用 hao_huaxia"], ["surname", "东家的姓", "官办的、没有东家的按城名"],
+      ["city", "总部城名", ""], ["prefix", "通用名头", "字表 prefixes_分系(东方、联合)；prefixes_crown 里的只许君主国用"], ["yago", "屋号吉字", "字表 yago_分系(大黑、惠比寿)"]];
+    // [键, 中文名, 说明, 官办?, 空着时按什么(函数：这一条 → 格式), 地图简称?]
+    const CO_NAME_FIELDS = [
+      ["private", "私营全名", "空着按 {head}{trade}", false, () => "{head}{trade}"],
+      ["private_surname", "东家姓作字号时", "字号取了东家的姓时改用这个(某某父子商行、某某组)；空着同私营全名", false, e => coStr(e.private) || "{head}{trade}", false, true],
+      ["brief", "私营简称", "地图上标的；空着用全名", false, e => coStr(e.private) || "{head}{trade}", true],
+      ["state", "官办全名", "官办的字号就是城名；空着按 {city}{trade}", true, () => "{city}{trade}"],
+      ["state_republic", "官办全名(非君主国)", "君主国以外改用这个；空着同官办全名", true, e => coStr(e.state) || "{city}{trade}"],
+      ["state_brief", "官办简称", "空着用全名", true, e => coStr(e.state) || "{city}{trade}", true]
+    ];
+    // 预览用的样例
+    const CO_SAMPLE = { cz: { head: "恒裕", surname: "张", city: "江宁", realm: "大昭" }, en: { head: "Hengyu", surname: "Zhang", city: "Jiangning", realm: "Zhao" } };
+    const CO_PH_OK = { name: ["head", "trade", "shop", "city", "city1"], reform: ["realm"] };
+    const CO_GROUPS = [
+      ["company", "公司：账、竞争、外资、国家持股", "每年对账：盈利 = 年产值 × 利润率 × 行情 × 加价 × 声誉；兼并垄断时代起同业并购、哄抬市价、价格战，资本厚的私企收购弱国关键企业；国库可以入股私企。"],
+      ["guild", "行会与皇商", "企业形态勾了「结行会」「皇商特许」的才有：同业商号够数结行会定价；官府把一个行业特许给最大的商号专营。"],
+      ["charter", "特许公司", "东印度公司这类殖民地政权：特许状到期续约，国库与大股东分股、分红，做大了收归国有。"],
+      ["stock", "股市", "研究出所需科技、本国能上市的私企够数的国家开一所证券交易所；年产值、声誉够的私企上市。"],
+      ["conglomerate", "财阀与政治世家", "工业够了规模，宗族起家办成财阀，逐年坐大、给政党献金、干政；同一宗族出过几位政府首脑即称政治世家。"]
+    ];
+    const CO_NUM_INFO = {
+      company: {
+        min_era: ["公司起始时代", "本国科技时代到这一档起，厂区归商号、公司经营"], trust_era: ["兼并垄断时代", "到这一档起兼并与垄断(托拉斯、财阀、外资)"],
+        margin: ["利润率", "盈利 = 年产值 × 这个数 × 行情 × 加价 × 声誉"], start_reputation: ["起家声誉", "新立公司的声誉(另加 0~14 的随机)"],
+        merge_chance: ["并购机会", "兼并垄断时代起每年并购小公司的机会(萧条加倍)"], early_merge_chance: ["早期并购机会", "兼并垄断时代以前的并购机会"],
+        price_war_chance: ["价格战机会", "头两名规模相近时每年打价格战的机会"], fail_chance: ["萧条倒闭机会", "萧条里声誉差的公司倒闭的机会"],
+        group_buy_chance: ["财阀收购机会", "财阀每年跨行业收购别家私企的机会"],
+        gouge_from: ["哄抬起点份额", "一家(或一个财阀)占行业这么多起哄抬市价"], gouge_per_share: ["份额加价系数", "超过起点后每多占 1 的份额加价这么多"],
+        gouge_base: ["哄抬起步加价", "到起点时先加这么多"], max_gouge: ["哄抬加价上限", ""], price_war_cut: ["价格战压价", "打价格战那年的加价(负数是压价)"],
+        foreign_bid_chance: ["外资收购机会", "资本最厚的私企每年收购弱国关键企业的机会"], foreign_remit: ["利润汇回", "外资子公司利润汇回母公司的比例"],
+        weaker_share: ["弱国门槛", "对方国力不到本国这么多倍才算弱国、能收购"],
+        branch_min_cost: ["分公司最低花费", "去通商国家设厂至少花这么多资本"], branch_cost_share: ["分公司花费倍数", "或自己年产值的这么多倍(取大者)"],
+        max_branches: ["分公司上限", "一家公司至多几处分公司"],
+        influence_at: ["受制门槛", "外国在关键行业控到这么多，本国就受制于它"], control_at: ["控制门槛", "控到这么多，连通商政策都改不成保护关税、闭关"],
+        seizure_grudge_years: ["没收外资记恨年数", ""], min_group_scale: ["财阀收购起点规模", "规模到这么大的私企才会被财阀看上"],
+        beholden_opinion: ["受制时好感", "受制于外资的国家对其母国的好感"], seizure_opinion: ["没收后好感", "被没收的一方的好感变化"],
+        stake_step: ["国库每次入股", "一回买这么多股份"], max_stake: ["国库持股上限", "再多就收归国有"],
+        control_stake: ["国家控股门槛", "持股到这么多起国家控股：不倒闭、不被并购"], shield_stake: ["挡外资门槛", "国库持股到这么多外资就买不走"]
+      },
+      guild: {
+        guild_min_firms: ["结行会家数", "同业商号到这么多家结行会"], guild_markup: ["行会加价", "行会定价加这么多"],
+        license_chance: ["特许机会", "每年把一个行业特许给最大商号的机会"], license_markup: ["皇商加价", "皇商多得这么多价"],
+        license_fee: ["皇商上缴", "每年把盈利的这么多交官府"], license_years: ["特许年数", ""], license_squeeze: ["同业掉声誉", "有皇商时同业别家每年掉这么多点声誉"]
+      },
+      charter: {
+        years: ["特许状年限", "几年一续"], renew_fee_share: ["续约费比例", "续一回交年入的这么多"], renew_fee_min: ["续约费下限", ""],
+        state_share: ["国库股份", ""], first_holder: ["第一大股东股份", "余下散户"], second_holder: ["第二大股东股份", ""],
+        dividend_share: ["分红比例", "国库超出储备的余钱每年分这么多"], nationalize_cities: ["收归国有城数", "做到这么多座城收归国有"],
+        renew_chance: ["续约机会", "特许状到期时续的机会"]
+      },
+      stock: {
+        exchange_tech: ["开交易所的科技", "研究出这项科技才开证券交易所(科技 id)"], shares: ["每家股数", "不大于 0 时按 100"],
+        min_firms: ["开所私企家数", "本国能上市的私企到这么多家才开交易所"], years: ["行情记几年", "股价、股指留最近这么多年"],
+        list_value: ["上市年产值", "年产值到这么多才上市"], list_reputation: ["上市声誉", "声誉到这么多才上市"],
+        ipo_raise: ["上市募资", "上市那年按市值募得这么多资本"], owner_stake: ["东家股份", "财富榜上上市公司的东家只算这么多股份"]
+      },
+      conglomerate: {
+        min_industry: ["起财阀工业规模", "本国工业(各城厂区按档次合计)到这么多才起财阀"], industry_per_house: ["每家财阀要的工业", "工业每这么多档容一家"],
+        max_houses: ["财阀家数上限", ""], found_chance: ["起家机会", "每年起一家财阀的机会"], start_share: ["起家份额", "起家占本国工业的份额"],
+        growth: ["每年坐大", "份额每年涨这么多"], max_share: ["一家份额上限", ""], max_monopoly: ["垄断程度上限", "各家份额之和超过就按比例压回"],
+        donation_scale: ["献金", "每年给政党的献金 = 份额 × 这个数"], house_vote: ["政治世家得票", "党魁出自政治世家的党得票 × 这个数"],
+        output_per_monopoly: ["垄断加产值", "工厂产值 ×(1 + 这个数 × 垄断程度)"], house_terms: ["政治世家门槛", "同一宗族出过这么多位政府首脑称政治世家"],
+        scandal_years: ["丑闻间隔年数", "一次丑闻后这么多年内不再案发"], antitrust_cooldown_years: ["反托拉斯冷却年数", "拆过之后这么多年内不再提"],
+        scandal_chance: ["丑闻机会", ""], bailout_share: ["救市门槛份额", "份额到这么多的财阀，崩盘那年国库得出手救"]
+      }
+    };
+    // 读不出 CompanyRules.cs 时用的代码默认：照 2026-11-28 的代码原样抄的类(代码改了这里不会跟着变，页面上会提示)
+    const CO_FALLBACK_CS = `
+      class CompanyRulesConfig { public List<CompanyForm> forms = X; public Dictionary<string, List<string>> families = X; public string default_family = "west";
+        public Dictionary<string, Dictionary<string, CompanyFormNames>> names = X; public Dictionary<string, string> tables = X;
+        public CompanyNumbers company = new(); public GuildNumbers guild = new(); public CharterNumbers charter = new(); public StockNumbers stock = new(); public ConglomerateNumbers conglomerate = new(); }
+      class CompanyNumbers { public int min_era = 0, trust_era = 8; public float margin = 0.1f, start_reputation = 25f;
+        public float merge_chance = 0.25f, early_merge_chance = 0.05f, price_war_chance = 0.15f, fail_chance = 0.2f, group_buy_chance = 0.15f;
+        public float gouge_from = 0.5f, gouge_per_share = 0.6f, gouge_base = 0.05f, max_gouge = 0.3f, price_war_cut = -0.08f;
+        public float foreign_bid_chance = 0.15f, foreign_remit = 0.4f, weaker_share = 0.8f; public float branch_min_cost = 200f, branch_cost_share = 1f;
+        public int max_branches = 3; public float influence_at = 0.3f, control_at = 0.6f;
+        public int seizure_grudge_years = 20, min_group_scale = 4, beholden_opinion = 20, seizure_opinion = -40;
+        public float stake_step = 0.1f, max_stake = 0.9f, control_stake = 0.5f, shield_stake = 0.3f; }
+      class GuildNumbers { public int guild_min_firms = 3; public float guild_markup = 0.04f; public float license_chance = 0.1f, license_markup = 0.12f, license_fee = 0.3f;
+        public int license_years = 30; public float license_squeeze = 2f; }
+      class CharterNumbers { public int years = 20; public float renew_fee_share = 0.5f, renew_fee_min = 100f; public float state_share = 0.4f, first_holder = 0.25f, second_holder = 0.1f;
+        public float dividend_share = 0.5f; public int nationalize_cities = 6; public float renew_chance = 0.7f; }
+      class StockNumbers { public string exchange_tech = "banking"; public int shares = 100, min_firms = 3, years = 30;
+        public float list_value = 120f, list_reputation = 40f, ipo_raise = 0.15f, owner_stake = 0.6f; }
+      class ConglomerateNumbers { public int min_industry = 6, industry_per_house = 12, max_houses = 4;
+        public float found_chance = 0.25f, start_share = 0.08f, growth = 0.02f, max_share = 0.35f, max_monopoly = 0.8f;
+        public float donation_scale = 300f, house_vote = 1.08f, output_per_monopoly = 0.15f; public int house_terms = 3, scandal_years = 8, antitrust_cooldown_years = 15;
+        public float scandal_chance = 0.15f, bailout_share = 0.15f; }`;
+    S.co = { fromCode: false, groups: {}, top: null, defFamilies: null, techs: [], cultures: [], asked: new Set() };
+
+    // C# 里 class 名 { … } 的正文
+    function coClassBody(t, name) {
+      const at = t.search(new RegExp(`class\\s+${name}\\b`));
+      const open = at < 0 ? -1 : t.indexOf("{", at);
+      if (open < 0) return null;
+      let depth = 0, inStr = false;
+      for (let i = open; i < t.length; i++) {
+        const c = t[i];
+        if (inStr) { if (c === "\\") i++; else if (c === '"') inStr = false; continue; }
+        if (c === '"') inStr = true;
+        else if (c === "{") depth++;
+        else if (c === "}" && --depth === 0) return t.slice(open + 1, i);
+      }
+      return null;
+    }
+    // CompanyRulesConfig 的字段(代码读哪些键)，以及各段数值类(public int/float/string 字段 = 初值)
+    function parseCompanyDefaults(text) {
+      if (!text) return null;
+      const t = stripCsComments(text);
+      const cfg = coClassBody(t, "CompanyRulesConfig");
+      if (!cfg) return null;
+      const top = [], groups = {};
+      for (const m of cfg.matchAll(/public\s+([\w<>,\s]+?)\s+@?(\w+)\s*=\s*([^;]*);/g)) {
+        top.push(m[2]);
+        const cls = /^new\s*(\w*)\s*\(\s*\)$/.exec(m[3].trim());
+        const body = cls ? coClassBody(t, cls[1] || m[1].trim()) : null;
+        if (!body) continue;
+        const fields = [];
+        for (const fm of body.matchAll(/public\s+(int|float|double|string|bool)\s+([^;]+);/g)) {
+          for (const part of fm[2].split(",")) {
+            const pm = /^\s*@?(\w+)\s*(?:=\s*(.+?))?\s*$/.exec(part);
+            if (!pm) continue;
+            const type = fm[1] === "double" ? "float" : fm[1], raw = pm[2];
+            let def = type === "string" ? "" : type === "bool" ? false : 0;
+            if (raw !== undefined) {
+              if (raw.startsWith('"')) { try { def = JSON.parse(raw); } catch { continue; } }
+              else if (raw === "true" || raw === "false") def = raw === "true";
+              else { def = parseFloat(raw); if (!Number.isFinite(def)) continue; }
+            }
+            fields.push({ k: pm[1], type, def });
+          }
+        }
+        if (fields.length) groups[m[2]] = fields;
+      }
+      return top.length && Object.keys(groups).length ? { top, groups } : null;
+    }
+    // CompanyRules.DefaultFamilies()：文件里没写 families 时游戏用它
+    function parseCoDefFamilies(text) {
+      const t = stripCsComments(text || "");
+      const at = t.search(/DefaultFamilies\s*\(\s*\)\s*=>/);
+      if (at < 0) return null;
+      try { const v = csToJson(csExpr(t, t.indexOf("new", at)), "Dictionary<string, List<string>>"); return isObj(v) ? v : null; } catch { return null; }
+    }
+
+    async function coLoadLoc(keys) {
+      const need = uniq(keys).filter(k => !has(S.loc, k) && !S.co.asked.has(k));
+      if (!need.length || !api || typeof api.readLocales !== "function") return false;
+      need.forEach(k => S.co.asked.add(k));
+      try { Object.assign(S.loc, await api.readLocales(need)); return true; } catch { return false; }
+    }
+    const coTableLocKeys = fams => ["company_prefixes_crown", "company_hao_huaxia", ...fams.flatMap(x => [`company_hao_${x}`, `company_prefixes_${x}`, `company_yago_${x}`])];
+
+    async function loadCompanyLookups(st) {
+      const [cs, tree] = await Promise.all(["Scripts/GeneralSystems/CompanyRules.cs", "Technology/TechTree.json"].map(readText));
+      let parsed = null;
+      try { parsed = parseCompanyDefaults(cs); } catch { parsed = null; }
+      S.co.fromCode = !!parsed;
+      if (!parsed) parsed = parseCompanyDefaults(CO_FALLBACK_CS);
+      S.co.groups = parsed.groups;
+      S.co.top = S.co.fromCode ? parsed.top : null;
+      S.co.defFamilies = parseCoDefFamilies(cs);
+      try { S.co.techs = (parseJsonLoose(tree).techs || []).filter(x => x && typeof x.id === "string").map(x => x.id); } catch { S.co.techs = []; }
+      try { S.co.cultures = typeof api.listCultures === "function" ? (await api.listCultures()).map(c => ({ id: c.name, cn: c.data?.translate_cz || "" })) : []; }
+      catch { S.co.cultures = []; }
+      const fams = isObj(st.data) ? coFamilyIds(st.data) : [];
+      await coLoadLoc(["tech_era_primitive", ...CO_SECTORS.flatMap(x => [`company_sector_${x}`, `factory_type_${x}`]), ...S.co.techs.map(x => `tech_${x}`), ...coTableLocKeys(fams)]);
+    }
+
+    // ---------- 三段字 ----------
+    const coStr = v => typeof v === "string" ? v : "";
+    const coSplit = v => { const p = String(v ?? "").split("|"); return [p[0] ?? "", p[1] ?? "", p[2] ?? ""]; };
+    const coPack = ([a, b, c]) => !b && !c ? a : `${a}|${b}|${c}`;
+    // 同 WorldMapData.PickParts：缺的段、空的段都用简体
+    const coPick = (raw, lang) => { const p = String(raw ?? "").split("|"), a = p[0] ?? ""; return (lang === "en" ? p[1] : lang === "ch" ? p[2] : a) || a; };
+    // 同 CompanyNaming.Fill(按顺序替换 head、trade、shop、city1、city)；改组记事另替换 {realm}
+    function coFill(fmt, lang, v, realm = false) {
+      const city = v.city ?? "";
+      let s = coPick(fmt, lang).replaceAll("{head}", v.head ?? "").replaceAll("{trade}", v.trade ?? "").replaceAll("{shop}", v.shop ?? "")
+        .replaceAll("{city1}", Array.from(city)[0] || "").replaceAll("{city}", city);
+      if (realm) s = s.replaceAll("{realm}", v.realm ?? "");
+      return s.trim();
+    }
+    // 行业名：同 CompanyNaming.SectorName(company_sector_ → factory_type_)
+    function coSectorName(s, lang = "cz") {
+      for (const k of [`company_sector_${s}`, `factory_type_${s}`]) { const v = S.loc[k]?.[lang] || S.loc[k]?.cz; if (v) return v; }
+      return s === "charter" ? (lang === "en" ? "Chartered" : "特许") : s;
+    }
+    const coSecLabel = s => s === "default" ? "其余行业" : s === "charter" ? "特许公司" : coSectorName(s);
+    // 预览的取值：字号(私营用样例字号、东家姓，官办用城名)、行业、店名(同 CompanyNaming.Shop)、城名
+    function coVals(entry, sector, lang, { state = false, surname = false } = {}) {
+      const s = CO_SAMPLE[lang];
+      const shops = isObj(entry?.shops) ? entry.shops : {};
+      const word = Object.keys(shops).length ? (has(shops, sector) ? shops[sector] : shops.default) : "";
+      return { head: state ? s.city : surname ? s.surname : s.head, trade: coSectorName(sector, lang), shop: typeof word === "string" ? coPick(word, lang) : "", city: s.city, realm: s.realm };
+    }
+    function coPhWarn(spec, raw) {
+      if (!spec.kind || spec.kind === "table") return "";
+      const ok = CO_PH_OK[spec.kind] || [];
+      const bad = uniq([...String(raw).matchAll(/\{(\w+)\}/g)].map(m => m[1]).filter(x => !ok.includes(x)));
+      return bad.length ? `<div class="hint warn">${esc(bad.map(x => `{${x}}`).join(""))} 在这里不替换，会原样显示` +
+        `${ok.length ? `(这里能用 ${esc(ok.map(x => `{${x}}`).join(""))})` : ""}</div>` : "";
+    }
+    function coCountHtml(raw) {
+      const n = coSplit(raw).map(p => p.split(",").map(x => x.trim()).filter(Boolean).length);
+      if (!n[0] && !n[1] && !n[2]) return `<span>空着：游戏改用语言文件里的同名字表</span>`;
+      const txt = [["简体", n[0]], ["English", n[1]], ["繁體", n[2]]].map(([l, c], i) => `${l} ${i && !c ? "空着用简体" : `${c} 个`}`).join(" · ");
+      return `<span>${txt}</span>` + (n.slice(1).some(c => c && c !== n[0]) ? `<div class="hint">各语言个数不一样：同一个公司起名时按界面语言取词，换了语言取到的不一定对得上</div>` : "");
+    }
+    function coPreview(spec, raw) {
+      let html = "";
+      if (spec.pv) {
+        const fmt = raw || (spec.fallback ? spec.fallback() : "");
+        if (fmt) {
+          const [a, b] = spec.pv(fmt);
+          const clip = spec.clip && a.length > 8 ? `(地图上截成「${a.slice(0, 8)}」)` : "";
+          html += `${raw ? "预览" : "空着，按"}：<b>${esc(a)}</b>${esc(clip)}${b && b !== a ? `　/　${esc(b)}` : ""}`;
+        }
+      }
+      if (spec.count) html += coCountHtml(raw);
+      return html + coPhWarn(spec, raw);
+    }
+    // 三段字输入框。spec：{ get: () => 所在对象(可能没有), ensure: () => 所在对象(没有就建), key, kind, pv, fallback, clip, count }
+    function coTri(reg, spec, { stack = false } = {}) {
+      const id = reg.push(spec) - 1;
+      const c = spec.get();
+      const raw = c && has(c, spec.key) ? c[spec.key] : undefined;
+      const str = typeof raw === "string" ? raw : "";
+      const parts = coSplit(str);
+      const ph = ["简体", "English(空着用简体)", "繁體(空着用简体)"];
+      return `<div class="tri ${stack ? "stack" : ""}" data-tri="${id}">` +
+        parts.map((p, i) => (stack ? `<span class="hint">${["简体", "English", "繁體"][i]}</span>` : "") + `<input data-part="${i}" value="${esc(p)}" placeholder="${esc(ph[i])}">`).join("") +
+        `<button type="button" class="small" data-trad title="按简体重新转出繁体" ${zhOK() ? "" : "disabled"}>繁</button></div>` +
+        (raw !== undefined && raw !== null && typeof raw !== "string" ? `<div class="hint warn">文件里的值 ${esc(JSON.stringify(raw))} 不是文字；在这里改了会换成文字</div>` : "") +
+        (str.split("|").length > 3 ? `<div class="hint warn">多于三段，第四段起游戏不用；在这里改了会去掉</div>` : "") +
+        `<div class="pv" data-pv="${id}">${coPreview(spec, str)}</div>`;
+    }
+    function coTriRow(reg, label, fname, spec, hint = "", extra = "", triOpts = {}) {
+      return `<div class="trirow"><div class="lbl">${lab(label, fname)}${extra}</div><div>${coTri(reg, spec, triOpts)}${hint ? `<div class="hint">${esc(hint)}</div>` : ""}</div></div>`;
+    }
+
+    // ---------- 形态、分系 ----------
+    const coInt = v => typeof v === "number" ? Number.isInteger(v) : typeof v === "string" && /^\s*-?\d+\s*$/.test(v);
+    const coNum = v => typeof v === "number" || typeof v === "string" && v.trim() !== "" && Number.isFinite(+v);
+    const coIntOf = v => coInt(v) ? parseInt(v, 10) : 0;
+    function coEraList() {
+      const tiers = S.eraTiers.length ? S.eraTiers : ERA_TIER_FALLBACK.map(([tier, key]) => ({ tier, key }));
+      return [{ tier: 0, name: cz("tech_era_primitive") || "原始时代" }, ...tiers.filter(e => e.tier > 0).map(e => ({ tier: e.tier, name: eraLabel(e.tier, true) }))];
+    }
+    const coEraName = n => coEraList().find(e => e.tier === n)?.name || `时代 ${n}`;
+    function coEraOptions(v) {
+      const list = coEraList();
+      let html = "";
+      if (v === undefined) html += optionHtml("\u0000keep", "没写(按 0 原始时代)", true);
+      else if (!coInt(v)) html += optionHtml("\u0000keep", `${JSON.stringify(v)}(不是整数)`, true);
+      else if (!list.some(e => e.tier === coIntOf(v))) html += optionHtml("\u0000keep", `时代 ${coIntOf(v)}`, true);
+      return html + list.map(e => optionHtml(String(e.tier), `${e.tier} ${e.name}`, v !== undefined && coInt(v) && coIntOf(v) === e.tier)).join("");
+    }
+    // 游戏读入后的形态次序(CompanyRules.Normalize：去掉没 id 的，按 era_min、min_scale 排，同档按文件先后)
+    function coGameForms(d) {
+      if (!Array.isArray(d.forms)) return [];
+      return d.forms.map((x, i) => ({ x, i })).filter(({ x }) => isObj(x) && x.id !== undefined && x.id !== null && String(x.id) !== "")
+        .sort((a, b) => coIntOf(a.x.era_min) - coIntOf(b.x.era_min) || coIntOf(a.x.min_scale) - coIntOf(b.x.min_scale) || a.i - b.i);
+    }
+    const coFormLabel = x => (isObj(x) && typeof x.label === "string" && coPick(x.label, "cz")) || (isObj(x) ? String(x.id ?? "") : "");
+    function coFormIds(d) {
+      const ids = Array.isArray(d.forms) ? coGameForms(d).map(o => String(o.x.id)) : ["shop", "firm", "corp", "group"];
+      const inNames = isObj(d.names) ? Object.values(d.names).flatMap(fm => isObj(fm) ? Object.keys(fm) : []) : [];
+      return uniq([...ids, ...inNames]);
+    }
+    const coDefFam = d => typeof d.default_family === "string" && d.default_family ? d.default_family : "west";
+    function coFamilyIds(d) {
+      const fams = isObj(d.families) ? Object.keys(d.families) : Object.keys(S.co.defFamilies || {});
+      return uniq([...fams, ...(isObj(d.names) ? Object.keys(d.names) : []), coDefFam(d)]);
+    }
+    // 起名格式用到的字表(字号取法有正权重的 hao / prefix / yago)
+    function coTableUsage(d) {
+      const use = {};
+      const add = (k, why) => { (use[k] || (use[k] = [])).push(why); };
+      for (const [fam, fm] of Object.entries(isObj(d.names) ? d.names : {})) {
+        if (!isObj(fm)) continue;
+        for (const [form, e] of Object.entries(fm)) {
+          if (!isObj(e) || !isObj(e.heads)) continue;
+          for (const [kind, w] of Object.entries(e.heads)) {
+            if (!(coNum(w) && +w > 0)) continue;
+            const tk = { hao: `hao_${fam}`, prefix: `prefixes_${fam}`, yago: `yago_${fam}` }[kind];
+            if (tk) add(tk, `${fam}·${form}`);
+            if (kind === "prefix") add("prefixes_crown", `${fam}·${form}`);
+          }
+        }
+      }
+      return use;
+    }
+    // 字表从哪来(同 CompanyRules.Table：文件里的不是空的用文件，否则语言文件 company_名字；吉字再退回 hao_huaxia)
+    function coTableSource(d, k) {
+      const t = isObj(d.tables) ? d.tables[k] : undefined;
+      if (typeof t === "string" && t.trim()) return { from: "file", n: coPick(t, "cz").split(",").filter(x => x.trim()).length };
+      const loc = S.loc[`company_${k}`]?.cz || "";
+      if (loc.trim()) return { from: "loc", n: loc.split(",").filter(x => x.trim()).length };
+      if (k.startsWith("hao_") && k !== "hao_huaxia") { const h = coTableSource(d, "hao_huaxia"); if (!h.none) return { from: "huaxia", n: h.n }; }
+      return { none: true };
+    }
+    function coTableLabel(k) {
+      if (k === "prefixes_crown") return "只许君主国用的名头";
+      const m = /^(hao|prefixes|yago)_(.+)$/.exec(k);
+      return m ? `${{ hao: "吉字", prefixes: "通用名头", yago: "屋号吉字" }[m[1]]}(${m[2]} 分系)` : "";
+    }
+    const coSectorKnown = s => CO_SECTORS.includes(s) || !!(S.loc[`company_sector_${s}`]?.cz || S.loc[`factory_type_${s}`]?.cz);
+
+    // ---------- 检查(照 CompanyRules 的读法) ----------
+    function coProblems(d) {
+      const P = { top: [], forms: [], families: [], names: [], tables: [], numbers: [] };
+      const add = (sec, msg, fatal = false) => P[sec].push({ msg: fatal ? msg + "，游戏读这个文件会出错、整份按代码默认" : msg, fatal });
+      const given = v => v !== undefined && v !== null;
+      const str = v => !isCont(v); // 文字、数字、true/false 都能当文字读
+      const codeTop = S.co.top || CO_KNOWN.filter(k => k !== "_about");
+      const extra = Object.keys(d).filter(k => !CO_KNOWN.includes(k) && !codeTop.includes(k));
+      if (extra.length) add("top", `编辑器和代码都不认识的字段(游戏忽略，保存时原样保留)：${extra.join("、")}`);
+      const codeNew = codeTop.filter(k => !CO_KNOWN.includes(k));
+      if (codeNew.length) add("top", `代码会读、编辑器还不认识的字段：${codeNew.join("、")}(请直接改 json)`);
+      const gone = S.co.top ? CO_KNOWN.filter(k => k !== "_about" && !codeTop.includes(k) && has(d, k)) : [];
+      if (gone.length) add("top", `代码已经不读这些字段，改了不起作用：${gone.join("、")}`);
+
+      // 企业形态
+      const forms = d.forms, ids = [];
+      if (given(forms) && !Array.isArray(forms)) add("forms", "forms 不是 [ ] 列表", true);
+      if (Array.isArray(forms)) {
+        forms.forEach((x, i) => {
+          const at = `第 ${i + 1} 种`;
+          if (x === null) return add("forms", `${at}是 null，游戏跳过`);
+          if (!isObj(x)) return add("forms", `${at}不是 { } 对象`, true);
+          const who = x.id && str(x.id) ? `「${x.id}」` : at;
+          if (given(x.id) && !str(x.id)) add("forms", `${at}的 id 应当是文字`, true);
+          else if (!given(x.id) || String(x.id) === "") add("forms", `${at}没有 id，游戏跳过这一种`);
+          else ids.push(String(x.id));
+          for (const k of ["era_min", "min_scale"]) if (has(x, k) && !coInt(x[k])) add("forms", `${who}的 ${k} 应当是整数`, true);
+          for (const [k] of CO_FORM_FLAGS) if (has(x, k) && typeof x[k] !== "boolean") add("forms", `${who}的 ${k} 应当是 true 或 false`, x[k] === null || isCont(x[k]));
+          for (const k of ["label", "reform"]) if (given(x[k]) && !str(x[k])) add("forms", `${who}的 ${k} 应当是文字`, true);
+          const ex = Object.keys(x).filter(k => !["id", "era_min", "min_scale", "label", "reform", ...CO_FORM_FLAGS.map(f => f[0])].includes(k));
+          if (ex.length) add("forms", `${who}里编辑器不认识的字段(游戏忽略，保存时原样保留)：${ex.join("、")}`);
+        });
+        const dup = uniq(ids.filter((id, i) => ids.indexOf(id) !== i));
+        if (dup.length) add("forms", `id 重复：${dup.join("、")}(存档按 id 记形态，只认排在前面的那种)`);
+        if (!ids.length) add("forms", "没有一种有 id 的形态，游戏改用代码默认的四种");
+        else if (!coGameForms(d).some(o => coIntOf(o.x.era_min) <= 0)) add("forms", "没有从 0 档(原始时代)起用的形态：时代还不到最低一档的国家也按排在最前的那种算");
+      }
+      const gameIds = Array.isArray(forms) ? ids : ["shop", "firm", "corp", "group"];
+
+      // 文化分系
+      if (given(d.default_family) && !str(d.default_family)) add("families", "default_family 应当是文字", true);
+      const fams = d.families;
+      if (given(fams) && !isObj(fams)) add("families", "families 不是 { } 对象", true);
+      if (isObj(fams)) {
+        const seen = {};
+        for (const [fam, list] of Object.entries(fams)) {
+          if (list === null) continue;
+          if (!Array.isArray(list)) { add("families", `分系 ${fam} 的文化应当是 [ ] 列表`, true); continue; }
+          if (list.some(isCont)) add("families", `分系 ${fam} 里有一项不是文字`, true);
+          for (const c of list.filter(x => !isCont(x)).map(String)) {
+            if (seen[c] && seen[c] !== fam) add("families", `文化 ${c} 同时列在 ${seen[c]}、${fam}：游戏取先列的 ${seen[c]}`);
+            else seen[c] = fam;
+          }
+          const unknown = S.co.cultures.length ? list.filter(x => !isCont(x) && !S.co.cultures.some(c => c.id === String(x))) : [];
+          if (unknown.length) add("families", `分系 ${fam} 里这些文化在 Locales/Cultures 下找不到：${unknown.join("、")}`);
+        }
+      }
+      if (isObj(d.names) && !isObj(d.names[coDefFam(d)])) add("families", `默认分系 ${coDefFam(d)} 在起名格式里没有，游戏用代码默认里的这一系(也没有就用 west)`);
+
+      // 起名格式
+      const names = d.names;
+      if (given(names) && !isObj(names)) add("names", "names 不是 { } 对象", true);
+      if (isObj(names)) {
+        const orphan = {};
+        for (const [fam, fm] of Object.entries(names)) {
+          if (fm === null) continue;
+          if (!isObj(fm)) { add("names", `分系 ${fam} 不是 { } 对象`, true); continue; }
+          for (const [form, e] of Object.entries(fm)) {
+            const at = `${fam}·${form}`;
+            if (e === null) continue;
+            if (!isObj(e)) { add("names", `${at} 不是 { } 对象`, true); continue; }
+            if (given(e.heads) && !isObj(e.heads)) add("names", `${at} 的 heads 不是 { } 对象`, true);
+            else if (isObj(e.heads)) for (const [k, w] of Object.entries(e.heads)) {
+              if (!coInt(w)) add("names", `${at} 字号取法 ${k} 的权重应当是整数`, true);
+              else if (!CO_HEADS.some(h => h[0] === k)) add("names", `${at} 的字号取法 ${k} 游戏不认识，抽到时用城名`);
+            }
+            for (const [k] of CO_NAME_FIELDS) if (given(e[k]) && !str(e[k])) add("names", `${at} 的 ${k} 应当是文字`, true);
+            for (const mk of ["state_sectors", "shops"]) {
+              if (given(e[mk]) && !isObj(e[mk])) { add("names", `${at} 的 ${mk} 不是 { } 对象`, true); continue; }
+              for (const [s, v] of Object.entries(isObj(e[mk]) ? e[mk] : {})) {
+                if (given(v) && !str(v)) add("names", `${at} 的 ${mk}.${s} 应当是文字`, true);
+                else if (s !== "default" && !coSectorKnown(s)) add("names", `${at} 的 ${mk} 里的行业 ${s} 不认识(拼错了就用不到)`);
+              }
+            }
+            const ex = Object.keys(e).filter(k => !["heads", "state_sectors", "shops", ...CO_NAME_FIELDS.map(x => x[0])].includes(k));
+            if (ex.length) add("names", `${at} 里编辑器不认识的字段(游戏忽略，保存时原样保留)：${ex.join("、")}`);
+            if (!gameIds.includes(form)) (orphan[form] || (orphan[form] = [])).push(fam);
+          }
+          const miss = gameIds.filter(id => !isObj(fm[id]));
+          if (miss.length) add("names", `分系 ${fam} 缺这些形态的起名格式：${uniq(miss).join("、")}(游戏先找代码默认的同一条，再退回默认分系、west 的同形态)`);
+        }
+        for (const [form, where] of Object.entries(orphan)) add("names", `企业形态里没有 ${form}，起名格式里的这几条用不到：${where.map(f => `${f}·${form}`).join("、")}`);
+      }
+
+      // 字表
+      const tables = d.tables;
+      if (given(tables) && !isObj(tables)) add("tables", "tables 不是 { } 对象", true);
+      if (isObj(tables)) for (const [k, v] of Object.entries(tables)) if (given(v) && !str(v)) add("tables", `字表 ${k} 应当是文字`, true);
+      for (const k of Object.keys(coTableUsage(d))) if (coTableSource(d, k).none)
+        add("tables", `字表 ${k} 文件和语言文件里都没有：${k.startsWith("hao_") ? "hao_huaxia 也没有，" : ""}抽到这种取法时字号用城名`);
+
+      // 数值
+      for (const [g, fields] of Object.entries(S.co.groups)) {
+        const o = d[g];
+        if (!given(o)) continue;
+        if (!isObj(o)) { add("numbers", `${g} 不是 { } 对象`, true); continue; }
+        for (const x of fields) {
+          if (!has(o, x.k)) continue;
+          const v = o[x.k];
+          if (x.type === "string") { if (isCont(v)) add("numbers", `${g}.${x.k} 应当是文字`, true); }
+          else if (x.type === "bool") { if (typeof v !== "boolean") add("numbers", `${g}.${x.k} 应当是 true 或 false`, v === null || isCont(v)); }
+          else if (x.type === "int" ? !coInt(v) : !coNum(v)) add("numbers", `${g}.${x.k} 的值 ${JSON.stringify(v)} ${x.type === "int" ? "不是整数" : "不是数字"}`, true);
+          else if (typeof v === "string") add("numbers", `${g}.${x.k} 写成了文字 ${JSON.stringify(v)}，游戏会转成数字，最好去掉引号`);
+        }
+        const ex = Object.keys(o).filter(k => !fields.some(x => x.k === k));
+        if (ex.length) add("numbers", `${g} 里代码没有的参数(游戏忽略，保存时原样保留)：${ex.join("、")}`);
+      }
+      const tech = isObj(d.stock) ? d.stock.exchange_tech : undefined;
+      if (typeof tech === "string" && tech && S.co.techs.length && !S.co.techs.includes(tech)) add("numbers", `stock.exchange_tech：科技树里没有 ${tech}，交易所永远开不了`);
+      return P;
+    }
+    const coProbHtml = list => list.map(p => `<div class="hint warn">${esc(p.msg)}</div>`).join("");
+
+    // ---------- 页面 ----------
+    function renderCompanies(panel, st, f) {
+      const d = st.data;
+      if (!isObj(d)) return badRoot(panel, f, st, "最外层应该是 { } 对象");
+      const ui = S.ui.co || (S.ui.co = { tab: "forms", fam: null, form: null, pvSector: "steel_mill" });
+      const P = coProblems(d);
+      const tabs = [["forms", "企业形态"], ["families", "文化分系"], ["names", "起名格式"], ["tables", "字表"], ["numbers", "数值"]];
+      if (!tabs.some(t => t[0] === ui.tab)) ui.tab = "forms";
+      const reg = [];
+      const body = { forms: coFormsHtml, families: coFamiliesHtml, names: coNamesHtml, tables: coTablesHtml, numbers: coNumbersHtml }[ui.tab];
+      panel.innerHTML = fileHead(f, st) + `<div id="coRoot">` +
+        `<p class="hint">公司、商号的规则：企业形态按本国科技时代逐档改组(古代商号 → 工业时代的公司与局 → 电气时代公司法下的有限公司 → 现代集团)，每档能不能上市、结行会、得皇商特许、国库入股；` +
+        `各文化按分系起名(字号取法、全名与简称、官办名号、店名)，字号从字表里取字；另有公司竞争与外资、行会与皇商、特许公司、股市、财阀各段数值。` +
+        `文件里缺的项按代码默认，读不进整份按默认(游戏日志记 [公司])。改完重启游戏生效。</p>` +
+        `<p class="hint">名字都是「简体|English|繁體」三段：English、繁體 空着用简体(简体改了繁体跟着自动转，按「繁」重新转)。` +
+        `占位：{head} 字号、{trade} 行业、{shop} 店名、{city} 城名、{city1} 城名头一个字、{realm} 国名(只在改组记事里)。</p>` +
+        (typeof d._about === "string" ? `<details class="help"><summary>文件自带说明(_about，保存时原样保留)</summary><p class="hint">${esc(d._about)}</p></details>` : "") +
+        (S.co.fromCode ? "" : `<p class="hint warn">没读出 CompanyRules.cs 里的默认值，「数值」页的代码默认是编辑器自带的一份，可能已经过时。</p>`) +
+        `<p class="hint warn" id="coFatal" ${Object.values(P).flat().some(p => p.fatal) ? "" : "hidden"}>文件里有游戏读不了的值(各页标红的项)，游戏会整份按代码默认。</p>` +
+        `<div class="warn-box" data-probs="top">${coProbHtml(P.top)}</div>` +
+        `<div class="tabs" id="coTabs">${tabs.map(([k, t]) => `<button type="button" data-co-tab="${k}" class="${ui.tab === k ? "active" : ""}">${t}<span class="cnt">${P[k].length || ""}</span></button>`).join("")}</div>` +
+        `<div class="warn-box" data-probs="${ui.tab}">${coProbHtml(P[ui.tab])}</div>` +
+        body(d, ui, reg) + `</div>`;
+      coBind(panel.querySelector("#coRoot"), d, ui, reg, st);
+      // 新加的分系：语言文件里的字表还没读的补读一次
+      const need = coTableLocKeys(coFamilyIds(d)).filter(k => !has(S.loc, k) && !S.co.asked.has(k));
+      if (need.length) coLoadLoc(need).then(ok => { if (ok && S.cur === "companies") coRerender(); });
+    }
+    function coRerender() { const ed = document.getElementById("editor"); const top = ed.scrollTop; renderCurrent(); ed.scrollTop = top; }
+    function coRefreshProbs(root, d) {
+      const P = coProblems(d);
+      root.querySelectorAll("[data-probs]").forEach(el => { el.innerHTML = coProbHtml(P[el.dataset.probs] || []); });
+      root.querySelectorAll("[data-co-tab]").forEach(b => { b.querySelector(".cnt").textContent = P[b.dataset.coTab].length || ""; });
+      root.querySelector("#coFatal").hidden = !Object.values(P).flat().some(p => p.fatal);
+    }
+
+    // 页 1：企业形态
+    function coFormsHtml(d, ui, reg) {
+      const forms = Array.isArray(d.forms) ? d.forms : null;
+      let html = `<p class="hint">公司按本国科技时代逐档改组：取「起用时代」与「规模门槛」都够得着的最后一档(界面里一国叫商号还是公司，看不设规模门槛的最后一档)。` +
+        `游戏读入后先按起用时代、再按规模门槛排先后，同档按这里的先后。存档按 id 记公司的形态：改了 id 或删掉的，旧档里这些公司先按最低一档算，次年对账时重定。</p>`;
+      if (!forms) {
+        if (d.forms !== undefined && d.forms !== null) return html;
+        return html + `<p class="hint">文件里没写 forms，游戏用代码默认的四种(商号、公司、有限公司、集团)。</p>` +
+          `<div class="toolbar"><button type="button" class="primary small" data-co-act="form-add">${ico("iconShovelPlus", "sm")}新建一种形态</button></div>`;
+      }
+      const order = coGameForms(d);
+      const ids = forms.map(x => isObj(x) ? String(x.id ?? "") : "");
+      const inOrder = order.every((o, k) => !k || order[k - 1].i < o.i);
+      html += `<p class="hint">游戏里的次序：${order.length ? esc(order.map(o => `${coFormLabel(o.x)}(${coEraName(coIntOf(o.x.era_min))}起${coIntOf(o.x.min_scale) > 0 ? `、规模 ${coIntOf(o.x.min_scale)} 起` : ""})`).join(" → ")) : "(没有)"}` +
+        (inOrder ? "" : `　<button type="button" class="small" data-co-act="form-sort" title="这里的先后与游戏排的不一样(不影响游戏)，按游戏次序重排">按游戏次序重排</button>`) + `</p>`;
+      html += forms.map((x, i) => {
+        if (!isObj(x)) return `<div class="cof bad" data-fi="${i}"><div class="cof-head"><span class="hint warn">第 ${i + 1} 种不是 { } 对象：${esc(JSON.stringify(x))}</span>` +
+          `<span class="acts"><button type="button" class="small danger" data-fact="del">删除</button></span></div></div>`;
+        const rank = order.findIndex(o => o.i === i);
+        const id = String(x.id ?? "");
+        const badId = !id || ids.filter(v => v === id).length > 1;
+        return `<div class="cof" data-fi="${i}"><div class="cof-head">` +
+          `<b title="游戏读入排序后的位置">${rank >= 0 ? `第 ${rank + 1} 档` : "不起用"}</b>` +
+          `<label class="kv">id<input data-ff="id" value="${esc(id)}" class="${badId ? "bad" : ""}" style="width:96px" title="起名格式按它对应；存档按它记"></label>` +
+          `<label class="kv">起用时代<select data-ff="era_min">${coEraOptions(x.era_min)}</select></label>` +
+          `<label class="kv" title="公司规模至少这么大才用这一档(集团)；0 = 不限">规模门槛<input type="number" step="1" min="0" data-ff="min_scale" value="${typeof x.min_scale === "number" ? x.min_scale : ""}" placeholder="0" style="width:64px"></label>` +
+          CO_FORM_FLAGS.map(([k, t, tip]) => `<label class="kv" title="${esc(tip)}"><input type="checkbox" data-ff="${k}" ${x[k] === true ? "checked" : ""}>${t}<span class="fname">${k}</span></label>`).join("") +
+          `<span class="acts"><button type="button" class="small" data-fact="up" ${i ? "" : "disabled"} title="往前挪">↑</button>` +
+          `<button type="button" class="small" data-fact="down" ${i < forms.length - 1 ? "" : "disabled"} title="往后挪">↓</button>` +
+          `<button type="button" class="small" data-fact="copy">复制</button><button type="button" class="small danger" data-fact="del">删除</button></span></div>` +
+          coTriRow(reg, "名称", "label", { get: () => x, ensure: () => x, key: "label", kind: "label" }, "界面里这一档的叫法") +
+          coTriRow(reg, "改组记事", "reform", { get: () => x, ensure: () => x, key: "reform", kind: "reform", pv: raw => ["cz", "en"].map(l => coFill(raw, l, CO_SAMPLE[l], true)) },
+            rank === 0 ? "最低一档用不到" : "本国进到这一档那年史书记的一笔；空着不记") + `</div>`;
+      }).join("");
+      return html + `<div class="toolbar"><button type="button" class="primary small" data-co-act="form-add">${ico("iconShovelPlus", "sm")}新加一种形态</button></div>`;
+    }
+
+    // 页 2：文化分系
+    function coFamiliesHtml(d) {
+      const famObj = isObj(d.families) ? d.families : null;
+      const def = coDefFam(d);
+      const ids = coFamilyIds(d);
+      const cn = id => S.co.cultures.find(c => c.id === id)?.cn || "";
+      const forms = coFormIds(d);
+      const rows = ids.map(id => {
+        const list = famObj ? famObj[id] : (S.co.defFamilies || {})[id];
+        const nf = isObj(d.names) && isObj(d.names[id]) ? d.names[id] : null;
+        const have = forms.filter(fm => nf && isObj(nf[fm]));
+        const cover = !isObj(d.names) ? "文件里没写 names，用代码默认" : !nf ? "没有，用代码默认里的这一系(也没有就用 west)" :
+          have.length === forms.length ? "各形态齐全" : `有 ${have.join("、") || "(无)"}；缺 ${forms.filter(x => !have.includes(x)).join("、")}`;
+        return `<tr data-fam="${esc(id)}"><td class="txt"><b>${esc(id)}</b>${id === def ? `<div class="hint">默认分系</div>` : ""}</td>` +
+          `<td>${famObj && list !== undefined && !Array.isArray(list) && list !== null ? `<span class="hint warn">不是 [ ] 列表：${esc(JSON.stringify(list))}</span>` : `<div data-chips="${esc(id)}"></div>`}</td>` +
+          `<td class="txt hint">${esc(cover)}</td>` +
+          `<td class="act"><button type="button" class="small" data-fam-ren="${esc(id)}" title="分系 id 改名(起名格式、字表、默认分系跟着改)">改名</button> ` +
+          `<button type="button" class="small danger" data-fam-del="${esc(id)}" title="删除这个分系">×</button></td></tr>`;
+      }).join("");
+      const assigned = new Set(famObj ? Object.values(famObj).flatMap(v => Array.isArray(v) ? v.map(String) : []) : Object.values(S.co.defFamilies || {}).flat());
+      const rest = S.co.cultures.filter(c => !assigned.has(c.id));
+      return `<p class="hint">各文化按分系起名(华夏的商号、日本的屋号、西方的商行)。一个文化列在哪个分系就用哪一系的起名格式；没列出的用默认分系。` +
+        `同一文化列在两个分系里，游戏取先列的。分系 id 还用来找字表(hao_分系、prefixes_分系、yago_分系)。</p>` +
+        (famObj ? "" : d.families === undefined || d.families === null
+          ? `<p class="hint">文件里没写 families，游戏用代码默认的分系(下面列的)；在这里改了会把代码默认连同改动一起写进文件。</p>` : "") +
+        `<label class="field" style="max-width:340px">${lab("默认分系", "default_family")}<select data-co-deffam>` +
+        (d.default_family === undefined ? optionHtml("", "没写(按 west)", true) : typeof d.default_family !== "string" || !d.default_family ? optionHtml("\u0000keep", `${JSON.stringify(d.default_family)}(按 west)`, true) : "") +
+        uniq([...ids, "west"]).map(id => optionHtml(id, id, d.default_family === id)).join("") + `</select><span class="hint">没列在任何分系里的文化用它</span></label>` +
+        `<div class="table-wrap free" style="margin-top:10px"><table class="sheet cofam"><colgroup><col style="width:130px"><col><col style="width:30%"><col style="width:110px"></colgroup>` +
+        `<thead><tr><th>分系</th><th>文化<span class="fname">families</span></th><th>起名格式</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` +
+        `<div class="toolbar" style="margin-top:8px"><input data-fam-new placeholder="新分系 id，如 korea" style="max-width:200px">` +
+        `<button type="button" class="small" data-co-act="fam-add">${ico("iconShovelPlus", "sm")}加一个分系</button></div>` +
+        `<p class="hint" id="coRestCult">${coRestText(rest, def)}</p>`;
+    }
+    const coRestText = (rest, def) => rest.length ? `没列出的文化(用默认分系 ${esc(def)})：${rest.map(c => esc(c.cn ? `${c.cn}(${c.id})` : c.id)).join("、")}` : "";
+    // 要改 families 时：文件里没写就先抄一份代码默认，免得只剩改的那一项
+    function coEnsureFamilies(d) {
+      if (!isObj(d.families)) {
+        d.families = structuredClone(S.co.defFamilies || {});
+        toast("文件里原来没写 families，已先写入代码默认的分系");
+      }
+      return d.families;
+    }
+
+    // 页 3：起名格式
+    function coNamesHtml(d, ui, reg) {
+      if (d.names !== undefined && d.names !== null && !isObj(d.names)) return "";
+      const names = isObj(d.names) ? d.names : {};
+      const fams = coFamilyIds(d), forms = coFormIds(d);
+      const formObjs = Array.isArray(d.forms) ? d.forms.filter(isObj) : [];
+      const formName = id => { const x = formObjs.find(o => String(o.id) === id); return x ? coFormLabel(x) : ""; };
+      if (!fams.includes(ui.fam)) ui.fam = fams[0];
+      if (!forms.includes(ui.form)) ui.form = forms[0];
+      const fam = ui.fam, form = ui.form;
+      const gameIds = Array.isArray(d.forms) ? coGameForms(d).map(o => String(o.x.id)) : ["shop", "firm", "corp", "group"];
+      let html = `<p class="hint">每个分系、每种形态一条起名格式。公司起名时先按「字号取法」的权重抽一种取字号(起好以后一直留着，改组只换后面的格式)，再套进全名、简称的格式；官办的字号就是城名。` +
+        `文件里没有的那一条，游戏先找代码默认里的同一条，再退回默认分系(${esc(coDefFam(d))})、代码默认 west 的同形态。</p>` +
+        (isObj(d.names) ? "" : `<p class="hint">文件里没写 names，游戏全用代码默认的起名格式；在这里新建一条，其余的仍按代码默认。</p>`) +
+        `<div class="table-wrap free"><table class="sheet mapt comat"><thead><tr><th>分系＼形态</th>` +
+        forms.map(id => `<th>${esc(formName(id) || id)}<span class="fname">${esc(id)}${gameIds.includes(id) ? "" : "(形态里没有)"}</span></th>`).join("") + `</tr></thead><tbody>` +
+        fams.map(fm => `<tr><td class="txt">${esc(fm)}${fm === coDefFam(d) ? `<span class="fname">默认</span>` : ""}</td>` + forms.map(id => {
+          const ok = isObj(names[fm]) && isObj(names[fm][id]);
+          const on = fm === fam && id === form;
+          return `<td><button type="button" class="small ${on ? "primary" : ok ? "" : "danger"}" data-pick-fam="${esc(fm)}" data-pick-form="${esc(id)}" title="${ok ? "文件里有这一条" : "文件里没有，用代码默认或退回"}">${ok ? "已写" : "没写"}</button></td>`;
+        }).join("") + `</tr>`).join("") + `</tbody></table></div>`;
+      html += `<h3>${esc(fam)} · ${esc(formName(form) || form)}<span class="fname">names.${esc(fam)}.${esc(form)}</span>` +
+        `<span class="kv" style="margin-left:auto;font-size:12px">预览用的行业<select data-pv-sector>${CO_SECTORS.map(s => optionHtml(s, coSecLabel(s), s === ui.pvSector)).join("")}</select></span></h3>`;
+      const famNames = names[fam];
+      const entry = isObj(famNames) ? famNames[form] : undefined;
+      if (!isObj(entry)) {
+        const donors = [];
+        for (const [fm, x] of Object.entries(names)) if (isObj(x)) for (const [id, e] of Object.entries(x)) if (isObj(e) && !(fm === fam && id === form)) donors.push([fm, id]);
+        donors.sort((a, b) => (b[1] === form) - (a[1] === form) || (b[0] === fam) - (a[0] === fam));
+        return html + (entry !== undefined && entry !== null ? `<p class="hint warn">这一条不是 { } 对象：${esc(JSON.stringify(entry))}</p>` : "") +
+          `<p class="hint">文件里没有这一条，游戏用代码默认里的同一条(没有就退回默认分系、west 的同形态)。要改就先建一条：</p>` +
+          `<div class="toolbar"><select data-entry-copy style="max-width:280px">${optionHtml("", "照现有的一条抄…", true)}` +
+          donors.map(([fm, id]) => optionHtml(JSON.stringify([fm, id]), `${fm} · ${formName(id) || id}`, false)).join("") + `</select>` +
+          `<button type="button" class="small" data-co-act="entry-blank">新建空白的一条</button></div>`;
+      }
+      const pvs = ui.pvSector;
+      const heads = isObj(entry.heads) ? entry.heads : {};
+      const total = Object.values(heads).filter(w => coNum(w) && +w > 0).reduce((s, w) => s + +w, 0);
+      const pct = w => total && coNum(w) && +w > 0 ? `约 ${Math.round(+w / total * 100)}%` : "";
+      html += `<h3>字号取法<span class="fname">heads</span></h3>` +
+        `<p class="hint">按权重(整数)抽一种；空着 = 不用这种。都不填按城名。抽到的取不出(没有东家、字表是空的)也用城名。</p>` +
+        (entry.heads !== undefined && entry.heads !== null && !isObj(entry.heads) ? `<p class="hint warn">heads 不是 { } 对象：${esc(JSON.stringify(entry.heads))}；在下面填权重会换成对象</p>` : "") +
+        `<div class="heads">${CO_HEADS.map(([k, t, tip]) => `<label title="${esc(tip)}"><span>${esc(t)}<span class="fname">${k}</span></span>` +
+          `<input type="number" step="1" min="0" data-head="${k}" value="${typeof heads[k] === "number" ? heads[k] : ""}" class="${has(heads, k) && !coInt(heads[k]) ? "bad" : ""}" placeholder="不用">` +
+          `<span class="hint" data-head-pct="${k}">${pct(heads[k])}</span></label>`).join("")}</div>` +
+        Object.keys(heads).filter(k => !CO_HEADS.some(h => h[0] === k)).map(k => `<div class="kv"><span class="pair bad">${esc(k)} = ${esc(JSON.stringify(heads[k]))}(游戏不认识，抽到时用城名)` +
+          `<button type="button" class="small" data-head-del="${esc(k)}" title="去掉">×</button></span></div>`).join("");
+      const entryOf = () => d.names?.[fam]?.[form];
+      html += `<h3>全名与简称</h3>` + CO_NAME_FIELDS.map(([k, t, hint, state, fallback, clip, surname]) =>
+        coTriRow(reg, t, k, { get: entryOf, ensure: entryOf, key: k, kind: "name", clip,
+          fallback: () => fallback(entryOf() || {}), pv: raw => ["cz", "en"].map(l => coFill(raw, l, coVals(entryOf(), pvs, l, { state, surname }))) }, hint)).join("");
+      const mapHtml = (mk, title, about) => {
+        const raw = entry[mk];
+        const m = isObj(raw) ? raw : {};
+        const ensureMap = () => { const e = entryOf(); if (!isObj(e[mk])) e[mk] = {}; return e[mk]; };
+        const free = [...(mk === "shops" ? ["default"] : []), ...CO_SECTORS].filter(s => !has(m, s));
+        return `<h3>${esc(title)}<span class="fname">${mk}</span></h3><p class="hint">${esc(about)}</p>` +
+          (raw !== undefined && raw !== null && !isObj(raw) ? `<p class="hint warn">${mk} 不是 { } 对象：${esc(JSON.stringify(raw))}；在这里加一行会换成对象</p>` : "") +
+          Object.keys(m).map(s => coTriRow(reg, coSecLabel(s), s, {
+            get: () => isObj(entryOf()?.[mk]) ? entryOf()[mk] : null, ensure: ensureMap, key: s, kind: mk === "shops" ? "word" : "name",
+            pv: mk === "shops"
+              ? raw2 => ["cz", "en"].map(l => coFill(coStr(entryOf().private) || "{head}{trade}", l, { ...coVals(entryOf(), s === "default" ? pvs : s, l), shop: coPick(raw2, l) }))
+              : raw2 => ["cz", "en"].map(l => coFill(raw2, l, coVals(entryOf(), s, l, { state: true })))
+          }, "", `<button type="button" class="small danger" data-map-del="${esc(s)}" data-map="${mk}" title="去掉这一行">×</button>` +
+            (s !== "default" && !coSectorKnown(s) ? `<span class="hint warn">不认识的行业</span>` : ""))).join("") +
+          (free.length ? `<div class="kv" style="margin-top:4px">加一行：<select data-map-new="${mk}">${free.map(s => optionHtml(s, `${coSecLabel(s)}(${s})`, false)).join("")}</select>` +
+            `<button type="button" class="small" data-map-add="${mk}">加上</button></div>` : "");
+      };
+      html += mapHtml("state_sectors", "官办按行业另起的全名", "官办的这些行业不用上面的「官办全名」，改用这里的(某城官窑、宝某局、某城船政局)。") +
+        mapHtml("shops", "店名 {shop}", "按行业给格式里的 {shop}(窑、钱庄、书坊)；表里没有的行业用「其余行业(default)」；整张表空着 {shop} 就是空的。预览按上面的私营全名套。");
+      const ex = Object.keys(entry).filter(k => !["heads", "state_sectors", "shops", ...CO_NAME_FIELDS.map(x => x[0])].includes(k));
+      if (ex.length) html += `<p class="hint warn">编辑器不认识的字段(游戏忽略，保存时原样保留)：${esc(ex.join("、"))}</p>`;
+      return html + `<div class="toolbar section" style="margin-top:10px"><button type="button" class="small danger" data-co-act="entry-del">删除这一条(改用代码默认)</button></div>`;
+    }
+
+    // 页 4：字表
+    function coTablesHtml(d, ui, reg) {
+      if (d.tables !== undefined && d.tables !== null && !isObj(d.tables)) return "";
+      const t = isObj(d.tables) ? d.tables : {};
+      const use = coTableUsage(d);
+      const fams = coFamilyIds(d);
+      const sugg = uniq([...Object.keys(use), ...fams.flatMap(x => [`hao_${x}`, `prefixes_${x}`, `yago_${x}`]), "prefixes_crown"]).filter(k => !has(t, k));
+      const used = Object.keys(use).filter(k => !(typeof t[k] === "string" && t[k].trim()));
+      return `<p class="hint">起字号用的字表，三段各是一串用英文逗号隔开的字词。游戏按名字找：文件里有(不是空的)用文件，否则用语言文件里的 company_名字。` +
+        `字号取法「两个吉字」用 hao_分系(本系没有用 hao_huaxia)，「通用名头」用 prefixes_分系，「屋号吉字」用 yago_分系；prefixes_crown 里的名头只许君主国用。</p>` +
+        (isObj(d.tables) ? "" : `<p class="hint">文件里没写 tables，游戏用代码默认(只有 yago_japan)；在这里加一张就整项替换代码默认。</p>`) +
+        Object.keys(t).map(k => coTriRow(reg, coTableLabel(k) || k, k, { get: () => d.tables, ensure: () => d.tables, key: k, kind: "table", count: true },
+          use[k] ? `用到它的：${use[k].join("、")}` : "没有哪条起名格式用到它",
+          `<button type="button" class="small danger" data-table-del="${esc(k)}" title="删除这张字表(改用语言文件里的)">×</button>`, { stack: true })).join("") +
+        `<div class="toolbar" style="margin-top:8px"><input data-table-new list="dlCoTables" placeholder="字表名，如 hao_japan" style="max-width:220px">` +
+        `<datalist id="dlCoTables">${sugg.map(k => `<option value="${esc(k)}">${esc(coTableLabel(k))}</option>`).join("")}</datalist>` +
+        `<button type="button" class="small" data-co-act="table-add" title="语言文件里有同名字表的先抄进来">${ico("iconShovelPlus", "sm")}加一张字表</button></div>` +
+        (used.length ? `<h3>起名用到、文件里没写的字表</h3><div class="table-wrap free"><table class="sheet mapt"><thead><tr><th>字表</th><th>从哪来</th><th>用到它的</th></tr></thead><tbody>` +
+          used.map(k => { const s = coTableSource(d, k); return `<tr><td class="txt">${esc(coTableLabel(k))}<span class="fname">${esc(k)}</span></td>` +
+            `<td class="txt ${s.none ? "hint warn" : ""}">${s.none ? "都没有：字号改用城名" : s.from === "loc" ? `语言文件 company_${esc(k)}(${s.n} 个)` : `退回 hao_huaxia(${s.n} 个)`}</td>` +
+            `<td class="txt hint">${esc(use[k].join("、"))}</td></tr>`; }).join("") + `</tbody></table></div>` : "");
+    }
+
+    // 页 5：数值
+    function coNumbersHtml(d) {
+      const groups = S.co.groups;
+      const list = [...CO_GROUPS.filter(g => groups[g[0]]), ...Object.keys(groups).filter(k => !CO_GROUPS.some(g => g[0] === k)).map(k => [k, k, ""])];
+      return `<p class="hint">每段写了的参数覆盖代码默认，没写的(或留空的)按代码默认。比例、机会都是 0~1 的小数；整数参数不能写小数，否则游戏整份读不进。</p>` +
+        `<div class="toolbar" style="margin-bottom:6px"><button type="button" class="small" data-num-reset-all>全部恢复默认</button></div>` +
+        `<datalist id="dlCoTechs">${S.co.techs.map(x => `<option value="${esc(x)}">${esc(cz(`tech_${x}`))}</option>`).join("")}</datalist>` +
+        list.map(([g, title, about]) => {
+          const o = d[g];
+          return `<h3>${esc(title)}<span class="fname">${esc(g)}</span><button type="button" class="small" data-num-reset-group="${esc(g)}">本组恢复默认</button></h3>` +
+            (about ? `<p class="hint">${esc(about)}</p>` : "") +
+            (o !== undefined && o !== null && !isObj(o) ? `<p class="hint warn">${esc(g)} 不是 { } 对象：${esc(JSON.stringify(o))}；在下面改任一项会换成对象</p>` : "") +
+            `<div class="grid three">${groups[g].map(x => {
+              const [label, hint] = CO_NUM_INFO[g]?.[x.k] || [x.k, ""];
+              const v = isObj(o) && has(o, x.k) ? o[x.k] : undefined;
+              const input = x.type === "string" ? `<input data-num list="${g === "stock" && x.k === "exchange_tech" ? "dlCoTechs" : ""}" value="${esc(typeof v === "string" ? v : "")}" placeholder="${esc(x.def)}">`
+                : x.type === "bool" ? `<select data-num>${optionHtml("", `不写(按代码默认：${x.def ? "是" : "否"})`, v === undefined)}${optionHtml("true", "是", v === true)}${optionHtml("false", "否", v === false)}</select>`
+                : `<input type="number" step="${x.type === "int" ? 1 : "any"}" data-num value="${typeof v === "number" ? v : ""}" placeholder="${esc(x.def)}" ` +
+                  `class="${v !== undefined && (x.type === "int" ? !coInt(v) : !coNum(v)) ? "bad" : ""}" title="${v !== undefined && typeof v !== "number" ? `文件里是 ${esc(JSON.stringify(v))}` : ""}">`;
+              return `<div class="natf" data-g="${esc(g)}" data-k="${esc(x.k)}"><label class="field"><span>${esc(label)}<span class="fname">${esc(x.k)}</span></span>` +
+                `<span class="field-row">${input}<button type="button" class="small" data-num-reset title="改回代码默认值">恢复默认</button></span>` +
+                `<span class="hint">${hint ? esc(hint) + "；" : ""}<span class="def"></span></span></label></div>`;
+            }).join("")}</div>`;
+        }).join("");
+    }
+    function coNumRefresh(box, d) {
+      const g = box.dataset.g, k = box.dataset.k;
+      const x = S.co.groups[g]?.find(y => y.k === k);
+      if (!x) return;
+      const v = isObj(d[g]) && has(d[g], k) ? d[g][k] : undefined;
+      const changed = v !== undefined && v !== x.def;
+      const eff = v === undefined ? x.def : v;
+      let note = "";
+      if ((g === "company" && (k === "min_era" || k === "trust_era")) && coInt(eff)) note = `(${coEraName(coIntOf(eff))})`;
+      if (g === "stock" && k === "exchange_tech" && typeof eff === "string") note = cz(`tech_${eff}`) ? `(${cz(`tech_${eff}`)})` : S.co.techs.length && !S.co.techs.includes(eff) ? "(科技树里没有)" : "";
+      box.classList.toggle("changed", changed);
+      box.querySelector(".def").innerHTML = `代码默认 <b>${esc(x.def)}</b>${v === undefined ? "，文件里没写，按默认" : changed ? "，已改" : ""}${esc(note)}`;
+      box.querySelector("[data-num-reset]").disabled = !changed;
+    }
+
+    // ---------- 事件 ----------
+    function coBind(root, d, ui, reg, st) {
+      const ID = "companies";
+      const done = (redraw = false) => { markDirty(ID); if (redraw) coRerender(); else coRefreshProbs(root, d); };
+      const autoOf = c => { let a = st.auto.get(c); if (!a) st.auto.set(c, a = {}); return a; };
+      const uniqueFormId = base => { const ids = new Set((d.forms || []).map(x => isObj(x) ? String(x.id ?? "") : "")); let k = base, n = 2; while (ids.has(k)) k = `${base}_${n++}`; return k; };
+      // 三段字：写回(改了才写)、简繁自动补
+      const triWrite = (box, parts) => {
+        const spec = reg[+box.dataset.tri];
+        const packed = coPack(parts);
+        const c = spec.get();
+        const had = !!c && has(c, spec.key);
+        if (!(packed === "" && !had) && !(had && c[spec.key] === packed)) { spec.ensure()[spec.key] = packed; done(); }
+        box.parentElement.querySelector(`[data-pv="${box.dataset.tri}"]`).innerHTML = coPreview(spec, packed);
+      };
+      const triInput = (box, el) => {
+        const spec = reg[+box.dataset.tri];
+        if (el.value.includes("|")) { el.value = el.value.replace(/\|/g, "｜"); toast("三段字用 | 分段，格子里的 | 已换成全角 ｜"); }
+        const inputs = [...box.querySelectorAll("input[data-part]")];
+        const parts = inputs.map(i => i.value);
+        const c = spec.get();
+        const before = coSplit(c && typeof c[spec.key] === "string" ? c[spec.key] : "");
+        const a = autoOf(c || spec)[spec.key] || (autoOf(c || spec)[spec.key] = {});
+        if (el.dataset.part === "0" && zhOK()) {
+          if (!a.manualCh && (parts[2] === "" || parts[2] === zhToTrad(before[0]))) { parts[2] = parts[0] ? zhToTrad(parts[0]) : ""; inputs[2].value = parts[2]; }
+        } else if (el.dataset.part === "2") a.manualCh = parts[2] !== "" && (!zhOK() || parts[2] !== zhToTrad(parts[0]));
+        triWrite(box, parts);
+      };
+      const ensureEntryMap = () => { if (!isObj(d.names)) d.names = {}; if (!isObj(d.names[ui.fam])) d.names[ui.fam] = {}; return d.names[ui.fam]; };
+
+      root.addEventListener("input", e => {
+        const el = e.target, ds = el.dataset;
+        const tri = el.closest("[data-tri]");
+        if (tri && ds.part !== undefined) return triInput(tri, el);
+        if (ds.ff === "min_scale") {
+          const x = d.forms[+el.closest("[data-fi]").dataset.fi], t = el.value.trim();
+          if (t === "") { delete x.min_scale; el.classList.remove("bad"); return done(); }
+          const n = Number(t);
+          if (!Number.isInteger(n) || n < 0) { el.classList.add("bad"); return; }
+          el.classList.remove("bad");
+          x.min_scale = n;
+          return done();
+        }
+        if (ds.head !== undefined) {
+          const t = el.value.trim();
+          const e2 = d.names[ui.fam][ui.form];
+          if (t === "") { if (isObj(e2.heads)) delete e2.heads[ds.head]; }
+          else {
+            const n = Number(t);
+            if (!Number.isInteger(n) || n < 0) { el.classList.add("bad"); return; }
+            if (!isObj(e2.heads)) e2.heads = {};
+            e2.heads[ds.head] = n;
+          }
+          el.classList.remove("bad");
+          const hs = isObj(e2.heads) ? e2.heads : {};
+          const total = Object.values(hs).filter(w => coNum(w) && +w > 0).reduce((s, w) => s + +w, 0);
+          root.querySelectorAll("[data-head-pct]").forEach(sp => { const w = hs[sp.dataset.headPct]; sp.textContent = total && coNum(w) && +w > 0 ? `约 ${Math.round(+w / total * 100)}%` : ""; });
+          return done();
+        }
+        if (ds.num !== undefined && el.tagName === "INPUT") {
+          const box = el.closest(".natf"), g = box.dataset.g, k = box.dataset.k;
+          const x = S.co.groups[g].find(y => y.k === k);
+          const t = el.value.trim();
+          if (t === "") { if (isObj(d[g])) delete d[g][k]; }
+          else {
+            let v = t;
+            if (x.type !== "string") {
+              v = Number(t);
+              if (!Number.isFinite(v) || (x.type === "int" && !Number.isInteger(v))) { el.classList.add("bad"); return; }
+            }
+            if (!isObj(d[g])) d[g] = {};
+            d[g][k] = v;
+          }
+          el.classList.remove("bad");
+          coNumRefresh(box, d);
+          return done();
+        }
+      });
+
+      root.addEventListener("change", e => {
+        const el = e.target, ds = el.dataset;
+        if (el.value === "\u0000keep") return;
+        const fi = el.closest("[data-fi]");
+        if (fi && ds.ff) {
+          const x = d.forms[+fi.dataset.fi];
+          if (ds.ff === "id") {
+            const from = String(x.id ?? ""), to = el.value.trim();
+            if (to === from) return;
+            x.id = to;
+            const fams = isObj(d.names) ? Object.keys(d.names).filter(fm => isObj(d.names[fm]) && has(d.names[fm], from) && !has(d.names[fm], to)) : [];
+            if (from && to && fams.length && confirm(`起名格式里 ${fams.join("、")} 分系有「${from}」的格式，一并改成「${to}」？`))
+              for (const fm of fams) coRenameKey(d.names[fm], from, to);
+            return done(true);
+          }
+          if (ds.ff === "era_min") { x.era_min = parseInt(el.value, 10); return done(true); }
+          if (ds.ff === "min_scale") return coRerender(); // 次序可能变了
+          if (CO_FORM_FLAGS.some(f => f[0] === ds.ff)) {
+            // 默认就是 false：原文写了这个字段就写 false，没写就去掉，不多出一行
+            const orig = JsonDoc.originalOf(st.doc, x);
+            if (el.checked) x[ds.ff] = true; else if (!orig || has(orig, ds.ff)) x[ds.ff] = false; else delete x[ds.ff];
+            return done();
+          }
+          return;
+        }
+        if (ds.coDeffam !== undefined) { if (el.value === "") delete d.default_family; else d.default_family = el.value; return done(true); }
+        if (ds.pvSector !== undefined) { ui.pvSector = el.value; return coRerender(); }
+        if (ds.entryCopy !== undefined) {
+          if (!el.value) return;
+          const [fm, id] = JSON.parse(el.value);
+          ensureEntryMap()[ui.form] = structuredClone(d.names[fm][id]);
+          toast(`已照 ${fm} · ${id} 抄了一条`);
+          return done(true);
+        }
+        if (ds.num !== undefined && el.tagName === "SELECT") {
+          const box = el.closest(".natf"), g = box.dataset.g, k = box.dataset.k;
+          if (el.value === "") { if (isObj(d[g])) delete d[g][k]; }
+          else { if (!isObj(d[g])) d[g] = {}; d[g][k] = el.value === "true"; }
+          coNumRefresh(box, d);
+          return done();
+        }
+        if (ds.num !== undefined || ds.head !== undefined) return done(); // 改完一格：刷新问题列表
+      });
+
+      root.addEventListener("click", async e => {
+        const b = e.target.closest("button");
+        if (!b || !root.contains(b) || b.disabled) return;
+        const ds = b.dataset;
+        if (ds.coTab) { ui.tab = ds.coTab; return coRerender(); }
+        if (ds.trad !== undefined) {
+          const box = b.closest("[data-tri]"), inputs = [...box.querySelectorAll("input[data-part]")];
+          inputs[2].value = inputs[0].value ? zhToTrad(inputs[0].value) : "";
+          const spec = reg[+box.dataset.tri], c = spec.get();
+          ((autoOf(c || spec)[spec.key]) || (autoOf(c || spec)[spec.key] = {})).manualCh = false;
+          return triWrite(box, inputs.map(i => i.value));
+        }
+        const fi = b.closest("[data-fi]");
+        if (fi && ds.fact) {
+          const i = +fi.dataset.fi, forms = d.forms, x = forms[i];
+          if (ds.fact === "up" || ds.fact === "down") { const j = ds.fact === "up" ? i - 1 : i + 1; [forms[i], forms[j]] = [forms[j], forms[i]]; }
+          else if (ds.fact === "copy") { const c = structuredClone(x); c.id = uniqueFormId(String(x.id || "form")); forms.splice(i + 1, 0, c); toast(`已复制成 ${c.id}，记得到「起名格式」给它配格式`); }
+          else if (ds.fact === "del") {
+            if (!confirm(`删除形态「${isObj(x) ? coFormLabel(x) || "(无名)" : "(格式不对)"}」？各分系起名格式里的这一条不会跟着删。`)) return;
+            forms.splice(i, 1);
+          }
+          return done(true);
+        }
+        switch (ds.coAct) {
+          case "form-add": {
+            if (!Array.isArray(d.forms)) {
+              if (!confirm("文件里没写 forms，新建后整项替换代码默认的四种，游戏里只剩这里写的。继续？")) return;
+              d.forms = [];
+            }
+            const last = d.forms.filter(isObj).pop();
+            d.forms.push({ id: uniqueFormId("form"), era_min: last ? coIntOf(last.era_min) : 0, min_scale: 0, listed: false, guild: false, license: false, stake: false, label: "", reform: "" });
+            toast("已加一种形态，改好 id、名称，再到「起名格式」给它配格式");
+            return done(true);
+          }
+          case "form-sort": {
+            const order = coGameForms(d).map(o => o.x);
+            const rest = d.forms.filter(x => !order.includes(x));
+            d.forms.splice(0, d.forms.length, ...order, ...rest);
+            return done(true);
+          }
+          case "fam-add": {
+            const inp = root.querySelector("[data-fam-new]"), id = inp.value.trim();
+            if (!/^[\w-]+$/.test(id)) return toast("分系 id 用英文字母、数字、下划线", true);
+            if (coFamilyIds(d).includes(id)) return toast("已经有这个分系了", true);
+            coEnsureFamilies(d)[id] = [];
+            toast(`已加分系 ${id}，再列上文化，并到「起名格式」给它建格式`);
+            return done(true);
+          }
+          case "entry-blank":
+            ensureEntryMap()[ui.form] = { heads: { city: 1 }, private: "", private_surname: "", brief: "", state: "", state_republic: "", state_brief: "", state_sectors: {}, shops: {} };
+            return done(true);
+          case "entry-del":
+            if (!confirm(`删除 ${ui.fam} · ${ui.form} 的起名格式？游戏改用代码默认里的这一条(没有就退回默认分系、west)。`)) return;
+            delete d.names[ui.fam][ui.form];
+            return done(true);
+          case "table-add": {
+            const inp = root.querySelector("[data-table-new]"), k = inp.value.trim();
+            if (!/^[\w-]+$/.test(k)) return toast("字表名用英文字母、数字、下划线，如 hao_japan", true);
+            if (isObj(d.tables) && has(d.tables, k)) return toast("已经有这张字表了", true);
+            if (!isObj(d.tables)) {
+              if (d.tables === undefined && !confirm("文件里没写 tables，加一张就整项替换代码默认(yago_japan 会没有，除非也加上)。继续？")) return;
+              d.tables = {};
+            }
+            await coLoadLoc([`company_${k}`]);
+            const loc = S.loc[`company_${k}`] || {};
+            d.tables[k] = coPack([loc.cz || "", loc.en && loc.en !== loc.cz ? loc.en : "", loc.ch && loc.ch !== loc.cz ? loc.ch : ""]);
+            toast(loc.cz ? `已加字表 ${k}，先抄了语言文件 company_${k} 里的` : `已加字表 ${k}(语言文件里没有同名的，请填上)`);
+            return done(true);
+          }
+        }
+        if (ds.pickFam !== undefined) { ui.fam = ds.pickFam; ui.form = ds.pickForm; return coRerender(); }
+        if (ds.famDel !== undefined) {
+          const id = ds.famDel;
+          if (!confirm(`删除分系 ${id}？列在里面的文化改用默认分系。`)) return;
+          if (has(coEnsureFamilies(d), id)) delete d.families[id];
+          if (isObj(d.names) && has(d.names, id) && confirm(`连同 ${id} 的起名格式一起删？(不删也用不到，除非它是默认分系)`)) delete d.names[id];
+          return done(true);
+        }
+        if (ds.famRen !== undefined) {
+          const from = ds.famRen, to = (prompt(`分系 ${from} 改名为：`, from) || "").trim();
+          if (!to || to === from) return;
+          if (!/^[\w-]+$/.test(to)) return toast("分系 id 用英文字母、数字、下划线", true);
+          if (coFamilyIds(d).includes(to)) return toast("已经有这个分系了", true);
+          coRenameKey(coEnsureFamilies(d), from, to);
+          coRenameKey(d.names, from, to);
+          for (const p of ["hao", "prefixes", "yago"]) coRenameKey(d.tables, `${p}_${from}`, `${p}_${to}`);
+          if (d.default_family === from) d.default_family = to;
+          if (ui.fam === from) ui.fam = to;
+          return done(true);
+        }
+        if (ds.headDel !== undefined) { delete d.names[ui.fam][ui.form].heads[ds.headDel]; return done(true); }
+        if (ds.mapDel !== undefined) { delete d.names[ui.fam][ui.form][ds.map][ds.mapDel]; return done(true); }
+        if (ds.mapAdd !== undefined) {
+          const mk = ds.mapAdd, s = root.querySelector(`[data-map-new="${mk}"]`).value;
+          const e2 = d.names[ui.fam][ui.form];
+          if (!isObj(e2[mk])) e2[mk] = {};
+          // 官办按行业的先照官办全名填一份，店名先空着
+          e2[mk][s] = mk === "state_sectors" ? coStr(e2.state) || "{city}{trade}" : "";
+          return done(true);
+        }
+        if (ds.tableDel !== undefined) {
+          if (!confirm(`删除字表 ${ds.tableDel}？游戏改用语言文件里的 company_${ds.tableDel}(没有就用不了这种取法)。`)) return;
+          delete d.tables[ds.tableDel];
+          return done(true);
+        }
+        if (ds.numReset !== undefined || ds.numResetGroup !== undefined || ds.numResetAll !== undefined) {
+          const boxes = [...root.querySelectorAll(".natf[data-g]")].filter(box => ds.numReset !== undefined ? box.contains(b) : ds.numResetGroup !== undefined ? box.dataset.g === ds.numResetGroup : true);
+          let n = 0;
+          for (const box of boxes) {
+            const g = box.dataset.g, k = box.dataset.k, x = S.co.groups[g].find(y => y.k === k);
+            if (!isObj(d[g]) || !has(d[g], k) || d[g][k] === x.def) continue;
+            d[g][k] = x.def;
+            n++;
+          }
+          if (n) return done(true);
+          return toast("这些参数本来就是默认值");
+        }
+      });
+
+      // 文化列表(小标签)：直接改 families 里的列表
+      root.querySelectorAll("[data-chips]").forEach(el => {
+        const id = el.dataset.chips;
+        const cur = isObj(d.families) ? d.families[id] : (S.co.defFamilies || {})[id];
+        const values = Array.isArray(cur) ? cur.map(x => isCont(x) ? JSON.stringify(x) : String(x)) : [];
+        const known = S.co.cultures.length ? new Set(S.co.cultures.map(c => c.id)) : null;
+        el.appendChild(chipEditor(values, {
+          placeholder: "文化 id，回车加上", suggestions: S.co.cultures.map(c => c.id), known,
+          onChange: vals => {
+            const fams = coEnsureFamilies(d);
+            if (Array.isArray(fams[id]) && !fams[id].some(isCont)) fams[id].splice(0, fams[id].length, ...vals);
+            else fams[id] = [...vals];
+            const assigned = new Set(Object.values(fams).flatMap(v => Array.isArray(v) ? v.map(String) : []));
+            root.querySelector("#coRestCult").innerHTML = coRestText(S.co.cultures.filter(c => !assigned.has(c.id)), coDefFam(d));
+            done();
+          }
+        }));
+      });
+      root.querySelectorAll(".natf[data-g]").forEach(box => coNumRefresh(box, d));
+    }
+    // 改键名(保留其余键的先后)
+    function coRenameKey(obj, from, to) {
+      if (!isObj(obj) || !has(obj, from) || has(obj, to)) return false;
+      const entries = Object.entries(obj);
+      for (const k of Object.keys(obj)) delete obj[k];
+      for (const [k, v] of entries) obj[k === from ? to : k] = v;
+      return true;
     }
 
     // ================= 启动 =================
