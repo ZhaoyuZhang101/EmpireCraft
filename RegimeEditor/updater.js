@@ -23,7 +23,7 @@ const MANIFESTS = [
 ];
 // 同模组更新用的两个地址(见 Scripts/Diagnostics/EmpireCraftUpdateService.cs)，前一个不通试后一个
 const BASES = [
-  "https://update.cmhgamedev.dpdns.org/releases/",
+  "https://update.cmhai.tech/releases/",
   "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/"
 ];
 

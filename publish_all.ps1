@@ -164,7 +164,7 @@ try {
         if (-not $released) { $failed += "模组更新" }
         else {
             try {
-                $latest = Invoke-RestMethod -Uri "https://update.cmhgamedev.dpdns.org/releases/latest.json" -TimeoutSec 20
+                $latest = Invoke-RestMethod -Uri "https://update.cmhai.tech/releases/latest.json" -TimeoutSec 20
                 Write-Host "  线上最新版本：$($latest.version)" $(if ($latest.version -eq $version) { "(对上了)" } else { "(还不是 $version，等一会儿再看)" })
             } catch { Write-Host "  线上版本查不到：$($_.Exception.Message)" -ForegroundColor Yellow }
         }

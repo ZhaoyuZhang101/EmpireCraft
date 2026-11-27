@@ -47,16 +47,18 @@ public sealed class EmpireCraftUpdateSnapshot
 
 public static class EmpireCraftUpdateService
 {
+    // 更新服务的地址：前一个不通试后一个。cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 整个封了(403 "Website Access Blocked")，
+    // 改挂 cmhai.tech；workers.dev 留作备用。被封的旧域名不再信任(域名日后落到别人手里也冒充不了更新)
     private static readonly string[] ManifestEndpoints =
     {
-        "https://update.cmhgamedev.dpdns.org/releases/latest.json",
+        "https://update.cmhai.tech/releases/latest.json",
         "https://empirecraft-update.zhangzhaoyu101.workers.dev/releases/latest.json"
     };
 
     private static readonly HashSet<string> TrustedDownloadHosts =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            "update.cmhgamedev.dpdns.org",
+            "update.cmhai.tech",
             "empirecraft-update.zhangzhaoyu101.workers.dev"
         };
 
@@ -83,6 +85,7 @@ public static class EmpireCraftUpdateService
     {
         public string Version;
         public string DownloadUrl;
+        public List<Uri> Mirrors = new();
         public string Sha256;
         public long Size;
         public string ReleaseNotes;
@@ -267,7 +270,7 @@ public static class EmpireCraftUpdateService
         {
             try
             {
-                UpdateManifest manifest = ParseManifest(DownloadText(endpoint));
+                UpdateManifest manifest = ParseManifest(DownloadText(endpoint), endpoint);
                 if (newestManifest == null || CompareVersions(manifest.Version, newestManifest.Version) > 0)
                     newestManifest = manifest;
             }
@@ -307,7 +310,6 @@ public static class EmpireCraftUpdateService
     {
         try
         {
-            Uri downloadUri = ValidateDownloadUri(manifest.DownloadUrl);
             string updateRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "EmpireCraft",
@@ -316,8 +318,7 @@ public static class EmpireCraftUpdateService
             Directory.CreateDirectory(updateRoot);
 
             string packagePath = Path.Combine(updateRoot, "EmpireCraft.zip");
-            DownloadPackage(downloadUri, packagePath, manifest.Size);
-            VerifySha256(packagePath, manifest.Sha256);
+            DownloadFromMirrors(manifest, packagePath);
 
             string stagePath = Path.Combine(updateRoot, "staged");
             RecreateDirectory(stagePath);
@@ -420,7 +421,47 @@ public static class EmpireCraftUpdateService
         return Encoding.UTF8.GetString(memory.ToArray());
     }
 
-    private static UpdateManifest ParseManifest(string json)
+    // 挨个地址下载，下完核对大小与校验和；一个不通或对不上换下一个
+    private static void DownloadFromMirrors(UpdateManifest manifest, string packagePath)
+    {
+        var failures = new List<string>();
+        foreach (Uri uri in manifest.Mirrors)
+        {
+            try
+            {
+                DownloadPackage(uri, packagePath, manifest.Size);
+                VerifySha256(packagePath, manifest.Sha256);
+                return;
+            }
+            catch (Exception error)
+            {
+                failures.Add(uri.Host + " -> " + error.Message);
+            }
+        }
+        throw new Exception(string.Join("\n", failures));
+    }
+
+    // 下载地址：清单写的下载链接(域名可信的话)，再是清单所在的地址、各备用地址拼同一路径(同一个更新服务挂在几个域名上，
+    // 包的路径一样)。旧清单的下载链接还写着被封的旧域名，按这里换到能通的地址
+    private static List<Uri> MirrorsOf(string downloadUrl, string endpoint)
+    {
+        var result = new List<Uri>();
+        if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri original) || original.Scheme != Uri.UriSchemeHttps)
+            return result;
+        void Add(string host)
+        {
+            if (string.IsNullOrEmpty(host) || !TrustedDownloadHosts.Contains(host)) return;
+            var uri = new UriBuilder(original) { Host = host, Port = -1 }.Uri;
+            if (!result.Contains(uri)) result.Add(uri);
+        }
+        Add(original.Host);
+        if (Uri.TryCreate(endpoint, UriKind.Absolute, out Uri source)) Add(source.Host);
+        foreach (string other in ManifestEndpoints)
+            if (Uri.TryCreate(other, UriKind.Absolute, out Uri mirror)) Add(mirror.Host);
+        return result;
+    }
+
+    private static UpdateManifest ParseManifest(string json, string endpoint)
     {
         JObject root = JObject.Parse(json);
         var manifest = new UpdateManifest
@@ -439,17 +480,9 @@ public static class EmpireCraftUpdateService
             manifest.Size <= 0 || manifest.Size > MaximumPackageBytes)
             throw new Exception("Update manifest is incomplete or invalid.");
 
-        ValidateDownloadUri(manifest.DownloadUrl);
+        manifest.Mirrors = MirrorsOf(manifest.DownloadUrl, endpoint);
+        if (manifest.Mirrors.Count == 0) throw new Exception("Update download host is not trusted.");
         return manifest;
-    }
-
-    private static Uri ValidateDownloadUri(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ||
-            uri.Scheme != Uri.UriSchemeHttps ||
-            !TrustedDownloadHosts.Contains(uri.Host))
-            throw new Exception("Update download host is not trusted.");
-        return uri;
     }
 
     private static HttpWebRequest CreateRequest(Uri uri)
@@ -1042,7 +1075,10 @@ public static class EmpireCraftUpdateService
                     throw new Exception("The server core manifest is invalid.");
                 if (!string.Equals(version, wantVersion, StringComparison.OrdinalIgnoreCase))
                     throw new Exception($"Server core {version} does not match mod {wantVersion}; update the mod first.");
-                Uri uri = ValidateDownloadUri(core.Value<string>("url")?.Trim());
+                // 下载链接换到这份清单所在的地址(旧清单写的还是被封的域名，见 MirrorsOf)
+                List<Uri> mirrors = MirrorsOf(core.Value<string>("url")?.Trim(), endpoint);
+                Uri uri = mirrors.FirstOrDefault(entry => endpoint.Contains("//" + entry.Host + "/")) ?? mirrors.FirstOrDefault() ??
+                          throw new Exception("Update download host is not trusted.");
                 Directory.CreateDirectory(Path.GetDirectoryName(folder));
                 HttpWebRequest request = CreateRequest(uri);
                 // 包本身就是压过的：别让它再按网页的压缩解一遍

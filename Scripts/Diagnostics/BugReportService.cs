@@ -45,7 +45,8 @@ public static class BugReportService
     // retried against the fallback endpoint.
     private static readonly string[] BugReportEndpoints =
     {
-        "https://bug.cmhgamedev.dpdns.org/",
+        // cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 封了，改挂 cmhai.tech
+        "https://bug.cmhai.tech/",
         "https://empirecraft-bug-report.zhangzhaoyu101.workers.dev/"
     };
 

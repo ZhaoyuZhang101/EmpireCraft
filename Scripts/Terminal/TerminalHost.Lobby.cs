@@ -23,7 +23,8 @@ public static partial class TerminalHost
     // 线路：键(存在设置里、也是文字的键 terminal_line_键) → 游戏连大厅用的地址
     public static readonly (string key, string socket)[] Lobbies =
     {
-        ("global", "wss://lobby.cmhgamedev.dpdns.org"),
+        // 国际线路：cmhgamedev.dpdns.org 2026-11-28 被 Cloudflare 封了，改挂 cmhai.tech(lobby.cmhai.tech 是国内线路，另起一名)
+        ("global", "wss://lobby-global.cmhai.tech"),
         // 国内线路通过 Caddy 提供 HTTPS 与 WebSocket 转发，证书自动续期。
         ("china", "wss://lobby.cmhai.tech")
     };
