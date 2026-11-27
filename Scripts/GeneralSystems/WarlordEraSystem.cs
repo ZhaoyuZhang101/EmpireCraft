@@ -733,13 +733,18 @@ public static partial class WarlordEraSystem
         kingdom?.data != null && (PuppetStateSystem.IsPuppet(kingdom) || ColonySystem.IsColony(kingdom) ||
                                   ExileGovernmentSystem.IsExiled(kingdom) || kingdom.GetOrCreate().scenario_dependent);
 
-    // 帝国核心里的势力(古代开国雄主的归附、讨伐仍按帝国核心)
+    // 帝国核心里的势力(古代开国雄主的归附、讨伐仍按帝国核心)。兼属进来的也算(用户 2026-11-28 转群友"开国雄主的帝国法理宣战有点问题，
+    // 我给他们搞上兼属了，可是还不对法理小国宣战")：都城兼属本法理、或本国的王国法理兼属本法理的(见 DeJureShareSystem)。
+    // 以前只认都城本来的帝国法理与本法理自己的法理单，核心城数里算了兼属的城，挑讨伐目标时又把它们的主人筛掉了
     private static bool IsCoreHolder(EmpireCore core, Kingdom holder)
     {
         if (core == null || holder == null || holder.isRekt()) return false;
         if (holder.capital?.GetEmpireCore() == core) return true;
         KingdomTitle title = holder.GetMainTitle();
-        return title != null && EmpireCoreManager.ContainsTitle(core, title);
+        if (title != null && EmpireCoreManager.ContainsTitle(core, title)) return true;
+        if (!DeJureShareSystem.Any) return false;
+        if (holder.capital != null && DeJureShareSystem.CoresOf(holder.capital).Contains(core)) return true;
+        return title != null && !title.isRekt() && DeJureShareSystem.SharedCores(title).Contains(core);
     }
 
     // 天下的各核心(一帧内缓存：判本天下势力时每家都要问一遍)
