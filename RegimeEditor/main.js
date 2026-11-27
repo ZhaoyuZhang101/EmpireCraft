@@ -35,6 +35,17 @@ function hasRegimeSystem(dir) {
   return dir && syncFs.existsSync(path.join(dir, "Scripts", "Regimes", "RegimeSystem.cs"));
 }
 
+// 只有数据、没有源码的目录也能当模组目录用(用户 2026-11-28 "目前已经有的我希望都能和我的政体编辑器兼容"
+// "毕竟是直接从核心移植过来的")：独立游戏的 Assets/EmpireCraft/Data 与模组同样的布局(Scripts/Regimes/Configs、
+// Locales、ClaimRules.json…)，选它就直接改独立游戏读的那份。要动代码的(同步代码枚举)在这种目录里用不了，同编辑器自带数据
+function isDataRoot(dir) {
+  return dir && syncFs.existsSync(path.join(dir, "Scripts", "Regimes", "Configs"));
+}
+
+function isUsableRoot(dir) {
+  return hasRegimeSystem(dir) || isDataRoot(dir);
+}
+
 function climbToModRoot(startDir) {
   if (!startDir) return null;
   let current = path.resolve(startDir);
@@ -48,7 +59,7 @@ function climbToModRoot(startDir) {
 
 function resolveModRoot() {
   const saved = getSavedModRoot();
-  if (saved && hasRegimeSystem(saved)) return saved;
+  if (saved && isUsableRoot(saved)) return saved;
   const candidates = [
     process.cwd(),
     __dirname,
@@ -100,7 +111,7 @@ async function saveModRoot(modRoot) {
 
 async function chooseModRoot() {
   const result = await dialog.showOpenDialog({
-    title: "选择 EmpireCraft 模组根目录",
+    title: "选择 EmpireCraft 模组根目录或独立游戏数据目录",
     properties: ["openDirectory"]
   });
   if (result.canceled || !result.filePaths?.[0]) {
@@ -108,8 +119,8 @@ async function chooseModRoot() {
   }
 
   const modRoot = result.filePaths[0];
-  if (!hasRegimeSystem(modRoot)) {
-    throw new Error("所选目录不是有效的 EmpireCraft 模组根目录，缺少 Scripts/Regimes/RegimeSystem.cs。");
+  if (!isUsableRoot(modRoot)) {
+    throw new Error("所选目录既不是 EmpireCraft 模组根目录(缺少 Scripts/Regimes/RegimeSystem.cs)，也不是数据目录(缺少 Scripts/Regimes/Configs)。独立游戏请选 Assets/EmpireCraft/Data。");
   }
 
   await saveModRoot(modRoot);
