@@ -78,7 +78,11 @@ public static class DiplomacyActions
                 }),
                 Make("diplomacy_act_truce", (a, b) => null, (a, b, _) =>
                 {
-                    EndWars(a, b);
+                    // 剧本写的停战(日本投降)：条款由剧本后面的献城写定，不再走议和台另开价
+                    // (以前投降一停战，议和台反让民国割城、台湾成了委任统治)
+                    ScenarioTruce = _applyingScenario;
+                    try { EndWars(a, b); }
+                    finally { ScenarioTruce = false; }
                     DiplomacyRelation relation = World.world.diplomacy.getRelation(a, b);
                     if (relation?.data != null) relation.data.timestamp_last_war_ended = World.world.getCurWorldTime();
                     return null;
@@ -282,6 +286,8 @@ public static class DiplomacyActions
     // 结盟、关税同盟要够得着对方，判定同宣战(用户 2026-11-02 "结盟系统在新的外交系统中是不是没有距离限制"，问答选这两项)：
     // 盟友要能驰援、货物要能互通；和亲、通好、保护约、朝贡照旧能远交。已有的远方同盟不解散；剧本按史实定的关系不拦
     private static bool _applyingScenario;
+    // 正在按剧本停战：战争收尾不判胜负、不结算条款(见 WarGoalSystem.Settle)
+    internal static bool ScenarioTruce;
     // 剧本宣战点名的目标城(见 ApplyScenario、WarObjective.Aim)
     private static City _scenarioTarget;
 

@@ -161,7 +161,9 @@ public static class PopulationEconomySystem
         // 以前产出只按原版岗位数算、跟人口多少无关(上面算出的就业效率 productivity 也没用上)，
         // 本地存档里 6.6 万人的京城一年产值才一百来金，全国背景人口的税连各城治理费都付不起
         float laborIncome = workforce * perSlot / CityPopulationSystem.FiscalPeoplePerHousehold * productivity *
-                            LaborIncomePerHouseholdYear * years;
+                            LaborIncomePerHouseholdYear * years *
+                            // 工业劳动生产率：工业时代以来科技越齐全，一个劳力出的产值越多(见 TechnologySystem.IndustrialLaborFactor)
+                            TechnologySystem.IndustrialLaborFactor(city);
         // 奴隶劳作(见 SlaverySystem)：奴隶那一份按一倍半算，归奴隶主、不计税
         float slaveShare = SlaverySystem.WorkforceShare(workforceByClass);
         float slaveIncome = laborIncome * slaveShare * SlaverySystem.OutputFactor;
@@ -379,7 +381,9 @@ public static class PopulationEconomySystem
         double baseRate = city.kingdom.GetTaxRate() * GuoyeSystem.TaxFactor(city) * BannerSystem.TaxFactor(city) * EthnicRankSystem.TaxFactor(city) * GentrySystem.TaxFactor(city) *
                           RuralSettlementSystem.OutputFactor(city) * CommodityMarketSystem.LuxuryTaxFactor(city) *
                           // 市面兴衰：繁荣多收一点，恐慌、萧条少收(见 EconomicCycleSystem)
-                          EconomicCycleSystem.TaxFactor(city);
+                          EconomicCycleSystem.TaxFactor(city) *
+                          // 流寇出身的政权"不纳粮"，田赋收不上来(见 ScenarioEventSystem.RovingTaxFactor)
+                          WorldMap.ScenarioEventSystem.RovingTaxFactor(city);
         float remaining = income, due = 0f;
         long wholeTotal = 0;
         // 税先从民间现金里交(每月最多现金盈余的一半)，不够的部分才按产值估值折算(旧模型)；

@@ -12,7 +12,7 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 // 不带原主的都城。分封诸侯国里的小乱(PettyRebellion)本来就只一城一邑，不跟。
 // 叛乱隔断(用户 2026-10-27："叛乱的时候如果隔绝了其他行政区使他们变成了飞地，也应当将他们同时转为叛乱")：起事(连同跟着走的城)之后，
 // 原主手里与都城同在一块陆地、却已沿本国(在帝国里的算整个帝国)相邻的城走不到都城的，这一片挨着起事一方的，一并转入起事一方；
-// 本来就是飞地、不挨着起事一方的不在此列(归飞地审计，见 ExclaveMaintenanceSystem)。
+// 本来就是飞地、不挨着起事一方的不在此列(归飞地审计，见 ExclaveMaintenanceSystem)；起事之前就走不到都城的也不在此列。
 public static class SecessionSpread
 {
     private const int MaxCities = 4;
@@ -64,14 +64,25 @@ public static class SecessionSpread
         WorldTile seat = capital?.getTile();
         if (seat == null || capital.kingdom != former || rebel.isRekt()) return 0;
         Kingdom realm = Realm(former);
-        var reached = new HashSet<City> { capital };
         var queue = new Queue<City>();
-        queue.Enqueue(capital);
-        while (queue.Count > 0)
-            foreach (City next in Neighbours(queue.Dequeue()))
-                if (next?.data != null && !next.isRekt() && next.kingdom?.data != null && Realm(next.kingdom) == realm && reached.Add(next))
-                    queue.Enqueue(next);
-        var stranded = new HashSet<City>(former.cities.Where(city => city?.data != null && !city.isRekt() && !reached.Contains(city) &&
+        HashSet<City> Reach(bool throughRebel)
+        {
+            var reached = new HashSet<City> { capital };
+            queue.Enqueue(capital);
+            while (queue.Count > 0)
+                foreach (City next in Neighbours(queue.Dequeue()))
+                    if (next?.data != null && !next.isRekt() && next.kingdom?.data != null &&
+                        (Realm(next.kingdom) == realm || throughRebel && next.kingdom == rebel) && reached.Add(next))
+                        queue.Enqueue(next);
+            return reached;
+        }
+        HashSet<City> now = Reach(false);
+        // 起事之前就走不到都城的(隔着无人区、山的城，邻城表里本来就不连着)不算被这次起事隔断。以前不分，满洲各城隔着
+        // 兴安岭、长白山的无人区，邻城表里本来就是一块块的，北边一城闹饥荒起事，挨着的一大片三四十座城全被算成隔断，
+        // 清开局两三年就把满洲老家整个丢了
+        HashSet<City> before = Reach(true);
+        var stranded = new HashSet<City>(former.cities.Where(city => city?.data != null && !city.isRekt() && !now.Contains(city) &&
+                                                                     before.Contains(city) &&
                                                                      city.getTile() is WorldTile at && at.isSameIsland(seat)));
         if (stranded.Count == 0) return 0;
         var done = new HashSet<City>();
@@ -89,6 +100,9 @@ public static class SecessionSpread
                         queue.Enqueue(next);
                     }
             if (!part.Any(city => Neighbours(city).Any(next => next?.kingdom == rebel))) continue;
+            // 被隔开的一片比起事一方还大的不跟：小股起事吞不下一大片，那一片留给原主当飞地(归飞地审计)。以前满洲北边一城闹饥荒，
+            // 连同跟着走的四座城，一口气隔断带走二三十座，清开局两三年就丢了满洲老家
+            if (part.Count > Math.Max(MaxCities, rebel.cities?.Count ?? 0)) continue;
             foreach (City city in part)
             {
                 if (city.kingdom != former) continue;

@@ -19,7 +19,8 @@ namespace EmpireCraft.Scripts.GeneralSystems;
 //       付不起就把利息滚进本金，记一次违约。
 //   废债：债务超过年经常收入的 3 倍(多是利息滚进本金滚出来的)，各笔按比例削到合计 1 年收入，记一次违约。
 //       以前没有这一步，旧档里有欠到几万亿、每月把国库全付了利息的国家
-//   还：国库宽裕(可用资金为正)且没有限额拨款时，先还最早的一笔，最多拿出可用资金的一半。
+//   还：国库宽裕(可用资金为正)且没有限额拨款时，先还最早的一笔，最多拿出可用资金的一半。工业国打仗期间不还(战时公债)。
+//   战时公债：工业国打仗时，还能借的钱按两年摊进军费预算，兵多养了、花超的照上面借进国库(见 WarBondBudget)。
 //   债权城被毁：这笔债无人可还，作废并记违约。城易主仍照付(债权人是那里的百姓)。
 //   正统：债务超过年经常收入、或一年内违约过，都损正统(见 MonarchyLegitimacy)。
 public static class StateDebtSystem
@@ -124,32 +125,112 @@ public static class StateDebtSystem
         TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "banking"),
         kingdom.GetEmpire()?.Legitimacy ?? 50, CityStabilitySystem.HasArrears(kingdom));
 
+    private static bool CanBorrow(Kingdom kingdom) =>
+        TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics") && !DefaultedRecently(kingdom) &&
+        !TransmigrantSystem.IssuesScrip(kingdom);
+
+    // 战时公债(用户 2026-11-28 选"加战时公债")：工业国(见 CorpsSystem.TotalWar)打仗时，还能借的钱(举债上限余额与百姓
+    // 借得出的取小)按 WarBondYears 年摊进每年的军费预算(见 CorpsSystem.BudgetFactor)，每月照这个数借进国库(见 TryBorrow)，
+    // 总体战期间不提前还本(见 Service)。债越借越满，这一份就越来越少；违约过、不会举债的一文没有。
+    // 帝国由中央替全帝国发(见 BondRealm)：额度按中央连同听调遣成员的收入合算、向全帝国百姓借，借来的钱经中央余钱替各省发饷
+    // (见 CorpsSystem.PayUpkeep)；听调遣的成员不另发。以前国债各借各的：日本的税几乎全进中央，中央只直辖两城、百姓借不出几个钱，
+    // 九州、畿内这些行政区收入少、平日赤字早借满了，公债一文借不到，各行政区军费系数仍只有两成多，中央国库却闲着八千多
+    public const double WarBondYears = 2d;
+    private static readonly Dictionary<long, (double at, long amount)> LendableCache = new();
+
+    public static double WarBondBudget(Kingdom kingdom)
+    {
+        if (!Active || kingdom?.data == null || kingdom.isRekt() || !CanBorrow(kingdom)) return 0d;
+        float total = CorpsSystem.TotalWar(kingdom);
+        if (total <= 0f || ObeysBondIssuer(kingdom)) return 0d;
+        return WarBondRoom(kingdom) * (double)total / WarBondYears;
+    }
+
+    private static long WarBondRoom(Kingdom kingdom)
+    {
+        List<Kingdom> realm = BondRealm(kingdom);
+        long income = 0L, outstanding = 0L;
+        foreach (Kingdom member in realm)
+        {
+            income += BorrowingIncome(member);
+            outstanding += Outstanding(member);
+        }
+        return Math.Min(StateDebtRules.BorrowRoom(income, outstanding), LendableOf(kingdom, realm));
+    }
+
+    private static bool InTotalWar(Kingdom kingdom) => CorpsSystem.IsAtWar(kingdom) && CorpsSystem.TotalWar(kingdom) > 0f;
+
+    // 替全帝国发债、算债的那一方：帝国中央连同听调遣、国库开着的成员；不是帝国中央的只有自己
+    private static List<Kingdom> BondRealm(Kingdom kingdom)
+    {
+        var realm = new List<Kingdom> { kingdom };
+        var empire = kingdom.GetEmpire();
+        if (empire?.CoreKingdom != kingdom || empire.kingdoms_list == null) return realm;
+        foreach (Kingdom member in empire.kingdoms_list)
+            if (member?.data != null && !member.isRekt() && member != kingdom && TreasurySystem.Enabled(member) &&
+                GamePatches.EmpirePeacePatch.Obeys(empire, member)) realm.Add(member);
+        return realm;
+    }
+
+    // 听调遣的帝国成员，中央在打总体战：公债由中央发
+    private static bool ObeysBondIssuer(Kingdom kingdom)
+    {
+        var empire = kingdom.GetEmpire();
+        Kingdom core = empire?.CoreKingdom;
+        return core != null && core != kingdom && core.data != null && !core.isRekt() && TreasurySystem.Enabled(core) &&
+               CorpsSystem.TotalWar(core) > 0f && GamePatches.EmpirePeacePatch.Obeys(empire, kingdom);
+    }
+
+    // 百姓借得出多少(每月算一次)
+    private static long LendableOf(Kingdom kingdom, List<Kingdom> realm)
+    {
+        double now = World.world.getCurWorldTime();
+        if (LendableCache.TryGetValue(kingdom.data.id, out var cached) && now >= cached.at && Date.getMonthsSince(cached.at) < 1)
+            return cached.amount;
+        long total = 0L;
+        foreach (Kingdom member in realm)
+            foreach (City city in member.cities ?? new List<City>())
+                if (city?.data != null && !city.isRekt()) total += CityLendable(city);
+        if (LendableCache.Count > 2048) LendableCache.Clear();
+        LendableCache[kingdom.data.id] = (now, total);
+        return total;
+    }
+
+    // 一座城可借：民间现金超出每户底线部分的一半，加投资池的一半(民间投资池也可以买国债，参考维多利亚3)
+    private static long CityLendable(City city)
+    {
+        CityPopulationData data = CityPopulationSystem.Get(city);
+        return StateDebtRules.Lendable(EnterpriseSystem.Cash(data),
+            (long)CityPopulationSystem.BackgroundHouseholds(city) * CashReservePerHousehold,
+            (long)Math.Max(0f, data?.investment_pool ?? 0f));
+    }
+
     private static void TryBorrow(Kingdom kingdom)
     {
-        if (!TechnologySystem.HasTech(TechnologySystem.GetCultureOf(kingdom), "mathematics") || DefaultedRecently(kingdom) ||
-            TransmigrantSystem.IssuesScrip(kingdom)) return;
+        if (!CanBorrow(kingdom)) return;
         long need = StateDebtRules.BorrowNeed(kingdom.GetTreasuryBalance(), TreasurySystem.SafetyReserve(kingdom),
             FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d);
+        // 战时公债：总体战中每月按军费里摊的那份借(见 WarBondBudget)，额度、借主按全帝国算
+        double bond = InTotalWar(kingdom) ? WarBondBudget(kingdom) : 0d;
+        if (bond > 0d) need = Math.Max(need, (long)(bond / 12d));
         if (need <= 0L) return;
-        long room = StateDebtRules.BorrowRoom(BorrowingIncome(kingdom), Outstanding(kingdom));
+        List<Kingdom> realm = bond > 0d ? BondRealm(kingdom) : new List<Kingdom> { kingdom };
+        long room = bond > 0d ? WarBondRoom(kingdom) : StateDebtRules.BorrowRoom(BorrowingIncome(kingdom), Outstanding(kingdom));
         long target = Math.Min(need, room);
-        if (target < MinimumLoan || kingdom.cities == null) return;
+        if (target < MinimumLoan) return;
 
         // 各城可借：民间现金超出每户底线部分的一半
         var lenders = new List<(City city, long amount)>();
         long lendable = 0L;
-        foreach (City city in kingdom.cities)
-        {
-            if (city?.data == null || city.isRekt()) continue;
-            CityPopulationData data = CityPopulationSystem.Get(city);
-            // 民间投资池也可以买国债(参考维多利亚3)
-            long amount = StateDebtRules.Lendable(EnterpriseSystem.Cash(data),
-                (long)CityPopulationSystem.BackgroundHouseholds(city) * CashReservePerHousehold,
-                (long)Math.Max(0f, data?.investment_pool ?? 0f));
-            if (amount <= 0L) continue;
-            lenders.Add((city, amount));
-            lendable += amount;
-        }
+        foreach (Kingdom member in realm)
+            foreach (City city in member.cities ?? new List<City>())
+            {
+                if (city?.data == null || city.isRekt()) continue;
+                long amount = CityLendable(city);
+                if (amount <= 0L) continue;
+                lenders.Add((city, amount));
+                lendable += amount;
+            }
         if (lendable < MinimumLoan) return;
         double share = Math.Min(1d, target / (double)lendable);
         float rate = RateFor(kingdom);
@@ -222,8 +303,8 @@ public static class StateDebtSystem
             kingdom.GetOrCreate().state_debt_default_at = World.world.getCurWorldTime();
             return;
         }
-        // 宽裕时还本：最早的一笔先还，最多拿出可用资金的一半
-        if (FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d) return;
+        // 宽裕时还本：最早的一笔先还，最多拿出可用资金的一半。总体战期间不还(战时公债，见 WarBondBudget)
+        if (FiscalBudgetPlanner.NormalRatio(kingdom) < 0.999d || InTotalWar(kingdom)) return;
         long spare = StateSettlementSystem.DiscretionaryBalance(kingdom) / 2;
         for (int i = 0; i < bonds.Count && spare > 0L; i++)
         {
@@ -244,7 +325,9 @@ public static class StateDebtSystem
     {
         if (TreasurySystem.Report(kingdom).months < 3) return false;
         long outstanding = Outstanding(kingdom);
-        long income = AnnualStableIncome(kingdom);
+        // 帝国中央替全帝国借的(战时公债)，按全帝国的收入看还不还得起
+        long income = 0L;
+        foreach (Kingdom member in BondRealm(kingdom)) income += AnnualStableIncome(member);
         double keep = StateDebtRules.RestructureKeep(income, outstanding);
         if (keep >= 1d) return false;
         foreach (StateBond bond in bonds)

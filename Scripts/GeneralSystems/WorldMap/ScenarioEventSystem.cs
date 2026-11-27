@@ -35,6 +35,8 @@ public sealed class ScenarioEventSave
     public ScenarioRally rally;
     // 以战养战的流寇：国家编号(见 Roving；领头人死了也照旧，所以不记在 rebel_leaders 上)
     public List<long> roving = new();
+    // 流寇出身、已经建国的(见 RovingTaxFactor)
+    public List<long> settled_roving = new();
 }
 
 // 号召归附：入侵者、受投奔的朝廷(都是国家编号)
@@ -422,6 +424,11 @@ public static class ScenarioEventSystem
                 Empire empire = a.GetEmpire();
                 if (empire == null || empire.CoreKingdom != a) return "称不了帝";
                 if (!string.IsNullOrWhiteSpace(step.name)) Proclaim(empire, a, step.name);
+                // 建了国号、设官分职，不再是以战养战的流寇，按国家养兵(见 CorpsSystem.Insurgent)，但田赋收不上来(见 RovingTaxFactor)。
+                // 以前大顺称帝以后仍照流寇养兵，不花军饷、欠饷不罚、超编不裁，兵越打越多，十来年攒到三四万，比明朝哪个省都多
+                if (_state?.roving != null && _state.roving.Remove(a.data.id) &&
+                    !(_state.settled_roving ??= new List<long>()).Contains(a.data.id))
+                    _state.settled_roving.Add(a.data.id);
                 return null;
             }
             case "rename":
@@ -697,9 +704,26 @@ public static class ScenarioEventSystem
     }
 
     // 剧本点名的流寇(闯军、西军，起兵时写了 roving)：打仗时以战养战，照起义军养兵(见 CorpsSystem.Insurgent)；
-    // 归附朝廷以后不算(见 Submit)
+    // 归附朝廷、建国称号(见 proclaim)以后不算；没赶上建国事件、也已占了 RovingCityCap 座城的，算已立国
     internal static bool Roving(Kingdom kingdom) =>
-        _state?.roving != null && kingdom?.data != null && _state.roving.Contains(kingdom.data.id);
+        _state?.roving != null && kingdom?.data != null && _state.roving.Contains(kingdom.data.id) &&
+        (kingdom.cities?.Count ?? 0) < RovingCityCap;
+
+    private const int RovingCityCap = 12;
+
+    // 流寇出身的政权(剧本写了 roving 的，建了国或占满 RovingCityCap 座城)收税只收这么多成：号称"迎闯王，不纳粮"，
+    // 靠追赃助饷、拷掠官绅过日子，田赋收不上来。以前大顺一建国就按全额收税，坐拥中原年入是明廷的三四倍，兵养到三万多，清打不过
+    private const float RovingTax = 0.4f;
+
+    public static float RovingTaxFactor(City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        if (_state == null || kingdom?.data == null) return 1f;
+        long id = kingdom.data.id;
+        bool settled = _state.settled_roving?.Contains(id) == true ||
+                       _state.roving?.Contains(id) == true && (kingdom.cities?.Count ?? 0) >= RovingCityCap;
+        return settled ? RovingTax : 1f;
+    }
 
     // 剧本正在为这个朝廷号召归附(甲申之变的 rally)：南明结成就不再另掷一遍(见 SouthernRetreatSystem)
     internal static bool RallyingFor(Kingdom court) =>
@@ -792,8 +816,9 @@ public static class ScenarioEventSystem
         if (kingdom.GetEmpire() != target) return false;
         // 撤了原来的国号，在这个帝国里按都城称呼(见 KingdomExtension.GetAutomaticKingdomName)
         kingdom.GetOrCreate().submitted_empire_id = target.id;
-        // 归了朝廷，不再是以战养战的流寇
+        // 归了朝廷，不再是以战养战的流寇，田赋照朝廷的收
         _state?.roving?.Remove(kingdom.data.id);
+        _state?.settled_roving?.Remove(kingdom.data.id);
         EmpireCraft.Scripts.AI.KingdomAI.EmpireCraftKingdomBehCheckKingdomType.SyncKingdomStatus(kingdom);
         string text = string.Format(LM.Get("scenario_rally_history"), kingdom.GetKingdomName(), conqueror.GetKingdomName(), target.GetEmpireName());
         EventRecorder.Record(target, text, kingdom.king, kingdom);

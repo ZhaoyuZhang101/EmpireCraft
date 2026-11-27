@@ -117,6 +117,8 @@ public static class WarBalanceDiagnostics
                         $"{mark}{(empire != null ? "·" + empire.GetEmpireName() : "")}) " +
                         $"背景人口{background:0} 征兵比例{levyShare:0.000} 武备兵源×{MaladySystem.LevyFactor(kingdom):0.00} " +
                         $"兵源{pool:0} 军费系数{budget:0.00} 实征{pool * budget:0} 现兵{strength:0}/{full:0} " +
+                        $"年入{StateDebtSystem.AnnualStableIncome(kingdom)} 库{kingdom.GetTreasuryBalance()} 国债{StateDebtSystem.Outstanding(kingdom)} " +
+                        $"公债预算{StateDebtSystem.WarBondBudget(kingdom):0} " +
                         $"积弊均{MaladySystem.Average(empire):0}/武备{MaladySystem.Get(empire, MaladySystem.Military):0} " +
                         $"正统{(empire != null ? empire.Legitimacy.ToString() : "—")} ");
             if (channel == NomadChannel)

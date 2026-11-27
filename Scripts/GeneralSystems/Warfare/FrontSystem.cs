@@ -856,6 +856,18 @@ public static partial class FrontSystem
             needTotal += need;
             haveTotal += Mathf.Min(have, need);
         }
+        // 京畿留守：都城临外海、交战的敌国水师够得着都城外的海面，都城留一支军驻守(能上阵的军不止一支时)。
+        // 以前全线推进有多少兵派多少，1937 剧本日本中央两千多兵全在大陆，东京守军 0 人，敌军百来人登陆就破了京师
+        City seat = kingdom.capital;
+        if (seat?.data != null && !seat.isRekt() && ready.Count >= 2 && NavySystem.IsPort(seat) &&
+            !assigned.Any(corps => corps.task == "defend" && corps.sector_city_id == seat.id) && SeaThreat(kingdom, seat))
+        {
+            TileZone anchor = DefenseZone(kingdom, seat);
+            CorpsData guard = ready.Where(corps => !assigned.Contains(corps) && !orderedAttack.ContainsKey(corps) && !counterOf.ContainsKey(corps) &&
+                                                    Walkable(kingdom, corps, anchor))
+                .OrderBy(corps => CorpsSystem.ZoneDistance(CorpsSystem.Zone(corps), anchor)).FirstOrDefault();
+            if (guard != null) Garrison(guard, seat, anchor, DefenseLine(kingdom, seat), new Dictionary<int, int>());
+        }
         // 反击军往哪打：先收复它护着的那座城被占的地；没有被占的，打来敌(攻这座城的各国)离这座城最近的一段，太远的不去
         Sector CounterSector(City guarded, Func<Sector, bool> reachable)
         {
@@ -970,6 +982,24 @@ public static partial class FrontSystem
             corps.sector_city_id = -1L;
             corps.target_zone_id = StationZone(corps, reserveStations);
         }
+    }
+
+    // 交战的敌国里有谁的水师(连同宗主中央)有战舰、出得了海到这座城外的海面(见 SeaLanding.Reachable)
+    private static bool SeaThreat(Kingdom kingdom, City city)
+    {
+        List<SeaRegionSystem.Region> waters = SeaRegionSystem.RegionsAround(city);
+        if (waters.Count == 0) return false;
+        foreach (War war in kingdom.getWars())
+        {
+            if (war?.data == null || war.hasEnded()) continue;
+            foreach (Kingdom enemy in war.isAttacker(kingdom) ? war.getDefenders() : war.getAttackers())
+            {
+                if (enemy?.data == null || enemy.isRekt() || NavySystem.Warships(enemy) <= 0) continue;
+                Dictionary<int, int> reach = SeaLanding.Reachable(enemy);
+                if (waters.Any(region => reach.ContainsKey(region.Id))) return true;
+            }
+        }
+        return false;
     }
 
     // 这支军从所在地块走陆路绕得过、或沿路穿得过本方过不去的无人区到得了 goal(见 WildernessPassage.Reachable；隔海的不归这里管)
@@ -1347,9 +1377,10 @@ public static partial class FrontSystem
     {
         if (city?.kingdom == null || attacker == null || Friendly(attacker, city.kingdom)) return 0f;
         if (LandEconomySystem.WouldSurrenderTo(city, attacker, out _)) return 0f;
-        // 团练只从守方还占着的那部分城里抽；兵败如山倒时减半(见 FrontCollapse)；四等人禁汉人南人执兵器(见 EthnicRankSystem)
-        return CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * HeldShare(city) *
-               FrontCollapse.Militia(city.kingdom, attacker) * EthnicRankSystem.MilitiaFactor(city);
+        // 团练只从守方还占着的那部分城里抽；兵败如山倒时减半(见 FrontCollapse)；四等人禁汉人南人执兵器(见 EthnicRankSystem)；
+        // 编旗之国的旗人另出旗丁守城(见 BannerSystem.Militia)
+        return (CityPopulationSystem.GetBackgroundTotal(city) * 0.02f * 0.6f * EthnicRankSystem.MilitiaFactor(city) +
+                BannerSystem.Militia(city)) * HeldShare(city) * FrontCollapse.Militia(city.kingdom, attacker);
     }
 
     // 城里还归守方(城主一方)控制的地块占几成(高山不算)

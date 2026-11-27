@@ -240,6 +240,19 @@ public static partial class BannerSystem
                AdministrativeControlSystem.Yield(city);
     }
 
+    // 旗丁守城：编旗之国(连同成员)的城里，旗人按 BannerRules.MilitiaShare 出丁当团练(见 FrontSystem.Militia)
+    public static float Militia(City city)
+    {
+        Kingdom kingdom = city?.kingdom;
+        if (city?.data == null || city.isRekt() || kingdom?.data == null || !Organized(CoreOf(kingdom))) return 0f;
+        return CityPopulationSystem.BackgroundOfClass(city, SocialClass.Banner) * BannerRules.MilitiaShare;
+    }
+
+    // 绿营：编旗之国(连同成员)攻下了交战的、不编旗的国家的城，那国守在城边的正规军降附(见 CorpsSystem.Mobilize)
+    public static bool ReceivesSurrender(Kingdom captor, Kingdom loser) =>
+        captor?.data != null && !captor.isRekt() && loser?.data != null && captor != loser &&
+        Organized(CoreOf(captor)) && !Organized(CoreOf(loser)) && FrontSystem.Hostile(captor, loser);
+
     // 八旗战力一年一算(编旗的城结算人口时、帝国例行检查时，谁先到谁算)
     private static void TickVigor(Kingdom core)
     {

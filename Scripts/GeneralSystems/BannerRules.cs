@@ -22,11 +22,29 @@ public static class BannerRules
     public static float CombatFactor(float vigor) =>
         1f + EliteBonus * Math.Min(1f, Math.Max(0f, (vigor - VigorFloor) / (VigorMax - VigorFloor)));
 
-    // 旗人皆兵：征兵时城里的旗人多算这么多份进兵源
-    public const float ExtraLevy = 1f;
+    // 旗人皆兵：征兵时城里的旗人多算这么多份进兵源(以前多算 1 份，明清鼎革开局清只征得到两三千兵，打不过明一个省)
+    public const float ExtraLevy = 2f;
 
-    // 入关前旗兵自备鞍马、以旗地为生，只领行粮：军饷按这一成数算
-    public const float PreEntryUpkeep = 0.3f;
+    // 旗丁守城：城里的旗人每这么多成出一丁当团练守城(见 BannerSystem.Militia)。百姓团练只按人口的百分之一点二，满洲各城人少，
+    // 清兵全压在前线时腹地一城十来个团练，二十来人的饥民军、索伦兵就能占城，开局两三年满洲老家被蚕食一空
+    public const float MilitiaShare = 0.2f;
+
+    // 绿营(用户 2026-11-28 "加绿营，收编明降兵")：编旗之国攻下别国的城，守在城边(GreenReach 个地块以内)的正规军
+    // GreenShare 成降附、编为绿营，其余溃散。清兵入关后靠收编明军(吴三桂、尚可喜、洪承畴所部)打下江南，八旗本身不过十来万
+    public const float GreenShare = 0.6f;
+    public const float GreenReach = 4f;
+
+    // 望风降附：入关以后每年，挨着清、正和清打仗、国力不如清的外藩与地方(称帝的不算)，带着城和兵整个降清(见 BannerSystem.Defections)。
+    // 机会 = DefectBase + DefectPressure × 清占同族之城的成数，至多 DefectCap；一年至多 DefectMaxPerYear 家。
+    // 史实左良玉之子左梦庚以十万众降、李成栋、刘良佐、高杰旧部都是整镇投清，清兵南下多靠这些人
+    public const float DefectBase = 0.1f, DefectPressure = 0.6f, DefectCap = 0.5f;
+    public const int DefectMaxPerYear = 2;
+
+    public static float DefectChance(float pressure) =>
+        Math.Min(DefectCap, DefectBase + DefectPressure * Math.Max(0f, Math.Min(1f, pressure)));
+
+    // 入关前旗兵自备鞍马、以旗地为生，只领行粮：军饷按这一成数算(以前三成，开局军费系数仍只有 0.2~0.4，兵源大半养不起)
+    public const float PreEntryUpkeep = 0.1f;
     // 入关后旗兵钱粮逐年定制：EntryPayYears 年里从行粮涨到全饷(用户 2026-11-09 清一入关就按全饷养兵，军费系数一年内从 1 掉到 0.01，
     // 欠饷到投朝鲜)
     public const float EntryPayYears = 20f;

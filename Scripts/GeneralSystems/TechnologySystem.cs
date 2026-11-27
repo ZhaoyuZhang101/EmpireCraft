@@ -486,6 +486,49 @@ public static partial class TechnologySystem
 
     public static bool HasTech(string culture, string techId) => Researched(culture).Contains(TechnologyStateRules.Canonical(techId));
 
+    // 工业化程度(用户 2026-11-27 选"近代工业国总体战机制")：本文化研究过的工业时代以来(第 IndustrialFromTier 档起)的实业科技，
+    // 不算思想类(civics)，每项按档次加权(工业 1、电气 2、现代 3……)。同是电气时代，科技齐全的工业国(1937 的日本、西欧)
+    // 和缺了机动化、石油化工、新式军舰的(当时的中国)差得开。前工业时代为 0
+    public const int IndustrialFromTier = 7;
+    private static readonly Dictionary<string, (int count, HashSet<string> set, float score)> IndustrialCache = new(StringComparer.Ordinal);
+
+    public static float IndustrialScore(string culture)
+    {
+        HashSet<string> researched = Researched(culture);
+        if (researched.Count == 0) return 0f;
+        string key = culture ?? "";
+        if (IndustrialCache.TryGetValue(key, out var cached) && cached.count == researched.Count && ReferenceEquals(cached.set, researched))
+            return cached.score;
+        float score = 0f;
+        foreach (string id in researched)
+            if (_techs.TryGetValue(id, out TechNodeConfig tech) && tech.tier >= IndustrialFromTier && tech.branch != "civics")
+                score += tech.tier - IndustrialFromTier + 1;
+        IndustrialCache[key] = (researched.Count, researched, score);
+        return score;
+    }
+
+    // 工业劳动生产率：每点工业化程度 ×IndustrialLaborStep，至多 ×IndustrialLaborCap。
+    // 以前劳动产值只看人数，工业国和农业国一个劳力出一样的产值，1937 剧本日本全境年入只有民国的十分之一，兵养不起
+    private const float IndustrialLaborStep = 1.06f, IndustrialLaborCap = 10f;
+
+    public static float IndustrialLaborFactor(string culture)
+    {
+        float score = IndustrialScore(culture);
+        return score <= 0f ? 1f : Math.Min(IndustrialLaborCap, (float)Math.Pow(IndustrialLaborStep, score));
+    }
+
+    // 一座城的工业劳动生产率：本地主流文化比统治者落后的，取两者的几何平均(统治者带来的工厂、铁路算一半)。
+    // 以前只看统治者，日本占的中国城当即按日本算、英属印度人均产值是中国的三倍；全按本地算又太狠，朝鲜、台湾全回到农业水平。
+    // 本地比统治者先进的，落后的统治者开不动先进地方的工厂，同样取几何平均
+    public static float IndustrialLaborFactor(City city)
+    {
+        float ruler = IndustrialLaborFactor(GetCultureOf(city));
+        string local = CultureService.GetMainCulture(city, initialize: false);
+        if (string.IsNullOrEmpty(local)) return ruler;
+        float native = IndustrialLaborFactor(local);
+        return native == ruler ? ruler : (float)Math.Sqrt(ruler * native);
+    }
+
     public static bool HasMaterial(string culture, string materialId) =>
         GetState(culture).discovered_materials.Contains(materialId);
 

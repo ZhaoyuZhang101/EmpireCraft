@@ -114,6 +114,9 @@ public static partial class WarlordEraSystem
             if (shifts >= MaxShiftsPerYear) return;
             Kingdom ruler = city.kingdom;
             if (ruler == null || ruler.isRekt() || city == ruler.capital) continue;
+            // 外国治下的城不算本法统的民心：傀儡、属地、流亡政府，中央在别的天下的帝国的成员(日本治下的朝鲜)，和外国直辖的城。
+            // 以前 1937 剧本开局第一年朝鲜就有城"民众拥护中间派，揭竿而起"，带走同一法理四座城另立一国，日本先丢了半个朝鲜
+            if (Dependent(ruler) || !IsLocalHolder(core, FrontSystem.Realm(ruler))) continue;
             PartyIdeology ideology = IdeologyPopulationSystem.GetDominant(city);
             if (!byIdeology.TryGetValue(ideology, out Empire target) || InRealm(ruler, target)) continue;
             Empire rulerGovernment = RulingGovernment(ruler);
